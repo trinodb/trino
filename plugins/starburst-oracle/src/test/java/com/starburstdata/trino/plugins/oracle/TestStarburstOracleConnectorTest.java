@@ -16,7 +16,6 @@ import io.trino.plugin.oracle.BaseOracleConnectorTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.SharedResource;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
@@ -29,7 +28,6 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.OptionalInt;
-import java.util.Properties;
 
 import static com.google.common.base.Strings.repeat;
 import static com.starburstdata.trino.plugins.oracle.OracleDataTypes.oracleTimestamp3TimeZoneDataType;
@@ -124,10 +122,7 @@ public class TestStarburstOracleConnectorTest
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        Properties properties = new Properties();
-        properties.setProperty("user", OracleTestUsers.USER);
-        properties.setProperty("password", OracleTestUsers.PASSWORD);
-        return new JdbcSqlExecutor(oracleServer.get().getJdbcUrl(), properties);
+        return oracleServer.get().getSqlExecutor();
     }
 
     @Test

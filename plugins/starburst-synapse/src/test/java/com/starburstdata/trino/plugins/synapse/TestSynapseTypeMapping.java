@@ -87,6 +87,6 @@ public class TestSynapseTypeMapping
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return synapseServer::execute;
+        return synapseServer.getSqlExecutor();
     }
 }

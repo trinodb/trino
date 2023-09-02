@@ -106,7 +106,7 @@ public class TestSynapseConnectorTest
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return synapseServer::execute;
+        return synapseServer.getSqlExecutor();
     }
 
     @Override

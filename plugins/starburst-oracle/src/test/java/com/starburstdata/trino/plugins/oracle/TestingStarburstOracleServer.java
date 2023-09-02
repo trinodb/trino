@@ -15,6 +15,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import io.trino.testing.SharedResource;
 import io.trino.testing.SharedResource.Lease;
+import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import org.testcontainers.containers.OracleContainer;
@@ -81,6 +82,24 @@ public class TestingStarburstOracleServer
             throws Exception
     {
         closer.close();
+    }
+
+    public SqlExecutor getSqlExecutor()
+    {
+        return new SqlExecutor()
+        {
+            @Override
+            public boolean supportsMultiRowInsert()
+            {
+                return false;
+            }
+
+            @Override
+            public void execute(String sql)
+            {
+                executeInOracle(sql);
+            }
+        };
     }
 
     public String getJdbcUrl()

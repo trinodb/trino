@@ -12,6 +12,7 @@ package com.starburstdata.trino.plugins.synapse;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import io.airlift.log.Logger;
+import io.trino.testing.sql.SqlExecutor;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -49,6 +50,24 @@ public class SynapseServer
         hikariConfig.setMaxLifetime(MINUTES.toMillis(1));
 
         this.dataSource = new HikariDataSource(hikariConfig);
+    }
+
+    public SqlExecutor getSqlExecutor()
+    {
+        return new SqlExecutor()
+        {
+            @Override
+            public void execute(String sql)
+            {
+                SynapseServer.this.execute(sql);
+            }
+
+            @Override
+            public boolean supportsMultiRowInsert()
+            {
+                return false;
+            }
+        };
     }
 
     public void execute(String... query)

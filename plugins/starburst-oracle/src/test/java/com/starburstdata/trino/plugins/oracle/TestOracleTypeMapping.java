@@ -42,6 +42,6 @@ public class TestOracleTypeMapping
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return sql -> oracleServer.get().executeInOracle(sql);
+        return oracleServer.get().getSqlExecutor();
     }
 }
