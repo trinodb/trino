@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.common.collect.ImmutableList;
+import com.google.protobuf.ByteString;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlRow;
@@ -24,16 +24,15 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.Base64;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
+import static io.trino.plugin.bigquery.BigQueryTypeManager.datetimeToStringConverter;
 import static io.trino.plugin.bigquery.BigQueryTypeManager.timestampToStringConverter;
-import static io.trino.plugin.bigquery.BigQueryTypeManager.toZonedDateTime;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -45,19 +44,15 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
-import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
-import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static java.lang.Math.floorDiv;
-import static java.lang.Math.floorMod;
-import static java.time.ZoneOffset.UTC;
-import static java.util.Collections.unmodifiableMap;
 
 public final class BigQueryTypeUtils
 {
+    private static final long MIN_SUPPORTED_DATE = LocalDate.parse("0001-01-01").toEpochDay();
+    private static final long MAX_SUPPORTED_DATE = LocalDate.parse("9999-12-31").toEpochDay();
+
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
-    private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSSSS");
 
     private BigQueryTypeUtils() {}
 
@@ -73,10 +68,10 @@ public final class BigQueryTypeUtils
             return BOOLEAN.getBoolean(block, position);
         }
         if (type.equals(TINYINT)) {
-            return TINYINT.getByte(block, position);
+            return type.getLong(block, position);
         }
         if (type.equals(SMALLINT)) {
-            return SMALLINT.getShort(block, position);
+            return SMALLINT.getLong(block, position);
         }
         if (type.equals(INTEGER)) {
             return INTEGER.getInt(block, position);
@@ -94,17 +89,18 @@ public final class BigQueryTypeUtils
             return varcharType.getSlice(block, position).toStringUtf8();
         }
         if (type.equals(VARBINARY)) {
-            return Base64.getEncoder().encodeToString(VARBINARY.getSlice(block, position).getBytes());
+            return ByteString.copyFrom(VARBINARY.getSlice(block, position).getBytes());
         }
         if (type.equals(DATE)) {
             int days = DATE.getInt(block, position);
+            if (days < MIN_SUPPORTED_DATE || days > MAX_SUPPORTED_DATE) {
+                throw new TrinoException(NOT_SUPPORTED, "BigQuery supports dates between 0001-01-01 and 9999-12-31 but got " + LocalDate.ofEpochDay(days));
+            }
             return DATE_FORMATTER.format(LocalDate.ofEpochDay(days));
         }
         if (type.equals(TIMESTAMP_MICROS)) {
             long epochMicros = TIMESTAMP_MICROS.getLong(block, position);
-            long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
-            int nanoAdjustment = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
-            return DATETIME_FORMATTER.format(toZonedDateTime(epochSeconds, nanoAdjustment, UTC));
+            return datetimeToStringConverter(epochMicros);
         }
         if (type.equals(TIMESTAMP_TZ_MICROS)) {
             LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) TIMESTAMP_TZ_MICROS.getObject(block, position);
@@ -112,15 +108,15 @@ public final class BigQueryTypeUtils
         }
         if (type instanceof ArrayType arrayType) {
             Block arrayBlock = arrayType.getObject(block, position);
-            ImmutableList.Builder<Object> list = ImmutableList.builderWithExpectedSize(arrayBlock.getPositionCount());
+            JSONArray list = new JSONArray();
             for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
                 Object element = readNativeValue(arrayType.getElementType(), arrayBlock, i);
                 if (element == null) {
                     throw new TrinoException(NOT_SUPPORTED, "BigQuery does not support null elements in arrays");
                 }
-                list.add(element);
+                list.put(element);
             }
-            return list.build();
+            return list;
         }
         if (type instanceof RowType rowType) {
             SqlRow sqlRow = rowType.getObject(block, position);
@@ -131,13 +127,13 @@ public final class BigQueryTypeUtils
             }
 
             int rawIndex = sqlRow.getRawIndex();
-            Map<String, Object> rowValue = new HashMap<>();
+            JSONObject rowValue = new JSONObject();
             for (int fieldIndex = 0; fieldIndex < sqlRow.getFieldCount(); fieldIndex++) {
                 String fieldName = rowType.getFields().get(fieldIndex).getName().orElseThrow(() -> new IllegalArgumentException("Field name must exist in BigQuery"));
                 Object fieldValue = readNativeValue(fieldTypes.get(fieldIndex), sqlRow.getRawFieldBlock(fieldIndex), rawIndex);
                 rowValue.put(fieldName, fieldValue);
             }
-            return unmodifiableMap(rowValue);
+            return rowValue;
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + type);

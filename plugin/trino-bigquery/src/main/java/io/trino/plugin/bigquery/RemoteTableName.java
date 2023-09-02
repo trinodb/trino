@@ -16,6 +16,7 @@ package io.trino.plugin.bigquery;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.cloud.bigquery.TableId;
+import com.google.cloud.bigquery.storage.v1.TableName;
 
 import java.util.Objects;
 
@@ -44,6 +45,11 @@ public final class RemoteTableName
     public TableId toTableId()
     {
         return TableId.of(projectId, datasetName, tableName);
+    }
+
+    public TableName toTableName()
+    {
+        return TableName.of(projectId, datasetName, tableName);
     }
 
     @JsonProperty

@@ -416,6 +416,22 @@ public abstract class BaseBigQueryTypeMapping
     }
 
     @Test
+    public void testBigQueryUnsupportedDate()
+    {
+        try (TestTable table = new TestTable(getBigQuerySqlExecutor(), "test.unsupported_date", "(col date)")) {
+            assertQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES date '-0001-01-01'",
+                    "BigQuery supports dates between 0001-01-01 and 9999-12-31 but got -0001-01-01");
+            assertQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES date '0000-12-31'",
+                    "BigQuery supports dates between 0001-01-01 and 9999-12-31 but got 0000-12-31");
+            assertQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES date '10000-01-01'",
+                    "BigQuery supports dates between 0001-01-01 and 9999-12-31 but got \\+10000-01-01");
+        }
+    }
+
+    @Test
     public void testTimestamp()
     {
         timestampTypeTest("timestamp(6)", "timestamp")

@@ -16,6 +16,7 @@ package io.trino.plugin.bigquery;
 import com.google.api.gax.retrying.RetrySettings;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.storage.v1.BigQueryReadSettings;
+import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.spi.connector.ConnectorSession;
@@ -50,6 +51,20 @@ public class RetryOptionsConfigurer
 
     @Override
     public BigQueryReadSettings.Builder configure(BigQueryReadSettings.Builder builder, ConnectorSession session)
+    {
+        try {
+            return builder.applyToAllUnaryMethods(methodBuilder -> {
+                methodBuilder.setRetrySettings(retrySettings());
+                return null;
+            });
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public BigQueryWriteSettings.Builder configure(BigQueryWriteSettings.Builder builder, ConnectorSession session)
     {
         try {
             return builder.applyToAllUnaryMethods(methodBuilder -> {
