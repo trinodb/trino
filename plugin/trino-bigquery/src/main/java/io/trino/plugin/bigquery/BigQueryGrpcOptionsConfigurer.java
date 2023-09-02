@@ -15,6 +15,7 @@ package io.trino.plugin.bigquery;
 
 import com.google.api.gax.grpc.InstantiatingGrpcChannelProvider;
 import com.google.cloud.bigquery.storage.v1.BigQueryReadSettings;
+import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
 import io.trino.spi.connector.ConnectorSession;
 
 interface BigQueryGrpcOptionsConfigurer
@@ -22,6 +23,13 @@ interface BigQueryGrpcOptionsConfigurer
 {
     @Override
     default BigQueryReadSettings.Builder configure(BigQueryReadSettings.Builder builder, ConnectorSession session)
+    {
+        InstantiatingGrpcChannelProvider.Builder channelBuilder = ((InstantiatingGrpcChannelProvider) builder.getTransportChannelProvider()).toBuilder();
+        return builder.setTransportChannelProvider(configure(channelBuilder, session).build());
+    }
+
+    @Override
+    default BigQueryWriteSettings.Builder configure(BigQueryWriteSettings.Builder builder, ConnectorSession session)
     {
         InstantiatingGrpcChannelProvider.Builder channelBuilder = ((InstantiatingGrpcChannelProvider) builder.getTransportChannelProvider()).toBuilder();
         return builder.setTransportChannelProvider(configure(channelBuilder, session).build());

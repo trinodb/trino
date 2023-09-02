@@ -995,13 +995,13 @@ public abstract class BaseBigQueryConnectorTest
     @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
-        return format(".*Invalid date: '%s'.*", date);
+        return "BigQuery supports dates between 0001-01-01 and 9999-12-31 but got " + date;
     }
 
     @Override
     protected String errorMessageForInsertNegativeDate(String date)
     {
-        return format(".*Invalid date: '%s'.*", date);
+        return "BigQuery supports dates between 0001-01-01 and 9999-12-31 but got " + date;
     }
 
     @Override
