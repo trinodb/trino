@@ -99,7 +99,6 @@ public class TestMongoConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_DELETE -> true;
             case SUPPORTS_ADD_FIELD,
                     SUPPORTS_CREATE_MATERIALIZED_VIEW,
                     SUPPORTS_CREATE_VIEW,
