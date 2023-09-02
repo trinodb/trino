@@ -20,7 +20,7 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 import java.io.IOException;
 
-import static io.trino.filesystem.azure.AbstractTestAzureFileSystem.AccountKind.BLOB;
+import static io.trino.filesystem.azure.AzureFileSystemTestingEnvironment.AccountKind.BLOB;
 
 @EnabledIfEnvironmentVariable(named = "ABFS_BLOB_ACCOUNT", matches = ".+")
 @TestInstance(Lifecycle.PER_CLASS)

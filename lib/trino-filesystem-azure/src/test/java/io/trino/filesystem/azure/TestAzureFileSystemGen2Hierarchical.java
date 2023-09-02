@@ -20,7 +20,7 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 import java.io.IOException;
 
-import static io.trino.filesystem.azure.AbstractTestAzureFileSystem.AccountKind.HIERARCHICAL;
+import static io.trino.filesystem.azure.AzureFileSystemTestingEnvironment.AccountKind.HIERARCHICAL;
 
 @EnabledIfEnvironmentVariable(named = "ABFS_ACCOUNT", matches = ".+")
 @TestInstance(Lifecycle.PER_CLASS)

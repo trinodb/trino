@@ -14,6 +14,7 @@
 package io.trino.filesystem.hdfs;
 
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
+import io.trino.filesystem.AbstractTrinoFileSystemTestingEnvironment;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.hdfs.DynamicConfigurationProvider;
@@ -47,82 +48,109 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestHdfsFileSystemLocal
         extends AbstractTestTrinoFileSystem
 {
-    private TrinoFileSystem fileSystem;
-    private Path tempDirectory;
+    private HdfsFileSystemTestingEnvironmentLocal testingEnvironment;
 
     @BeforeAll
     void beforeAll()
             throws IOException
     {
-        RawLocalFileSystem.useStatIfAvailable();
-        DynamicConfigurationProvider viewFs = (config, context, uri) ->
-                config.set("fs.viewfs.mounttable.abc.linkFallback", tempDirectory.toAbsolutePath().toUri().toString());
-
-        HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), Set.of(viewFs));
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
-        HdfsContext hdfsContext = new HdfsContext(ConnectorIdentity.ofUser("test"));
-        TrinoHdfsFileSystemStats stats = new TrinoHdfsFileSystemStats();
-
-        tempDirectory = Files.createTempDirectory("test");
-        fileSystem = new HdfsFileSystem(hdfsEnvironment, hdfsContext, stats);
+        testingEnvironment = new HdfsFileSystemTestingEnvironmentLocal();
     }
 
     @AfterEach
     void afterEach()
             throws IOException
     {
-        cleanupFiles();
+        testingEnvironment.cleanupFiles();
     }
 
     @AfterAll
     void afterAll()
             throws IOException
     {
-        Files.delete(tempDirectory);
+        if (testingEnvironment != null) {
+            testingEnvironment.close();
+            testingEnvironment = null;
+        }
     }
 
-    private void cleanupFiles()
-            throws IOException
+    @Override
+    protected AbstractTrinoFileSystemTestingEnvironment testingEnvironment()
     {
-        // tests will leave directories
-        try (Stream<Path> walk = Files.walk(tempDirectory)) {
-            Iterator<Path> iterator = walk.sorted(reverseOrder()).iterator();
-            while (iterator.hasNext()) {
-                Path path = iterator.next();
-                if (!path.equals(tempDirectory)) {
-                    Files.delete(path);
+        return testingEnvironment;
+    }
+
+    public static class HdfsFileSystemTestingEnvironmentLocal
+            extends AbstractTrinoFileSystemTestingEnvironment
+    {
+        private final TrinoFileSystem fileSystem;
+        private final Path tempDirectory;
+
+        public HdfsFileSystemTestingEnvironmentLocal()
+                throws IOException
+        {
+            tempDirectory = Files.createTempDirectory("test");
+            RawLocalFileSystem.useStatIfAvailable();
+            DynamicConfigurationProvider viewFs = (config, context, uri) ->
+                    config.set("fs.viewfs.mounttable.abc.linkFallback", tempDirectory.toAbsolutePath().toUri().toString());
+
+            HdfsConfig hdfsConfig = new HdfsConfig();
+            HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), Set.of(viewFs));
+            HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
+            HdfsContext hdfsContext = new HdfsContext(ConnectorIdentity.ofUser("test"));
+            TrinoHdfsFileSystemStats stats = new TrinoHdfsFileSystemStats();
+
+            fileSystem = new HdfsFileSystem(hdfsEnvironment, hdfsContext, stats);
+        }
+
+        public void cleanupFiles()
+                throws IOException
+        {
+            // tests will leave directories
+            try (Stream<Path> walk = Files.walk(tempDirectory)) {
+                Iterator<Path> iterator = walk.sorted(reverseOrder()).iterator();
+                while (iterator.hasNext()) {
+                    Path path = iterator.next();
+                    if (!path.equals(tempDirectory)) {
+                        Files.delete(path);
+                    }
                 }
             }
         }
-    }
 
-    @Override
-    protected boolean isHierarchical()
-    {
-        return true;
-    }
-
-    @Override
-    protected TrinoFileSystem getFileSystem()
-    {
-        return fileSystem;
-    }
-
-    @Override
-    protected Location getRootLocation()
-    {
-        return Location.of("viewfs://abc/");
-    }
-
-    @Override
-    protected void verifyFileSystemIsEmpty()
-    {
-        try (Stream<Path> entries = Files.list(tempDirectory)) {
-            assertThat(entries.toList()).isEmpty();
+        public void close()
+                throws IOException
+        {
+            Files.delete(tempDirectory);
         }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
+
+        @Override
+        protected boolean isHierarchical()
+        {
+            return true;
+        }
+
+        @Override
+        public TrinoFileSystem getFileSystem()
+        {
+            return fileSystem;
+        }
+
+        @Override
+        protected Location getRootLocation()
+        {
+            return Location.of("viewfs://abc/");
+        }
+
+        @Override
+        protected void verifyFileSystemIsEmpty()
+        {
+            try (Stream<Path> entries = Files.list(tempDirectory)) {
+                assertThat(entries.toList()).isEmpty();
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
         }
     }
 

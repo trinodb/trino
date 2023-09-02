@@ -13,58 +13,33 @@
  */
 package io.trino.filesystem.s3;
 
-import io.airlift.units.DataSize;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.S3Client;
-
-import static java.util.Objects.requireNonNull;
+import io.trino.filesystem.s3.S3FileSystemTestingEnvironment.S3FileSystemTestingEnvironmentAwsS3;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 
 public class TestS3FileSystemAwsS3
         extends AbstractTestS3FileSystem
 {
-    private String accessKey;
-    private String secretKey;
-    private String region;
-    private String bucket;
+    private S3FileSystemTestingEnvironmentAwsS3 testingEnvironment;
 
-    @Override
-    protected void initEnvironment()
+    @BeforeAll
+    public void setup()
     {
-        accessKey = environmentVariable("AWS_ACCESS_KEY_ID");
-        secretKey = environmentVariable("AWS_SECRET_ACCESS_KEY");
-        region = environmentVariable("AWS_REGION");
-        bucket = environmentVariable("S3_BUCKET");
+        testingEnvironment = new S3FileSystemTestingEnvironmentAwsS3();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        if (testingEnvironment != null) {
+            testingEnvironment.close();
+            testingEnvironment = null;
+        }
     }
 
     @Override
-    protected String bucket()
+    public S3FileSystemTestingEnvironment s3TestingEnvironment()
     {
-        return bucket;
-    }
-
-    @Override
-    protected S3Client createS3Client()
-    {
-        return S3Client.builder()
-                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey)))
-                .region(Region.of(region))
-                .build();
-    }
-
-    @Override
-    protected S3FileSystemFactory createS3FileSystemFactory()
-    {
-        return new S3FileSystemFactory(new S3FileSystemConfig()
-                .setAwsAccessKey(accessKey)
-                .setAwsSecretKey(secretKey)
-                .setRegion(region)
-                .setStreamingPartSize(DataSize.valueOf("5.5MB")));
-    }
-
-    private static String environmentVariable(String name)
-    {
-        return requireNonNull(System.getenv(name), "Environment variable not set: " + name);
+        return testingEnvironment;
     }
 }

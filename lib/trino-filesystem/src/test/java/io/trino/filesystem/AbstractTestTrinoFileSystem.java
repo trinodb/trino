@@ -23,13 +23,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 
-import java.io.Closeable;
 import java.io.EOFException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.UncheckedIOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -41,7 +38,6 @@ import java.util.UUID;
 
 import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -51,45 +47,71 @@ public abstract class AbstractTestTrinoFileSystem
     protected static final String TEST_BLOB_CONTENT_PREFIX = "test blob content for ";
     private static final int MEGABYTE = 1024 * 1024;
 
-    protected abstract boolean isHierarchical();
+    protected abstract AbstractTrinoFileSystemTestingEnvironment testingEnvironment();
 
-    protected abstract TrinoFileSystem getFileSystem();
+    protected boolean isHierarchical()
+    {
+        return testingEnvironment().isHierarchical();
+    }
 
-    protected abstract Location getRootLocation();
+    protected TrinoFileSystem getFileSystem()
+    {
+        return testingEnvironment().getFileSystem();
+    }
 
-    protected abstract void verifyFileSystemIsEmpty();
+    protected Location getRootLocation()
+    {
+        return testingEnvironment().getRootLocation();
+    }
+
+    protected void verifyFileSystemIsEmpty()
+    {
+        testingEnvironment().verifyFileSystemIsEmpty();
+    }
 
     protected boolean supportsCreateWithoutOverwrite()
     {
-        return true;
+        return testingEnvironment().supportsCreateWithoutOverwrite();
     }
 
     protected boolean supportsRenameFile()
     {
-        return true;
+        return testingEnvironment().supportsRenameFile();
     }
 
     protected boolean deleteFileFailsIfNotExists()
     {
-        return true;
+        return testingEnvironment().deleteFileFailsIfNotExists();
     }
 
     protected boolean normalizesListFilesResult()
     {
-        return false;
+        return testingEnvironment().normalizesListFilesResult();
     }
 
     protected boolean seekPastEndOfFileFails()
     {
-        return true;
+        return testingEnvironment().seekPastEndOfFileFails();
     }
 
     protected Location createLocation(String path)
     {
-        if (path.isEmpty()) {
-            return getRootLocation();
-        }
-        return getRootLocation().appendPath(path);
+        return testingEnvironment().createLocation(path);
+    }
+
+    protected String readLocation(Location path)
+    {
+        return testingEnvironment().readLocation(path);
+    }
+
+    protected Location createBlob(Closer closer, String path)
+    {
+        return testingEnvironment().createBlob(closer, path);
+    }
+
+    protected TempBlob randomBlobLocation(String nameHint)
+    {
+        return testingEnvironment().randomBlobLocation(nameHint);
     }
 
     @BeforeEach
@@ -543,8 +565,8 @@ public abstract class AbstractTestTrinoFileSystem
                 .isInstanceOfAny(IOException.class, IllegalArgumentException.class)
                 .hasMessageContaining(createLocation("../file").toString());
 
-        try (TempBlob absolute = new TempBlob(createLocation("b"))) {
-            try (TempBlob alias = new TempBlob(createLocation("a/../b"))) {
+        try (TempBlob absolute = new TempBlob(createLocation("b"), getFileSystem())) {
+            try (TempBlob alias = new TempBlob(createLocation("a/../b"), getFileSystem())) {
                 absolute.createOrOverwrite(TEST_BLOB_CONTENT_PREFIX + absolute.location().toString());
                 assertThat(alias.exists()).isTrue();
                 assertThat(absolute.exists()).isTrue();
@@ -563,7 +585,7 @@ public abstract class AbstractTestTrinoFileSystem
     protected void testPathBlob()
             throws IOException
     {
-        try (TempBlob tempBlob = new TempBlob(createLocation("test/.././/file"))) {
+        try (TempBlob tempBlob = new TempBlob(createLocation("test/.././/file"), getFileSystem())) {
             TrinoInputFile inputFile = getFileSystem().newInputFile(tempBlob.location());
             assertThat(inputFile.location()).isEqualTo(tempBlob.location());
             assertThat(inputFile.exists()).isFalse();
@@ -1001,30 +1023,6 @@ public abstract class AbstractTestTrinoFileSystem
         return createLocation(path);
     }
 
-    private String readLocation(Location path)
-    {
-        try (InputStream inputStream = getFileSystem().newInputFile(path).newStream()) {
-            return new String(inputStream.readAllBytes(), UTF_8);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    private Location createBlob(Closer closer, String path)
-    {
-        Location location = createLocation(path);
-        closer.register(new TempBlob(location)).createOrOverwrite(TEST_BLOB_CONTENT_PREFIX + location.toString());
-        return location;
-    }
-
-    protected TempBlob randomBlobLocation(String nameHint)
-    {
-        TempBlob tempBlob = new TempBlob(createLocation("%s/%s".formatted(nameHint, UUID.randomUUID())));
-        assertThat(tempBlob.exists()).isFalse();
-        return tempBlob;
-    }
-
     private Set<Location> createTestDirectoryStructure(Closer closer, boolean hierarchicalNamingConstraints)
     {
         Set<Location> locations = new HashSet<>();
@@ -1047,69 +1045,5 @@ public abstract class AbstractTestTrinoFileSystem
         locations.add(createBlob(closer, "level0/level1/level2-file1"));
         locations.add(createBlob(closer, "level0/level1/level2-file2"));
         return locations;
-    }
-
-    protected class TempBlob
-            implements Closeable
-    {
-        private final Location location;
-        private final TrinoFileSystem fileSystem;
-
-        public TempBlob(Location location)
-        {
-            this.location = requireNonNull(location, "location is null");
-            fileSystem = getFileSystem();
-        }
-
-        public Location location()
-        {
-            return location;
-        }
-
-        public boolean exists()
-        {
-            try {
-                return inputFile().exists();
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        }
-
-        public TrinoInputFile inputFile()
-        {
-            return fileSystem.newInputFile(location);
-        }
-
-        public TrinoOutputFile outputFile()
-        {
-            return fileSystem.newOutputFile(location);
-        }
-
-        public void createOrOverwrite(String data)
-        {
-            try (OutputStream outputStream = outputFile().createOrOverwrite()) {
-                outputStream.write(data.getBytes(UTF_8));
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-            assertThat(exists()).isTrue();
-        }
-
-        public String read()
-        {
-            return readLocation(location);
-        }
-
-        @Override
-        public void close()
-        {
-            try {
-                fileSystem.deleteFile(location);
-            }
-            catch (IOException ignored) {
-            }
-        }
     }
 }

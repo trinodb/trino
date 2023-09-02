@@ -14,6 +14,7 @@
 package io.trino.filesystem.hdfs;
 
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
+import io.trino.filesystem.AbstractTrinoFileSystemTestingEnvironment;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.hdfs.DynamicHdfsConfiguration;
@@ -41,70 +42,101 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestHdfsFileSystemHdfs
         extends AbstractTestTrinoFileSystem
 {
-    private Hadoop hadoop;
-    private HdfsEnvironment hdfsEnvironment;
-    private HdfsContext hdfsContext;
-    private TrinoFileSystem fileSystem;
+    private HdfsFileSystemTestingEnvironmentHdfs testingEnvironment;
 
     @BeforeAll
     void beforeAll()
     {
-        hadoop = new Hadoop();
-        hadoop.start();
-
-        HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), emptySet());
-        hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
-        hdfsContext = new HdfsContext(ConnectorIdentity.ofUser("test"));
-
-        fileSystem = new HdfsFileSystem(hdfsEnvironment, hdfsContext, new TrinoHdfsFileSystemStats());
+        testingEnvironment = new HdfsFileSystemTestingEnvironmentHdfs();
     }
 
     @AfterEach
     void afterEach()
             throws IOException
     {
-        Path root = new Path(getRootLocation().toString());
-        FileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, root);
-        for (FileStatus status : fs.listStatus(root)) {
-            fs.delete(status.getPath(), true);
-        }
+        testingEnvironment.cleanupFiles();
     }
 
     @AfterAll
     void afterAll()
     {
-        hadoop.stop();
+        if (testingEnvironment != null) {
+            testingEnvironment.close();
+            testingEnvironment = null;
+        }
     }
 
     @Override
-    protected boolean isHierarchical()
+    protected AbstractTrinoFileSystemTestingEnvironment testingEnvironment()
     {
-        return true;
+        return testingEnvironment;
     }
 
-    @Override
-    protected TrinoFileSystem getFileSystem()
+    public static class HdfsFileSystemTestingEnvironmentHdfs
+            extends AbstractTrinoFileSystemTestingEnvironment
     {
-        return fileSystem;
-    }
+        private final Hadoop hadoop;
+        private final HdfsEnvironment hdfsEnvironment;
+        private final HdfsContext hdfsContext;
+        private final TrinoFileSystem fileSystem;
 
-    @Override
-    protected Location getRootLocation()
-    {
-        return Location.of(hadoop.getHdfsUri());
-    }
+        public HdfsFileSystemTestingEnvironmentHdfs()
+        {
+            hadoop = new Hadoop();
+            hadoop.start();
 
-    @Override
-    protected void verifyFileSystemIsEmpty()
-    {
-        try {
+            HdfsConfig hdfsConfig = new HdfsConfig();
+            HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), emptySet());
+            hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
+            hdfsContext = new HdfsContext(ConnectorIdentity.ofUser("test"));
+
+            fileSystem = new HdfsFileSystem(hdfsEnvironment, hdfsContext, new TrinoHdfsFileSystemStats());
+        }
+
+        public void cleanupFiles()
+                throws IOException
+        {
             Path root = new Path(getRootLocation().toString());
             FileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, root);
-            assertThat(fs.listStatus(root)).isEmpty();
+            for (FileStatus status : fs.listStatus(root)) {
+                fs.delete(status.getPath(), true);
+            }
         }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
+
+        public void close()
+        {
+            hadoop.close();
+        }
+
+        @Override
+        protected boolean isHierarchical()
+        {
+            return true;
+        }
+
+        @Override
+        public TrinoFileSystem getFileSystem()
+        {
+            return fileSystem;
+        }
+
+        @Override
+        protected Location getRootLocation()
+        {
+            return Location.of(hadoop.getHdfsUri());
+        }
+
+        @Override
+        protected void verifyFileSystemIsEmpty()
+        {
+            try {
+                Path root = new Path(getRootLocation().toString());
+                FileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, root);
+                assertThat(fs.listStatus(root)).isEmpty();
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
         }
     }
 }

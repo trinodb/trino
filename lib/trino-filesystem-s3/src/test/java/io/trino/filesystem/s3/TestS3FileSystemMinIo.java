@@ -13,72 +13,39 @@
  */
 package io.trino.filesystem.s3;
 
-import io.airlift.units.DataSize;
-import io.trino.testing.containers.Minio;
+import io.trino.filesystem.s3.S3FileSystemTestingEnvironment.S3FileSystemTestingEnvironmentMinIo;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.S3Client;
 
 import java.io.IOException;
-import java.net.URI;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestS3FileSystemMinIo
         extends AbstractTestS3FileSystem
 {
-    private final String bucket = "test-bucket-test-s3-file-system-minio";
+    private S3FileSystemTestingEnvironmentMinIo testingEnvironment;
 
-    private Minio minio;
-
-    @Override
-    protected void initEnvironment()
+    @BeforeAll
+    public void setup()
     {
-        minio = Minio.builder().build();
-        minio.start();
-        minio.createBucket(bucket);
+        testingEnvironment = new S3FileSystemTestingEnvironmentMinIo();
     }
 
     @AfterAll
-    void tearDown()
+    public void cleanup()
     {
-        if (minio != null) {
-            minio.close();
-            minio = null;
+        if (testingEnvironment != null) {
+            testingEnvironment.close();
+            testingEnvironment = null;
         }
     }
 
     @Override
-    protected String bucket()
+    protected S3FileSystemTestingEnvironment s3TestingEnvironment()
     {
-        return bucket;
-    }
-
-    @Override
-    protected S3Client createS3Client()
-    {
-        return S3Client.builder()
-                .endpointOverride(URI.create(minio.getMinioAddress()))
-                .region(Region.of(Minio.MINIO_REGION))
-                .forcePathStyle(true)
-                .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(Minio.MINIO_ACCESS_KEY, Minio.MINIO_SECRET_KEY)))
-                .build();
-    }
-
-    @Override
-    protected S3FileSystemFactory createS3FileSystemFactory()
-    {
-        return new S3FileSystemFactory(new S3FileSystemConfig()
-                .setEndpoint(minio.getMinioAddress())
-                .setRegion(Minio.MINIO_REGION)
-                .setPathStyleAccess(true)
-                .setAwsAccessKey(Minio.MINIO_ACCESS_KEY)
-                .setAwsSecretKey(Minio.MINIO_SECRET_KEY)
-                .setStreamingPartSize(DataSize.valueOf("5.5MB")));
+        return testingEnvironment;
     }
 
     @Test
@@ -88,7 +55,7 @@ public class TestS3FileSystemMinIo
         assertThatThrownBy(super::testPaths)
                 .isInstanceOf(IOException.class)
                 // MinIO does not support object keys with directory navigation ("/./" or "/../") or with double slashes ("//")
-                .hasMessage("S3 HEAD request failed for file: s3://" + bucket + "/test/.././/file");
+                .hasMessage("S3 HEAD request failed for file: s3://" + testingEnvironment.bucket() + "/test/.././/file");
     }
 
     @Test

@@ -13,54 +13,33 @@
  */
 package io.trino.filesystem.s3;
 
-import com.adobe.testing.s3mock.testcontainers.S3MockContainer;
-import io.airlift.units.DataSize;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.S3Client;
+import io.trino.filesystem.s3.S3FileSystemTestingEnvironment.S3FileSystemTestingEnvironmentS3Mock;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 
-import java.net.URI;
-
-@Testcontainers
 public class TestS3FileSystemS3Mock
         extends AbstractTestS3FileSystem
 {
-    private static final String BUCKET = "test-bucket";
+    private S3FileSystemTestingEnvironmentS3Mock testingEnvironment;
 
-    @Container
-    private static final S3MockContainer S3_MOCK = new S3MockContainer("3.0.1")
-            .withInitialBuckets(BUCKET);
-
-    @Override
-    protected String bucket()
+    @BeforeAll
+    public void setup()
     {
-        return BUCKET;
+        testingEnvironment = new S3FileSystemTestingEnvironmentS3Mock();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        if (testingEnvironment != null) {
+            testingEnvironment.close();
+            testingEnvironment = null;
+        }
     }
 
     @Override
-    protected S3Client createS3Client()
+    public S3FileSystemTestingEnvironment s3TestingEnvironment()
     {
-        return S3Client.builder()
-                .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create("accesskey", "secretkey")))
-                .endpointOverride(URI.create(S3_MOCK.getHttpEndpoint()))
-                .region(Region.US_EAST_1)
-                .forcePathStyle(true)
-                .build();
-    }
-
-    @Override
-    protected S3FileSystemFactory createS3FileSystemFactory()
-    {
-        return new S3FileSystemFactory(new S3FileSystemConfig()
-                .setAwsAccessKey("accesskey")
-                .setAwsSecretKey("secretkey")
-                .setEndpoint(S3_MOCK.getHttpEndpoint())
-                .setRegion(Region.US_EAST_1.id())
-                .setPathStyleAccess(true)
-                .setStreamingPartSize(DataSize.valueOf("5.5MB")));
+        return testingEnvironment;
     }
 }

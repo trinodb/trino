@@ -20,7 +20,7 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 import java.io.IOException;
 
-import static io.trino.filesystem.azure.AbstractTestAzureFileSystem.AccountKind.FLAT;
+import static io.trino.filesystem.azure.AzureFileSystemTestingEnvironment.AccountKind.FLAT;
 
 @EnabledIfEnvironmentVariable(named = "ABFS_FLAT_ACCOUNT", matches = ".+")
 @TestInstance(Lifecycle.PER_CLASS)

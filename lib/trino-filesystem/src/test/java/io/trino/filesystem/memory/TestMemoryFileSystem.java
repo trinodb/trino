@@ -14,51 +14,30 @@
 package io.trino.filesystem.memory;
 
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.AbstractTrinoFileSystemTestingEnvironment;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMemoryFileSystem
         extends AbstractTestTrinoFileSystem
 {
-    private MemoryFileSystem fileSystem;
+    private MemoryFileSystemTestingEnvironment testingEnvironment;
 
     @BeforeAll
     void setUp()
     {
-        fileSystem = new MemoryFileSystem();
+        testingEnvironment = new MemoryFileSystemTestingEnvironment();
     }
 
     @AfterAll
     void tearDown()
     {
-        fileSystem = null;
+        testingEnvironment = null;
     }
 
     @Override
-    protected boolean isHierarchical()
+    protected AbstractTrinoFileSystemTestingEnvironment testingEnvironment()
     {
-        return false;
-    }
-
-    @Override
-    protected TrinoFileSystem getFileSystem()
-    {
-        return fileSystem;
-    }
-
-    @Override
-    protected Location getRootLocation()
-    {
-        return Location.of("memory://");
-    }
-
-    @Override
-    protected void verifyFileSystemIsEmpty()
-    {
-        assertThat(fileSystem.isEmpty()).isTrue();
+        return testingEnvironment;
     }
 }
