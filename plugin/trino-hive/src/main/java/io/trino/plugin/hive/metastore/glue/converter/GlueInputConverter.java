@@ -16,10 +16,15 @@ package io.trino.plugin.hive.metastore.glue.converter;
 import com.amazonaws.services.glue.model.DatabaseInput;
 import com.amazonaws.services.glue.model.Order;
 import com.amazonaws.services.glue.model.PartitionInput;
+import com.amazonaws.services.glue.model.PrincipalType;
+import com.amazonaws.services.glue.model.ResourceType;
+import com.amazonaws.services.glue.model.ResourceUri;
 import com.amazonaws.services.glue.model.SerDeInfo;
 import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.TableInput;
+import com.amazonaws.services.glue.model.UserDefinedFunctionInput;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodec;
 import io.trino.plugin.hive.HiveBucketProperty;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.metastore.Column;
@@ -28,15 +33,20 @@ import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.spi.function.LanguageFunction;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.metastoreFunctionName;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toResourceUris;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 
 public final class GlueInputConverter
 {
+    static final JsonCodec<LanguageFunction> LANGUAGE_FUNCTION_CODEC = JsonCodec.jsonCodec(LanguageFunction.class);
+
     private GlueInputConverter() {}
 
     public static DatabaseInput convertDatabase(Database database)
@@ -118,5 +128,19 @@ public final class GlueInputConverter
                 .withType(trinoColumn.getType().toString())
                 .withComment(trinoColumn.getComment().orElse(null))
                 .withParameters(trinoColumn.getProperties());
+    }
+
+    public static UserDefinedFunctionInput convertFunction(String functionName, LanguageFunction function)
+    {
+        return new UserDefinedFunctionInput()
+                .withFunctionName(metastoreFunctionName(functionName, function.signatureToken()))
+                .withClassName("TrinoFunction")
+                .withOwnerType(PrincipalType.USER)
+                .withOwnerName(function.owner().orElse(null))
+                .withResourceUris(toResourceUris(LANGUAGE_FUNCTION_CODEC.toJsonBytes(function)).stream()
+                        .map(uri -> new ResourceUri()
+                                .withResourceType(ResourceType.FILE)
+                                .withUri(uri.getUri()))
+                        .toList());
     }
 }

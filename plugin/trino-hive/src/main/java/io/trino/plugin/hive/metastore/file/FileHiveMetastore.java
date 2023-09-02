@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore.file;
 
+import com.google.common.base.Splitter;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
@@ -58,6 +59,7 @@ import io.trino.spi.connector.ColumnNotFoundException;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.RoleGrant;
@@ -89,6 +91,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.hash.Hashing.sha256;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
@@ -109,11 +112,14 @@ import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveB
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
 import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
+import static io.trino.plugin.hive.util.HiveUtil.escapePathName;
 import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
 import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
+import static io.trino.plugin.hive.util.HiveUtil.unescapePathName;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -132,6 +138,7 @@ public class FileHiveMetastore
     private static final String ADMIN_ROLE_NAME = "admin";
     private static final String TRINO_SCHEMA_FILE_NAME_SUFFIX = ".trinoSchema";
     private static final String TRINO_PERMISSIONS_DIRECTORY_NAME = ".trinoPermissions";
+    private static final String TRINO_FUNCTIONS_DIRECTORY_NAME = ".trinoFunction";
     public static final String ROLES_FILE_NAME = ".roles";
     public static final String ROLE_GRANTS_FILE_NAME = ".roleGrants";
     // todo there should be a way to manage the admins list
@@ -151,6 +158,7 @@ public class FileHiveMetastore
     private final JsonCodec<TableMetadata> tableCodec = JsonCodec.jsonCodec(TableMetadata.class);
     private final JsonCodec<PartitionMetadata> partitionCodec = JsonCodec.jsonCodec(PartitionMetadata.class);
     private final JsonCodec<List<PermissionMetadata>> permissionsCodec = JsonCodec.listJsonCodec(PermissionMetadata.class);
+    private final JsonCodec<LanguageFunction> functionCodec = JsonCodec.jsonCodec(LanguageFunction.class);
     private final JsonCodec<List<String>> rolesCodec = JsonCodec.listJsonCodec(String.class);
     private final JsonCodec<List<RoleGrant>> roleGrantsCodec = JsonCodec.listJsonCodec(RoleGrant.class);
 
@@ -1218,6 +1226,111 @@ public class FileHiveMetastore
         setTablePrivileges(grantee, databaseName, tableName, Sets.difference(currentPrivileges, privilegesToRemove));
     }
 
+    @Override
+    public synchronized boolean functionExists(String databaseName, String functionName, String signatureToken)
+    {
+        Location directory = getFunctionsDirectory(databaseName);
+        Location file = getFunctionFile(directory, functionName, signatureToken);
+        try {
+            return fileSystem.newInputFile(file).exists();
+        }
+        catch (IOException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+    }
+
+    @Override
+    public synchronized Collection<LanguageFunction> getFunctions(String databaseName)
+    {
+        return getFunctions(databaseName, Optional.empty());
+    }
+
+    @Override
+    public synchronized Collection<LanguageFunction> getFunctions(String databaseName, String functionName)
+    {
+        return getFunctions(databaseName, Optional.of(functionName));
+    }
+
+    private synchronized Collection<LanguageFunction> getFunctions(String databaseName, Optional<String> functionName)
+    {
+        ImmutableList.Builder<LanguageFunction> functions = ImmutableList.builder();
+        Location directory = getFunctionsDirectory(databaseName);
+        try {
+            FileIterator iterator = fileSystem.listFiles(directory);
+            while (iterator.hasNext()) {
+                Location location = iterator.next().location();
+                List<String> parts = Splitter.on('=').splitToList(location.fileName());
+                if (parts.size() != 2) {
+                    continue;
+                }
+
+                String name = unescapePathName(parts.get(0));
+                if (functionName.isPresent() && !name.equals(functionName.get())) {
+                    continue;
+                }
+
+                readFile("function", location, functionCodec).ifPresent(functions::add);
+            }
+        }
+        catch (IOException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        return functions.build();
+    }
+
+    @Override
+    public synchronized void createFunction(String databaseName, String functionName, LanguageFunction function)
+    {
+        Location directory = getFunctionsDirectory(databaseName);
+        Location file = getFunctionFile(directory, functionName, function.signatureToken());
+        byte[] json = functionCodec.toJsonBytes(function);
+
+        try {
+            if (fileSystem.newInputFile(file).exists()) {
+                throw new TrinoException(ALREADY_EXISTS, "Function already exists");
+            }
+            try (OutputStream outputStream = fileSystem.newOutputFile(file).create()) {
+                outputStream.write(json);
+            }
+        }
+        catch (IOException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, "Could not write function", e);
+        }
+    }
+
+    @Override
+    public synchronized void replaceFunction(String databaseName, String functionName, LanguageFunction function)
+    {
+        Location directory = getFunctionsDirectory(databaseName);
+        Location file = getFunctionFile(directory, functionName, function.signatureToken());
+        byte[] json = functionCodec.toJsonBytes(function);
+
+        try {
+            try (OutputStream outputStream = fileSystem.newOutputFile(file).createOrOverwrite()) {
+                outputStream.write(json);
+            }
+        }
+        catch (IOException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, "Could not write function", e);
+        }
+    }
+
+    @Override
+    public synchronized void dropFunction(String databaseName, String functionName, String signatureToken)
+    {
+        Location directory = getFunctionsDirectory(databaseName);
+        Location file = getFunctionFile(directory, functionName, signatureToken);
+        try {
+            if (!fileSystem.newInputFile(file).exists()) {
+                throw new TrinoException(NOT_FOUND, "Function not found");
+            }
+            fileSystem.deleteFile(file);
+        }
+        catch (IOException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+    }
+
     private synchronized void setTablePrivileges(
             HivePrincipal grantee,
             String databaseName,
@@ -1405,6 +1518,11 @@ public class FileHiveMetastore
         return catalogDirectory.appendPath(escapeSchemaName(databaseName));
     }
 
+    private Location getFunctionsDirectory(String databaseName)
+    {
+        return getDatabaseMetadataDirectory(databaseName).appendPath(TRINO_FUNCTIONS_DIRECTORY_NAME);
+    }
+
     private Location getTableMetadataDirectory(Table table)
     {
         return getTableMetadataDirectory(table.getDatabaseName(), table.getTableName());
@@ -1465,6 +1583,13 @@ public class FileHiveMetastore
             return Location.of(path).appendSuffix(TRINO_SCHEMA_FILE_NAME_SUFFIX);
         }
         return metadataDirectory.appendPath(TRINO_SCHEMA_FILE_NAME_SUFFIX);
+    }
+
+    private static Location getFunctionFile(Location directory, String functionName, String signatureToken)
+    {
+        return directory.appendPath("%s=%s".formatted(
+                escapePathName(functionName),
+                sha256().hashUnencodedChars(signatureToken)));
     }
 
     private record RoleGrantee(String role, HivePrincipal grantee)
