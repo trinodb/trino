@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.json.JsonCodec;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogProperties;
@@ -98,6 +99,7 @@ public class TestLocalDispatchQuery
                 transactionManager,
                 emptyEventListenerManager(),
                 new AccessControlConfig(),
+                OpenTelemetry.noop(),
                 DefaultSystemAccessControl.NAME);
         accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         QueryStateMachine queryStateMachine = QueryStateMachine.begin(

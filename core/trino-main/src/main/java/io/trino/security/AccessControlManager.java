@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.metadata.QualifiedObjectName;
@@ -43,6 +45,7 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemAccessControlFactory;
+import io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext;
 import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
@@ -88,6 +91,7 @@ public class AccessControlManager
     private final TransactionManager transactionManager;
     private final EventListenerManager eventListenerManager;
     private final List<File> configFiles;
+    private final OpenTelemetry openTelemetry;
     private final String defaultAccessControlName;
     private final Map<String, SystemAccessControlFactory> systemAccessControlFactories = new ConcurrentHashMap<>();
     private final AtomicReference<CatalogServiceProvider<Optional<ConnectorAccessControl>>> connectorAccessControlProvider = new AtomicReference<>();
@@ -102,11 +106,13 @@ public class AccessControlManager
             TransactionManager transactionManager,
             EventListenerManager eventListenerManager,
             AccessControlConfig config,
+            OpenTelemetry openTelemetry,
             @DefaultSystemAccessControlName String defaultAccessControlName)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.configFiles = ImmutableList.copyOf(config.getAccessControlFiles());
+        this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.defaultAccessControlName = requireNonNull(defaultAccessControlName, "defaultAccessControl is null");
         addSystemAccessControlFactory(new DefaultSystemAccessControl.Factory());
         addSystemAccessControlFactory(new AllowAllSystemAccessControl.Factory());
@@ -178,7 +184,7 @@ public class AccessControlManager
 
         SystemAccessControl systemAccessControl;
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            systemAccessControl = factory.create(ImmutableMap.copyOf(properties));
+            systemAccessControl = factory.create(ImmutableMap.copyOf(properties), createContext(name));
         }
 
         log.info("-- Loaded system access control %s --", name);
@@ -196,13 +202,33 @@ public class AccessControlManager
 
         SystemAccessControl systemAccessControl;
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            systemAccessControl = factory.create(ImmutableMap.copyOf(properties));
+            systemAccessControl = factory.create(ImmutableMap.copyOf(properties), createContext(name));
         }
 
         systemAccessControl.getEventListeners()
                 .forEach(eventListenerManager::addEventListener);
 
         setSystemAccessControls(ImmutableList.of(systemAccessControl));
+    }
+
+    private SystemAccessControlContext createContext(String systemAccessControlName)
+    {
+        return new SystemAccessControlContext()
+        {
+            private final Tracer tracer = openTelemetry.getTracer("trino.system-access-control." + systemAccessControlName);
+
+            @Override
+            public OpenTelemetry getOpenTelemetry()
+            {
+                return openTelemetry;
+            }
+
+            @Override
+            public Tracer getTracer()
+            {
+                return tracer;
+            }
+        };
     }
 
     @VisibleForTesting
