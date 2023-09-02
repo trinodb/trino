@@ -17,7 +17,10 @@ import com.amazonaws.services.glue.model.DatabaseInput;
 import com.amazonaws.services.glue.model.PartitionInput;
 import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.TableInput;
+import com.amazonaws.services.glue.model.UserDefinedFunction;
+import com.amazonaws.services.glue.model.UserDefinedFunctionInput;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import io.trino.plugin.hive.HiveBucketProperty;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
@@ -25,9 +28,14 @@ import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter;
+import io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter;
+import io.trino.spi.function.LanguageFunction;
 import org.junit.jupiter.api.Test;
 
+import java.util.HexFormat;
 import java.util.List;
+import java.util.Optional;
+import java.util.Random;
 
 import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestDatabase;
 import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestPartition;
@@ -76,6 +84,30 @@ public class TestGlueInputConverter
         assertEquals(partitionInput.getParameters(), testPartition.getParameters());
         assertStorage(partitionInput.getStorageDescriptor(), testPartition.getStorage());
         assertEquals(partitionInput.getValues(), testPartition.getValues());
+    }
+
+    @Test
+    public void testConvertFunction()
+    {
+        // random data to avoid compression, but deterministic for size assertion
+        String sql = HexFormat.of().formatHex(Slices.random(2000, new Random(0)).getBytes());
+        LanguageFunction expected = new LanguageFunction("(integer,bigint,varchar)", sql, List.of(), Optional.of("owner"));
+
+        UserDefinedFunctionInput input = GlueInputConverter.convertFunction("test_name", expected);
+        assertEquals(input.getOwnerName(), expected.owner().orElseThrow());
+
+        UserDefinedFunction function = new UserDefinedFunction()
+                .withOwnerName(input.getOwnerName())
+                .withResourceUris(input.getResourceUris());
+        LanguageFunction actual = GlueToTrinoConverter.convertFunction(function);
+
+        assertEquals(input.getResourceUris().size(), 4);
+        assertEquals(actual, expected);
+
+        // verify that the owner comes from the metastore
+        function.setOwnerName("other");
+        actual = GlueToTrinoConverter.convertFunction(function);
+        assertEquals(actual.owner(), Optional.of("other"));
     }
 
     private static void assertColumnList(List<com.amazonaws.services.glue.model.Column> actual, List<Column> expected)

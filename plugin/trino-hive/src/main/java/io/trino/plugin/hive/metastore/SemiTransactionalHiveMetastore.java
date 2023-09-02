@@ -55,6 +55,8 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.function.LanguageFunction;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.PrincipalType;
@@ -1232,6 +1234,39 @@ public class SemiTransactionalHiveMetastore
     public synchronized void revokeTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
         setExclusive(delegate -> delegate.revokeTablePrivileges(databaseName, tableName, getRequiredTableOwner(databaseName, tableName), grantee, grantor, privileges, grantOption));
+    }
+
+    public synchronized boolean functionExists(SchemaFunctionName name, String signatureToken)
+    {
+        checkReadable();
+        return delegate.functionExists(name, signatureToken);
+    }
+
+    public synchronized Collection<LanguageFunction> getFunctions(String schemaName)
+    {
+        checkReadable();
+        return delegate.getFunctions(schemaName);
+    }
+
+    public synchronized Collection<LanguageFunction> getFunctions(SchemaFunctionName name)
+    {
+        checkReadable();
+        return delegate.getFunctions(name);
+    }
+
+    public synchronized void createFunction(SchemaFunctionName name, LanguageFunction function)
+    {
+        setExclusive(delegate -> delegate.createFunction(name, function));
+    }
+
+    public synchronized void replaceFunction(SchemaFunctionName name, LanguageFunction function)
+    {
+        setExclusive(delegate -> delegate.replaceFunction(name, function));
+    }
+
+    public synchronized void dropFunction(SchemaFunctionName name, String signatureToken)
+    {
+        setExclusive(delegate -> delegate.dropFunction(name, signatureToken));
     }
 
     public synchronized String declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Location stagingPathRoot, SchemaTableName schemaTableName)

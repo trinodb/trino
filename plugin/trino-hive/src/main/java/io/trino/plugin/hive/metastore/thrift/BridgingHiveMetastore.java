@@ -37,10 +37,12 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -58,7 +60,9 @@ import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMeta
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isCsvTable;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.metastoreFunctionName;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiDatabase;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiFunction;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -556,5 +560,53 @@ public class BridgingHiveMetastore
     public void alterTransactionalTable(Table table, long transactionId, long writeId, PrincipalPrivileges principalPrivileges)
     {
         delegate.alterTransactionalTable(toMetastoreApiTable(table, principalPrivileges), transactionId, writeId);
+    }
+
+    @Override
+    public boolean functionExists(String databaseName, String functionName, String signatureToken)
+    {
+        return delegate.getFunction(databaseName, ThriftMetastoreUtil.metastoreFunctionName(functionName, signatureToken)).isPresent();
+    }
+
+    @Override
+    public Collection<LanguageFunction> getFunctions(String databaseName)
+    {
+        return getFunctionsByPattern(databaseName, "trino__*");
+    }
+
+    @Override
+    public Collection<LanguageFunction> getFunctions(String databaseName, String functionName)
+    {
+        return getFunctionsByPattern(databaseName, "trino__" + functionName + "__*");
+    }
+
+    private Collection<LanguageFunction> getFunctionsByPattern(String databaseName, String functionNamePattern)
+    {
+        return delegate.getFunctions(databaseName, functionNamePattern).stream()
+                .map(name -> delegate.getFunction(databaseName, name))
+                .flatMap(Optional::stream)
+                .map(ThriftMetastoreUtil::fromMetastoreApiFunction)
+                .collect(toImmutableList());
+    }
+
+    @Override
+    public void createFunction(String databaseName, String functionName, LanguageFunction function)
+    {
+        if (functionName.contains("__")) {
+            throw new TrinoException(NOT_SUPPORTED, "Function names with double underscore are not supported");
+        }
+        delegate.createFunction(toMetastoreApiFunction(databaseName, functionName, function));
+    }
+
+    @Override
+    public void replaceFunction(String databaseName, String functionName, LanguageFunction function)
+    {
+        delegate.alterFunction(toMetastoreApiFunction(databaseName, functionName, function));
+    }
+
+    @Override
+    public void dropFunction(String databaseName, String functionName, String signatureToken)
+    {
+        delegate.dropFunction(databaseName, metastoreFunctionName(functionName, signatureToken));
     }
 }
