@@ -154,7 +154,7 @@ public final class BigQueryTypeManager
         return "'" + date + "'";
     }
 
-    private static String datetimeToStringConverter(Object value)
+    public static String datetimeToStringConverter(Object value)
     {
         long epochMicros = (long) value;
         long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
