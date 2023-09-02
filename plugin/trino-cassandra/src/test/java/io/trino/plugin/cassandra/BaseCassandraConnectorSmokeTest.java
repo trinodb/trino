@@ -36,7 +36,6 @@ public abstract class BaseCassandraConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_DELETE -> true;
             case SUPPORTS_ARRAY,
                     SUPPORTS_COMMENT_ON_COLUMN,
                     SUPPORTS_COMMENT_ON_TABLE,
