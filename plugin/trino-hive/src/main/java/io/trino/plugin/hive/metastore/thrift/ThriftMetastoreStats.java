@@ -66,6 +66,11 @@ public class ThriftMetastoreStats
     private final ThriftMetastoreApiStats alterPartitions = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats addDynamicPartitions = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats alterTransactionalTable = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats getFunction = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats getFunctions = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats createFunction = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats alterFunction = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats dropFunction = new ThriftMetastoreApiStats();
 
     @Managed
     @Nested
@@ -401,5 +406,40 @@ public class ThriftMetastoreStats
     public ThriftMetastoreApiStats getAlterTransactionalTable()
     {
         return alterTransactionalTable;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getGetFunction()
+    {
+        return getFunction;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getGetFunctions()
+    {
+        return getFunctions;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getCreateFunction()
+    {
+        return createFunction;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getAlterFunction()
+    {
+        return alterFunction;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getDropFunction()
+    {
+        return dropFunction;
     }
 }
