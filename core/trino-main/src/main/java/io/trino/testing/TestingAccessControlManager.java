@@ -15,6 +15,7 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
@@ -141,14 +142,18 @@ public class TestingAccessControlManager
     private BiPredicate<Identity, String> denyIdentityTable = IDENTITY_TABLE_TRUE;
 
     @Inject
-    public TestingAccessControlManager(TransactionManager transactionManager, EventListenerManager eventListenerManager, AccessControlConfig accessControlConfig)
+    public TestingAccessControlManager(
+            TransactionManager transactionManager,
+            EventListenerManager eventListenerManager,
+            AccessControlConfig accessControlConfig,
+            OpenTelemetry openTelemetry)
     {
-        super(transactionManager, eventListenerManager, accessControlConfig, DefaultSystemAccessControl.NAME);
+        super(transactionManager, eventListenerManager, accessControlConfig, openTelemetry, DefaultSystemAccessControl.NAME);
     }
 
     public TestingAccessControlManager(TransactionManager transactionManager, EventListenerManager eventListenerManager)
     {
-        this(transactionManager, eventListenerManager, new AccessControlConfig());
+        this(transactionManager, eventListenerManager, new AccessControlConfig(), OpenTelemetry.noop());
     }
 
     public static TestingPrivilege privilege(String entityName, TestingPrivilegeType type)
