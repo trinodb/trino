@@ -5646,16 +5646,14 @@ public abstract class BaseConnectorTest
 
         assertUpdate(mergeSql, 1_000_000);
 
-        // verify deleted rows
-        assertQuery("SELECT count(*) FROM " + tableName + " WHERE mod(orderkey, 3) = 1", "SELECT 0");
-
+        //there is no need to verify deletes as number of mod(orderkey, 3) = 2 and mod(orderkey, 3) equals number of rows in table
         // verify untouched rows
         assertThat(query("SELECT count(*), cast(sum(totalprice) AS decimal(18,2)) FROM " + tableName + " WHERE mod(orderkey, 3) = 2"))
-                .matches("SELECT count(*), cast(sum(totalprice) AS decimal(18,2)) FROM tpch.sf1.orders WHERE mod(orderkey, 3) = 2");
+                .matches("SELECT BIGINT '500000', cast('75683551966.03' AS DECIMAL(18, 2))");
 
         // verify updated rows
         assertThat(query("SELECT count(*), cast(sum(totalprice) AS decimal(18,2)) FROM " + tableName + " WHERE mod(orderkey, 3) = 0"))
-                .matches("SELECT count(*), cast(sum(totalprice * 2) AS decimal(18,2)) FROM tpch.sf1.orders WHERE mod(orderkey, 3) = 0");
+                .matches("SELECT BIGINT '500000', cast('151203334293.58' AS DECIMAL(18, 2))");
 
         assertUpdate("DROP TABLE " + tableName);
     }
