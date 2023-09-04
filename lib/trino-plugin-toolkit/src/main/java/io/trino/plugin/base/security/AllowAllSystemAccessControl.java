@@ -115,12 +115,6 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
-    public Set<String> filterViewQueryOwnedBy(SystemSecurityContext context, Set<String> queryOwners)
-    {
-        return queryOwners;
-    }
-
-    @Override
     public void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
     {
     }
