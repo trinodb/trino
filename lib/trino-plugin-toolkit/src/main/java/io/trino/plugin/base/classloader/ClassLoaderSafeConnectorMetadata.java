@@ -1062,6 +1062,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public boolean isMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.isMaterializedView(session, viewName);
+        }
+    }
+
+    @Override
     public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

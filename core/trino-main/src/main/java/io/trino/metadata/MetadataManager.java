@@ -1581,7 +1581,7 @@ public final class MetadataManager
     @Override
     public boolean isMaterializedView(Session session, QualifiedObjectName viewName)
     {
-        return getMaterializedViewInternal(session, viewName).isPresent();
+        return isMaterializedViewInternal(session, viewName);
     }
 
     @Override
@@ -1618,6 +1618,25 @@ public final class MetadataManager
             return metadata.getMaterializedView(connectorSession, viewName.asSchemaTableName());
         }
         return Optional.empty();
+    }
+
+    private boolean isMaterializedViewInternal(Session session, QualifiedObjectName viewName)
+    {
+        if (viewName.getCatalogName().isEmpty() || viewName.getSchemaName().isEmpty() || viewName.getObjectName().isEmpty()) {
+            // View cannot exist
+            return false;
+        }
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getCatalogName());
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+            CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, viewName);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
+
+            ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
+            return metadata.isMaterializedView(connectorSession, viewName.asSchemaTableName());
+        }
+        return false;
     }
 
     @Override

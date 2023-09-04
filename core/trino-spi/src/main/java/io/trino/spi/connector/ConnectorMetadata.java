@@ -1580,7 +1580,7 @@ public interface ConnectorMetadata
 
     /**
      * Gets the materialized view data for the specified materialized view name. Returns {@link Optional#empty()}
-     * if {@code viewName} relation does not or is not a materialized view (e.g. is a table, or a view).
+     * if {@code viewName} relation does not exist or is not a materialized view (e.g. is a table, or a view).
      *
      * @see #getTableHandle(ConnectorSession, SchemaTableName)
      * @see #getView(ConnectorSession, SchemaTableName)
@@ -1588,6 +1588,17 @@ public interface ConnectorMetadata
     default Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Tells whether the specified view name refers to a materialized view. Returns {@literal false}
+     * if {@code viewName} relation does not exist or is not a materialized view (e.g. is a table, or a view).
+     *
+     * @see #getMaterializedView(ConnectorSession, SchemaTableName)
+     */
+    default boolean isMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return getMaterializedView(session, viewName).isPresent();
     }
 
     /**

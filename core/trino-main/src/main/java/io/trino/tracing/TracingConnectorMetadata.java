@@ -1212,6 +1212,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public boolean isMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        Span span = startSpan("isMaterializedView", viewName);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.isMaterializedView(session, viewName);
+        }
+    }
+
+    @Override
     public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
     {
         Span span = startSpan("getMaterializedViewFreshness", name);
