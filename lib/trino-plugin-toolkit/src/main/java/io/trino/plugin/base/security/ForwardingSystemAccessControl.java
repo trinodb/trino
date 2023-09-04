@@ -104,12 +104,6 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
-    {
-        delegate().checkCanKillQueryOwnedBy(context, queryOwner);
-    }
-
-    @Override
     public void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
     {
         delegate().checkCanSetSystemSessionProperty(context, propertyName);

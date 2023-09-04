@@ -99,11 +99,6 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
-    public void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
-    {
-    }
-
-    @Override
     public Collection<Identity> filterViewQueryOwnedBy(SystemSecurityContext context, Collection<Identity> queryOwners)
     {
         return queryOwners;

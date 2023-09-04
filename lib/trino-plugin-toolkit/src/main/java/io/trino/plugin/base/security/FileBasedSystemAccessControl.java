@@ -309,9 +309,9 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
+    public void checkCanKillQueryOwnedBy(SystemSecurityContext context, Identity queryOwner)
     {
-        if (!canAccessQuery(context.getIdentity(), Optional.of(queryOwner), QueryAccessRule.AccessMode.KILL)) {
+        if (!canAccessQuery(context.getIdentity(), Optional.of(queryOwner.getUser()), QueryAccessRule.AccessMode.KILL)) {
             denyViewQuery();
         }
     }

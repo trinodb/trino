@@ -156,19 +156,6 @@ public interface SystemAccessControl
      */
     default void checkCanKillQueryOwnedBy(SystemSecurityContext context, Identity queryOwner)
     {
-        checkCanKillQueryOwnedBy(context, queryOwner.getUser());
-    }
-
-    /**
-     * Checks if identity can kill a query owned by the specified user.  The method
-     * will not be called when the current user is the query owner.
-     *
-     * @throws AccessDeniedException if not allowed
-     * @deprecated Implement {@link #checkCanKillQueryOwnedBy(SystemSecurityContext, Identity)} instead.
-     */
-    @Deprecated
-    default void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
-    {
         denyKillQuery();
     }
 
