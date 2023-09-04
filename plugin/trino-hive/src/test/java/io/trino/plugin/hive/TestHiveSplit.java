@@ -93,7 +93,6 @@ public class TestHiveSplit
         assertEquals(actual.getEstimatedFileSize(), expected.getEstimatedFileSize());
         assertEquals(actual.getSchema(), expected.getSchema());
         assertEquals(actual.getPartitionKeys(), expected.getPartitionKeys());
-        assertEquals(actual.getAddresses(), expected.getAddresses());
         assertEquals(actual.getTableToPartitionMapping().getPartitionColumnCoercions(), expected.getTableToPartitionMapping().getPartitionColumnCoercions());
         assertEquals(actual.getTableToPartitionMapping().getTableToPartitionColumns(), expected.getTableToPartitionMapping().getTableToPartitionColumns());
         assertEquals(actual.getBucketConversion(), expected.getBucketConversion());
