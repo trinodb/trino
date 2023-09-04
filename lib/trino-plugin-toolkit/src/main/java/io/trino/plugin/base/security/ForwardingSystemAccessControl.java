@@ -504,10 +504,4 @@ public abstract class ForwardingSystemAccessControl
     {
         return delegate().getColumnMask(context, tableName, columnName, type);
     }
-
-    @Override
-    public List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
-    {
-        return delegate().getColumnMasks(context, tableName, columnName, type);
-    }
 }

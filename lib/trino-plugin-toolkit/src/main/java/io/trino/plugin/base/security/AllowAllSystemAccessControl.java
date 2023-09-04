@@ -455,10 +455,4 @@ public class AllowAllSystemAccessControl
     {
         return Optional.empty();
     }
-
-    @Override
-    public List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
-    {
-        return emptyList();
-    }
 }
