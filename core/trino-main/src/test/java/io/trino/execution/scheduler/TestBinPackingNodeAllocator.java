@@ -666,17 +666,17 @@ public class TestBinPackingNodeAllocator
             NodeAllocator.NodeLease acquireSpeculative2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), SPECULATIVE);
             assertAcquired(acquireSpeculative2, NODE_2);
 
-            // non-speculative tasks should still get node
-            NodeAllocator.NodeLease acquireNonSpeculative1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(64, GIGABYTE), STANDARD);
-            assertAcquired(acquireNonSpeculative1, NODE_2);
-            NodeAllocator.NodeLease acquireNonSpeculative2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
-            assertAcquired(acquireNonSpeculative2, NODE_1);
+            // standard tasks should still get node
+            NodeAllocator.NodeLease acquireStandard1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(64, GIGABYTE), STANDARD);
+            assertAcquired(acquireStandard1, NODE_2);
+            NodeAllocator.NodeLease acquireStandard2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            assertAcquired(acquireStandard2, NODE_1);
 
             // new speculative task will not fit (even tiny one)
             NodeAllocator.NodeLease acquireSpeculative3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(1, GIGABYTE), SPECULATIVE);
             assertNotAcquired(acquireSpeculative3);
 
-            // if you switch it to non-speculative it will schedule
+            // if you switch it to standard it will schedule
             acquireSpeculative3.setExecutionClass(STANDARD);
             assertAcquired(acquireSpeculative3, NODE_1);
 
@@ -686,24 +686,24 @@ public class TestBinPackingNodeAllocator
             acquireSpeculative3.release();
 
             // we have 32G free on NODE_1 now
-            NodeAllocator.NodeLease acquireNonSpeculative4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
-            assertAcquired(acquireNonSpeculative4, NODE_1);
+            NodeAllocator.NodeLease acquireStandard4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            assertAcquired(acquireStandard4, NODE_1);
 
             // no place for speculative task
             NodeAllocator.NodeLease acquireSpeculative4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(1, GIGABYTE), SPECULATIVE);
             assertNotAcquired(acquireSpeculative4);
 
-            // no place for another non-speculative task
-            NodeAllocator.NodeLease acquireNonSpeculative5 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
-            assertNotAcquired(acquireNonSpeculative5);
+            // no place for another standard task
+            NodeAllocator.NodeLease acquireStandard5 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            assertNotAcquired(acquireStandard5);
 
-            // release acquireNonSpeculative4 - a non-speculative task should be scheduled before speculative one
-            acquireNonSpeculative4.release();
-            assertAcquired(acquireNonSpeculative5);
+            // release acquireStandard4 - a standard task should be scheduled before speculative one
+            acquireStandard4.release();
+            assertAcquired(acquireStandard5);
             assertNotAcquired(acquireSpeculative4);
 
             // on subsequent release speculative task will get node
-            acquireNonSpeculative5.release();
+            acquireStandard5.release();
             assertAcquired(acquireSpeculative4);
         }
     }
