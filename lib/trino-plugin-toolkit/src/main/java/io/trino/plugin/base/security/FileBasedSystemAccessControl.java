@@ -1004,12 +1004,6 @@ public class FileBasedSystemAccessControl
         return masks.stream().findFirst();
     }
 
-    @Override
-    public List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName table, String columnName, Type type)
-    {
-        throw new UnsupportedOperationException();
-    }
-
     private boolean checkAnyCatalogAccess(SystemSecurityContext context, String catalogName)
     {
         if (canAccessCatalog(context, catalogName, OWNER)) {

@@ -850,18 +850,7 @@ public interface SystemAccessControl
      */
     default Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
-        List<ViewExpression> masks = getColumnMasks(context, tableName, columnName, type);
-        if (masks.size() > 1) {
-            throw new UnsupportedOperationException("Multiple masks on a single column are no longer supported");
-        }
-
-        return masks.stream().findFirst();
-    }
-
-    @Deprecated
-    default List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
-    {
-        return List.of();
+        return Optional.empty();
     }
 
     /**
