@@ -16,11 +16,19 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.inject.Inject;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.TaskCountEstimator;
+import io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
 
+import static io.trino.SystemSessionProperties.distinctAggregationsStrategy;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
+import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.AUTOMATIC;
+import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.MARK_DISTINCT;
+import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.PRE_AGGREGATE;
+import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.SINGLE_STEP;
+import static io.trino.sql.planner.iterative.rule.DistinctAggregationToGroupBy.canUsePreAggregate;
+import static io.trino.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct.canUseMarkDistinct;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -41,42 +49,54 @@ public class DistinctAggregationController
 
     public boolean shouldAddMarkDistinct(AggregationNode aggregationNode, Rule.Context context)
     {
-        return !canParallelizeSingleStepDistinctAggregation(aggregationNode, context, MARK_DISTINCT_MAX_OUTPUT_ROW_COUNT_MULTIPLIER);
+        return chooseMarkDistinctStrategy(aggregationNode, context) == MARK_DISTINCT;
     }
 
     public boolean shouldUsePreAggregate(AggregationNode aggregationNode, Rule.Context context)
     {
-        if (canParallelizeSingleStepDistinctAggregation(aggregationNode, context, PRE_AGGREGATE_MAX_OUTPUT_ROW_COUNT_MULTIPLIER)) {
-            return false;
+        return chooseMarkDistinctStrategy(aggregationNode, context) == PRE_AGGREGATE;
+    }
+
+    private DistinctAggregationsStrategy chooseMarkDistinctStrategy(AggregationNode aggregationNode, Rule.Context context)
+    {
+        DistinctAggregationsStrategy distinctAggregationsStrategy = distinctAggregationsStrategy(context.getSession());
+        if (distinctAggregationsStrategy != AUTOMATIC) {
+            if (distinctAggregationsStrategy == MARK_DISTINCT && canUseMarkDistinct(aggregationNode)) {
+                return MARK_DISTINCT;
+            }
+            if (distinctAggregationsStrategy == PRE_AGGREGATE && canUsePreAggregate(aggregationNode)) {
+                return PRE_AGGREGATE;
+            }
+            // in case strategy is chosen by the session property, but we cannot use it, lets fallback to single-step
+            return SINGLE_STEP;
+        }
+        double numberOfDistinctValues = getMinDistinctValueCountEstimate(aggregationNode, context);
+        int maxNumberOfConcurrentThreadsForAggregation = getMaxNumberOfConcurrentThreadsForAggregation(context);
+
+        // use single_step if it can be parallelized
+        // small numberOfDistinctValues reduces the distinct aggregation parallelism, also because the partitioning may be skewed.
+        // this makes query to underutilize the cluster CPU but also to possibly concentrate memory on few nodes.
+        // single_step alternatives should increase the parallelism at a cost of CPU.
+        if (!aggregationNode.getGroupingKeys().isEmpty() && // global distinct aggregation is computed using a single thread. Strategies other than single_step will help parallelize the execution.
+                !Double.isNaN(numberOfDistinctValues) && // if the estimate is unknown, use alternatives to avoid query failure
+                (numberOfDistinctValues > PRE_AGGREGATE_MAX_OUTPUT_ROW_COUNT_MULTIPLIER * maxNumberOfConcurrentThreadsForAggregation ||
+                        (numberOfDistinctValues > MARK_DISTINCT_MAX_OUTPUT_ROW_COUNT_MULTIPLIER * maxNumberOfConcurrentThreadsForAggregation &&
+                                // if the NDV and the number of grouping keys is small, pre-aggregate is faster than single_step at a cost of CPU
+                                aggregationNode.getGroupingKeys().size() > 2))) {
+            return SINGLE_STEP;
         }
 
         // mark-distinct is better than pre-aggregate if the number of group-by keys is bigger than 2
         // because group-by keys are added to every grouping set and this makes partial aggregation behaves badly
-        return aggregationNode.getGroupingKeys().size() <= 2;
-    }
-
-    private boolean canParallelizeSingleStepDistinctAggregation(AggregationNode aggregationNode, Rule.Context context, int maxOutputRowCountMultiplier)
-    {
-        if (aggregationNode.getGroupingKeys().isEmpty()) {
-            // global distinct aggregation is computed using a single thread. MarkDistinct will help parallelize the execution.
-            return false;
+        if (canUsePreAggregate(aggregationNode) && aggregationNode.getGroupingKeys().size() <= 2) {
+            return PRE_AGGREGATE;
         }
-        double numberOfDistinctValues = getMinDistinctValueCountEstimate(aggregationNode, context);
-        if (Double.isNaN(numberOfDistinctValues)) {
-            // if the estimate is unknown, use MarkDistinct to avoid query failure
-            return false;
-        }
-        int maxNumberOfConcurrentThreadsForAggregation = getMaxNumberOfConcurrentThreadsForAggregation(context);
-
-        if (numberOfDistinctValues <= maxOutputRowCountMultiplier * maxNumberOfConcurrentThreadsForAggregation) {
-            // small numberOfDistinctValues reduces the distinct aggregation parallelism, also because the partitioning may be skewed.
-            // This makes query to underutilize the cluster CPU but also to possibly concentrate memory on few nodes.
-            // MarkDistinct should increase the parallelism at a cost of CPU.
-            return false;
+        else if (canUseMarkDistinct(aggregationNode)) {
+            return MARK_DISTINCT;
         }
 
-        // can parallelize single-step, and single-step distinct is more efficient than alternatives
-        return true;
+        // if no strategy found, use single_step by default
+        return SINGLE_STEP;
     }
 
     private int getMaxNumberOfConcurrentThreadsForAggregation(Rule.Context context)
