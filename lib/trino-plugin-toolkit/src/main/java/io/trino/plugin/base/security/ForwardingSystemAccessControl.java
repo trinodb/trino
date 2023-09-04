@@ -92,12 +92,6 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
-    {
-        delegate().checkCanViewQueryOwnedBy(context, queryOwner);
-    }
-
-    @Override
     public Collection<Identity> filterViewQueryOwnedBy(SystemSecurityContext context, Collection<Identity> queryOwners)
     {
         return delegate().filterViewQueryOwnedBy(context, queryOwners);
