@@ -420,10 +420,4 @@ public class LegacyAccessControl
     {
         return Optional.empty();
     }
-
-    @Override
-    public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
-    {
-        return ImmutableList.of();
-    }
 }
