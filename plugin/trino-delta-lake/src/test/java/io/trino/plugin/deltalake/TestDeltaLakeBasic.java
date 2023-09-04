@@ -106,13 +106,13 @@ public class TestDeltaLakeBasic
     public void registerTables()
     {
         for (ResourceTable table : Iterables.concat(PERSON_TABLES, OTHER_TABLES)) {
-            String dataPath = getTableLocation(table.resourcePath()).toExternalForm();
+            String dataPath = getResourceLocation(table.resourcePath()).toExternalForm();
             getQueryRunner().execute(
                     format("CALL system.register_table('%s', '%s', '%s')", getSession().getSchema().orElseThrow(), table.tableName(), dataPath));
         }
     }
 
-    private URL getTableLocation(String resourcePath)
+    private URL getResourceLocation(String resourcePath)
     {
         return getClass().getClassLoader().getResource(resourcePath);
     }
@@ -656,7 +656,7 @@ public class TestDeltaLakeBasic
         // create a bad_person table which is based on person table in temporary location
         String tableName = "bad_person_" + randomNameSuffix();
         Path tableLocation = Files.createTempFile(tableName, null);
-        copyDirectoryContents(Path.of(getTableLocation("databricks73/person").toURI()), tableLocation);
+        copyDirectoryContents(Path.of(getResourceLocation("databricks73/person").toURI()), tableLocation);
         getQueryRunner().execute(
                 format("CALL system.register_table('%s', '%s', '%s')", getSession().getSchema().orElseThrow(), tableName, tableLocation));
         testCorruptedTableLocation(tableName, tableLocation, false);
