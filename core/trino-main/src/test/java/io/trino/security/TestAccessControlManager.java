@@ -248,9 +248,9 @@ public class TestAccessControlManager
             accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(queryRunner.getCatalogHandle(TEST_CATALOG_NAME), Optional.of(new ConnectorAccessControl()
             {
                 @Override
-                public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String column, Type type)
+                public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String column, Type type)
                 {
-                    return ImmutableList.of(new ViewExpression(Optional.of("user"), Optional.empty(), Optional.empty(), "connector mask"));
+                    return Optional.of(new ViewExpression(Optional.of("user"), Optional.empty(), Optional.empty(), "connector mask"));
                 }
 
                 @Override

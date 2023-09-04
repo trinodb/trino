@@ -627,12 +627,6 @@ public class SqlStandardAccessControl
         return Optional.empty();
     }
 
-    @Override
-    public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
-    {
-        return ImmutableList.of();
-    }
-
     private boolean isAdmin(ConnectorSecurityContext context)
     {
         return isRoleEnabled(context.getIdentity(), hivePrincipal -> metastore.listRoleGrants(context, hivePrincipal), ADMIN_ROLE_NAME);

@@ -494,12 +494,6 @@ public class InjectedConnectorAccessControl
         throw new TrinoException(NOT_SUPPORTED, "Column masking not supported");
     }
 
-    @Override
-    public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
-    {
-        throw new UnsupportedOperationException();
-    }
-
     private QualifiedObjectName getQualifiedObjectName(SchemaTableName schemaTableName)
     {
         return new QualifiedObjectName(catalogName, schemaTableName.getSchemaName(), schemaTableName.getTableName());

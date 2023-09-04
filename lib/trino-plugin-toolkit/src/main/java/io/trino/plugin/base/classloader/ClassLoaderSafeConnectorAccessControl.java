@@ -532,12 +532,4 @@ public class ClassLoaderSafeConnectorAccessControl
             return delegate.getColumnMask(context, tableName, columnName, type);
         }
     }
-
-    @Override
-    public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getColumnMasks(context, tableName, columnName, type);
-        }
-    }
 }
