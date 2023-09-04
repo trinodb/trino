@@ -13,37 +13,22 @@
  */
 package io.trino.plugin.jdbc;
 
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
-import io.trino.spi.session.PropertyMetadata;
 import io.trino.testing.TestingConnectorSession;
 import org.testng.annotations.Guice;
 import org.testng.annotations.Test;
 
-import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.COLUMN_ALIAS_MAX_CHARS;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
-import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.util.Collections.singletonMap;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Guice(modules = ColumnWithAliasFormatterModule.class)
 public class TestColumnWithAliasFormatter
 {
-    private static final ImmutableList<PropertyMetadata<?>> PROPERTY_METADATA = ImmutableList.of(
-            integerProperty(
-                    COLUMN_ALIAS_MAX_CHARS,
-                    "Column Alias max characters",
-                    null,
-                    false));
-
     @Inject
     private ColumnWithAliasFormatter actor;
 
-    private final TestingConnectorSession session = TestingConnectorSession.builder()
-            .setPropertyMetadata(PROPERTY_METADATA)
-            .setPropertyValues(singletonMap(COLUMN_ALIAS_MAX_CHARS, 30))
-            .build();
+    private final TestingConnectorSession session = TestingConnectorSession.builder().build();
 
     @Test
     public void testTooLongName()

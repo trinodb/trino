@@ -41,8 +41,6 @@ public class JdbcMetadataConfig
     // between performance and pushdown capabilities
     private int domainCompactionThreshold = 32;
 
-    private int columnAliasMaxChars = 30;
-
     public boolean isComplexExpressionPushdownEnabled()
     {
         return complexExpressionPushdownEnabled;
@@ -100,11 +98,6 @@ public class JdbcMetadataConfig
     public int getDomainCompactionThreshold()
     {
         return domainCompactionThreshold;
-    }
-
-    public int getColumnAliasMaxChars()
-    {
-        return this.columnAliasMaxChars;
     }
 
     @Config("domain-compaction-threshold")
