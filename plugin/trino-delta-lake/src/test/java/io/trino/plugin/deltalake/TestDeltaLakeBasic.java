@@ -443,9 +443,9 @@ public class TestDeltaLakeBasic
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "query_partition_filter_required", "true")
                 .build();
 
-        assertQuery(format("SELECT * FROM %s WHERE \"part\" = 11", tableName), "VALUES (1, 11)");
-        assertQuery(format("SELECT * FROM %s WHERE \"PART\" = 11", tableName), "VALUES (1, 11)");
-        assertQuery(format("SELECT * FROM %s WHERE \"Part\" = 11", tableName), "VALUES (1, 11)");
+        assertQuery(session, format("SELECT * FROM %s WHERE \"part\" = 11", tableName), "VALUES (1, 11)");
+        assertQuery(session, format("SELECT * FROM %s WHERE \"PART\" = 11", tableName), "VALUES (1, 11)");
+        assertQuery(session, format("SELECT * FROM %s WHERE \"Part\" = 11", tableName), "VALUES (1, 11)");
 
         assertUpdate("DROP TABLE " + tableName);
     }
