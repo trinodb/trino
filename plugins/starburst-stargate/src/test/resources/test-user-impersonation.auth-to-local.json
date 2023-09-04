@@ -1,9 +1,0 @@
-{
-  "rules": [
-    {
-      "match": "USER",
-      "pattern": "test_user",
-      "substitution": "test_user_in_remote_cluster"
-    }
-  ]
-}

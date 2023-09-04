@@ -11,15 +11,11 @@ package com.starburstdata.trino.plugins.stargate;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.starburstdata.presto.license.LicenceCheckingConnectorFactory;
-import com.starburstdata.presto.license.LicenseManager;
-import com.starburstdata.presto.license.LicenseManagerProvider;
+import com.starburstdata.trino.plugins.license.LicenseManager;
 import io.trino.plugin.jdbc.JdbcConnectorFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
-import static com.starburstdata.presto.license.StarburstFeature.STARGATE;
-import static com.starburstdata.presto.plugin.jdbc.statistics.ManagedStatisticsJdbcConnector.withManagedStatistics;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static java.util.Objects.requireNonNull;
 
@@ -29,24 +25,24 @@ public class StargatePlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return getConnectorFactories(new LicenseManagerProvider().get(), false);
+        return getConnectorFactories(() -> true, false);
     }
 
     @VisibleForTesting
     Iterable<ConnectorFactory> getConnectorFactories(LicenseManager licenseManager, boolean enableWrites)
     {
-        return ImmutableList.of(new LicenceCheckingConnectorFactory(STARGATE, getConnectorFactory(licenseManager, enableWrites), licenseManager));
+        return ImmutableList.of(getConnectorFactory(licenseManager, enableWrites));
     }
 
     private ConnectorFactory getConnectorFactory(LicenseManager licenseManager, boolean enableWrites)
     {
         requireNonNull(licenseManager, "licenseManager is null");
-        return withManagedStatistics(new JdbcConnectorFactory(
+        return new JdbcConnectorFactory(
                 // "stargate" will be used also for the parallel variant, with implementation chosen by a configuration property
                 "stargate",
                 combine(
                         binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
                         binder -> binder.bind(Boolean.class).annotatedWith(EnableWrites.class).toInstance(enableWrites),
-                        new StargateModule())));
+                        new StargateModule()));
     }
 }

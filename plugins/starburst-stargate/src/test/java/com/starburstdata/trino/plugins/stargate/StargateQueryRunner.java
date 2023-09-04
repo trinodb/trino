@@ -10,13 +10,13 @@
 package com.starburstdata.trino.plugins.stargate;
 
 import com.google.common.collect.ImmutableMap;
-import com.starburstdata.presto.plugin.hive.StarburstHivePlugin;
-import com.starburstdata.presto.plugin.postgresql.StarburstPostgreSqlPlugin;
-import com.starburstdata.presto.server.StarburstEngineQueryRunner;
+import com.starburstdata.trino.plugins.license.LicenseManager;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
+import io.trino.plugin.hive.HivePlugin;
 import io.trino.plugin.jmx.JmxPlugin;
+import io.trino.plugin.postgresql.PostgreSqlPlugin;
 import io.trino.plugin.postgresql.TestingPostgreSqlServer;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.security.SystemAccessControl;
@@ -43,6 +43,8 @@ import static java.util.Objects.requireNonNull;
 
 public final class StargateQueryRunner
 {
+    public static final LicenseManager NOOP_LICENSE_MANAGER = () -> true;
+
     private StargateQueryRunner() {}
 
     public static DistributedQueryRunner createRemoteStarburstQueryRunner(Optional<SystemAccessControl> systemAccessControl)
@@ -55,7 +57,7 @@ public final class StargateQueryRunner
                     .setCatalog("unspecified_catalog")
                     .setSchema("unspecified_schema")
                     .build();
-            DistributedQueryRunner.Builder<?> queryRunnerBuilder = StarburstEngineQueryRunner.builder(session)
+            DistributedQueryRunner.Builder<?> queryRunnerBuilder = DistributedQueryRunner.builder(session)
                     .setNodeCount(1); // 1 is perfectly enough until we do parallel Stargate connector
 
             systemAccessControl.ifPresent(queryRunnerBuilder::setSystemAccessControl);
@@ -99,7 +101,7 @@ public final class StargateQueryRunner
             throws Exception
     {
         try {
-            queryRunner.installPlugin(new StarburstHivePlugin());
+            queryRunner.installPlugin(new HivePlugin());
             queryRunner.createCatalog("hive", "hive", ImmutableMap.of(
                     "hive.metastore", "file",
                     "hive.metastore.catalog.dir", "file:" + hiveCatalog.toRealPath(),
@@ -133,7 +135,7 @@ public final class StargateQueryRunner
 
             server.execute("CREATE SCHEMA tiny");
 
-            queryRunner.installPlugin(new StarburstPostgreSqlPlugin());
+            queryRunner.installPlugin(new PostgreSqlPlugin());
             queryRunner.createCatalog("postgresql", "postgresql", connectorProperties);
 
             Session tpchSetupSession = testSessionBuilder()
@@ -195,7 +197,7 @@ public final class StargateQueryRunner
 
         DistributedQueryRunner queryRunner = null;
         try {
-            DistributedQueryRunner.Builder<?> builder = StarburstEngineQueryRunner.builder(session);
+            DistributedQueryRunner.Builder<?> builder = DistributedQueryRunner.builder(session);
             extraProperties.forEach(builder::addExtraProperty);
             queryRunner = builder
                     .setCoordinatorProperties(coordinatorProperties)
@@ -241,7 +243,7 @@ public final class StargateQueryRunner
     {
         Logging.initialize();
 
-        DistributedQueryRunner stargateQueryRunner = StarburstEngineQueryRunner.builder(testSessionBuilder()
+        DistributedQueryRunner stargateQueryRunner = DistributedQueryRunner.builder(testSessionBuilder()
                         .setCatalog("unspecified_catalog")
                         .setSchema("unspecified_schema")
                         .build())
@@ -316,6 +318,7 @@ public final class StargateQueryRunner
             return this;
         }
 
+        @SuppressWarnings("unused") // Used in starburst-enterprise repository
         public Builder withCatalog(String catalogName)
         {
             this.catalogName = requireNonNull(catalogName, "catalogName is null");
@@ -340,6 +343,7 @@ public final class StargateQueryRunner
             return this;
         }
 
+        @SuppressWarnings("unused") // Used in starburst-enterprise repository
         public Builder withStarburstStorage(JdbcDatabaseContainer<?> starburstStorage)
         {
             return withCoordinatorProperties(ImmutableMap.of(
@@ -348,6 +352,7 @@ public final class StargateQueryRunner
                     "insights.jdbc.password", starburstStorage.getPassword()));
         }
 
+        @SuppressWarnings("unused") // Used in starburst-enterprise repository
         public Builder withManagedStatistics()
         {
             return withCoordinatorProperties(ImmutableMap.of("starburst.managed-statistics.enabled", "true"))

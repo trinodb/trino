@@ -11,7 +11,7 @@ package com.starburstdata.trino.plugins.stargate;
 
 import io.trino.spi.connector.ConnectorFactory;
 
-import static com.starburstdata.presto.license.TestingLicenseManager.NOOP_LICENSE_MANAGER;
+import static com.starburstdata.trino.plugins.stargate.StargateQueryRunner.NOOP_LICENSE_MANAGER;
 
 public class TestingStargatePlugin
         extends StargatePlugin

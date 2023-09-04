@@ -9,8 +9,8 @@
  */
 package com.starburstdata.trino.plugins.stargate;
 
-import com.starburstdata.presto.plugin.toolkit.ForwardingConnector;
-import com.starburstdata.presto.plugin.toolkit.ForwardingConnectorFactory;
+import com.starburstdata.trino.plugins.toolkit.ForwardingConnector;
+import com.starburstdata.trino.plugins.toolkit.ForwardingConnectorFactory;
 import io.trino.plugin.memory.MemoryConnectorFactory;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;

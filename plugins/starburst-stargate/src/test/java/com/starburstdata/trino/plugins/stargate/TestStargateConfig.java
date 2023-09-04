@@ -14,8 +14,6 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.starburstdata.trino.plugins.stargate.StargateAuthenticationType.PASSWORD;
-import static com.starburstdata.trino.plugins.stargate.StargateAuthenticationType.PASSWORD_PASS_THROUGH;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
@@ -26,8 +24,6 @@ public class TestStargateConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(StargateConfig.class)
-                .setAuthenticationType(PASSWORD)
-                .setImpersonationEnabled(false)
                 .setSslEnabled(false));
     }
 
@@ -35,14 +31,10 @@ public class TestStargateConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("stargate.authentication.type", "PASSWORD_PASS_THROUGH")
-                .put("stargate.impersonation.enabled", "true")
                 .put("ssl.enabled", "true")
                 .buildOrThrow();
 
         StargateConfig expected = new StargateConfig()
-                .setAuthenticationType(PASSWORD_PASS_THROUGH)
-                .setImpersonationEnabled(true)
                 .setSslEnabled(true);
 
         assertFullMapping(properties, expected);

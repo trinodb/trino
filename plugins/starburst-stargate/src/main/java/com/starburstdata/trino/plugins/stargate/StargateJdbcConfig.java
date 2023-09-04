@@ -9,10 +9,10 @@
  */
 package com.starburstdata.trino.plugins.stargate;
 
-import com.starburstdata.presto.plugin.toolkit.StarburstJdbcUrl;
+import com.starburstdata.trino.plugins.toolkit.StarburstJdbcUrl;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 
-import static com.starburstdata.presto.plugin.toolkit.StarburstJdbcUrl.Presence.PRESENT;
+import static com.starburstdata.trino.plugins.toolkit.StarburstJdbcUrl.Presence.PRESENT;
 
 public class StargateJdbcConfig
         extends BaseJdbcConfig

@@ -14,7 +14,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
-import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.cache.NonEvictableCache;
@@ -51,7 +50,6 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
@@ -162,13 +160,11 @@ public class StargateClient
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ParameterizedExpression> aggregateFunctionRewriter;
     private final boolean statisticsEnabled;
-    private final TableScanRedirection tableScanRedirection;
 
     @Inject
     public StargateClient(
             BaseJdbcConfig config,
             JdbcStatisticsConfig statisticsConfig,
-            TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
             TypeManager typeManager,
             QueryBuilder queryBuilder,
@@ -206,7 +202,6 @@ public class StargateClient
                         this::quoted),
                 new ImplementCountDistinct(bigintTypeHandle, false)));
         this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
-        this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
     }
 
     @Override
@@ -736,12 +731,6 @@ public class StargateClient
     private static JdbcTypeHandle jdbcTypeHandleWithDecimalDigits(int jdbcType, int decimalDigits)
     {
         return new JdbcTypeHandle(jdbcType, Optional.empty(), Optional.empty(), Optional.of(decimalDigits), Optional.empty(), Optional.empty());
-    }
-
-    @Override
-    public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle handle)
-    {
-        return tableScanRedirection.getTableScanRedirection(session, handle, this);
     }
 
     @Override
