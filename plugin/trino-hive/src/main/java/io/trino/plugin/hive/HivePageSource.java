@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.Location;
 import io.trino.plugin.hive.HivePageSourceProvider.BucketAdaptation;
 import io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping;
+import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
 import io.trino.plugin.hive.coercions.TypeCoercer;
 import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
@@ -78,12 +79,12 @@ public class HivePageSource
             Optional<BucketValidator> bucketValidator,
             Optional<ReaderProjectionsAdapter> projectionsAdapter,
             TypeManager typeManager,
-            HiveTimestampPrecision timestampPrecision,
+            CoercionContext coercionContext,
             ConnectorPageSource delegate)
     {
         requireNonNull(columnMappings, "columnMappings is null");
         requireNonNull(typeManager, "typeManager is null");
-        requireNonNull(timestampPrecision, "timestampPrecision is null");
+        requireNonNull(coercionContext, "coercionContext is null");
 
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.columnMappings = columnMappings;
@@ -111,7 +112,7 @@ public class HivePageSource
                         .orElse(ImmutableList.of());
                 HiveType fromType = columnMapping.getBaseTypeCoercionFrom().get().getHiveTypeForDereferences(dereferenceIndices).get();
                 HiveType toType = columnMapping.getHiveColumnHandle().getHiveType();
-                coercers.add(createCoercer(typeManager, fromType, toType, timestampPrecision));
+                coercers.add(createCoercer(typeManager, fromType, toType, coercionContext));
             }
             else {
                 coercers.add(Optional.empty());

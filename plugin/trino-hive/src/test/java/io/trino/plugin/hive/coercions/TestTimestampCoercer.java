@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.coercions;
 
 import io.trino.plugin.hive.HiveTimestampPrecision;
+import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.LongTimestamp;
@@ -221,7 +222,7 @@ public class TestTimestampCoercer
 
     public static void assertCoercions(Type fromType, Object valueToBeCoerced, Type toType, Object expectedValue, HiveTimestampPrecision timestampPrecision)
     {
-        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(toType), timestampPrecision).orElseThrow()
+        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(toType), new CoercionContext(timestampPrecision)).orElseThrow()
                 .apply(nativeValueToBlock(fromType, valueToBeCoerced));
         assertThat(blockToNativeValue(toType, coercedValue))
                 .isEqualTo(expectedValue);
