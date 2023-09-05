@@ -25,12 +25,14 @@ import io.trino.testing.QueryRunner;
 import okhttp3.OkHttpClient;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.io.Resources.getResource;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.client.StatementClientFactory.newStatementClient;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -46,14 +48,9 @@ public class TestSetSessionAuthorization
             throws Exception
     {
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION)
-                .setSystemAccessControl("file", Map.of("security.config-file", getResourcePath("set_session_authorization_permissions.json")))
+                .setSystemAccessControl("file", Map.of("security.config-file", new File(getResource("set_session_authorization_permissions.json").toURI()).getPath()))
                 .build();
         return queryRunner;
-    }
-
-    private String getResourcePath(String resourceName)
-    {
-        return this.getClass().getClassLoader().getResource(resourceName).getPath();
     }
 
     @Test
