@@ -47,6 +47,7 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.time.Duration.ZERO;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -114,10 +115,11 @@ public class TestColumnMask
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(
-                        new ConnectorMaterializedViewDefinition.Column("nationkey", BigintType.BIGINT.getTypeId()),
-                        new ConnectorMaterializedViewDefinition.Column("name", VarcharType.createVarcharType(25).getTypeId()),
-                        new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId()),
-                        new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId())),
+                        new ConnectorMaterializedViewDefinition.Column("nationkey", BigintType.BIGINT.getTypeId(), Optional.empty()),
+                        new ConnectorMaterializedViewDefinition.Column("name", VarcharType.createVarcharType(25).getTypeId(), Optional.empty()),
+                        new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId(), Optional.empty()),
+                        new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId(), Optional.empty())),
+                Optional.of(ZERO),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 ImmutableMap.of());
@@ -128,10 +130,11 @@ public class TestColumnMask
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(
-                        new ConnectorMaterializedViewDefinition.Column("nationkey", BigintType.BIGINT.getTypeId()),
-                        new ConnectorMaterializedViewDefinition.Column("name", VarcharType.createVarcharType(25).getTypeId()),
-                        new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId()),
-                        new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId())),
+                        new ConnectorMaterializedViewDefinition.Column("nationkey", BigintType.BIGINT.getTypeId(), Optional.empty()),
+                        new ConnectorMaterializedViewDefinition.Column("name", VarcharType.createVarcharType(25).getTypeId(), Optional.empty()),
+                        new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId(), Optional.empty()),
+                        new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId(), Optional.empty())),
+                Optional.of(ZERO),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 ImmutableMap.of());
@@ -142,10 +145,11 @@ public class TestColumnMask
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(
-                        new ConnectorMaterializedViewDefinition.Column("nationkey", BigintType.BIGINT.getTypeId()),
-                        new ConnectorMaterializedViewDefinition.Column("name", VarcharType.createVarcharType(2).getTypeId()),
-                        new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId()),
-                        new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId())),
+                        new ConnectorMaterializedViewDefinition.Column("nationkey", BigintType.BIGINT.getTypeId(), Optional.empty()),
+                        new ConnectorMaterializedViewDefinition.Column("name", VarcharType.createVarcharType(2).getTypeId(), Optional.empty()),
+                        new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId(), Optional.empty()),
+                        new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId(), Optional.empty())),
+                Optional.of(ZERO),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 ImmutableMap.of());

@@ -104,6 +104,7 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.time.Duration.ZERO;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -198,7 +199,8 @@ public class TestAccessControl
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("test", BIGINT.getTypeId())),
+                                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("test", BIGINT.getTypeId(), Optional.empty())),
+                                Optional.of(ZERO),
                                 Optional.of("comment"),
                                 Optional.of("owner"),
                                 ImmutableMap.of());

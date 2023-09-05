@@ -25,6 +25,7 @@ import java.util.Optional;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static java.time.Duration.ZERO;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTestingMetadata
@@ -57,7 +58,8 @@ public class TestTestingMetadata
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(new Column("test", BIGINT.getTypeId())),
+                ImmutableList.of(new Column("test", BIGINT.getTypeId(), Optional.empty())),
+                Optional.of(ZERO),
                 Optional.empty(),
                 Optional.of("owner"),
                 ImmutableMap.of());

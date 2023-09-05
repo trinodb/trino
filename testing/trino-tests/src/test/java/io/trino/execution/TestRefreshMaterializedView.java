@@ -47,6 +47,7 @@ import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static java.time.Duration.ZERO;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -103,7 +104,8 @@ public class TestRefreshMaterializedView
                                                 Optional.of(new CatalogSchemaTableName("mock", "default", "test_storage")),
                                                 Optional.of("mock"),
                                                 Optional.of("default"),
-                                                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("nationkey", BIGINT.getTypeId())),
+                                                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("nationkey", BIGINT.getTypeId(), Optional.empty())),
+                                                Optional.of(ZERO),
                                                 Optional.empty(),
                                                 Optional.of("alice"),
                                                 ImmutableMap.of())))

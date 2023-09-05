@@ -48,6 +48,7 @@ import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.time.Duration.ZERO;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestMockConnector
@@ -100,7 +101,8 @@ public class TestMockConnector
                                                 Optional.of(new CatalogSchemaTableName("mock", "default", "test_storage")),
                                                 Optional.of("mock"),
                                                 Optional.of("default"),
-                                                ImmutableList.of(new Column("nationkey", BIGINT.getTypeId())),
+                                                ImmutableList.of(new Column("nationkey", BIGINT.getTypeId(), Optional.empty())),
+                                                Optional.of(ZERO),
                                                 Optional.empty(),
                                                 Optional.of("alice"),
                                                 ImmutableMap.of())))

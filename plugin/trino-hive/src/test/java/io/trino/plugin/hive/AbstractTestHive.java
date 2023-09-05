@@ -315,6 +315,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
+import static java.time.Duration.ZERO;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -890,7 +891,8 @@ public abstract class AbstractTestHive
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("abc", TypeId.of("type"))),
+                                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("abc", TypeId.of("type"), Optional.empty())),
+                                Optional.of(ZERO),
                                 Optional.empty(),
                                 Optional.of("alice"),
                                 ImmutableMap.of()));
