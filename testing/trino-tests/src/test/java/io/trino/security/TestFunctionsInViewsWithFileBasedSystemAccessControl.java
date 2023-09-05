@@ -26,6 +26,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.Map;
 import java.util.Optional;
 
@@ -44,7 +45,7 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        String securityConfigFile = getResource("file-based-system-functions-access.json").getPath();
+        String securityConfigFile = new File(getResource("file-based-system-functions-access.json").toURI()).getPath();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
                         .setCatalog(Optional.empty())
                         .setSchema(Optional.empty())
