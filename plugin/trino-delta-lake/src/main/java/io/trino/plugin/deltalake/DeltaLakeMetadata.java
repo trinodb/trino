@@ -2672,6 +2672,7 @@ public class DeltaLakeMetadata
                 tableHandle.getUpdateRowIdColumns(),
                 Optional.empty(),
                 false,
+                false,
                 Optional.empty(),
                 tableHandle.getReadVersion());
 
