@@ -13,22 +13,20 @@
  */
 package io.trino.security;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.TestingTableFunctions;
-import io.trino.plugin.base.security.FileBasedSystemAccessControl;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.security.Identity;
-import io.trino.spi.security.SystemAccessControl;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.io.Resources.getResource;
@@ -47,13 +45,12 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
             throws Exception
     {
         String securityConfigFile = getResource("file-based-system-functions-access.json").getPath();
-        SystemAccessControl accessControl = new FileBasedSystemAccessControl.Factory().create(ImmutableMap.of(SECURITY_CONFIG_FILE, securityConfigFile));
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
                         .setCatalog(Optional.empty())
                         .setSchema(Optional.empty())
                         .build())
                 .setNodeCount(1)
-                .setSystemAccessControl(accessControl)
+                .setSystemAccessControl("file", Map.of(SECURITY_CONFIG_FILE, securityConfigFile))
                 .build();
         queryRunner.installPlugin(new BlackHolePlugin());
         queryRunner.createCatalog("blackhole", "blackhole");
