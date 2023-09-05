@@ -15,27 +15,25 @@ package io.trino.plugin.oracle;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.Closeables;
-import io.trino.Session;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static io.trino.plugin.jdbc.ColumnWithAliasFormatter.DEFAULT_COLUMN_ALIAS_LENGTH;
-import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.JOIN_PUSHDOWN_ENABLED;
+import static io.trino.plugin.jdbc.SyntheticColumnHandleBuilder.DEFAULT_COLUMN_ALIAS_LENGTH;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_SCHEMA;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
-import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
+import static org.assertj.core.api.Assertions.assertThat;
 
-@Test(singleThreaded = true)
 public class TestOracleConnectorTest
         extends BaseOracleConnectorTest
 {
-    private static final int MAX_CHARS_COLUMN_ALIAS = DEFAULT_COLUMN_ALIAS_LENGTH;
+    private static final String MAXIMUM_LENGTH_COLUMN_IDENTIFIER = "z".repeat(DEFAULT_COLUMN_ALIAS_LENGTH);
 
     private TestingOracleServer oracleServer;
 
@@ -94,52 +92,12 @@ public class TestOracleConnectorTest
     @Test
     public void testPushdownJoinWithLongNameSucceeds()
     {
-        tryCleanupTemporaryTable();
-        try {
-            String baseColumnName = "test_pushdown_" + randomNameSuffix();
-            String validColumnName = baseColumnName + "z".repeat(MAX_CHARS_COLUMN_ALIAS - baseColumnName.length());
-
-            assertUpdate(format("""
-                    CREATE TABLE orders_1 as
-                        SELECT orderkey as %s,
-                            custkey,
-                            orderstatus,
-                            totalprice,
-                            orderdate,
-                            orderpriority,
-                            clerk,
-                            shippriority,
-                            comment
-                        FROM orders
-                    """, validColumnName), "VALUES 15000");
-
-            Session session = Session.builder(getSession())
-                    .setCatalogSessionProperty("oracle", JOIN_PUSHDOWN_ENABLED, "true")
-                    .build();
-            assertQuery(session,
-                    format("""
-                            SELECT c.custkey, o.%s, n.nationkey
-                                 FROM orders_1 o JOIN customer c ON c.custkey = o.custkey
-                                 JOIN nation n ON c.nationkey = n.nationkey
-                            """, validColumnName),
-                    """
-                                SELECT c.custkey, o.orderkey, n.nationkey
-                                FROM orders o JOIN customer c ON c.custkey = o.custkey
-                                JOIN nation n ON c.nationkey = n.nationkey
-                            """);
-        }
-        finally {
-            tryCleanupTemporaryTable();
-        }
-    }
-
-    private void tryCleanupTemporaryTable()
-    {
-        try {
-            assertUpdate("DROP TABLE orders_1");
-        }
-        catch (Exception ex) {
-            ex.printStackTrace();
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "long_identifier", "(%s bigint)".formatted(MAXIMUM_LENGTH_COLUMN_IDENTIFIER))) {
+            assertThat(query(joinPushdownEnabled(getSession()), """
+                    SELECT r.name, t.%s, n.name
+                    FROM %s t JOIN region r ON r.regionkey = t.%s
+                    JOIN nation n ON r.regionkey = n.regionkey""".formatted(MAXIMUM_LENGTH_COLUMN_IDENTIFIER, table.getName(), MAXIMUM_LENGTH_COLUMN_IDENTIFIER)))
+                    .isFullyPushedDown();
         }
     }
 }

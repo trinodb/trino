@@ -15,11 +15,11 @@ package io.trino.plugin.ignite;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
-import io.trino.plugin.jdbc.ColumnWithAliasFormatter;
 import io.trino.plugin.jdbc.DefaultJdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcQueryEventListener;
+import io.trino.plugin.jdbc.SyntheticColumnHandleBuilder;
 
 import java.util.Set;
 
@@ -31,16 +31,17 @@ public class IgniteJdbcMetadataFactory
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
     @Inject
-    public IgniteJdbcMetadataFactory(JdbcClient jdbcClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners,
-            ColumnWithAliasFormatter aliasFormatter)
+    public IgniteJdbcMetadataFactory(JdbcClient jdbcClient,
+                Set<JdbcQueryEventListener> jdbcQueryEventListeners,
+                SyntheticColumnHandleBuilder syntheticColumnHandleBuilder)
     {
-        super(jdbcClient, jdbcQueryEventListeners, aliasFormatter);
+        super(jdbcClient, jdbcQueryEventListeners, syntheticColumnHandleBuilder);
         this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "jdbcQueryEventListeners is null"));
     }
 
     @Override
     protected JdbcMetadata create(JdbcClient transactionCachingJdbcClient)
     {
-        return new IgniteMetadata(transactionCachingJdbcClient, jdbcQueryEventListeners, aliasFormatter);
+        return new IgniteMetadata(transactionCachingJdbcClient, jdbcQueryEventListeners, syntheticColumnBuilder);
     }
 }

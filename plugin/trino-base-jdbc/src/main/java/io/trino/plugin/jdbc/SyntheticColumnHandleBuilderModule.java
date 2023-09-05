@@ -16,12 +16,12 @@ package io.trino.plugin.jdbc;
 import com.google.inject.AbstractModule;
 import com.google.inject.Singleton;
 
-public class ColumnWithAliasFormatterModule
+public class SyntheticColumnHandleBuilderModule
         extends AbstractModule
 {
     @Override
     public void configure()
     {
-        bind(ColumnWithAliasFormatter.class).in(Singleton.class);
+        bind(SyntheticColumnHandleBuilder.class).in(Singleton.class);
     }
 }

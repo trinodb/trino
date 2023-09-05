@@ -13,26 +13,25 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.trino.spi.connector.ConnectorSession;
-
 import static com.google.common.base.Splitter.fixedLength;
-import static com.google.common.base.Strings.padStart;
+import static com.google.common.base.Verify.verify;
 
-public class ColumnWithAliasFormatter
+public class SyntheticColumnHandleBuilder
 {
     public static final int DEFAULT_COLUMN_ALIAS_LENGTH = 30;
-    public static final int ORIGINAL_COLUMN_NAME_LENGTH = 24;
 
-    public JdbcColumnHandle format(ConnectorSession session, JdbcColumnHandle column, int nextSyntheticColumnId)
+    public JdbcColumnHandle get(JdbcColumnHandle column, int nextSyntheticColumnId)
     {
-        int sequentialNumberLength = DEFAULT_COLUMN_ALIAS_LENGTH - ORIGINAL_COLUMN_NAME_LENGTH - 1;
+        verify(nextSyntheticColumnId >= 0, "nextSyntheticColumnId rolled over and is not monotonically increasing any more");
 
-        String originalColumnNameTruncated = fixedLength(ORIGINAL_COLUMN_NAME_LENGTH)
+        int sequentialNumberLength = String.valueOf(nextSyntheticColumnId).length();
+        int originalColumnNameLength = DEFAULT_COLUMN_ALIAS_LENGTH - sequentialNumberLength - "_".length();
+
+        String columnNameTruncated = fixedLength(originalColumnNameLength)
                 .split(column.getColumnName())
                 .iterator()
                 .next();
-        String formatString = "%s_%0" + sequentialNumberLength + "d";
-        String columnName = originalColumnNameTruncated + "_" + padStart(Integer.toString(nextSyntheticColumnId), sequentialNumberLength, '0');
+        String columnName = columnNameTruncated + "_" + nextSyntheticColumnId;
         return JdbcColumnHandle.builderFrom(column)
                 .setColumnName(columnName)
                 .build();

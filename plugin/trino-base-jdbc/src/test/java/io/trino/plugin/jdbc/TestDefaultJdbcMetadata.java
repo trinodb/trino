@@ -16,7 +16,6 @@ package io.trino.plugin.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.inject.Inject;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.ColumnHandle;
@@ -35,7 +34,6 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.testing.TestingConnectorSession;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Guice;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -56,15 +54,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)
-@Guice(modules = ColumnWithAliasFormatterModule.class)
 public class TestDefaultJdbcMetadata
 {
     private TestingDatabase database;
     private DefaultJdbcMetadata metadata;
     private JdbcTableHandle tableHandle;
 
-    @Inject
-    private ColumnWithAliasFormatter aliasFormatter;
+    private final SyntheticColumnHandleBuilder syntheticColumnHandleBuilder = new SyntheticColumnHandleBuilder();
 
     @BeforeMethod
     public void setUp()
@@ -75,7 +71,7 @@ public class TestDefaultJdbcMetadata
                 Optional.empty()),
                 false,
                 ImmutableSet.of(),
-                aliasFormatter);
+                syntheticColumnHandleBuilder);
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
     }
 
@@ -86,7 +82,7 @@ public class TestDefaultJdbcMetadata
                 Optional.of(false)),
                 false,
                 ImmutableSet.of(),
-                aliasFormatter);
+                syntheticColumnHandleBuilder);
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(new SchemaTableName("example", "numbers"), ImmutableList.of());
 
         assertThatThrownBy(() -> {
@@ -105,7 +101,7 @@ public class TestDefaultJdbcMetadata
                 Optional.of(true)),
                 false,
                 ImmutableSet.of(),
-                aliasFormatter);
+                syntheticColumnHandleBuilder);
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(new SchemaTableName("example", "numbers"), ImmutableList.of());
 
         ConnectorSession session = TestingConnectorSession.builder()

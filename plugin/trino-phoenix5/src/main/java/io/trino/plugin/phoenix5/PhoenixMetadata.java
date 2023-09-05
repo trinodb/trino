@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.mapping.IdentifierMapping;
-import io.trino.plugin.jdbc.ColumnWithAliasFormatter;
 import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
@@ -25,6 +24,7 @@ import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.SyntheticColumnHandleBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -85,10 +85,12 @@ public class PhoenixMetadata
     private final IdentifierMapping identifierMapping;
 
     @Inject
-    public PhoenixMetadata(PhoenixClient phoenixClient, IdentifierMapping identifierMapping, Set<JdbcQueryEventListener> jdbcQueryEventListeners,
-            ColumnWithAliasFormatter aliasFormatter)
+    public PhoenixMetadata(PhoenixClient phoenixClient,
+            IdentifierMapping identifierMapping,
+            Set<JdbcQueryEventListener> jdbcQueryEventListeners,
+            SyntheticColumnHandleBuilder syntheticColumnHandleBuilder)
     {
-        super(phoenixClient, false, jdbcQueryEventListeners, aliasFormatter);
+        super(phoenixClient, false, jdbcQueryEventListeners, syntheticColumnHandleBuilder);
         this.phoenixClient = requireNonNull(phoenixClient, "phoenixClient is null");
         this.identifierMapping = requireNonNull(identifierMapping, "identifierMapping is null");
     }

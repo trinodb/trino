@@ -113,17 +113,17 @@ public class DefaultJdbcMetadata
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
-    private final ColumnWithAliasFormatter aliasFormatter;
+    private final SyntheticColumnHandleBuilder syntheticColumnBuilder;
 
     public DefaultJdbcMetadata(JdbcClient jdbcClient,
             boolean precalculateStatisticsForPushdown,
             Set<JdbcQueryEventListener> jdbcQueryEventListeners,
-            ColumnWithAliasFormatter aliasFormatter)
+            SyntheticColumnHandleBuilder syntheticColumnBuilder)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.precalculateStatisticsForPushdown = precalculateStatisticsForPushdown;
         this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "queryEventListeners is null"));
-        this.aliasFormatter = requireNonNull(aliasFormatter, "aliasFormatter is null");
+        this.syntheticColumnBuilder = requireNonNull(syntheticColumnBuilder, "syntheticColumnBuilder is null");
     }
 
     @Override
@@ -459,14 +459,14 @@ public class DefaultJdbcMetadata
 
         ImmutableMap.Builder<JdbcColumnHandle, JdbcColumnHandle> newLeftColumnsBuilder = ImmutableMap.builder();
         for (JdbcColumnHandle column : jdbcClient.getColumns(session, leftHandle)) {
-            newLeftColumnsBuilder.put(column, aliasFormatter.format(session, column, nextSyntheticColumnId));
+            newLeftColumnsBuilder.put(column, syntheticColumnBuilder.get(column, nextSyntheticColumnId));
             nextSyntheticColumnId++;
         }
         Map<JdbcColumnHandle, JdbcColumnHandle> newLeftColumns = newLeftColumnsBuilder.buildOrThrow();
 
         ImmutableMap.Builder<JdbcColumnHandle, JdbcColumnHandle> newRightColumnsBuilder = ImmutableMap.builder();
         for (JdbcColumnHandle column : jdbcClient.getColumns(session, rightHandle)) {
-            newRightColumnsBuilder.put(column, aliasFormatter.format(session, column, nextSyntheticColumnId));
+            newRightColumnsBuilder.put(column, syntheticColumnBuilder.get(column, nextSyntheticColumnId));
             nextSyntheticColumnId++;
         }
         Map<JdbcColumnHandle, JdbcColumnHandle> newRightColumns = newRightColumnsBuilder.buildOrThrow();

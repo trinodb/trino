@@ -13,45 +13,50 @@
  */
 package io.trino.plugin.jdbc;
 
-import com.google.inject.Inject;
-import io.trino.testing.TestingConnectorSession;
-import org.testng.annotations.Guice;
+import com.google.common.base.VerifyException;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.Integer.MAX_VALUE;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@Guice(modules = ColumnWithAliasFormatterModule.class)
-public class TestColumnWithAliasFormatter
+public class TestSyntheticColumnHandleBuilder
 {
-    @Inject
-    private ColumnWithAliasFormatter actor;
+    private final SyntheticColumnHandleBuilder syntheticColumnHandleBuilder = new SyntheticColumnHandleBuilder();
 
-    private final TestingConnectorSession session = TestingConnectorSession.builder().build();
+    @DataProvider(name = "columns")
+    public static Object[][] testData()
+    {
+        return new Object[][] {
+                {"column_0", 999, "column_0_999"},
+                {"column_with_over_twenty_characters", 100, "column_with_over_twenty_ch_100"},
+                {"column_with_over_twenty_characters", MAX_VALUE, "column_with_over_tw_2147483647"}
+        };
+    }
 
-    @Test
-    public void testTooLongName()
+    @Test(dataProvider = "columns")
+    public void testColumnAliasTruncation(String columnName, int nextSynthenticId, String expectedSyntheticColumnName)
     {
         JdbcColumnHandle column = getDefaultColumnHandleBuilder()
-                .setColumnName("column_with_over_twenty_characters")
+                .setColumnName(columnName)
                 .build();
 
-        JdbcColumnHandle result = actor.format(session, column, 100);
+        JdbcColumnHandle result = syntheticColumnHandleBuilder.get(column, nextSynthenticId);
 
-        assertThat(result.getColumnName()).isEqualTo("column_with_over_twenty__00100");
+        assertThat(result.getColumnName()).isEqualTo(expectedSyntheticColumnName);
     }
 
     @Test
-    public void testTooShortName()
+    public void testNegativeSyntheticId()
     {
         JdbcColumnHandle column = getDefaultColumnHandleBuilder()
                 .setColumnName("column_0")
                 .build();
 
-        JdbcColumnHandle result = actor.format(session, column, 999);
-
-        assertThat(result.getColumnName()).isEqualTo("column_0_00999");
+        assertThatThrownBy(() -> syntheticColumnHandleBuilder.get(column, -2147483648)).isInstanceOf(VerifyException.class);
     }
 
     private static JdbcColumnHandle.Builder getDefaultColumnHandleBuilder()
