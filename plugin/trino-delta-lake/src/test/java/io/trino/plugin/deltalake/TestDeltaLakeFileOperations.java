@@ -41,6 +41,7 @@ import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_CREATE;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.CDF_DATA;
+import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.CHECKPOINT;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.DATA;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.LAST_CHECKPOINT;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.TRANSACTION_LOG_JSON;
@@ -131,6 +132,29 @@ public class TestDeltaLakeFileOperations
                         .build());
 
         assertUpdate("DROP TABLE test_read_unpartitioned");
+    }
+
+    @Test
+    public void testReadTableCheckpointInterval()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_read_checkpoint");
+
+        assertUpdate("CREATE TABLE test_read_checkpoint(key varchar, data varchar) WITH (checkpoint_interval = 2)");
+        assertUpdate("INSERT INTO test_read_checkpoint(key, data) VALUES ('p1', '1-abc'), ('p1', '1-def'), ('p2', '2-abc'), ('p2', '2-def')", 4);
+        assertUpdate("INSERT INTO test_read_checkpoint(key, data) VALUES ('p1', '1-baz'), ('p2', '2-baz')", 2);
+
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'test_read_checkpoint')");
+        assertFileSystemAccesses(
+                "TABLE test_read_checkpoint",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM), 2) // TODO (https://github.com/trinodb/trino/issues/16782) should be checked once per query
+                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000002.checkpoint.parquet", INPUT_FILE_GET_LENGTH), 8) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
+                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000002.checkpoint.parquet", INPUT_FILE_NEW_STREAM), 4) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM), 2) // TODO (https://github.com/trinodb/trino/issues/16780) why is last transaction log accessed more times than others?
+                        .addCopies(new FileOperation(DATA, "no partition", INPUT_FILE_NEW_STREAM), 2)
+                        .build());
+
+        assertUpdate("DROP TABLE test_read_checkpoint");
     }
 
     @Test
@@ -433,6 +457,9 @@ public class TestDeltaLakeFileOperations
             if (path.matches(".*/_delta_log/_last_checkpoint")) {
                 return new FileOperation(LAST_CHECKPOINT, fileName, operationType);
             }
+            if (path.matches(".*/_delta_log/\\d+\\.checkpoint\\.parquet")) {
+                return new FileOperation(CHECKPOINT, fileName, operationType);
+            }
             if (path.matches(".*/_delta_log/\\d+\\.json")) {
                 return new FileOperation(TRANSACTION_LOG_JSON, fileName, operationType);
             }
@@ -465,6 +492,7 @@ public class TestDeltaLakeFileOperations
     enum FileType
     {
         LAST_CHECKPOINT,
+        CHECKPOINT,
         TRANSACTION_LOG_JSON,
         TRINO_EXTENDED_STATS_JSON,
         DATA,
