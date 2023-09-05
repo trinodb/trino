@@ -232,16 +232,6 @@ public class AccessControlManager
     }
 
     @VisibleForTesting
-    public void addSystemAccessControl(SystemAccessControl systemAccessControl)
-    {
-        systemAccessControls.updateAndGet(currentControls ->
-                ImmutableList.<SystemAccessControl>builder()
-                        .addAll(currentControls)
-                        .add(systemAccessControl)
-                        .build());
-    }
-
-    @VisibleForTesting
     public void setSystemAccessControls(List<SystemAccessControl> systemAccessControls)
     {
         checkState(this.systemAccessControls.compareAndSet(null, systemAccessControls), "System access control already initialized");
