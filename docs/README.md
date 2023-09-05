@@ -45,13 +45,14 @@ Other useful resources:
 
 - [Style check](#style-check)
 - [Google Technical Writing Courses](https://developers.google.com/tech-writing)
-- [RST cheatsheet](https://github.com/ralsina/rst-cheatsheet/blob/master/rst-cheatsheet.rst)
+- [Myst guide](https://mystmd.org/guide)
 
 ## Tools
 
-Documentation source files can be found in [Restructured
-Text](https://en.wikipedia.org/wiki/ReStructuredText) (`.rst`) format in
-`src/main/sphinx` and sub-folders.
+Documentation source files can be found in [Myst Markdown](https://mystmd.org/)
+(`.md`) format in `src/main/sphinx` and sub-folders. Refer to the [Myst
+guide](https://mystmd.org/guide) and the existing documentation for more
+information about how to write and format the documentation source.
 
 The engine used to create the documentation in HTML format is the Python-based
 [Sphinx](https://www.sphinx-doc.org).
@@ -245,7 +246,8 @@ contribution](https://trino.io/development/process.html).
 
 1. See [**Contributing to the Trino
    documentation**](https://www.youtube.com/watch?v=yseFM3ZI2ro) for a
-   five-minute video introduction.
+   five-minute video introduction. Note that this video uses the old RST source
+   format.
 
 2. You might select a GitHub doc issue to work on that requires you to verify
    how Trino handles a situation, such as [adding
