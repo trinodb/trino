@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.orc;
 
 import io.trino.orc.metadata.OrcType.OrcTypeKind;
+import io.trino.plugin.hive.coercions.IntegerNumberToVarcharCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToVarcharCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToLongTimestampCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToShortTimestampCoercer;
@@ -24,10 +25,18 @@ import io.trino.spi.type.VarcharType;
 
 import java.util.Optional;
 
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.BYTE;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.INT;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.LONG;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.SHORT;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.STRING;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.VARCHAR;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 
 public final class OrcTypeTranslator
@@ -44,6 +53,15 @@ public final class OrcTypeTranslator
                 return Optional.of(new VarcharToShortTimestampCoercer(createUnboundedVarcharType(), timestampType));
             }
             return Optional.of(new VarcharToLongTimestampCoercer(createUnboundedVarcharType(), timestampType));
+        }
+        if ((fromOrcType == BYTE || fromOrcType == SHORT || fromOrcType == INT || fromOrcType == LONG) && toTrinoType instanceof VarcharType varcharType) {
+            Type type = switch (fromOrcType) {
+                case BYTE -> TINYINT;
+                case SHORT -> SMALLINT;
+                case INT -> INTEGER;
+                default -> BIGINT;
+            };
+            return Optional.of(new IntegerNumberToVarcharCoercer<>(type, varcharType));
         }
         return Optional.empty();
     }

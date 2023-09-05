@@ -15,16 +15,13 @@
 package io.trino.plugin.hive.coercions;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
-import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
-import static java.lang.String.format;
+import static io.trino.spi.type.Varchars.truncateToLength;
 
 public class IntegerNumberToVarcharCoercer<F extends Type>
         extends TypeCoercer<F, VarcharType>
@@ -39,9 +36,8 @@ public class IntegerNumberToVarcharCoercer<F extends Type>
     {
         long value = fromType.getLong(block, position);
         Slice converted = utf8Slice(String.valueOf(value));
-        if (!toType.isUnbounded() && countCodePoints(converted) > toType.getBoundedLength()) {
-            throw new TrinoException(INVALID_ARGUMENTS, format("Varchar representation of %s exceeds %s bounds", value, toType));
-        }
-        toType.writeSlice(blockBuilder, converted);
+        // Truncate the Slice to match the length bound of the target type
+        Slice slice = truncateToLength(converted, toType);
+        toType.writeSlice(blockBuilder, slice);
     }
 }

@@ -95,15 +95,26 @@ public class TestHiveCoercionOnPartitionedTable
                         "    row_to_row                 STRUCT<keep: STRING, ti2si: TINYINT, si2int: SMALLINT, int2bi: INT, bi2vc: BIGINT, lower2uppercase: BIGINT>, " +
                         "    list_to_list               ARRAY<STRUCT<ti2int: TINYINT, si2bi: SMALLINT, bi2vc: BIGINT, remove: STRING>>, " +
                         "    map_to_map                 MAP<TINYINT, STRUCT<ti2bi: TINYINT, int2bi: INT, float2double: " + floatType + ">>, " +
-                        "    tinyint_to_smallint        TINYINT," +
-                        "    tinyint_to_int             TINYINT," +
-                        "    tinyint_to_bigint          TINYINT," +
-                        "    smallint_to_int            SMALLINT," +
-                        "    smallint_to_bigint         SMALLINT," +
-                        "    int_to_bigint              INT," +
-                        "    bigint_to_varchar          BIGINT," +
-                        "    float_to_double            " + floatType + "," +
-                        "    double_to_float            DOUBLE," +
+                        "    tinyint_to_smallint                   TINYINT," +
+                        "    tinyint_to_int                        TINYINT," +
+                        "    tinyint_to_bigint                     TINYINT," +
+                        "    tinyint_to_string                     TINYINT," +
+                        "    tinyint_to_bounded_varchar            TINYINT," +
+                        "    tinyint_to_smaller_varchar            TINYINT," +
+                        "    smallint_to_int                       SMALLINT," +
+                        "    smallint_to_bigint                    SMALLINT," +
+                        "    smallint_to_string                    SMALLINT," +
+                        "    smallint_to_bounded_varchar           SMALLINT," +
+                        "    smallint_to_smaller_varchar           SMALLINT," +
+                        "    int_to_bigint                         INT," +
+                        "    int_to_string                         INT," +
+                        "    int_to_bounded_varchar                INT," +
+                        "    int_to_smaller_varchar                INT," +
+                        "    bigint_to_string                      BIGINT," +
+                        "    bigint_to_bounded_varchar             BIGINT," +
+                        "    bigint_to_smaller_varchar             BIGINT," +
+                        "    float_to_double                       " + floatType + "," +
+                        "    double_to_float                       DOUBLE," +
                         "    shortdecimal_to_shortdecimal          DECIMAL(10,2)," +
                         "    shortdecimal_to_longdecimal           DECIMAL(10,2)," +
                         "    longdecimal_to_shortdecimal           DECIMAL(20,12)," +
