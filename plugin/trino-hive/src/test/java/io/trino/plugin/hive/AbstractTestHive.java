@@ -883,7 +883,7 @@ public abstract class AbstractTestHive
                     @Override
                     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
                     {
-                        if (!viewName.getTableName().contains("materialized_view_tester")) {
+                        if (!isMaterializedView(session, viewName)) {
                             return Optional.empty();
                         }
                         return Optional.of(new ConnectorMaterializedViewDefinition(
@@ -896,6 +896,12 @@ public abstract class AbstractTestHive
                                 Optional.empty(),
                                 Optional.of("alice"),
                                 ImmutableMap.of()));
+                    }
+
+                    @Override
+                    public boolean isMaterializedView(ConnectorSession session, SchemaTableName viewName)
+                    {
+                        return viewName.getTableName().contains("materialized_view_tester");
                     }
                 },
                 SqlStandardAccessControlMetadata::new,

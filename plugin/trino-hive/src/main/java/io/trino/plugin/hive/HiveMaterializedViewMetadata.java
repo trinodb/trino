@@ -35,6 +35,11 @@ public interface HiveMaterializedViewMetadata
 
     Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName);
 
+    default boolean isMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return getMaterializedView(session, viewName).isPresent();
+    }
+
     MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name);
 
     boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName);
