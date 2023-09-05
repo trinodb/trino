@@ -1221,15 +1221,8 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private void scheduleTasks()
         {
-            long standardTasksWaitingForNode = preSchedulingTaskContexts.values().stream()
-                    .filter(context -> !context.getNodeLease().getNode().isDone())
-                    .filter(context -> context.getExecutionClass() == STANDARD)
-                    .count();
-
-            long speculativeTasksWaitingForNode = preSchedulingTaskContexts.values().stream()
-                    .filter(context -> !context.getNodeLease().getNode().isDone())
-                    .filter(context -> context.getExecutionClass() == SPECULATIVE)
-                    .count();
+            long standardTasksWaitingForNode = getWaitingForNodeTasksCount(STANDARD);
+            long speculativeTasksWaitingForNode = getWaitingForNodeTasksCount(SPECULATIVE);
 
             while (!schedulingQueue.isEmpty()) {
                 if (standardTasksWaitingForNode >= maxTasksWaitingForNode) {
@@ -1272,6 +1265,14 @@ public class EventDrivenFaultTolerantQueryScheduler
                     standardTasksWaitingForNode++;
                 }
             }
+        }
+
+        private long getWaitingForNodeTasksCount(TaskExecutionClass executionClass)
+        {
+            return preSchedulingTaskContexts.values().stream()
+                    .filter(context -> !context.getNodeLease().getNode().isDone())
+                    .filter(context -> context.getExecutionClass() == executionClass)
+                    .count();
         }
 
         private void processNodeAcquisitions()
