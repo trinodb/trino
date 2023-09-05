@@ -2853,11 +2853,18 @@ public class TestDeltaLakeConnectorTest
             Set<String> beforeActiveFiles = getActiveFiles(table.getName());
             assertQueryFails(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE", "Filter required on .*" + table.getName() + " for at least one partition column:.*");
             computeActual(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE part=1");
+            assertThat(beforeActiveFiles).isEqualTo(getActiveFiles(table.getName()));
 
-            assertThat(beforeActiveFiles).isNotEqualTo(getActiveFiles(table.getName()));
+            assertUpdate(session, "INSERT INTO " + table.getName() + " SELECT 1, 'Dave', 'Doe'", 1);
             assertQuery(session,
                     "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
-                    "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe')");
+                    "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe'), (1, 'Dave', 'Doe')");
+            computeActual(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE part=1");
+            assertThat(beforeActiveFiles).isNotEqualTo(getActiveFiles(table.getName()));
+
+            assertQuery(session,
+                    "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
+                    "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe'), (1, 'Dave', 'Doe')");
         }
     }
 
