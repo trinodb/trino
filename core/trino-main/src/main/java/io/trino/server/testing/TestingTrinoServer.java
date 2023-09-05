@@ -744,6 +744,11 @@ public class TestingTrinoServer
             return this;
         }
 
+        public Builder setSystemAccessControl(SystemAccessControl systemAccessControl)
+        {
+            return setSystemAccessControls(ImmutableList.of(requireNonNull(systemAccessControl, "systemAccessControl is null")));
+        }
+
         public Builder setSystemAccessControls(List<SystemAccessControl> systemAccessControls)
         {
             this.systemAccessControls = ImmutableList.copyOf(requireNonNull(systemAccessControls, "systemAccessControls is null"));
