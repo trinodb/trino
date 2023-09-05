@@ -329,6 +329,23 @@ public class TransactionLogAccess
                 fileFormatDataSourceStats);
     }
 
+    public Map<Class<?>, Object> getTransactionLogEntries(
+            ConnectorSession session,
+            TableSnapshot tableSnapshot,
+            Set<CheckpointEntryIterator.EntryType> entryTypes,
+            Function<Stream<DeltaLakeTransactionLogEntry>, Stream<Object>> entryMapper)
+    {
+        Stream<Object> entries = getEntries(
+                tableSnapshot,
+                entryTypes,
+                (checkpointStream, jsonStream) -> entryMapper.apply(Stream.concat(checkpointStream, jsonStream)),
+                session,
+                fileSystemFactory.create(session),
+                fileFormatDataSourceStats);
+
+        return entries.collect(toImmutableMap(Object::getClass, Function.identity(), (first, second) -> second));
+    }
+
     public ProtocolEntry getProtocolEntry(ConnectorSession session, TableSnapshot tableSnapshot)
     {
         return getProtocolEntries(tableSnapshot, session)
