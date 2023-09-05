@@ -26,6 +26,7 @@ import jakarta.annotation.Nullable;
 import okhttp3.OkHttpClient;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Map;
@@ -47,7 +48,7 @@ public class TestUserImpersonationAccessControl
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        String securityConfigFile = getResource("access_control_rules.json").getPath();
+        String securityConfigFile = new File(getResource("access_control_rules.json").toURI()).getPath();
         QueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION)
                 .setNodeCount(1)
                 .setSystemAccessControl("file", Map.of(SECURITY_CONFIG_FILE, securityConfigFile))
