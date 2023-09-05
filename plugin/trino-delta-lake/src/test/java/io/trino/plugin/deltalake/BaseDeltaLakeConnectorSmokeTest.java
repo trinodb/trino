@@ -360,6 +360,62 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     }
 
     @Test
+    public void testOptimizeRewritesTable()
+    {
+        String tableName = "test_optimize_rewrites_table_" + randomNameSuffix();
+        String tableLocation = getLocationForTable(bucketName, tableName);
+        assertUpdate("CREATE TABLE " + tableName + " (key integer, value varchar) WITH (location = '" + tableLocation + "')");
+        try {
+            // DistributedQueryRunner sets node-scheduler.include-coordinator by default, so include coordinator
+            int workerCount = getQueryRunner().getNodeCount();
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one')", 1);
+
+            for (int i = 0; i < 3; i++) {
+                Set<String> initialFiles = getActiveFiles(tableName);
+                computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+                Set<String> filesAfterOptimize = getActiveFiles(tableName);
+                assertThat(filesAfterOptimize)
+                        .hasSizeBetween(1, workerCount)
+                        .containsExactlyElementsOf(initialFiles);
+            }
+
+            assertQuery("SELECT * FROM " + tableName, "VALUES(1, 'one')");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testOptimizeRewritesPartitionedTable()
+    {
+        String tableName = "test_optimize_rewrites_partitioned_table_" + randomNameSuffix();
+        String tableLocation = getLocationForTable(bucketName, tableName);
+        assertUpdate("CREATE TABLE " + tableName + " (key integer, value varchar) WITH (location = '" + tableLocation + "', partitioned_by = ARRAY['key'])");
+        try {
+            // DistributedQueryRunner sets node-scheduler.include-coordinator by default, so include coordinator
+            int workerCount = getQueryRunner().getNodeCount();
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'two')", 1);
+
+            for (int i = 0; i < 3; i++) {
+                Set<String> initialFiles = getActiveFiles(tableName);
+                computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+                Set<String> filesAfterOptimize = getActiveFiles(tableName);
+                assertThat(filesAfterOptimize)
+                        .hasSizeBetween(1, workerCount)
+                        .containsExactlyInAnyOrderElementsOf(initialFiles);
+            }
+            assertQuery("SELECT * FROM " + tableName, "VALUES(1, 'one'), (2, 'two')");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
     @Override
     public void testShowCreateTable()
     {
