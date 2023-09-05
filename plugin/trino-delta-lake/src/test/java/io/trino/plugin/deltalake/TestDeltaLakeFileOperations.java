@@ -153,8 +153,8 @@ public class TestDeltaLakeFileOperations
                 "TABLE test_read_checkpoint",
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM), 2) // TODO (https://github.com/trinodb/trino/issues/16782) should be checked once per query
-                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000002.checkpoint.parquet", INPUT_FILE_GET_LENGTH), 8) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
-                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000002.checkpoint.parquet", INPUT_FILE_NEW_STREAM), 4) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
+                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000002.checkpoint.parquet", INPUT_FILE_GET_LENGTH), 6) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
+                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000002.checkpoint.parquet", INPUT_FILE_NEW_STREAM), 3) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
                         .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM), 2) // TODO (https://github.com/trinodb/trino/issues/16780) why is last transaction log accessed more times than others?
                         .addCopies(new FileOperation(DATA, "no partition", INPUT_FILE_NEW_STREAM), 2)
                         .build());
