@@ -42,6 +42,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -231,7 +232,7 @@ public abstract class BaseTestHiveCoercion
     {
         String hiveValueForCaseChangeField;
         Predicate<String> isFormat = formatName -> tableName.toLowerCase(ENGLISH).contains(formatName);
-        if (isFormat.test("rctext") || isFormat.test("textfile")) {
+        if (Stream.of("rctext", "textfile", "sequencefile").anyMatch(isFormat)) {
             hiveValueForCaseChangeField = "\"lower2uppercase\":2";
         }
         else if (getHiveVersionMajor() == 3 && isFormat.test("orc")) {
