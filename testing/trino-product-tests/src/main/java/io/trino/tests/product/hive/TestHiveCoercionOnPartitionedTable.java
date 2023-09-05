@@ -84,6 +84,14 @@ public class TestHiveCoercionOnPartitionedTable
             .setNoData()
             .build();
 
+    public static final HiveTableDefinition HIVE_COERCION_SEQUENCE = tableDefinitionBuilder("SEQUENCEFILE", Optional.empty(), Optional.empty())
+            .setNoData()
+            .build();
+
+    public static final HiveTableDefinition HIVE_TIMESTAMP_COERCION_SEQUENCE = tableDefinitionForTimestampCoercionBuilder("SEQUENCEFILE", Optional.empty(), Optional.empty())
+            .setNoData()
+            .build();
+
     private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionBuilder(String fileFormat, Optional<String> recommendTableName, Optional<String> rowFormat)
     {
         String tableName = format("%s_hive_coercion", recommendTableName.orElse(fileFormat).toLowerCase(ENGLISH));
@@ -230,6 +238,18 @@ public class TestHiveCoercionOnPartitionedTable
         }
     }
 
+    public static final class SequenceRequirements
+            implements RequirementsProvider
+    {
+        @Override
+        public Requirement getRequirements(Configuration configuration)
+        {
+            return compose(
+                    MutableTableRequirement.builder(HIVE_COERCION_SEQUENCE).withState(CREATED).build(),
+                    MutableTableRequirement.builder(HIVE_TIMESTAMP_COERCION_SEQUENCE).withState(CREATED).build());
+        }
+    }
+
     @Requires(TextRequirements.class)
     @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionTextFile()
@@ -298,6 +318,20 @@ public class TestHiveCoercionOnPartitionedTable
     public void testHiveCoercionWithDifferentTimestampPrecisionParquet()
     {
         doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_PARQUET);
+    }
+
+    @Requires(SequenceRequirements.class)
+    @Test(groups = {HIVE_COERCION, JDBC})
+    public void testHiveCoercionSequence()
+    {
+        doTestHiveCoercion(HIVE_COERCION_SEQUENCE);
+    }
+
+    @Requires(SequenceRequirements.class)
+    @Test(groups = {HIVE_COERCION, JDBC})
+    public void testHiveCoercionWithDifferentTimestampPrecisionSequence()
+    {
+        doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_SEQUENCE);
     }
 
     @Requires(AvroRequirements.class)
