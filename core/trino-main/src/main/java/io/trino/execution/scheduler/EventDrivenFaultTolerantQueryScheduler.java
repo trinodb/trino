@@ -1221,14 +1221,14 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private void scheduleTasks()
         {
-            long speculativeTasksWaitingForNode = preSchedulingTaskContexts.values().stream()
-                    .filter(context -> !context.getNodeLease().getNode().isDone())
-                    .filter(context -> context.getExecutionClass() == SPECULATIVE)
-                    .count();
-
             long nonSpeculativeTasksWaitingForNode = preSchedulingTaskContexts.values().stream()
                     .filter(context -> !context.getNodeLease().getNode().isDone())
                     .filter(context -> context.getExecutionClass() == STANDARD)
+                    .count();
+
+            long speculativeTasksWaitingForNode = preSchedulingTaskContexts.values().stream()
+                    .filter(context -> !context.getNodeLease().getNode().isDone())
+                    .filter(context -> context.getExecutionClass() == SPECULATIVE)
                     .count();
 
             while (!schedulingQueue.isEmpty()) {
