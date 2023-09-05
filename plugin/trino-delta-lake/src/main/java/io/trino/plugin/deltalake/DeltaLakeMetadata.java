@@ -160,6 +160,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -244,6 +245,8 @@ import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHANG
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.configurationForNewTable;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.getMandatoryCurrentVersion;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
+import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
+import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
@@ -481,9 +484,15 @@ public class DeltaLakeMetadata
 
         String tableLocation = table.get().location();
         TableSnapshot tableSnapshot = getSnapshot(tableName, tableLocation, session);
-        MetadataEntry metadataEntry;
+        Map<Class<?>, Object> logEntries;
         try {
-            metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, session);
+            logEntries = transactionLogAccess.getTransactionLogEntries(
+                    session,
+                    tableSnapshot,
+                    ImmutableSet.of(METADATA, PROTOCOL),
+                    entryStream -> entryStream
+                            .filter(entry -> entry.getMetaData() != null || entry.getProtocol() != null)
+                            .map(entry -> firstNonNull(entry.getMetaData(), entry.getProtocol())));
         }
         catch (TrinoException e) {
             if (e.getErrorCode().equals(DELTA_LAKE_INVALID_SCHEMA.toErrorCode())) {
@@ -491,7 +500,14 @@ public class DeltaLakeMetadata
             }
             throw e;
         }
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(session, tableSnapshot);
+        MetadataEntry metadataEntry = (MetadataEntry) logEntries.get(MetadataEntry.class);
+        if (metadataEntry == null) {
+            return new CorruptedDeltaLakeTableHandle(tableName, managed, tableLocation, new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
+        }
+        ProtocolEntry protocolEntry = (ProtocolEntry) logEntries.get(ProtocolEntry.class);
+        if (protocolEntry == null) {
+            return new CorruptedDeltaLakeTableHandle(tableName, managed, tableLocation, new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol not found in transaction log for " + tableSnapshot.getTable()));
+        }
         if (protocolEntry.getMinReaderVersion() > MAX_READER_VERSION) {
             LOG.debug("Skip %s because the reader version is unsupported: %d", tableName, protocolEntry.getMinReaderVersion());
             return null;
