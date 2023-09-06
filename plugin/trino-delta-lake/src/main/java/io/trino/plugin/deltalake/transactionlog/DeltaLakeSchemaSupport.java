@@ -35,6 +35,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -104,6 +105,7 @@ public final class DeltaLakeSchemaSupport
             .add("checkConstraints")
             .add("changeDataFeed")
             .add("columnMapping")
+            .add("timestampNtz")
             .build();
 
     public enum ColumnMappingMode
@@ -328,6 +330,9 @@ public final class DeltaLakeSchemaSupport
 
     private static Optional<String> serializeSupportedPrimitiveType(Type type)
     {
+        if (type instanceof TimestampType) {
+            return Optional.of("timestamp_ntz");
+        }
         if (type instanceof TimestampWithTimeZoneType) {
             return Optional.of("timestamp");
         }
@@ -374,6 +379,7 @@ public final class DeltaLakeSchemaSupport
     private static void validatePrimitiveType(Type type)
     {
         if (serializeSupportedPrimitiveType(type).isEmpty() ||
+                (type instanceof TimestampType && ((TimestampType) type).getPrecision() != 6) ||
                 (type instanceof TimestampWithTimeZoneType && ((TimestampWithTimeZoneType) type).getPrecision() != 3)) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Unsupported type: " + type);
         }
