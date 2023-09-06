@@ -14,6 +14,7 @@
 package io.trino.spi.connector;
 
 import io.trino.spi.function.FunctionKind;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
@@ -75,6 +76,7 @@ import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyShowCurrentRoles;
+import static io.trino.spi.security.AccessDeniedException.denyShowFunctions;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoles;
 import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
@@ -650,6 +652,28 @@ public interface ConnectorAccessControl
     default boolean canCreateViewWithExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)
     {
         return false;
+    }
+
+    /**
+     * Check if identity is allowed to show functions by executing SHOW FUNCTIONS.
+     * <p>
+     * NOTE: This method is only present to give users an error message when listing is not allowed.
+     * The {@link #filterFunctions} method must filter all results for unauthorized users,
+     * since there are multiple ways to list functions.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanShowFunctions(ConnectorSecurityContext context, String schemaName)
+    {
+        denyShowFunctions(schemaName);
+    }
+
+    /**
+     * Filter the list of functions to those visible to the identity.
+     */
+    default Set<SchemaFunctionName> filterFunctions(ConnectorSecurityContext context, Set<SchemaFunctionName> functionNames)
+    {
+        return emptySet();
     }
 
     /**

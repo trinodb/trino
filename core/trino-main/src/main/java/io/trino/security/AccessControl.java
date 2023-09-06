@@ -19,6 +19,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
@@ -563,6 +564,22 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName tableName, String procedureName);
+
+    /**
+     * Check if identity is allowed to show functions by executing SHOW FUNCTIONS in a catalog schema.
+     * <p>
+     * NOTE: This method is only present to give users an error message when listing is not allowed.
+     * The {@link #filterFunctions} method must filter all results for unauthorized users,
+     * since there are multiple ways to list functions.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanShowFunctions(SecurityContext context, CatalogSchemaName schema);
+
+    /**
+     * Filter the list of functions to those visible to the identity.
+     */
+    Set<SchemaFunctionName> filterFunctions(SecurityContext context, String catalogName, Set<SchemaFunctionName> functionNames);
 
     default List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {

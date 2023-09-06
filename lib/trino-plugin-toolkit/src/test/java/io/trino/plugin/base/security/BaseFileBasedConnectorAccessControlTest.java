@@ -25,6 +25,7 @@ import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.Privilege;
@@ -518,6 +519,14 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, new SchemaRoutineName("schema", "some_function"))).isFalse();
         assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, new SchemaRoutineName("ptf_schema", "some_function"))).isFalse();
         assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, new SchemaRoutineName("schema", "some_function"))).isFalse();
+
+        Set<SchemaFunctionName> functions = ImmutableSet.<SchemaFunctionName>builder()
+                .add(new SchemaFunctionName("restricted", "any"))
+                .add(new SchemaFunctionName("secret", "any"))
+                .add(new SchemaFunctionName("any", "any"))
+                .build();
+        assertEquals(accessControl.filterFunctions(ALICE, functions), ImmutableSet.of());
+        assertEquals(accessControl.filterFunctions(BOB, functions), ImmutableSet.of());
     }
 
     @Test
@@ -577,6 +586,32 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertDenied(() -> accessControl.checkCanShowTables(CHARLIE, "alice-schema"));
         assertDenied(() -> accessControl.checkCanShowTables(CHARLIE, "secret"));
         assertDenied(() -> accessControl.checkCanShowTables(CHARLIE, "any"));
+    }
+
+    @Test
+    public void testSchemaRulesForCheckCanShowFunctions()
+    {
+        ConnectorAccessControl accessControl = createAccessControl("visibility.json");
+        accessControl.checkCanShowFunctions(ADMIN, "specific-schema");
+        accessControl.checkCanShowFunctions(ADMIN, "bob-schema");
+        accessControl.checkCanShowFunctions(ADMIN, "alice-schema");
+        accessControl.checkCanShowFunctions(ADMIN, "secret");
+        accessControl.checkCanShowFunctions(ADMIN, "any");
+        accessControl.checkCanShowFunctions(ALICE, "specific-schema");
+        accessControl.checkCanShowFunctions(ALICE, "alice-schema");
+        assertDenied(() -> accessControl.checkCanShowFunctions(ALICE, "bob-schema"));
+        assertDenied(() -> accessControl.checkCanShowFunctions(ALICE, "secret"));
+        assertDenied(() -> accessControl.checkCanShowFunctions(ALICE, "any"));
+        accessControl.checkCanShowFunctions(BOB, "specific-schema");
+        accessControl.checkCanShowFunctions(BOB, "bob-schema");
+        assertDenied(() -> accessControl.checkCanShowFunctions(BOB, "alice-schema"));
+        assertDenied(() -> accessControl.checkCanShowFunctions(BOB, "secret"));
+        accessControl.checkCanShowFunctions(BOB, "any");
+        accessControl.checkCanShowFunctions(CHARLIE, "specific-schema");
+        assertDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, "bob-schema"));
+        assertDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, "alice-schema"));
+        assertDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, "secret"));
+        assertDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, "any"));
     }
 
     @Test
@@ -727,6 +762,37 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertDenied(() -> accessControl.checkCanSetViewAuthorization(user("DENY_authorized", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user")));
         assertDenied(() -> accessControl.checkCanSetViewAuthorization(user("user", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user")));
         assertDenied(() -> accessControl.checkCanSetViewAuthorization(user("authorized", "owner"), ownedByGroup, new TrinoPrincipal(ROLE, "new_role")));
+    }
+
+    @Test
+    public void testFunctionFilter()
+    {
+        ConnectorAccessControl accessControl = createAccessControl("function-filter.json");
+        Set<SchemaFunctionName> functions = ImmutableSet.<SchemaFunctionName>builder()
+                .add(new SchemaFunctionName("restricted", "any"))
+                .add(new SchemaFunctionName("secret", "any"))
+                .add(new SchemaFunctionName("aliceschema", "any"))
+                .add(new SchemaFunctionName("aliceschema", "bobfunction"))
+                .add(new SchemaFunctionName("bobschema", "bob_any"))
+                .add(new SchemaFunctionName("bobschema", "any"))
+                .add(new SchemaFunctionName("any", "any"))
+                .build();
+        assertEquals(accessControl.filterFunctions(ALICE, functions), ImmutableSet.<SchemaFunctionName>builder()
+                .add(new SchemaFunctionName("aliceschema", "any"))
+                .add(new SchemaFunctionName("aliceschema", "bobfunction"))
+                .build());
+        assertEquals(accessControl.filterFunctions(BOB, functions), ImmutableSet.<SchemaFunctionName>builder()
+                .add(new SchemaFunctionName("aliceschema", "bobfunction"))
+                .add(new SchemaFunctionName("bobschema", "bob_any"))
+                .build());
+        assertEquals(accessControl.filterFunctions(ADMIN, functions), ImmutableSet.<SchemaFunctionName>builder()
+                .add(new SchemaFunctionName("secret", "any"))
+                .add(new SchemaFunctionName("aliceschema", "any"))
+                .add(new SchemaFunctionName("aliceschema", "bobfunction"))
+                .add(new SchemaFunctionName("bobschema", "bob_any"))
+                .add(new SchemaFunctionName("bobschema", "any"))
+                .add(new SchemaFunctionName("any", "any"))
+                .build());
     }
 
     @Test
