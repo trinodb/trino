@@ -19,6 +19,7 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.function.FunctionKind;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.SystemAccessControl;
@@ -485,6 +486,18 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName table, String procedure)
     {
         delegate().checkCanExecuteTableProcedure(systemSecurityContext, table, procedure);
+    }
+
+    @Override
+    public void checkCanShowFunctions(SystemSecurityContext context, CatalogSchemaName schema)
+    {
+        delegate().checkCanShowFunctions(context, schema);
+    }
+
+    @Override
+    public Set<SchemaFunctionName> filterFunctions(SystemSecurityContext context, String catalogName, Set<SchemaFunctionName> functionNames)
+    {
+        return delegate().filterFunctions(context, catalogName, functionNames);
     }
 
     @Override
