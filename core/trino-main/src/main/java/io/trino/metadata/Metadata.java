@@ -661,7 +661,9 @@ public interface Metadata
     // Functions
     //
 
-    Collection<FunctionMetadata> listFunctions(Session session);
+    Collection<FunctionMetadata> listGlobalFunctions(Session session);
+
+    Collection<FunctionMetadata> listFunctions(Session session, CatalogSchemaName schema);
 
     ResolvedFunction decodeFunction(QualifiedName name);
 
