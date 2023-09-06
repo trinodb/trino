@@ -404,12 +404,6 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
                     "  'delta.minReaderVersion' = '1',\n" +
                     "  'delta.minWriterVersion' = '2')\n";
         }
-        if (databricksRuntimeVersion.equals(DATABRICKS_104_RUNTIME_VERSION)) {
-            return "TBLPROPERTIES (\n" +
-                    "  'Type' = 'EXTERNAL',\n" +
-                    "  'delta.minReaderVersion' = '1',\n" +
-                    "  'delta.minWriterVersion' = '2')\n";
-        }
         throw new IllegalArgumentException("Unsupported databricks runtime version: " + databricksRuntimeVersion);
     }
 }
