@@ -94,7 +94,6 @@ public class HiveSplit
                 tableToPartitionMapping,
                 bucketConversion,
                 bucketValidation,
-                s3SelectPushdownEnabled,
                 acidInfo,
                 splitWeight);
     }
@@ -115,7 +114,6 @@ public class HiveSplit
             TableToPartitionMapping tableToPartitionMapping,
             Optional<BucketConversion> bucketConversion,
             Optional<BucketValidation> bucketValidation,
-            boolean s3SelectPushdownEnabled,
             Optional<AcidInfo> acidInfo,
             SplitWeight splitWeight)
     {
