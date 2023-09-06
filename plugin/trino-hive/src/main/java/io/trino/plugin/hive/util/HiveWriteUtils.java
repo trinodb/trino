@@ -51,7 +51,6 @@ import org.apache.hadoop.hdfs.DistributedFileSystem;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -78,7 +77,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.padSpaces;
-import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.readBigDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -86,7 +84,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -163,10 +160,6 @@ public final class HiveWriteUtils
             long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
             int nanosOfSecond = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
             return LocalDateTime.ofEpochSecond(epochSeconds, nanosOfSecond, ZoneOffset.UTC).format(HIVE_TIMESTAMP_FORMATTER);
-        }
-        if (TIMESTAMP_TZ_MILLIS.equals(type)) {
-            long epochMillis = unpackMillisUtc(type.getLong(block, position));
-            return LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), ZoneOffset.UTC).format(HIVE_TIMESTAMP_FORMATTER);
         }
         if (type instanceof DecimalType decimalType) {
             return readBigDecimal(decimalType, block, position).stripTrailingZeros().toPlainString();
