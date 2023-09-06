@@ -131,6 +131,7 @@ import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.HyperLogLogType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -146,6 +147,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -336,6 +338,8 @@ public class DeltaLakeMetadata
     private static final int CDF_SUPPORTED_WRITER_VERSION = 4;
     private static final int COLUMN_MAPPING_MODE_SUPPORTED_READER_VERSION = 2;
     private static final int COLUMN_MAPPING_MODE_SUPPORTED_WRITER_VERSION = 5;
+    private static final int TIMESTAMP_NTZ_SUPPORTED_READER_VERSION = 3;
+    private static final int TIMESTAMP_NTZ_SUPPORTED_WRITER_VERSION = 7;
 
     // Matches the dummy column Databricks stores in the metastore
     private static final List<Column> DUMMY_DATA_COLUMNS = ImmutableList.of(
@@ -879,10 +883,14 @@ public class DeltaLakeMetadata
                 ImmutableList.Builder<String> columnNames = ImmutableList.builderWithExpectedSize(tableMetadata.getColumns().size());
                 ImmutableMap.Builder<String, Object> columnTypes = ImmutableMap.builderWithExpectedSize(tableMetadata.getColumns().size());
                 ImmutableMap.Builder<String, Map<String, Object>> columnsMetadata = ImmutableMap.builderWithExpectedSize(tableMetadata.getColumns().size());
+                boolean containsTimestampType = false;
                 for (ColumnMetadata column : tableMetadata.getColumns()) {
                     columnNames.add(column.getName());
                     columnTypes.put(column.getName(), serializeColumnType(columnMappingMode, fieldId, column.getType()));
                     columnsMetadata.put(column.getName(), generateColumnMetadata(columnMappingMode, fieldId));
+                    if (!containsTimestampType) {
+                        containsTimestampType = containsTimestampType(column.getType());
+                    }
                 }
                 Map<String, String> columnComments = tableMetadata.getColumns().stream()
                         .filter(column -> column.getComment() != null)
@@ -909,7 +917,7 @@ public class DeltaLakeMetadata
                         CREATE_TABLE_OPERATION,
                         session,
                         tableMetadata.getComment(),
-                        protocolEntryForNewTable(tableMetadata.getProperties()));
+                        protocolEntryForNewTable(containsTimestampType, tableMetadata.getProperties()));
 
                 setRollback(() -> deleteRecursivelyIfExists(fileSystem, deltaLogDirectory));
                 transactionLogWriter.flush();
@@ -1009,6 +1017,7 @@ public class DeltaLakeMetadata
         setRollback(() -> deleteRecursivelyIfExists(fileSystemFactory.create(session), finalLocation));
 
         boolean usePhysicalName = columnMappingMode == ID || columnMappingMode == NAME;
+        boolean containsTimestampType = false;
         int columnSize = tableMetadata.getColumns().size();
         ImmutableList.Builder<String> columnNames = ImmutableList.builderWithExpectedSize(columnSize);
         ImmutableMap.Builder<String, Object> columnTypes = ImmutableMap.builderWithExpectedSize(columnSize);
@@ -1018,6 +1027,7 @@ public class DeltaLakeMetadata
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             columnNames.add(column.getName());
             columnNullabilities.put(column.getName(), column.isNullable());
+            containsTimestampType |= containsTimestampType(column.getType());
 
             Object serializedType = serializeColumnType(columnMappingMode, fieldId, column.getType());
             Type physicalType = deserializeType(typeManager, serializedType, usePhysicalName);
@@ -1067,7 +1077,7 @@ public class DeltaLakeMetadata
                 schemaString,
                 columnMappingMode,
                 maxFieldId,
-                protocolEntryForNewTable(tableMetadata.getProperties()));
+                protocolEntryForNewTable(containsTimestampType, tableMetadata.getProperties()));
     }
 
     private Optional<String> getSchemaLocation(Database database)
@@ -1154,6 +1164,21 @@ public class DeltaLakeMetadata
         catch (IOException e) {
             LOG.warn(e, "IOException while trying to delete '%s'", path);
         }
+    }
+
+    private static boolean containsTimestampType(Type type)
+    {
+        if (type instanceof ArrayType arrayType) {
+            return containsTimestampType(arrayType.getElementType());
+        }
+        if (type instanceof MapType mapType) {
+            return containsTimestampType(mapType.getKeyType()) || containsTimestampType(mapType.getValueType());
+        }
+        if (type instanceof RowType rowType) {
+            return rowType.getFields().stream().anyMatch(field -> containsTimestampType(field.getType()));
+        }
+        checkArgument(type.getTypeParameters().isEmpty(), "Unexpected type parameters for type %s", type);
+        return type instanceof TimestampType;
     }
 
     @Override
@@ -2243,10 +2268,12 @@ public class DeltaLakeMetadata
         }
     }
 
-    private ProtocolEntry protocolEntryForNewTable(Map<String, Object> properties)
+    private ProtocolEntry protocolEntryForNewTable(boolean containsTimestampType, Map<String, Object> properties)
     {
         int readerVersion = DEFAULT_READER_VERSION;
         int writerVersion = DEFAULT_WRITER_VERSION;
+        Set<String> readerFeatures = new HashSet<>();
+        Set<String> writerFeatures = new HashSet<>();
         Optional<Boolean> changeDataFeedEnabled = getChangeDataFeedEnabled(properties);
         if (changeDataFeedEnabled.isPresent() && changeDataFeedEnabled.get()) {
             // Enabling cdf (change data feed) requires setting the writer version to 4
@@ -2258,7 +2285,17 @@ public class DeltaLakeMetadata
             readerVersion = max(readerVersion, COLUMN_MAPPING_MODE_SUPPORTED_READER_VERSION);
             writerVersion = max(writerVersion, COLUMN_MAPPING_MODE_SUPPORTED_WRITER_VERSION);
         }
-        return new ProtocolEntry(readerVersion, writerVersion, Optional.empty(), Optional.empty());
+        if (containsTimestampType) {
+            readerVersion = max(readerVersion, TIMESTAMP_NTZ_SUPPORTED_READER_VERSION);
+            writerVersion = max(writerVersion, TIMESTAMP_NTZ_SUPPORTED_WRITER_VERSION);
+            readerFeatures.add("timestampNtz");
+            writerFeatures.add("timestampNtz");
+        }
+        return new ProtocolEntry(
+                readerVersion,
+                writerVersion,
+                readerFeatures.isEmpty() ? Optional.empty() : Optional.of(readerFeatures),
+                writerFeatures.isEmpty() ? Optional.empty() : Optional.of(writerFeatures));
     }
 
     private void writeCheckpointIfNeeded(ConnectorSession session, SchemaTableName table, String tableLocation, Optional<Long> checkpointInterval, long newVersion)
