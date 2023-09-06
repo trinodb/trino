@@ -42,6 +42,7 @@ import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.SystemAccessControl;
@@ -1297,6 +1298,46 @@ public class AccessControlManager
                         context,
                         tableName.asSchemaTableName(),
                         procedureName));
+    }
+
+    @Override
+    public void checkCanShowFunctions(SecurityContext securityContext, CatalogSchemaName schema)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(schema, "schema is null");
+
+        checkCanAccessCatalog(securityContext, schema.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanShowFunctions(securityContext.toSystemSecurityContext(), schema));
+
+        catalogAuthorizationCheck(schema.getCatalogName(), securityContext, (control, context) -> control.checkCanShowFunctions(context, schema.getSchemaName()));
+    }
+
+    @Override
+    public Set<SchemaFunctionName> filterFunctions(SecurityContext securityContext, String catalogName, Set<SchemaFunctionName> functionNames)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(functionNames, "functionNames is null");
+
+        if (functionNames.isEmpty()) {
+            return ImmutableSet.of();
+        }
+
+        if (filterCatalogs(securityContext, ImmutableSet.of(catalogName)).isEmpty()) {
+            return ImmutableSet.of();
+        }
+
+        for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
+            functionNames = systemAccessControl.filterFunctions(securityContext.toSystemSecurityContext(), catalogName, functionNames);
+        }
+
+        ConnectorAccessControl connectorAccessControl = getConnectorAccessControl(securityContext.getTransactionId(), catalogName);
+        if (connectorAccessControl != null) {
+            functionNames = connectorAccessControl.filterFunctions(toConnectorSecurityContext(catalogName, securityContext), functionNames);
+        }
+
+        return functionNames;
     }
 
     @Override

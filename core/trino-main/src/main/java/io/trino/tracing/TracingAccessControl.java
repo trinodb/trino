@@ -24,6 +24,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
@@ -704,6 +705,24 @@ public class TracingAccessControl
         Span span = startSpan("checkCanExecuteTableProcedure");
         try (var ignored = scopedSpan(span)) {
             delegate.checkCanExecuteTableProcedure(context, tableName, procedureName);
+        }
+    }
+
+    @Override
+    public void checkCanShowFunctions(SecurityContext context, CatalogSchemaName schema)
+    {
+        Span span = startSpan("checkCanShowFunctions");
+        try (var ignored = scopedSpan(span)) {
+            delegate.checkCanShowFunctions(context, schema);
+        }
+    }
+
+    @Override
+    public Set<SchemaFunctionName> filterFunctions(SecurityContext context, String catalogName, Set<SchemaFunctionName> functionNames)
+    {
+        Span span = startSpan("filterFunctions");
+        try (var ignored = scopedSpan(span)) {
+            return delegate.filterFunctions(context, catalogName, functionNames);
         }
     }
 

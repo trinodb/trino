@@ -21,6 +21,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
@@ -87,6 +88,7 @@ import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyShowCurrentRoles;
+import static io.trino.spi.security.AccessDeniedException.denyShowFunctions;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoles;
 import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
@@ -529,5 +531,17 @@ public class DenyAllAccessControl
     public void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName tableName, String procedureName)
     {
         denyExecuteTableProcedure(tableName.toString(), procedureName);
+    }
+
+    @Override
+    public void checkCanShowFunctions(SecurityContext context, CatalogSchemaName schema)
+    {
+        denyShowFunctions(schema.toString());
+    }
+
+    @Override
+    public Set<SchemaFunctionName> filterFunctions(SecurityContext context, String catalogName, Set<SchemaFunctionName> functionNames)
+    {
+        return ImmutableSet.of();
     }
 }

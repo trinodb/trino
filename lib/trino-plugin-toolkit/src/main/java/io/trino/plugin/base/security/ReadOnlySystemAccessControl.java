@@ -18,6 +18,7 @@ import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemAccessControlFactory;
@@ -187,5 +188,16 @@ public class ReadOnlySystemAccessControl
     private static boolean isSystemBuiltinSchema(CatalogSchemaRoutineName functionName)
     {
         return functionName.getCatalogName().equals("system") && functionName.getSchemaName().equals("builtin");
+    }
+
+    @Override
+    public void checkCanShowFunctions(SystemSecurityContext context, CatalogSchemaName schema)
+    {
+    }
+
+    @Override
+    public Set<SchemaFunctionName> filterFunctions(SystemSecurityContext context, String catalogName, Set<SchemaFunctionName> functionNames)
+    {
+        return functionNames;
     }
 }
