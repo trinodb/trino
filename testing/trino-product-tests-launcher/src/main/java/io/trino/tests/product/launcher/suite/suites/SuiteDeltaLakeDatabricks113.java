@@ -31,8 +31,7 @@ public class SuiteDeltaLakeDatabricks113
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvSinglenodeDeltaLakeDatabricks113.class)
-                        .withGroups("configured_features", "delta-lake-databricks")
-                        .withExcludedGroups("delta-lake-exclude-113")
+                        .withGroups("configured_features", "delta-lake-databricks-113")
                         .withExcludedTests(getExcludedTests())
                         .build());
     }
