@@ -786,7 +786,13 @@ public abstract class AbstractMockMetadata
     //
 
     @Override
-    public Collection<FunctionMetadata> listFunctions(Session session)
+    public Collection<FunctionMetadata> listGlobalFunctions(Session session)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Collection<FunctionMetadata> listFunctions(Session session, CatalogSchemaName schema)
     {
         throw new UnsupportedOperationException();
     }

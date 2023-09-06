@@ -2286,16 +2286,20 @@ public final class MetadataManager
     //
 
     @Override
-    public Collection<FunctionMetadata> listFunctions(Session session)
+    public Collection<FunctionMetadata> listGlobalFunctions(Session session)
+    {
+        return functions.listFunctions();
+    }
+
+    @Override
+    public Collection<FunctionMetadata> listFunctions(Session session, CatalogSchemaName schema)
     {
         ImmutableList.Builder<FunctionMetadata> functions = ImmutableList.builder();
-        functions.addAll(this.functions.listFunctions());
-        for (CatalogSchemaName element : session.getPath().getPath()) {
-            getOptionalCatalogMetadata(session, element.getCatalogName()).ifPresent(metadata -> {
-                ConnectorSession connectorSession = session.toConnectorSession(metadata.getCatalogHandle());
-                functions.addAll(metadata.getMetadata(session).listFunctions(connectorSession, element.getSchemaName()));
-            });
-        }
+        getOptionalCatalogMetadata(session, schema.getCatalogName()).ifPresent(catalogMetadata -> {
+            ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogHandle());
+            ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+            functions.addAll(metadata.listFunctions(connectorSession, schema.getSchemaName()));
+        });
         return functions.build();
     }
 
