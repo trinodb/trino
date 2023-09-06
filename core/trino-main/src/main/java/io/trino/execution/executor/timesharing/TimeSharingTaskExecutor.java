@@ -670,6 +670,12 @@ public class TimeSharingTaskExecutor
     }
 
     @Managed
+    public synchronized int getCurrentLeafSplitsSize()
+    {
+        return allSplits.size() - intermediateSplits.size();
+    }
+
+    @Managed
     public int getRunningSplits()
     {
         return runningSplits.size();
