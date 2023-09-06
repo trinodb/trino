@@ -261,14 +261,6 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
                 .hasMessageContaining("metadata location for register_table is not supported");
     }
 
-    @Test
-    @Override
-    public void testDropTableWithNonExistentTableLocation()
-    {
-        assertThatThrownBy(super::testDropTableWithNonExistentTableLocation)
-                .hasMessageMatching("Cannot drop corrupted table (.*)");
-    }
-
     @Override
     protected boolean isFileSorted(Location path, String sortColumnName)
     {
