@@ -31,8 +31,7 @@ public class SuiteDeltaLakeDatabricks104
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvSinglenodeDeltaLakeDatabricks104.class)
-                        .withGroups("configured_features", "delta-lake-databricks")
-                        .withExcludedGroups("delta-lake-exclude-104")
+                        .withGroups("configured_features", "delta-lake-databricks-104")
                         .withExcludedTests(getExcludedTests())
                         .build());
     }
