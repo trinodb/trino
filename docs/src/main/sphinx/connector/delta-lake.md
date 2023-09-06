@@ -302,6 +302,8 @@ this table:
     - ``BINARY``
   * - ``DATE``
     - ``DATE``
+  * - ``TIMESTAMP``
+    - ``TIMESTAMPNTZ`` (``TIMESTAMP_NTZ``)
   * - ``TIMESTAMP(3) WITH TIME ZONE``
     - ``TIMESTAMP``
   * - ``ARRAY``
