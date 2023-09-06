@@ -168,9 +168,9 @@ public class DeltaLakeSplitManager
         Optional<Long> maxScannedFileSizeInBytes = maxScannedFileSize.map(DataSize::toBytes);
 
         Set<String> predicatedColumnNames = Stream.concat(
-                nonPartitionConstraint.getDomains().orElseThrow().keySet().stream(),
-                columnsCoveredByDynamicFilter.stream()
-                        .map(DeltaLakeColumnHandle.class::cast))
+                        nonPartitionConstraint.getDomains().orElseThrow().keySet().stream(),
+                        columnsCoveredByDynamicFilter.stream()
+                                .map(DeltaLakeColumnHandle.class::cast))
                 .map(DeltaLakeColumnHandle::getBaseColumnName)
                 .collect(toImmutableSet());
         List<DeltaLakeColumnMetadata> schema = extractSchema(tableHandle.getMetadataEntry(), tableHandle.getProtocolEntry(), typeManager);
