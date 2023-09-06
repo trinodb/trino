@@ -773,7 +773,7 @@ public final class ShowQueriesRewrite
         @Override
         protected Node visitShowFunctions(ShowFunctions node, Void context)
         {
-            List<Expression> rows = metadata.listFunctions(session).stream()
+            List<Expression> rows = listFunctions().stream()
                     .filter(function -> !function.isHidden())
                     .flatMap(metadata -> metadata.getNames().stream().map(alias -> toRow(alias, metadata)))
                     .collect(toImmutableList());
@@ -818,6 +818,16 @@ public final class ShowQueriesRewrite
                     new StringLiteral(getFunctionType(function)),
                     function.isDeterministic() ? TRUE_LITERAL : FALSE_LITERAL,
                     new StringLiteral(nullToEmpty(function.getDescription())));
+        }
+
+        private Collection<FunctionMetadata> listFunctions()
+        {
+            ImmutableList.Builder<FunctionMetadata> functions = ImmutableList.builder();
+            functions.addAll(metadata.listGlobalFunctions(session));
+            for (CatalogSchemaName name : session.getPath().getPath()) {
+                functions.addAll(metadata.listFunctions(session, name));
+            }
+            return functions.build();
         }
 
         private static String getFunctionType(FunctionMetadata function)

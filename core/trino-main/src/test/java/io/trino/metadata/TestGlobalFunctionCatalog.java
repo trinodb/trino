@@ -270,7 +270,7 @@ public class TestGlobalFunctionCatalog
                 .map(OperatorNameUtil::mangleOperatorName)
                 .collect(toImmutableSet());
 
-        return functionResolution.listFunctions().stream()
+        return functionResolution.listGlobalFunctions().stream()
                 .filter(function -> operatorNames.contains(function.getCanonicalName()))
                 .collect(toImmutableList());
     }
