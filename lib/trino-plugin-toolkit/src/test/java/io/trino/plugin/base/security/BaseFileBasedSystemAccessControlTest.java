@@ -22,6 +22,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
@@ -120,6 +121,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
     private static final String GRANT_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Cannot grant privilege DELETE on table .*";
     private static final String DENY_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Cannot deny privilege DELETE on table .*";
     private static final String REVOKE_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Cannot revoke privilege DELETE on table .*";
+    private static final String SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE = "Cannot show functions of .*";
 
     private static final String SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE = "Cannot set system session property .*";
     private static final String SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE = "Cannot set catalog session property .*";
@@ -1278,6 +1280,55 @@ public abstract class BaseFileBasedSystemAccessControlTest
     }
 
     @Test
+    public void testSchemaRulesForCheckCanShowFunctions()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-visibility.json");
+
+        accessControl.checkCanShowFunctions(ADMIN, new CatalogSchemaName("specific-catalog", "specific-schema"));
+        accessControl.checkCanShowFunctions(ADMIN, new CatalogSchemaName("bob-catalog", "bob-schema"));
+        accessControl.checkCanShowFunctions(ADMIN, new CatalogSchemaName("bob-catalog", "any"));
+        accessControl.checkCanShowFunctions(ADMIN, new CatalogSchemaName("alice-catalog", "alice-schema"));
+        accessControl.checkCanShowFunctions(ADMIN, new CatalogSchemaName("alice-catalog", "any"));
+        accessControl.checkCanShowFunctions(ADMIN, new CatalogSchemaName("secret", "secret"));
+        accessControl.checkCanShowFunctions(ADMIN, new CatalogSchemaName("hidden", "any"));
+        accessControl.checkCanShowFunctions(ADMIN, new CatalogSchemaName("open-to-all", "any"));
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(ADMIN, new CatalogSchemaName("blocked-catalog", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanShowFunctions(ADMIN, new CatalogSchemaName("unknown", "any"));
+
+        accessControl.checkCanShowFunctions(ALICE, new CatalogSchemaName("specific-catalog", "specific-schema"));
+        accessControl.checkCanShowFunctions(ALICE, new CatalogSchemaName("alice-catalog", "alice-schema"));
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(ALICE, new CatalogSchemaName("bob-catalog", "bob-schema")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(ALICE, new CatalogSchemaName("secret", "secret")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(ALICE, new CatalogSchemaName("hidden", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(ALICE, new CatalogSchemaName("open-to-all", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(ALICE, new CatalogSchemaName("blocked-catalog", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(ALICE, new CatalogSchemaName("unknown", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+
+        accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("specific-catalog", "specific-schema"));
+        accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("bob-catalog", "bob-schema"));
+        accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("alice-catalog", "bob-schema"));
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("bob-catalog", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("alice-catalog", "alice-schema")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("alice-catalog", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("secret", "secret")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("hidden", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("open-to-all", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("blocked-catalog", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("unknown", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+
+        accessControl.checkCanShowFunctions(CHARLIE, new CatalogSchemaName("specific-catalog", "specific-schema"));
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, new CatalogSchemaName("bob-catalog", "bob-schema")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, new CatalogSchemaName("bob-catalog", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, new CatalogSchemaName("alice-catalog", "alice-schema")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, new CatalogSchemaName("alice-catalog", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, new CatalogSchemaName("secret", "secret")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, new CatalogSchemaName("hidden", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, new CatalogSchemaName("open-to-all", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, new CatalogSchemaName("blocked-catalog", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, new CatalogSchemaName("unknown", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
     public void testGetColumnMask()
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
@@ -1581,6 +1632,51 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertAccessDenied(
                 () -> accessControl.checkCanSetViewAuthorization(user("user", "group", "owner_authorized"), ownedByRole, new TrinoPrincipal(USER, "new_user")),
                 "Cannot set authorization for view some-catalog.test.owned_by_role to USER new_user");
+    }
+
+    @Test
+    public void testFunctionsFilter()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-function-filter.json");
+        Set<SchemaFunctionName> functions = ImmutableSet.<SchemaFunctionName>builder()
+                .add(new SchemaFunctionName("restricted", "any"))
+                .add(new SchemaFunctionName("secret", "any"))
+                .add(new SchemaFunctionName("aliceschema", "any"))
+                .add(new SchemaFunctionName("aliceschema", "bobfunction"))
+                .add(new SchemaFunctionName("bobschema", "bob_any"))
+                .add(new SchemaFunctionName("bobschema", "any"))
+                .add(new SchemaFunctionName("any", "any"))
+                .build();
+        assertEquals(accessControl.filterFunctions(ALICE, "any", functions), ImmutableSet.<SchemaFunctionName>builder()
+                .add(new SchemaFunctionName("aliceschema", "any"))
+                .add(new SchemaFunctionName("aliceschema", "bobfunction"))
+                .build());
+        assertEquals(accessControl.filterFunctions(BOB, "any", functions), ImmutableSet.<SchemaFunctionName>builder()
+                .add(new SchemaFunctionName("aliceschema", "bobfunction"))
+                .add(new SchemaFunctionName("bobschema", "bob_any"))
+                .build());
+        assertEquals(accessControl.filterFunctions(ADMIN, "any", functions), ImmutableSet.<SchemaFunctionName>builder()
+                .add(new SchemaFunctionName("secret", "any"))
+                .add(new SchemaFunctionName("aliceschema", "any"))
+                .add(new SchemaFunctionName("aliceschema", "bobfunction"))
+                .add(new SchemaFunctionName("bobschema", "bob_any"))
+                .add(new SchemaFunctionName("bobschema", "any"))
+                .add(new SchemaFunctionName("any", "any"))
+                .build());
+    }
+
+    @Test
+    public void testFunctionsFilterNoAccess()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-no-access.json");
+
+        Set<SchemaFunctionName> functions = ImmutableSet.<SchemaFunctionName>builder()
+                .add(new SchemaFunctionName("restricted", "any"))
+                .add(new SchemaFunctionName("secret", "any"))
+                .add(new SchemaFunctionName("any", "any"))
+                .build();
+        assertEquals(accessControl.filterFunctions(ALICE, "any", functions), ImmutableSet.of());
+        assertEquals(accessControl.filterFunctions(BOB, "any", functions), ImmutableSet.of());
     }
 
     @Test

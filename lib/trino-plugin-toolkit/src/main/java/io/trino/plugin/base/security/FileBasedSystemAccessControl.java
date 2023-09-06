@@ -26,6 +26,7 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.function.FunctionKind;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.SystemAccessControl;
@@ -106,6 +107,7 @@ import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorizati
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
+import static io.trino.spi.security.AccessDeniedException.denyShowFunctions;
 import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
 import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
@@ -940,6 +942,26 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanShowFunctions(SystemSecurityContext context, CatalogSchemaName schema)
+    {
+        if (!checkAnySchemaAccess(context, schema.getCatalogName(), schema.getSchemaName())) {
+            denyShowFunctions(schema.toString());
+        }
+    }
+
+    @Override
+    public Set<SchemaFunctionName> filterFunctions(SystemSecurityContext context, String catalogName, Set<SchemaFunctionName> functionNames)
+    {
+        return functionNames.stream()
+                .filter(functionName -> {
+                    CatalogSchemaRoutineName routineName = new CatalogSchemaRoutineName(catalogName, functionName.getSchemaName(), functionName.getFunctionName());
+                    return isSchemaOwner(context, new CatalogSchemaName(catalogName, functionName.getSchemaName())) ||
+                            checkAnyFunctionPermission(context, routineName, CatalogFunctionAccessControlRule::canExecuteFunction);
+                })
+                .collect(toImmutableSet());
+    }
+
+    @Override
     public Iterable<EventListener> getEventListeners()
     {
         return ImmutableSet.of();
@@ -1070,6 +1092,17 @@ public class FileBasedSystemAccessControl
     }
 
     private boolean checkFunctionPermission(SystemSecurityContext context, CatalogSchemaRoutineName functionName, Predicate<CatalogFunctionAccessControlRule> executePredicate)
+    {
+        Identity identity = context.getIdentity();
+        return canAccessCatalog(context, functionName.getCatalogName(), READ_ONLY) &&
+                functionRules.stream()
+                        .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), functionName))
+                        .findFirst()
+                        .filter(executePredicate)
+                        .isPresent();
+    }
+
+    private boolean checkAnyFunctionPermission(SystemSecurityContext context, CatalogSchemaRoutineName functionName, Predicate<CatalogFunctionAccessControlRule> executePredicate)
     {
         Identity identity = context.getIdentity();
         return canAccessCatalog(context, functionName.getCatalogName(), READ_ONLY) &&

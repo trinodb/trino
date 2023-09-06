@@ -695,6 +695,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot execute table procedure %s on %s", procedureName, tableName));
     }
 
+    public static void denyShowFunctions(String schemaName)
+    {
+        denyShowFunctions(schemaName, null);
+    }
+
+    public static void denyShowFunctions(String schemaName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot show functions of schema %s%s", schemaName, formatExtraInfo(extraInfo)));
+    }
+
     private static Object formatExtraInfo(String extraInfo)
     {
         if (extraInfo == null || extraInfo.isEmpty()) {
