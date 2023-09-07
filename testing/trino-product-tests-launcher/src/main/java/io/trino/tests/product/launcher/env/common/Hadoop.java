@@ -81,6 +81,8 @@ public final class Hadoop
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("health-checks/hadoop-health-check.sh")), CONTAINER_HEALTH_D + "hadoop-health-check.sh")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hadoop-run.sh")), "/usr/local/hadoop-run.sh")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/apply-config-overrides.sh")), CONTAINER_HADOOP_INIT_D + "00-apply-config-overrides.sh")
+                // When hive performs implicit coercion to/from timestamp for ORC files, it depends on timezone of the HiveServer
+                .withEnv("TZ", "UTC")
                 .withCommand("/usr/local/hadoop-run.sh")
                 .withExposedLogPaths("/var/log/hadoop-yarn", "/var/log/hadoop-hdfs", "/var/log/hive", "/var/log/container-health.log")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
