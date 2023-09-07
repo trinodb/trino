@@ -85,7 +85,8 @@ public final class IpAddressFunctions
         }
 
         if (base.length != ipAddress.length) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "IP address version should be the same");
+            return false;
+            //throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "IP address version should be the same");
         }
 
         if (prefixLength == 0) {
