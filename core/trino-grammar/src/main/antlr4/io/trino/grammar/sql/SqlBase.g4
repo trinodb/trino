@@ -162,7 +162,7 @@ statement
     | SHOW ROLE GRANTS ((FROM | IN) identifier)?                       #showRoleGrants
     | DESCRIBE qualifiedName                                           #showColumns
     | DESC qualifiedName                                               #showColumns
-    | SHOW FUNCTIONS
+    | SHOW FUNCTIONS ((FROM | IN) qualifiedName)?
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showFunctions
     | SHOW SESSION
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showSession

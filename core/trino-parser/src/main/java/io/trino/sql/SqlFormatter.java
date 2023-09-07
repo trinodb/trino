@@ -1375,6 +1375,10 @@ public final class SqlFormatter
         {
             builder.append("SHOW FUNCTIONS");
 
+            node.getSchema().ifPresent(value -> builder
+                    .append(" FROM ")
+                    .append(formatName(value)));
+
             node.getLikePattern().ifPresent(value -> builder
                     .append(" LIKE ")
                     .append(formatStringLiteral(value)));

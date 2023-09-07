@@ -3,13 +3,13 @@
 ## Synopsis
 
 ```text
-SHOW FUNCTIONS [ LIKE pattern ]
+SHOW FUNCTIONS [ FROM schema ] [ LIKE pattern ]
 ```
 
 ## Description
 
-List all the functions available for use in queries. For each function returned,
-the following information is displayed:
+List functions in `schema` or all functions in the current session path.
+For each function returned, the following information is displayed:
 
 - Function name
 - Return type

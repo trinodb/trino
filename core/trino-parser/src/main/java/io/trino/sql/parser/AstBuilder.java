@@ -1417,6 +1417,8 @@ class AstBuilder
     public Node visitShowFunctions(SqlBaseParser.ShowFunctionsContext context)
     {
         return new ShowFunctions(getLocation(context),
+                Optional.ofNullable(context.qualifiedName())
+                        .map(this::getQualifiedName),
                 getTextIfPresent(context.pattern)
                         .map(AstBuilder::unquote),
                 getTextIfPresent(context.escape)
