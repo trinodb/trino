@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.trino.plugins</groupId>
         <artifactId>starburst-trino-plugins</artifactId>
-        <version>426.1-SNAPSHOT</version>
+        <version>426.2-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -260,6 +260,7 @@
                                 <exclude>**/TestSynapseTaskFailureRecoveryTest.java</exclude>
                                 <exclude>**/TestSynapseInstanceCleaner.java</exclude>
                                 <exclude>**/TestSynapseConnectorTest.java</exclude>
+                                <exclude>**/TestSynapseTypeMapping.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -278,6 +279,22 @@
                             <includes>
                                 <include>**/TestSynapseInstanceCleaner.java</include>
                                 <include>**/TestSynapseConnectorTest.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>type-mapping-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestSynapseTypeMapping.java</include>
                             </includes>
                         </configuration>
                     </plugin>
