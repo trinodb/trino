@@ -254,6 +254,8 @@ public class TestDeltaLakeMetastoreAccessOperations
 
     private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<?> expectedInvocations)
     {
+        assertUpdate("CALL system.flush_metadata_cache()");
+
         CountingAccessHiveMetastoreUtil.assertMetastoreInvocations(metastore, getQueryRunner(), getSession(), query, expectedInvocations);
     }
 }
