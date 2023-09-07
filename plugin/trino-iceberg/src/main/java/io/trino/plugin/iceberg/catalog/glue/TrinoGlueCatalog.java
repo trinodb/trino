@@ -1246,6 +1246,28 @@ public class TrinoGlueCatalog
         return createMaterializedViewDefinition(session, viewName, table);
     }
 
+    @Override
+    public boolean isMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        ConnectorMaterializedViewDefinition materializedViewDefinition = materializedViewCache.get(viewName);
+        if (materializedViewDefinition != null) {
+            return true;
+        }
+
+        if (tableMetadataCache.containsKey(viewName) || viewCache.containsKey(viewName)) {
+            // Entries in these caches are not materialized views.
+            return false;
+        }
+
+        Optional<com.amazonaws.services.glue.model.Table> maybeTable = getTableAndCacheMetadata(session, viewName);
+        if (maybeTable.isEmpty()) {
+            return false;
+        }
+
+        com.amazonaws.services.glue.model.Table table = maybeTable.get();
+        return isTrinoMaterializedView(getTableType(table), getTableParameters(table));
+    }
+
     private Optional<ConnectorMaterializedViewDefinition> createMaterializedViewDefinition(
             ConnectorSession session,
             SchemaTableName viewName,

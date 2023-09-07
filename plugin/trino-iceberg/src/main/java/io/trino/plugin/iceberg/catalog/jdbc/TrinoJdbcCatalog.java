@@ -413,6 +413,12 @@ public class TrinoJdbcCatalog
     }
 
     @Override
+    public boolean isMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return false;
+    }
+
+    @Override
     public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
         throw new TrinoException(NOT_SUPPORTED, "renameMaterializedView is not supported for Iceberg JDBC catalogs");

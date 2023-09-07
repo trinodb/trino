@@ -219,7 +219,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("DROP MATERIALIZED VIEW test_drop_mview_view",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 2)
+                        .add(GET_TABLE)
                         .addCopies(DROP_TABLE, 2)
                         .build());
     }

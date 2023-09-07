@@ -664,6 +664,18 @@ public class TrinoHiveCatalog
     }
 
     @Override
+    public boolean isMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        Optional<io.trino.plugin.hive.metastore.Table> tableOptional = metastore.getTable(viewName.getSchemaName(), viewName.getTableName());
+        if (tableOptional.isEmpty()) {
+            return false;
+        }
+
+        io.trino.plugin.hive.metastore.Table table = tableOptional.get();
+        return isTrinoMaterializedView(table.getTableType(), table.getParameters());
+    }
+
+    @Override
     public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
         metastore.renameTable(source.getSchemaName(), source.getTableName(), target.getSchemaName(), target.getTableName());

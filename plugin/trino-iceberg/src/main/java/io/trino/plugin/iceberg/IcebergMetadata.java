@@ -2797,6 +2797,12 @@ public class IcebergMetadata
     }
 
     @Override
+    public boolean isMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return catalog.isMaterializedView(session, viewName);
+    }
+
+    @Override
     public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
         // TODO (https://github.com/trinodb/trino/issues/9594) support rename across schemas

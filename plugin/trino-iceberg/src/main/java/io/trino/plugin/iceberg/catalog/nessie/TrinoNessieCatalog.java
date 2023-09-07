@@ -376,6 +376,12 @@ public class TrinoNessieCatalog
     }
 
     @Override
+    public boolean isMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return false;
+    }
+
+    @Override
     protected Optional<ConnectorMaterializedViewDefinition> doGetMaterializedView(ConnectorSession session, SchemaTableName schemaViewName)
     {
         return Optional.empty();
