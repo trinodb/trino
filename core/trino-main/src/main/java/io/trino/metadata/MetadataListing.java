@@ -256,38 +256,35 @@ public final class MetadataListing
         tableColumns.forEach((table, columnsOptional) -> {
             QualifiedObjectName originalTableName = new QualifiedObjectName(prefix.getCatalogName(), table.getSchemaName(), table.getTableName());
             List<ColumnMetadata> columns;
-            Optional<QualifiedObjectName> targetTableName = Optional.empty();
+            QualifiedObjectName actualTableName;
 
             if (columnsOptional.isPresent()) {
+                actualTableName = originalTableName;
                 columns = columnsOptional.get();
             }
             else {
-                TableHandle targetTableHandle = null;
-                boolean redirectionSucceeded = false;
+                TableHandle targetTableHandle;
 
                 try {
                     // For redirected tables, column listing requires special handling, because the column metadata is unavailable
                     // at the source table, and needs to be fetched from the target table.
                     RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalTableName);
-                    targetTableName = redirection.redirectedTableName();
 
                     // The target table name should be non-empty. If it is empty, it means that there is an
                     // inconsistency in the connector's implementation of ConnectorMetadata#streamTableColumns and
                     // ConnectorMetadata#redirectTable.
-                    if (targetTableName.isPresent()) {
-                        redirectionSucceeded = true;
-                        targetTableHandle = redirection.tableHandle().orElseThrow();
+                    if (redirection.redirectedTableName().isEmpty()) {
+                        return;
                     }
+                    actualTableName = redirection.redirectedTableName().get();
+                    targetTableHandle = redirection.tableHandle().orElseThrow();
                 }
                 catch (TrinoException e) {
                     // Ignore redirection errors
-                    if (!e.getErrorCode().equals(TABLE_REDIRECTION_ERROR.toErrorCode())) {
-                        throw e;
+                    if (e.getErrorCode().equals(TABLE_REDIRECTION_ERROR.toErrorCode())) {
+                        return;
                     }
-                }
-
-                if (!redirectionSucceeded) {
-                    return;
+                    throw e;
                 }
 
                 columns = metadata.getTableMetadata(session, targetTableHandle).getColumns();
@@ -296,7 +293,7 @@ public final class MetadataListing
             Set<String> allowedColumns = accessControl.filterColumns(
                     session.toSecurityContext(),
                     // Use redirected table name for applying column filters, since the source does not know the column metadata
-                    targetTableName.orElse(originalTableName).asCatalogSchemaTableName(),
+                    actualTableName.asCatalogSchemaTableName(),
                     columns.stream()
                             .map(ColumnMetadata::getName)
                             .collect(toImmutableSet()));
