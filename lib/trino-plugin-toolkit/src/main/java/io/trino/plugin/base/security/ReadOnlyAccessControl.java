@@ -149,6 +149,12 @@ public class ReadOnlyAccessControl
     }
 
     @Override
+    public Map<SchemaTableName, Set<String>> filterColumns(ConnectorSecurityContext context, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        return tableColumns;
+    }
+
+    @Override
     public void checkCanRenameColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyRenameColumn(tableName.toString());

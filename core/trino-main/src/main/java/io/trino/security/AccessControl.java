@@ -254,8 +254,16 @@ public interface AccessControl
 
     /**
      * Filter the list of columns to those visible to the identity.
+     *
+     * @deprecated Use {@link #filterColumns(SecurityContext, String, Map)}
      */
+    @Deprecated
     Set<String> filterColumns(SecurityContext context, CatalogSchemaTableName tableName, Set<String> columns);
+
+    /**
+     * Filter lists of columns of multiple tables to those visible to the identity.
+     */
+    Map<SchemaTableName, Set<String>> filterColumns(SecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns);
 
     /**
      * Check if identity is allowed to add columns to the specified table.

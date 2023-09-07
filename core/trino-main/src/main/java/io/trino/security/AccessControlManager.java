@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
@@ -633,6 +634,34 @@ public class AccessControlManager
             columns = connectorAccessControl.filterColumns(toConnectorSecurityContext(table.getCatalogName(), securityContext), table.getSchemaTableName(), columns);
         }
         return columns;
+    }
+
+    @Override
+    public Map<SchemaTableName, Set<String>> filterColumns(SecurityContext securityContext, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(tableColumns, "tableColumns is null");
+
+        Set<SchemaTableName> filteredTables = filterTables(securityContext, catalogName, tableColumns.keySet());
+        if (!filteredTables.equals(tableColumns.keySet())) {
+            tableColumns = Maps.filterKeys(tableColumns, filteredTables::contains);
+        }
+
+        if (tableColumns.isEmpty()) {
+            // Do not call plugin-provided implementation unnecessarily.
+            return ImmutableMap.of();
+        }
+
+        for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
+            tableColumns = systemAccessControl.filterColumns(securityContext.toSystemSecurityContext(), catalogName, tableColumns);
+        }
+
+        ConnectorAccessControl connectorAccessControl = getConnectorAccessControl(securityContext.getTransactionId(), catalogName);
+        if (connectorAccessControl != null) {
+            tableColumns = connectorAccessControl.filterColumns(toConnectorSecurityContext(catalogName, securityContext), tableColumns);
+        }
+        return tableColumns;
     }
 
     @Override

@@ -14,6 +14,7 @@
 package io.trino.security;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -265,6 +266,12 @@ public class DenyAllAccessControl
     public Set<String> filterColumns(SecurityContext context, CatalogSchemaTableName tableName, Set<String> columns)
     {
         return ImmutableSet.of();
+    }
+
+    @Override
+    public Map<SchemaTableName, Set<String>> filterColumns(SecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        return ImmutableMap.of();
     }
 
     @Override
