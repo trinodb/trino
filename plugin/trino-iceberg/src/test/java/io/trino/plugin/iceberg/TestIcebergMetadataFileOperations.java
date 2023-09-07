@@ -226,6 +226,60 @@ public class TestIcebergMetadataFileOperations
     }
 
     @Test
+    public void testReadWholePartition()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_read_part_key");
+
+        assertUpdate("CREATE TABLE test_read_part_key(key varchar, data varchar) WITH (partitioning=ARRAY['key'])");
+
+        // Create multiple files per partition
+        assertUpdate("INSERT INTO test_read_part_key(key, data) VALUES ('p1', '1-abc'), ('p1', '1-def'), ('p2', '2-abc'), ('p2', '2-def')", 4);
+        assertUpdate("INSERT INTO test_read_part_key(key, data) VALUES ('p1', '1-baz'), ('p2', '2-baz')", 2);
+
+        // Read partition and data columns
+        assertFileSystemAccesses(
+                "SELECT key, max(data) FROM test_read_part_key GROUP BY key",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 2)
+                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
+                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
+                        .build());
+
+        // Read partition column only
+        assertFileSystemAccesses(
+                "SELECT key, count(*) FROM test_read_part_key GROUP BY key",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 2)
+                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
+                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
+                        .build());
+
+        // Read partition column only, one partition only
+        assertFileSystemAccesses(
+                "SELECT count(*) FROM test_read_part_key WHERE key = 'p1'",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 2)
+                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
+                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
+                        .build());
+
+        // Read partition and synthetic columns
+        assertFileSystemAccesses(
+                "SELECT count(*), array_agg(\"$path\"), max(\"$file_modified_time\") FROM test_read_part_key GROUP BY key",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 2)
+                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
+                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
+                        .build());
+
+        assertUpdate("DROP TABLE test_read_part_key");
+    }
+
+    @Test
     public void testSelectFromVersionedTable()
     {
         String tableName = "test_select_from_versioned_table";
