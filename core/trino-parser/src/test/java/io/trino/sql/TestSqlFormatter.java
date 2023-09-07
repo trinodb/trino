@@ -124,16 +124,16 @@ public class TestSqlFormatter
     public void testShowFunctions()
     {
         assertThat(formatSql(
-                new ShowFunctions(Optional.empty(), Optional.empty())))
+                new ShowFunctions(Optional.empty(), Optional.empty(), Optional.empty())))
                 .isEqualTo("SHOW FUNCTIONS");
         assertThat(formatSql(
-                new ShowFunctions(Optional.of("%"), Optional.empty())))
+                new ShowFunctions(Optional.empty(), Optional.of("%"), Optional.empty())))
                 .isEqualTo("SHOW FUNCTIONS LIKE '%'");
         assertThat(formatSql(
-                new ShowFunctions(Optional.of("%$_%"), Optional.of("$"))))
+                new ShowFunctions(Optional.empty(), Optional.of("%$_%"), Optional.of("$"))))
                 .isEqualTo("SHOW FUNCTIONS LIKE '%$_%' ESCAPE '$'");
         assertThat(formatSql(
-                new ShowFunctions(Optional.of("%機動隊"), Optional.of("😂"))))
+                new ShowFunctions(Optional.empty(), Optional.of("%機動隊"), Optional.of("😂"))))
                 .isEqualTo("SHOW FUNCTIONS LIKE '%機動隊' ESCAPE '😂'");
     }
 

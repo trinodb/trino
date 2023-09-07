@@ -1431,9 +1431,10 @@ public class TestSqlParser
     @Test
     public void testShowFunctions()
     {
-        assertStatement("SHOW FUNCTIONS", new ShowFunctions(Optional.empty(), Optional.empty()));
-        assertStatement("SHOW FUNCTIONS LIKE '%'", new ShowFunctions(Optional.of("%"), Optional.empty()));
-        assertStatement("SHOW FUNCTIONS LIKE '%' ESCAPE '$'", new ShowFunctions(Optional.of("%"), Optional.of("$")));
+        assertStatement("SHOW FUNCTIONS", new ShowFunctions(Optional.empty(), Optional.empty(), Optional.empty()));
+        assertStatement("SHOW FUNCTIONS FROM x", new ShowFunctions(Optional.of(QualifiedName.of("x")), Optional.empty(), Optional.empty()));
+        assertStatement("SHOW FUNCTIONS LIKE '%'", new ShowFunctions(Optional.empty(), Optional.of("%"), Optional.empty()));
+        assertStatement("SHOW FUNCTIONS LIKE '%' ESCAPE '$'", new ShowFunctions(Optional.empty(), Optional.of("%"), Optional.of("$")));
     }
 
     @Test
