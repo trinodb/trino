@@ -902,14 +902,15 @@ jobs:
           cat <<EOF > .github/test-pt-matrix.yaml
           config:
             - default
-            - hdp3
-            # TODO: config-apache-hive3
           suite:
             - suite-1
             - suite-2
             - suite-3
             # suite-4 does not exist
             - suite-5
+            - suite-6-non-generic
+            - suite-7-non-generic
+            - suite-8-non-generic
             - suite-azure
             - suite-delta-lake-databricks91
             - suite-delta-lake-databricks104
@@ -920,18 +921,22 @@ jobs:
             - suite-clients
             - suite-functions
             - suite-tpch
+            - suite-tpcds
             - suite-storage-formats-detailed
+            - suite-parquet
+            - suite-oauth2
+            - suite-ldap
+            - suite-compatibility
+            - suite-all-connectors-smoke
+            - suite-delta-lake-oss
+            - suite-kafka
+            - suite-cassandra
+            - suite-clickhouse
+            - suite-mysql
+            - suite-iceberg
+            - suite-hudi
+            - suite-ignite
           exclude:
-            - config: default
-              ignore exclusion if: >-
-                ${{ github.event_name != 'pull_request'
-                 || github.event.pull_request.head.repo.full_name == github.repository
-                 || contains(github.event.pull_request.labels.*.name, 'tests:all')
-                 || contains(github.event.pull_request.labels.*.name, 'tests:hive')
-                 }}
-
-            - suite: suite-azure
-              config: default
             - suite: suite-azure
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' ||
@@ -940,33 +945,21 @@ jobs:
                     secrets.AZURE_ABFS_ACCESSKEY != '' }}
 
             - suite: suite-gcs
-              config: default
-            - suite: suite-gcs
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.GCP_CREDENTIALS_KEY != '' }}
 
             - suite: suite-delta-lake-databricks91
-              config: hdp3
-            - suite: suite-delta-lake-databricks91
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
-            - suite: suite-delta-lake-databricks104
-              config: hdp3
             - suite: suite-delta-lake-databricks104
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-delta-lake-databricks113
-              config: hdp3
-            - suite: suite-delta-lake-databricks113
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-delta-lake-databricks122
-              config: hdp3
-            - suite: suite-delta-lake-databricks122
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
-            - suite: suite-delta-lake-databricks133
-              config: hdp3
             - suite: suite-delta-lake-databricks133
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
@@ -983,60 +976,9 @@ jobs:
             #   value of the property, and the exclusion will apply normally.
             - "false"
           include:
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-6-non-generic
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-7-non-generic
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-8-non-generic
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-tpcds
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-parquet
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-oauth2
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-ldap
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-compatibility
             # this suite is designed specifically for apache-hive3. TODO remove the suite once we can run all regular tests on apache-hive3.
             - config: apache-hive3
               suite: suite-hms-only
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-all-connectors-smoke
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-delta-lake-oss
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-kafka
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-cassandra
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-clickhouse
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-mysql
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-iceberg
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-hudi
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-ignite
           EOF
       - name: Build PT matrix (all)
         if: |

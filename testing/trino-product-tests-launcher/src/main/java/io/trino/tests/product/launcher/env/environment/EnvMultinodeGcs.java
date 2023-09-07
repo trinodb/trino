@@ -87,7 +87,6 @@ public class EnvMultinodeGcs
 
         String containerGcpCredentialsFile = CONTAINER_TRINO_ETC + "gcp-credentials.json";
         builder.configureContainer(HADOOP, container -> {
-            container.setDockerImageName("ghcr.io/trinodb/testing/hdp3.1-hive:" + hadoopImageVersion);
             container.withCopyFileToContainer(
                     forHostPath(getCoreSiteOverrideXml(containerGcpCredentialsFile)),
                     "/docker/presto-product-tests/conf/environment/multinode-gcs/core-site-overrides.xml");
