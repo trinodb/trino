@@ -75,7 +75,7 @@ public class TestIpAddressFunctions
         assertThat(assertions.function("contains", "'0.0.0.0/4'", "IPADDRESS '0.0.0.0'"))
                 .isEqualTo(true);
         assertThat(assertions.function("contains", "'16.0.0.0/4'", "IPADDRESS '16.0.0.0'"))
-                .isEqualTo(true);
+                        .isEqualTo(true);
         assertThat(assertions.function("contains", "'240.0.0.0/4'", "IPADDRESS '240.0.0.0'"))
                 .isEqualTo(true);
 
@@ -362,6 +362,12 @@ public class TestIpAddressFunctions
         assertThat(assertions.function("contains", "'2001:abcd:ef01:2345:6789:abcd:ef01:234/60'", "IPADDRESS '2001::'"))
                 .isEqualTo(false);
         assertThat(assertions.function("contains", "'2001:abcd:ef01:2345:6789:abcd:ef01:234/60'", "IPADDRESS '2002::'"))
+                .isEqualTo(false);
+
+        // conflicting IP address versions
+        assertThat(assertions.function("contains", "'127.0.0.1/32'", "IPADDRESS '64:ff9a:f:f:f:f:f:f'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("contains", "'2001:abcd:ef01:2345:6789:abcd:ef01:234/60'", "IPADDRESS '127.0.0.0'"))
                 .isEqualTo(false);
 
         // NULL argument
