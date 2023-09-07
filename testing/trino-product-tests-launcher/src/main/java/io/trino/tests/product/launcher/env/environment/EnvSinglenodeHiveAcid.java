@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.Environment;
-import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.Hadoop;
 import io.trino.tests.product.launcher.env.common.Standard;
@@ -30,33 +29,26 @@ import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMP
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
-// HDP 3.1 images (code) + HDP 3.1-like configuration.
-// See https://github.com/trinodb/trino/issues/1841 for more information.
 @TestsEnvironment
-public class EnvSinglenodeHdp3
+public class EnvSinglenodeHiveAcid
         extends EnvironmentProvider
 {
     private final DockerFiles dockerFiles;
-    private final String hadoopImagesVersion;
 
     @Inject
-    protected EnvSinglenodeHdp3(DockerFiles dockerFiles, Standard standard, Hadoop hadoop, EnvironmentConfig environmentConfig)
+    protected EnvSinglenodeHiveAcid(DockerFiles dockerFiles, Standard standard, Hadoop hadoop)
     {
         super(ImmutableList.of(standard, hadoop));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
-        this.hadoopImagesVersion = environmentConfig.getHadoopImagesVersion();
     }
 
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        String dockerImageName = "ghcr.io/trinodb/testing/hdp3.1-hive:" + hadoopImagesVersion;
-
         builder.configureContainer(HADOOP, dockerContainer -> {
-            dockerContainer.setDockerImageName(dockerImageName);
             dockerContainer.withCopyFileToContainer(
-                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-hdp3/apply-hdp3-config.sh")),
-                    CONTAINER_HADOOP_INIT_D + "apply-hdp3-config.sh");
+                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-hive-acid/apply-hive-config.sh")),
+                    CONTAINER_HADOOP_INIT_D + "apply-hive-config.sh");
         });
 
         builder.configureContainer(TESTS, dockerContainer -> {

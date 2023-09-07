@@ -16,7 +16,7 @@ package io.trino.tests.product.launcher.suite.suites;
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
-import io.trino.tests.product.launcher.env.environment.EnvSinglenodeHdp3;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeHiveAcid;
 import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
@@ -34,7 +34,7 @@ public class Suite8NonGeneric
         verify(config.getHadoopBaseImage().equals(EnvironmentDefaults.HADOOP_BASE_IMAGE), "The suite should be run with default HADOOP_BASE_IMAGE. Leave HADOOP_BASE_IMAGE unset.");
 
         return ImmutableList.of(
-                testOnEnvironment(EnvSinglenodeHdp3.class)
+                testOnEnvironment(EnvSinglenodeHiveAcid.class)
                         .withGroups("configured_features", "hdp3_only", "hive_transactional")
                         .build());
     }
