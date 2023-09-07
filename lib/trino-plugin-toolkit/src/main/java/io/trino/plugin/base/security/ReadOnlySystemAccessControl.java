@@ -154,6 +154,12 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
+    public Map<SchemaTableName, Set<String>> filterColumns(SystemSecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        return tableColumns;
+    }
+
+    @Override
     public void checkCanShowSchemas(SystemSecurityContext context, String catalogName)
     {
     }
