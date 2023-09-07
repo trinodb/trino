@@ -61,8 +61,8 @@ public class EnvSinglenodeSparkHive
         builder.configureContainer(HADOOP, dockerContainer -> {
             dockerContainer.setDockerImageName(dockerImageName);
             dockerContainer.withCopyFileToContainer(
-                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-hdp3/apply-hdp3-config.sh")),
-                    CONTAINER_HADOOP_INIT_D + "apply-hdp3-config.sh");
+                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-hive-acid/apply-hive-config.sh")),
+                    CONTAINER_HADOOP_INIT_D + "apply-hive-config.sh");
         });
 
         builder.configureContainer(TESTS, dockerContainer -> {
