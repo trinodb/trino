@@ -773,7 +773,16 @@ public final class ShowQueriesRewrite
         @Override
         protected Node visitShowFunctions(ShowFunctions node, Void context)
         {
-            List<Expression> rows = listFunctions().stream()
+            Collection<FunctionMetadata> functions;
+            if (node.getSchema().isPresent()) {
+                CatalogSchemaName schema = createCatalogSchemaName(session, node, node.getSchema());
+                functions = metadata.listFunctions(session, schema);
+            }
+            else {
+                functions = listFunctions();
+            }
+
+            List<Expression> rows = functions.stream()
                     .filter(function -> !function.isHidden())
                     .flatMap(metadata -> metadata.getNames().stream().map(alias -> toRow(alias, metadata)))
                     .collect(toImmutableList());
@@ -786,6 +795,10 @@ public final class ShowQueriesRewrite
                     .put("deterministic", "Deterministic")
                     .put("description", "Description")
                     .buildOrThrow();
+
+            if (rows.isEmpty()) {
+                return emptyQuery(ImmutableList.copyOf(columns.values()));
+            }
 
             return simpleQuery(
                     selectAll(columns.entrySet().stream()
