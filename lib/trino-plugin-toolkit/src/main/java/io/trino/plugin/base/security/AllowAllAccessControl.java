@@ -131,6 +131,12 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public Map<SchemaTableName, Set<String>> filterColumns(ConnectorSecurityContext context, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        return tableColumns;
+    }
+
+    @Override
     public void checkCanAddColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
     }

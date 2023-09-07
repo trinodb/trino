@@ -26,6 +26,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
@@ -278,10 +279,24 @@ public interface ConnectorAccessControl
 
     /**
      * Filter the list of columns to those visible to the identity.
+     *
+     * @deprecated Use {@link #filterColumns(ConnectorSecurityContext, Map)}
      */
+    @Deprecated
     default Set<String> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columns)
     {
         return emptySet();
+    }
+
+    /**
+     * Filter lists of columns of multiple tables to those visible to the identity.
+     */
+    default Map<SchemaTableName, Set<String>> filterColumns(ConnectorSecurityContext context, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        return tableColumns.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> filterColumns(context, entry.getKey(), entry.getValue())));
     }
 
     /**

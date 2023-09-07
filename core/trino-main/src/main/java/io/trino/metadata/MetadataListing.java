@@ -248,61 +248,76 @@ public final class MetadataListing
                 prefix,
                 relationNames -> accessControl.filterTables(session.toSecurityContext(), prefix.getCatalogName(), relationNames));
 
-        Map<SchemaTableName, Optional<List<ColumnMetadata>>> tableColumns = catalogColumns.stream()
-                .collect(toImmutableMap(TableColumnsMetadata::getTable, TableColumnsMetadata::getColumns));
-
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> result = ImmutableMap.builder();
 
-        tableColumns.forEach((table, columnsOptional) -> {
-            QualifiedObjectName originalTableName = new QualifiedObjectName(prefix.getCatalogName(), table.getSchemaName(), table.getTableName());
-            List<ColumnMetadata> columns;
-            QualifiedObjectName actualTableName;
+        // Process tables without redirect
+        Map<SchemaTableName, Set<String>> columnNamesByTable = catalogColumns.stream()
+                .filter(tableColumnsMetadata -> tableColumnsMetadata.getColumns().isPresent())
+                .collect(toImmutableMap(
+                        TableColumnsMetadata::getTable,
+                        tableColumnsMetadata -> tableColumnsMetadata.getColumns().orElseThrow().stream()
+                                .map(ColumnMetadata::getName)
+                                .collect(toImmutableSet())));
+        Map<SchemaTableName, Set<String>> catalogAllowedColumns = accessControl.filterColumns(session.toSecurityContext(), prefix.getCatalogName(), columnNamesByTable);
+        catalogColumns.stream()
+                .filter(tableColumnsMetadata -> tableColumnsMetadata.getColumns().isPresent())
+                .forEach(tableColumnsMetadata -> {
+                    Set<String> allowedTableColumns = catalogAllowedColumns.getOrDefault(tableColumnsMetadata.getTable(), ImmutableSet.of());
+                    result.put(
+                            tableColumnsMetadata.getTable(),
+                            tableColumnsMetadata.getColumns().get().stream()
+                                    .filter(column -> allowedTableColumns.contains(column.getName()))
+                                    .collect(toImmutableList()));
+                });
 
-            if (columnsOptional.isPresent()) {
-                actualTableName = originalTableName;
-                columns = columnsOptional.get();
-            }
-            else {
-                TableHandle targetTableHandle;
+        // Process redirects
+        catalogColumns.stream()
+                .filter(tableColumnsMetadata -> tableColumnsMetadata.getColumns().isEmpty())
+                .forEach(tableColumnsMetadata -> {
+                    SchemaTableName table = tableColumnsMetadata.getTable();
+                    QualifiedObjectName originalTableName = new QualifiedObjectName(prefix.getCatalogName(), table.getSchemaName(), table.getTableName());
+                    QualifiedObjectName actualTableName;
+                    TableHandle targetTableHandle;
+                    try {
+                        // For redirected tables, column listing requires special handling, because the column metadata is unavailable
+                        // at the source table, and needs to be fetched from the target table.
+                        RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalTableName);
 
-                try {
-                    // For redirected tables, column listing requires special handling, because the column metadata is unavailable
-                    // at the source table, and needs to be fetched from the target table.
-                    RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalTableName);
-
-                    // The target table name should be non-empty. If it is empty, it means that there is an
-                    // inconsistency in the connector's implementation of ConnectorMetadata#streamTableColumns and
-                    // ConnectorMetadata#redirectTable.
-                    if (redirection.redirectedTableName().isEmpty()) {
-                        return;
+                        // The target table name should be non-empty. If it is empty, it means that there is an
+                        // inconsistency in the connector's implementation of ConnectorMetadata#streamTableColumns and
+                        // ConnectorMetadata#redirectTable.
+                        if (redirection.redirectedTableName().isEmpty()) {
+                            return;
+                        }
+                        actualTableName = redirection.redirectedTableName().get();
+                        targetTableHandle = redirection.tableHandle().orElseThrow();
                     }
-                    actualTableName = redirection.redirectedTableName().get();
-                    targetTableHandle = redirection.tableHandle().orElseThrow();
-                }
-                catch (TrinoException e) {
-                    // Ignore redirection errors
-                    if (e.getErrorCode().equals(TABLE_REDIRECTION_ERROR.toErrorCode())) {
-                        return;
+                    catch (TrinoException e) {
+                        // Ignore redirection errors
+                        if (e.getErrorCode().equals(TABLE_REDIRECTION_ERROR.toErrorCode())) {
+                            return;
+                        }
+                        throw e;
                     }
-                    throw e;
-                }
 
-                columns = metadata.getTableMetadata(session, targetTableHandle).getColumns();
-            }
+                    List<ColumnMetadata> columns = metadata.getTableMetadata(session, targetTableHandle).getColumns();
 
-            Set<String> allowedColumns = accessControl.filterColumns(
-                    session.toSecurityContext(),
-                    // Use redirected table name for applying column filters, since the source does not know the column metadata
-                    actualTableName.asCatalogSchemaTableName(),
-                    columns.stream()
-                            .map(ColumnMetadata::getName)
-                            .collect(toImmutableSet()));
-            result.put(
-                    table,
-                    columns.stream()
-                            .filter(column -> allowedColumns.contains(column.getName()))
-                            .collect(toImmutableList()));
-        });
+                    Set<String> allowedColumns = accessControl.filterColumns(
+                                    session.toSecurityContext(),
+                                    actualTableName.asCatalogSchemaTableName().getCatalogName(),
+                                    ImmutableMap.of(
+                                            // Use redirected table name for applying column filters, since the source does not know the column metadata
+                                            actualTableName.asSchemaTableName(),
+                                            columns.stream()
+                                                    .map(ColumnMetadata::getName)
+                                                    .collect(toImmutableSet())))
+                            .getOrDefault(actualTableName.asSchemaTableName(), ImmutableSet.of());
+                    result.put(
+                            table,
+                            columns.stream()
+                                    .filter(column -> allowedColumns.contains(column.getName()))
+                                    .collect(toImmutableList()));
+                });
 
         return result.buildOrThrow();
     }

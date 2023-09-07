@@ -274,6 +274,13 @@ public class FileBasedAccessControl
     }
 
     @Override
+    public Map<SchemaTableName, Set<String>> filterColumns(ConnectorSecurityContext context, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        // Default implementation is good enough. Explicit implementation is expected by the test though.
+        return ConnectorAccessControl.super.filterColumns(context, tableColumns);
+    }
+
+    @Override
     public void checkCanRenameTable(ConnectorSecurityContext context, SchemaTableName tableName, SchemaTableName newTableName)
     {
         // check if user owns the existing table, and if they will be an owner of the table after the rename

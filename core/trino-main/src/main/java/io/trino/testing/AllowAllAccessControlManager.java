@@ -139,6 +139,12 @@ public class AllowAllAccessControlManager
     }
 
     @Override
+    public Map<SchemaTableName, Set<String>> filterColumns(SecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        return tableColumns;
+    }
+
+    @Override
     public void checkCanAddColumns(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override

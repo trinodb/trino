@@ -597,6 +597,13 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public Map<SchemaTableName, Set<String>> filterColumns(SystemSecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        // Default implementation is good enough. Explicit implementation is expected by the test though.
+        return SystemAccessControl.super.filterColumns(context, catalogName, tableColumns);
+    }
+
+    @Override
     public void checkCanAddColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         if (!checkTablePermission(context, table, OWNERSHIP)) {

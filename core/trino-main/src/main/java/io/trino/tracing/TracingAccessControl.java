@@ -330,6 +330,15 @@ public class TracingAccessControl
     }
 
     @Override
+    public Map<SchemaTableName, Set<String>> filterColumns(SecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        Span span = startSpan("filterColumns bulk");
+        try (var ignored = scopedSpan(span)) {
+            return delegate.filterColumns(context, catalogName, tableColumns);
+        }
+    }
+
+    @Override
     public void checkCanAddColumns(SecurityContext context, QualifiedObjectName tableName)
     {
         Span span = startSpan("checkCanAddColumns");
