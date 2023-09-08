@@ -188,7 +188,7 @@ public class ThreadPerDriverTaskExecutor
             splits.add(split);
         }
 
-        public void removeSplit(SplitRunner split)
+        public synchronized void removeSplit(SplitRunner split)
         {
             splits.remove(split);
         }
