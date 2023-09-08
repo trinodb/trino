@@ -1053,6 +1053,30 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("text_column", "soome%text")
                 .buildOrThrow());
 
+        // Add another document to make sure utf8 character sequence length is right
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("keyword_column", "中文")
+                .put("text_column", "中文")
+                .buildOrThrow());
+
+        // Add another document to make sure utf8 character sequence length is right
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("keyword_column", "こんにちは")
+                .put("text_column", "こんにちは")
+                .buildOrThrow());
+
+        // Add another document to make sure utf8 character sequence length is right
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("keyword_column", "안녕하세요")
+                .put("text_column", "안녕하세요")
+                .buildOrThrow());
+
+        // Add another document to make sure utf8 character sequence length is right
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("keyword_column", "Привет")
+                .put("text_column", "Привет")
+                .buildOrThrow());
+
         assertThat(query("" +
                 "SELECT " +
                 "keyword_column " +
@@ -1074,6 +1098,38 @@ public abstract class BaseElasticsearchConnectorTest
                 "FROM " + indexName + " " +
                 "WHERE keyword_column LIKE 'soome$%%' ESCAPE '$'"))
                 .matches("VALUES VARCHAR 'soome%text'")
+                .isFullyPushedDown();
+
+        assertThat(query("" +
+                "SELECT " +
+                "text_column " +
+                "FROM " + indexName + " " +
+                "WHERE keyword_column LIKE '中%'"))
+                .matches("VALUES VARCHAR '中文'")
+                .isFullyPushedDown();
+
+        assertThat(query("" +
+                "SELECT " +
+                "text_column " +
+                "FROM " + indexName + " " +
+                "WHERE keyword_column LIKE 'こんに%'"))
+                .matches("VALUES VARCHAR 'こんにちは'")
+                .isFullyPushedDown();
+
+        assertThat(query("" +
+                "SELECT " +
+                "text_column " +
+                "FROM " + indexName + " " +
+                "WHERE keyword_column LIKE '안녕하%'"))
+                .matches("VALUES VARCHAR '안녕하세요'")
+                .isFullyPushedDown();
+
+        assertThat(query("" +
+                "SELECT " +
+                "text_column " +
+                "FROM " + indexName + " " +
+                "WHERE keyword_column LIKE 'При%'"))
+                .matches("VALUES VARCHAR 'Привет'")
                 .isFullyPushedDown();
     }
 

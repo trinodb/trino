@@ -86,6 +86,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterators.singletonIterator;
 import static io.airlift.slice.SliceUtf8.getCodePointAt;
+import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -592,7 +593,7 @@ public class ElasticsearchMetadata
         int position = 0;
         while (position < pattern.length()) {
             int currentChar = getCodePointAt(pattern, position);
-            position += 1;
+            position += lengthOfCodePoint(currentChar);
             checkEscape(!escaped || currentChar == '%' || currentChar == '_' || currentChar == escapeChar.get());
             if (!escaped && escapeChar.isPresent() && currentChar == escapeChar.get()) {
                 escaped = true;
