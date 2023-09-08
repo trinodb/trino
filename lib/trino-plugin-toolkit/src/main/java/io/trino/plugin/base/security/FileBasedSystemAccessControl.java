@@ -226,9 +226,8 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
+    public void checkCanImpersonateUser(Identity identity, String userName)
     {
-        Identity identity = context.getIdentity();
         if (impersonationRules.isEmpty()) {
             // if there are principal user match rules, we assume that impersonation checks are
             // handled there; otherwise, impersonation must be manually configured
@@ -281,37 +280,36 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanExecuteQuery(SystemSecurityContext context)
+    public void checkCanExecuteQuery(Identity identity)
     {
-        if (!canAccessQuery(context.getIdentity(), Optional.empty(), QueryAccessRule.AccessMode.EXECUTE)) {
+        if (!canAccessQuery(identity, Optional.empty(), QueryAccessRule.AccessMode.EXECUTE)) {
             denyViewQuery();
         }
     }
 
     @Override
-    public void checkCanViewQueryOwnedBy(SystemSecurityContext context, Identity queryOwner)
+    public void checkCanViewQueryOwnedBy(Identity identity, Identity queryOwner)
     {
-        if (!canAccessQuery(context.getIdentity(), Optional.of(queryOwner.getUser()), QueryAccessRule.AccessMode.VIEW)) {
+        if (!canAccessQuery(identity, Optional.of(queryOwner.getUser()), QueryAccessRule.AccessMode.VIEW)) {
             denyViewQuery();
         }
     }
 
     @Override
-    public Collection<Identity> filterViewQueryOwnedBy(SystemSecurityContext context, Collection<Identity> queryOwners)
+    public Collection<Identity> filterViewQueryOwnedBy(Identity identity, Collection<Identity> queryOwners)
     {
         if (queryAccessRules.isEmpty()) {
             return queryOwners;
         }
-        Identity identity = context.getIdentity();
         return queryOwners.stream()
                 .filter(owner -> canAccessQuery(identity, Optional.of(owner.getUser()), QueryAccessRule.AccessMode.VIEW))
                 .collect(toImmutableSet());
     }
 
     @Override
-    public void checkCanKillQueryOwnedBy(SystemSecurityContext context, Identity queryOwner)
+    public void checkCanKillQueryOwnedBy(Identity identity, Identity queryOwner)
     {
-        if (!canAccessQuery(context.getIdentity(), Optional.of(queryOwner.getUser()), QueryAccessRule.AccessMode.KILL)) {
+        if (!canAccessQuery(identity, Optional.of(queryOwner.getUser()), QueryAccessRule.AccessMode.KILL)) {
             denyViewQuery();
         }
     }
@@ -331,17 +329,17 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanReadSystemInformation(SystemSecurityContext context)
+    public void checkCanReadSystemInformation(Identity identity)
     {
-        if (!checkCanSystemInformation(context.getIdentity(), SystemInformationRule.AccessMode.READ)) {
+        if (!checkCanSystemInformation(identity, SystemInformationRule.AccessMode.READ)) {
             denyReadSystemInformationAccess();
         }
     }
 
     @Override
-    public void checkCanWriteSystemInformation(SystemSecurityContext context)
+    public void checkCanWriteSystemInformation(Identity identity)
     {
-        if (!checkCanSystemInformation(context.getIdentity(), SystemInformationRule.AccessMode.WRITE)) {
+        if (!checkCanSystemInformation(identity, SystemInformationRule.AccessMode.WRITE)) {
             denyWriteSystemInformationAccess();
         }
     }
@@ -358,9 +356,8 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
+    public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
     {
-        Identity identity = context.getIdentity();
         boolean allowed = sessionPropertyRules.stream()
                 .map(rule -> rule.match(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), propertyName))
                 .flatMap(Optional::stream)

@@ -236,7 +236,7 @@ public class TestAccessControlManager
                         }
 
                         @Override
-                        public void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
+                        public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
                         {
                         }
                     };
@@ -520,7 +520,7 @@ public class TestAccessControlManager
                 return new SystemAccessControl()
                 {
                     @Override
-                    public void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
+                    public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
                     {
                     }
 
@@ -588,7 +588,7 @@ public class TestAccessControlManager
                 }
 
                 @Override
-                public void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
+                public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
                 {
                     throw new UnsupportedOperationException();
                 }
