@@ -773,9 +773,9 @@ public abstract class BaseFileBasedSystemAccessControlTest
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table-mixed-groups.json");
 
         SystemSecurityContext userGroup1Group2 = new SystemSecurityContext(Identity.forUser("user_1_2")
-                .withGroups(ImmutableSet.of("group1", "group2")).build(), Optional.empty());
+                .withGroups(ImmutableSet.of("group1", "group2")).build(), queryId);
         SystemSecurityContext userGroup2 = new SystemSecurityContext(Identity.forUser("user_2")
-                .withGroups(ImmutableSet.of("group2")).build(), Optional.empty());
+                .withGroups(ImmutableSet.of("group2")).build(), queryId);
 
         assertEquals(
                 accessControl.getColumnMask(
@@ -794,9 +794,9 @@ public abstract class BaseFileBasedSystemAccessControlTest
                 new ViewExpression(Optional.empty(), Optional.of("some-catalog"), Optional.of("my_schema"), "'mask_a'"));
 
         SystemSecurityContext userGroup1Group3 = new SystemSecurityContext(Identity.forUser("user_1_3")
-                .withGroups(ImmutableSet.of("group1", "group3")).build(), Optional.empty());
+                .withGroups(ImmutableSet.of("group1", "group3")).build(), queryId);
         SystemSecurityContext userGroup3 = new SystemSecurityContext(Identity.forUser("user_3")
-                .withGroups(ImmutableSet.of("group3")).build(), Optional.empty());
+                .withGroups(ImmutableSet.of("group3")).build(), queryId);
 
         assertEquals(
                 accessControl.getRowFilters(
@@ -1005,23 +1005,23 @@ public abstract class BaseFileBasedSystemAccessControlTest
     {
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("system-information.json");
 
-        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(admin, Optional.empty()));
-        accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(admin, Optional.empty()));
+        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(admin, queryId));
+        accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(admin, queryId));
 
-        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(alice, Optional.empty()));
+        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(alice, queryId));
         assertAccessDenied(
-                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(alice, Optional.empty())),
+                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(alice, queryId)),
                 "Cannot write system information");
 
         assertAccessDenied(
-                () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())),
+                () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, queryId)),
                 "Cannot read system information");
         assertAccessDenied(
-                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())),
+                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, queryId)),
                 "Cannot write system information");
 
-        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(nonAsciiUser, Optional.empty()));
-        accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(nonAsciiUser, Optional.empty()));
+        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(nonAsciiUser, queryId));
+        accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(nonAsciiUser, queryId));
     }
 
     @Test
@@ -1030,10 +1030,10 @@ public abstract class BaseFileBasedSystemAccessControlTest
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("file-based-system-catalog.json");
 
         assertAccessDenied(
-                () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())),
+                () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, queryId)),
                 "Cannot read system information");
         assertAccessDenied(
-                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())),
+                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, queryId)),
                 "Cannot write system information");
     }
 
@@ -1043,19 +1043,19 @@ public abstract class BaseFileBasedSystemAccessControlTest
         File rulesFile = new File("../../docs/src/main/sphinx/security/system-information-access.json");
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(rulesFile, ImmutableMap.of());
 
-        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(admin, Optional.empty()));
-        accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(admin, Optional.empty()));
+        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(admin, queryId));
+        accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(admin, queryId));
 
-        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(alice, Optional.empty()));
+        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(alice, queryId));
         assertAccessDenied(
-                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(alice, Optional.empty())),
+                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(alice, queryId)),
                 "Cannot write system information");
 
         assertAccessDenied(
-                () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())),
+                () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, queryId)),
                 "Cannot read system information");
         assertAccessDenied(
-                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())),
+                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, queryId)),
                 "Cannot write system information");
     }
 
