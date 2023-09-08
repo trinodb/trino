@@ -354,7 +354,6 @@ public class SnowflakeSplitSource
                 new HivePartitionManager(hiveConfig),
                 new HdfsFileSystemFactory(hdfsEnvironment, new TrinoHdfsFileSystemStats()),
                 new HdfsNamenodeStats(),
-                hdfsEnvironment,
                 executorService,
                 new CounterStat(),
                 hiveConfig.getMaxOutstandingSplits(),

@@ -206,7 +206,7 @@ public class TypedSet
                 // Doesn't have this element
                 return hashPosition;
             }
-            if (isNotDistinct(elementBlock, blockPosition, block, position)) {
+            if (isNotDistinct(elementBlock.build(), blockPosition, block, position)) {
                 // Already has this element
                 return hashPosition;
             }
@@ -259,7 +259,7 @@ public class TypedSet
         }
 
         for (int blockPosition = initialElementBlockOffset; blockPosition < elementBlock.getPositionCount(); blockPosition++) {
-            blockPositionByHash.set(getHashPositionOfElement(elementBlock, blockPosition), blockPosition);
+            blockPositionByHash.set(getHashPositionOfElement(elementBlock.build(), blockPosition), blockPosition);
         }
     }
 
