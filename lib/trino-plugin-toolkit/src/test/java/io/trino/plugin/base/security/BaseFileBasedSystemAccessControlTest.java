@@ -75,19 +75,20 @@ public abstract class BaseFileBasedSystemAccessControlTest
     private static final Identity admin = Identity.forUser("alberto").withEnabledRoles(ImmutableSet.of("admin")).withGroups(ImmutableSet.of("staff")).build();
     private static final Identity nonAsciiUser = Identity.ofUser("\u0194\u0194\u0194");
     private static final CatalogSchemaTableName aliceView = new CatalogSchemaTableName("alice-catalog", "schema", "view");
-    private static final Optional<QueryId> queryId = Optional.empty();
+    private static final QueryId queryId = new QueryId("test_query");
 
     private static final Identity charlie = Identity.forUser("charlie").withGroups(ImmutableSet.of("guests")).build();
     private static final Identity dave = Identity.forUser("dave").withGroups(ImmutableSet.of("contractors")).build();
     private static final Identity joe = Identity.ofUser("joe");
     private static final Identity any = Identity.ofUser("any");
     private static final Identity anyone = Identity.ofUser("anyone");
+    private static final Identity unknown = Identity.ofUser("some-unknown-user-id");
     private static final SystemSecurityContext ADMIN = new SystemSecurityContext(admin, queryId);
     private static final SystemSecurityContext BOB = new SystemSecurityContext(bob, queryId);
     private static final SystemSecurityContext CHARLIE = new SystemSecurityContext(charlie, queryId);
     private static final SystemSecurityContext ALICE = new SystemSecurityContext(alice, queryId);
     private static final SystemSecurityContext JOE = new SystemSecurityContext(joe, queryId);
-    private static final SystemSecurityContext UNKNOWN = new SystemSecurityContext(Identity.ofUser("some-unknown-user-id"), queryId);
+    private static final SystemSecurityContext UNKNOWN = new SystemSecurityContext(unknown, queryId);
 
     private static final String SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE = "Cannot show schemas";
     private static final String CREATE_SCHEMA_ACCESS_DENIED_MESSAGE = "Cannot create schema .*";
@@ -209,19 +210,19 @@ public abstract class BaseFileBasedSystemAccessControlTest
         accessControl.checkCanSetUser(Optional.empty(), "unknown");
         accessControl.checkCanSetUser(Optional.of(new KerberosPrincipal("stuff@example.com")), "unknown");
 
-        accessControl.checkCanSetSystemSessionProperty(UNKNOWN, "anything");
+        accessControl.checkCanSetSystemSessionProperty(unknown, "anything");
         accessControl.checkCanSetCatalogSessionProperty(UNKNOWN, "unknown", "anything");
 
-        accessControl.checkCanExecuteQuery(UNKNOWN);
-        accessControl.checkCanViewQueryOwnedBy(UNKNOWN, anyone);
-        accessControl.checkCanKillQueryOwnedBy(UNKNOWN, anyone);
+        accessControl.checkCanExecuteQuery(unknown);
+        accessControl.checkCanViewQueryOwnedBy(unknown, anyone);
+        accessControl.checkCanKillQueryOwnedBy(unknown, anyone);
 
         // system information access is denied by default
         assertAccessDenied(
-                () -> accessControl.checkCanReadSystemInformation(UNKNOWN),
+                () -> accessControl.checkCanReadSystemInformation(unknown),
                 "Cannot read system information");
         assertAccessDenied(
-                () -> accessControl.checkCanWriteSystemInformation(UNKNOWN),
+                () -> accessControl.checkCanWriteSystemInformation(unknown),
                 "Cannot write system information");
     }
 
@@ -878,56 +879,56 @@ public abstract class BaseFileBasedSystemAccessControlTest
     {
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("query.json");
 
-        accessControlManager.checkCanExecuteQuery(ADMIN);
-        accessControlManager.checkCanViewQueryOwnedBy(ADMIN, any);
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(ADMIN, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b")));
-        accessControlManager.checkCanKillQueryOwnedBy(ADMIN, any);
+        accessControlManager.checkCanExecuteQuery(admin);
+        accessControlManager.checkCanViewQueryOwnedBy(admin, any);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(admin, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b")));
+        accessControlManager.checkCanKillQueryOwnedBy(admin, any);
 
-        accessControlManager.checkCanExecuteQuery(ALICE);
-        accessControlManager.checkCanViewQueryOwnedBy(ALICE, any);
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(ALICE, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b")));
+        accessControlManager.checkCanExecuteQuery(alice);
+        accessControlManager.checkCanViewQueryOwnedBy(alice, any);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(alice, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b")));
         assertAccessDenied(
-                () -> accessControlManager.checkCanKillQueryOwnedBy(ALICE, any),
+                () -> accessControlManager.checkCanKillQueryOwnedBy(alice, any),
                 "Cannot view query");
 
         assertAccessDenied(
-                () -> accessControlManager.checkCanExecuteQuery(BOB),
+                () -> accessControlManager.checkCanExecuteQuery(bob),
                 "Cannot view query");
         assertAccessDenied(
-                () -> accessControlManager.checkCanViewQueryOwnedBy(BOB, any),
+                () -> accessControlManager.checkCanViewQueryOwnedBy(bob, any),
                 "Cannot view query");
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(BOB, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of());
-        accessControlManager.checkCanKillQueryOwnedBy(BOB, any);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(bob, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of());
+        accessControlManager.checkCanKillQueryOwnedBy(bob, any);
 
-        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(dave, queryId));
-        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), alice);
-        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), dave);
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), ImmutableSet.of(Identity.ofUser("alice"), Identity.ofUser("bob"), Identity.ofUser("dave"), Identity.ofUser("admin"))),
+        accessControlManager.checkCanExecuteQuery(dave);
+        accessControlManager.checkCanViewQueryOwnedBy(dave, alice);
+        accessControlManager.checkCanViewQueryOwnedBy(dave, dave);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(dave, ImmutableSet.of(Identity.ofUser("alice"), Identity.ofUser("bob"), Identity.ofUser("dave"), Identity.ofUser("admin"))),
                 ImmutableSet.of(Identity.ofUser("alice"), Identity.ofUser("dave")));
         assertAccessDenied(
-                () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), alice),
+                () -> accessControlManager.checkCanKillQueryOwnedBy(dave, alice),
                 "Cannot view query");
         assertAccessDenied(
-                () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), bob),
+                () -> accessControlManager.checkCanKillQueryOwnedBy(dave, bob),
                 "Cannot view query");
         assertAccessDenied(
-                () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), bob),
+                () -> accessControlManager.checkCanViewQueryOwnedBy(dave, bob),
                 "Cannot view query");
         assertAccessDenied(
-                () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), admin),
+                () -> accessControlManager.checkCanViewQueryOwnedBy(dave, admin),
                 "Cannot view query");
 
         Identity contractor = Identity.forUser("some-other-contractor").withGroups(ImmutableSet.of("contractors")).build();
-        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(contractor, queryId));
-        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(contractor, queryId), dave);
+        accessControlManager.checkCanExecuteQuery(contractor);
+        accessControlManager.checkCanViewQueryOwnedBy(contractor, dave);
         assertAccessDenied(
-                () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(contractor, queryId), dave),
+                () -> accessControlManager.checkCanKillQueryOwnedBy(contractor, dave),
                 "Cannot view query");
 
-        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(nonAsciiUser, queryId));
-        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(nonAsciiUser, queryId), any);
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(nonAsciiUser, queryId), ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b")));
-        accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(nonAsciiUser, queryId), any);
+        accessControlManager.checkCanExecuteQuery(nonAsciiUser);
+        accessControlManager.checkCanViewQueryOwnedBy(nonAsciiUser, any);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(nonAsciiUser, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b")));
+        accessControlManager.checkCanKillQueryOwnedBy(nonAsciiUser, any);
     }
 
     @Test
@@ -942,10 +943,10 @@ public abstract class BaseFileBasedSystemAccessControlTest
     {
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("file-based-system-catalog.json");
 
-        accessControlManager.checkCanExecuteQuery(BOB);
-        accessControlManager.checkCanViewQueryOwnedBy(BOB, any);
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(BOB, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b")));
-        accessControlManager.checkCanKillQueryOwnedBy(BOB, any);
+        accessControlManager.checkCanExecuteQuery(bob);
+        accessControlManager.checkCanViewQueryOwnedBy(bob, any);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(bob, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b")));
+        accessControlManager.checkCanKillQueryOwnedBy(bob, any);
     }
 
     @Test
@@ -954,49 +955,49 @@ public abstract class BaseFileBasedSystemAccessControlTest
         File rulesFile = new File("../../docs/src/main/sphinx/security/query-access.json");
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(rulesFile, ImmutableMap.of());
 
-        accessControlManager.checkCanExecuteQuery(ADMIN);
-        accessControlManager.checkCanViewQueryOwnedBy(ADMIN, any);
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(ADMIN, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b")));
-        accessControlManager.checkCanKillQueryOwnedBy(ADMIN, any);
+        accessControlManager.checkCanExecuteQuery(admin);
+        accessControlManager.checkCanViewQueryOwnedBy(admin, any);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(admin, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b")));
+        accessControlManager.checkCanKillQueryOwnedBy(admin, any);
 
-        accessControlManager.checkCanExecuteQuery(ALICE);
+        accessControlManager.checkCanExecuteQuery(alice);
         assertAccessDenied(
-                () -> accessControlManager.checkCanViewQueryOwnedBy(ALICE, any),
+                () -> accessControlManager.checkCanViewQueryOwnedBy(alice, any),
                 "Cannot view query");
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(ALICE, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of());
-        accessControlManager.checkCanKillQueryOwnedBy(ALICE, any);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(alice, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of());
+        accessControlManager.checkCanKillQueryOwnedBy(alice, any);
 
-        accessControlManager.checkCanExecuteQuery(BOB);
+        accessControlManager.checkCanExecuteQuery(alice);
         assertAccessDenied(
-                () -> accessControlManager.checkCanViewQueryOwnedBy(BOB, any),
+                () -> accessControlManager.checkCanViewQueryOwnedBy(bob, any),
                 "Cannot view query");
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(BOB, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of());
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(bob, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of());
         assertAccessDenied(
-                () -> accessControlManager.checkCanKillQueryOwnedBy(BOB, any),
+                () -> accessControlManager.checkCanKillQueryOwnedBy(bob, any),
                 "Cannot view query");
 
-        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(dave, queryId));
-        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), alice);
-        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), dave);
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), ImmutableSet.of(Identity.ofUser("alice"), Identity.ofUser("bob"), Identity.ofUser("dave"), Identity.ofUser("admin"))),
+        accessControlManager.checkCanExecuteQuery(dave);
+        accessControlManager.checkCanViewQueryOwnedBy(dave, alice);
+        accessControlManager.checkCanViewQueryOwnedBy(dave, dave);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(dave, ImmutableSet.of(Identity.ofUser("alice"), Identity.ofUser("bob"), Identity.ofUser("dave"), Identity.ofUser("admin"))),
                 ImmutableSet.of(Identity.ofUser("alice"), Identity.ofUser("dave")));
         assertAccessDenied(
-                () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), alice),
+                () -> accessControlManager.checkCanKillQueryOwnedBy(dave, alice),
                 "Cannot view query");
-        assertAccessDenied(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), bob),
-                "Cannot view query");
-        assertAccessDenied(
-                () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), bob),
+        assertAccessDenied(() -> accessControlManager.checkCanKillQueryOwnedBy(dave, bob),
                 "Cannot view query");
         assertAccessDenied(
-                () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), admin),
+                () -> accessControlManager.checkCanViewQueryOwnedBy(dave, bob),
+                "Cannot view query");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanViewQueryOwnedBy(dave, admin),
                 "Cannot view query");
 
         Identity contractor = Identity.forUser("some-other-contractor").withGroups(ImmutableSet.of("contractors")).build();
-        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(contractor, queryId));
-        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(contractor, queryId), dave);
+        accessControlManager.checkCanExecuteQuery(contractor);
+        accessControlManager.checkCanViewQueryOwnedBy(contractor, dave);
         assertAccessDenied(
-                () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(contractor, queryId), dave),
+                () -> accessControlManager.checkCanKillQueryOwnedBy(contractor, dave),
                 "Cannot view query");
     }
 
@@ -1005,23 +1006,23 @@ public abstract class BaseFileBasedSystemAccessControlTest
     {
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("system-information.json");
 
-        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(admin, queryId));
-        accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(admin, queryId));
+        accessControlManager.checkCanReadSystemInformation(admin);
+        accessControlManager.checkCanWriteSystemInformation(admin);
 
-        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(alice, queryId));
+        accessControlManager.checkCanReadSystemInformation(alice);
         assertAccessDenied(
-                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(alice, queryId)),
+                () -> accessControlManager.checkCanWriteSystemInformation(alice),
                 "Cannot write system information");
 
         assertAccessDenied(
-                () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, queryId)),
+                () -> accessControlManager.checkCanReadSystemInformation(bob),
                 "Cannot read system information");
         assertAccessDenied(
-                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, queryId)),
+                () -> accessControlManager.checkCanWriteSystemInformation(bob),
                 "Cannot write system information");
 
-        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(nonAsciiUser, queryId));
-        accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(nonAsciiUser, queryId));
+        accessControlManager.checkCanReadSystemInformation(nonAsciiUser);
+        accessControlManager.checkCanWriteSystemInformation(nonAsciiUser);
     }
 
     @Test
@@ -1030,10 +1031,10 @@ public abstract class BaseFileBasedSystemAccessControlTest
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("file-based-system-catalog.json");
 
         assertAccessDenied(
-                () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, queryId)),
+                () -> accessControlManager.checkCanReadSystemInformation(bob),
                 "Cannot read system information");
         assertAccessDenied(
-                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, queryId)),
+                () -> accessControlManager.checkCanWriteSystemInformation(bob),
                 "Cannot write system information");
     }
 
@@ -1043,19 +1044,19 @@ public abstract class BaseFileBasedSystemAccessControlTest
         File rulesFile = new File("../../docs/src/main/sphinx/security/system-information-access.json");
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(rulesFile, ImmutableMap.of());
 
-        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(admin, queryId));
-        accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(admin, queryId));
+        accessControlManager.checkCanReadSystemInformation(admin);
+        accessControlManager.checkCanWriteSystemInformation(admin);
 
-        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(alice, queryId));
+        accessControlManager.checkCanReadSystemInformation(alice);
         assertAccessDenied(
-                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(alice, queryId)),
+                () -> accessControlManager.checkCanWriteSystemInformation(alice),
                 "Cannot write system information");
 
         assertAccessDenied(
-                () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, queryId)),
+                () -> accessControlManager.checkCanReadSystemInformation(bob),
                 "Cannot read system information");
         assertAccessDenied(
-                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, queryId)),
+                () -> accessControlManager.checkCanWriteSystemInformation(bob),
                 "Cannot write system information");
     }
 
@@ -1064,18 +1065,18 @@ public abstract class BaseFileBasedSystemAccessControlTest
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-session-property.json");
 
-        accessControl.checkCanSetSystemSessionProperty(ADMIN, "dangerous");
-        accessControl.checkCanSetSystemSessionProperty(ADMIN, "any");
-        accessControl.checkCanSetSystemSessionProperty(ALICE, "safe");
-        accessControl.checkCanSetSystemSessionProperty(ALICE, "unsafe");
-        accessControl.checkCanSetSystemSessionProperty(ALICE, "staff");
-        accessControl.checkCanSetSystemSessionProperty(BOB, "safe");
-        accessControl.checkCanSetSystemSessionProperty(BOB, "staff");
-        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(BOB, "unsafe"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(ALICE, "dangerous"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(CHARLIE, "safe"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(CHARLIE, "staff"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(JOE, "staff"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanSetSystemSessionProperty(admin, "dangerous");
+        accessControl.checkCanSetSystemSessionProperty(admin, "any");
+        accessControl.checkCanSetSystemSessionProperty(alice, "safe");
+        accessControl.checkCanSetSystemSessionProperty(alice, "unsafe");
+        accessControl.checkCanSetSystemSessionProperty(alice, "staff");
+        accessControl.checkCanSetSystemSessionProperty(bob, "safe");
+        accessControl.checkCanSetSystemSessionProperty(bob, "staff");
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(bob, "unsafe"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(alice, "dangerous"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(charlie, "safe"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(charlie, "staff"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(joe, "staff"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
 
         accessControl.checkCanSetCatalogSessionProperty(ADMIN, "any", "dangerous");
         accessControl.checkCanSetCatalogSessionProperty(ADMIN, "alice-catalog", "dangerous");
@@ -1099,23 +1100,24 @@ public abstract class BaseFileBasedSystemAccessControlTest
     {
         File rulesFile = new File("../../docs/src/main/sphinx/security/session-property-access.json");
         SystemAccessControl accessControl = newFileBasedSystemAccessControl(rulesFile, ImmutableMap.of());
-        SystemSecurityContext bannedUser = new SystemSecurityContext(Identity.ofUser("banned_user"), queryId);
+        Identity bannedUser = Identity.ofUser("banned_user");
+        SystemSecurityContext bannedUserContext = new SystemSecurityContext(Identity.ofUser("banned_user"), queryId);
 
-        accessControl.checkCanSetSystemSessionProperty(ADMIN, "any");
-        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(ALICE, "any"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanSetSystemSessionProperty(admin, "any");
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(alice, "any"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(bannedUser, "any"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
 
-        accessControl.checkCanSetSystemSessionProperty(ADMIN, "resource_overcommit");
-        accessControl.checkCanSetSystemSessionProperty(ALICE, "resource_overcommit");
+        accessControl.checkCanSetSystemSessionProperty(admin, "resource_overcommit");
+        accessControl.checkCanSetSystemSessionProperty(alice, "resource_overcommit");
         assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(bannedUser, "resource_overcommit"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
 
         accessControl.checkCanSetCatalogSessionProperty(ADMIN, "hive", "any");
         assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(ALICE, "hive", "any"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(bannedUser, "hive", "any"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(bannedUserContext, "hive", "any"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
 
         accessControl.checkCanSetCatalogSessionProperty(ADMIN, "hive", "bucket_execution_enabled");
         accessControl.checkCanSetCatalogSessionProperty(ALICE, "hive", "bucket_execution_enabled");
-        assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(bannedUser, "hive", "bucket_execution_enabled"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(bannedUserContext, "hive", "bucket_execution_enabled"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
     }
 
     @Test

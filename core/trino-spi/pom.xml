@@ -230,6 +230,66 @@
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.security.SystemAccessControl::checkCanExecuteQuery(===io.trino.spi.security.SystemSecurityContext===)</old>
+                                    <new>parameter void io.trino.spi.security.SystemAccessControl::checkCanExecuteQuery(===io.trino.spi.security.Identity===)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.security.SystemAccessControl::checkCanImpersonateUser(===io.trino.spi.security.SystemSecurityContext===, java.lang.String)</old>
+                                    <new>parameter void io.trino.spi.security.SystemAccessControl::checkCanImpersonateUser(===io.trino.spi.security.Identity===, java.lang.String)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.security.SystemAccessControl::checkCanKillQueryOwnedBy(===io.trino.spi.security.SystemSecurityContext===, io.trino.spi.security.Identity)</old>
+                                    <new>parameter void io.trino.spi.security.SystemAccessControl::checkCanKillQueryOwnedBy(===io.trino.spi.security.Identity===, io.trino.spi.security.Identity)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.security.SystemAccessControl::checkCanReadSystemInformation(===io.trino.spi.security.SystemSecurityContext===)</old>
+                                    <new>parameter void io.trino.spi.security.SystemAccessControl::checkCanReadSystemInformation(===io.trino.spi.security.Identity===)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.security.SystemAccessControl::checkCanViewQueryOwnedBy(===io.trino.spi.security.SystemSecurityContext===, io.trino.spi.security.Identity)</old>
+                                    <new>parameter void io.trino.spi.security.SystemAccessControl::checkCanViewQueryOwnedBy(===io.trino.spi.security.Identity===, io.trino.spi.security.Identity)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.security.SystemAccessControl::checkCanWriteSystemInformation(===io.trino.spi.security.SystemSecurityContext===)</old>
+                                    <new>parameter void io.trino.spi.security.SystemAccessControl::checkCanWriteSystemInformation(===io.trino.spi.security.Identity===)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.security.SystemAccessControl::checkCanSetSystemSessionProperty(===io.trino.spi.security.SystemSecurityContext===, java.lang.String)</old>
+                                    <new>parameter void io.trino.spi.security.SystemAccessControl::checkCanSetSystemSessionProperty(===io.trino.spi.security.Identity===, java.lang.String)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter java.util.Collection&lt;io.trino.spi.security.Identity&gt; io.trino.spi.security.SystemAccessControl::filterViewQueryOwnedBy(===io.trino.spi.security.SystemSecurityContext===, java.util.Collection&lt;io.trino.spi.security.Identity&gt;)</old>
+                                    <new>parameter java.util.Collection&lt;io.trino.spi.security.Identity&gt; io.trino.spi.security.SystemAccessControl::filterViewQueryOwnedBy(===io.trino.spi.security.Identity===, java.util.Collection&lt;io.trino.spi.security.Identity&gt;)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.security.SystemSecurityContext::&lt;init&gt;(io.trino.spi.security.Identity, ===java.util.Optional&lt;io.trino.spi.QueryId&gt;===)</old>
+                                    <new>parameter void io.trino.spi.security.SystemSecurityContext::&lt;init&gt;(io.trino.spi.security.Identity, ===io.trino.spi.QueryId===)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method java.util.Optional&lt;io.trino.spi.QueryId&gt; io.trino.spi.security.SystemSecurityContext::getQueryId()</old>
+                                    <new>method io.trino.spi.QueryId io.trino.spi.security.SystemSecurityContext::getQueryId()</new>
+                                </item>
+                                <item>
                                     <code>java.method.removed</code>
                                     <old>method io.trino.spi.block.Block io.trino.spi.block.ArrayBlockBuilder::copyPositions(int[], int, int)</old>
                                 </item>
