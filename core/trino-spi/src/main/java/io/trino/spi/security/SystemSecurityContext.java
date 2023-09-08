@@ -15,16 +15,14 @@ package io.trino.spi.security;
 
 import io.trino.spi.QueryId;
 
-import java.util.Optional;
-
 import static java.util.Objects.requireNonNull;
 
 public class SystemSecurityContext
 {
     private final Identity identity;
-    private final Optional<QueryId> queryId;
+    private final QueryId queryId;
 
-    public SystemSecurityContext(Identity identity, Optional<QueryId> queryId)
+    public SystemSecurityContext(Identity identity, QueryId queryId)
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.queryId = requireNonNull(queryId, "queryId is null");
@@ -35,7 +33,7 @@ public class SystemSecurityContext
         return identity;
     }
 
-    public Optional<QueryId> getQueryId()
+    public QueryId getQueryId()
     {
         return queryId;
     }

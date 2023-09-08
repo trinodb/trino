@@ -104,9 +104,9 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanImpersonateUser(SystemSecurityContext context, String userName)
+    default void checkCanImpersonateUser(Identity identity, String userName)
     {
-        denyImpersonateUser(context.getIdentity().getUser(), userName);
+        denyImpersonateUser(identity.getUser(), userName);
     }
 
     /**
@@ -126,7 +126,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanExecuteQuery(SystemSecurityContext context)
+    default void checkCanExecuteQuery(Identity identity)
     {
         denyExecuteQuery();
     }
@@ -137,7 +137,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanViewQueryOwnedBy(SystemSecurityContext context, Identity queryOwner)
+    default void checkCanViewQueryOwnedBy(Identity identity, Identity queryOwner)
     {
         denyViewQuery();
     }
@@ -146,7 +146,7 @@ public interface SystemAccessControl
      * Filter the list of users to those the identity view query owned by the user.  The method
      * will not be called with the current user in the set.
      */
-    default Collection<Identity> filterViewQueryOwnedBy(SystemSecurityContext context, Collection<Identity> queryOwners)
+    default Collection<Identity> filterViewQueryOwnedBy(Identity identity, Collection<Identity> queryOwners)
     {
         return emptySet();
     }
@@ -157,7 +157,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanKillQueryOwnedBy(SystemSecurityContext context, Identity queryOwner)
+    default void checkCanKillQueryOwnedBy(Identity identity, Identity queryOwner)
     {
         denyKillQuery();
     }
@@ -169,7 +169,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanReadSystemInformation(SystemSecurityContext context)
+    default void checkCanReadSystemInformation(Identity identity)
     {
         denyReadSystemInformationAccess();
     }
@@ -180,7 +180,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanWriteSystemInformation(SystemSecurityContext context)
+    default void checkCanWriteSystemInformation(Identity identity)
     {
         denyWriteSystemInformationAccess();
     }
@@ -190,7 +190,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
+    default void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
     {
         denySetSystemSessionProperty(propertyName);
     }

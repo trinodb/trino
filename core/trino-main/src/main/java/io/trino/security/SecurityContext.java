@@ -20,7 +20,6 @@ import io.trino.spi.security.SystemSecurityContext;
 import io.trino.transaction.TransactionId;
 
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -61,7 +60,7 @@ public class SecurityContext
 
     public SystemSecurityContext toSystemSecurityContext()
     {
-        return new SystemSecurityContext(identity, Optional.of(queryId));
+        return new SystemSecurityContext(identity, queryId);
     }
 
     @Override
