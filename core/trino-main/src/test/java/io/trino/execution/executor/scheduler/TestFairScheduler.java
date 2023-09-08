@@ -25,6 +25,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -197,6 +198,25 @@ public class TestFairScheduler
 
             scheduler.removeGroup(group);
             task1.get();
+        }
+    }
+
+    @Test
+    public void testCleanupAfterFinish()
+            throws InterruptedException, ExecutionException
+    {
+        TestingTicker ticker = new TestingTicker();
+        try (FairScheduler scheduler = FairScheduler.newInstance(1, ticker)) {
+            Group group = scheduler.createGroup("G");
+
+            AtomicInteger counter = new AtomicInteger();
+            ListenableFuture<Void> task1 = scheduler.submit(group, 1, context -> {
+                counter.incrementAndGet();
+            });
+
+            task1.get();
+            assertThat(counter.get()).isEqualTo(1);
+            assertThat(scheduler.getTasks(group)).isEmpty();
         }
     }
 

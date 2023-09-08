@@ -134,6 +134,22 @@ final class BlockingSchedulingQueue<G, T>
         }
     }
 
+    public boolean finish(G group, T task)
+    {
+        lock.lock();
+        try {
+            if (!queue.containsGroup(group)) {
+                return false;
+            }
+
+            queue.finish(group, task);
+            return true;
+        }
+        finally {
+            lock.unlock();
+        }
+    }
+
     @Override
     public String toString()
     {
