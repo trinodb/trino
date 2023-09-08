@@ -183,6 +183,7 @@ public final class FairScheduler
             if (task.getState() == TaskControl.State.RUNNING) {
                 concurrencyControl.release(task);
             }
+            queue.finish(task.group(), task);
             task.transitionToFinished();
         }
     }
