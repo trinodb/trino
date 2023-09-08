@@ -64,6 +64,7 @@ import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivileg
 import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyKillQuery;
+import static io.trino.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
 import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameMaterializedView;
@@ -92,6 +93,7 @@ import static io.trino.spi.security.AccessDeniedException.denyShowTables;
 import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static io.trino.spi.security.AccessDeniedException.denyViewQuery;
+import static io.trino.spi.security.AccessDeniedException.denyWriteSystemInformationAccess;
 import static java.lang.String.format;
 import static java.util.Collections.emptySet;
 
@@ -169,7 +171,7 @@ public interface SystemAccessControl
      */
     default void checkCanReadSystemInformation(SystemSecurityContext context)
     {
-        AccessDeniedException.denyReadSystemInformationAccess();
+        denyReadSystemInformationAccess();
     }
 
     /**
@@ -180,7 +182,7 @@ public interface SystemAccessControl
      */
     default void checkCanWriteSystemInformation(SystemSecurityContext context)
     {
-        AccessDeniedException.denyWriteSystemInformationAccess();
+        denyWriteSystemInformationAccess();
     }
 
     /**
