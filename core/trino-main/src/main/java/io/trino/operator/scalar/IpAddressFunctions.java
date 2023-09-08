@@ -83,10 +83,11 @@ public final class IpAddressFunctions
         catch (UnknownHostException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid IP address");
         }
-
+        // CIDR prefix works similiarly for ipv4 and ipv6 
+        // If the length of the CIDR address does not match the length of the comparison IP
+        // the prefixes cannot match.
         if (base.length != ipAddress.length) {
             return false;
-            //throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "IP address version should be the same");
         }
 
         if (prefixLength == 0) {

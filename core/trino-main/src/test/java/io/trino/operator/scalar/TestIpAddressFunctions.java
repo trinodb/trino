@@ -75,7 +75,7 @@ public class TestIpAddressFunctions
         assertThat(assertions.function("contains", "'0.0.0.0/4'", "IPADDRESS '0.0.0.0'"))
                 .isEqualTo(true);
         assertThat(assertions.function("contains", "'16.0.0.0/4'", "IPADDRESS '16.0.0.0'"))
-                        .isEqualTo(true);
+                .isEqualTo(true);
         assertThat(assertions.function("contains", "'240.0.0.0/4'", "IPADDRESS '240.0.0.0'"))
                 .isEqualTo(true);
 
