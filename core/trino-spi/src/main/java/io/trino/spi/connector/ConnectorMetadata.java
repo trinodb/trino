@@ -397,7 +397,7 @@ public interface ConnectorMetadata
                     }
                     catch (RuntimeException e) {
                         // getTableHandle or getTableMetadata failed call may fail if table disappeared during listing or is unsupported.
-                        Helper.juliLogger.log(Level.WARNING, () -> "Failed to get metadata for table: " + tableName);
+                        Helper.juliLogger.log(Level.WARNING, e, () -> "Failed to get metadata for table: " + tableName);
                         // Since the getTableHandle did not return null (i.e. succeeded or failed), we assume the table would be returned by listTables
                         return RelationCommentMetadata.forRelation(tableName, Optional.empty());
                     }
