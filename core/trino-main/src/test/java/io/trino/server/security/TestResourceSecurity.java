@@ -43,7 +43,6 @@ import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
-import io.trino.spi.security.SystemSecurityContext;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -1412,17 +1411,17 @@ public class TestResourceSecurity
         }
 
         @Override
-        public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
+        public void checkCanImpersonateUser(Identity identity, String userName)
         {
             if (!allowImpersonation) {
-                denyImpersonateUser(context.getIdentity().getUser(), userName);
+                denyImpersonateUser(identity.getUser(), userName);
             }
         }
 
         @Override
-        public void checkCanReadSystemInformation(SystemSecurityContext context)
+        public void checkCanReadSystemInformation(Identity identity)
         {
-            if (!context.getIdentity().getUser().equals(MANAGEMENT_USER)) {
+            if (!identity.getUser().equals(MANAGEMENT_USER)) {
                 denyReadSystemInformationAccess();
             }
         }
