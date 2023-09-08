@@ -111,6 +111,11 @@ public class TestingTrinoClient
         super(trinoServer, defaultSession, httpClient);
     }
 
+    public TestingTrinoClient(TestingTrinoServer trinoServer, TestingStatementClientFactory statementClientFactory, Session defaultSession, OkHttpClient httpClient)
+    {
+        super(trinoServer, statementClientFactory, defaultSession, httpClient);
+    }
+
     @Override
     protected ResultsSession<MaterializedResult> getResultSession(Session session)
     {
