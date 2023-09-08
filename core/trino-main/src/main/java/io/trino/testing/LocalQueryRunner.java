@@ -1120,7 +1120,7 @@ public class LocalQueryRunner
         // session must be in a transaction registered with the transaction manager in this query runner
         transactionManager.getTransactionInfo(session.getRequiredTransactionId());
 
-        PreparedQuery preparedQuery = new QueryPreparer(sqlParser).prepareQuery(session, sql);
+        PreparedQuery preparedQuery = new QueryPreparer(ImmutableSet.of(), sqlParser).prepareQuery(session, sql);
 
         assertFormattedSql(sqlParser, preparedQuery.getStatement());
 
@@ -1180,7 +1180,7 @@ public class LocalQueryRunner
                                 tablePropertyManager,
                                 materializedViewPropertyManager),
                         new ShowStatsRewrite(plannerContext.getMetadata(), queryExplainerFactory, statsCalculator),
-                        new ExplainRewrite(queryExplainerFactory, new QueryPreparer(sqlParser)))),
+                        new ExplainRewrite(queryExplainerFactory, new QueryPreparer(ImmutableSet.of(), sqlParser)))),
                 plannerContext.getTracer());
     }
 
