@@ -33,6 +33,7 @@ import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.FunctionResolver.CatalogFunctionBinding;
 import io.trino.metadata.FunctionResolver.CatalogFunctionMetadata;
 import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
+import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -161,10 +162,12 @@ import static io.trino.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.metadata.RedirectionAwareTableHandle.withRedirectionTo;
 import static io.trino.metadata.SignatureBinder.applyBoundVariables;
+import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
@@ -605,7 +608,19 @@ public final class MetadataManager
                             }
                         }
                         catch (RuntimeException e) {
-                            if (!(e instanceof TrinoException trinoException) || !trinoException.getErrorCode().equals(UNSUPPORTED_TABLE_TYPE.toErrorCode())) {
+                            boolean silent = false;
+                            if (e instanceof TrinoException trinoException) {
+                                ErrorCode errorCode = trinoException.getErrorCode();
+                                silent = errorCode.equals(UNSUPPORTED_TABLE_TYPE.toErrorCode()) ||
+                                        // e.g. table deleted concurrently
+                                        errorCode.equals(NOT_FOUND.toErrorCode()) ||
+                                        // e.g. Iceberg/Delta table being deleted concurrently resulting in failure to load metadata from filesystem
+                                        errorCode.getType() == EXTERNAL;
+                            }
+                            if (silent) {
+                                log.debug(e, "Failed to get metadata for table: %s", objectName);
+                            }
+                            else {
                                 log.warn(e, "Failed to get metadata for table: %s", objectName);
                             }
                         }

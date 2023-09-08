@@ -143,7 +143,7 @@ public class TableCommentSystemTable
                         }
                     }
                     catch (RuntimeException e) {
-                        LOG.warn(e, "Failed to get metadata for table: %s", name);
+                        LOG.warn(e, "Failed to get metadata for redirected table: %s", name);
                     }
                 }
             }
