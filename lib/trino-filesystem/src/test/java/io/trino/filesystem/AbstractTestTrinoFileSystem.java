@@ -254,7 +254,12 @@ public abstract class AbstractTestTrinoFileSystem
                 assertThat(inputStream.getPosition()).isEqualTo(fileSize);
                 assertThat(inputStream.read()).isLessThan(0);
                 assertThat(inputStream.read(bytes)).isLessThan(0);
-                assertThat(inputStream.skip(10)).isEqualTo(0);
+                if (seekPastEndOfFileFails()) {
+                    assertThat(inputStream.skip(10)).isEqualTo(0);
+                }
+                else {
+                    assertThat(inputStream.skip(10)).isEqualTo(10L);
+                }
 
                 // seek 4 MB in and read byte at a time
                 inputStream.seek(4 * MEGABYTE);
@@ -270,7 +275,12 @@ public abstract class AbstractTestTrinoFileSystem
                 assertThat(inputStream.getPosition()).isEqualTo(fileSize);
                 assertThat(inputStream.read()).isLessThan(0);
                 assertThat(inputStream.read(bytes)).isLessThan(0);
-                assertThat(inputStream.skip(10)).isEqualTo(0);
+                if (seekPastEndOfFileFails()) {
+                    assertThat(inputStream.skip(10)).isEqualTo(0);
+                }
+                else {
+                    assertThat(inputStream.skip(10)).isEqualTo(10L);
+                }
 
                 // seek 1MB at a time
                 for (int i = 0; i < 16; i++) {
@@ -297,9 +307,11 @@ public abstract class AbstractTestTrinoFileSystem
                     assertThat(slice.getInt(0)).isEqualTo(expectedPosition / 4);
                     expectedPosition += size;
                 }
-                long skipSize = inputStream.skip(MEGABYTE);
-                assertThat(skipSize).isEqualTo(fileSize - expectedPosition);
-                assertThat(inputStream.getPosition()).isEqualTo(fileSize);
+                if (seekPastEndOfFileFails()) {
+                    long skipSize = inputStream.skip(MEGABYTE);
+                    assertThat(skipSize).isEqualTo(fileSize - expectedPosition);
+                    assertThat(inputStream.getPosition()).isEqualTo(fileSize);
+                }
 
                 // skip N bytes
                 inputStream.seek(0);
@@ -318,18 +330,27 @@ public abstract class AbstractTestTrinoFileSystem
                 inputStream.skipNBytes(fileSize - expectedPosition);
                 assertThat(inputStream.getPosition()).isEqualTo(fileSize);
 
-                // skip beyond the end of the file is not allowed
-                inputStream.seek(expectedPosition);
-                assertThat(expectedPosition + MEGABYTE).isGreaterThan(fileSize);
-                assertThatThrownBy(() -> inputStream.skipNBytes(MEGABYTE))
-                        .isInstanceOf(EOFException.class);
+                if (seekPastEndOfFileFails()) {
+                    // skip beyond the end of the file is not allowed
+                    inputStream.seek(expectedPosition);
+                    assertThat(expectedPosition + MEGABYTE).isGreaterThan(fileSize);
+                    assertThatThrownBy(() -> inputStream.skipNBytes(MEGABYTE))
+                            .isInstanceOf(EOFException.class);
+                }
 
                 inputStream.seek(fileSize);
-                assertThatThrownBy(() -> inputStream.skipNBytes(1))
-                        .isInstanceOf(EOFException.class);
+                if (seekPastEndOfFileFails()) {
+                    assertThatThrownBy(() -> inputStream.skipNBytes(1))
+                            .isInstanceOf(EOFException.class);
+                }
 
                 inputStream.seek(fileSize);
-                assertThat(inputStream.skip(1)).isEqualTo(0);
+                if (seekPastEndOfFileFails()) {
+                    assertThat(inputStream.skip(1)).isEqualTo(0);
+                }
+                else {
+                    assertThat(inputStream.skip(1)).isEqualTo(1L);
+                }
 
                 // seek beyond the end of the file, is not allowed
                 long currentPosition = fileSize - 500;
