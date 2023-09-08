@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -142,6 +143,13 @@ public final class FairScheduler
         for (TaskControl task : tasks) {
             task.cancel();
         }
+    }
+
+    public Set<Integer> getTasks(Group group)
+    {
+        return queue.getTasks(group).stream()
+                .map(TaskControl::id)
+                .collect(toImmutableSet());
     }
 
     public synchronized ListenableFuture<Void> submit(Group group, int id, Schedulable runner)
