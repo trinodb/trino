@@ -108,6 +108,19 @@ class HdfsTrinoInputStream
     }
 
     @Override
+    public long skip(long n)
+            throws IOException
+    {
+        ensureOpen();
+        try {
+            return stream.skip(n);
+        }
+        catch (IOException e) {
+            throw new IOException("Skipping %s bytes of file %s failed: %s".formatted(n, location, e.getMessage()), e);
+        }
+    }
+
+    @Override
     public void close()
             throws IOException
     {
