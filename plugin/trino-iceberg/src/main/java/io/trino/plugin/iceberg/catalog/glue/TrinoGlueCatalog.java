@@ -441,6 +441,7 @@ public class TrinoGlueCatalog
             }
             catch (RuntimeException e) {
                 // Table may be concurrently deleted
+                // TODO detect file not found failure when reading metadata file and silently skip table in such case. Avoid logging warnings for legitimate situations.
                 LOG.warn(e, "Failed to get metadata for table: %s", tableName);
                 return;
             }
@@ -535,6 +536,7 @@ public class TrinoGlueCatalog
             }
             catch (RuntimeException e) {
                 // Table may be concurrently deleted
+                // TODO detect file not found failure when reading metadata file and silently skip table in such case. Avoid logging warnings for legitimate situations.
                 LOG.warn(e, "Failed to get metadata for table: %s", tableName);
                 return;
             }
