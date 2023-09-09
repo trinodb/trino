@@ -1,0 +1,37 @@
+{
+    "type" : "record",
+    "name" : "customer",
+    "fields" : [ {
+        "name" : "custkey",
+        "type" : [ "null", "long" ],
+        "default" : null
+    }, {
+        "name" : "name",
+        "type" : [ "null", "string" ],
+        "default" : null
+    }, {
+        "name" : "address",
+        "type" : [ "null", "string" ],
+        "default" : null
+    }, {
+        "name" : "nationkey",
+        "type" : [ "null", "long" ],
+        "default" : null
+    }, {
+        "name" : "phone",
+        "type" : [ "null", "string" ],
+        "default" : null
+    }, {
+        "name" : "acctbal",
+        "type" : [ "null", "double" ],
+        "default" : null
+    }, {
+        "name" : "mktsegment",
+        "type" : [ "null", "string" ],
+        "default" : null
+    }, {
+        "name" : "comment",
+        "type" : [ "null", "string" ],
+        "default" : null
+    } ]
+}

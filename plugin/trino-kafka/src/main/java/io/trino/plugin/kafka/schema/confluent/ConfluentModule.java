@@ -52,6 +52,9 @@ import io.trino.plugin.kafka.decoder.KafkaRowDecoderFactory;
 import io.trino.plugin.kafka.encoder.DispatchingRowEncoderFactory;
 import io.trino.plugin.kafka.encoder.RowEncoderFactory;
 import io.trino.plugin.kafka.encoder.avro.AvroRowEncoder;
+import io.trino.plugin.kafka.encoder.dummy.DummyRowEncoder;
+import io.trino.plugin.kafka.encoder.dummy.DummyRowEncoderFactory;
+import io.trino.plugin.kafka.encoder.kafka.KafkaSerializerRowEncoder;
 import io.trino.plugin.kafka.encoder.protobuf.ProtobufRowEncoder;
 import io.trino.plugin.kafka.encoder.protobuf.ProtobufSchemaParser;
 import io.trino.plugin.kafka.schema.ContentSchemaProvider;
@@ -169,12 +172,12 @@ public class ConfluentModule
         public void configure(Binder binder)
         {
             MapBinder<String, RowEncoderFactory> encoderFactoriesByName = encoderFactory(binder);
-            encoderFactoriesByName.addBinding(AvroRowEncoder.NAME).toInstance((session, rowEncoderSpec) -> {
-                throw new TrinoException(NOT_SUPPORTED, "Insert not supported");
-            });
+            encoderFactoriesByName.addBinding(AvroRowEncoder.NAME).to(ConfluentRowEncoderFactory.class).in(SINGLETON);
+            encoderFactoriesByName.addBinding(KafkaSerializerRowEncoder.NAME).to(KafkaSerializerRowEncoder.Factory.class).in(SINGLETON);
             encoderFactoriesByName.addBinding(ProtobufRowEncoder.NAME).toInstance((session, rowEncoderSpec) -> {
                 throw new TrinoException(NOT_SUPPORTED, "Insert is not supported for schema registry based tables");
             });
+            encoderFactoriesByName.addBinding(DummyRowEncoder.NAME).to(DummyRowEncoderFactory.class).in(SINGLETON);
             binder.bind(DispatchingRowEncoderFactory.class).in(SINGLETON);
         }
     }

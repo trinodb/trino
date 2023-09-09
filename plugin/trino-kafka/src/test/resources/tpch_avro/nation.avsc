@@ -1,0 +1,21 @@
+{
+    "type" : "record",
+    "name" : "nation",
+    "fields" : [ {
+        "name" : "nationkey",
+        "type" : [ "null", "long" ],
+        "default" : null
+    }, {
+        "name" : "name",
+        "type" : [ "null", "string" ],
+        "default" : null
+    }, {
+        "name" : "regionkey",
+        "type" : [ "null", "long" ],
+        "default" : null
+    }, {
+        "name" : "comment",
+        "type" : [ "null", "string" ],
+        "default" : null
+    } ]
+}

@@ -126,7 +126,13 @@ public class KafkaPageSink
             keyBytes = keyEncoder.toByteArray();
             messageBytes = messageEncoder.toByteArray();
 
-            expectedWrittenBytes += keyBytes.length + messageBytes.length;
+            /**
+             * KafkaProducerBatch returns -1 for bytes length if data is null
+             * @see org.apache.kafka.clients.producer.internals.ProducerBatch#tryAppend
+             */
+            int keyBytesLength = keyBytes == null ? -1 : keyBytes.length;
+            int messageBytesLength = messageBytes == null ? -1 : messageBytes.length;
+            expectedWrittenBytes += keyBytesLength + messageBytesLength;
 
             producer.send(new ProducerRecord<>(topicName, keyBytes, messageBytes), producerCallback);
         }

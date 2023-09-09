@@ -207,27 +207,6 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     }
 
     @Test
-    public void testUnsupportedInsert()
-    {
-        String topicName = "topic-unsupported-insert-" + randomNameSuffix();
-
-        assertNotExists(topicName);
-
-        List<ProducerRecord<Long, GenericRecord>> messages = createMessages(topicName, MESSAGE_COUNT, true);
-        testingKafka.sendMessages(
-                messages.stream(),
-                schemaRegistryAwareProducer(testingKafka)
-                        .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
-                        .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
-                        .buildOrThrow());
-
-        waitUntilTableExists(topicName);
-
-        assertThatThrownBy(() -> getQueryRunner().execute(format("INSERT INTO %s VALUES(0, 0, '')", toDoubleQuoted(topicName))))
-                .hasMessage("Insert not supported");
-    }
-
-    @Test
     public void testUnsupportedFormat()
     {
         String topicName = "topic-unsupported-format-" + randomNameSuffix();

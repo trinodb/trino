@@ -30,9 +30,12 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.IGNORE;
 import static io.trino.plugin.kafka.schema.confluent.ConfluentSessionProperties.getEmptyFieldStrategy;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Predicate.not;
 
 public class AvroSchemaParser
         implements SchemaParser
@@ -65,7 +68,7 @@ public class AvroSchemaParser
                     false));
         }
         else {
-            List<Schema.Field> avroFields = schema.getFields();
+            List<Schema.Field> avroFields = getFields(session, schema);
             checkState(avroFields.size() == types.size(), "incompatible schema");
 
             for (int i = 0; i < types.size(); i++) {
@@ -81,5 +84,29 @@ public class AvroSchemaParser
             }
         }
         return new KafkaTopicFieldGroup(AvroRowDecoderFactory.NAME, Optional.empty(), Optional.of(subject), fieldsBuilder.build());
+    }
+
+    // Filter top level empty struct subfields.
+    // If there is a nested empty subField, it will be handled
+    // by the AvroSchemaConverter.
+    static List<Schema.Field> getFields(ConnectorSession session, Schema schema)
+    {
+        checkState(schema.getType() == Schema.Type.RECORD, "Unexpected type '%s' for record schema", schema.getType());
+        if (getEmptyFieldStrategy(session) != IGNORE) {
+            return schema.getFields();
+        }
+        return schema.getFields().stream()
+                .filter(not(AvroSchemaParser::hasEmptyStruct))
+                .collect(toImmutableList());
+    }
+
+    private static boolean hasEmptyStruct(Schema.Field field)
+    {
+        Schema schema = field.schema();
+        if (schema.isUnion()) {
+            return schema.getTypes().stream()
+                    .anyMatch(memberSchema -> memberSchema.getType() == Schema.Type.RECORD && memberSchema.getFields().isEmpty());
+        }
+        return schema.getType() == Schema.Type.RECORD && schema.getFields().isEmpty();
     }
 }

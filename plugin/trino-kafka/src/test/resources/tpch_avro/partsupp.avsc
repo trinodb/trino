@@ -1,0 +1,25 @@
+{
+    "type" : "record",
+    "name" : "partsupp",
+    "fields" : [ {
+        "name" : "partkey",
+        "type" : [ "null", "long" ],
+        "default" : null
+    }, {
+        "name" : "suppkey",
+        "type" : [ "null", "long" ],
+        "default" : null
+    }, {
+        "name" : "availqty",
+        "type" : [ "null", "int" ],
+        "default" : null
+    }, {
+        "name" : "supplycost",
+        "type" : [ "null", "double" ],
+        "default" : null
+    },  {
+        "name" : "comment",
+        "type" : [ "null", "string" ],
+        "default" : null
+    } ]
+}
