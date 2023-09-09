@@ -16,6 +16,7 @@ package io.trino.cost;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.operator.GeometryAccelerationDegree;
 import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
@@ -91,7 +92,8 @@ public class TestOptimizerConfig
                 .setMinInputSizePerTask(DataSize.of(5, GIGABYTE))
                 .setMinInputRowsPerTask(10_000_000L)
                 .setUseExactPartitioning(false)
-                .setUseCostBasedPartitioning(true));
+                .setUseCostBasedPartitioning(true)
+                .setGeometryAccelerationDegree(GeometryAccelerationDegree.MILD));
     }
 
     @Test
@@ -150,6 +152,7 @@ public class TestOptimizerConfig
                 .put("optimizer.min-input-rows-per-task", "1000000")
                 .put("optimizer.use-exact-partitioning", "true")
                 .put("optimizer.use-cost-based-partitioning", "false")
+                .put("spatial-geometry-acceleration-degree", "hot")
                 .buildOrThrow();
 
         OptimizerConfig expected = new OptimizerConfig()
@@ -204,7 +207,8 @@ public class TestOptimizerConfig
                 .setMinInputSizePerTask(DataSize.of(1, MEGABYTE))
                 .setMinInputRowsPerTask(1_000_000L)
                 .setUseExactPartitioning(true)
-                .setUseCostBasedPartitioning(false);
+                .setUseCostBasedPartitioning(false)
+                .setGeometryAccelerationDegree(GeometryAccelerationDegree.HOT);
         assertFullMapping(properties, expected);
     }
 }

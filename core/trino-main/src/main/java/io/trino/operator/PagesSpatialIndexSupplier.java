@@ -41,6 +41,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Verify.verifyNotNull;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.trino.SystemSessionProperties.getSpatialGeometryAccelerationDegree;
 import static io.trino.geospatial.serde.GeometrySerde.deserialize;
 import static io.trino.operator.PagesSpatialIndex.EMPTY_INDEX;
 import static io.trino.operator.SyntheticAddress.decodePosition;
@@ -90,13 +91,19 @@ public class PagesSpatialIndexSupplier
         this.filterFunctionFactory = filterFunctionFactory;
         this.partitions = partitions;
 
-        this.rtree = buildRTree(addresses, channels, geometryChannel, radiusChannel, partitionChannel);
+        this.rtree = buildRTree(addresses, channels, geometryChannel, radiusChannel, partitionChannel, getSpatialGeometryAccelerationDegree(session).getAccelerationDegree());
         this.radiusChannel = radiusChannel;
         this.memorySizeInBytes = INSTANCE_SIZE +
                 (rtree.isEmpty() ? 0 : STRTREE_INSTANCE_SIZE + computeMemorySizeInBytes(rtree.getRoot()));
     }
 
-    private static STRtree buildRTree(LongArrayList addresses, List<ObjectArrayList<Block>> channels, int geometryChannel, Optional<Integer> radiusChannel, Optional<Integer> partitionChannel)
+    private static STRtree buildRTree(
+            LongArrayList addresses,
+            List<ObjectArrayList<Block>> channels,
+            int geometryChannel,
+            Optional<Integer> radiusChannel,
+            Optional<Integer> partitionChannel,
+            Geometry.GeometryAccelerationDegree accelerationDegree)
     {
         STRtree rtree = new STRtree();
         Operator relateOperator = OperatorFactoryLocal.getInstance().getOperator(Operator.Type.Relate);
@@ -126,7 +133,7 @@ public class PagesSpatialIndexSupplier
 
             if (radiusChannel.isEmpty()) {
                 // If radiusChannel is supplied, this is a distance query, for which our acceleration won't help.
-                accelerateGeometry(ogcGeometry, relateOperator);
+                accelerateGeometry(ogcGeometry, relateOperator, accelerationDegree);
             }
 
             int partition = -1;
@@ -163,7 +170,7 @@ public class PagesSpatialIndexSupplier
         return ENVELOPE_INSTANCE_SIZE + ((GeometryWithPosition) item.getItem()).getEstimatedMemorySizeInBytes();
     }
 
-    private static void accelerateGeometry(OGCGeometry ogcGeometry, Operator relateOperator)
+    private static void accelerateGeometry(OGCGeometry ogcGeometry, Operator relateOperator, Geometry.GeometryAccelerationDegree accelerationDegree)
     {
         // Recurse into GeometryCollections
         GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
@@ -172,7 +179,7 @@ public class PagesSpatialIndexSupplier
             if (esriGeometry == null) {
                 break;
             }
-            relateOperator.accelerateGeometry(esriGeometry, null, Geometry.GeometryAccelerationDegree.enumMild);
+            relateOperator.accelerateGeometry(esriGeometry, null, accelerationDegree);
         }
     }
 

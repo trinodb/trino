@@ -23,6 +23,7 @@ import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
+import io.trino.operator.GeometryAccelerationDegree;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
@@ -208,6 +209,7 @@ public final class SystemSessionProperties
     public static final String USE_COST_BASED_PARTITIONING = "use_cost_based_partitioning";
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
     public static final String PAGE_PARTITIONING_BUFFER_POOL_SIZE = "page_partitioning_buffer_pool_size";
+    public static final String SPATIAL_GEOMETRY_ACCELERATION_DEGREE = "spatial_geometry_acceleration_degree";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1064,7 +1066,12 @@ public final class SystemSessionProperties
                 integerProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE,
                         "Maximum number of free buffers in the per task partitioned page buffer pool. Setting this to zero effectively disables the pool",
                         taskManagerConfig.getPagePartitioningBufferPoolSize(),
-                        true));
+                        true),
+                enumProperty(SPATIAL_GEOMETRY_ACCELERATION_DEGREE,
+                        "Set the degree of acceleration of the geometry. Acceleration usually builds a raster and a quadtree",
+                        GeometryAccelerationDegree.class,
+                        optimizerConfig.getGeometryAccelerationDegree(),
+                        false));
     }
 
     @Override
@@ -1906,5 +1913,10 @@ public final class SystemSessionProperties
     public static int getPagePartitioningBufferPoolSize(Session session)
     {
         return session.getSystemProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE, Integer.class);
+    }
+
+    public static GeometryAccelerationDegree getSpatialGeometryAccelerationDegree(Session session)
+    {
+        return session.getSystemProperty(SPATIAL_GEOMETRY_ACCELERATION_DEGREE, GeometryAccelerationDegree.class);
     }
 }

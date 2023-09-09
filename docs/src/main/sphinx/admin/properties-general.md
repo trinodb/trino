@@ -67,3 +67,16 @@ size limits.
 Prepared statement compression is not applied if the size gain is less than the
 configured value. Smaller statements do not benefit from compression, and are
 left uncompressed.
+
+## `spatial-geometry-acceleration-degree`
+
+- **Type:** {ref}`prop-type-string`
+- **Allowed values:** `MILD`, `MEDIUM`, `HOT`
+- **Default value:** `MILD`
+- **Session property:**  `spatial_geometry_acceleration_degree`
+
+Set the degree of acceleration of the geometry. Acceleration usually builds a
+raster and a quadtree. `MILD` acceleration, takes least amount of memory.
+`MEDIUM` acceleration, takes more memory and takes more time to accelerate,
+but may work faster. `HOT` acceleration, takes even more memory and may take
+longest time to accelerate, but may work faster than the other two.

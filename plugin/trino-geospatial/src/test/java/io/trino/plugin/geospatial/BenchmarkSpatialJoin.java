@@ -41,6 +41,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.io.Resources.getResource;
+import static io.trino.SystemSessionProperties.SPATIAL_GEOMETRY_ACCELERATION_DEGREE;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -65,6 +66,8 @@ public class BenchmarkSpatialJoin
 
         @Param({"10", "100", "1000", "10000"})
         private int pointCount;
+        @Param({"MILD", "MEDIUM", "HOT"})
+        private String accelerationDegree = "MILD";
 
         public LocalQueryRunner getQueryRunner()
         {
@@ -78,6 +81,7 @@ public class BenchmarkSpatialJoin
             queryRunner = LocalQueryRunner.create(testSessionBuilder()
                     .setCatalog("memory")
                     .setSchema("default")
+                    .setSystemProperty(SPATIAL_GEOMETRY_ACCELERATION_DEGREE, accelerationDegree)
                     .build());
             queryRunner.installPlugin(new GeoPlugin());
             queryRunner.createCatalog("memory", new MemoryConnectorFactory(), ImmutableMap.of());

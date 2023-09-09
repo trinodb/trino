@@ -19,11 +19,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.RowPagesBuilder;
+import io.trino.Session;
 import io.trino.geospatial.KdbTree;
 import io.trino.geospatial.KdbTreeUtils;
 import io.trino.geospatial.Rectangle;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
+import io.trino.operator.GeometryAccelerationDegree;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PagesIndex.TestingFactory;
@@ -60,6 +62,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.SPATIAL_GEOMETRY_ACCELERATION_DEGREE;
 import static io.trino.geospatial.KdbTree.Node.newInternal;
 import static io.trino.geospatial.KdbTree.Node.newLeaf;
 import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
@@ -82,7 +85,7 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
-public class TestSpatialJoinOperator
+public class BaseSpatialJoinOperator
 {
     private static final String KDB_TREE_JSON = KdbTreeUtils.toJson(
             new KdbTree(newInternal(new Rectangle(-2, -2, 15, 15),
@@ -101,8 +104,14 @@ public class TestSpatialJoinOperator
     private static final Slice POINT_Z = stPoint(6, 6);
     private static final Slice POINT_W = stPoint(20, 20);
 
+    private GeometryAccelerationDegree accelerationDegree;
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
+
+    BaseSpatialJoinOperator(GeometryAccelerationDegree accelerationDegree)
+    {
+        this.accelerationDegree = accelerationDegree;
+    }
 
     @BeforeMethod
     public void setUp()
@@ -525,7 +534,12 @@ public class TestSpatialJoinOperator
 
     private TaskContext createTaskContext()
     {
-        return TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION);
+        return TestingTaskContext.createTaskContext(
+                executor,
+                scheduledExecutor,
+                Session.builder(TEST_SESSION)
+                        .setSystemProperty(SPATIAL_GEOMETRY_ACCELERATION_DEGREE, accelerationDegree.name())
+                        .build());
     }
 
     private static class TestInternalJoinFilterFunction

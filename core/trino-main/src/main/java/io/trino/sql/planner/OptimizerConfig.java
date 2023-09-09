@@ -20,6 +20,7 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.operator.GeometryAccelerationDegree;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -93,6 +94,7 @@ public class OptimizerConfig
     private long joinPartitionedBuildMinRowCount = 1_000_000L;
     private DataSize minInputSizePerTask = DataSize.of(5, GIGABYTE);
     private long minInputRowsPerTask = 10_000_000L;
+    private GeometryAccelerationDegree geometryAccelerationDegree = GeometryAccelerationDegree.MILD;
 
     public enum JoinReorderingStrategy
     {
@@ -785,6 +787,19 @@ public class OptimizerConfig
     public OptimizerConfig setUseCostBasedPartitioning(boolean useCostBasedPartitioning)
     {
         this.useCostBasedPartitioning = useCostBasedPartitioning;
+        return this;
+    }
+
+    public GeometryAccelerationDegree getGeometryAccelerationDegree()
+    {
+        return geometryAccelerationDegree;
+    }
+
+    @Config("spatial-geometry-acceleration-degree")
+    @ConfigDescription("Set the degree of acceleration of the geometry. Acceleration usually builds a raster and a quadtree")
+    public OptimizerConfig setGeometryAccelerationDegree(GeometryAccelerationDegree geometryAccelerationDegree)
+    {
+        this.geometryAccelerationDegree = geometryAccelerationDegree;
         return this;
     }
 }
