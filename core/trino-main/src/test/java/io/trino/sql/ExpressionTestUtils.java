@@ -44,13 +44,16 @@ import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.transaction.TransactionBuilder.transaction;
-import static org.testng.internal.EclipseInterface.ASSERT_LEFT;
-import static org.testng.internal.EclipseInterface.ASSERT_MIDDLE;
-import static org.testng.internal.EclipseInterface.ASSERT_RIGHT;
 
 public final class ExpressionTestUtils
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
+
+    private static final Character OPENING_CHARACTER = '[';
+    private static final Character CLOSING_CHARACTER = ']';
+    private static final String ASSERT_MIDDLE = CLOSING_CHARACTER + " but found " + OPENING_CHARACTER;
+    private static final String ASSERT_RIGHT = Character.toString(CLOSING_CHARACTER);
+    private static final String ASSERT_LEFT = "expected " + OPENING_CHARACTER;
 
     private ExpressionTestUtils() {}
 
