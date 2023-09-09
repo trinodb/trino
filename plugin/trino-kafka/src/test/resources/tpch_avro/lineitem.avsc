@@ -1,0 +1,69 @@
+{
+    "type" : "record",
+    "name" : "lineitem",
+    "fields" : [ {
+        "name" : "orderkey",
+        "type" : [ "null", "long" ],
+        "default" : null
+    }, {
+        "name" : "partkey",
+        "type" : [ "null", "long" ],
+        "default" : null
+    }, {
+        "name" : "suppkey",
+        "type" : [ "null", "long" ],
+        "default" : null
+    }, {
+        "name" : "linenumber",
+        "type" : [ "null", "int" ],
+        "default" : null
+    }, {
+        "name" : "quantity",
+        "type" : [ "null", "double" ],
+        "default" : null
+    }, {
+        "name" : "extendedprice",
+        "type" : [ "null", "double" ],
+        "default" : null
+    }, {
+        "name" : "discount",
+        "type" : [ "null", "double" ],
+        "default" : null
+    }, {
+        "name" : "tax",
+        "type" : [ "null", "double" ],
+        "default" : null
+    }, {
+        "name" : "returnflag",
+        "type" : [ "null", "string" ],
+        "default" : null
+    }, {
+        "name" : "linestatus",
+        "type" : [ "null", "string" ],
+        "default" : null
+    }, {
+        "name" : "shipdate",
+        "type" : [ "null", {"type": "int", "logicalType": "date"} ],
+        "default" : null
+    }, {
+        "name" : "commitdate",
+        "type" : [ "null", {"type": "int", "logicalType": "date"} ],
+        "default" : null
+    }, {
+        "name" : "receiptdate",
+        "type" : [ "null", {"type": "int", "logicalType": "date"} ],
+        "default" : null
+    }, {
+        "name" : "shipinstruct",
+        "type" : [ "null", "string" ],
+        "default" : null
+    }, {
+        "name" : "shipmode",
+        "type" : [ "null", "string" ],
+        "default" : null
+    }, {
+        "name" : "comment",
+        "type" : [ "null", "string" ],
+        "default" : null
+    } ]
+}

@@ -1,0 +1,41 @@
+{
+    "type" : "record",
+    "name" : "orders",
+    "fields" : [ {
+        "name" : "orderkey",
+        "type" : [ "null", "long" ],
+        "default" : null
+    }, {
+        "name" : "custkey",
+        "type" : [ "null", "long" ],
+        "default" : null
+    }, {
+        "name" : "orderstatus",
+        "type" : [ "null", "string" ],
+        "default" : null
+    }, {
+        "name" : "totalprice",
+        "type" : [ "null", "double" ],
+        "default" : null
+    }, {
+        "name" : "orderdate",
+        "type" : [ "null", {"type": "int", "logicalType": "date"} ],
+        "default" : null
+    }, {
+        "name" : "orderpriority",
+        "type" : [ "null", "string" ],
+        "default" : null
+    }, {
+        "name" : "clerk",
+        "type" : [ "null", "string" ],
+        "default" : null
+    }, {
+        "name" : "shippriority",
+        "type" : [ "null", "int" ],
+        "default" : null
+    }, {
+        "name" : "comment",
+        "type" : [ "null", "string" ],
+        "default" : null
+    } ]
+}

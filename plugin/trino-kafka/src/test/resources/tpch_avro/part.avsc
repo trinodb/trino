@@ -1,0 +1,41 @@
+{
+    "type" : "record",
+    "name" : "part",
+    "fields" : [ {
+        "name" : "partkey",
+        "type" : [ "null", "long" ],
+        "default" : null
+    }, {
+        "name" : "name",
+        "type" : [ "null", "string" ],
+        "default" : null
+    }, {
+        "name" : "mfgr",
+        "type" : [ "null", "string" ],
+        "default" : null
+    }, {
+        "name" : "brand",
+        "type" : [ "null", "string" ],
+        "default" : null
+    }, {
+        "name" : "type",
+        "type" : [ "null", "string" ],
+        "default" : null
+    }, {
+        "name" : "size",
+        "type" : [ "null", "int" ],
+        "default" : null
+    }, {
+        "name" : "container",
+        "type" : [ "null", "string" ],
+        "default" : null
+    }, {
+        "name" : "retailprice",
+        "type" : [ "null", "double" ],
+        "default" : null
+    }, {
+        "name" : "comment",
+        "type" : [ "null", "string" ],
+        "default" : null
+    } ]
+}
