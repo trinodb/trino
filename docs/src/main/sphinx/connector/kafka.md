@@ -1098,6 +1098,7 @@ The Kafka connector contains the following decoders:
 - `json` - Kafka message is parsed as JSON, and JSON fields are mapped to table columns.
 - `avro` - Kafka message is parsed based on an Avro schema, and Avro fields are mapped to table columns.
 - `protobuf` - Kafka message is parsed based on a Protobuf schema, and Protobuf fields are mapped to table columns.
+- `kafka` - Kafka key is encoded in the table name. 
 
 :::{note}
 If no table definition file exists for a table, the `dummy` decoder is used,
@@ -1431,6 +1432,35 @@ The schema evolution behavior is as follows:
 
 - Protobuf Timestamp has a nanosecond precision but Trino supports
   decoding/encoding at microsecond precision.
+
+#### Kafka key decoder
+
+The Kafka key decoder converts the bytes representing a key by
+encoding the column name and type in the table name.
+
+The key is encoded in the table name as follows:
+
+`"<tablename>"&key-column=<name>:<trino type>"`
+
+Note: the double quotes are required when using the above format.
+
+Here is an example:
+```sql
+SELECT my_key, message_field1, message_field2
+FROM kafka.default."mytable&key-column=my_key:bigint"
+```
+
+The following table lists the supported Trino types which can be used and the equivalent Avro field types:
+
+| Trino data type | Allowed Avro data type |
+|-----------------|------------------------|
+| `BIGINT`        | `LONG`                 |
+| `INTEGER`       | `INT`                  |
+| `DOUBLE`        | `DOUBLE`               |
+| `BOOLEAN`       | `BOOLEAN`              |
+| `REAL`          | `FLOAT`                |
+| `VARCHAR`       | `STRING`               |
+| `VARBINARY`     | `BYTES`                |
 
 (kafka-sql-support)=
 

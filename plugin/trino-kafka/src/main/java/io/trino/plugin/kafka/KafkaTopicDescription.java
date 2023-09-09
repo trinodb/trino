@@ -34,6 +34,7 @@ public class KafkaTopicDescription
     private final Optional<String> schemaName;
     private final Optional<KafkaTopicFieldGroup> key;
     private final Optional<KafkaTopicFieldGroup> message;
+    private final Optional<KafkaColumnHandle> keyColumn;
 
     @JsonCreator
     public KafkaTopicDescription(
@@ -41,7 +42,8 @@ public class KafkaTopicDescription
             @JsonProperty("schemaName") Optional<String> schemaName,
             @JsonProperty("topicName") String topicName,
             @JsonProperty("key") Optional<KafkaTopicFieldGroup> key,
-            @JsonProperty("message") Optional<KafkaTopicFieldGroup> message)
+            @JsonProperty("message") Optional<KafkaTopicFieldGroup> message,
+            @JsonProperty("keyColumn") Optional<KafkaColumnHandle> keyColumn)
     {
         checkArgument(!isNullOrEmpty(tableName), "tableName is null or is empty");
         this.tableName = tableName;
@@ -49,6 +51,7 @@ public class KafkaTopicDescription
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.key = requireNonNull(key, "key is null");
         this.message = requireNonNull(message, "message is null");
+        this.keyColumn = requireNonNull(keyColumn, "keyColumn is null");
     }
 
     @JsonProperty
@@ -81,10 +84,16 @@ public class KafkaTopicDescription
         return message;
     }
 
+    @JsonProperty
+    public Optional<KafkaColumnHandle> getKeyColumn()
+    {
+        return keyColumn;
+    }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableName, topicName, schemaName, key, message);
+        return Objects.hash(tableName, topicName, schemaName, key, message, keyColumn);
     }
 
     @Override
@@ -102,7 +111,8 @@ public class KafkaTopicDescription
                 Objects.equals(this.topicName, other.topicName) &&
                 Objects.equals(this.schemaName, other.schemaName) &&
                 Objects.equals(this.key, other.key) &&
-                Objects.equals(this.message, other.message);
+                Objects.equals(this.message, other.message) &&
+                Objects.equals(this.keyColumn, other.keyColumn);
     }
 
     @Override
@@ -114,6 +124,7 @@ public class KafkaTopicDescription
                 .add("schemaName", schemaName)
                 .add("key", key)
                 .add("message", message)
+                .add("keyColumn", keyColumn)
                 .toString();
     }
 }

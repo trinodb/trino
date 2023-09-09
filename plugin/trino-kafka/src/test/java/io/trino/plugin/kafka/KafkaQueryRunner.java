@@ -180,7 +180,8 @@ public final class KafkaQueryRunner
                 Optional.of(table.getSchemaName()),
                 table.toString(),
                 key,
-                message);
+                message,
+                Optional.empty());
     }
 
     private static Map<SchemaTableName, KafkaTopicDescription> createTpchTopicDescriptions(TypeManager typeManager, Iterable<TpchTable<?>> tables)
