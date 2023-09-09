@@ -24,7 +24,7 @@ import org.testng.SkipException;
 import java.util.List;
 import java.util.Map;
 
-public class BaseBigQueryFailureRecoveryTest
+public abstract class BaseBigQueryFailureRecoveryTest
         extends BaseFailureRecoveryTest
 {
     public BaseBigQueryFailureRecoveryTest(RetryPolicy retryPolicy)
