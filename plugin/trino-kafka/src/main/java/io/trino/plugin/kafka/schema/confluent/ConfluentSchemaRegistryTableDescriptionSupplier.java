@@ -23,13 +23,18 @@ import io.airlift.units.Duration;
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
+import io.trino.plugin.kafka.KafkaColumnHandle;
 import io.trino.plugin.kafka.KafkaConfig;
 import io.trino.plugin.kafka.KafkaTopicDescription;
+import io.trino.plugin.kafka.KafkaTopicFieldDescription;
 import io.trino.plugin.kafka.KafkaTopicFieldGroup;
+import io.trino.plugin.kafka.decoder.KafkaRowDecoderFactory;
 import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.TypeId;
+import io.trino.spi.type.TypeManager;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -47,6 +52,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.kafka.KafkaErrorCode.SCHEMA_REGISTRY_AMBIGUOUS_SUBJECT;
+import static io.trino.plugin.kafka.schema.TrinoToAvroSchemaConverter.fromTrinoType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.lang.String.join;
@@ -68,6 +74,9 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
 
     private static final String VALUE_SUBJECT = "value-subject";
 
+    private static final String KEY_COLUMN = "key-column";
+    private static final String KEY_COLUMN_TYPE_DELIMITER = ":";
+
     private static final String KEY_SUFFIX = "-key";
     private static final String VALUE_SUFFIX = "-value";
 
@@ -76,18 +85,21 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
     private final String defaultSchema;
     private final Supplier<SetMultimap<String, TopicAndSubjects>> topicAndSubjectsSupplier;
     private final Supplier<SetMultimap<String, String>> subjectsSupplier;
+    private final TypeManager typeManager;
 
     public ConfluentSchemaRegistryTableDescriptionSupplier(
             SchemaRegistryClient schemaRegistryClient,
             Map<String, SchemaParser> schemaParsers,
             String defaultSchema,
-            Duration subjectsCacheRefreshInterval)
+            Duration subjectsCacheRefreshInterval,
+            TypeManager typeManager)
     {
         this.schemaRegistryClient = requireNonNull(schemaRegistryClient, "schemaRegistryClient is null");
         this.schemaParsers = ImmutableMap.copyOf(requireNonNull(schemaParsers, "schemaParsers is null"));
         this.defaultSchema = requireNonNull(defaultSchema, "defaultSchema is null");
         topicAndSubjectsSupplier = memoizeWithExpiration(this::getTopicAndSubjects, subjectsCacheRefreshInterval.toMillis(), MILLISECONDS);
         subjectsSupplier = memoizeWithExpiration(this::getAllSubjects, subjectsCacheRefreshInterval.toMillis(), MILLISECONDS);
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     public static class Factory
@@ -97,24 +109,27 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
         private final Map<String, SchemaParser> schemaParsers;
         private final String defaultSchema;
         private final Duration subjectsCacheRefreshInterval;
+        private final TypeManager typeManager;
 
         @Inject
         public Factory(
                 SchemaRegistryClient schemaRegistryClient,
                 Map<String, SchemaParser> schemaParsers,
                 KafkaConfig kafkaConfig,
-                ConfluentSchemaRegistryConfig confluentConfig)
+                ConfluentSchemaRegistryConfig confluentConfig,
+                TypeManager typeManager)
         {
             this.schemaRegistryClient = requireNonNull(schemaRegistryClient, "schemaRegistryClient is null");
             this.schemaParsers = ImmutableMap.copyOf(requireNonNull(schemaParsers, "schemaParsers is null"));
             this.defaultSchema = kafkaConfig.getDefaultSchema();
             this.subjectsCacheRefreshInterval = confluentConfig.getConfluentSubjectsCacheRefreshInterval();
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
         }
 
         @Override
         public TableDescriptionSupplier get()
         {
-            return new ConfluentSchemaRegistryTableDescriptionSupplier(schemaRegistryClient, schemaParsers, defaultSchema, subjectsCacheRefreshInterval);
+            return new ConfluentSchemaRegistryTableDescriptionSupplier(schemaRegistryClient, schemaParsers, defaultSchema, subjectsCacheRefreshInterval, typeManager);
         }
     }
 
@@ -164,7 +179,8 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
             TopicAndSubjects topicAndSubjects = new TopicAndSubjects(
                     topic,
                     getKeySubjectFromTopic(topic, entry.getValue()),
-                    getValueSubjectFromTopic(topic, entry.getValue()));
+                    getValueSubjectFromTopic(topic, entry.getValue()),
+                    Optional.empty());
             topicSubjectsCacheBuilder.put(topicAndSubjects.getTableName(), topicAndSubjects);
         }
         return topicSubjectsCacheBuilder.build();
@@ -192,15 +208,36 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
             topicAndSubjects = new TopicAndSubjects(
                     topicAndSubjectsFromCache.getTopic(),
                     topicAndSubjects.getKeySubject().or(topicAndSubjectsFromCache::getKeySubject),
-                    topicAndSubjects.getValueSubject().or(topicAndSubjectsFromCache::getValueSubject));
+                    topicAndSubjects.getValueSubject().or(topicAndSubjectsFromCache::getValueSubject),
+                    topicAndSubjects.getKeyColumn().or(topicAndSubjectsFromCache::getKeyColumn));
         }
 
         if (topicAndSubjects.getKeySubject().isEmpty() && topicAndSubjects.getValueSubject().isEmpty()) {
             return Optional.empty();
         }
         Optional<KafkaTopicFieldGroup> key = topicAndSubjects.getKeySubject().map(subject -> getFieldGroup(session, subject));
+        if (key.isEmpty() && topicAndSubjects.getKeyColumn().isPresent()) {
+            key = Optional.of(getFieldGroupFromKeyColumn(topicAndSubjects.getKeyColumn().get()));
+        }
         Optional<KafkaTopicFieldGroup> message = topicAndSubjects.getValueSubject().map(subject -> getFieldGroup(session, subject));
-        return Optional.of(new KafkaTopicDescription(tableName, Optional.of(schemaTableName.getSchemaName()), topicAndSubjects.getTopic(), key, message));
+        return Optional.of(new KafkaTopicDescription(tableName, Optional.of(schemaTableName.getSchemaName()), topicAndSubjects.getTopic(), key, message, topicAndSubjects.getKeyColumn()));
+    }
+
+    private KafkaTopicFieldGroup getFieldGroupFromKeyColumn(KafkaColumnHandle keyColumn)
+    {
+        return new KafkaTopicFieldGroup(KafkaRowDecoderFactory.NAME, Optional.of(fromTrinoType(keyColumn.getType()).toString()), Optional.empty(), List.of(getFieldDescriptionFromKeyColumn(keyColumn)));
+    }
+
+    private KafkaTopicFieldDescription getFieldDescriptionFromKeyColumn(KafkaColumnHandle keyColumn)
+    {
+        return new KafkaTopicFieldDescription(
+                keyColumn.getName(),
+                keyColumn.getType(),
+                keyColumn.getMapping(),
+                null,
+                null,
+                null,
+                false);
     }
 
     private KafkaTopicFieldGroup getFieldGroup(ConnectorSession session, String subject)
@@ -238,25 +275,45 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
     {
         String encodedTableName = encodedSchemaTableName.getTableName();
         List<String> parts = Splitter.on(KEY_VALUE_PAIR_DELIMITER).trimResults().splitToList(encodedTableName);
-        checkState(!parts.isEmpty() && parts.size() <= 3, "Unexpected format for encodedTableName. Expected format is <tableName>[&key-subject=<key subject>][&value-subject=<value subject>]");
+        checkState(!parts.isEmpty() && parts.size() <= 4, "Unexpected format for encodedTableName. Expected format is <tableName>[&key-subject=<key subject>][&value-subject=<value subject>][&key-column=column_name:trino_column_type]");
         String tableName = parts.get(0);
         Optional<String> keySubject = Optional.empty();
         Optional<String> valueSubject = Optional.empty();
+        Optional<KafkaColumnHandle> keyColumn = Optional.empty();
         for (int part = 1; part < parts.size(); part++) {
             List<String> subjectKeyValue = Splitter.on(KEY_VALUE_DELIMITER).trimResults().splitToList(parts.get(part));
-            checkState(subjectKeyValue.size() == 2 && (subjectKeyValue.get(0).equals(KEY_SUBJECT) || subjectKeyValue.get(0).equals(VALUE_SUBJECT)), "Unexpected parameter '%s', should be %s=<key subject>' or %s=<value subject>", parts.get(part), KEY_SUBJECT, VALUE_SUBJECT);
+            checkState(subjectKeyValue.size() == 2 &&
+                            (subjectKeyValue.get(0).equals(KEY_SUBJECT) ||
+                                    subjectKeyValue.get(0).equals(VALUE_SUBJECT) ||
+                                    subjectKeyValue.get(0).equals(KEY_COLUMN)),
+                    "Unexpected parameter '%s', should be %s=<key subject>' or %s=<value subject> or %s=<key_column,key_column...> ]", parts.get(part), KEY_SUBJECT, VALUE_SUBJECT, KEY_COLUMN);
             if (subjectKeyValue.get(0).equals(KEY_SUBJECT)) {
                 checkState(keySubject.isEmpty(), "Key subject already defined");
                 keySubject = Optional.of(subjectKeyValue.get(1))
                         .map(this::resolveSubject);
             }
-            else {
+            else if (subjectKeyValue.get(0).equals(VALUE_SUBJECT)) {
                 checkState(valueSubject.isEmpty(), "Value subject already defined");
                 valueSubject = Optional.of(subjectKeyValue.get(1))
                         .map(this::resolveSubject);
             }
+            else if (subjectKeyValue.get(0).equals(KEY_COLUMN)) {
+                checkState(keyColumn.isEmpty(), "keyColumn already defined");
+                keyColumn = Optional.of(parseKeyColumn(subjectKeyValue.get(1)));
+            }
+            else {
+                throw new IllegalStateException(format("Invalid key '%s'", subjectKeyValue.get(0)));
+            }
         }
-        return new TopicAndSubjects(tableName, keySubject, valueSubject);
+        return new TopicAndSubjects(tableName, keySubject, valueSubject, keyColumn);
+    }
+
+    private KafkaColumnHandle parseKeyColumn(String keyColumnNameAndType)
+    {
+        requireNonNull(keyColumnNameAndType, "keyColumnNameAndType is null");
+        List<String> nameAndType = Splitter.on(KEY_COLUMN_TYPE_DELIMITER).omitEmptyStrings().trimResults().splitToList(keyColumnNameAndType);
+        checkState(nameAndType.size() == 2, "Unexpected format for key column/type. Should be <name>:<type>");
+        return new KafkaColumnHandle(nameAndType.get(0), typeManager.getType(TypeId.of(nameAndType.get(1))), null, null, null, true, false, false);
     }
 
     @Override
@@ -312,12 +369,14 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
         private final Optional<String> keySubject;
         private final Optional<String> valueSubject;
         private final String topic;
+        private final Optional<KafkaColumnHandle> keyColumn;
 
-        public TopicAndSubjects(String topic, Optional<String> keySubject, Optional<String> valueSubject)
+        public TopicAndSubjects(String topic, Optional<String> keySubject, Optional<String> valueSubject, Optional<KafkaColumnHandle> keyColumn)
         {
             this.topic = requireNonNull(topic, "topic is null");
             this.keySubject = requireNonNull(keySubject, "keySubject is null");
             this.valueSubject = requireNonNull(valueSubject, "valueSubject is null");
+            this.keyColumn = requireNonNull(keyColumn, "keyColumn is null");
         }
 
         public String getTableName()
@@ -340,6 +399,11 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
             return valueSubject;
         }
 
+        public Optional<KafkaColumnHandle> getKeyColumn()
+        {
+            return keyColumn;
+        }
+
         @Override
         public boolean equals(Object other)
         {
@@ -352,13 +416,14 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
             TopicAndSubjects that = (TopicAndSubjects) other;
             return topic.equals(that.topic) &&
                     keySubject.equals(that.keySubject) &&
-                    valueSubject.equals(that.valueSubject);
+                    valueSubject.equals(that.valueSubject) &&
+                    keyColumn.equals(that.keyColumn);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(topic, keySubject, valueSubject);
+            return Objects.hash(topic, keySubject, valueSubject, keyColumn);
         }
     }
 }

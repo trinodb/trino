@@ -100,6 +100,7 @@ public class KafkaMetadata
                         kafkaTopicDescription.getMessage().flatMap(KafkaTopicFieldGroup::getDataSchema),
                         kafkaTopicDescription.getKey().flatMap(KafkaTopicFieldGroup::getSubject),
                         kafkaTopicDescription.getMessage().flatMap(KafkaTopicFieldGroup::getSubject),
+                        kafkaTopicDescription.getKeyColumn(),
                         getColumnHandles(session, schemaTableName).values().stream()
                                 .map(KafkaColumnHandle.class::cast)
                                 .collect(toImmutableList()),
@@ -249,6 +250,7 @@ public class KafkaMetadata
                 handle.getMessageDataSchemaLocation(),
                 handle.getKeySubject(),
                 handle.getMessageSubject(),
+                handle.getKeyColumn(),
                 handle.getColumns(),
                 newDomain);
 
@@ -289,6 +291,7 @@ public class KafkaMetadata
                 table.getMessageDataSchemaLocation(),
                 table.getKeySubject(),
                 table.getMessageSubject(),
+                table.getKeyColumn(),
                 actualColumns,
                 TupleDomain.none());
     }

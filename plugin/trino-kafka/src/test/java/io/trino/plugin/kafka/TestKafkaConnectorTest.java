@@ -119,7 +119,7 @@ public class TestKafkaConnectorTest
                                         createOneFieldDescription("boolean_short", BOOLEAN, "45", "SHORT"),
                                         createOneFieldDescription("boolean_byte", BOOLEAN, "47", "BYTE")))))
                 .put(new SchemaTableName("default", headersTopic),
-                        new KafkaTopicDescription(headersTopic, Optional.empty(), headersTopic, Optional.empty(), Optional.empty()))
+                        new KafkaTopicDescription(headersTopic, Optional.empty(), headersTopic, Optional.empty(), Optional.empty(), Optional.empty()))
                 .putAll(createJsonDateTimeTestTopic())
                 .put(TABLE_INSERT_NEGATIVE_DATE, createDescription(
                         TABLE_INSERT_NEGATIVE_DATE,
@@ -572,7 +572,8 @@ public class TestKafkaConnectorTest
                                         field.getType(),
                                         field.getDataFormat(),
                                         field.getFormatHint()))
-                                .collect(toImmutableList()))))));
+                                .collect(toImmutableList()))),
+                        Optional.empty())));
     }
 
     private static final class JsonDateTimeTestCase

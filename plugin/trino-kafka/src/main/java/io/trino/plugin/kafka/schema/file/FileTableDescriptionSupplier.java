@@ -114,7 +114,8 @@ public class FileTableDescriptionSupplier
                             Optional.ofNullable(tableName.getSchemaName()),
                             definedTable,
                             Optional.of(new KafkaTopicFieldGroup(DummyRowDecoder.NAME, Optional.empty(), Optional.empty(), ImmutableList.of())),
-                            Optional.of(new KafkaTopicFieldGroup(DummyRowDecoder.NAME, Optional.empty(), Optional.empty(), ImmutableList.of()))));
+                            Optional.of(new KafkaTopicFieldGroup(DummyRowDecoder.NAME, Optional.empty(), Optional.empty(), ImmutableList.of())),
+                            Optional.empty()));
                 }
             }
 

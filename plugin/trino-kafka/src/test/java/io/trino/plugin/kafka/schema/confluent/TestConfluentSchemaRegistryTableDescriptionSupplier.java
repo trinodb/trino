@@ -69,7 +69,8 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
                                 Optional.empty(),
                                 Optional.of(getTopicFieldGroup(
                                         subject,
-                                        ImmutableList.of(getFieldDescription("col1", INTEGER), getFieldDescription("col2", createUnboundedVarcharType()))))));
+                                        ImmutableList.of(getFieldDescription("col1", INTEGER), getFieldDescription("col2", createUnboundedVarcharType())))),
+                                Optional.empty()));
     }
 
     @Test
@@ -94,6 +95,7 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
                                 Optional.of(getTopicFieldGroup(
                                         subject,
                                         ImmutableList.of(getFieldDescription("col1", INTEGER), getFieldDescription("col2", createUnboundedVarcharType())))),
+                                Optional.empty(),
                                 Optional.empty()));
     }
 
@@ -143,7 +145,8 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
                                 Optional.empty(),
                                 Optional.of(getTopicFieldGroup(
                                         subject,
-                                        ImmutableList.of(getFieldDescription("col1", INTEGER), getFieldDescription("col2", createUnboundedVarcharType()))))));
+                                        ImmutableList.of(getFieldDescription("col1", INTEGER), getFieldDescription("col2", createUnboundedVarcharType())))),
+                                Optional.empty()));
 
         assertThat(getKafkaTopicDescription(
                 tableDescriptionSupplier,
@@ -156,7 +159,8 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
                                 Optional.empty(),
                                 Optional.of(getTopicFieldGroup(
                                         overriddenSubject,
-                                        ImmutableList.of(getFieldDescription("overridden_col1", INTEGER), getFieldDescription("overridden_col2", createUnboundedVarcharType()))))));
+                                        ImmutableList.of(getFieldDescription("overridden_col1", INTEGER), getFieldDescription("overridden_col2", createUnboundedVarcharType())))),
+                                Optional.empty()));
     }
 
     @Test
@@ -196,7 +200,8 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
                 SCHEMA_REGISTRY_CLIENT,
                 ImmutableMap.of("AVRO", new AvroSchemaParser(new TestingTypeManager())),
                 DEFAULT_NAME,
-                new Duration(1, SECONDS));
+                new Duration(1, SECONDS),
+                new TestingTypeManager());
     }
 
     private static Schema getAvroSchema(String topicName, String columnNamePrefix)

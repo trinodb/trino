@@ -41,14 +41,14 @@ public final class TestUtils
 
         return new AbstractMap.SimpleImmutableEntry<>(
                 schemaTableName,
-                new KafkaTopicDescription(schemaTableName.getTableName(), Optional.of(schemaTableName.getSchemaName()), topicName, tpchTemplate.getKey(), tpchTemplate.getMessage()));
+                new KafkaTopicDescription(schemaTableName.getTableName(), Optional.of(schemaTableName.getSchemaName()), topicName, tpchTemplate.getKey(), tpchTemplate.getMessage(), Optional.empty()));
     }
 
     public static Map.Entry<SchemaTableName, KafkaTopicDescription> createEmptyTopicDescription(String topicName, SchemaTableName schemaTableName)
     {
         return new AbstractMap.SimpleImmutableEntry<>(
                 schemaTableName,
-                new KafkaTopicDescription(schemaTableName.getTableName(), Optional.of(schemaTableName.getSchemaName()), topicName, Optional.empty(), Optional.empty()));
+                new KafkaTopicDescription(schemaTableName.getTableName(), Optional.of(schemaTableName.getSchemaName()), topicName, Optional.empty(), Optional.empty(), Optional.empty()));
     }
 
     public static KafkaTopicDescription createDescription(SchemaTableName schemaTableName, KafkaTopicFieldDescription key, List<KafkaTopicFieldDescription> fields)
@@ -58,12 +58,13 @@ public final class TestUtils
                 Optional.of(schemaTableName.getSchemaName()),
                 schemaTableName.getTableName(),
                 Optional.of(new KafkaTopicFieldGroup("json", Optional.empty(), Optional.empty(), ImmutableList.of(key))),
-                Optional.of(new KafkaTopicFieldGroup("json", Optional.empty(), Optional.empty(), fields)));
+                Optional.of(new KafkaTopicFieldGroup("json", Optional.empty(), Optional.empty(), fields)),
+                Optional.empty());
     }
 
     public static KafkaTopicDescription createDescription(String name, String schema, String topic, Optional<KafkaTopicFieldGroup> message)
     {
-        return new KafkaTopicDescription(name, Optional.of(schema), topic, Optional.empty(), message);
+        return new KafkaTopicDescription(name, Optional.of(schema), topic, Optional.empty(), message, Optional.empty());
     }
 
     public static Optional<KafkaTopicFieldGroup> createFieldGroup(String dataFormat, List<KafkaTopicFieldDescription> fields)
