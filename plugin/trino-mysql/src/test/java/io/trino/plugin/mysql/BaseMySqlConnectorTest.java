@@ -371,9 +371,9 @@ public abstract class BaseMySqlConnectorTest
     @Test(dataProvider = "charsetAndCollation")
     public void testPredicatePushdownWithCollationView(String charset, String collation)
     {
-        onRemoteDatabase().execute(format("CREATE OR REPLACE VIEW tpch.test_view AS SELECT regionkey, nationkey, CONVERT(name USING %s) COLLATE %s AS name FROM tpch.nation;", charset, collation));
-        testNationCollationQueries("test_view");
-        onRemoteDatabase().execute("DROP VIEW tpch.test_view");
+        onRemoteDatabase().execute(format("CREATE OR REPLACE VIEW tpch.test_view_pushdown AS SELECT regionkey, nationkey, CONVERT(name USING %s) COLLATE %s AS name FROM tpch.nation;", charset, collation));
+        testNationCollationQueries("test_view_pushdown");
+        onRemoteDatabase().execute("DROP VIEW tpch.test_view_pushdown");
     }
 
     @Test(dataProvider = "charsetAndCollation")
