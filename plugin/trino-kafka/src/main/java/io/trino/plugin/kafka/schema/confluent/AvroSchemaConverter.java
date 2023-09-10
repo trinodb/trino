@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.MapType;
@@ -27,6 +28,8 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import org.apache.avro.LogicalType;
+import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.Schema.Field;
 
@@ -39,9 +42,15 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.spi.type.TimeType.TIME_MICROS;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.avro.LogicalTypes.date;
+import static org.apache.avro.LogicalTypes.timeMillis;
 import static org.apache.avro.Schema.Type.ARRAY;
 import static org.apache.avro.Schema.Type.BYTES;
 import static org.apache.avro.Schema.Type.DOUBLE;
@@ -118,8 +127,23 @@ public class AvroSchemaConverter
     {
         switch (schema.getType()) {
             case INT:
+                if (isLogicalType(schema, date())) {
+                    return Optional.of(DateType.DATE);
+                }
+                else if (isLogicalType(schema, timeMillis())) {
+                    return Optional.of(TIME_MILLIS);
+                }
                 return Optional.of(IntegerType.INTEGER);
             case LONG:
+                if (isLogicalType(schema, LogicalTypes.timestampMillis())) {
+                    return Optional.of(TIMESTAMP_MILLIS);
+                }
+                else if (isLogicalType(schema, LogicalTypes.timestampMicros())) {
+                    return Optional.of(TIMESTAMP_MICROS);
+                }
+                else if (isLogicalType(schema, LogicalTypes.timeMicros())) {
+                    return Optional.of(TIME_MICROS);
+                }
                 return Optional.of(BigintType.BIGINT);
             case BOOLEAN:
                 return Optional.of(BooleanType.BOOLEAN);
@@ -146,6 +170,11 @@ public class AvroSchemaConverter
                 break;
         }
         throw new UnsupportedOperationException(format("Type %s not supported", schema.getType()));
+    }
+
+    private <T extends LogicalType> boolean isLogicalType(Schema schema, T logicalType)
+    {
+        return schema.getLogicalType() != null && logicalType.getClass().isInstance(schema.getLogicalType());
     }
 
     private Optional<Type> convertUnion(Schema schema)

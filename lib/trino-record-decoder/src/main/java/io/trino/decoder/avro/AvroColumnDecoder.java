@@ -29,6 +29,7 @@ import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.MapType;
@@ -36,6 +37,9 @@ import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.Timestamps;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
@@ -57,6 +61,11 @@ import static io.trino.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
+import static io.trino.spi.type.TimeType.TIME_MICROS;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
@@ -72,7 +81,12 @@ public class AvroColumnDecoder
             BigintType.BIGINT,
             RealType.REAL,
             DoubleType.DOUBLE,
-            VarbinaryType.VARBINARY);
+            VarbinaryType.VARBINARY,
+            DateType.DATE,
+            TIME_MILLIS,
+            TIME_MICROS,
+            TIMESTAMP_MILLIS,
+            TimestampType.TIMESTAMP_MICROS);
 
     private final Type columnType;
     private final String columnMapping;
@@ -202,6 +216,24 @@ public class AvroColumnDecoder
         @Override
         public long getLong()
         {
+            if (columnType instanceof TimeType) {
+                if (((TimeType) columnType).getPrecision() == TIME_MILLIS.getPrecision()) {
+                    checkState(value instanceof Integer, "Time millis avro type is not an integer");
+                    return ((Number) value).longValue() * Timestamps.PICOSECONDS_PER_MILLISECOND;
+                }
+                else if (((TimeType) columnType).getPrecision() == TIME_MICROS.getPrecision()) {
+                    checkState(value instanceof Long, "Time micros avro type is not a long");
+                    return ((Number) value).longValue() * Timestamps.PICOSECONDS_PER_MICROSECOND;
+                }
+            }
+            else if (columnType instanceof TimestampType) {
+                if (((TimestampType) columnType).getPrecision() == TIMESTAMP_MILLIS.getPrecision()) {
+                    return ((Number) value).longValue() * MICROSECONDS_PER_MILLISECOND;
+                }
+                else if (((TimestampType) columnType).getPrecision() == TIMESTAMP_MICROS.getPrecision()) {
+                    return ((Number) value).longValue();
+                }
+            }
             if (value instanceof Long || value instanceof Integer) {
                 return ((Number) value).longValue();
             }

@@ -68,10 +68,15 @@ import static io.trino.decoder.util.DecoderTestUtil.checkIsNull;
 import static io.trino.decoder.util.DecoderTestUtil.checkValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.TIME_MICROS;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -378,6 +383,102 @@ public class TestAvroDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "\"long\"", 493857959588286460L);
 
         checkValue(decodedRow, row, 493857959588286460L);
+    }
+
+    @Test
+    public void testTimestampMicrosDecodedAsTimestampMicros()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", TIMESTAMP_MICROS, "id", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "{\"type\": \"long\", \"logicalType\": \"timestamp-micros\"}", 1699037730000L);
+        checkValue(decodedRow, row, 1699037730000L);
+    }
+
+    @Test
+    public void testTimestampMicrosDecodedAsBigint()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", BIGINT, "id", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "{\"type\": \"long\", \"logicalType\": \"timestamp-micros\"}", 1699037730000L);
+        checkValue(decodedRow, row, 1699037730000L);
+    }
+
+    @Test
+    public void testTimestampMillisDecodedAsTimestampMillis()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", TIMESTAMP_MILLIS, "id", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "{\"type\": \"long\", \"logicalType\": \"timestamp-millis\"}", 1699037730000L);
+        checkValue(decodedRow, row, 1699037730000000L);
+    }
+
+    @Test
+    public void testTimestampMillisDecodedAsBigint()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", BIGINT, "id", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "{\"type\": \"long\", \"logicalType\": \"timestamp-millis\"}", 1699037730000L);
+        checkValue(decodedRow, row, 1699037730000L);
+    }
+
+    @Test
+    public void testTimeMicrosDecodedAsTimeMicros()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", TIME_MICROS, "id", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "{\"type\": \"long\", \"logicalType\": \"time-micros\"}", 1699037730L);
+        checkValue(decodedRow, row, 1699037730000000L);
+    }
+
+    @Test
+    public void testTimeMicrosDecodedAsBigint()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", BIGINT, "id", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "{\"type\": \"long\", \"logicalType\": \"time-micros\"}", 1699037730L);
+        checkValue(decodedRow, row, 1699037730L);
+    }
+
+    @Test
+    public void testTimeMillisDecodedAsTimeMillis()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", TIME_MILLIS, "id", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "{\"type\": \"int\", \"logicalType\": \"time-millis\"}", 1699037730);
+        checkValue(decodedRow, row, 1699037730000000000L);
+    }
+
+    @Test
+    public void testTimeMillisDecodedAsInteger()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", INTEGER, "id", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "{\"type\": \"int\", \"logicalType\": \"time-millis\"}", 1699037730);
+        checkValue(decodedRow, row, 1699037730);
+    }
+
+    @Test
+    public void testTimeMillisDecodedAsBigint()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", BIGINT, "id", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "{\"type\": \"int\", \"logicalType\": \"time-millis\"}", 1699037730);
+        checkValue(decodedRow, row, 1699037730L);
+    }
+
+    @Test
+    public void testDateDecodedAsDate()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", DATE, "id", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "{\"type\": \"int\", \"logicalType\": \"date\"}", 1000);
+        checkValue(decodedRow, row, 1000);
+    }
+
+    @Test
+    public void testDateDecodedAsInteger()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", DATE, "id", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "{\"type\": \"int\", \"logicalType\": \"date\"}", 1000);
+        checkValue(decodedRow, row, 1000);
+    }
+
+    @Test
+    public void testDateDecodedAsBigint()
+    {
+        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", DATE, "id", null, null, false, false, false);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "id", "{\"type\": \"int\", \"logicalType\": \"date\"}", 1000);
+        checkValue(decodedRow, row, 1000L);
     }
 
     @Test
