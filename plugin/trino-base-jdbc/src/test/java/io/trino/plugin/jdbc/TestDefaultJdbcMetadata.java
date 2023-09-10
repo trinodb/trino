@@ -44,6 +44,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.jdbc.DefaultJdbcMetadata.createSyntheticAggregationColumn;
 import static io.trino.plugin.jdbc.DefaultJdbcMetadata.createSyntheticJoinProjectionColumn;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
@@ -416,6 +417,18 @@ public class TestDefaultJdbcMetadata
         JdbcColumnHandle column = column("column_0");
 
         assertThatThrownBy(() -> createSyntheticJoinProjectionColumn(column, -2147483648)).isInstanceOf(VerifyException.class);
+    }
+
+    @Test
+    public void testAggregationColumnAliasMaxLength()
+    {
+        // this test is to ensure that the generated names for aggregation pushdown are short enough to be supported by all databases.
+        // Oracle has the smallest limit at 30 so any value smaller than that is acceptable.
+        assertThat(createSyntheticAggregationColumn(
+                new AggregateFunction("count", BIGINT, List.of(), List.of(), false, Optional.empty()),
+                JDBC_BIGINT,
+                Integer.MAX_VALUE).getColumnName().length())
+                .isEqualTo(19);
     }
 
     private static JdbcColumnHandle column(String columnName)
