@@ -28,11 +28,14 @@ public class DefaultJdbcMetadataFactory
     private final JdbcClient jdbcClient;
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
+    protected final SyntheticColumnHandleBuilder syntheticColumnBuilder;
+
     @Inject
-    public DefaultJdbcMetadataFactory(JdbcClient jdbcClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
+    public DefaultJdbcMetadataFactory(JdbcClient jdbcClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners, SyntheticColumnHandleBuilder syntheticColumnBuilder)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "queryEventListeners is null"));
+        this.syntheticColumnBuilder = requireNonNull(syntheticColumnBuilder, "syntheticColumnBuilder is null");
     }
 
     @Override
@@ -51,6 +54,6 @@ public class DefaultJdbcMetadataFactory
 
     protected JdbcMetadata create(JdbcClient transactionCachingJdbcClient)
     {
-        return new DefaultJdbcMetadata(transactionCachingJdbcClient, true, jdbcQueryEventListeners);
+        return new DefaultJdbcMetadata(transactionCachingJdbcClient, true, jdbcQueryEventListeners, syntheticColumnBuilder);
     }
 }

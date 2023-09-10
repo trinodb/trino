@@ -60,19 +60,29 @@ public class TestDefaultJdbcMetadata
     private DefaultJdbcMetadata metadata;
     private JdbcTableHandle tableHandle;
 
+    private final SyntheticColumnHandleBuilder syntheticColumnHandleBuilder = new SyntheticColumnHandleBuilder();
+
     @BeforeMethod
     public void setUp()
             throws Exception
     {
         database = new TestingDatabase();
-        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient(), Optional.empty()), false, ImmutableSet.of());
+        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient(),
+                Optional.empty()),
+                false,
+                ImmutableSet.of(),
+                syntheticColumnHandleBuilder);
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
     }
 
     @Test
     public void testSupportsRetriesValidation()
     {
-        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient(), Optional.of(false)), false, ImmutableSet.of());
+        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient(),
+                Optional.of(false)),
+                false,
+                ImmutableSet.of(),
+                syntheticColumnHandleBuilder);
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(new SchemaTableName("example", "numbers"), ImmutableList.of());
 
         assertThatThrownBy(() -> {
@@ -87,7 +97,11 @@ public class TestDefaultJdbcMetadata
     @Test
     public void testNonTransactionalInsertValidation()
     {
-        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient(), Optional.of(true)), false, ImmutableSet.of());
+        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient(),
+                Optional.of(true)),
+                false,
+                ImmutableSet.of(),
+                syntheticColumnHandleBuilder);
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(new SchemaTableName("example", "numbers"), ImmutableList.of());
 
         ConnectorSession session = TestingConnectorSession.builder()
