@@ -560,6 +560,12 @@ public class CachingJdbcClient
         return delegate.getMaxWriteParallelism(session);
     }
 
+    @Override
+    public OptionalInt getMaxColumnNameLength(ConnectorSession session)
+    {
+        return delegate.getMaxColumnNameLength(session);
+    }
+
     public void onDataChanged(SchemaTableName table)
     {
         invalidateAllIf(statisticsCache, key -> key.mayReference(table));
