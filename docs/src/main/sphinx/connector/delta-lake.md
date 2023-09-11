@@ -361,80 +361,11 @@ Delta Lake. In addition to the {ref}`globally available
 <sql-globally-available>` and {ref}`read operation <sql-read-operations>`
 statements, the connector supports the following features:
 
-- {ref}`sql-data-management`, see also {ref}`delta-lake-data-management`
-- {ref}`sql-view-management`
-- {doc}`/sql/create-schema`, see also {ref}`delta-lake-sql-basic-usage`
-- {doc}`/sql/create-table`, see also {ref}`delta-lake-sql-basic-usage`
-- {doc}`/sql/create-table-as`
-- {doc}`/sql/drop-table`
-- {doc}`/sql/alter-table`, see also {ref}`delta-lake-alter-table`
-- {doc}`/sql/drop-schema`
-- {doc}`/sql/show-create-schema`
-- {doc}`/sql/show-create-table`
-- {doc}`/sql/comment`
+- {ref}`sql-write-operations`:
 
-(delta-lake-sql-basic-usage)=
-
-### Basic usage examples
-
-The connector supports creating schemas. You can create a schema with or without
-a specified location.
-
-You can create a schema with the {doc}`/sql/create-schema` statement and the
-`location` schema property. Tables in this schema are located in a
-subdirectory under the schema location. Data files for tables in this schema
-using the default location are cleaned up if the table is dropped:
-
-```
-CREATE SCHEMA example.example_schema
-WITH (location = 's3://my-bucket/a/path');
-```
-
-Optionally, the location can be omitted. Tables in this schema must have a
-location included when you create them. The data files for these tables are not
-removed if the table is dropped:
-
-```
-CREATE SCHEMA example.example_schema;
-```
-
-When Delta Lake tables exist in storage but not in the metastore, Trino can be
-used to register the tables:
-
-```
-CREATE TABLE example.default.example_table (
-  dummy BIGINT
-)
-WITH (
-  location = '...'
-)
-```
-
-Columns listed in the DDL, such as `dummy` in the preceding example, are
-ignored. The table schema is read from the transaction log instead. If the
-schema is changed by an external system, Trino automatically uses the new
-schema.
-
-:::{warning}
-Using `CREATE TABLE` with an existing table content is deprecated, instead
-use the `system.register_table` procedure. The `CREATE TABLE ... WITH
-(location=...)` syntax can be temporarily re-enabled using the
-`delta.legacy-create-table-with-existing-location.enabled` catalog
-configuration property or
-`legacy_create_table_with_existing_location_enabled` catalog session
-property.
-:::
-
-If the specified location does not already contain a Delta table, the connector
-automatically writes the initial transaction log entries and registers the table
-in the metastore. As a result, any Databricks engine can write to the table:
-
-```
-CREATE TABLE example.default.new_table (id BIGINT, address VARCHAR);
-```
-
-The Delta Lake connector also supports creating tables using the {doc}`CREATE
-TABLE AS </sql/create-table-as>` syntax.
+  - {ref}`sql-data-management`, see details for Delta Lake {ref}`delta-lake-data-management`
+  - {ref}`sql-schema-table-management`, see details for Delta Lake {ref}`delta-lake-schema-table-management`
+  - {ref}`sql-view-management`
 
 ### Procedures
 
@@ -519,30 +450,6 @@ measure to ensure that files are retained as expected. The minimum value for
 this property is `0s`. There is a minimum retention session property as well,
 `vacuum_min_retention`.
 
-(delta-lake-write-support)=
-
-### Updating data
-
-You can use the connector to {doc}`/sql/insert`, {doc}`/sql/delete`,
-{doc}`/sql/update`, and {doc}`/sql/merge` data in Delta Lake tables.
-
-Write operations are supported for tables stored on the following systems:
-
-- Azure ADLS Gen2, Google Cloud Storage
-
-  Writes to the Azure ADLS Gen2 and Google Cloud Storage are
-  enabled by default. Trino detects write collisions on these storage systems
-  when writing from multiple Trino clusters, or from other query engines.
-
-- S3 and S3-compatible storage
-
-  Writes to {doc}`Amazon S3 <hive-s3>` and S3-compatible storage must be enabled
-  with the `delta.enable-non-concurrent-writes` property. Writes to S3 can
-  safely be made from multiple Trino clusters; however, write collisions are not
-  detected when writing concurrently from other Delta Lake engines. You need to
-  make sure that no concurrent data modifications are run to avoid data
-  corruption.
-
 (delta-lake-data-management)=
 
 ### Data management
@@ -567,27 +474,90 @@ Write operations are supported for tables stored on the following systems:
   make sure that no concurrent data modifications are run to avoid data
   corruption.
 
+(delta-lake-schema-table-management)=
+
 ### Schema and table management
 
 The {ref}`sql-schema-table-management` functionality includes support for:
 
-- {doc}`/sql/create-schema`
-- {doc}`/sql/drop-schema`
-- {doc}`/sql/alter-schema`
 - {doc}`/sql/create-table`
 - {doc}`/sql/create-table-as`
 - {doc}`/sql/drop-table`
-- {doc}`/sql/alter-table`
+- {doc}`/sql/alter-table`, see details for Delta Lake
+  {ref}`delta-lake-alter-table`
+- {doc}`/sql/create-schema`
+- {doc}`/sql/drop-schema`
+- {doc}`/sql/alter-schema`
 - {doc}`/sql/comment`
 
-(delta-lake-alter-table-execute)=
+The connector supports creating schemas. You can create a schema with or without
+a specified location.
 
-#### ALTER TABLE EXECUTE
+You can create a schema with the {doc}`/sql/create-schema` statement and the
+`location` schema property. Tables in this schema are located in a
+subdirectory under the schema location. Data files for tables in this schema
+using the default location are cleaned up if the table is dropped:
 
-The connector supports the following commands for use with
-{ref}`ALTER TABLE EXECUTE <alter-table-execute>`.
+```
+CREATE SCHEMA example.example_schema
+WITH (location = 's3://my-bucket/a/path');
+```
 
-##### optimize
+Optionally, the location can be omitted. Tables in this schema must have a
+location included when you create them. The data files for these tables are not
+removed if the table is dropped:
+
+```
+CREATE SCHEMA example.example_schema;
+```
+
+When Delta Lake tables exist in storage but not in the metastore, Trino can be
+used to register the tables:
+
+```
+CREATE TABLE example.default.example_table (
+  dummy BIGINT
+)
+WITH (
+  location = '...'
+)
+```
+
+Columns listed in the DDL, such as `dummy` in the preceding example, are
+ignored. The table schema is read from the transaction log instead. If the
+schema is changed by an external system, Trino automatically uses the new
+schema.
+
+:::{warning}
+Using `CREATE TABLE` with an existing table content is deprecated, instead
+use the `system.register_table` procedure. The `CREATE TABLE ... WITH
+(location=...)` syntax can be temporarily re-enabled using the
+`delta.legacy-create-table-with-existing-location.enabled` catalog
+configuration property or
+`legacy_create_table_with_existing_location_enabled` catalog session
+property.
+:::
+
+If the specified location does not already contain a Delta table, the connector
+automatically writes the initial transaction log entries and registers the table
+in the metastore. As a result, any Databricks engine can write to the table:
+
+```
+CREATE TABLE example.default.new_table (id BIGINT, address VARCHAR);
+```
+
+The Delta Lake connector also supports creating tables using the {doc}`CREATE
+TABLE AS </sql/create-table-as>` syntax.
+
+(delta-lake-alter-table)=
+
+#### ALTER TABLE
+
+The connector supports the following [](/sql/alter-table) statements.
+
+##### ALTER TABLE EXECUTE
+
+optimize
 
 The `optimize` command is used for rewriting the content of the specified
 table so that it is merged into fewer but larger files. If the table is
@@ -616,9 +586,9 @@ ALTER TABLE test_partitioned_table EXECUTE optimize
 WHERE partition_key = 1
 ```
 
-(delta-lake-alter-table)=
+(delta-lake-alter-table-rename-to)=
 
-#### ALTER TABLE RENAME TO
+##### ALTER TABLE RENAME TO
 
 The connector only supports the `ALTER TABLE RENAME TO` statement when met with
 one of the following conditions:
