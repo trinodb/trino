@@ -41,10 +41,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestStargateTableStatisticsWithPostgreSql
         extends BaseStargateTableStatisticsTest
 {
-    private TestingPostgreSqlServer postgreSqlServer;
-    private DistributedQueryRunner remoteStarburst;
-    private Session remoteSession;
-    private H2QueryRunner h2QueryRunner;
+    protected TestingPostgreSqlServer postgreSqlServer;
+    protected DistributedQueryRunner remoteStarburst;
+    protected Session remoteSession;
+    protected H2QueryRunner h2QueryRunner;
 
     @Override
     protected QueryRunner createQueryRunner()

@@ -42,9 +42,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestStargateTableStatisticsWithHive
         extends BaseStargateTableStatisticsTest
 {
-    private DistributedQueryRunner remoteStarburst;
-    private Session remoteSession;
-    private H2QueryRunner h2QueryRunner;
+    protected DistributedQueryRunner remoteStarburst;
+    protected Session remoteSession;
+    protected H2QueryRunner h2QueryRunner;
 
     @Override
     protected QueryRunner createQueryRunner()

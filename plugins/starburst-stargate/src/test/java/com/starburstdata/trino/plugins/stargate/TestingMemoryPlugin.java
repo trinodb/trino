@@ -13,7 +13,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
-class TestingMemoryPlugin
+public class TestingMemoryPlugin
         implements Plugin
 {
     @Override

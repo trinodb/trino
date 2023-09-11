@@ -20,7 +20,7 @@ import java.util.Map;
 
 import static com.google.common.base.Verify.verify;
 
-class TestingMemoryConnectorFactory
+public class TestingMemoryConnectorFactory
         extends ForwardingConnectorFactory
 {
     private final ConnectorFactory delegate = new MemoryConnectorFactory();
