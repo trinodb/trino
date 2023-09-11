@@ -87,6 +87,7 @@ public final class SystemSessionProperties
     public static final String TASK_SCALE_WRITERS_MAX_WRITER_COUNT = "task_scale_writers_max_writer_count";
     public static final String WRITER_SCALING_MIN_DATA_PROCESSED = "writer_scaling_min_data_processed";
     public static final String SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD = "skewed_partition_min_data_processed_rebalance_threshold";
+    public static final String MAX_MEMORY_PER_PARTITION_WRITER = "max_memory_per_partition_writer";
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
@@ -346,6 +347,11 @@ public final class SystemSessionProperties
                         SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD,
                         "Minimum data processed to trigger skewed partition rebalancing in local and remote exchange",
                         DataSize.of(200, MEGABYTE),
+                        true),
+                dataSizeProperty(
+                        MAX_MEMORY_PER_PARTITION_WRITER,
+                        "Estimated maximum memory required per partition writer in a single thread",
+                        featuresConfig.getMaxMemoryPerPartitionWriter(),
                         true),
                 booleanProperty(
                         PUSH_TABLE_WRITE_THROUGH_UNION,
@@ -1177,6 +1183,11 @@ public final class SystemSessionProperties
     public static DataSize getSkewedPartitionMinDataProcessedRebalanceThreshold(Session session)
     {
         return session.getSystemProperty(SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD, DataSize.class);
+    }
+
+    public static DataSize getMaxMemoryPerPartitionWriter(Session session)
+    {
+        return session.getSystemProperty(MAX_MEMORY_PER_PARTITION_WRITER, DataSize.class);
     }
 
     public static boolean isPushTableWriteThroughUnion(Session session)
