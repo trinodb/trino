@@ -34,6 +34,7 @@ import org.apache.kudu.client.KuduOperationApplier;
 import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.PartialRow;
 import org.apache.kudu.client.Upsert;
+import org.apache.kudu.util.DateUtil;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -152,6 +153,9 @@ public class KuduPageSink
         }
         else if (TIMESTAMP_MILLIS.equals(type)) {
             row.addLong(destChannel, truncateEpochMicrosToMillis(TIMESTAMP_MILLIS.getLong(block, position)));
+        }
+        else if (DATE.equals(type)) {
+            row.addDate(destChannel, DateUtil.epochDaysToSqlDate(INTEGER.getInt(block, position)));
         }
         else if (REAL.equals(type)) {
             row.addFloat(destChannel, REAL.getFloat(block, position));
