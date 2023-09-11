@@ -42,6 +42,7 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
+import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.correlation;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.filter;
@@ -123,7 +124,7 @@ public class TransformCorrelatedScalarSubquery
                     correlatedJoinNode.getInput(),
                     rewrittenSubquery,
                     correlatedJoinNode.getCorrelation(),
-                    producesSingleRow ? correlatedJoinNode.getType() : LEFT,
+                    producesSingleRow ? INNER : correlatedJoinNode.getType(),
                     correlatedJoinNode.getFilter(),
                     correlatedJoinNode.getOriginSubquery()));
         }
