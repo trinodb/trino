@@ -345,6 +345,7 @@ public class QueryMonitor
                 session.getUser(),
                 session.getOriginalUser(),
                 session.getPrincipal(),
+                session.getEnabledRoles(),
                 session.getGroups(),
                 session.getTraceToken(),
                 session.getRemoteUserAddress(),
