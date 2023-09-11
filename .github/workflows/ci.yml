@@ -568,6 +568,7 @@ jobs:
             - { modules: core/trino-main }
             - { modules: core/trino-main, jdk: 20 }
             - { modules: lib/trino-filesystem-s3, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
             - { modules: plugin/trino-accumulo }
             - { modules: plugin/trino-bigquery }
             - { modules: plugin/trino-bigquery, profile: cloud-tests-arrow }
@@ -652,6 +653,7 @@ jobs:
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'fte-tests'))
           && ! (contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests'))
+          && ! (contains(matrix.modules, 'trino-filesystem-azure') && contains(matrix.profile, 'cloud-tests'))
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
       # Additional tests for selected modules
       - name: HDFS file system cache isolated JVM tests
@@ -667,6 +669,21 @@ jobs:
         if: >-
           contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests') &&
           (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '')
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
+      - name: Azure FileSystem Cloud Tests
+        env:
+          ABFS_BLOB_ACCOUNT: todo
+          ABFS_BLOB_ACCESS_KEY: todo
+          ABFS_FLAT_ACCOUNT: todo
+          ABFS_FLAT_ACCESS_KEY: todo
+          ABFS_ACCOUNT: todo
+          ABFS_ACCESS_KEY: todo
+        # todo(https://github.com/trinodb/trino/issues/18998) Enable when we have env variables in place
+        if: >-
+          false &&
+          contains(matrix.modules, 'trino-filesystem-azure') && contains(matrix.profile, 'cloud-tests') &&
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.ABFS_BLOB_ACCOUNT != '' || env.ABFS_BLOB_ACCESS_KEY != '' || env.ABFS_FLAT_ACCOUNT != '' || ABFS_FLAT_ACCESS_KEY != '' || ABFS_ACCOUNT != '' || ABFS_ACCESS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
       - name: Cloud Delta Lake Tests
