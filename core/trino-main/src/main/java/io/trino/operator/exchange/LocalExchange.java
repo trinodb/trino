@@ -49,6 +49,7 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static io.trino.SystemSessionProperties.getSkewedPartitionMinDataProcessedRebalanceThreshold;
 import static io.trino.operator.InterpretedHashGenerator.createChannelsHashGenerator;
 import static io.trino.operator.exchange.LocalExchangeSink.finishedLocalExchangeSink;
@@ -98,7 +99,8 @@ public class LocalExchange
             Optional<Integer> partitionHashChannel,
             DataSize maxBufferedBytes,
             TypeOperators typeOperators,
-            DataSize writerScalingMinDataProcessed)
+            DataSize writerScalingMinDataProcessed,
+            Supplier<Long> totalMemoryUsed)
     {
         int bufferCount = computeBufferCount(partitioning, defaultConcurrency, partitionChannels);
 
@@ -134,7 +136,9 @@ public class LocalExchange
                     memoryManager,
                     maxBufferedBytes.toBytes(),
                     dataProcessed,
-                    writerScalingMinDataProcessed);
+                    writerScalingMinDataProcessed,
+                    totalMemoryUsed,
+                    getQueryMaxMemoryPerNode(session).toBytes());
         }
         else if (isScaledWriterHashDistribution(partitioning)) {
             int partitionCount = bufferCount * SCALE_WRITERS_MAX_PARTITIONS_PER_WRITER;
@@ -171,7 +175,9 @@ public class LocalExchange
                         createPartitionPagePreparer(partitioning, partitionChannels),
                         partitionFunction,
                         partitionCount,
-                        skewedPartitionRebalancer);
+                        skewedPartitionRebalancer,
+                        totalMemoryUsed,
+                        getQueryMaxMemoryPerNode(session).toBytes());
             };
         }
         else if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent() ||

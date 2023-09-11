@@ -73,6 +73,7 @@ public class FeaturesConfig
     private boolean redistributeWrites = true;
     private boolean scaleWriters = true;
     private DataSize writerScalingMinDataProcessed = DataSize.of(120, DataSize.Unit.MEGABYTE);
+    private DataSize maxMemoryPerPartitionWriter = DataSize.of(256, DataSize.Unit.MEGABYTE);
     private DataIntegrityVerification exchangeDataIntegrityVerification = DataIntegrityVerification.ABORT;
     /**
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
@@ -173,6 +174,20 @@ public class FeaturesConfig
     public FeaturesConfig setWriterMinSize(DataSize writerMinSize)
     {
         this.writerScalingMinDataProcessed = succinctBytes(writerMinSize.toBytes() * 2);
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMaxMemoryPerPartitionWriter()
+    {
+        return maxMemoryPerPartitionWriter;
+    }
+
+    @Config("max-memory-per-partition-writer")
+    @ConfigDescription("Estimated maximum memory required per partition writer in a single thread")
+    public FeaturesConfig setMaxMemoryPerPartitionWriter(DataSize maxMemoryPerPartitionWriter)
+    {
+        this.maxMemoryPerPartitionWriter = maxMemoryPerPartitionWriter;
         return this;
     }
 
