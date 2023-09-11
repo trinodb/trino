@@ -125,6 +125,6 @@ public class TestHiveWithPlanAlternativesConnectorTest
     @Test
     public void testTimestampWithTimeZone()
     {
-        // Ignored because there's no access to HiveMetastoreFactory and this test doesn't exercise plan alternatives anyway
+        // There's no clean way to access HiveMetastoreFactory and this test doesn't exercise plan alternatives anyway
     }
 }
