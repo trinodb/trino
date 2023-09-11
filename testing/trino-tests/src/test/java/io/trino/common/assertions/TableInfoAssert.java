@@ -15,9 +15,11 @@ package io.trino.common.assertions;
 
 import io.trino.spi.eventlistener.ColumnInfo;
 import io.trino.spi.eventlistener.TableInfo;
+import io.trino.spi.eventlistener.TableReferenceInfo;
 import org.assertj.core.api.AbstractAssert;
 
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -99,6 +101,28 @@ public class TableInfoAssert
         assertThat(actual.getFilters()).hasSize(filterTexts.length);
         for (int i = 0; i < filterTexts.length; i++) {
             assertThat(actual.getFilters().get(i)).isEqualToIgnoringWhitespace(filterTexts[i]);
+        }
+        return this;
+    }
+
+    public TableInfoAssert hasViewText(String viewText)
+    {
+        assertThat(actual.getViewText()).hasValueSatisfying(sql -> assertThat(sql).isEqualToIgnoringWhitespace(viewText));
+        return this;
+    }
+
+    public TableInfoAssert hasNoTableReferences()
+    {
+        assertThat(actual.getReferenceChain()).isEmpty();
+        return this;
+    }
+
+    @SafeVarargs
+    public final TableInfoAssert hasTableReferencesSatisfying(Consumer<TableReferenceInfo>... tableReferenceAssertions)
+    {
+        assertThat(actual.getReferenceChain()).hasSize(tableReferenceAssertions.length);
+        for (int i = 0; i < tableReferenceAssertions.length; i++) {
+            tableReferenceAssertions[i].accept(actual.getReferenceChain().get(i));
         }
         return this;
     }
