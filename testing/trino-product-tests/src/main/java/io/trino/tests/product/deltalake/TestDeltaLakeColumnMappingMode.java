@@ -243,33 +243,7 @@ public class TestDeltaLakeColumnMappingMode
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testCreateTableWithNotNullColumn(String mode)
-    {
-        String tableName = "test_dl_create_table_with_not_null_" + randomNameSuffix();
-
-        onTrino().executeQuery("" +
-                "CREATE TABLE delta.default." + tableName +
-                "(col INT NOT NULL)" +
-                "WITH ( " +
-                " location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'," +
-                " column_mapping_mode = '" + mode + "'" +
-                ")");
-        try {
-            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES NULL"))
-                    .hasMessageContaining("NULL value not allowed for NOT NULL column: col");
-            assertQueryFailure(() -> onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES NULL"))
-                    .hasMessageContaining("NOT NULL constraint violated for column: col");
-
-            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).hasNoRows();
-        }
-        finally {
-            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
-        }
-    }
-
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "supportedColumnMappingForDmlDataProvider")
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testColumnMappingModeNameCreatePartitionTableAsSelect()
     {
@@ -348,36 +322,18 @@ public class TestDeltaLakeColumnMappingMode
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testTrinoColumnMappingModeNameCommentOnColumn()
+    public void testColumnMappingModeNameCommentOnColumn()
     {
-        testColumnMappingModeCommentOnColumn(tableName -> onTrino().executeQuery("" +
+        String tableName = "test_dl_column_mapping_mode_comment_on_column_" + randomNameSuffix();
+
+        onTrino().executeQuery("" +
                 "CREATE TABLE delta.default." + tableName +
                 " (col INT)" +
                 " WITH ( " +
                 " location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'," +
                 " column_mapping_mode = 'name'" +
-                ")"));
-    }
+                ")");
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testDeltaColumnMappingModeNameCommentOnColumn()
-    {
-        testColumnMappingModeCommentOnColumn(tableName -> onDelta().executeQuery("" +
-                "CREATE TABLE default." + tableName +
-                " (col INT)" +
-                " USING delta " +
-                " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
-                " TBLPROPERTIES (" +
-                " 'delta.columnMapping.mode' = 'name'" +
-                ")"));
-    }
-
-    private void testColumnMappingModeCommentOnColumn(Consumer<String> createTable)
-    {
-        String tableName = "test_dl_column_mapping_mode_comment_on_column_" + randomNameSuffix();
-
-        createTable.accept(tableName);
         try {
             onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".col IS 'test column comment by trino'");
             assertEquals(getColumnCommentOnTrino("default", tableName, "col"), "test column comment by trino");
@@ -597,63 +553,6 @@ public class TestDeltaLakeColumnMappingMode
                     .containsOnly(ImmutableList.of(
                             row("a_number", null, null, 0.33333333333, null, "0", "1"),
                             row("part", null, 2.00000000000, 0.33333333333, null, null, null),
-                            row(null, null, null, null, 3.0, null, null)));
-        }
-        finally {
-            dropDeltaTableWithRetry("default." + tableName);
-        }
-    }
-
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testTrinoDropAndAddColumnShowStatsForColumnMappingMode(String mode)
-    {
-        testDropAndAddColumnShowStatsForColumnMappingMode(mode, tableName -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN b_number INT"));
-    }
-
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testDeltaDropAndAddColumnShowStatsForColumnMappingMode(String mode)
-    {
-        testDropAndAddColumnShowStatsForColumnMappingMode(mode, tableName -> onDelta().executeQuery("ALTER TABLE default." + tableName + " ADD COLUMN b_number INT"));
-    }
-
-    private void testDropAndAddColumnShowStatsForColumnMappingMode(String mode, Consumer<String> addColumn)
-    {
-        String tableName = "test_dl_drop_add_column_show_stats_for_column_mapping_mode_" + randomNameSuffix();
-
-        onDelta().executeQuery("" +
-                "CREATE TABLE default." + tableName +
-                " (a_number INT, b_number INT)" +
-                " USING delta " +
-                " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
-                " TBLPROPERTIES (" +
-                " 'delta.columnMapping.mode' = '" + mode + "'" +
-                ")");
-        try {
-            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 10), (2, 20), (null, null)");
-            onTrino().executeQuery("ANALYZE delta.default." + tableName);
-            assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
-                    .containsOnly(ImmutableList.of(
-                            row("a_number", null, 2.0, 0.33333333333, null, "1", "2"),
-                            row("b_number", null, 2.0, 0.33333333333, null, "10", "20"),
-                            row(null, null, null, null, 3.0, null, null)));
-
-            // Ensure SHOW STATS doesn't return stats for the restored column
-            onDelta().executeQuery("ALTER TABLE default." + tableName + " DROP COLUMN b_number");
-            addColumn.accept(tableName);
-            assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
-                    .containsOnly(ImmutableList.of(
-                            row("a_number", null, 2.0, 0.33333333333, null, "1", "2"),
-                            row("b_number", null, null, null, null, null, null),
-                            row(null, null, null, null, 3.0, null, null)));
-
-            // SHOW STATS returns the expected stats after executing ANALYZE
-            onTrino().executeQuery("ANALYZE delta.default." + tableName);
-            assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
-                    .containsOnly(ImmutableList.of(
-                            row("a_number", null, 2.0, 0.33333333333, null, "1", "2"),
-                            row("b_number", 0.0, 0.0, 1.0, null, null, null),
                             row(null, null, null, null, 3.0, null, null)));
         }
         finally {
@@ -1022,60 +921,6 @@ public class TestDeltaLakeColumnMappingMode
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testTrinoDropColumnWithColumnMappingMode(String mode)
-    {
-        testDropColumnWithColumnMappingMode(mode, (tableName, columnName) -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " DROP COLUMN " + columnName));
-    }
-
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testSparkDropColumnWithColumnMappingMode(String mode)
-    {
-        testDropColumnWithColumnMappingMode(mode, (tableName, columnName) -> onDelta().executeQuery("ALTER TABLE default." + tableName + " DROP COLUMN " + columnName));
-    }
-
-    private void testDropColumnWithColumnMappingMode(String mode, BiConsumer<String, String> dropColumn)
-    {
-        String tableName = "test_drop_column_" + randomNameSuffix();
-
-        onDelta().executeQuery("" +
-                "CREATE TABLE default." + tableName +
-                " (id INT, data INT, part STRING)" +
-                " USING delta " +
-                " PARTITIONED BY (part) " +
-                " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
-                " TBLPROPERTIES ('delta.columnMapping.mode' = '" + mode + "')");
-
-        try {
-            assertThat(getTablePropertyOnDelta("default", tableName, "delta.columnMapping.maxColumnId"))
-                    .isEqualTo("3");
-            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 10, 'part#1')");
-
-            dropColumn.accept(tableName, "data");
-            assertThatThrownBy(() -> dropColumn.accept(tableName, "part"))
-                    .hasMessageMatching("(?s).*(Cannot drop partition column: part|Dropping partition columns \\(part\\) is not allowed).*");
-            assertThat(getTablePropertyOnDelta("default", tableName, "delta.columnMapping.maxColumnId"))
-                    .isEqualTo("3");
-
-            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
-                    .containsOnly(row(1, "part#1"));
-            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
-                    .containsOnly(row(1, "part#1"));
-
-            // Verify adding a new column with the same name doesn't allow accessing the old data
-            onDelta().executeQuery("ALTER TABLE default." + tableName + " ADD COLUMN data INTEGER");
-            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
-                    .containsOnly(row(1, "part#1", null));
-            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
-                    .containsOnly(row(1, "part#1", null));
-        }
-        finally {
-            dropDeltaTableWithRetry("default." + tableName);
-        }
-    }
-
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDropLastNonPartitionColumnWithColumnMappingMode(String mode)
     {
         String tableName = "test_drop_column_" + randomNameSuffix();
@@ -1269,48 +1114,6 @@ public class TestDeltaLakeColumnMappingMode
         {
             requireNonNull(sourceColumn, "sourceColumn is null");
             requireNonNull(newColumn, "newColumn is null");
-        }
-    }
-
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testTrinoExtendedStatisticsRenameColumnWithColumnMappingMode(String mode)
-    {
-        String tableName = "test_rename_column_" + randomNameSuffix();
-
-        onDelta().executeQuery("" +
-                "CREATE TABLE default." + tableName +
-                " (a INT, b INT)" +
-                " USING delta " +
-                " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
-                " TBLPROPERTIES ('delta.columnMapping.mode' = '" + mode + "')");
-
-        try {
-            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 2)");
-            onTrino().executeQuery("ANALYZE delta.default." + tableName);
-            assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
-                    .containsOnly(
-                            row("a", null, 1.0, 0.0, null, "1", "1"),
-                            row("b", null, 1.0, 0.0, null, "2", "2"),
-                            row(null, null, null, null, 1.0, null, null));
-
-            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN b TO new_b");
-            assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
-                    .containsOnly(
-                            row("a", null, 1.0, 0.0, null, "1", "1"),
-                            row("new_b", null, 1.0, 0.0, null, "2", "2"),
-                            row(null, null, null, null, 1.0, null, null));
-
-            // Re-analyzing should work
-            onTrino().executeQuery("ANALYZE delta.default." + tableName);
-            assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
-                    .containsOnly(
-                            row("a", null, 1.0, 0.0, null, "1", "1"),
-                            row("new_b", null, 1.0, 0.0, null, "2", "2"),
-                            row(null, null, null, null, 1.0, null, null));
-        }
-        finally {
-            dropDeltaTableWithRetry(tableName);
         }
     }
 
