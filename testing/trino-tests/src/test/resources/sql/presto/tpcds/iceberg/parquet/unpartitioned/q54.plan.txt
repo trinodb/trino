@@ -8,8 +8,8 @@ local exchange (GATHER, SINGLE, [])
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["ss_customer_sk"])
                                     partial aggregation over (ss_customer_sk)
-                                        cross join:
-                                            cross join:
+                                        join (LEFT, REPLICATED):
+                                            join (LEFT, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         dynamic filter (["ss_customer_sk", "ss_sold_date_sk"])
@@ -48,8 +48,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                                             scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter (["d_month_seq_17"])
-                                                                scan date_dim
+                                                            scan date_dim
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         local exchange (GATHER, SINGLE, [])

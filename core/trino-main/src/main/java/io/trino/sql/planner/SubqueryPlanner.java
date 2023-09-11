@@ -268,7 +268,7 @@ class SubqueryPlanner
                 subPlan,
                 root,
                 scalarSubquery.getQuery(),
-                CorrelatedJoinNode.Type.INNER,
+                CorrelatedJoinNode.Type.LEFT,
                 TRUE_LITERAL,
                 mapAll(cluster, subPlan.getScope(), column));
     }
