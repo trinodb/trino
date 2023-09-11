@@ -107,6 +107,7 @@ public class TestHttpEventListener
                 "user",
                 "originalUser",
                 Optional.of("principal"),
+                Set.of(), // enabledRoles
                 Set.of(), // groups
                 Optional.empty(), // traceToken
                 Optional.empty(), // remoteClientAddress
