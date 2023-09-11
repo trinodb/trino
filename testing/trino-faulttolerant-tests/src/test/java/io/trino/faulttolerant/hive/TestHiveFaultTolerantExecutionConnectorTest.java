@@ -68,7 +68,8 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     @Override
     public void testTaskWritersDoesNotScaleWithLargeMinWriterSize()
     {
-        testTaskScaleWriters(getSession(), DataSize.of(2, GIGABYTE), 4, false).isEqualTo(1);
+        testTaskScaleWriters(getSession(), DataSize.of(2, GIGABYTE), 4, false, DataSize.of(64, GIGABYTE))
+                .isEqualTo(1);
     }
 
     @Override

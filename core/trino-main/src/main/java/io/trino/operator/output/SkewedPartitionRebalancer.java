@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
-import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.resourcegroups.IndexedPriorityQueue;
 import io.trino.operator.PartitionFunction;
@@ -39,6 +38,7 @@ import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getMaxMemoryPerPartitionWriter;
 import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static io.trino.sql.planner.PartitioningHandle.isScaledWriterHashDistribution;
 import static java.lang.Double.isNaN;
@@ -80,8 +80,6 @@ public class SkewedPartitionRebalancer
     // If the percentage difference between the two different task buckets with maximum and minimum processed bytes
     // since last rebalance is above 0.7 (or 70%), then we consider them skewed.
     private static final double TASK_BUCKET_SKEWNESS_THRESHOLD = 0.7;
-    // Estimated memory required per writer thread.
-    private static final long MAX_MEMORY_PER_PARTITION_WRITER = DataSize.of(256, DataSize.Unit.MEGABYTE).toBytes();
 
     private final int partitionCount;
     private final int taskCount;
@@ -155,10 +153,15 @@ public class SkewedPartitionRebalancer
                 IntStream.range(0, bucketCount).toArray());
     }
 
+    public static int getMaxPartitionWritersBasedOnMemory(Session session)
+    {
+        return (int) ceil((double) getQueryMaxMemoryPerNode(session).toBytes() / getMaxMemoryPerPartitionWriter(session).toBytes());
+    }
+
     public static int getScaleWritersMaxSkewedPartitions(Session session)
     {
         // Set the value of maxSkewedPartitions to scale to 60% of maximum number of writers possible per node.
-        return (int) (ceil((double) getQueryMaxMemoryPerNode(session).toBytes() / MAX_MEMORY_PER_PARTITION_WRITER) * 0.60);
+        return (int) (getMaxPartitionWritersBasedOnMemory(session) * 0.60);
     }
 
     public static int getTaskCount(PartitioningScheme partitioningScheme)

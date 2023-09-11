@@ -51,6 +51,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -87,6 +88,7 @@ public class TestLocalExchange
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
     private static final Session SESSION = testSessionBuilder().build();
     private static final DataSize WRITER_SCALING_MIN_DATA_PROCESSED = DataSize.of(32, MEGABYTE);
+    private static final Supplier<Long> TOTAL_MEMORY_USED = () -> 0L;
 
     private final ConcurrentMap<CatalogHandle, ConnectorNodePartitioningProvider> partitionManagers = new ConcurrentHashMap<>();
     private NodePartitioningManager nodePartitioningManager;
@@ -121,7 +123,8 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(99)),
                 TYPE_OPERATORS,
-                WRITER_SCALING_MIN_DATA_PROCESSED);
+                WRITER_SCALING_MIN_DATA_PROCESSED,
+                TOTAL_MEMORY_USED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 1);
@@ -194,7 +197,8 @@ public class TestLocalExchange
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATORS,
-                WRITER_SCALING_MIN_DATA_PROCESSED);
+                WRITER_SCALING_MIN_DATA_PROCESSED,
+                TOTAL_MEMORY_USED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
@@ -243,7 +247,8 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(4)),
                 TYPE_OPERATORS,
-                DataSize.ofBytes(sizeOfPages(2)));
+                DataSize.ofBytes(sizeOfPages(2)),
+                TOTAL_MEMORY_USED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 3);
@@ -302,7 +307,8 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(4)),
                 TYPE_OPERATORS,
-                DataSize.ofBytes(sizeOfPages(10)));
+                DataSize.ofBytes(sizeOfPages(10)),
+                TOTAL_MEMORY_USED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 3);
@@ -331,6 +337,53 @@ public class TestLocalExchange
     }
 
     @Test
+    public void testScaledWriterRoundRobinExchangerWhenTotalMemoryUsedIsGreaterThanLimit()
+    {
+        AtomicLong totalMemoryUsed = new AtomicLong();
+        LocalExchange localExchange = new LocalExchange(
+                nodePartitioningManager,
+                testSessionBuilder()
+                        .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "11MB")
+                        .build(),
+                3,
+                SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION,
+                ImmutableList.of(),
+                ImmutableList.of(),
+                Optional.empty(),
+                DataSize.ofBytes(retainedSizeOfPages(4)),
+                TYPE_OPERATORS,
+                DataSize.ofBytes(sizeOfPages(2)),
+                totalMemoryUsed::get);
+
+        run(localExchange, exchange -> {
+            assertEquals(exchange.getBufferCount(), 3);
+            assertExchangeTotalBufferedBytes(exchange, 0);
+
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
+            LocalExchangeSink sink = sinkFactory.createSink();
+            assertSinkCanWrite(sink);
+            sinkFactory.close();
+
+            LocalExchangeSource sourceA = exchange.getNextSource();
+            assertSource(sourceA, 0);
+
+            LocalExchangeSource sourceB = exchange.getNextSource();
+            assertSource(sourceB, 0);
+
+            LocalExchangeSource sourceC = exchange.getNextSource();
+            assertSource(sourceC, 0);
+
+            totalMemoryUsed.set(DataSize.of(11, MEGABYTE).toBytes());
+
+            range(0, 6).forEach(i -> sink.addPage(createPage(0)));
+            assertEquals(sourceA.getBufferInfo().getBufferedPages(), 6);
+            assertEquals(sourceB.getBufferInfo().getBufferedPages(), 0);
+            assertEquals(sourceC.getBufferInfo().getBufferedPages(), 0);
+        });
+    }
+
+    @Test
     public void testNoWriterScalingWhenOnlyWriterScalingMinDataProcessedLimitIsExceeded()
     {
         LocalExchange localExchange = new LocalExchange(
@@ -343,7 +396,8 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(20)),
                 TYPE_OPERATORS,
-                DataSize.ofBytes(sizeOfPages(2)));
+                DataSize.ofBytes(sizeOfPages(2)),
+                TOTAL_MEMORY_USED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 3);
@@ -389,7 +443,8 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(2)),
                 TYPE_OPERATORS,
-                DataSize.of(10, KILOBYTE));
+                DataSize.of(10, KILOBYTE),
+                TOTAL_MEMORY_USED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 4);
@@ -442,9 +497,9 @@ public class TestLocalExchange
 
             // Still there is a skewness across writers since writerA and writerC aren't writing any data.
             // Hence, scaling will happen for partition in writerD and writerB to writerC.
-            assertSource(sourceA, 2);
+            assertSource(sourceA, 3);
             assertSource(sourceB, 4);
-            assertSource(sourceC, 1);
+            assertSource(sourceC, 0);
             assertSource(sourceD, 5);
 
             sink.addPage(createSingleValuePage(0, 1000));
@@ -456,9 +511,9 @@ public class TestLocalExchange
 
             // Still there is a skewness across writers since writerA isn't writing any data.
             // Hence, scaling will happen for partition in writerD and writerB to writerA.
-            assertSource(sourceA, 4);
+            assertSource(sourceA, 5);
             assertSource(sourceB, 5);
-            assertSource(sourceC, 3);
+            assertSource(sourceC, 2);
             assertSource(sourceD, 6);
         });
     }
@@ -478,7 +533,8 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(2)),
                 TYPE_OPERATORS,
-                DataSize.of(50, MEGABYTE));
+                DataSize.of(50, MEGABYTE),
+                TOTAL_MEMORY_USED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 4);
@@ -541,7 +597,8 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.of(50, MEGABYTE),
                 TYPE_OPERATORS,
-                DataSize.of(10, KILOBYTE));
+                DataSize.of(10, KILOBYTE),
+                TOTAL_MEMORY_USED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 4);
@@ -590,6 +647,87 @@ public class TestLocalExchange
     }
 
     @Test(dataProvider = "scalingPartitionHandles")
+    public void testNoScalingWhenTotalMemoryUsedIsGreaterThanLimit(PartitioningHandle partitioningHandle)
+    {
+        AtomicLong totalMemoryUsed = new AtomicLong();
+        LocalExchange localExchange = new LocalExchange(
+                nodePartitioningManager,
+                testSessionBuilder()
+                        .setSystemProperty(SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD, "20kB")
+                        .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "20MB")
+                        .build(),
+                4,
+                partitioningHandle,
+                ImmutableList.of(0),
+                TYPES,
+                Optional.empty(),
+                DataSize.ofBytes(retainedSizeOfPages(2)),
+                TYPE_OPERATORS,
+                DataSize.of(10, KILOBYTE),
+                totalMemoryUsed::get);
+
+        run(localExchange, exchange -> {
+            assertEquals(exchange.getBufferCount(), 4);
+            assertExchangeTotalBufferedBytes(exchange, 0);
+
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
+            LocalExchangeSink sink = sinkFactory.createSink();
+            assertSinkCanWrite(sink);
+            sinkFactory.close();
+
+            LocalExchangeSource sourceA = exchange.getNextSource();
+            assertSource(sourceA, 0);
+
+            LocalExchangeSource sourceB = exchange.getNextSource();
+            assertSource(sourceB, 0);
+
+            LocalExchangeSource sourceC = exchange.getNextSource();
+            assertSource(sourceC, 0);
+
+            LocalExchangeSource sourceD = exchange.getNextSource();
+            assertSource(sourceD, 0);
+
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(1, 2));
+            sink.addPage(createSingleValuePage(1, 2));
+
+            // Two partitions are assigned to two different writers
+            assertSource(sourceA, 2);
+            assertSource(sourceB, 0);
+            assertSource(sourceC, 0);
+            assertSource(sourceD, 2);
+
+            totalMemoryUsed.set(DataSize.of(5, MEGABYTE).toBytes());
+
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+
+            // Scaling since total memory used is less than 10 MBs
+            assertSource(sourceA, 2);
+            assertSource(sourceB, 2);
+            assertSource(sourceC, 0);
+            assertSource(sourceD, 4);
+
+            totalMemoryUsed.set(DataSize.of(13, MEGABYTE).toBytes());
+
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+
+            // No scaling since total memory used is greater than 10 MBs
+            assertSource(sourceA, 2);
+            assertSource(sourceB, 4);
+            assertSource(sourceC, 0);
+            assertSource(sourceD, 6);
+        });
+    }
+
+    @Test(dataProvider = "scalingPartitionHandles")
     public void testNoScalingWhenMaxScaledPartitionsPerTaskIsSmall(PartitioningHandle partitioningHandle)
     {
         LocalExchange localExchange = new LocalExchange(
@@ -605,7 +743,8 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(2)),
                 TYPE_OPERATORS,
-                DataSize.of(10, KILOBYTE));
+                DataSize.of(10, KILOBYTE),
+                TOTAL_MEMORY_USED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 4);
@@ -712,7 +851,8 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(2)),
                 TYPE_OPERATORS,
-                DataSize.of(50, KILOBYTE));
+                DataSize.of(50, KILOBYTE),
+                TOTAL_MEMORY_USED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
@@ -759,7 +899,8 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(1)),
                 TYPE_OPERATORS,
-                WRITER_SCALING_MIN_DATA_PROCESSED);
+                WRITER_SCALING_MIN_DATA_PROCESSED,
+                TOTAL_MEMORY_USED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
@@ -826,7 +967,8 @@ public class TestLocalExchange
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATORS,
-                WRITER_SCALING_MIN_DATA_PROCESSED);
+                WRITER_SCALING_MIN_DATA_PROCESSED,
+                TOTAL_MEMORY_USED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
@@ -922,7 +1064,8 @@ public class TestLocalExchange
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATORS,
-                WRITER_SCALING_MIN_DATA_PROCESSED);
+                WRITER_SCALING_MIN_DATA_PROCESSED,
+                TOTAL_MEMORY_USED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
@@ -973,7 +1116,8 @@ public class TestLocalExchange
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATORS,
-                WRITER_SCALING_MIN_DATA_PROCESSED);
+                WRITER_SCALING_MIN_DATA_PROCESSED,
+                TOTAL_MEMORY_USED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
@@ -1020,7 +1164,8 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(2),
                 TYPE_OPERATORS,
-                WRITER_SCALING_MIN_DATA_PROCESSED);
+                WRITER_SCALING_MIN_DATA_PROCESSED,
+                TOTAL_MEMORY_USED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);

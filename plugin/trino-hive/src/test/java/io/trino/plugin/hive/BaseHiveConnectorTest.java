@@ -121,6 +121,7 @@ import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_ARBITRAR
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE;
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_SIZE;
 import static io.trino.SystemSessionProperties.MAX_WRITER_TASKS_COUNT;
+import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
 import static io.trino.SystemSessionProperties.REDISTRIBUTE_WRITES;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
 import static io.trino.SystemSessionProperties.SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD;
@@ -4140,7 +4141,7 @@ public abstract class BaseHiveConnectorTest
     {
         long workers = (long) computeScalar("SELECT count(*) FROM system.runtime.nodes");
         int taskMaxScaleWriterCount = 4;
-        testTaskScaleWriters(getSession(), DataSize.of(200, KILOBYTE), taskMaxScaleWriterCount, false)
+        testTaskScaleWriters(getSession(), DataSize.of(200, KILOBYTE), taskMaxScaleWriterCount, false, DataSize.of(64, GIGABYTE))
                 .isBetween(workers + 1, workers * taskMaxScaleWriterCount);
     }
 
@@ -4149,7 +4150,8 @@ public abstract class BaseHiveConnectorTest
     {
         long workers = (long) computeScalar("SELECT count(*) FROM system.runtime.nodes");
         // In the case of streaming, the number of writers is equal to the number of workers
-        testTaskScaleWriters(getSession(), DataSize.of(2, GIGABYTE), 4, false).isEqualTo(workers);
+        testTaskScaleWriters(getSession(), DataSize.of(2, GIGABYTE), 4, false, DataSize.of(64, GIGABYTE))
+                .isEqualTo(workers);
     }
 
     @Test
@@ -4160,8 +4162,18 @@ public abstract class BaseHiveConnectorTest
         // It is only applicable for pipeline execution mode, since we are testing
         // when both "scaleWriters" and "taskScaleWriters" are enabled, the writers are
         // scaling upto multiple worker nodes.
-        testTaskScaleWriters(getSession(), DataSize.of(200, KILOBYTE), taskMaxScaleWriterCount, true)
+        testTaskScaleWriters(getSession(), DataSize.of(200, KILOBYTE), taskMaxScaleWriterCount, true, DataSize.of(64, GIGABYTE))
                 .isBetween((long) taskMaxScaleWriterCount + workers, workers * taskMaxScaleWriterCount);
+    }
+
+    @Test
+    public void testMultipleWritersWhenTaskScaleWritersIsEnabledWithMemoryLimit()
+    {
+        long workers = (long) computeScalar("SELECT count(*) FROM system.runtime.nodes");
+        int taskMaxScaleWriterCount = 4;
+        testTaskScaleWriters(getSession(), DataSize.of(200, KILOBYTE), taskMaxScaleWriterCount, false, DataSize.of(256, MEGABYTE))
+                // There shouldn't be no scaling as the memory limit is too low
+                .isBetween(0L, workers);
     }
 
     @DataProvider(name = "taskWritersLimitParams")
@@ -4220,7 +4232,8 @@ public abstract class BaseHiveConnectorTest
             Session session,
             DataSize writerScalingMinDataProcessed,
             int taskMaxScaleWriterCount,
-            boolean scaleWriters)
+            boolean scaleWriters,
+            DataSize queryMaxMemory)
     {
         String tableName = "task_scale_writers_" + randomNameSuffix();
         try {
@@ -4233,6 +4246,7 @@ public abstract class BaseHiveConnectorTest
                             .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "true")
                             .setSystemProperty(WRITER_SCALING_MIN_DATA_PROCESSED, writerScalingMinDataProcessed.toString())
                             .setSystemProperty(TASK_SCALE_WRITERS_MAX_WRITER_COUNT, String.valueOf(taskMaxScaleWriterCount))
+                            .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, queryMaxMemory.toString())
                             // Set the value higher than sf1 input data size such that fault-tolerant scheduler
                             // shouldn't add new task and scaling only happens through the local scaling exchange.
                             .setSystemProperty(FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_MIN, "2GB")
