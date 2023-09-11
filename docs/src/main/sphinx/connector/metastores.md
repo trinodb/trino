@@ -431,6 +431,9 @@ iceberg.nessie-catalog.uri=https://localhost:19120/api/v1
 iceberg.nessie-catalog.default-warehouse-dir=/tmp
 ```
 
+The Nessie catalog does not support {doc}`views</sql/create-view>` or
+{doc}`materialized views</sql/create-materialized-view>`.
+
 (partition-projection)=
 
 ## Access tables with Athena partition projection metadata
