@@ -75,6 +75,7 @@ import static com.google.common.io.Resources.getResource;
 import static com.google.common.util.concurrent.MoreExecutors.shutdownAndAwaitTermination;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
+import static io.trino.common.assertions.TrinoAssertions.assertThat;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
 import static io.trino.execution.TestQueues.createResourceGroupId;
@@ -361,25 +362,15 @@ public class TestEventListenerBasic
 
         QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
 
-        List<TableInfo> tables = event.getMetadata().getTables();
-        assertThat(tables.size()).isEqualTo(1);
+        TableInfo table = getOnlyElement(event.getMetadata().getTables());
+        assertThat(table)
+                .hasCatalogSchemaTable("tpch", "tiny", "lineitem")
+                .hasAuthorization("user")
+                .isDirectlyReferenced()
+                .hasColumnsWithoutMasking("linenumber")
+                .hasNoRowFilters();
 
-        TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("lineitem");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.getFilters().isEmpty()).isTrue();
-        assertThat(table.getColumns().size()).isEqualTo(1);
-
-        ColumnInfo column = table.getColumns().get(0);
-        assertThat(column.getColumn()).isEqualTo("linenumber");
-        assertThat(column.getMask().isEmpty()).isTrue();
-
-        List<RoutineInfo> routines = event.getMetadata().getRoutines();
-        assertThat(tables.size()).isEqualTo(1);
-
-        RoutineInfo routine = routines.get(0);
+        RoutineInfo routine = getOnlyElement(event.getMetadata().getRoutines());
         assertThat(routine.getRoutine()).isEqualTo("sum");
         assertThat(routine.getAuthorization()).isEqualTo("user");
     }
@@ -396,30 +387,20 @@ public class TestEventListenerBasic
         assertThat(tables).hasSize(2);
 
         TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("nation");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isFalse();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(1);
-
-        ColumnInfo column = table.getColumns().get(0);
-        assertThat(column.getColumn()).isEqualTo("nationkey");
-        assertThat(column.getMask()).isEmpty();
+        assertThat(table)
+                .hasCatalogSchemaTable("tpch", "tiny", "nation")
+                .hasAuthorization("user")
+                .isNotDirectlyReferenced()
+                .hasColumnsWithoutMasking("nationkey")
+                .hasNoRowFilters();
 
         table = tables.get(1);
-        assertThat(table.getCatalog()).isEqualTo("mock");
-        assertThat(table.getSchema()).isEqualTo("default");
-        assertThat(table.getTable()).isEqualTo("test_view");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isTrue();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(1);
-
-        column = table.getColumns().get(0);
-        assertThat(column.getColumn()).isEqualTo("test_column");
-        assertThat(column.getMask()).isEmpty();
+        assertThat(table)
+                .hasCatalogSchemaTable("mock", "default", "test_view")
+                .hasAuthorization("user")
+                .isDirectlyReferenced()
+                .hasColumnsWithoutMasking("test_column")
+                .hasNoRowFilters();
     }
 
     @Test
@@ -433,30 +414,20 @@ public class TestEventListenerBasic
         List<TableInfo> tables = event.getMetadata().getTables();
         assertThat(tables).hasSize(2);
         TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("nation");
-        assertThat(table.getAuthorization()).isEqualTo("alice");
-        assertThat(table.isDirectlyReferenced()).isFalse();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(1);
-
-        ColumnInfo column = table.getColumns().get(0);
-        assertThat(column.getColumn()).isEqualTo("nationkey");
-        assertThat(column.getMask()).isEmpty();
+        assertThat(table)
+                .hasCatalogSchemaTable("tpch", "tiny", "nation")
+                .hasAuthorization("alice")
+                .isNotDirectlyReferenced()
+                .hasColumnsWithoutMasking("nationkey")
+                .hasNoRowFilters();
 
         table = tables.get(1);
-        assertThat(table.getCatalog()).isEqualTo("mock");
-        assertThat(table.getSchema()).isEqualTo("default");
-        assertThat(table.getTable()).isEqualTo("test_materialized_view");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isTrue();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(1);
-
-        column = table.getColumns().get(0);
-        assertThat(column.getColumn()).isEqualTo("test_column");
-        assertThat(column.getMask()).isEmpty();
+        assertThat(table)
+                .hasCatalogSchemaTable("mock", "default", "test_materialized_view")
+                .hasAuthorization("user")
+                .isDirectlyReferenced()
+                .hasColumnsWithoutMasking("test_column")
+                .hasNoRowFilters();
     }
 
     @Test
@@ -478,16 +449,12 @@ public class TestEventListenerBasic
                         new OutputColumnMetadata("comment", "varchar(152)", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "comment"))));
 
         List<TableInfo> tables = event.getMetadata().getTables();
-        assertThat(tables).hasSize(1);
-
-        TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("nation");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isTrue();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(4);
+        assertThat(getOnlyElement(tables))
+                .hasCatalogSchemaTable("tpch", "tiny", "nation")
+                .hasAuthorization("user")
+                .isDirectlyReferenced()
+                .hasColumnsWithoutMasking("nationkey", "regionkey", "name", "comment")
+                .hasNoRowFilters();
     }
 
     @Test
@@ -509,16 +476,12 @@ public class TestEventListenerBasic
                         new OutputColumnMetadata("comment", "varchar(152)", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "comment"))));
 
         List<TableInfo> tables = event.getMetadata().getTables();
-        assertThat(tables).hasSize(1);
-
-        TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("nation");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isTrue();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(4);
+        assertThat(getOnlyElement(tables))
+                .hasCatalogSchemaTable("tpch", "tiny", "nation")
+                .hasAuthorization("user")
+                .isDirectlyReferenced()
+                .hasColumnsWithoutMasking("nationkey", "regionkey", "name", "comment")
+                .hasNoRowFilters();
     }
 
     @Test
@@ -533,30 +496,20 @@ public class TestEventListenerBasic
         assertThat(tables).hasSize(2);
 
         TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("nation");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isFalse();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(1);
-
-        ColumnInfo column = table.getColumns().get(0);
-        assertThat(column.getColumn()).isEqualTo("name");
-        assertThat(column.getMask()).isEmpty();
+        assertThat(table)
+                .hasCatalogSchemaTable("tpch", "tiny", "nation")
+                .hasAuthorization("user")
+                .isNotDirectlyReferenced()
+                .hasColumnsWithoutMasking("name")
+                .hasNoRowFilters();
 
         table = tables.get(1);
-        assertThat(table.getCatalog()).isEqualTo("mock");
-        assertThat(table.getSchema()).isEqualTo("default");
-        assertThat(table.getTable()).isEqualTo("test_table_with_row_filter");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isTrue();
-        assertThat(table.getFilters()).hasSize(1);
-        assertThat(table.getColumns()).hasSize(1);
-
-        column = table.getColumns().get(0);
-        assertThat(column.getColumn()).isEqualTo("test_varchar");
-        assertThat(column.getMask()).isEmpty();
+        assertThat(table)
+                .hasCatalogSchemaTable("mock", "default", "test_table_with_row_filter")
+                .hasAuthorization("user")
+                .isDirectlyReferenced()
+                .hasColumnsWithoutMasking("test_varchar")
+                .hasRowFilters("(EXISTS (SELECT 1 FROM nation WHERE (name = test_varchar)))");
     }
 
     @Test
@@ -581,34 +534,21 @@ public class TestEventListenerBasic
         assertThat(tables).hasSize(2);
 
         TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("orders");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isFalse();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(1);
-
-        ColumnInfo column = table.getColumns().get(0);
-        assertThat(column.getColumn()).isEqualTo("orderkey");
-        assertThat(column.getMask()).isEmpty();
+        assertThat(table)
+                .hasCatalogSchemaTable("tpch", "tiny", "orders")
+                .hasAuthorization("user")
+                .isNotDirectlyReferenced()
+                .hasColumnsWithoutMasking("orderkey")
+                .hasNoRowFilters();
 
         table = tables.get(1);
-        assertThat(table.getCatalog()).isEqualTo("mock");
-        assertThat(table.getSchema()).isEqualTo("default");
-        assertThat(table.getTable()).isEqualTo("test_table_with_column_mask");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isTrue();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(2);
-
-        column = table.getColumns().get(0);
-        assertThat(column.getColumn()).isEqualTo("test_varchar");
-        assertThat(column.getMask()).isPresent();
-
-        column = table.getColumns().get(1);
-        assertThat(column.getColumn()).isEqualTo("test_bigint");
-        assertThat(column.getMask()).isEmpty();
+        assertThat(table)
+                .hasCatalogSchemaTable("mock", "default", "test_table_with_column_mask")
+                .hasAuthorization("user")
+                .isDirectlyReferenced()
+                .hasColumnNames("test_varchar", "test_bigint")
+                .hasColumnMasks("(SELECT CAST(max(orderkey) AS varchar(15)) FROM orders)", null)
+                .hasNoRowFilters();
     }
 
     @Test
