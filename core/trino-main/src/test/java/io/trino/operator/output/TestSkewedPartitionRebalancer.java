@@ -201,6 +201,54 @@ public class TestSkewedPartitionRebalancer
                 .containsExactly(ImmutableList.of(0, 1, 2), ImmutableList.of(1), ImmutableList.of(2));
     }
 
+    @Test
+    public void testConsiderSkewedPartitionOnlyWithinACycle()
+    {
+        int partitionCount = 3;
+        SkewedPartitionRebalancer rebalancer = new SkewedPartitionRebalancer(
+                partitionCount,
+                3,
+                1,
+                MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD,
+                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+        SkewedPartitionFunction function = new SkewedPartitionFunction(
+                new TestPartitionFunction(partitionCount),
+                rebalancer);
+
+        rebalancer.addPartitionRowCount(0, 1000);
+        rebalancer.addPartitionRowCount(1, 800);
+        rebalancer.addPartitionRowCount(2, 0);
+
+        rebalancer.addDataProcessed(DataSize.of(60, MEGABYTE).toBytes());
+        // rebalancing will happen for partition 0 to task 2 since partition 0 is skewed.
+        rebalancer.rebalance();
+
+        assertThat(getPartitionPositions(function, 17))
+                .containsExactly(
+                        new IntArrayList(ImmutableList.of(0, 6, 12)),
+                        new IntArrayList(ImmutableList.of(1, 4, 7, 10, 13, 16)),
+                        new IntArrayList(ImmutableList.of(2, 3, 5, 8, 9, 11, 14, 15)));
+        assertThat(rebalancer.getPartitionAssignments())
+                .containsExactly(ImmutableList.of(0, 2), ImmutableList.of(1), ImmutableList.of(2));
+
+        rebalancer.addPartitionRowCount(0, 0);
+        rebalancer.addPartitionRowCount(1, 800);
+        rebalancer.addPartitionRowCount(2, 1000);
+        // rebalancing will happen for partition 2 to task 0 since partition 2 is skewed. Even though partition 1 has
+        // written more amount of data from start, it will not be considered since it is not the most skewed in
+        // this rebalancing cycle.
+        rebalancer.addDataProcessed(DataSize.of(60, MEGABYTE).toBytes());
+        rebalancer.rebalance();
+
+        assertThat(getPartitionPositions(function, 17))
+                .containsExactly(
+                        new IntArrayList(ImmutableList.of(0, 2, 6, 8, 12, 14)),
+                        new IntArrayList(ImmutableList.of(1, 4, 7, 10, 13, 16)),
+                        new IntArrayList(ImmutableList.of(3, 5, 9, 11, 15)));
+        assertThat(rebalancer.getPartitionAssignments())
+                .containsExactly(ImmutableList.of(0, 2), ImmutableList.of(1), ImmutableList.of(2, 0));
+    }
+
     private List<List<Integer>> getPartitionPositions(PartitionFunction function, int maxPosition)
     {
         List<List<Integer>> partitionPositions = new ArrayList<>();
