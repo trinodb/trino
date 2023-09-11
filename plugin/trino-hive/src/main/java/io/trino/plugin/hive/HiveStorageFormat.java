@@ -186,6 +186,7 @@ public enum HiveStorageFormat
             .putAll(Arrays.stream(values()).collect(
                     toMap(format -> new SerdeAndInputFormat(format.getSerde(), format.getInputFormat()), identity())))
             .put(new SerdeAndInputFormat(PARQUET_HIVE_SERDE_CLASS, "parquet.hive.DeprecatedParquetInputFormat"), PARQUET)
+            .put(new SerdeAndInputFormat(PARQUET_HIVE_SERDE_CLASS, "org.apache.hadoop.mapred.TextInputFormat"), PARQUET)
             .put(new SerdeAndInputFormat(PARQUET_HIVE_SERDE_CLASS, "parquet.hive.MapredParquetInputFormat"), PARQUET)
             .buildOrThrow();
 
