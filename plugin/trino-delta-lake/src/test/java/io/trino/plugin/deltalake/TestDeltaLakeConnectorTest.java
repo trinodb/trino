@@ -410,6 +410,21 @@ public class TestDeltaLakeConnectorTest
                 .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
     }
 
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testDropPartitionColumn(ColumnMappingMode mode)
+    {
+        if (mode == ColumnMappingMode.NONE) {
+            throw new SkipException("Tested in testDropColumn");
+        }
+
+        String tableName = "test_drop_partition_column_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(data int, part int) WITH (partitioned_by = ARRAY['part'], column_mapping_mode = '" + mode + "')");
+
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN part", "Cannot drop partition column: part");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Test
     public void testDropLastNonPartitionColumn()
     {
@@ -1004,11 +1019,11 @@ public class TestDeltaLakeConnectorTest
         };
     }
 
-    @Test
-    public void testTableWithNonNullableColumns()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testTableWithNonNullableColumns(ColumnMappingMode mode)
     {
         String tableName = "test_table_with_non_nullable_columns_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + "(col1 INTEGER NOT NULL, col2 INTEGER, col3 INTEGER)");
+        assertUpdate("CREATE TABLE " + tableName + "(col1 INTEGER NOT NULL, col2 INTEGER, col3 INTEGER) WITH (column_mapping_mode='" + mode + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES(1, 10, 100)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES(2, 20, 200)", 1);
         assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(null, 30, 300)"))
@@ -1147,6 +1162,128 @@ public class TestDeltaLakeConnectorTest
 
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES (1, CAST(row(11) AS row(x integer)))");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testDropAndAddColumnShowStatsForColumnMappingMode(ColumnMappingMode mode)
+    {
+        if (mode == ColumnMappingMode.NONE) {
+            throw new SkipException("Delta Lake doesn't support dropping columns with 'none' column mapping");
+        }
+
+        String tableName = "test_drop_add_column_show_stats_for_column_mapping_mode_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT, b_number INT) WITH (column_mapping_mode='" + mode + "')");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 10), (2, 20), (null, null)", 3);
+        assertUpdate("ANALYZE " + tableName);
+
+        assertQuery("SHOW STATS FOR " + tableName, "VALUES" +
+                "('a_number', null, 2.0, 0.33333333333, null, 1, 2)," +
+                "('b_number', null, 2.0, 0.33333333333, null, 10, 20)," +
+                "(null, null, null, null, 3.0, null, null)");
+
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN b_number");
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_number INT");
+
+        // Verify adding a new column with the same name doesn't allow accessing the old data
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("""
+                        VALUES
+                            (1, CAST(null AS INT)),
+                            (2, CAST(null AS INT)),
+                            (null, CAST(null AS INT))
+                        """);
+
+        // Ensure SHOW STATS doesn't return stats for the restored column
+        assertQuery("SHOW STATS FOR " + tableName, "VALUES" +
+                "('a_number', null, 2.0, 0.33333333333, null, 1, 2)," +
+                "('b_number', null, null, null, null, null, null)," +
+                "(null, null, null, null, 3.0, null, null)");
+
+        // SHOW STATS returns the expected stats after executing ANALYZE
+        assertUpdate("ANALYZE " + tableName);
+
+        assertQuery("SHOW STATS FOR " + tableName, "VALUES" +
+                "('a_number', null, 2.0, 0.33333333333, null, 1, 2)," +
+                "('b_number', 0.0, 0.0, 1.0, null, null, null)," +
+                "(null, null, null, null, 3.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testRenameColumnShowStatsForColumnMappingMode(ColumnMappingMode mode)
+    {
+        if (mode == ColumnMappingMode.NONE) {
+            throw new SkipException("The connector doesn't support renaming columns with 'none' column mapping");
+        }
+
+        String tableName = "test_rename_column_show_stats_for_column_mapping_mode_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT, b_number INT) WITH (column_mapping_mode='" + mode + "')");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 10), (2, 20), (null, null)", 3);
+        assertUpdate("ANALYZE " + tableName);
+
+        assertQuery("SHOW STATS FOR " + tableName, "VALUES" +
+                "('a_number', null, 2.0, 0.33333333333, null, 1, 2)," +
+                "('b_number', null, 2.0, 0.33333333333, null, 10, 20)," +
+                "(null, null, null, null, 3.0, null, null)");
+
+        // Ensure SHOW STATS return the same stats for the renamed column
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN b_number TO new_b");
+        assertQuery("SHOW STATS FOR " + tableName, "VALUES" +
+                "('a_number', null, 2.0, 0.33333333333, null, 1, 2)," +
+                "('new_b', null, 2.0, 0.33333333333, null, 10, 20)," +
+                "(null, null, null, null, 3.0, null, null)");
+
+        // Re-analyzing should work
+        assertUpdate("ANALYZE " + tableName);
+        assertQuery("SHOW STATS FOR " + tableName, "VALUES" +
+                "('a_number', null, 2.0, 0.33333333333, null, 1, 2)," +
+                "('new_b', null, 2.0, 0.33333333333, null, 10, 20)," +
+                "(null, null, null, null, 3.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testCommentOnTableForColumnMappingMode(ColumnMappingMode mode)
+    {
+        String tableName = "test_comment_on_table_for_column_mapping_mode_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT, b_number INT) WITH (column_mapping_mode='" + mode + "')");
+
+        assertUpdate("COMMENT ON TABLE " + tableName + " IS 'test comment' ");
+        assertThat(getTableComment(DELTA_CATALOG, SCHEMA, tableName)).isEqualTo("test comment");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testCommentOnColumnForColumnMappingMode(ColumnMappingMode mode)
+    {
+        String tableName = "test_comment_on_column_for_column_mapping_mode_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT, b_number INT) WITH (column_mapping_mode='" + mode + "')");
+
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".a_number IS 'test column comment'");
+        assertThat(getColumnComment(tableName, "a_number")).isEqualTo("test column comment");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testCreateTableWithCommentsForColumnMappingMode(ColumnMappingMode mode)
+    {
+        String tableName = "test_create_table_with_comments_for_column_mapping_mode_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT COMMENT 'test column comment', b_number INT)  " +
+                "COMMENT 'test table comment' " +
+                "WITH (column_mapping_mode='" + mode + "')");
+
+        assertThat(getTableComment(DELTA_CATALOG, SCHEMA, tableName)).isEqualTo("test table comment");
+        assertThat(getColumnComment(tableName, "a_number")).isEqualTo("test column comment");
 
         assertUpdate("DROP TABLE " + tableName);
     }
