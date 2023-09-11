@@ -261,8 +261,10 @@ public class SkewedPartitionRebalancer
         // initialize partitionDataSizeSinceLastRebalancePerTask
         for (int partition = 0; partition < partitionCount; partition++) {
             int totalAssignedTasks = partitionAssignments.get(partition).size();
+            long dataSize = partitionDataSize[partition];
             partitionDataSizeSinceLastRebalancePerTask[partition] =
-                    (partitionDataSize[partition] - partitionDataSizeAtLastRebalance[partition]) / totalAssignedTasks;
+                    (dataSize - partitionDataSizeAtLastRebalance[partition]) / totalAssignedTasks;
+            partitionDataSizeAtLastRebalance[partition] = dataSize;
         }
 
         // Initialize taskBucketMaxPartitions
@@ -358,7 +360,7 @@ public class SkewedPartitionRebalancer
                 int totalAssignedTasks = partitionAssignments.get(maxPartition).size();
                 if (partitionDataSize[maxPartition] >= (minPartitionDataProcessedRebalanceThreshold * totalAssignedTasks)) {
                     for (TaskBucket minTaskBucket : minSkewedTaskBuckets) {
-                        if (rebalancePartition(maxPartition, minTaskBucket, maxTaskBuckets, minTaskBuckets, partitionDataSize[maxPartition])) {
+                        if (rebalancePartition(maxPartition, minTaskBucket, maxTaskBuckets, minTaskBuckets)) {
                             scaledPartitions.add(maxPartition);
                             break;
                         }
@@ -394,18 +396,13 @@ public class SkewedPartitionRebalancer
             int partitionId,
             TaskBucket toTaskBucket,
             IndexedPriorityQueue<TaskBucket> maxTasks,
-            IndexedPriorityQueue<TaskBucket> minTasks,
-            long partitionDataSize)
+            IndexedPriorityQueue<TaskBucket> minTasks)
     {
         List<TaskBucket> assignments = partitionAssignments.get(partitionId);
         if (assignments.stream().anyMatch(taskBucket -> taskBucket.taskId == toTaskBucket.taskId)) {
             return false;
         }
         assignments.add(toTaskBucket);
-
-        // Update the value of partitionDataSizeAtLastRebalance which will get used to calculate
-        // partitionDataSizeSinceLastRebalancePerTask in the next rebalancing cycle.
-        partitionDataSizeAtLastRebalance[partitionId] = partitionDataSize;
 
         int newTaskCount = assignments.size();
         int oldTaskCount = newTaskCount - 1;
