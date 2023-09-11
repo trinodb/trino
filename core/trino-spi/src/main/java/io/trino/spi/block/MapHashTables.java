@@ -32,19 +32,33 @@ public final class MapHashTables
 {
     public static final int INSTANCE_SIZE = instanceSize(MapHashTables.class);
 
-    // inverse of hash fill ratio, must be integer
+    // inverse of the hash fill ratio must be integer
     static final int HASH_MULTIPLIER = 2;
 
+    enum HashBuildMode
+    {
+        DUPLICATE_NOT_CHECKED, STRICT_EQUALS, STRICT_NOT_DISTINCT_FROM
+    }
+
     private final MapType mapType;
+    private final int hashTableCount;
 
     @SuppressWarnings("VolatileArrayField")
     @GuardedBy("this")
     @Nullable
     private volatile int[] hashTables;
 
-    MapHashTables(MapType mapType, Optional<int[]> hashTables)
+    static MapHashTables create(HashBuildMode mode, MapType mapType, int hashTableCount, Block keyBlock, int[] offsets, @Nullable boolean[] mapIsNull)
+    {
+        MapHashTables hashTables = new MapHashTables(mapType, hashTableCount, Optional.empty());
+        hashTables.buildAllHashTables(mode, keyBlock, offsets, mapIsNull);
+        return hashTables;
+    }
+
+    MapHashTables(MapType mapType, int hashTableCount, Optional<int[]> hashTables)
     {
         this.mapType = mapType;
+        this.hashTableCount = hashTableCount;
         this.hashTables = hashTables.orElse(null);
     }
 
@@ -67,36 +81,22 @@ public final class MapHashTables
     }
 
     /**
-     * Returns the raw hash tables, if they have been built.  The raw hash tables must not be modified.
+     * Returns the raw hash tables if they have been built.  The raw hash tables must not be modified.
      */
     Optional<int[]> tryGet()
     {
         return Optional.ofNullable(hashTables);
     }
 
-    synchronized void growHashTables(int newSize)
+    void buildAllHashTablesIfNecessary(HashBuildMode mode, Block rawKeyBlock, int[] offsets, @Nullable boolean[] mapIsNull)
     {
-        int[] hashTables = this.hashTables;
+        // this is double-checked locking
         if (hashTables == null) {
-            throw new IllegalStateException("hashTables not set");
-        }
-        if (newSize < hashTables.length) {
-            throw new IllegalArgumentException("hashTables size does not match expectedEntryCount");
-        }
-        int[] newRawHashTables = Arrays.copyOf(hashTables, newSize);
-        Arrays.fill(newRawHashTables, hashTables.length, newSize, -1);
-        this.hashTables = newRawHashTables;
-    }
-
-    void buildAllHashTablesIfNecessary(Block rawKeyBlock, int[] offsets, @Nullable boolean[] mapIsNull)
-    {
-        // this is double checked locking
-        if (hashTables == null) {
-            buildAllHashTables(rawKeyBlock, offsets, mapIsNull);
+            buildAllHashTables(mode, rawKeyBlock, offsets, mapIsNull);
         }
     }
 
-    private synchronized void buildAllHashTables(Block rawKeyBlock, int[] offsets, @Nullable boolean[] mapIsNull)
+    private synchronized void buildAllHashTables(HashBuildMode mode, Block rawKeyBlock, int[] offsets, @Nullable boolean[] mapIsNull)
     {
         if (hashTables != null) {
             return;
@@ -105,7 +105,6 @@ public final class MapHashTables
         int[] hashTables = new int[rawKeyBlock.getPositionCount() * HASH_MULTIPLIER];
         Arrays.fill(hashTables, -1);
 
-        int hashTableCount = offsets.length - 1;
         for (int i = 0; i < hashTableCount; i++) {
             int keyOffset = offsets[i];
             int keyCount = offsets[i + 1] - keyOffset;
@@ -115,28 +114,21 @@ public final class MapHashTables
             if (mapIsNull != null && mapIsNull[i] && keyCount != 0) {
                 throw new IllegalArgumentException("A null map must have zero entries");
             }
-            buildHashTableInternal(rawKeyBlock, keyOffset, keyCount, hashTables);
+            switch (mode) {
+                case DUPLICATE_NOT_CHECKED -> buildHashTable(mapType, rawKeyBlock, keyOffset, keyCount, hashTables);
+                case STRICT_EQUALS -> buildHashTableStrict(mapType, rawKeyBlock, keyOffset, keyCount, hashTables);
+                case STRICT_NOT_DISTINCT_FROM -> buildDistinctHashTableStrict(mapType, rawKeyBlock, keyOffset, keyCount, hashTables);
+            }
         }
         this.hashTables = hashTables;
     }
 
-    synchronized void buildHashTable(Block keyBlock, int keyOffset, int keyCount)
-    {
-        int[] hashTables = this.hashTables;
-        if (hashTables == null) {
-            throw new IllegalStateException("hashTables not set");
-        }
-
-        buildHashTableInternal(keyBlock, keyOffset, keyCount, hashTables);
-        this.hashTables = hashTables;
-    }
-
-    private void buildHashTableInternal(Block keyBlock, int keyOffset, int keyCount, int[] hashTables)
+    private static void buildHashTable(MapType mapType, Block keyBlock, int keyOffset, int keyCount, int[] hashTables)
     {
         int hashTableOffset = keyOffset * HASH_MULTIPLIER;
         int hashTableSize = keyCount * HASH_MULTIPLIER;
         for (int i = 0; i < keyCount; i++) {
-            int hash = getHashPosition(keyBlock, keyOffset + i, hashTableSize);
+            int hash = getHashPosition(mapType, keyBlock, keyOffset + i, hashTableSize);
             while (true) {
                 if (hashTables[hashTableOffset + hash] == -1) {
                     hashTables[hashTableOffset + hash] = i;
@@ -153,20 +145,14 @@ public final class MapHashTables
     /**
      * This method checks whether {@code keyBlock} has duplicated entries (in the specified range)
      */
-    synchronized void buildHashTableStrict(Block keyBlock, int keyOffset, int keyCount)
-            throws DuplicateMapKeyException
+    private static void buildHashTableStrict(MapType mapType, Block keyBlock, int keyOffset, int keyCount, int[] hashTables)
     {
-        int[] hashTables = this.hashTables;
-        if (hashTables == null) {
-            throw new IllegalStateException("hashTables not set");
-        }
-
         int hashTableOffset = keyOffset * HASH_MULTIPLIER;
         int hashTableSize = keyCount * HASH_MULTIPLIER;
 
         for (int i = 0; i < keyCount; i++) {
             // this throws if the position is null
-            int hash = getHashPosition(keyBlock, keyOffset + i, hashTableSize);
+            int hash = getHashPosition(mapType, keyBlock, keyOffset + i, hashTableSize);
             while (true) {
                 if (hashTables[hashTableOffset + hash] == -1) {
                     hashTables[hashTableOffset + hash] = i;
@@ -200,25 +186,18 @@ public final class MapHashTables
                 }
             }
         }
-        this.hashTables = hashTables;
     }
 
     /**
      * This method checks whether {@code keyBlock} has duplicates based on type NOT DISTINCT FROM.
      */
-    synchronized void buildDistinctHashTableStrict(Block keyBlock, int keyOffset, int keyCount)
-            throws DuplicateMapKeyException
+    private static void buildDistinctHashTableStrict(MapType mapType, Block keyBlock, int keyOffset, int keyCount, int[] hashTables)
     {
-        int[] hashTables = this.hashTables;
-        if (hashTables == null) {
-            throw new IllegalStateException("hashTables not set");
-        }
-
         int hashTableOffset = keyOffset * HASH_MULTIPLIER;
         int hashTableSize = keyCount * HASH_MULTIPLIER;
 
         for (int i = 0; i < keyCount; i++) {
-            int hash = getHashPosition(keyBlock, keyOffset + i, hashTableSize);
+            int hash = getHashPosition(mapType, keyBlock, keyOffset + i, hashTableSize);
             while (true) {
                 if (hashTables[hashTableOffset + hash] == -1) {
                     hashTables[hashTableOffset + hash] = i;
@@ -251,10 +230,9 @@ public final class MapHashTables
                 }
             }
         }
-        this.hashTables = hashTables;
     }
 
-    private int getHashPosition(Block keyBlock, int position, int hashTableSize)
+    private static int getHashPosition(MapType mapType, Block keyBlock, int position, int hashTableSize)
     {
         if (keyBlock.isNull(position)) {
             throw new IllegalArgumentException("map keys cannot be null");

@@ -122,7 +122,7 @@ public abstract class TarDownloadingJdkProvider
                     binds[binds.length - 1] = new Bind(
                             javaHomePath.toAbsolutePath().toString(),
                             new Volume(javaHome),
-                            AccessMode.ro);
+                            AccessMode.rw);
                     cmd.getHostConfig().setBinds(binds);
                 })
                 .withEnv("JAVA_HOME", javaHome);

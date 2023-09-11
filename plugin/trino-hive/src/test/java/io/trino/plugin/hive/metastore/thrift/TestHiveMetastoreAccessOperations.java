@@ -68,6 +68,15 @@ public class TestHiveMetastoreAccessOperations
     }
 
     @Test
+    public void testUse()
+    {
+        assertMetastoreInvocations("USE " + getSession().getSchema().orElseThrow(),
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .build());
+    }
+
+    @Test
     public void testCreateTable()
     {
         assertMetastoreInvocations("CREATE TABLE test_create(id VARCHAR, age INT)",
@@ -200,6 +209,18 @@ public class TestHiveMetastoreAccessOperations
                 ImmutableMultiset.builder()
                         .add(GET_TABLE)
                         .add(GET_TABLE_STATISTICS)
+                        .build());
+    }
+
+    @Test
+    public void testDescribe()
+    {
+        assertUpdate("CREATE TABLE test_describe(id VARCHAR, age INT)");
+
+        assertMetastoreInvocations("DESCRIBE test_describe",
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .add(GET_TABLE)
                         .build());
     }
 

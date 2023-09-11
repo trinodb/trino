@@ -113,6 +113,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestAccessControl
         extends AbstractTestQueryFramework
 {
+    private static final String DEFAULT_SCHEMA = "default";
+    private static final String REDIRECTED_SOURCE = "redirected_source";
+    private static final String REDIRECTED_TARGET = "redirected_target";
     private final AtomicReference<SystemAccessControl> systemAccessControl = new AtomicReference<>(new DefaultSystemAccessControl());
     private final TestingGroupProvider groupProvider = new TestingGroupProvider();
     private TestingSystemSecurityMetadata systemSecurityMetadata;
@@ -156,6 +159,13 @@ public class TestAccessControl
                         return null;
                     }
                     return new MockConnectorTableHandle(schemaTableName);
+                })
+                .withListSchemaNames((connectorSession -> ImmutableList.of(DEFAULT_SCHEMA)))
+                .withListTables((connectorSession, schemaName) -> {
+                    if (schemaName.equals(DEFAULT_SCHEMA)) {
+                        return ImmutableList.of(REDIRECTED_SOURCE);
+                    }
+                    return ImmutableList.of();
                 })
                 .withGetViews((connectorSession, prefix) -> {
                     ConnectorViewDefinition definitionRunAsDefiner = new ConnectorViewDefinition(
@@ -212,6 +222,19 @@ public class TestAccessControl
                 .withColumnProperties(() -> ImmutableList.of(
                         integerProperty("another_property", "description", 0, false),
                         stringProperty("string_column_property", "description", "", false)))
+                .withRedirectTable(((connectorSession, schemaTableName) -> {
+                    if (schemaTableName.equals(SchemaTableName.schemaTableName(DEFAULT_SCHEMA, REDIRECTED_SOURCE))) {
+                        return Optional.of(
+                                new CatalogSchemaTableName("mock", SchemaTableName.schemaTableName(DEFAULT_SCHEMA, REDIRECTED_TARGET)));
+                    }
+                    return Optional.empty();
+                }))
+                .withGetComment((schemaTableName -> {
+                    if (schemaTableName.getTableName().equals(REDIRECTED_TARGET)) {
+                        return Optional.of("this is a redirected table");
+                    }
+                    return Optional.empty();
+                }))
                 .build()));
         queryRunner.createCatalog("mock", "mock");
         queryRunner.installPlugin(new JdbcPlugin("base_jdbc", new TestingH2JdbcModule()));
@@ -583,6 +606,15 @@ public class TestAccessControl
         assertAccessAllowed("COMMENT ON VIEW " + viewName + " IS 'new comment'");
     }
 
+    @Test
+    public void testCommentOnRedirectedTable()
+    {
+        String query = "SELECT * FROM system.metadata.table_comments WHERE catalog_name = 'mock' AND schema_name = 'default' AND table_name LIKE 'redirected%'";
+        assertQuery(query, "VALUES ('mock', 'default', 'redirected_source', 'this is a redirected table')");
+        getQueryRunner().getAccessControl().denyTables(schemaTableName -> !schemaTableName.getTableName().equals("redirected_target"));
+        assertQueryReturnsEmptyResult(query);
+    }
+
     @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
     public void testViewWithTableFunction(boolean securityDefiner)
     {
@@ -627,9 +659,9 @@ public class TestAccessControl
     public void testCommentColumnMaterializedView()
     {
         String viewName = "comment_materialized_view" + randomNameSuffix();
-        assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM orders");
-        assertAccessDenied("COMMENT ON COLUMN " + viewName + ".orderkey IS 'new order key comment'", "Cannot comment column to .*", privilege(viewName, COMMENT_COLUMN));
-        assertUpdate(getSession(), "COMMENT ON COLUMN " + viewName + ".orderkey IS 'new comment'");
+        assertUpdate("CREATE MATERIALIZED VIEW mock.default." + viewName + " AS SELECT * FROM orders");
+        assertAccessDenied("COMMENT ON COLUMN mock.default." + viewName + ".column_0 IS 'new comment'", "Cannot comment column to .*", privilege(viewName, COMMENT_COLUMN));
+        assertUpdate(getSession(), "COMMENT ON COLUMN mock.default." + viewName + ".column_0 IS 'new comment'");
     }
 
     @Test

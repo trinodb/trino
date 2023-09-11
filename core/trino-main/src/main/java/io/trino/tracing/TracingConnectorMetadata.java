@@ -63,6 +63,7 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.BoundSignature;
@@ -347,15 +348,6 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
-    {
-        Span span = startSpan("dropSchema", schemaName);
-        try (var ignored = scopedSpan(span)) {
-            delegate.dropSchema(session, schemaName);
-        }
-    }
-
-    @Override
     public void renameSchema(ConnectorSession session, String source, String target)
     {
         Span span = startSpan("renameSchema", source);
@@ -550,6 +542,15 @@ public class TracingConnectorMetadata
         Span span = startSpan("getNewTableLayout", tableMetadata.getTable());
         try (var ignored = scopedSpan(span)) {
             return delegate.getNewTableLayout(session, tableMetadata);
+        }
+    }
+
+    @Override
+    public Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    {
+        Span span = startSpan("getSupportedType");
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getSupportedType(session, type);
         }
     }
 
@@ -1242,6 +1243,24 @@ public class TracingConnectorMetadata
         Span span = startSpan("getMaxWriterTasks");
         try (var ignored = scopedSpan(span)) {
             return delegate.getMaxWriterTasks(session);
+        }
+    }
+
+    @Override
+    public WriterScalingOptions getNewTableWriterScalingOptions(ConnectorSession session, SchemaTableName tableName, Map<String, Object> tableProperties)
+    {
+        Span span = startSpan("getNewTableWriterScalingOptions", tableName);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getNewTableWriterScalingOptions(session, tableName, tableProperties);
+        }
+    }
+
+    @Override
+    public WriterScalingOptions getInsertWriterScalingOptions(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        Span span = startSpan("getInsertWriterScalingOptions", tableHandle);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getInsertWriterScalingOptions(session, tableHandle);
         }
     }
 

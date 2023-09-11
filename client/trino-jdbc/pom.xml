@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>423</version>
+        <version>427-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -379,6 +379,10 @@
                                 <relocation>
                                     <pattern>okhttp3</pattern>
                                     <shadedPattern>${shadeBase}.okhttp3</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.opentelemetry.extension</pattern>
+                                    <shadedPattern>${shadeBase}.opentelemetry.extension</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>io.opentelemetry.instrumentation</pattern>

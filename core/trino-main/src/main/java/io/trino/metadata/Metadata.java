@@ -47,6 +47,7 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.FunctionMetadata;
@@ -237,11 +238,6 @@ public interface Metadata
     void setViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment);
 
     /**
-     * Comments to the specified materialized view column.
-     */
-    void setMaterializedViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment);
-
-    /**
      * Comments to the specified column.
      */
     void setColumnComment(Session session, TableHandle tableHandle, ColumnHandle column, Optional<String> comment);
@@ -304,6 +300,11 @@ public interface Metadata
     void truncateTable(Session session, TableHandle tableHandle);
 
     Optional<TableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
+
+    /**
+     * Return the effective {@link io.trino.spi.type.Type} that is supported by the connector for the given type, if {@link Optional#empty()} is returned, the type will be used as is during table creation which may or may not be supported by the connector.
+     */
+    Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Type type);
 
     /**
      * Begin the atomic creation of a table with data.
@@ -725,6 +726,11 @@ public interface Metadata
     void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Optional<Object>> properties);
 
     /**
+     * Comments to the specified materialized view column.
+     */
+    void setMaterializedViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment);
+
+    /**
      * Returns the result of redirecting the table scan on a given table to a different table.
      * This method is used by the engine during the plan optimization phase to allow a connector to offload table scans to any other connector.
      * This method is called after security checks against the original table.
@@ -751,4 +757,14 @@ public interface Metadata
      * Note: It is ignored when retry policy is set to TASK
      */
     OptionalInt getMaxWriterTasks(Session session, String catalogName);
+
+    /**
+     * Returns writer scaling options for the specified table. This method is called when table handle is not available during CTAS.
+     */
+    WriterScalingOptions getNewTableWriterScalingOptions(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties);
+
+    /**
+     * Returns writer scaling options for the specified table.
+     */
+    WriterScalingOptions getInsertWriterScalingOptions(Session session, TableHandle tableHandle);
 }

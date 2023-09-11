@@ -254,8 +254,16 @@ public interface AccessControl
 
     /**
      * Filter the list of columns to those visible to the identity.
+     *
+     * @deprecated Use {@link #filterColumns(SecurityContext, String, Map)}
      */
+    @Deprecated
     Set<String> filterColumns(SecurityContext context, CatalogSchemaTableName tableName, Set<String> columns);
+
+    /**
+     * Filter lists of columns of multiple tables to those visible to the identity.
+     */
+    Map<SchemaTableName, Set<String>> filterColumns(SecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns);
 
     /**
      * Check if identity is allowed to add columns to the specified table.
@@ -514,14 +522,6 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanSetCatalogRole(SecurityContext context, String role, String catalogName);
-
-    /**
-     * Check if identity is allowed to show role authorization descriptors (i.e. RoleGrants).
-     *
-     * @param catalogName if present, the role catalog; otherwise the role is a system role
-     * @throws AccessDeniedException if not allowed
-     */
-    void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, Optional<String> catalogName);
 
     /**
      * Check if identity is allowed to show roles on the specified catalog.

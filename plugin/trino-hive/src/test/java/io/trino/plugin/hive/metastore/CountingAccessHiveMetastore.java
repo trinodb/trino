@@ -49,7 +49,7 @@ public class CountingAccessHiveMetastore
         GET_TABLE,
         GET_ALL_TABLES,
         GET_ALL_TABLES_FROM_DATABASE,
-        GET_TABLE_WITH_PARAMETER,
+        GET_TABLES_WITH_PARAMETER,
         GET_TABLE_STATISTICS,
         GET_ALL_VIEWS,
         GET_ALL_VIEWS_FROM_DATABASE,
@@ -113,7 +113,7 @@ public class CountingAccessHiveMetastore
     @Override
     public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
     {
-        methodInvocations.add(Method.GET_TABLE_WITH_PARAMETER);
+        methodInvocations.add(Method.GET_TABLES_WITH_PARAMETER);
         return delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue);
     }
 

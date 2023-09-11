@@ -68,6 +68,7 @@ import org.bson.types.Binary;
 import org.bson.types.Decimal128;
 import org.bson.types.ObjectId;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -93,11 +94,13 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.plugin.mongodb.ptf.Query.parseFilter;
 import static io.trino.spi.HostAddress.fromParts;
+import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
@@ -212,9 +215,20 @@ public class MongoSession
         client.getDatabase(schemaName).createCollection(schemaCollection);
     }
 
-    public void dropSchema(String schemaName)
+    public void dropSchema(String schemaName, boolean cascade)
     {
-        client.getDatabase(toRemoteSchemaName(schemaName)).drop();
+        MongoDatabase database = client.getDatabase(toRemoteSchemaName(schemaName));
+        if (!cascade) {
+            try (MongoCursor<String> collections = database.listCollectionNames().cursor()) {
+                while (collections.hasNext()) {
+                    if (collections.next().equals(schemaCollection)) {
+                        continue;
+                    }
+                    throw new TrinoException(SCHEMA_NOT_EMPTY, "Cannot drop non-empty schema '%s'".formatted(schemaName));
+                }
+            }
+        }
+        database.drop();
     }
 
     public Set<String> getAllTables(String schema)
@@ -899,6 +913,16 @@ public class MongoSession
         }
         else if (value instanceof Float || value instanceof Double) {
             typeSignature = DOUBLE.getTypeSignature();
+        }
+        else if (value instanceof Decimal128 decimal128) {
+            BigDecimal decimal;
+            try {
+                decimal = decimal128.bigDecimalValue();
+            }
+            catch (ArithmeticException e) {
+                return Optional.empty();
+            }
+            typeSignature = createDecimalType(decimal.precision(), decimal.scale()).getTypeSignature();
         }
         else if (value instanceof Date) {
             typeSignature = TIMESTAMP_MILLIS.getTypeSignature();

@@ -33,6 +33,7 @@ import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.FunctionResolver.CatalogFunctionBinding;
 import io.trino.metadata.FunctionResolver.CatalogFunctionMetadata;
 import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
+import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -83,6 +84,7 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.AggregationFunctionMetadata;
@@ -116,6 +118,7 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
+import io.trino.type.TypeCoercion;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -159,9 +162,12 @@ import static io.trino.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.metadata.RedirectionAwareTableHandle.withRedirectionTo;
 import static io.trino.metadata.SignatureBinder.applyBoundVariables;
+import static io.trino.spi.ErrorType.EXTERNAL;
+import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
@@ -191,6 +197,7 @@ public final class MetadataManager
     private final SystemSecurityMetadata systemSecurityMetadata;
     private final TransactionManager transactionManager;
     private final TypeManager typeManager;
+    private final TypeCoercion typeCoercion;
 
     private final ConcurrentMap<QueryId, QueryCatalogs> catalogsByQueryId = new ConcurrentHashMap<>();
 
@@ -209,6 +216,7 @@ public final class MetadataManager
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         functions = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
         functionResolver = new FunctionResolver(this, typeManager);
+        this.typeCoercion = new TypeCoercion(typeManager::getType);
 
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -600,7 +608,19 @@ public final class MetadataManager
                             }
                         }
                         catch (RuntimeException e) {
-                            if (!(e instanceof TrinoException trinoException) || !trinoException.getErrorCode().equals(UNSUPPORTED_TABLE_TYPE.toErrorCode())) {
+                            boolean silent = false;
+                            if (e instanceof TrinoException trinoException) {
+                                ErrorCode errorCode = trinoException.getErrorCode();
+                                silent = errorCode.equals(UNSUPPORTED_TABLE_TYPE.toErrorCode()) ||
+                                        // e.g. table deleted concurrently
+                                        errorCode.equals(NOT_FOUND.toErrorCode()) ||
+                                        // e.g. Iceberg/Delta table being deleted concurrently resulting in failure to load metadata from filesystem
+                                        errorCode.getType() == EXTERNAL;
+                            }
+                            if (silent) {
+                                log.debug(e, "Failed to get metadata for table: %s", objectName);
+                            }
+                            else {
                                 log.warn(e, "Failed to get metadata for table: %s", objectName);
                             }
                         }
@@ -825,15 +845,6 @@ public final class MetadataManager
     }
 
     @Override
-    public void setMaterializedViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment)
-    {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
-        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
-        metadata.setMaterializedViewColumnComment(session.toConnectorSession(catalogHandle), viewName.asSchemaTableName(), columnName, comment);
-    }
-
-    @Override
     public void setColumnComment(Session session, TableHandle tableHandle, ColumnHandle column, Optional<String> comment)
     {
         CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
@@ -1013,6 +1024,20 @@ public final class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
         return metadata.getNewTableLayout(connectorSession, tableMetadata)
                 .map(layout -> new TableLayout(catalogHandle, transactionHandle, layout));
+    }
+
+    @Override
+    public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Type type)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogHandle);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+        return metadata.getSupportedType(session.toConnectorSession(catalogHandle), type)
+                .map(newType -> {
+                    if (!typeCoercion.isCompatible(newType, type)) {
+                        throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, format("Type '%s' is not compatible with the supplied type '%s' in getSupportedType", type, newType));
+                    }
+                    return newType;
+                });
     }
 
     @Override
@@ -1607,6 +1632,15 @@ public final class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
         metadata.setMaterializedViewProperties(session.toConnectorSession(catalogHandle), viewName.asSchemaTableName(), properties);
+    }
+
+    @Override
+    public void setMaterializedViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
+        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+        metadata.setMaterializedViewColumnComment(session.toConnectorSession(catalogHandle), viewName.asSchemaTableName(), columnName, comment);
     }
 
     private static boolean isExternalInformationSchema(CatalogHandle catalogHandle, Optional<String> schemaName)
@@ -2669,6 +2703,22 @@ public final class MetadataManager
         CatalogMetadata catalogMetadata = catalog.get();
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         return catalogMetadata.getMetadata(session).getMaxWriterTasks(session.toConnectorSession(catalogHandle));
+    }
+
+    @Override
+    public WriterScalingOptions getNewTableWriterScalingOptions(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
+        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, tableName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
+        return metadata.getNewTableWriterScalingOptions(session.toConnectorSession(catalogHandle), tableName.asSchemaTableName(), tableProperties);
+    }
+
+    @Override
+    public WriterScalingOptions getInsertWriterScalingOptions(Session session, TableHandle tableHandle)
+    {
+        ConnectorMetadata metadata = getMetadataForWrite(session, tableHandle.getCatalogHandle());
+        return metadata.getInsertWriterScalingOptions(session.toConnectorSession(tableHandle.getCatalogHandle()), tableHandle.getConnectorHandle());
     }
 
     private Optional<ConnectorTableVersion> toConnectorVersion(Optional<TableVersion> version)

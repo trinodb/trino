@@ -309,7 +309,7 @@ public class PhoenixClient
                 table,
                 columnHandles,
                 Optional.of(split));
-        QueryPlan queryPlan = getQueryPlan((PhoenixPreparedStatement) query);
+        QueryPlan queryPlan = getQueryPlan(query.unwrap(PhoenixPreparedStatement.class));
         ResultSet resultSet = getResultSet(((PhoenixSplit) split).getPhoenixInputSplit(), queryPlan);
         return new DelegatePreparedStatement(query)
         {

@@ -177,7 +177,7 @@ public class TestDeltaLakeMinioAndHmsConnectorSmokeTest
     public void testDeltaColumnInvariant()
     {
         String tableName = "test_invariants_" + randomNameSuffix();
-        hiveMinioDataLake.copyResources("databricks/invariants", tableName);
+        hiveMinioDataLake.copyResources("deltalake/invariants", tableName);
         assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(SCHEMA, tableName, getLocationForTable(bucketName, tableName)));
 
         assertQuery("SELECT * FROM " + tableName, "VALUES 1");
@@ -196,7 +196,7 @@ public class TestDeltaLakeMinioAndHmsConnectorSmokeTest
     public void testSchemaEvolutionOnTableWithColumnInvariant()
     {
         String tableName = "test_schema_evolution_on_table_with_column_invariant_" + randomNameSuffix();
-        hiveMinioDataLake.copyResources("databricks/invariants", tableName);
+        hiveMinioDataLake.copyResources("deltalake/invariants", tableName);
         getQueryRunner().execute(format(
                 "CALL system.register_table('%s', '%s', '%s')",
                 SCHEMA,

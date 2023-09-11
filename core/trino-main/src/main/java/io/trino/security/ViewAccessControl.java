@@ -15,6 +15,7 @@ package io.trino.security;
 
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
@@ -22,6 +23,7 @@ import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -60,6 +62,12 @@ public class ViewAccessControl
     public Set<String> filterColumns(SecurityContext context, CatalogSchemaTableName tableName, Set<String> columns)
     {
         return delegate.filterColumns(context, tableName, columns);
+    }
+
+    @Override
+    public Map<SchemaTableName, Set<String>> filterColumns(SecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        return delegate.filterColumns(context, catalogName, tableColumns);
     }
 
     @Override

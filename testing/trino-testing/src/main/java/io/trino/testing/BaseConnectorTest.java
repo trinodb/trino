@@ -206,7 +206,6 @@ public abstract class BaseConnectorTest
 
     /**
      * Make sure to group related behaviours together in the order and grouping they are declared in {@link TestingConnectorBehavior}.
-     * If required, annotate the method with {@code @SuppressWarnings("DuplicateBranchesInSwitch")}.
      */
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -1587,21 +1586,18 @@ public abstract class BaseConnectorTest
     @Test
     public void testColumnCommentMaterializedView()
     {
-        if (!hasBehavior(SUPPORTS_COMMENT_ON_MATERIALIZED_VIEW_COLUMN)) {
-            if (hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW)) {
-                String viewName = "test_materialized_view_" + randomNameSuffix();
-                assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
-                assertQueryFails("COMMENT ON COLUMN " + viewName + ".regionkey IS 'new region key comment'", "This connector does not support setting materialized view column comments");
-                assertUpdate("DROP MATERIALIZED VIEW " + viewName);
-                return;
-            }
-            throw new SkipException("Skipping as connector does not support MATERIALIZED VIEW COLUMN COMMENT");
-        }
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
 
         String viewName = "test_materialized_view_" + randomNameSuffix();
-        try {
+        if (!hasBehavior(SUPPORTS_COMMENT_ON_MATERIALIZED_VIEW_COLUMN)) {
             assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
+            assertQueryFails("COMMENT ON COLUMN " + viewName + ".regionkey IS 'new region key comment'", "This connector does not support setting materialized view column comments");
+            assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+            return;
+        }
 
+        assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
+        try {
             assertUpdate("COMMENT ON COLUMN " + viewName + ".name IS 'new comment'");
             assertThat(getColumnComment(viewName, "name")).isEqualTo("new comment");
 
@@ -2820,6 +2816,19 @@ public abstract class BaseConnectorTest
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " RENAME COLUMN columnNotExists TO y");
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " RENAME COLUMN IF EXISTS columnNotExists TO y");
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Test
+    public void testRenameColumnWithComment()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_RENAME_COLUMN) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_rename_column_", "(col INT COMMENT 'test column comment')")) {
+            assertThat(getColumnComment(table.getName(), "col")).isEqualTo("test column comment");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN col TO renamed_col");
+            assertThat(getColumnComment(table.getName(), "renamed_col")).isEqualTo("test column comment");
+        }
     }
 
     @Test

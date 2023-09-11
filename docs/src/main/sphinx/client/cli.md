@@ -643,6 +643,8 @@ and `CSV` in non-interactive mode.
   * - ``AUTO``
     - Same as ``ALIGNED`` if output would fit the current terminal width,
       and ``VERTICAL`` otherwise.
+  * - ``MARKDOWN``
+    - Output emitted as a Markdown table.
   * - ``NULL``
     - Suppresses normal query results. This can be useful during development
       to test a query's shell return code or to see whether it results in

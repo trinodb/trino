@@ -31,7 +31,6 @@ env:
   # the Docker daemon only downloads 3 layers concurrently which prevents the other pull from making any progress.
   # This value should be greater than the time taken for the longest image pull.
   TESTCONTAINERS_PULL_PAUSE_TIMEOUT: 600
-  TESTCONTAINERS_SKIP_ARCHITECTURE_CHECK: true
   TEST_REPORT_RETENTION_DAYS: 5
   HEAP_DUMP_RETENTION_DAYS: 14
   # used by actions/cache to retry the download after this time: https://github.com/actions/cache/blob/main/workarounds.md#cache-segment-restore-timeout
@@ -58,10 +57,10 @@ jobs:
       matrix:
         java-version:
           - 17
-          - 19
+          - 20
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
           ref: |
@@ -89,7 +88,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
           ref: |
@@ -128,7 +127,7 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base
       - name: Block illegal commits
@@ -160,7 +159,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.check-commits-dispatcher.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         if: matrix.commit != ''
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base
@@ -178,7 +177,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
           ref: |
@@ -203,7 +202,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # checkout all commits: it's not needed here, but it's needed almost always, so let's do this for completeness
           ref: |
@@ -219,7 +218,7 @@ jobs:
     env:
       SECRETS_PRESENT: ${{ secrets.SECRETS_PRESENT }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # checkout tags so version in Manifest is set properly
           ref: |
@@ -286,7 +285,7 @@ jobs:
     env:
       SECRETS_PRESENT: ${{ secrets.SECRETS_PRESENT }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
           ref: |
@@ -427,7 +426,7 @@ jobs:
     env:
       SECRETS_PRESENT: ${{ secrets.SECRETS_PRESENT }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
           ref: |
@@ -445,40 +444,48 @@ jobs:
         run: |
           $MAVEN test ${MAVEN_TEST} -pl '
             !:trino-accumulo,
+            !:trino-base-jdbc,
             !:trino-bigquery,
             !:trino-cassandra,
             !:trino-clickhouse,
             !:trino-delta-lake,
-            !:trino-docs,!:trino-server,!:trino-server-rpm,
+            !:trino-docs,
             !:trino-druid,
             !:trino-elasticsearch,
             !:trino-faulttolerant-tests,
+            !:trino-filesystem,
+            !:trino-filesystem-azure,
+            !:trino-filesystem-manager,
+            !:trino-filesystem-s3,
+            !:trino-hdfs,
             !:trino-hive,
             !:trino-hudi,
             !:trino-iceberg,
             !:trino-ignite,
-            !:trino-jdbc,!:trino-base-jdbc,!:trino-thrift,!:trino-memory,
+            !:trino-jdbc,
             !:trino-kafka,
             !:trino-kudu,
             !:trino-main,
             !:trino-mariadb,
+            !:trino-memory,
             !:trino-mongodb,
             !:trino-mysql,
             !:trino-oracle,
+            !:trino-orc,
+            !:trino-parquet,
             !:trino-phoenix5,
             !:trino-pinot,
             !:trino-postgresql,
             !:trino-raptor-legacy,
             !:trino-redis,
             !:trino-redshift,
+            !:trino-server,
+            !:trino-server-rpm,
             !:trino-singlestore,
             !:trino-sqlserver,
             !:trino-test-jdbc-compatibility-old-server,
-            !:trino-tests'
-      - name: trino-hdfs isolated JVM tests
-        # Isolate HDFS file system cache concurrency test to avoid flakiness
-        run: |
-          $MAVEN test ${MAVEN_TEST} -pl :trino-hdfs -P test-isolated-jvm-suites
+            !:trino-tests,
+            !:trino-thrift'
       - name: Upload test results
         uses: actions/upload-artifact@v3
         # Upload all test reports only on failure, because the artifacts are large
@@ -514,7 +521,7 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
           ref: |
@@ -544,10 +551,24 @@ jobs:
           touch gib-impacted.log
           cat <<EOF > .github/test-matrix.yaml
           include:
-            - { modules: [ client/trino-jdbc, plugin/trino-base-jdbc, plugin/trino-thrift, plugin/trino-memory ] }
+            - modules:
+                - client/trino-jdbc
+                - plugin/trino-base-jdbc
+                - plugin/trino-memory
+                - plugin/trino-thrift
+            - modules:
+                - lib/trino-orc
+                - lib/trino-parquet
+            - modules:
+                - lib/trino-filesystem
+                - lib/trino-filesystem-azure
+                - lib/trino-filesystem-manager
+                - lib/trino-filesystem-s3
+                - lib/trino-hdfs
             - { modules: core/trino-main }
-            - { modules: core/trino-main, jdk: 19 }
+            - { modules: core/trino-main, jdk: 20 }
             - { modules: lib/trino-filesystem-s3, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
             - { modules: plugin/trino-accumulo }
             - { modules: plugin/trino-bigquery }
             - { modules: plugin/trino-bigquery, profile: cloud-tests-arrow }
@@ -604,7 +625,7 @@ jobs:
     env:
       SECRETS_PRESENT: ${{ secrets.SECRETS_PRESENT }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
           ref: |
@@ -632,8 +653,13 @@ jobs:
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'fte-tests'))
           && ! (contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests'))
+          && ! (contains(matrix.modules, 'trino-filesystem-azure') && contains(matrix.profile, 'cloud-tests'))
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
       # Additional tests for selected modules
+      - name: HDFS file system cache isolated JVM tests
+        if: contains(matrix.modules, 'trino-hdfs')
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl :trino-hdfs -P test-isolated-jvm-suites
       - name: S3 FileSystem Cloud Tests
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
@@ -643,6 +669,21 @@ jobs:
         if: >-
           contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests') &&
           (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '')
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
+      - name: Azure FileSystem Cloud Tests
+        env:
+          ABFS_BLOB_ACCOUNT: todo
+          ABFS_BLOB_ACCESS_KEY: todo
+          ABFS_FLAT_ACCOUNT: todo
+          ABFS_FLAT_ACCESS_KEY: todo
+          ABFS_ACCOUNT: todo
+          ABFS_ACCESS_KEY: todo
+        # todo(https://github.com/trinodb/trino/issues/18998) Enable when we have env variables in place
+        if: >-
+          false &&
+          contains(matrix.modules, 'trino-filesystem-azure') && contains(matrix.profile, 'cloud-tests') &&
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.ABFS_BLOB_ACCOUNT != '' || env.ABFS_BLOB_ACCESS_KEY != '' || env.ABFS_FLAT_ACCOUNT != '' || ABFS_FLAT_ACCESS_KEY != '' || ABFS_ACCOUNT != '' || ABFS_ACCESS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
       - name: Cloud Delta Lake Tests
@@ -809,7 +850,7 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       product-tests-changed: ${{ steps.filter.outputs.product-tests }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
           ref: |
@@ -870,11 +911,11 @@ jobs:
             # suite-4 does not exist
             - suite-5
             - suite-azure
-            - suite-delta-lake-databricks73
             - suite-delta-lake-databricks91
             - suite-delta-lake-databricks104
             - suite-delta-lake-databricks113
             - suite-delta-lake-databricks122
+            - suite-delta-lake-databricks133
             - suite-gcs
             - suite-clients
             - suite-functions
@@ -904,11 +945,6 @@ jobs:
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.GCP_CREDENTIALS_KEY != '' }}
 
-            - suite: suite-delta-lake-databricks73
-              config: hdp3
-            - suite: suite-delta-lake-databricks73
-              ignore exclusion if: >-
-                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-delta-lake-databricks91
               config: hdp3
             - suite: suite-delta-lake-databricks91
@@ -927,6 +963,11 @@ jobs:
             - suite: suite-delta-lake-databricks122
               config: hdp3
             - suite: suite-delta-lake-databricks122
+              ignore exclusion if: >-
+                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
+            - suite: suite-delta-lake-databricks133
+              config: hdp3
+            - suite: suite-delta-lake-databricks133
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
 
@@ -1021,11 +1062,11 @@ jobs:
           AWS_REGION:
           TRINO_AWS_ACCESS_KEY_ID:
           TRINO_AWS_SECRET_ACCESS_KEY:
-          DATABRICKS_73_JDBC_URL:
           DATABRICKS_91_JDBC_URL:
           DATABRICKS_104_JDBC_URL:
           DATABRICKS_113_JDBC_URL:
           DATABRICKS_122_JDBC_URL:
+          DATABRICKS_133_JDBC_URL:
           DATABRICKS_LOGIN:
           DATABRICKS_TOKEN:
           GCP_CREDENTIALS_KEY:
@@ -1051,7 +1092,7 @@ jobs:
     timeout-minutes: 130
     needs: build-pt
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
           ref: |
@@ -1088,11 +1129,11 @@ jobs:
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
           TRINO_AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           TRINO_AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
-          DATABRICKS_73_JDBC_URL: ${{ secrets.DATABRICKS_73_JDBC_URL }}
           DATABRICKS_91_JDBC_URL: ${{ secrets.DATABRICKS_91_JDBC_URL }}
           DATABRICKS_104_JDBC_URL: ${{ secrets.DATABRICKS_104_JDBC_URL }}
           DATABRICKS_113_JDBC_URL: ${{ secrets.DATABRICKS_113_JDBC_URL }}
           DATABRICKS_122_JDBC_URL: ${{ secrets.DATABRICKS_122_JDBC_URL }}
+          DATABRICKS_133_JDBC_URL: ${{ secrets.DATABRICKS_133_JDBC_URL }}
           DATABRICKS_LOGIN: token
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}

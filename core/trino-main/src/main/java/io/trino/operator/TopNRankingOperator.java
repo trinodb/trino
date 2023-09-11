@@ -213,6 +213,18 @@ public class TopNRankingOperator
         checkArgument(maxPartialMemory.isEmpty() || !generateRanking, "no partial memory on final TopN");
         this.maxFlushableBytes = maxPartialMemory.map(DataSize::toBytes).orElse(Long.MAX_VALUE);
 
+        int[] groupByChannels;
+        if (hashChannel.isPresent()) {
+            groupByChannels = new int[partitionChannels.size() + 1];
+            for (int i = 0; i < partitionChannels.size(); i++) {
+                groupByChannels[i] = partitionChannels.get(i);
+            }
+            groupByChannels[partitionChannels.size()] = hashChannel.get();
+        }
+        else {
+            groupByChannels = Ints.toArray(partitionChannels);
+        }
+
         this.groupedTopNBuilderSupplier = getGroupedTopNBuilderSupplier(
                 rankingType,
                 ImmutableList.copyOf(sourceTypes),
@@ -222,40 +234,37 @@ public class TopNRankingOperator
                 generateRanking,
                 typeOperators,
                 blockTypeOperators,
+                groupByChannels,
                 getGroupByHashSupplier(
-                        partitionChannels,
                         expectedPositions,
                         partitionTypes,
-                        hashChannel,
+                        hashChannel.isPresent(),
                         operatorContext.getSession(),
                         joinCompiler,
-                        blockTypeOperators,
+                        typeOperators,
                         this::updateMemoryReservation));
     }
 
     private static Supplier<GroupByHash> getGroupByHashSupplier(
-            List<Integer> partitionChannels,
             int expectedPositions,
             List<Type> partitionTypes,
-            Optional<Integer> hashChannel,
+            boolean hasPrecomputedHash,
             Session session,
             JoinCompiler joinCompiler,
-            BlockTypeOperators blockTypeOperators,
+            TypeOperators typeOperators,
             UpdateMemory updateMemory)
     {
-        if (partitionChannels.isEmpty()) {
+        if (partitionTypes.isEmpty()) {
             return Suppliers.ofInstance(new NoChannelGroupByHash());
         }
         checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
-        int[] channels = Ints.toArray(partitionChannels);
         return () -> createGroupByHash(
                 session,
                 partitionTypes,
-                channels,
-                hashChannel,
+                hasPrecomputedHash,
                 expectedPositions,
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 updateMemory);
     }
 
@@ -268,6 +277,7 @@ public class TopNRankingOperator
             boolean generateRanking,
             TypeOperators typeOperators,
             BlockTypeOperators blockTypeOperators,
+            int[] groupByChannels,
             Supplier<GroupByHash> groupByHashSupplier)
     {
         if (rankingType == RankingType.ROW_NUMBER) {
@@ -277,6 +287,7 @@ public class TopNRankingOperator
                     comparator,
                     maxRankingPerPartition,
                     generateRanking,
+                    groupByChannels,
                     groupByHashSupplier.get());
         }
         if (rankingType == RankingType.RANK) {
@@ -288,6 +299,7 @@ public class TopNRankingOperator
                     equalsAndHash,
                     maxRankingPerPartition,
                     generateRanking,
+                    groupByChannels,
                     groupByHashSupplier.get());
         }
         if (rankingType == RankingType.DENSE_RANK) {

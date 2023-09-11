@@ -52,7 +52,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
@@ -61,13 +60,13 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
+import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnsMetadata;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
-import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
 import static org.testng.Assert.assertFalse;
@@ -77,9 +76,16 @@ public class TestDeltaLakeBasic
 {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
 
-    private static final List<String> PERSON_TABLES = ImmutableList.of(
-            "person", "person_without_last_checkpoint", "person_without_old_jsons", "person_without_checkpoints");
-    private static final List<String> OTHER_TABLES = ImmutableList.of("no_column_stats", "timestamp_ntz", "timestamp_ntz_partition");
+    private static final List<ResourceTable> PERSON_TABLES = ImmutableList.of(
+            new ResourceTable("person", "databricks73/person"),
+            new ResourceTable("person_without_last_checkpoint", "databricks73/person_without_last_checkpoint"),
+            new ResourceTable("person_without_old_jsons", "databricks73/person_without_old_jsons"),
+            new ResourceTable("person_without_checkpoints", "databricks73/person_without_checkpoints"));
+    private static final List<ResourceTable> OTHER_TABLES = ImmutableList.of(
+            new ResourceTable("stats_with_minmax_nulls", "deltalake/stats_with_minmax_nulls"),
+            new ResourceTable("no_column_stats", "databricks73/no_column_stats"),
+            new ResourceTable("timestamp_ntz", "databricks131/timestamp_ntz"),
+            new ResourceTable("timestamp_ntz_partition", "databricks131/timestamp_ntz_partition"));
 
     // The col-{uuid} pattern for delta.columnMapping.physicalName
     private static final Pattern PHYSICAL_COLUMN_NAME_PATTERN = Pattern.compile("^col-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
@@ -98,32 +104,32 @@ public class TestDeltaLakeBasic
     @BeforeClass
     public void registerTables()
     {
-        for (String table : Iterables.concat(PERSON_TABLES, OTHER_TABLES)) {
-            String dataPath = getTableLocation(table).toExternalForm();
+        for (ResourceTable table : Iterables.concat(PERSON_TABLES, OTHER_TABLES)) {
+            String dataPath = getTableLocation(table.resourcePath()).toExternalForm();
             getQueryRunner().execute(
-                    format("CALL system.register_table('%s', '%s', '%s')", getSession().getSchema().orElseThrow(), table, dataPath));
+                    format("CALL system.register_table('%s', '%s', '%s')", getSession().getSchema().orElseThrow(), table.tableName(), dataPath));
         }
     }
 
-    private URL getTableLocation(String table)
+    private URL getTableLocation(String resourcePath)
     {
-        return getClass().getClassLoader().getResource("databricks/" + table);
+        return getClass().getClassLoader().getResource(resourcePath);
     }
 
     @DataProvider
-    public Object[][] tableNames()
+    public Object[][] tables()
     {
         return PERSON_TABLES.stream()
                 .map(table -> new Object[] {table})
                 .toArray(Object[][]::new);
     }
 
-    @Test(dataProvider = "tableNames")
-    public void testDescribeTable(String tableName)
+    @Test(dataProvider = "tables")
+    public void testDescribeTable(ResourceTable table)
     {
         // the schema is actually defined in the transaction log
         assertQuery(
-                format("DESCRIBE %s", tableName),
+                format("DESCRIBE %s", table.tableName()),
                 "VALUES " +
                         "('name', 'varchar', '', ''), " +
                         "('age', 'integer', '', ''), " +
@@ -134,27 +140,21 @@ public class TestDeltaLakeBasic
                         "('income', 'double', '', '')");
     }
 
-    @Test(dataProvider = "tableNames")
-    public void testSimpleQueries(String tableName)
+    @Test(dataProvider = "tables")
+    public void testSimpleQueries(ResourceTable table)
     {
-        assertQuery(format("SELECT COUNT(*) FROM %s", tableName), "VALUES 12");
-        assertQuery(format("SELECT income FROM %s WHERE name = 'Bob'", tableName), "VALUES 99000.00");
-        assertQuery(format("SELECT name FROM %s WHERE name LIKE 'B%%'", tableName), "VALUES ('Bob'), ('Betty')");
-        assertQuery(format("SELECT DISTINCT gender FROM %s", tableName), "VALUES ('M'), ('F'), (null)");
-        assertQuery(format("SELECT DISTINCT age FROM %s", tableName), "VALUES (21), (25), (28), (29), (30), (42)");
-        assertQuery(format("SELECT name FROM %s WHERE age = 42", tableName), "VALUES ('Alice'), ('Emma')");
+        assertQuery(format("SELECT COUNT(*) FROM %s", table.tableName()), "VALUES 12");
+        assertQuery(format("SELECT income FROM %s WHERE name = 'Bob'", table.tableName()), "VALUES 99000.00");
+        assertQuery(format("SELECT name FROM %s WHERE name LIKE 'B%%'", table.tableName()), "VALUES ('Bob'), ('Betty')");
+        assertQuery(format("SELECT DISTINCT gender FROM %s", table.tableName()), "VALUES ('M'), ('F'), (null)");
+        assertQuery(format("SELECT DISTINCT age FROM %s", table.tableName()), "VALUES (21), (25), (28), (29), (30), (42)");
+        assertQuery(format("SELECT name FROM %s WHERE age = 42", table.tableName()), "VALUES ('Alice'), ('Emma')");
     }
 
     @Test
     public void testNoColumnStats()
     {
-        // Data generated using:
-        // CREATE TABLE no_column_stats
-        // USING delta
-        // LOCATION 's3://starburst-alex/delta/no_column_stats'
-        // TBLPROPERTIES (delta.dataSkippingNumIndexedCols=0)   -- collects only table stats (row count), but no column stats
-        // AS
-        // SELECT 42 AS c_int, 'foo' AS c_str
+        // The table was created with delta.dataSkippingNumIndexedCols=0 property
         assertQuery("SELECT c_str FROM no_column_stats WHERE c_int = 42", "VALUES 'foo'");
     }
 
@@ -426,6 +426,35 @@ public class TestDeltaLakeBasic
      * @see deltalake.case_sensitive
      */
     @Test
+    public void testRequiresQueryPartitionFilterWithUppercaseColumnName()
+            throws Exception
+    {
+        String tableName = "test_require_partition_filter_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/case_sensitive").toURI()).toPath(), tableLocation);
+
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 11), (2, 22)", 2);
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11), (2, 22)");
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "query_partition_filter_required", "true")
+                .build();
+
+        assertQuery(session, format("SELECT * FROM %s WHERE \"part\" = 11", tableName), "VALUES (1, 11)");
+        assertQuery(session, format("SELECT * FROM %s WHERE \"PART\" = 11", tableName), "VALUES (1, 11)");
+        assertQuery(session, format("SELECT * FROM %s WHERE \"Part\" = 11", tableName), "VALUES (1, 11)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    /**
+     * @see deltalake.case_sensitive
+     */
+    @Test
     public void testStatisticsWithColumnCaseSensitivity()
             throws Exception
     {
@@ -465,7 +494,7 @@ public class TestDeltaLakeBasic
                         (null, null, null, null, 3.0, null, null)
                         """);
 
-        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh')", tableName));
+        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh')", tableName), 3);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -487,7 +516,7 @@ public class TestDeltaLakeBasic
     }
 
     /**
-     * @see databricks.timestamp_ntz
+     * @see databricks131.timestamp_ntz
      */
     @Test
     public void testTimestampNtz()
@@ -522,7 +551,7 @@ public class TestDeltaLakeBasic
     }
 
     /**
-     * @see databricks.timestamp_ntz_partition
+     * @see databricks131.timestamp_ntz_partition
      */
     @Test
     public void testTimestampNtzPartitioned()
@@ -564,7 +593,7 @@ public class TestDeltaLakeBasic
     }
 
     /**
-     * @see databricks.identity_columns
+     * @see databricks122.identity_columns
      */
     @Test
     public void testIdentityColumns()
@@ -572,7 +601,7 @@ public class TestDeltaLakeBasic
     {
         String tableName = "test_identity_columns_" + randomNameSuffix();
         Path tableLocation = Files.createTempFile(tableName, null);
-        copyDirectoryContents(new File(Resources.getResource("databricks/identity_columns").toURI()).toPath(), tableLocation);
+        copyDirectoryContents(new File(Resources.getResource("databricks122/identity_columns").toURI()).toPath(), tableLocation);
 
         assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
         assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
@@ -617,7 +646,7 @@ public class TestDeltaLakeBasic
         // create a bad_person table which is based on person table in temporary location
         String tableName = "bad_person_" + randomNameSuffix();
         Path tableLocation = Files.createTempFile(tableName, null);
-        copyDirectoryContents(Path.of(getTableLocation("person").toURI()), tableLocation);
+        copyDirectoryContents(Path.of(getTableLocation("databricks73/person").toURI()), tableLocation);
         getQueryRunner().execute(
                 format("CALL system.register_table('%s', '%s', '%s')", getSession().getSchema().orElseThrow(), tableName, tableLocation));
         testCorruptedTableLocation(tableName, tableLocation, false);
@@ -658,7 +687,7 @@ public class TestDeltaLakeBasic
         assertQueryFails("UPDATE " + tableName + " SET foo = 'bar'", "Metadata not found in transaction log for tpch." + tableName);
         assertQueryFails("DELETE FROM " + tableName, "Metadata not found in transaction log for tpch." + tableName);
         assertQueryFails("MERGE INTO  " + tableName + " USING (SELECT 1 a) input ON true WHEN MATCHED THEN DELETE", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("TRUNCATE TABLE " + tableName, "This connector does not support truncating tables");
+        assertQueryFails("TRUNCATE TABLE " + tableName, "Metadata not found in transaction log for tpch." + tableName);
         assertQueryFails("COMMENT ON TABLE " + tableName + " IS NULL", "Metadata not found in transaction log for tpch." + tableName);
         assertQueryFails("COMMENT ON COLUMN " + tableName + ".foo IS NULL", "Metadata not found in transaction log for tpch." + tableName);
         assertQueryFails("CALL system.vacuum(CURRENT_SCHEMA, '" + tableName + "', '7d')", "Metadata not found in transaction log for tpch." + tableName);
@@ -681,6 +710,33 @@ public class TestDeltaLakeBasic
         }
     }
 
+    /**
+     * @see deltalake.stats_with_minmax_nulls
+     */
+    @Test
+    public void testStatsWithMinMaxValuesAsNulls()
+    {
+        assertQuery(
+                "SELECT * FROM stats_with_minmax_nulls",
+                """
+                   VALUES
+                   (0, 1),
+                   (1, 2),
+                   (3, 4),
+                   (3, 7),
+                   (NULL, NULL),
+                   (NULL, NULL)
+                   """);
+        assertQuery(
+                "SHOW STATS FOR stats_with_minmax_nulls",
+                """
+                   VALUES
+                   ('id', null, null, 0.3333333333333333, null, 0, 3),
+                   ('id2', null, null, 0.3333333333333333, null, 1, 7),
+                   (null, null, null, null, 6.0, null, null)
+                   """);
+    }
+
     private static MetadataEntry loadMetadataEntry(long entryNumber, Path tableLocation)
             throws IOException
     {
@@ -689,20 +745,5 @@ public class TestDeltaLakeBasic
                 .filter(log -> log.getMetaData() != null)
                 .collect(onlyElement());
         return transactionLog.getMetaData();
-    }
-
-    private void copyDirectoryContents(Path source, Path destination)
-            throws IOException
-    {
-        try (Stream<Path> stream = Files.walk(source)) {
-            stream.forEach(file -> {
-                try {
-                    Files.copy(file, destination.resolve(source.relativize(file)), REPLACE_EXISTING);
-                }
-                catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            });
-        }
     }
 }

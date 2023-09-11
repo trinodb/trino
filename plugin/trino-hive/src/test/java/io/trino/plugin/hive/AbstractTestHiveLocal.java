@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.RecursiveDeleteOption;
 import com.google.common.reflect.ClassPath;
 import io.airlift.log.Logger;
+import io.trino.filesystem.Location;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -47,6 +48,7 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -54,10 +56,15 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
+import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
+import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
+import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
+import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
+import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
 import static java.nio.file.Files.copy;
@@ -105,6 +112,62 @@ public abstract class AbstractTestHiveLocal
                 .setRcfileTimeZone("America/Los_Angeles");
 
         setup(testDbName, hiveConfig, metastore, HDFS_ENVIRONMENT);
+
+        createTestTables();
+    }
+
+    protected void createTestTables()
+            throws Exception
+    {
+        Location location = Location.of((metastoreClient.getDatabase(database).orElseThrow()
+                .getLocation().orElseThrow()));
+
+        createTestTable(
+                // Matches create-test.sql » trino_test_partition_format
+                Table.builder()
+                        .setDatabaseName(database)
+                        .setTableName(tablePartitionFormat.getTableName())
+                        .setTableType(MANAGED_TABLE.name())
+                        .setOwner(Optional.empty())
+                        .setDataColumns(List.of(
+                                new Column("t_string", HiveType.HIVE_STRING, Optional.empty(), Map.of()),
+                                new Column("t_tinyint", HiveType.HIVE_BYTE, Optional.empty(), Map.of()),
+                                new Column("t_smallint", HiveType.HIVE_SHORT, Optional.empty(), Map.of()),
+                                new Column("t_int", HiveType.HIVE_INT, Optional.empty(), Map.of()),
+                                new Column("t_bigint", HiveType.HIVE_LONG, Optional.empty(), Map.of()),
+                                new Column("t_float", HiveType.HIVE_FLOAT, Optional.empty(), Map.of()),
+                                new Column("t_boolean", HiveType.HIVE_BOOLEAN, Optional.empty(), Map.of())))
+                        .setPartitionColumns(List.of(
+                                new Column("ds", HiveType.HIVE_STRING, Optional.empty(), Map.of()),
+                                new Column("file_format", HiveType.HIVE_STRING, Optional.empty(), Map.of()),
+                                new Column("dummy", HiveType.HIVE_INT, Optional.empty(), Map.of())))
+                        .setParameter(TABLE_COMMENT, "Presto test data")
+                        .withStorage(storage -> storage
+                                .setStorageFormat(fromHiveStorageFormat(new HiveConfig().getHiveStorageFormat()))
+                                .setLocation(Optional.of(location.appendPath(tablePartitionFormat.getTableName()).toString())))
+                        .build());
+
+        createTestTable(
+                // Matches create-test.sql » trino_test_partition_format
+                Table.builder()
+                        .setDatabaseName(database)
+                        .setTableName(tableUnpartitioned.getTableName())
+                        .setTableType(MANAGED_TABLE.name())
+                        .setOwner(Optional.empty())
+                        .setDataColumns(List.of(
+                                new Column("t_string", HiveType.HIVE_STRING, Optional.empty(), Map.of()),
+                                new Column("t_tinyint", HiveType.HIVE_BYTE, Optional.empty(), Map.of())))
+                        .setParameter(TABLE_COMMENT, "Presto test data")
+                        .withStorage(storage -> storage
+                                .setStorageFormat(fromHiveStorageFormat(TEXTFILE))
+                                .setLocation(Optional.of(location.appendPath(tableUnpartitioned.getTableName()).toString())))
+                        .build());
+    }
+
+    protected void createTestTable(Table table)
+            throws Exception
+    {
+        metastoreClient.createTable(table, NO_PRIVILEGES);
     }
 
     @AfterClass(alwaysRun = true)
@@ -112,7 +175,10 @@ public abstract class AbstractTestHiveLocal
             throws IOException
     {
         try {
-            getMetastoreClient().dropDatabase(testDbName, true);
+            for (String tableName : metastoreClient.getAllTables(database)) {
+                metastoreClient.dropTable(database, tableName, true);
+            }
+            metastoreClient.dropDatabase(testDbName, true);
         }
         finally {
             deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
@@ -126,12 +192,6 @@ public abstract class AbstractTestHiveLocal
             return super.getTableHandle(metadata, tableName);
         }
         throw new SkipException("tests using existing tables are not supported");
-    }
-
-    @Override
-    public void testGetAllTableNames()
-    {
-        throw new SkipException("Test disabled for this subclass");
     }
 
     @Override

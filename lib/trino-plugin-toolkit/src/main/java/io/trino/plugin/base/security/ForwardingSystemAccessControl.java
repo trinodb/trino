@@ -56,9 +56,9 @@ public abstract class ForwardingSystemAccessControl
     protected abstract SystemAccessControl delegate();
 
     @Override
-    public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
+    public void checkCanImpersonateUser(Identity identity, String userName)
     {
-        delegate().checkCanImpersonateUser(context, userName);
+        delegate().checkCanImpersonateUser(identity, userName);
     }
 
     @Override
@@ -68,63 +68,45 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanReadSystemInformation(SystemSecurityContext context)
+    public void checkCanReadSystemInformation(Identity identity)
     {
-        delegate().checkCanReadSystemInformation(context);
+        delegate().checkCanReadSystemInformation(identity);
     }
 
     @Override
-    public void checkCanWriteSystemInformation(SystemSecurityContext context)
+    public void checkCanWriteSystemInformation(Identity identity)
     {
-        delegate().checkCanWriteSystemInformation(context);
+        delegate().checkCanWriteSystemInformation(identity);
     }
 
     @Override
-    public void checkCanExecuteQuery(SystemSecurityContext context)
+    public void checkCanExecuteQuery(Identity identity)
     {
-        delegate().checkCanExecuteQuery(context);
+        delegate().checkCanExecuteQuery(identity);
     }
 
     @Override
-    public void checkCanViewQueryOwnedBy(SystemSecurityContext context, Identity queryOwner)
+    public void checkCanViewQueryOwnedBy(Identity identity, Identity queryOwner)
     {
-        delegate().checkCanViewQueryOwnedBy(context, queryOwner);
+        delegate().checkCanViewQueryOwnedBy(identity, queryOwner);
     }
 
     @Override
-    public void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
+    public Collection<Identity> filterViewQueryOwnedBy(Identity identity, Collection<Identity> queryOwners)
     {
-        delegate().checkCanViewQueryOwnedBy(context, queryOwner);
+        return delegate().filterViewQueryOwnedBy(identity, queryOwners);
     }
 
     @Override
-    public Collection<Identity> filterViewQueryOwnedBy(SystemSecurityContext context, Collection<Identity> queryOwners)
+    public void checkCanKillQueryOwnedBy(Identity identity, Identity queryOwner)
     {
-        return delegate().filterViewQueryOwnedBy(context, queryOwners);
+        delegate().checkCanKillQueryOwnedBy(identity, queryOwner);
     }
 
     @Override
-    public Set<String> filterViewQueryOwnedBy(SystemSecurityContext context, Set<String> queryOwners)
+    public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
     {
-        return delegate().filterViewQueryOwnedBy(context, queryOwners);
-    }
-
-    @Override
-    public void checkCanKillQueryOwnedBy(SystemSecurityContext context, Identity queryOwner)
-    {
-        delegate().checkCanKillQueryOwnedBy(context, queryOwner);
-    }
-
-    @Override
-    public void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
-    {
-        delegate().checkCanKillQueryOwnedBy(context, queryOwner);
-    }
-
-    @Override
-    public void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
-    {
-        delegate().checkCanSetSystemSessionProperty(context, propertyName);
+        delegate().checkCanSetSystemSessionProperty(identity, propertyName);
     }
 
     @Override
@@ -263,6 +245,12 @@ public abstract class ForwardingSystemAccessControl
     public Set<String> filterColumns(SystemSecurityContext context, CatalogSchemaTableName tableName, Set<String> columns)
     {
         return delegate().filterColumns(context, tableName, columns);
+    }
+
+    @Override
+    public Map<SchemaTableName, Set<String>> filterColumns(SystemSecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        return delegate().filterColumns(context, catalogName, tableColumns);
     }
 
     @Override
@@ -470,12 +458,6 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanShowRoleAuthorizationDescriptors(SystemSecurityContext context)
-    {
-        delegate().checkCanShowRoleAuthorizationDescriptors(context);
-    }
-
-    @Override
     public void checkCanShowCurrentRoles(SystemSecurityContext context)
     {
         delegate().checkCanShowCurrentRoles(context);
@@ -527,11 +509,5 @@ public abstract class ForwardingSystemAccessControl
     public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
         return delegate().getColumnMask(context, tableName, columnName, type);
-    }
-
-    @Override
-    public List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
-    {
-        return delegate().getColumnMasks(context, tableName, columnName, type);
     }
 }

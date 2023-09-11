@@ -17,9 +17,7 @@ import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hive.formats.line.openxjson.OpenXJsonDeserializerFactory;
 import io.trino.hive.formats.line.text.TextLineReaderFactory;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.HiveSessionProperties;
 
 import static java.lang.Math.toIntExact;
 
@@ -27,12 +25,10 @@ public class OpenXJsonPageSourceFactory
         extends LinePageSourceFactory
 {
     @Inject
-    public OpenXJsonPageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory, FileFormatDataSourceStats stats, HiveConfig config)
+    public OpenXJsonPageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory, HiveConfig config)
     {
         super(trinoFileSystemFactory,
-                stats,
                 new OpenXJsonDeserializerFactory(),
-                new TextLineReaderFactory(1024, 1024, toIntExact(config.getTextMaxLineLength().toBytes())),
-                HiveSessionProperties::isOpenXJsonNativeReaderEnabled);
+                new TextLineReaderFactory(1024, 1024, toIntExact(config.getTextMaxLineLength().toBytes())));
     }
 }

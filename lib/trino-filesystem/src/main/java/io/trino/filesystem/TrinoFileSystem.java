@@ -16,6 +16,7 @@ package io.trino.filesystem;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * TrinoFileSystem is the main abstraction for Trino to interact with data in cloud-like storage
@@ -168,5 +169,42 @@ public interface TrinoFileSystem
      * @throws IllegalArgumentException if the location is not valid for this file system
      */
     Optional<Boolean> directoryExists(Location location)
+            throws IOException;
+
+    /**
+     * Creates the specified directory and any parent directories that do not exist.
+     * For hierarchical file systems, if the location already exists but is not a
+     * directory, or if the directory cannot be created, an exception is raised.
+     * This method does nothing for non-hierarchical file systems or if the directory
+     * already exists.
+     *
+     * @throws IllegalArgumentException if location is not valid for this file system
+     */
+    void createDirectory(Location location)
+            throws IOException;
+
+    /**
+     * Renames source to target. An exception is raised if the target already exists,
+     * or on non-hierarchical file systems.
+     *
+     * @throws IllegalArgumentException if location is not valid for this file system
+     */
+    void renameDirectory(Location source, Location target)
+            throws IOException;
+
+    /**
+     * Lists all directories that are direct descendants of the specified directory.
+     * The location can be empty, which lists all directories at the root of the file system,
+     * otherwise the location otherwise the location must end with a slash.
+     * If the location does not exist, an empty set is returned.
+     * <p>
+     * For hierarchical file systems, if the path is not a directory, an exception is raised.
+     * For hierarchical file systems, if the path does not reference an existing directory,
+     * an empty iterator is returned. For blob file systems, all directories containing
+     * blobs that start with the location are listed.
+     *
+     * @throws IllegalArgumentException if location is not valid for this file system
+     */
+    Set<Location> listDirectories(Location location)
             throws IOException;
 }

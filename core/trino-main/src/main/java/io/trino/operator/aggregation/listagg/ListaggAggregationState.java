@@ -15,6 +15,8 @@ package io.trino.operator.aggregation.listagg;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateMetadata;
 
@@ -24,40 +26,13 @@ import io.trino.spi.function.AccumulatorStateMetadata;
 public interface ListaggAggregationState
         extends AccumulatorState
 {
-    void setSeparator(Slice separator);
-
-    Slice getSeparator();
-
-    void setOverflowFiller(Slice overflowFiller);
-
-    Slice getOverflowFiller();
-
-    void setOverflowError(boolean overflowError);
-
-    boolean isOverflowError();
-
-    void setShowOverflowEntryCount(boolean showOverflowEntryCount);
-
-    boolean showOverflowEntryCount();
+    void initialize(Slice separator, boolean overflowError, Slice overflowFiller, boolean showOverflowEntryCount);
 
     void add(Block block, int position);
 
-    void forEach(ListaggAggregationStateConsumer consumer);
+    void serialize(RowBlockBuilder out);
 
-    boolean isEmpty();
+    void merge(ListaggAggregationState otherState);
 
-    int getEntryCount();
-
-    default void merge(ListaggAggregationState otherState)
-    {
-        otherState.forEach((block, position) -> {
-            add(block, position);
-            return true;
-        });
-    }
-
-    default void reset()
-    {
-        throw new UnsupportedOperationException();
-    }
+    void write(VariableWidthBlockBuilder blockBuilder);
 }

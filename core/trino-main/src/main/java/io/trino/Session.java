@@ -65,6 +65,7 @@ public final class Session
     private final Optional<TransactionId> transactionId;
     private final boolean clientTransactionSupport;
     private final Identity identity;
+    private final Identity originalIdentity;
     private final Optional<String> source;
     private final Optional<String> catalog;
     private final Optional<String> schema;
@@ -93,6 +94,7 @@ public final class Session
             Optional<TransactionId> transactionId,
             boolean clientTransactionSupport,
             Identity identity,
+            Identity originalIdentity,
             Optional<String> source,
             Optional<String> catalog,
             Optional<String> schema,
@@ -119,6 +121,7 @@ public final class Session
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.clientTransactionSupport = clientTransactionSupport;
         this.identity = requireNonNull(identity, "identity is null");
+        this.originalIdentity = requireNonNull(originalIdentity, "originalIdentity is null");
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -167,6 +170,11 @@ public final class Session
     public Identity getIdentity()
     {
         return identity;
+    }
+
+    public Identity getOriginalIdentity()
+    {
+        return originalIdentity;
     }
 
     public Optional<String> getSource()
@@ -347,6 +355,7 @@ public final class Session
                 Identity.from(identity)
                         .withConnectorRoles(connectorRoles.buildOrThrow())
                         .build(),
+                originalIdentity,
                 source,
                 catalog,
                 schema,
@@ -395,6 +404,7 @@ public final class Session
                 transactionId,
                 clientTransactionSupport,
                 identity,
+                originalIdentity,
                 source,
                 catalog,
                 schema,
@@ -426,6 +436,7 @@ public final class Session
                 transactionId,
                 clientTransactionSupport,
                 identity,
+                originalIdentity,
                 source,
                 catalog,
                 schema,
@@ -475,7 +486,9 @@ public final class Session
                 transactionId,
                 clientTransactionSupport,
                 identity.getUser(),
+                originalIdentity.getUser(),
                 identity.getGroups(),
+                originalIdentity.getGroups(),
                 identity.getPrincipal().map(Principal::toString),
                 identity.getEnabledRoles(),
                 source,
@@ -588,6 +601,7 @@ public final class Session
         private TransactionId transactionId;
         private boolean clientTransactionSupport;
         private Identity identity;
+        private Identity originalIdentity;
         private String source;
         private String catalog;
         private String schema;
@@ -622,6 +636,7 @@ public final class Session
             this.transactionId = session.transactionId.orElse(null);
             this.clientTransactionSupport = session.clientTransactionSupport;
             this.identity = session.identity;
+            this.originalIdentity = session.originalIdentity;
             this.source = session.source.orElse(null);
             this.catalog = session.catalog.orElse(null);
             this.path = session.path;
@@ -784,6 +799,13 @@ public final class Session
         }
 
         @CanIgnoreReturnValue
+        public SessionBuilder setOriginalIdentity(Identity originalIdentity)
+        {
+            this.originalIdentity = originalIdentity;
+            return this;
+        }
+
+        @CanIgnoreReturnValue
         public SessionBuilder setUserAgent(String userAgent)
         {
             this.userAgent = userAgent;
@@ -889,6 +911,7 @@ public final class Session
                     Optional.ofNullable(transactionId),
                     clientTransactionSupport,
                     identity,
+                    originalIdentity,
                     Optional.ofNullable(source),
                     Optional.ofNullable(catalog),
                     Optional.ofNullable(schema),

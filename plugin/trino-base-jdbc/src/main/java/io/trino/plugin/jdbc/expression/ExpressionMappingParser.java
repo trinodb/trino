@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc.expression;
 
 import com.google.common.collect.ImmutableMap;
+import org.antlr.v4.runtime.ANTLRErrorListener;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -21,7 +22,6 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.atn.PredictionMode;
-import org.antlr.v4.runtime.misc.ParseCancellationException;
 
 import java.util.Map;
 import java.util.Set;
@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 
 public class ExpressionMappingParser
 {
-    private static final BaseErrorListener ERROR_LISTENER = new BaseErrorListener()
+    private static final ANTLRErrorListener ERROR_LISTENER = new BaseErrorListener()
     {
         @Override
         public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, String message, RecognitionException e)
@@ -77,7 +77,7 @@ public class ExpressionMappingParser
                 parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
                 tree = parseFunction.apply(parser);
             }
-            catch (ParseCancellationException ex) {
+            catch (IllegalArgumentException ex) {
                 // if we fail, parse with LL mode
                 tokenStream.seek(0); // rewind input stream
                 parser.reset();

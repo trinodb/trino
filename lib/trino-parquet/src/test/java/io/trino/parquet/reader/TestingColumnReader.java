@@ -60,8 +60,6 @@ import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.testng.annotations.DataProvider;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.math.BigInteger;
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -71,7 +69,7 @@ import java.util.function.IntFunction;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
-import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
+import static io.trino.parquet.ParquetTestUtils.toTrinoDictionaryPage;
 import static io.trino.parquet.ParquetTypeUtils.paddingBigInteger;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -593,19 +591,6 @@ public class TestingColumnReader
     {
         org.apache.parquet.column.page.DictionaryPage apacheDictionaryPage = dictionaryWriter.toDictPageAndClose();
         return toTrinoDictionaryPage(apacheDictionaryPage);
-    }
-
-    public static DictionaryPage toTrinoDictionaryPage(org.apache.parquet.column.page.DictionaryPage dictionary)
-    {
-        try {
-            return new DictionaryPage(
-                    Slices.wrappedBuffer(dictionary.getBytes().toByteArray()),
-                    dictionary.getDictionarySize(),
-                    getParquetEncoding(dictionary.getEncoding()));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
     }
 
     @DataProvider(name = "readersWithPageVersions")

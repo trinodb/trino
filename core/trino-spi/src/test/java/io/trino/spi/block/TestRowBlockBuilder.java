@@ -33,11 +33,6 @@ public class TestRowBlockBuilder
 
         // multiple nulls
         assertIsAllNulls(blockBuilder().appendNull().appendNull().build(), 2);
-
-        BlockBuilder blockBuilder = blockBuilder().appendNull().appendNull();
-        assertIsAllNulls(blockBuilder.copyPositions(new int[] {0}, 0, 1), 1);
-        assertIsAllNulls(blockBuilder.getRegion(0, 1), 1);
-        assertIsAllNulls(blockBuilder.copyRegion(0, 1), 1);
     }
 
     private static BlockBuilder blockBuilder()

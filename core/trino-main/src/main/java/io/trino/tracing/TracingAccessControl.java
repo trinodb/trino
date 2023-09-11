@@ -330,6 +330,15 @@ public class TracingAccessControl
     }
 
     @Override
+    public Map<SchemaTableName, Set<String>> filterColumns(SecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        Span span = startSpan("filterColumns bulk");
+        try (var ignored = scopedSpan(span)) {
+            return delegate.filterColumns(context, catalogName, tableColumns);
+        }
+    }
+
+    @Override
     public void checkCanAddColumns(SecurityContext context, QualifiedObjectName tableName)
     {
         Span span = startSpan("checkCanAddColumns");
@@ -641,15 +650,6 @@ public class TracingAccessControl
         Span span = startSpan("checkCanSetCatalogRole");
         try (var ignored = scopedSpan(span)) {
             delegate.checkCanSetCatalogRole(context, role, catalogName);
-        }
-    }
-
-    @Override
-    public void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, Optional<String> catalogName)
-    {
-        Span span = startSpan("checkCanShowRoleAuthorizationDescriptors");
-        try (var ignored = scopedSpan(span)) {
-            delegate.checkCanShowRoleAuthorizationDescriptors(context, catalogName);
         }
     }
 

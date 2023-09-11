@@ -16,6 +16,7 @@ package io.trino.security;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.eventlistener.EventListenerManager;
@@ -229,13 +230,13 @@ public class TestAccessControlManager
                     return new SystemAccessControl()
                     {
                         @Override
-                        public List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName tableName, String column, Type type)
+                        public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String column, Type type)
                         {
-                            return ImmutableList.of(new ViewExpression(Optional.of("user"), Optional.empty(), Optional.empty(), "system mask"));
+                            return Optional.of(new ViewExpression(Optional.of("user"), Optional.empty(), Optional.empty(), "system mask"));
                         }
 
                         @Override
-                        public void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
+                        public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
                         {
                         }
                     };
@@ -247,9 +248,9 @@ public class TestAccessControlManager
             accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(queryRunner.getCatalogHandle(TEST_CATALOG_NAME), Optional.of(new ConnectorAccessControl()
             {
                 @Override
-                public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String column, Type type)
+                public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String column, Type type)
                 {
-                    return ImmutableList.of(new ViewExpression(Optional.of("user"), Optional.empty(), Optional.empty(), "connector mask"));
+                    return Optional.of(new ViewExpression(Optional.of("user"), Optional.empty(), Optional.empty(), "connector mask"));
                 }
 
                 @Override
@@ -490,17 +491,17 @@ public class TestAccessControlManager
 
     private AccessControlManager createAccessControlManager(TransactionManager testTransactionManager)
     {
-        return new AccessControlManager(testTransactionManager, emptyEventListenerManager(), new AccessControlConfig(), DefaultSystemAccessControl.NAME);
+        return new AccessControlManager(testTransactionManager, emptyEventListenerManager(), new AccessControlConfig(), OpenTelemetry.noop(), DefaultSystemAccessControl.NAME);
     }
 
     private AccessControlManager createAccessControlManager(EventListenerManager eventListenerManager, AccessControlConfig config)
     {
-        return new AccessControlManager(createTestTransactionManager(), eventListenerManager, config, DefaultSystemAccessControl.NAME);
+        return new AccessControlManager(createTestTransactionManager(), eventListenerManager, config, OpenTelemetry.noop(), DefaultSystemAccessControl.NAME);
     }
 
     private AccessControlManager createAccessControlManager(EventListenerManager eventListenerManager, String defaultAccessControlName)
     {
-        return new AccessControlManager(createTestTransactionManager(), eventListenerManager, new AccessControlConfig(), defaultAccessControlName);
+        return new AccessControlManager(createTestTransactionManager(), eventListenerManager, new AccessControlConfig(), OpenTelemetry.noop(), defaultAccessControlName);
     }
 
     private SystemAccessControlFactory eventListeningSystemAccessControlFactory(String name, EventListener... eventListeners)
@@ -519,7 +520,7 @@ public class TestAccessControlManager
                 return new SystemAccessControl()
                 {
                     @Override
-                    public void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
+                    public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
                     {
                     }
 
@@ -587,7 +588,7 @@ public class TestAccessControlManager
                 }
 
                 @Override
-                public void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
+                public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
                 {
                     throw new UnsupportedOperationException();
                 }

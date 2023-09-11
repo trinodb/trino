@@ -41,6 +41,7 @@ public class TestSmallintVarcharMapType
         BlockBuilder blockBuilder = mapType.createBlockBuilder(null, 2);
         mapType.writeObject(blockBuilder, mapBlockOf(SMALLINT, VARCHAR, ImmutableMap.of(1, "hi")));
         mapType.writeObject(blockBuilder, mapBlockOf(SMALLINT, VARCHAR, ImmutableMap.of(1, "2", 2, "hello")));
+        mapType.writeObject(blockBuilder, mapBlockOf(SMALLINT, VARCHAR, ImmutableMap.of(1, "123456789012345", 2, "hello-world-hello-world-hello-world")));
         return blockBuilder.build();
     }
 

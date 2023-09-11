@@ -58,12 +58,10 @@ public class TestRowBlock
     {
         List<Type> fieldTypes = ImmutableList.of(VARCHAR, BIGINT);
         List<Object>[] expectedValues = alternatingNullValues(generateTestRows(fieldTypes, 100));
-        BlockBuilder blockBuilder = createBlockBuilderWithValues(fieldTypes, expectedValues);
-        Block block = blockBuilder.build();
+        Block block = createBlockBuilderWithValues(fieldTypes, expectedValues).build();
         assertEquals(block.getPositionCount(), expectedValues.length);
         for (int i = 0; i < block.getPositionCount(); i++) {
             int expectedSize = getExpectedEstimatedDataSize(expectedValues[i]);
-            assertEquals(blockBuilder.getEstimatedDataSizeForStats(i), expectedSize);
             assertEquals(block.getEstimatedDataSizeForStats(i), expectedSize);
         }
     }
@@ -123,14 +121,11 @@ public class TestRowBlock
 
     private void testWith(List<Type> fieldTypes, List<Object>[] expectedValues)
     {
-        BlockBuilder blockBuilder = createBlockBuilderWithValues(fieldTypes, expectedValues);
-
-        assertBlock(blockBuilder, expectedValues);
-        assertBlock(blockBuilder.build(), expectedValues);
+        Block block = createBlockBuilderWithValues(fieldTypes, expectedValues).build();
+        assertBlock(block, expectedValues);
 
         IntArrayList positionList = generatePositionList(expectedValues.length, expectedValues.length / 2);
-        assertBlockFilteredPositions(expectedValues, blockBuilder, positionList.toIntArray());
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), positionList.toIntArray());
+        assertBlockFilteredPositions(expectedValues, block, positionList.toIntArray());
     }
 
     private BlockBuilder createBlockBuilderWithValues(List<Type> fieldTypes, List<Object>[] rows)

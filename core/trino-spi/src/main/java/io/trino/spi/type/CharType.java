@@ -42,6 +42,7 @@ public final class CharType
         extends AbstractVariableWidthType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = TypeOperatorDeclaration.builder(Slice.class)
+            .addOperators(DEFAULT_READ_OPERATORS)
             .addOperators(DEFAULT_COMPARABLE_OPERATORS)
             .addOperators(CharType.class, lookup())
             .build();

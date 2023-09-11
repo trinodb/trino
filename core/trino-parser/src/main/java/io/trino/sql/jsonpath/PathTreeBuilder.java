@@ -14,8 +14,8 @@
 package io.trino.sql.jsonpath;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.jsonpath.JsonPathBaseVisitor;
-import io.trino.jsonpath.JsonPathParser;
+import io.trino.grammar.jsonpath.JsonPathBaseVisitor;
+import io.trino.grammar.jsonpath.JsonPathParser;
 import io.trino.sql.jsonpath.tree.AbsMethod;
 import io.trino.sql.jsonpath.tree.ArithmeticBinary;
 import io.trino.sql.jsonpath.tree.ArithmeticBinary.Operator;

@@ -112,6 +112,8 @@ public abstract class BaseCostBasedPlanTest
         SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(CATALOG_NAME)
                 .setSchema(schemaName)
+                // Reducing ARM and x86 floating point arithmetic differences, mostly visible at PlanNodeStatsEstimateMath::estimateCorrelatedConjunctionRowCount
+                .setSystemProperty("filter_conjunction_independence_factor", "0.750000001")
                 .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name());

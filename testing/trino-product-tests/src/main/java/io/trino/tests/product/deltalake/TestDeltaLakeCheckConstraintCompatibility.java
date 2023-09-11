@@ -22,7 +22,6 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_73;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
@@ -36,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestDeltaLakeCheckConstraintCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS}, dataProvider = "checkConstraints")
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "checkConstraints")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCheckConstraintInsertCompatibility(String columnDefinition, String checkConstraint, String validInput, Row insertedValue, String invalidInput)
     {
@@ -104,7 +103,7 @@ public class TestDeltaLakeCheckConstraintCompatibility
         };
     }
 
-    // TODO: Add DELTA_LAKE_DATABRICKS and DELTA_LAKE_EXCLUDE_73 groups once flakiness on Databricks is resolved
+    // TODO: Add DELTA_LAKE_DATABRICKS groups once flakiness on Databricks is resolved
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testCheckConstraintUpdateCompatibility()
     {
@@ -137,7 +136,70 @@ public class TestDeltaLakeCheckConstraintCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    // TODO: Add DELTA_LAKE_DATABRICKS groups once flakiness on Databricks is resolved
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testCheckConstraintMergeCompatibility()
+    {
+        String tableName1 = "test_check_constraint_merge_" + randomNameSuffix();
+        String tableName2 = "test_check_constraint_merge_" + randomNameSuffix();
+
+        onDelta().executeQuery("CREATE TABLE default." + tableName1 +
+                "(a INT) " +
+                "USING DELTA " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName1 + "'");
+
+        onDelta().executeQuery("CREATE TABLE default." + tableName2 +
+                "(a INT) " +
+                "USING DELTA " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName2 + "'");
+
+        try {
+            onDelta().executeQuery("ALTER TABLE default." + tableName1 + " ADD CONSTRAINT a_constraint CHECK (a < 3)");
+
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName1 + " VALUES (1)");
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName2 + " VALUES (1), (2)");
+
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName1))
+                    .containsOnly(row(1));
+
+            onTrino().executeQuery("MERGE INTO delta.default." + tableName1 + " t USING delta.default." + tableName2 + " s " +
+                    "ON (t.a = s.a) " +
+                    "WHEN MATCHED " +
+                    "THEN UPDATE SET a = 2 " +
+                    "WHEN NOT MATCHED " +
+                    "THEN INSERT (a) VALUES (2)");
+
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName1))
+                    .containsOnly(
+                            row(2),
+                            row(2));
+
+            assertThatThrownBy(() -> onDelta().executeQuery("MERGE INTO default." + tableName1 + " t USING default." + tableName2 + " s " +
+                    "ON (t.a = s.a) " +
+                    "WHEN MATCHED " +
+                    "THEN UPDATE SET a = 3 " +
+                    "WHEN NOT MATCHED " +
+                    "THEN INSERT (a) VALUES (3)"))
+                    .hasMessageMatching("(?s).* CHECK constraint .* violated by row with values.*");
+            assertThatThrownBy(() -> onTrino().executeQuery("MERGE INTO delta.default." + tableName1 + " t USING delta.default." + tableName2 + " s " +
+                    "ON (t.a = s.a) " +
+                    "WHEN MATCHED " +
+                    "THEN UPDATE SET a = 3 " +
+                    "WHEN NOT MATCHED " +
+                    "THEN INSERT (a) VALUES (3)"))
+                    .hasMessageContaining("Check constraint violation");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName1))
+                    .containsOnly(
+                            row(2),
+                            row(2));
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName1);
+            dropDeltaTableWithRetry("default." + tableName2);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCheckConstraintUnknownCondition()
     {
@@ -164,7 +226,7 @@ public class TestDeltaLakeCheckConstraintCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCheckConstraintAcrossColumns()
     {
@@ -192,27 +254,7 @@ public class TestDeltaLakeCheckConstraintCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_OSS, DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testWritesToTableWithCheckConstraintFails()
-    {
-        String tableName = "test_check_constraint_unsupported_operatins_" + randomNameSuffix();
-
-        onDelta().executeQuery("CREATE TABLE default." + tableName + " (a INT, b INT) " +
-                "USING DELTA " +
-                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
-        onDelta().executeQuery("ALTER TABLE default." + tableName + " ADD CONSTRAINT aIsPositive CHECK (a > 0)");
-        try {
-            assertQueryFailure(() -> onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " +
-                    "ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET b = 42"))
-                    .hasMessageContaining("Cannot merge into a table with check constraints");
-        }
-        finally {
-            dropDeltaTableWithRetry("default." + tableName);
-        }
-    }
-
-    @Test(groups = {DELTA_LAKE_OSS, DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_OSS, DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testMetadataOperationsRetainCheckConstraint()
     {
@@ -231,7 +273,7 @@ public class TestDeltaLakeCheckConstraintCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_OSS, DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_OSS, DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testUnsupportedCheckConstraintExpression()
     {
@@ -252,7 +294,7 @@ public class TestDeltaLakeCheckConstraintCompatibility
             onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a = 2");
             assertQueryFailure(() -> onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " +
                     "ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET b = -1"))
-                    .hasMessageContaining("Cannot merge into a table with check constraints");
+                    .hasMessageContaining("Failed to convert Delta check constraints to Trino expression");
 
             // Verify these operations succeed even if check constraints have unsupported expressions
             onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN c INT");

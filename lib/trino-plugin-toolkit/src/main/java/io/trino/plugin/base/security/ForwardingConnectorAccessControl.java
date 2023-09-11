@@ -164,6 +164,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public Map<SchemaTableName, Set<String>> filterColumns(ConnectorSecurityContext context, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        return delegate().filterColumns(context, tableColumns);
+    }
+
+    @Override
     public void checkCanAddColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         delegate().checkCanAddColumn(context, tableName);
@@ -370,12 +376,6 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context)
-    {
-        delegate().checkCanShowRoleAuthorizationDescriptors(context);
-    }
-
-    @Override
     public void checkCanShowRoles(ConnectorSecurityContext context)
     {
         delegate().checkCanShowRoles(context);
@@ -421,11 +421,5 @@ public abstract class ForwardingConnectorAccessControl
     public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
         return delegate().getColumnMask(context, tableName, columnName, type);
-    }
-
-    @Override
-    public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
-    {
-        return delegate().getColumnMasks(context, tableName, columnName, type);
     }
 }

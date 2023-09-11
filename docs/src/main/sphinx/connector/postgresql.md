@@ -19,7 +19,7 @@ PostgreSQL instances.
 
 To connect to PostgreSQL, you need:
 
-- PostgreSQL 10.x or higher.
+- PostgreSQL 11.x or higher.
 - Network access from the Trino coordinator and workers to PostgreSQL.
   Port 5432 is the default port.
 
@@ -50,6 +50,21 @@ The `connection-user` and `connection-password` are typically required and
 determine the user credentials for the connection, often a service user. You can
 use {doc}`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
+
+### Access to system tables
+
+The PostgreSQL connector supports reading [PostgreSQ catalog
+tables](https://www.postgresql.org/docs/current/catalogs.html), such as
+`pg_namespace`. The functionality is turned off by default, and can be enabled
+using the `postgresql.include-system-tables` configuration property.
+
+You can see more details in the `pg_catalog` schema in the `example` catalog,
+for example about the `pg_namespace` system table:
+
+```sql
+SHOW TABLES FROM example.pg_catalog;
+SELECT * FROM example.pg_catalog.pg_namespace;
+```
 
 (postgresql-tls)=
 

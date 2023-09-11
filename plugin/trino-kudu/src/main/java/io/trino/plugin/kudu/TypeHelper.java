@@ -211,7 +211,7 @@ public final class TypeHelper
             return row.getBoolean(field);
         }
         if (type instanceof VarbinaryType) {
-            return Slices.wrappedBuffer(row.getBinary(field));
+            return Slices.wrappedHeapBuffer(row.getBinary(field));
         }
         if (type.equals(DateType.DATE)) {
             return row.getInt(field);
@@ -276,7 +276,7 @@ public final class TypeHelper
             return Slices.utf8Slice(row.getString(field));
         }
         if (type instanceof VarbinaryType) {
-            return Slices.wrappedBuffer(row.getBinary(field));
+            return Slices.wrappedHeapBuffer(row.getBinary(field));
         }
         throw new IllegalStateException("getSlice not implemented for " + type);
     }

@@ -13,12 +13,8 @@
  */
 package io.trino.operator;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.type.Type;
-
-import java.util.List;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 
@@ -43,12 +39,6 @@ public class CyclingGroupByHash
     public long getEstimatedSize()
     {
         return INSTANCE_SIZE;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return ImmutableList.of();
     }
 
     @Override
@@ -82,13 +72,7 @@ public class CyclingGroupByHash
     }
 
     @Override
-    public boolean contains(int position, Page page, int[] hashChannels)
-    {
-        throw new UnsupportedOperationException("Not yet supported");
-    }
-
-    @Override
-    public long getRawHash(int groupyId)
+    public long getRawHash(int groupId)
     {
         throw new UnsupportedOperationException("Not yet supported");
     }

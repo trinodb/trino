@@ -84,6 +84,14 @@ public class TestHiveCoercionOnPartitionedTable
             .setNoData()
             .build();
 
+    public static final HiveTableDefinition HIVE_COERCION_SEQUENCE = tableDefinitionBuilder("SEQUENCEFILE", Optional.empty(), Optional.empty())
+            .setNoData()
+            .build();
+
+    public static final HiveTableDefinition HIVE_TIMESTAMP_COERCION_SEQUENCE = tableDefinitionForTimestampCoercionBuilder("SEQUENCEFILE", Optional.empty(), Optional.empty())
+            .setNoData()
+            .build();
+
     private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionBuilder(String fileFormat, Optional<String> recommendTableName, Optional<String> rowFormat)
     {
         String tableName = format("%s_hive_coercion", recommendTableName.orElse(fileFormat).toLowerCase(ENGLISH));
@@ -104,6 +112,9 @@ public class TestHiveCoercionOnPartitionedTable
                         "    bigint_to_varchar          BIGINT," +
                         "    float_to_double            " + floatType + "," +
                         "    double_to_float            DOUBLE," +
+                        "    double_to_string           DOUBLE," +
+                        "    double_to_bounded_varchar  DOUBLE," +
+                        "    double_infinity_to_string  DOUBLE," +
                         "    shortdecimal_to_shortdecimal          DECIMAL(10,2)," +
                         "    shortdecimal_to_longdecimal           DECIMAL(10,2)," +
                         "    longdecimal_to_shortdecimal           DECIMAL(20,12)," +
@@ -230,6 +241,18 @@ public class TestHiveCoercionOnPartitionedTable
         }
     }
 
+    public static final class SequenceRequirements
+            implements RequirementsProvider
+    {
+        @Override
+        public Requirement getRequirements(Configuration configuration)
+        {
+            return compose(
+                    MutableTableRequirement.builder(HIVE_COERCION_SEQUENCE).withState(CREATED).build(),
+                    MutableTableRequirement.builder(HIVE_TIMESTAMP_COERCION_SEQUENCE).withState(CREATED).build());
+        }
+    }
+
     @Requires(TextRequirements.class)
     @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionTextFile()
@@ -298,6 +321,20 @@ public class TestHiveCoercionOnPartitionedTable
     public void testHiveCoercionWithDifferentTimestampPrecisionParquet()
     {
         doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_PARQUET);
+    }
+
+    @Requires(SequenceRequirements.class)
+    @Test(groups = {HIVE_COERCION, JDBC})
+    public void testHiveCoercionSequence()
+    {
+        doTestHiveCoercion(HIVE_COERCION_SEQUENCE);
+    }
+
+    @Requires(SequenceRequirements.class)
+    @Test(groups = {HIVE_COERCION, JDBC})
+    public void testHiveCoercionWithDifferentTimestampPrecisionSequence()
+    {
+        doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_SEQUENCE);
     }
 
     @Requires(AvroRequirements.class)

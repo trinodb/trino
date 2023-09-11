@@ -20,6 +20,7 @@ import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
+import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
@@ -117,6 +118,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 false,
                 tableLocation,
                 metadataEntry,
+                new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),
                 TupleDomain.all(),
                 TupleDomain.all(),
                 Optional.empty(),
@@ -247,6 +249,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 tableHandle.isManaged(),
                 tableHandle.getLocation(),
                 tableHandle.getMetadataEntry(),
+                tableHandle.getProtocolEntry(),
                 TupleDomain.all(),
                 TupleDomain.withColumnDomains(ImmutableMap.of((DeltaLakeColumnHandle) COLUMN_HANDLE, Domain.singleValue(DOUBLE, 42.0))),
                 tableHandle.getWriteType(),
@@ -271,6 +274,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 tableHandle.isManaged(),
                 tableHandle.getLocation(),
                 tableHandle.getMetadataEntry(),
+                tableHandle.getProtocolEntry(),
                 TupleDomain.none(),
                 TupleDomain.all(),
                 tableHandle.getWriteType(),
@@ -285,6 +289,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 tableHandle.isManaged(),
                 tableHandle.getLocation(),
                 tableHandle.getMetadataEntry(),
+                tableHandle.getProtocolEntry(),
                 TupleDomain.all(),
                 TupleDomain.none(),
                 tableHandle.getWriteType(),

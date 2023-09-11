@@ -204,6 +204,7 @@ import io.trino.sql.tree.RenameSchema;
 import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.RenameView;
 import io.trino.sql.tree.ResetSession;
+import io.trino.sql.tree.ResetSessionAuthorization;
 import io.trino.sql.tree.Revoke;
 import io.trino.sql.tree.Rollback;
 import io.trino.sql.tree.Row;
@@ -216,6 +217,7 @@ import io.trino.sql.tree.SetOperation;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetSchemaAuthorization;
 import io.trino.sql.tree.SetSession;
+import io.trino.sql.tree.SetSessionAuthorization;
 import io.trino.sql.tree.SetTableAuthorization;
 import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.SetViewAuthorization;
@@ -930,7 +932,7 @@ class StatementAnalyzer
             // analyze the query that creates the table
             Scope queryScope = analyze(node.getQuery());
 
-            ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+            ImmutableList.Builder<ColumnMetadata> columnsBuilder = ImmutableList.builder();
 
             // analyze target table columns and column aliases
             ImmutableList.Builder<OutputColumn> outputColumns = ImmutableList.builder();
@@ -943,15 +945,15 @@ class StatementAnalyzer
                         throw semanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown at position %s", queryScope.getRelationType().indexOf(field) + 1);
                     }
                     String columnName = node.getColumnAliases().get().get(aliasPosition).getValue();
-                    columns.add(new ColumnMetadata(columnName, field.getType()));
+                    columnsBuilder.add(new ColumnMetadata(columnName, metadata.getSupportedType(session, catalogHandle, field.getType()).orElse(field.getType())));
                     outputColumns.add(new OutputColumn(new Column(columnName, field.getType().toString()), analysis.getSourceColumns(field)));
                     aliasPosition++;
                 }
             }
             else {
                 validateColumns(node, queryScope.getRelationType());
-                columns.addAll(queryScope.getRelationType().getVisibleFields().stream()
-                        .map(field -> new ColumnMetadata(field.getName().orElseThrow(), field.getType()))
+                columnsBuilder.addAll(queryScope.getRelationType().getVisibleFields().stream()
+                        .map(field -> new ColumnMetadata(field.getName().orElseThrow(), metadata.getSupportedType(session, catalogHandle, field.getType()).orElse(field.getType())))
                         .collect(toImmutableList()));
                 queryScope.getRelationType().getVisibleFields().stream()
                         .map(this::createOutputColumn)
@@ -959,12 +961,13 @@ class StatementAnalyzer
             }
 
             // create target table metadata
-            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(targetTable.asSchemaTableName(), columns.build(), properties, node.getComment());
+            List<ColumnMetadata> columns = columnsBuilder.build();
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(targetTable.asSchemaTableName(), columns, properties, node.getComment());
 
             // analyze target table layout
             Optional<TableLayout> newTableLayout = metadata.getNewTableLayout(session, catalogName, tableMetadata);
 
-            Set<String> columnNames = columns.build().stream()
+            Set<String> columnNames = columns.stream()
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableSet());
 
@@ -1031,6 +1034,18 @@ class StatementAnalyzer
 
         @Override
         protected Scope visitResetSession(ResetSession node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitSetSessionAuthorization(SetSessionAuthorization node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitResetSessionAuthorization(ResetSessionAuthorization node, Optional<Scope> scope)
         {
             return createAndAssignScope(node, scope);
         }
@@ -3315,14 +3330,24 @@ class StatementAnalyzer
 
             ImmutableList.Builder<ExpressionAnalysis> analysesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> expressionTypesBuilder = ImmutableList.builder();
+            ImmutableMap.Builder<String, Set<SourceColumn>> sourceColumnsByColumnNameBuilder = ImmutableMap.builder();
             for (UpdateAssignment assignment : update.getAssignments()) {
+                String targetColumnName = assignment.getName().getValue();
                 Expression expression = assignment.getValue();
-                ExpressionAnalysis analysis = analyzeExpression(expression, tableScope);
-                analysesBuilder.add(analysis);
-                expressionTypesBuilder.add(analysis.getType(expression));
+                ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, tableScope);
+                analysesBuilder.add(expressionAnalysis);
+                expressionTypesBuilder.add(expressionAnalysis.getType(expression));
+
+                Set<SourceColumn> sourceColumns = expressionAnalysis.getSubqueries().stream()
+                        .map(query -> analyze(query.getNode(), tableScope))
+                        .flatMap(subqueryScope -> subqueryScope.getRelationType().getVisibleFields().stream())
+                        .flatMap(field -> analysis.getSourceColumns(field).stream())
+                        .collect(toImmutableSet());
+                sourceColumnsByColumnNameBuilder.put(targetColumnName, sourceColumns);
             }
             List<ExpressionAnalysis> analyses = analysesBuilder.build();
             List<Type> expressionTypes = expressionTypesBuilder.build();
+            Map<String, Set<SourceColumn>> sourceColumnsByColumnName = sourceColumnsByColumnNameBuilder.buildOrThrow();
 
             List<Type> tableTypes = update.getAssignments().stream()
                     .map(assignment -> requireNonNull(columns.get(assignment.getName().getValue())))
@@ -3353,7 +3378,9 @@ class StatementAnalyzer
                     tableName,
                     Optional.of(table),
                     Optional.of(updatedColumnSchemas.stream()
-                            .map(column -> new OutputColumn(new Column(column.getName(), column.getType().toString()), ImmutableSet.of()))
+                            .map(column -> new OutputColumn(
+                                    new Column(column.getName(), column.getType().toString()),
+                                    sourceColumnsByColumnName.getOrDefault(column.getName(), ImmutableSet.of())))
                             .collect(toImmutableList())));
 
             createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(updatedColumnHandles));
@@ -3414,15 +3441,12 @@ class StatementAnalyzer
             if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
                 throw semanticException(NOT_SUPPORTED, merge, "Cannot merge into a table with row filters");
             }
-            if (!tableSchema.getTableSchema().getCheckConstraints().isEmpty()) {
-                // TODO https://github.com/trinodb/trino/issues/15411 Add support for CHECK constraint to MERGE statement
-                throw semanticException(NOT_SUPPORTED, merge, "Cannot merge into a table with check constraints");
-            }
-
             Scope mergeScope = createScope(scope);
             Scope targetTableScope = analyzer.analyzeForUpdate(relation, Optional.of(mergeScope), UpdateKind.MERGE);
             Scope sourceTableScope = process(merge.getSource(), mergeScope);
             Scope joinScope = createAndAssignScope(merge, Optional.of(mergeScope), targetTableScope.getRelationType().joinWith(sourceTableScope.getRelationType()));
+            analyzeCheckConstraints(table, tableName, targetTableScope, tableSchema.getTableSchema().getCheckConstraints());
+            analysis.registerTable(table, redirection.tableHandle(), tableName, session.getIdentity().getUser(), targetTableScope);
 
             for (ColumnSchema column : dataColumnSchemas) {
                 if (accessControl.getColumnMask(session.toSecurityContext(), tableName, column.getName(), column.getType()).isPresent()) {
@@ -5541,6 +5565,7 @@ class StatementAnalyzer
                 .setQueryId(session.getQueryId())
                 .setTransactionId(session.getTransactionId().orElse(null))
                 .setIdentity(identity)
+                .setOriginalIdentity(session.getOriginalIdentity())
                 .setSource(session.getSource().orElse(null))
                 .setCatalog(catalog)
                 .setSchema(schema)

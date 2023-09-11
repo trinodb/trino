@@ -124,9 +124,6 @@ additional features:
 - {doc}`/sql/create-view`
 - {doc}`/sql/show-create-view`
 - {doc}`/sql/drop-view`
-- {doc}`/sql/create-materialized-view`
-- {doc}`/sql/show-create-materialized-view`
-- {doc}`/sql/drop-materialized-view`
 
 :::{note}
 The connector discards all written data. While read operations are supported,

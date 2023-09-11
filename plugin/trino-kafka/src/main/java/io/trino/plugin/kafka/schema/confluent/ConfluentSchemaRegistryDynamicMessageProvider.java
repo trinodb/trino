@@ -27,12 +27,12 @@ import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.decoder.protobuf.DynamicMessageProvider;
 import io.trino.spi.TrinoException;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.decoder.protobuf.ProtobufErrorCode.INVALID_PROTOBUF_MESSAGE;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -62,10 +62,11 @@ public class ConfluentSchemaRegistryDynamicMessageProvider
         checkArgument(magicByte == MAGIC_BYTE, "Invalid MagicByte");
         int schemaId = buffer.getInt();
         MessageIndexes.readFrom(buffer);
+        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(buffer.array(), buffer.arrayOffset() + buffer.position(), buffer.remaining());
         try {
             return DynamicMessage.parseFrom(
                     descriptorCache.getUnchecked(schemaId),
-                    wrappedBuffer(buffer).getInput());
+                    byteArrayInputStream);
         }
         catch (IOException e) {
             throw new TrinoException(INVALID_PROTOBUF_MESSAGE, "Decoding Protobuf record failed.", e);

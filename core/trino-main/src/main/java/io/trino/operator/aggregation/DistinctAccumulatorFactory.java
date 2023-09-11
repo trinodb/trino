@@ -23,13 +23,12 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
-import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
-import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -41,20 +40,20 @@ public class DistinctAccumulatorFactory
     private final AccumulatorFactory delegate;
     private final List<Type> argumentTypes;
     private final JoinCompiler joinCompiler;
-    private final BlockTypeOperators blockTypeOperators;
+    private final TypeOperators typeOperators;
     private final Session session;
 
     public DistinctAccumulatorFactory(
             AccumulatorFactory delegate,
             List<Type> argumentTypes,
             JoinCompiler joinCompiler,
-            BlockTypeOperators blockTypeOperators,
+            TypeOperators typeOperators,
             Session session)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-        this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
+        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.session = requireNonNull(session, "session is null");
     }
 
@@ -72,7 +71,7 @@ public class DistinctAccumulatorFactory
                 argumentTypes,
                 session,
                 joinCompiler,
-                blockTypeOperators);
+                typeOperators);
     }
 
     @Override
@@ -89,7 +88,7 @@ public class DistinctAccumulatorFactory
                 argumentTypes,
                 session,
                 joinCompiler,
-                blockTypeOperators);
+                typeOperators);
     }
 
     @Override
@@ -115,16 +114,15 @@ public class DistinctAccumulatorFactory
                 List<Type> inputTypes,
                 Session session,
                 JoinCompiler joinCompiler,
-                BlockTypeOperators blockTypeOperators)
+                TypeOperators typeOperators)
         {
             this.accumulator = requireNonNull(accumulator, "accumulator is null");
             this.hash = new MarkDistinctHash(
                     session,
                     inputTypes,
-                    IntStream.range(0, inputTypes.size()).toArray(),
-                    Optional.empty(),
+                    false,
                     joinCompiler,
-                    blockTypeOperators,
+                    typeOperators,
                     UpdateMemory.NOOP);
         }
 
@@ -192,7 +190,7 @@ public class DistinctAccumulatorFactory
                 List<Type> inputTypes,
                 Session session,
                 JoinCompiler joinCompiler,
-                BlockTypeOperators blockTypeOperators)
+                TypeOperators typeOperators)
         {
             this.accumulator = requireNonNull(accumulator, "accumulator is null");
             this.hash = new MarkDistinctHash(
@@ -201,10 +199,9 @@ public class DistinctAccumulatorFactory
                             .add(INTEGER) // group id column
                             .addAll(inputTypes)
                             .build(),
-                    IntStream.range(0, inputTypes.size() + 1).toArray(),
-                    Optional.empty(),
+                    false,
                     joinCompiler,
-                    blockTypeOperators,
+                    typeOperators,
                     UpdateMemory.NOOP);
         }
 

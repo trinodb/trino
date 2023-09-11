@@ -375,7 +375,7 @@ public class TestIcebergV2
     {
         int threads = 5;
         int deletionThreads = threads - 1;
-        int rows = 20;
+        int rows = 12;
         int rowsPerThread = rows / deletionThreads;
 
         CyclicBarrier barrier = new CyclicBarrier(threads);
@@ -383,7 +383,7 @@ public class TestIcebergV2
 
         // Slow down the delete operations so optimize is more likely to complete
         String blackholeTable = "blackhole_table_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE blackhole.default.%s (a INT, b INT) WITH (split_count = 1, pages_per_split = 1, rows_per_page = 1, page_processing_delay = '1s')".formatted(blackholeTable));
+        assertUpdate("CREATE TABLE blackhole.default.%s (a INT, b INT) WITH (split_count = 1, pages_per_split = 1, rows_per_page = 1, page_processing_delay = '3s')".formatted(blackholeTable));
 
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,

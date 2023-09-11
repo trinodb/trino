@@ -211,13 +211,6 @@ public abstract class BaseHiveConnectorTest
         this.bucketedSession = createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
     }
 
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return createHiveQueryRunner(HiveQueryRunner.builder());
-    }
-
     protected static QueryRunner createHiveQueryRunner(HiveQueryRunner.Builder<?> builder)
             throws Exception
     {
@@ -248,43 +241,23 @@ public abstract class BaseHiveConnectorTest
         return queryRunner;
     }
 
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_TOPN_PUSHDOWN:
-                return false;
-
-            case SUPPORTS_DROP_SCHEMA_CASCADE:
-                return false;
-
-            case SUPPORTS_ADD_FIELD:
-            case SUPPORTS_DROP_FIELD:
-            case SUPPORTS_RENAME_FIELD:
-            case SUPPORTS_SET_COLUMN_TYPE:
-                return false;
-
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
-                return false;
-
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
-                return false;
-
-            case SUPPORTS_MERGE:
-                // FIXME: Fails because only allowed with transactional tables
-                return false;
-            case SUPPORTS_TRUNCATE:
-                return false;
-
-            case SUPPORTS_MULTI_STATEMENT_WRITES:
-                return true;
-            case SUPPORTS_REPORTING_WRITTEN_BYTES:
-                return true;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_MULTI_STATEMENT_WRITES,
+                    SUPPORTS_REPORTING_WRITTEN_BYTES -> true; // FIXME: Fails because only allowed with transactional tables
+            case SUPPORTS_ADD_FIELD,
+                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                    SUPPORTS_DROP_FIELD,
+                    SUPPORTS_MERGE,
+                    SUPPORTS_NOT_NULL_CONSTRAINT,
+                    SUPPORTS_RENAME_FIELD,
+                    SUPPORTS_SET_COLUMN_TYPE,
+                    SUPPORTS_TOPN_PUSHDOWN,
+                    SUPPORTS_TRUNCATE -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     @Override
@@ -621,6 +594,17 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(session, "DROP TABLE new_schema.test");
 
         assertUpdate(session, "DROP SCHEMA new_schema");
+    }
+
+    @Test
+    public void testCreateSchemaWithIncorrectLocation()
+    {
+        String schemaName = "test_create_schema_with_incorrect_location_" + randomNameSuffix();
+        String schemaLocation = "s3://testbucket/%s/a#hash/%s".formatted(schemaName, schemaName);
+
+        assertThatThrownBy(() -> assertUpdate("CREATE SCHEMA " + schemaName + " WITH (location = '" + schemaLocation + "')"))
+                .hasMessageContaining("Invalid location URI")
+                .hasStackTraceContaining("Fragment is not allowed in a file system location");
     }
 
     @Test
@@ -2136,18 +2120,17 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testEmptyBucketedTable()
     {
-        // create empty bucket files for all storage formats and compression codecs
-        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
-            if (storageFormat == REGEX) {
-                // REGEX format is readonly
-                continue;
-            }
-            testEmptyBucketedTable(storageFormat, true);
-            testEmptyBucketedTable(storageFormat, false);
-        }
+        // go through all storage formats to make sure the empty buckets are correctly created
+        testWithAllStorageFormats(this::testEmptyBucketedTable);
     }
 
-    private void testEmptyBucketedTable(HiveStorageFormat storageFormat, boolean createEmpty)
+    private void testEmptyBucketedTable(Session session, HiveStorageFormat storageFormat)
+    {
+        testEmptyBucketedTable(session, storageFormat, true);
+        testEmptyBucketedTable(session, storageFormat, false);
+    }
+
+    private void testEmptyBucketedTable(Session baseSession, HiveStorageFormat storageFormat, boolean createEmpty)
     {
         String tableName = "test_empty_bucketed_table";
 
@@ -2172,7 +2155,7 @@ public abstract class BaseHiveConnectorTest
         assertEquals(computeActual("SELECT * from " + tableName).getRowCount(), 0);
 
         // make sure that we will get one file per bucket regardless of writer count configured
-        Session session = Session.builder(getSession())
+        Session session = Session.builder(baseSession)
                 .setSystemProperty("task_writer_count", "4")
                 .setCatalogSessionProperty(catalog, "create_empty_bucket_files", String.valueOf(createEmpty))
                 .build();
@@ -2219,7 +2202,7 @@ public abstract class BaseHiveConnectorTest
                 ") t (bucket_key, col_1, col_2)";
 
         // make sure that we will get one file per bucket regardless of writer count configured
-        Session parallelWriter = Session.builder(getParallelWriteSession())
+        Session parallelWriter = Session.builder(getParallelWriteSession(session))
                 .setCatalogSessionProperty(catalog, "create_empty_bucket_files", String.valueOf(createEmpty))
                 .build();
         assertUpdate(parallelWriter, createTable, 3);
@@ -2448,7 +2431,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                Session.builder(getParallelWriteSession())
+                Session.builder(getParallelWriteSession(session))
                         .setCatalogSessionProperty(catalog, "create_empty_bucket_files", String.valueOf(createEmpty))
                         .build(),
                 createTable,
@@ -2484,7 +2467,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getParallelWriteSession(),
+                getParallelWriteSession(getSession()),
                 createTable,
                 "SELECT count(*) FROM orders");
 
@@ -2517,7 +2500,7 @@ public abstract class BaseHiveConnectorTest
                 "FROM tpch.tiny.orders";
 
         assertUpdate(
-                getParallelWriteSession(),
+                getParallelWriteSession(getSession()),
                 createTable,
                 "SELECT count(*) FROM orders");
 
@@ -2609,11 +2592,12 @@ public abstract class BaseHiveConnectorTest
                     "SELECT custkey, comment, orderstatus " +
                     "FROM tpch.tiny.orders";
 
-            assertUpdate(getParallelWriteSession(), createSourceTable, "SELECT count(*) FROM orders");
-            assertUpdate(getParallelWriteSession(), createTargetTable, "SELECT count(*) FROM orders");
+            Session session = getParallelWriteSession(getSession());
+            assertUpdate(session, createSourceTable, "SELECT count(*) FROM orders");
+            assertUpdate(session, createTargetTable, "SELECT count(*) FROM orders");
 
             transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl()).execute(
-                    getParallelWriteSession(),
+                    session,
                     transactionalSession -> {
                         assertUpdate(
                                 transactionalSession,
@@ -2658,7 +2642,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getParallelWriteSession(),
+                getParallelWriteSession(getSession()),
                 createTable,
                 "SELECT count(*) FROM orders");
 
@@ -2822,7 +2806,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getParallelWriteSession(),
+                getParallelWriteSession(session),
                 "INSERT INTO " + tableName + " " +
                         "VALUES " +
                         "  (VARCHAR 'a', VARCHAR 'b', VARCHAR 'c'), " +
@@ -2967,29 +2951,28 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCreateEmptyBucketedPartition()
     {
-        for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
-            testCreateEmptyBucketedPartition(storageFormat.getFormat());
-        }
+        testWithAllStorageFormats(this::testCreateEmptyBucketedPartition);
     }
 
-    private void testCreateEmptyBucketedPartition(HiveStorageFormat storageFormat)
+    private void testCreateEmptyBucketedPartition(Session session, HiveStorageFormat storageFormat)
     {
         String tableName = "test_insert_empty_partitioned_bucketed_table";
-        createPartitionedBucketedTable(tableName, storageFormat);
+        createPartitionedBucketedTable(session, tableName, storageFormat);
 
         List<String> orderStatusList = ImmutableList.of("F", "O", "P");
         for (int i = 0; i < orderStatusList.size(); i++) {
             String sql = format("CALL system.create_empty_partition('%s', '%s', ARRAY['orderstatus'], ARRAY['%s'])", TPCH_SCHEMA, tableName, orderStatusList.get(i));
-            assertUpdate(sql);
+            assertUpdate(session, sql);
             assertQuery(
+                    session,
                     format("SELECT count(*) FROM \"%s$partitions\"", tableName),
                     "SELECT " + (i + 1));
 
-            assertQueryFails(sql, "Partition already exists.*");
+            assertQueryFails(session, sql, "Partition already exists.*");
         }
 
-        assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertUpdate(session, "DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(session, tableName));
     }
 
     @Test
@@ -3018,14 +3001,14 @@ public abstract class BaseHiveConnectorTest
     private void testInsertPartitionedBucketedTable(HiveStorageFormat storageFormat)
     {
         String tableName = "test_insert_partitioned_bucketed_table";
-        createPartitionedBucketedTable(tableName, storageFormat);
+        createPartitionedBucketedTable(getSession(), tableName, storageFormat);
 
         List<String> orderStatusList = ImmutableList.of("F", "O", "P");
         for (int i = 0; i < orderStatusList.size(); i++) {
             String orderStatus = orderStatusList.get(i);
             assertUpdate(
                     // make sure that we will get one file per bucket regardless of writer count configured
-                    getParallelWriteSession(),
+                    getParallelWriteSession(getSession()),
                     format(
                             "INSERT INTO " + tableName + " " +
                                     "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
@@ -3041,19 +3024,20 @@ public abstract class BaseHiveConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
-    private void createPartitionedBucketedTable(String tableName, HiveStorageFormat storageFormat)
+    private void createPartitionedBucketedTable(Session session, String tableName, HiveStorageFormat storageFormat)
     {
-        assertUpdate("" +
+        assertUpdate(
+                session,
                 "CREATE TABLE " + tableName + " (" +
-                "  custkey bigint," +
-                "  custkey2 bigint," +
-                "  comment varchar," +
-                "  orderstatus varchar)" +
-                "WITH (" +
-                "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ 'orderstatus' ], " +
-                "bucketed_by = ARRAY[ 'custkey', 'custkey2' ], " +
-                "bucket_count = 11)");
+                        "  custkey bigint," +
+                        "  custkey2 bigint," +
+                        "  comment varchar," +
+                        "  orderstatus varchar)" +
+                        "WITH (" +
+                        "format = '" + storageFormat + "', " +
+                        "partitioned_by = ARRAY[ 'orderstatus' ], " +
+                        "bucketed_by = ARRAY[ 'custkey', 'custkey2' ], " +
+                        "bucket_count = 11)");
     }
 
     @Test
@@ -3083,7 +3067,7 @@ public abstract class BaseHiveConnectorTest
             String orderStatus = orderStatusList.get(i);
             assertUpdate(
                     // make sure that we will get one file per bucket regardless of writer count configured
-                    getParallelWriteSession(),
+                    getParallelWriteSession(getSession()),
                     format(
                             "INSERT INTO " + tableName + " " +
                                     "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
@@ -3107,7 +3091,7 @@ public abstract class BaseHiveConnectorTest
     public void testInsertTwiceToSamePartitionedBucket()
     {
         String tableName = "test_insert_twice_to_same_partitioned_bucket";
-        createPartitionedBucketedTable(tableName, HiveStorageFormat.RCBINARY);
+        createPartitionedBucketedTable(getSession(), tableName, HiveStorageFormat.RCBINARY);
 
         String insert = "INSERT INTO " + tableName +
                 " VALUES (1, 1, 'first_comment', 'F'), (2, 2, 'second_comment', 'G')";
@@ -4043,27 +4027,19 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
-    public void testScaleWriters()
-    {
-        testWithAllStorageFormats(this::testSingleWriter);
-        testWithAllStorageFormats(this::testMultipleWriters);
-        testWithAllStorageFormats(this::testMultipleWritersWithSkewedData);
-    }
-
-    protected void testSingleWriter(Session session, HiveStorageFormat storageFormat)
+    public void testSingleWriter()
     {
         try {
-            // small table that will only have one writer
-            @Language("SQL") String createTableSql = format("" +
-                            "CREATE TABLE scale_writers_small WITH (format = '%s') AS " +
-                            "SELECT * FROM tpch.tiny.orders",
-                    storageFormat);
+            // Small table that will only have one writer
+            @Language("SQL") String createTableSql = "" +
+                            "CREATE TABLE scale_writers_small WITH (format = 'PARQUET') AS " +
+                            "SELECT * FROM tpch.tiny.orders";
             assertUpdate(
-                    Session.builder(session)
+                    Session.builder(getSession())
                             .setSystemProperty("task_writer_count", "1")
                             .setSystemProperty("scale_writers", "true")
                             .setSystemProperty("task_scale_writers_enabled", "false")
-                            .setSystemProperty("writer_scaling_min_data_processed", "32MB")
+                            .setSystemProperty("writer_scaling_min_data_processed", "100MB")
                             .build(),
                     createTableSql,
                     (long) computeActual("SELECT count(*) FROM tpch.tiny.orders").getOnlyValue());
@@ -4075,24 +4051,23 @@ public abstract class BaseHiveConnectorTest
         }
     }
 
-    private void testMultipleWriters(Session session, HiveStorageFormat storageFormat)
+    @Test
+    public void testMultipleWriters()
     {
         try {
-            // large table that will scale writers to multiple machines
-            @Language("SQL") String createTableSql = format("" +
-                            "CREATE TABLE scale_writers_large WITH (format = '%s') AS " +
-                            "SELECT * FROM tpch.sf1.orders",
-                    storageFormat);
+            // We need to use large table (sf2) to see the effect. Otherwise, a single writer will write the entire
+            // data before ScaledWriterScheduler is able to scale it to multiple machines.
+            @Language("SQL") String createTableSql = "CREATE TABLE scale_writers_large WITH (format = 'PARQUET') AS " +
+                    "SELECT * FROM tpch.sf2.orders";
             assertUpdate(
-                    Session.builder(session)
+                    Session.builder(getSession())
                             .setSystemProperty("task_writer_count", "1")
                             .setSystemProperty("scale_writers", "true")
                             .setSystemProperty("task_scale_writers_enabled", "false")
                             .setSystemProperty("writer_scaling_min_data_processed", "1MB")
-                            .setCatalogSessionProperty(catalog, "parquet_writer_block_size", "4MB")
                             .build(),
                     createTableSql,
-                    (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+                    (long) computeActual("SELECT count(*) FROM tpch.sf2.orders").getOnlyValue());
 
             long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM scale_writers_large");
             long workers = (long) computeScalar("SELECT count(*) FROM system.runtime.nodes");
@@ -4103,24 +4078,24 @@ public abstract class BaseHiveConnectorTest
         }
     }
 
-    private void testMultipleWritersWithSkewedData(Session session, HiveStorageFormat storageFormat)
+    @Test
+    public void testMultipleWritersWithSkewedData()
     {
         try {
-            // skewed table that will scale writers to multiple machines
-            String selectSql = "SELECT t1.* FROM (SELECT *, case when orderkey >= 0 then 1 else orderkey end as join_key FROM tpch.sf1.orders) t1 " +
-                               "INNER JOIN (SELECT orderkey FROM tpch.sf1.orders) t2 " +
+            // We need to use large table (sf2) to see the effect. Otherwise, a single writer will write the entire
+            // data before ScaledWriterScheduler is able to scale it to multiple machines.
+            // Skewed table that will scale writers to multiple machines.
+            String selectSql = "SELECT t1.* FROM (SELECT *, case when orderkey >= 0 then 1 else orderkey end as join_key FROM tpch.sf2.orders) t1 " +
+                               "INNER JOIN (SELECT orderkey FROM tpch.sf2.orders) t2 " +
                                "ON t1.join_key = t2.orderkey";
-            @Language("SQL") String createTableSql = format("" +
-                            "CREATE TABLE scale_writers_skewed WITH (format = '%s') AS " + selectSql,
-                    storageFormat);
+            @Language("SQL") String createTableSql = "CREATE TABLE scale_writers_skewed WITH (format = 'PARQUET') AS " + selectSql;
             assertUpdate(
-                    Session.builder(session)
+                    Session.builder(getSession())
                             .setSystemProperty("task_writer_count", "1")
                             .setSystemProperty("scale_writers", "true")
                             .setSystemProperty("task_scale_writers_enabled", "false")
                             .setSystemProperty("writer_scaling_min_data_processed", "1MB")
                             .setSystemProperty("join_distribution_type", "PARTITIONED")
-                            .setCatalogSessionProperty(catalog, "parquet_writer_block_size", "4MB")
                             .build(),
                     createTableSql,
                     (long) computeActual("SELECT count(*) FROM (" + selectSql + ")")
@@ -4204,10 +4179,10 @@ public abstract class BaseHiveConnectorTest
                 .build();
         String tableName = "writing_tasks_limit_%s".formatted(randomNameSuffix());
         @Language("SQL") String createTableSql = format(
-                "CREATE TABLE %s WITH (format = 'ORC' %s) AS SELECT *, mod(orderkey, 2) as part_key FROM tpch.sf1.orders LIMIT",
+                "CREATE TABLE %s WITH (format = 'ORC' %s) AS SELECT *, mod(orderkey, 2) as part_key FROM tpch.sf2.orders LIMIT",
                 tableName, partitioned ? ", partitioned_by = ARRAY['part_key']" : "");
         try {
-            assertUpdate(session, createTableSql, (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+            assertUpdate(session, createTableSql, (long) computeActual("SELECT count(*) FROM tpch.sf2.orders").getOnlyValue());
             long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM %s".formatted(tableName));
             assertEquals(files, expectedFilesCount);
         }
@@ -4225,7 +4200,7 @@ public abstract class BaseHiveConnectorTest
         String tableName = "task_scale_writers_" + randomNameSuffix();
         try {
             @Language("SQL") String createTableSql = format(
-                    "CREATE TABLE %s WITH (format = 'ORC') AS SELECT * FROM tpch.sf5.orders",
+                    "CREATE TABLE %s WITH (format = 'ORC') AS SELECT * FROM tpch.sf2.orders",
                     tableName);
             assertUpdate(
                     Session.builder(session)
@@ -4241,13 +4216,9 @@ public abstract class BaseHiveConnectorTest
                             .setSystemProperty(FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MAX, "2GB")
                             .setSystemProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE, "2GB")
                             .setSystemProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_SIZE, "2GB")
-                            // Set the value of orc strip size low to increase the frequency at which
-                            // physicalWrittenDataSize is updated through ConnectorPageSink#getCompletedBytes()
-                            .setCatalogSessionProperty(catalog, "orc_optimized_writer_min_stripe_size", "2MB")
-                            .setCatalogSessionProperty(catalog, "orc_optimized_writer_max_stripe_size", "2MB")
                             .build(),
                     createTableSql,
-                    (long) computeActual("SELECT count(*) FROM tpch.sf5.orders").getOnlyValue());
+                    3000000);
 
             long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM " + tableName);
             return assertThat(files);
@@ -5528,54 +5499,53 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
-    public void schemaMismatchesWithDereferenceProjections()
+    public void testSchemaMismatchesWithDereferenceProjections()
     {
-        for (TestingHiveStorageFormat format : getAllTestingHiveStorageFormat()) {
-            schemaMismatchesWithDereferenceProjections(format.getFormat());
-        }
+        testWithAllStorageFormats(this::testSchemaMismatchesWithDereferenceProjections);
     }
 
-    private void schemaMismatchesWithDereferenceProjections(HiveStorageFormat format)
+    private void testSchemaMismatchesWithDereferenceProjections(Session session, HiveStorageFormat format)
     {
         // Verify reordering of subfields between a partition column and a table column is not supported
         // eg. table column: a row(c varchar, b bigint), partition column: a row(b bigint, c varchar)
+        String tableName = "evolve_test_" + randomNameSuffix();
         try {
-            assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
-            assertUpdate("INSERT INTO evolve_test values (10, row(1, 'abc'), 1)", 1);
-            assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
-            assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(c varchar, b bigint)");
-            assertUpdate("INSERT INTO evolve_test values (20, row('def', 2), 2)", 1);
-            assertQueryFails("SELECT a.b FROM evolve_test where d = 1", ".*There is a mismatch between the table and partition schemas.*");
+            assertUpdate(session, "CREATE TABLE " + tableName + " (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
+            assertUpdate(session, "INSERT INTO " + tableName + " values (10, row(1, 'abc'), 1)", 1);
+            assertUpdate(session, "ALTER TABLE " + tableName + " DROP COLUMN a");
+            assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN a row(c varchar, b bigint)");
+            assertUpdate(session, "INSERT INTO " + tableName + " values (20, row('def', 2), 2)", 1);
+            assertQueryFails(session, "SELECT a.b FROM " + tableName + " where d = 1", ".*There is a mismatch between the table and partition schemas.*");
         }
         finally {
-            assertUpdate("DROP TABLE IF EXISTS evolve_test");
+            assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
         }
 
         // Subfield absent in partition schema is reported as null
         // i.e. "a.c" produces null for rows that were inserted before type of "a" was changed
         try {
-            assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
-            assertUpdate("INSERT INTO evolve_test values (10, row(1), 1)", 1);
-            assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
-            assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(b bigint, c varchar)");
-            assertUpdate("INSERT INTO evolve_test values (20, row(2, 'def'), 2)", 1);
-            assertQuery("SELECT a.c FROM evolve_test", "SELECT 'def' UNION SELECT null");
+            assertUpdate(session, "CREATE TABLE " + tableName + " (dummy bigint, a row(b bigint), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
+            assertUpdate(session, "INSERT INTO " + tableName + " values (10, row(1), 1)", 1);
+            assertUpdate(session, "ALTER TABLE " + tableName + " DROP COLUMN a");
+            assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN a row(b bigint, c varchar)");
+            assertUpdate(session, "INSERT INTO " + tableName + " values (20, row(2, 'def'), 2)", 1);
+            assertQuery(session, "SELECT a.c FROM " + tableName, "SELECT 'def' UNION SELECT null");
         }
         finally {
-            assertUpdate("DROP TABLE IF EXISTS evolve_test");
+            assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
         }
 
         // Verify field access when the row evolves without changes to field type
         try {
-            assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
-            assertUpdate("INSERT INTO evolve_test values (10, row(1, 'abc'), 1)", 1);
-            assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
-            assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(b bigint, c varchar, e int)");
-            assertUpdate("INSERT INTO evolve_test values (20, row(2, 'def', 2), 2)", 1);
-            assertQuery("SELECT a.b FROM evolve_test", "VALUES 1, 2");
+            assertUpdate(session, "CREATE TABLE " + tableName + " (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
+            assertUpdate(session, "INSERT INTO " + tableName + " values (10, row(1, 'abc'), 1)", 1);
+            assertUpdate(session, "ALTER TABLE " + tableName + " DROP COLUMN a");
+            assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN a row(b bigint, c varchar, e int)");
+            assertUpdate(session, "INSERT INTO " + tableName + " values (20, row(2, 'def', 2), 2)", 1);
+            assertQuery(session, "SELECT a.b FROM " + tableName, "VALUES 1, 2");
         }
         finally {
-            assertUpdate("DROP TABLE IF EXISTS evolve_test");
+            assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
         }
     }
 
@@ -5584,33 +5554,34 @@ public abstract class BaseHiveConnectorTest
     {
         // Validate for formats for which subfield access is name based
         List<HiveStorageFormat> formats = ImmutableList.of(HiveStorageFormat.ORC, HiveStorageFormat.PARQUET, HiveStorageFormat.AVRO);
+        String tableName = "evolve_test_" + randomNameSuffix();
 
         for (HiveStorageFormat format : formats) {
             // Subfields reordered in the file are read correctly. e.g. if partition column type is row(b bigint, c varchar) but the file
             // column type is row(c varchar, b bigint), "a.b" should read the correct field from the file.
             try {
-                assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar)) with (format = '" + format + "')");
-                assertUpdate("INSERT INTO evolve_test values (1, row(1, 'abc'))", 1);
-                assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
-                assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(c varchar, b bigint)");
-                assertQuery("SELECT a.b FROM evolve_test", "VALUES 1");
+                assertUpdate("CREATE TABLE " + tableName + " (dummy bigint, a row(b bigint, c varchar)) with (format = '" + format + "')");
+                assertUpdate("INSERT INTO " + tableName + " values (1, row(1, 'abc'))", 1);
+                assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN a");
+                assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a row(c varchar, b bigint)");
+                assertQuery("SELECT a.b FROM " + tableName, "VALUES 1");
             }
             finally {
-                assertUpdate("DROP TABLE IF EXISTS evolve_test");
+                assertUpdate("DROP TABLE IF EXISTS " + tableName);
             }
 
             // Assert that reordered subfields are read correctly for a two-level nesting. This is useful for asserting correct adaptation
             // of residue projections in HivePageSourceProvider
             try {
-                assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c row(x bigint, y varchar))) with (format = '" + format + "')");
-                assertUpdate("INSERT INTO evolve_test values (1, row(1, row(3, 'abc')))", 1);
-                assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
-                assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(c row(y varchar, x bigint), b bigint)");
+                assertUpdate("CREATE TABLE " + tableName + " (dummy bigint, a row(b bigint, c row(x bigint, y varchar))) with (format = '" + format + "')");
+                assertUpdate("INSERT INTO " + tableName + " values (1, row(1, row(3, 'abc')))", 1);
+                assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN a");
+                assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a row(c row(y varchar, x bigint), b bigint)");
                 // TODO: replace the following assertion with assertQuery once h2QueryRunner starts supporting row types
-                assertQuerySucceeds("SELECT a.c.y, a.c FROM evolve_test");
+                assertQuerySucceeds("SELECT a.c.y, a.c FROM " + tableName);
             }
             finally {
-                assertUpdate("DROP TABLE IF EXISTS evolve_test");
+                assertUpdate("DROP TABLE IF EXISTS " + tableName);
             }
         }
     }
@@ -7625,7 +7596,7 @@ public abstract class BaseHiveConnectorTest
         File schemaFile = createAvroSchemaFile();
 
         String createTableSql = getAvroCreateTableSql(tableName, schemaFile.getAbsolutePath());
-        String expectedShowCreateTable = getAvroCreateTableSql(tableName, schemaFile.toURI().toString());
+        String expectedShowCreateTable = getAvroCreateTableSql(tableName, schemaFile.getPath());
 
         assertUpdate(createTableSql);
 
@@ -7899,7 +7870,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testColumnPruning(Session session, HiveStorageFormat storageFormat)
     {
-        String tableName = "test_schema_evolution_column_pruning_" + storageFormat.name().toLowerCase(ENGLISH);
+        String tableName = "test_schema_evolution_column_pruning_" + storageFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
         String evolvedTableName = tableName + "_evolved";
 
         assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
@@ -8716,9 +8687,9 @@ public abstract class BaseHiveConnectorTest
         };
     }
 
-    private Session getParallelWriteSession()
+    private Session getParallelWriteSession(Session baseSession)
     {
-        return Session.builder(getSession())
+        return Session.builder(baseSession)
                 .setSystemProperty("task_writer_count", "4")
                 .setSystemProperty("task_partitioned_writer_count", "4")
                 .setSystemProperty("task_scale_writers_enabled", "false")
@@ -8817,6 +8788,7 @@ public abstract class BaseHiveConnectorTest
                 // REGEX format is read-only
                 continue;
             }
+
             formats.add(new TestingHiveStorageFormat(getSession(), hiveStorageFormat));
         }
         return formats.build();

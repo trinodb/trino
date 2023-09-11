@@ -29,6 +29,7 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.profile.GCProfiler;
 import org.openjdk.jmh.runner.RunnerException;
+import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -137,6 +138,14 @@ public class BenchmarkGroupedTypedHistogram
     {
         TestingFunctionResolution functionResolution = new TestingFunctionResolution();
         return functionResolution.getAggregateFunction(QualifiedName.of("histogram"), fromTypes(VARCHAR));
+    }
+
+    @Test
+    public void test()
+    {
+        Data data = new Data();
+        data.setUp();
+        testSharedGroupWithLargeBlocksRunner(data);
     }
 
     public static void main(String[] args)

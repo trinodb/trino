@@ -61,14 +61,12 @@ public class TestColumnarMap
                 expectedValues[mapIndex][entryIndex] = entry;
             }
         }
-        BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-        verifyBlock(blockBuilder, expectedValues);
-        verifyBlock(blockBuilder.build(), expectedValues);
+        Block block = createBlockBuilderWithValues(expectedValues).build();
+        verifyBlock(block, expectedValues);
 
         Slice[][][] expectedValuesWithNull = alternatingNullValues(expectedValues);
-        BlockBuilder blockBuilderWithNull = createBlockBuilderWithValues(expectedValuesWithNull);
-        verifyBlock(blockBuilderWithNull, expectedValuesWithNull);
-        verifyBlock(blockBuilderWithNull.build(), expectedValuesWithNull);
+        Block blockWithNull = createBlockBuilderWithValues(expectedValuesWithNull).build();
+        verifyBlock(blockWithNull, expectedValuesWithNull);
     }
 
     private static void verifyBlock(Block block, Slice[][][] expectedValues)

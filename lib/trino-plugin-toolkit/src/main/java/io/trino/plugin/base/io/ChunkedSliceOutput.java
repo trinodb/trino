@@ -74,7 +74,7 @@ public final class ChunkedSliceOutput
     {
         return ImmutableList.<Slice>builder()
                 .addAll(closedSlices)
-                .add(Slices.copyOf(slice, 0, bufferPosition))
+                .add(slice.copy(0, bufferPosition))
                 .build();
     }
 
@@ -199,6 +199,66 @@ public final class ChunkedSliceOutput
             bufferPosition += batch;
             sourceIndex += batch;
             length -= batch;
+        }
+    }
+
+    @Override
+    public void writeShorts(short[] source, int sourceIndex, int length)
+    {
+        while (length > 0) {
+            int flushLength = tryEnsureBatchSize(length * Short.BYTES) / Short.BYTES;
+            slice.setShorts(bufferPosition, source, sourceIndex, flushLength);
+            bufferPosition += flushLength * Short.BYTES;
+            sourceIndex += flushLength;
+            length -= flushLength;
+        }
+    }
+
+    @Override
+    public void writeInts(int[] source, int sourceIndex, int length)
+    {
+        while (length > 0) {
+            int flushLength = tryEnsureBatchSize(length * Integer.BYTES) / Integer.BYTES;
+            slice.setInts(bufferPosition, source, sourceIndex, flushLength);
+            bufferPosition += flushLength * Integer.BYTES;
+            sourceIndex += flushLength;
+            length -= flushLength;
+        }
+    }
+
+    @Override
+    public void writeLongs(long[] source, int sourceIndex, int length)
+    {
+        while (length > 0) {
+            int flushLength = tryEnsureBatchSize(length * Long.BYTES) / Long.BYTES;
+            slice.setLongs(bufferPosition, source, sourceIndex, flushLength);
+            bufferPosition += flushLength * Long.BYTES;
+            sourceIndex += flushLength;
+            length -= flushLength;
+        }
+    }
+
+    @Override
+    public void writeFloats(float[] source, int sourceIndex, int length)
+    {
+        while (length > 0) {
+            int flushLength = tryEnsureBatchSize(length * Float.BYTES) / Float.BYTES;
+            slice.setFloats(bufferPosition, source, sourceIndex, flushLength);
+            bufferPosition += flushLength * Float.BYTES;
+            sourceIndex += flushLength;
+            length -= flushLength;
+        }
+    }
+
+    @Override
+    public void writeDoubles(double[] source, int sourceIndex, int length)
+    {
+        while (length > 0) {
+            int flushLength = tryEnsureBatchSize(length * Double.BYTES) / Double.BYTES;
+            slice.setDoubles(bufferPosition, source, sourceIndex, flushLength);
+            bufferPosition += flushLength * Double.BYTES;
+            sourceIndex += flushLength;
+            length -= flushLength;
         }
     }
 

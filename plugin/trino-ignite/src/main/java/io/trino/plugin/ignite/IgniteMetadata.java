@@ -24,6 +24,7 @@ import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.SyntheticColumnHandleBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -57,9 +58,11 @@ public class IgniteMetadata
     private final JdbcClient igniteClient;
 
     @Inject
-    public IgniteMetadata(JdbcClient igniteClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
+    public IgniteMetadata(JdbcClient igniteClient,
+                Set<JdbcQueryEventListener> jdbcQueryEventListeners,
+                SyntheticColumnHandleBuilder syntheticColumnHandleBuilder)
     {
-        super(igniteClient, false, jdbcQueryEventListeners);
+        super(igniteClient, false, jdbcQueryEventListeners, syntheticColumnHandleBuilder);
         this.igniteClient = requireNonNull(igniteClient, "igniteClient is null");
     }
 

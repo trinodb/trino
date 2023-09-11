@@ -25,6 +25,7 @@ import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.QueryId.parseDottedId;
 import static java.lang.Integer.parseInt;
+import static java.lang.String.join;
 import static java.util.Objects.requireNonNull;
 
 public class TaskId
@@ -44,7 +45,11 @@ public class TaskId
         requireNonNull(stageId, "stageId is null");
         checkArgument(partitionId >= 0, "partitionId is negative: %s", partitionId);
         checkArgument(attemptId >= 0, "attemptId is negative: %s", attemptId);
-        this.fullId = stageId + "." + partitionId + "." + attemptId;
+
+        // There is a strange JDK bug related to the CompactStrings implementation in JDK20+ which causes some fullId values
+        // to get corrupted when this particular line is JIT-optimized. Changing implicit concatenation to a String.join call
+        // seems to mitigate this issue. See: https://github.com/trinodb/trino/issues/18272 for more details.
+        this.fullId = join(".", stageId.toString(), String.valueOf(partitionId), String.valueOf(attemptId));
     }
 
     private TaskId(String fullId)

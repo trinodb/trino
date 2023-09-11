@@ -13,35 +13,110 @@
  */
 package io.trino.operator.aggregation.arrayagg;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.operator.aggregation.AbstractGroupCollectionAggregationState;
-import io.trino.spi.PageBuilder;
+import com.google.common.primitives.Ints;
+import io.trino.operator.aggregation.state.AbstractGroupedAccumulatorState;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 
+import java.lang.invoke.MethodHandle;
+import java.util.Arrays;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.toIntExact;
+
 public final class GroupArrayAggregationState
-        extends AbstractGroupCollectionAggregationState<ArrayAggregationStateConsumer>
+        extends AbstractGroupedAccumulatorState
         implements ArrayAggregationState
 {
-    private static final int MAX_BLOCK_SIZE = 1024 * 1024;
-    private static final int VALUE_CHANNEL = 0;
+    private static final int INSTANCE_SIZE = instanceSize(GroupArrayAggregationState.class);
 
-    GroupArrayAggregationState(Type valueType)
+    // See jdk.internal.util.ArraysSupport.SOFT_MAX_ARRAY_LENGTH for an explanation
+    private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
+
+    private final FlatArrayBuilder arrayBuilder;
+    private long[] groupHeadPositions = new long[0];
+    private long[] groupTailPositions = new long[0];
+
+    public GroupArrayAggregationState(Type type, MethodHandle readFlat, MethodHandle writeFlat)
     {
-        super(PageBuilder.withMaxPageSize(MAX_BLOCK_SIZE, ImmutableList.of(valueType)));
+        arrayBuilder = new FlatArrayBuilder(type, readFlat, writeFlat, true);
+    }
+
+    @Override
+    public long getEstimatedSize()
+    {
+        return INSTANCE_SIZE +
+                sizeOf(groupHeadPositions) +
+                sizeOf(groupTailPositions) +
+                arrayBuilder.getEstimatedSize();
+    }
+
+    @Override
+    public void ensureCapacity(long maxGroupId)
+    {
+        checkArgument(maxGroupId + 1 < MAX_ARRAY_SIZE, "Maximum array size exceeded");
+        int requiredSize = toIntExact(maxGroupId + 1);
+        if (requiredSize > groupHeadPositions.length) {
+            int newSize = Ints.constrainToRange(requiredSize * 2, 1024, MAX_ARRAY_SIZE);
+            int oldSize = groupHeadPositions.length;
+
+            groupHeadPositions = Arrays.copyOf(groupHeadPositions, newSize);
+            Arrays.fill(groupHeadPositions, oldSize, newSize, -1);
+
+            groupTailPositions = Arrays.copyOf(groupTailPositions, newSize);
+            Arrays.fill(groupTailPositions, oldSize, newSize, -1);
+        }
+    }
+
+    @Override
+    public void addAll(Block block)
+    {
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            add(block, position);
+        }
     }
 
     @Override
     public void add(Block block, int position)
     {
-        prepareAdd();
-        appendAtChannel(VALUE_CHANNEL, block, position);
+        int groupId = (int) getGroupId();
+        long index = arrayBuilder.size();
+
+        if (groupTailPositions[groupId] == -1) {
+            groupHeadPositions[groupId] = index;
+        }
+        else {
+            arrayBuilder.setNextIndex(groupTailPositions[groupId], index);
+        }
+        groupTailPositions[groupId] = index;
+        arrayBuilder.add(block, position);
     }
 
     @Override
-    protected boolean accept(ArrayAggregationStateConsumer consumer, PageBuilder pageBuilder, int currentPosition)
+    public void writeAll(BlockBuilder blockBuilder)
     {
-        consumer.accept(pageBuilder.getBlockBuilder(VALUE_CHANNEL), currentPosition);
-        return true;
+        long nextIndex = getGroupHeadPosition();
+        checkArgument(nextIndex != -1, "Group is empty");
+        while (nextIndex != -1) {
+            nextIndex = arrayBuilder.write(nextIndex, blockBuilder);
+        }
+    }
+
+    private long getGroupHeadPosition()
+    {
+        int groupId = (int) getGroupId();
+        if (groupId >= groupHeadPositions.length) {
+            return -1;
+        }
+        return groupHeadPositions[groupId];
+    }
+
+    @Override
+    public boolean isEmpty()
+    {
+        return getGroupHeadPosition() == -1;
     }
 }

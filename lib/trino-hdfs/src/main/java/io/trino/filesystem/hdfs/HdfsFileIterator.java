@@ -23,6 +23,7 @@ import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Instant;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -52,7 +54,22 @@ class HdfsFileIterator
     public boolean hasNext()
             throws IOException
     {
-        return iterator.hasNext();
+        // TODO: remove this workaround for https://issues.apache.org/jira/browse/HADOOP-18662
+        int attempts = 0;
+        while (true) {
+            try {
+                return iterator.hasNext();
+            }
+            catch (FileNotFoundException | RuntimeException e) {
+                if ((e instanceof RuntimeException) && !nullToEmpty(e.getMessage()).contains(": No such file or directory\n")) {
+                    throw new IOException(e);
+                }
+                attempts++;
+                if (attempts > 1000) {
+                    throw e;
+                }
+            }
+        }
     }
 
     @Override
@@ -67,23 +84,26 @@ class HdfsFileIterator
             throw new IOException("Listing location is a file, not a directory: " + listingLocation);
         }
 
-        String root = listingPath.toUri().getPath();
-        String path = status.getPath().toUri().getPath();
-
-        verify(path.startsWith(root), "iterator path [%s] not a child of listing path [%s] for location [%s]", path, root, listingLocation);
-
-        int index = root.endsWith("/") ? root.length() : root.length() + 1;
-        Location location = listingLocation.appendPath(path.substring(index));
-
         List<Block> blocks = Stream.of(status.getBlockLocations())
                 .map(HdfsFileIterator::toTrinoBlock)
                 .collect(toImmutableList());
 
         return new FileEntry(
-                location,
+                listedLocation(listingLocation, listingPath, status.getPath()),
                 status.getLen(),
                 Instant.ofEpochMilli(status.getModificationTime()),
                 blocks.isEmpty() ? Optional.empty() : Optional.of(blocks));
+    }
+
+    static Location listedLocation(Location listingLocation, Path listingPath, Path listedPath)
+    {
+        String root = listingPath.toUri().getPath();
+        String path = listedPath.toUri().getPath();
+
+        verify(path.startsWith(root), "iterator path [%s] not a child of listing path [%s] for location [%s]", path, root, listingLocation);
+
+        int index = root.endsWith("/") ? root.length() : root.length() + 1;
+        return listingLocation.appendPath(path.substring(index));
     }
 
     private static Block toTrinoBlock(BlockLocation location)

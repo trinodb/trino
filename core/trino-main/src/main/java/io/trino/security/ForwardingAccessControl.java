@@ -240,6 +240,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public Map<SchemaTableName, Set<String>> filterColumns(SecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        return delegate().filterColumns(context, catalogName, tableColumns);
+    }
+
+    @Override
     public void checkCanAddColumns(SecurityContext context, QualifiedObjectName tableName)
     {
         delegate().checkCanAddColumns(context, tableName);
@@ -441,12 +447,6 @@ public abstract class ForwardingAccessControl
     public void checkCanSetCatalogRole(SecurityContext context, String role, String catalogName)
     {
         delegate().checkCanSetCatalogRole(context, role, catalogName);
-    }
-
-    @Override
-    public void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, Optional<String> catalogName)
-    {
-        delegate().checkCanShowRoleAuthorizationDescriptors(context, catalogName);
     }
 
     @Override

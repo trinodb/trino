@@ -111,8 +111,8 @@ import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.TrinoViewUtil.createViewProperties;
 import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
-import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
+import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getColumnParameters;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
@@ -384,7 +384,7 @@ public class TrinoGlueCatalog
                         IcebergMaterializedViewDefinition definition = decodeMaterializedViewData(table.getViewOriginalText());
                         unfilteredResult.add(RelationColumnsMetadata.forMaterializedView(name, toSpiMaterializedViewColumns(definition.getColumns())));
                     }
-                    else if (isPrestoView(tableParameters)) {
+                    else if (isTrinoView(tableType, tableParameters)) {
                         ConnectorViewDefinition definition = ViewReaderUtil.PrestoViewReader.decodeViewData(table.getViewOriginalText());
                         unfilteredResult.add(RelationColumnsMetadata.forView(name, definition.getColumns()));
                     }
@@ -441,6 +441,7 @@ public class TrinoGlueCatalog
             }
             catch (RuntimeException e) {
                 // Table may be concurrently deleted
+                // TODO detect file not found failure when reading metadata file and silently skip table in such case. Avoid logging warnings for legitimate situations.
                 LOG.warn(e, "Failed to get metadata for table: %s", tableName);
                 return;
             }
@@ -473,25 +474,25 @@ public class TrinoGlueCatalog
                     Map<String, String> tableParameters = getTableParameters(table);
                     if (isTrinoMaterializedView(tableType, tableParameters)) {
                         Optional<String> comment = decodeMaterializedViewData(table.getViewOriginalText()).getComment();
-                        unfilteredResult.add(RelationCommentMetadata.forTable(name, comment));
+                        unfilteredResult.add(RelationCommentMetadata.forRelation(name, comment));
                     }
-                    else if (isPrestoView(tableParameters)) {
+                    else if (isTrinoView(tableType, tableParameters)) {
                         Optional<String> comment = ViewReaderUtil.PrestoViewReader.decodeViewData(table.getViewOriginalText()).getComment();
-                        unfilteredResult.add(RelationCommentMetadata.forTable(name, comment));
+                        unfilteredResult.add(RelationCommentMetadata.forRelation(name, comment));
                     }
                     else if (isRedirected.test(name)) {
                         unfilteredResult.add(RelationCommentMetadata.forRedirectedTable(name));
                     }
                     else if (!isIcebergTable(tableParameters)) {
                         // This can be e.g. Hive, Delta table, a Hive view, etc. Would be returned by listTables, so do not skip it
-                        unfilteredResult.add(RelationCommentMetadata.forTable(name, Optional.empty()));
+                        unfilteredResult.add(RelationCommentMetadata.forRelation(name, Optional.empty()));
                     }
                     else {
                         String metadataLocation = tableParameters.get(METADATA_LOCATION_PROP);
                         String metadataValidForMetadata = tableParameters.get(TRINO_TABLE_METADATA_INFO_VALID_FOR);
                         if (metadataValidForMetadata != null && metadataValidForMetadata.equals(metadataLocation)) {
                             Optional<String> comment = Optional.ofNullable(tableParameters.get(TABLE_COMMENT));
-                            unfilteredResult.add(RelationCommentMetadata.forTable(name, comment));
+                            unfilteredResult.add(RelationCommentMetadata.forRelation(name, comment));
                         }
                         else {
                             unprocessed.put(name, table);
@@ -535,10 +536,11 @@ public class TrinoGlueCatalog
             }
             catch (RuntimeException e) {
                 // Table may be concurrently deleted
+                // TODO detect file not found failure when reading metadata file and silently skip table in such case. Avoid logging warnings for legitimate situations.
                 LOG.warn(e, "Failed to get metadata for table: %s", tableName);
                 return;
             }
-            resultsCollector.accept(RelationCommentMetadata.forTable(tableName, comment));
+            resultsCollector.accept(RelationCommentMetadata.forRelation(tableName, comment));
         }
     }
 
@@ -788,6 +790,7 @@ public class TrinoGlueCatalog
             return Optional.empty();
         }
 
+        String tableType = getTableType(table);
         Map<String, String> parameters = getTableParameters(table);
         if (isIcebergTable(parameters) && !tableMetadataCache.containsKey(schemaTableName)) {
             if (viewCache.containsKey(schemaTableName) || materializedViewCache.containsKey(schemaTableName)) {
@@ -811,7 +814,7 @@ public class TrinoGlueCatalog
                 LOG.warn(e, "Failed to cache table metadata from table at %s", metadataLocation);
             }
         }
-        else if (isTrinoMaterializedView(getTableType(table), parameters)) {
+        else if (isTrinoMaterializedView(tableType, parameters)) {
             if (viewCache.containsKey(schemaTableName) || tableMetadataCache.containsKey(schemaTableName)) {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, "Glue table cache inconsistency. Materialized View cannot also be a table or view");
             }
@@ -824,15 +827,15 @@ public class TrinoGlueCatalog
                 LOG.warn(e, "Failed to cache materialized view from %s", schemaTableName);
             }
         }
-        else if (isPrestoView(parameters) && !viewCache.containsKey(schemaTableName)) {
+        else if (isTrinoView(tableType, parameters) && !viewCache.containsKey(schemaTableName)) {
             if (materializedViewCache.containsKey(schemaTableName) || tableMetadataCache.containsKey(schemaTableName)) {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, "Glue table cache inconsistency. View cannot also be a materialized view or table");
             }
 
             try {
-                TrinoViewUtil.getView(schemaTableName,
+                TrinoViewUtil.getView(
                                 Optional.ofNullable(table.getViewOriginalText()),
-                                getTableType(table),
+                                tableType,
                                 parameters,
                                 Optional.ofNullable(table.getOwner()))
                         .ifPresent(viewDefinition -> viewCache.put(schemaTableName, viewDefinition));
@@ -900,7 +903,7 @@ public class TrinoGlueCatalog
     {
         Optional<com.amazonaws.services.glue.model.Table> existing = getTableAndCacheMetadata(session, schemaViewName);
         if (existing.isPresent()) {
-            if (!replace || !isPrestoView(getTableParameters(existing.get()))) {
+            if (!replace || !isTrinoView(getTableType(existing.get()), getTableParameters(existing.get()))) {
                 // TODO: ViewAlreadyExists is misleading if the name is used by a table https://github.com/trinodb/trino/issues/10037
                 throw new ViewAlreadyExistsException(schemaViewName);
             }
@@ -980,7 +983,7 @@ public class TrinoGlueCatalog
             for (String glueNamespace : namespaces) {
                 try {
                     views.addAll(getGlueTables(glueNamespace)
-                            .filter(table -> isPrestoView(getTableParameters(table)) && !isTrinoMaterializedView(getTableType(table), getTableParameters(table))) // TODO isTrinoMaterializedView should not be needed, isPrestoView should not return true for materialized views
+                            .filter(table -> isTrinoView(getTableType(table), getTableParameters(table)))
                             .map(table -> new SchemaTableName(glueNamespace, table.getName()))
                             .collect(toImmutableList()));
                 }
@@ -1014,7 +1017,6 @@ public class TrinoGlueCatalog
         }
         com.amazonaws.services.glue.model.Table viewDefinition = table.get();
         return TrinoViewUtil.getView(
-                viewName,
                 Optional.ofNullable(viewDefinition.getViewOriginalText()),
                 getTableType(viewDefinition),
                 getTableParameters(viewDefinition),

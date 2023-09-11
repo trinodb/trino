@@ -35,8 +35,9 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.TestingNodeManager;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.net.URI;
 import java.util.HashSet;
@@ -55,9 +56,10 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toSet;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestJmxSplitManager
 {
     private static final Duration JMX_STATS_DUMP = new Duration(100, TimeUnit.MILLISECONDS);
@@ -90,7 +92,7 @@ public class TestJmxSplitManager
     private final JmxMetadata metadata = jmxConnector.getMetadata(SESSION, new ConnectorTransactionHandle() {});
     private final JmxRecordSetProvider recordSetProvider = jmxConnector.getRecordSetProvider();
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         jmxConnector.shutdown();
@@ -108,9 +110,10 @@ public class TestJmxSplitManager
             ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, tableHandle, DynamicFilter.EMPTY, Constraint.alwaysTrue());
             List<ConnectorSplit> allSplits = getAllSplits(splitSource);
 
-            assertEquals(allSplits.size(), 1);
-            assertEquals(allSplits.get(0).getAddresses().size(), 1);
-            assertEquals(allSplits.get(0).getAddresses().get(0).getHostText(), nodeIdentifier);
+            assertThat(allSplits).hasSize(1);
+            assertThat(allSplits.get(0).getAddresses()).hasSize(1);
+            assertThat(allSplits.get(0).getAddresses().get(0).getHostText())
+                    .isEqualTo(nodeIdentifier);
         }
     }
 
@@ -121,16 +124,16 @@ public class TestJmxSplitManager
         JmxTableHandle tableHandle = new JmxTableHandle(new SchemaTableName("schema", "tableName"), ImmutableList.of("objectName"), ImmutableList.of(columnHandle), true, TupleDomain.all());
         ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, tableHandle, DynamicFilter.EMPTY, Constraint.alwaysTrue());
         List<ConnectorSplit> allSplits = getAllSplits(splitSource);
-        assertEquals(allSplits.size(), nodes.size());
+        assertThat(allSplits).hasSize(nodes.size());
 
         Set<String> actualNodes = nodes.stream().map(Node::getNodeIdentifier).collect(toSet());
         Set<String> expectedNodes = new HashSet<>();
         for (ConnectorSplit split : allSplits) {
             List<HostAddress> addresses = split.getAddresses();
-            assertEquals(addresses.size(), 1);
+            assertThat(addresses).hasSize(1);
             expectedNodes.add(addresses.get(0).getHostText());
         }
-        assertEquals(actualNodes, expectedNodes);
+        assertThat(actualNodes).isEqualTo(expectedNodes);
     }
 
     @Test
@@ -164,10 +167,10 @@ public class TestJmxSplitManager
                 }
                 Thread.sleep(SLEEP_TIME);
             }
-            assertTrue(timeStamps.size() >= 2);
+            assertThat(timeStamps).matches(value -> value.size() >= 2);
 
             // we don't have equality check here because JmxHistoryDumper scheduling can lag
-            assertTrue(timeStamps.get(1) - timeStamps.get(0) >= JMX_STATS_DUMP.toMillis());
+            assertThat(timeStamps.get(1) - timeStamps.get(0)).matches(delta -> delta >= JMX_STATS_DUMP.toMillis());
         }
     }
 
@@ -182,7 +185,7 @@ public class TestJmxSplitManager
                 if (cursor.isNull(0)) {
                     return result.build();
                 }
-                assertEquals(recordSet.getColumnTypes().get(0), createTimestampWithTimeZoneType(3));
+                assertThat(recordSet.getColumnTypes().get(0)).isEqualTo(createTimestampWithTimeZoneType(3));
                 result.add(cursor.getLong(0));
             }
         }
@@ -197,7 +200,7 @@ public class TestJmxSplitManager
 
         ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, tableHandle, DynamicFilter.EMPTY, Constraint.alwaysTrue());
         List<ConnectorSplit> allSplits = getAllSplits(splitSource);
-        assertEquals(allSplits.size(), nodes.size());
+        assertThat(allSplits).hasSize(nodes.size());
         ConnectorSplit split = allSplits.get(0);
 
         return recordSetProvider.getRecordSet(JmxTransactionHandle.INSTANCE, SESSION, split, tableHandle, columnHandles);

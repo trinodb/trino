@@ -71,8 +71,8 @@ public class NumericHistogram
         values = new double[maxBuckets + buffer];
         weights = new double[maxBuckets + buffer];
 
-        input.readBytes(Slices.wrappedDoubleArray(values), nextIndex * SizeOf.SIZE_OF_DOUBLE);
-        input.readBytes(Slices.wrappedDoubleArray(weights), nextIndex * SizeOf.SIZE_OF_DOUBLE);
+        input.readDoubles(values, 0, nextIndex);
+        input.readDoubles(weights, 0, nextIndex);
     }
 
     public Slice serialize()
@@ -90,8 +90,8 @@ public class NumericHistogram
                 .appendByte(FORMAT_TAG)
                 .appendInt(maxBuckets)
                 .appendInt(nextIndex)
-                .appendBytes(Slices.wrappedDoubleArray(values, 0, nextIndex))
-                .appendBytes(Slices.wrappedDoubleArray(weights, 0, nextIndex))
+                .appendDoubles(values, 0, nextIndex)
+                .appendDoubles(weights, 0, nextIndex)
                 .getUnderlyingSlice();
     }
 

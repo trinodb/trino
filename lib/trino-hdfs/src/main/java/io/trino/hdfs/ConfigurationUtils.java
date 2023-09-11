@@ -15,7 +15,6 @@ package io.trino.hdfs;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.JobConf;
 
 import java.io.File;
 import java.util.List;
@@ -59,14 +58,6 @@ public final class ConfigurationUtils
         for (Map.Entry<String, String> entry : from) {
             to.set(entry.getKey(), entry.getValue());
         }
-    }
-
-    public static JobConf toJobConf(Configuration conf)
-    {
-        if (conf instanceof JobConf) {
-            return (JobConf) conf;
-        }
-        return new JobConf(conf);
     }
 
     public static Configuration readConfiguration(List<File> resourcePaths)

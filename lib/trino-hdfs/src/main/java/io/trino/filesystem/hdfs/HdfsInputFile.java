@@ -26,11 +26,13 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.time.Instant;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
+import static io.trino.filesystem.hdfs.HdfsFileSystem.withCause;
 import static java.util.Objects.requireNonNull;
 
 class HdfsInputFile
@@ -40,19 +42,20 @@ class HdfsInputFile
     private final HdfsEnvironment environment;
     private final HdfsContext context;
     private final Path file;
+    private final CallStats openFileCallStat;
     private Long length;
     private FileStatus status;
-    private CallStats openFileCallStat;
 
     public HdfsInputFile(Location location, Long length, HdfsEnvironment environment, HdfsContext context, CallStats openFileCallStat)
     {
         this.location = requireNonNull(location, "location is null");
         this.environment = requireNonNull(environment, "environment is null");
         this.context = requireNonNull(context, "context is null");
+        this.openFileCallStat = requireNonNull(openFileCallStat, "openFileCallStat is null");
         this.file = hadoopPath(location);
         this.length = length;
-        this.openFileCallStat = requireNonNull(openFileCallStat, "openFileCallStat is null");
         checkArgument(length == null || length >= 0, "length is negative");
+        location.verifyValidFileLocation();
     }
 
     @Override
@@ -66,7 +69,7 @@ class HdfsInputFile
     public TrinoInputStream newStream()
             throws IOException
     {
-        return new HdfsTrinoInputStream(openFile());
+        return new HdfsTrinoInputStream(location, openFile());
     }
 
     @Override
@@ -117,7 +120,10 @@ class HdfsInputFile
             }
             catch (IOException e) {
                 openFileCallStat.recordException(e);
-                throw e;
+                if (e instanceof FileNotFoundException) {
+                    throw withCause(new FileNotFoundException(toString()), e);
+                }
+                throw new IOException("Open file %s failed: %s".formatted(location, e.getMessage()), e);
             }
         });
     }
@@ -127,7 +133,15 @@ class HdfsInputFile
     {
         if (status == null) {
             FileSystem fileSystem = environment.getFileSystem(context, file);
-            status = environment.doAs(context.getIdentity(), () -> fileSystem.getFileStatus(file));
+            try {
+                status = environment.doAs(context.getIdentity(), () -> fileSystem.getFileStatus(file));
+            }
+            catch (FileNotFoundException e) {
+                throw withCause(new FileNotFoundException(toString()), e);
+            }
+            catch (IOException e) {
+                throw new IOException("Get status for file %s failed: %s".formatted(location, e.getMessage()), e);
+            }
         }
         return status;
     }

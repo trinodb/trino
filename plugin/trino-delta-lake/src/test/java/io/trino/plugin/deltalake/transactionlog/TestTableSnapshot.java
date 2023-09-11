@@ -45,7 +45,7 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
-import static io.trino.plugin.hive.util.MultisetAssertions.assertMultisetsEqual;
+import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Collections.nCopies;
@@ -70,7 +70,7 @@ public class TestTableSnapshot
             throws URISyntaxException
     {
         checkpointSchemaManager = new CheckpointSchemaManager(TESTING_TYPE_MANAGER);
-        tableLocation = getClass().getClassLoader().getResource("databricks/person").toURI().toString();
+        tableLocation = getClass().getClassLoader().getResource("databricks73/person").toURI().toString();
 
         trackingFileSystemFactory = new TrackingFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS));
         trackingFileSystem = trackingFileSystemFactory.create(SESSION);
@@ -213,8 +213,8 @@ public class TestTableSnapshot
         return trackingFileSystemFactory.getOperationCounts()
                 .entrySet().stream()
                 .flatMap(entry -> nCopies(entry.getValue(), new FileOperation(
-                        entry.getKey().getLocation().toString().replaceFirst(".*/_delta_log/", ""),
-                        entry.getKey().getOperationType())).stream())
+                        entry.getKey().location().toString().replaceFirst(".*/_delta_log/", ""),
+                        entry.getKey().operationType())).stream())
                 .collect(toCollection(HashMultiset::create));
     }
 

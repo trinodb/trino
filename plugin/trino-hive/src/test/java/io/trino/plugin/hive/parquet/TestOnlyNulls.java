@@ -81,7 +81,7 @@ public class TestOnlyNulls
 
     private static ConnectorPageSource createPageSource(File parquetFile, HiveColumnHandle column, TupleDomain<HiveColumnHandle> domain)
     {
-        HivePageSourceFactory pageSourceFactory = StandardFileFormats.TRINO_PARQUET.getHivePageSourceFactory(HDFS_ENVIRONMENT).orElseThrow();
+        HivePageSourceFactory pageSourceFactory = StandardFileFormats.TRINO_PARQUET.getHivePageSourceFactory(HDFS_ENVIRONMENT);
 
         Properties schema = new Properties();
         schema.setProperty(SERIALIZATION_LIB, HiveStorageFormat.PARQUET.getSerde());

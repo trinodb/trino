@@ -205,29 +205,14 @@ public class CheckpointEntryIterator
 
     private DeltaLakeColumnHandle buildColumnHandle(EntryType entryType, CheckpointSchemaManager schemaManager, MetadataEntry metadataEntry)
     {
-        Type type;
-        switch (entryType) {
-            case TRANSACTION:
-                type = schemaManager.getTxnEntryType();
-                break;
-            case ADD:
-                type = schemaManager.getAddEntryType(metadataEntry, true, true);
-                break;
-            case REMOVE:
-                type = schemaManager.getRemoveEntryType();
-                break;
-            case METADATA:
-                type = schemaManager.getMetadataEntryType();
-                break;
-            case PROTOCOL:
-                type = schemaManager.getProtocolEntryType(true, true);
-                break;
-            case COMMIT:
-                type = schemaManager.getCommitInfoEntryType();
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported Delta Lake checkpoint entry type: " + entryType);
-        }
+        Type type = switch (entryType) {
+            case TRANSACTION -> schemaManager.getTxnEntryType();
+            case ADD -> schemaManager.getAddEntryType(metadataEntry, true, true);
+            case REMOVE -> schemaManager.getRemoveEntryType();
+            case METADATA -> schemaManager.getMetadataEntryType();
+            case PROTOCOL -> schemaManager.getProtocolEntryType(true, true);
+            case COMMIT -> schemaManager.getCommitInfoEntryType();
+        };
         return new DeltaLakeColumnHandle(entryType.getColumnName(), type, OptionalInt.empty(), entryType.getColumnName(), type, REGULAR, Optional.empty());
     }
 
@@ -243,26 +228,23 @@ public class CheckpointEntryIterator
         String field;
         Type type;
         switch (entryType) {
-            case COMMIT:
-            case TRANSACTION:
+            case COMMIT, TRANSACTION -> {
                 field = "version";
                 type = BIGINT;
-                break;
-            case ADD:
-            case REMOVE:
+            }
+            case ADD, REMOVE -> {
                 field = "path";
                 type = VARCHAR;
-                break;
-            case METADATA:
+            }
+            case METADATA -> {
                 field = "id";
                 type = VARCHAR;
-                break;
-            case PROTOCOL:
+            }
+            case PROTOCOL -> {
                 field = "minReaderVersion";
                 type = BIGINT;
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported Delta Lake checkpoint entry type: " + entryType);
+            }
+            default -> throw new IllegalArgumentException("Unsupported Delta Lake checkpoint entry type: " + entryType);
         }
         HiveColumnHandle handle = new HiveColumnHandle(
                 column.getBaseColumnName(),

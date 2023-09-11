@@ -241,7 +241,7 @@ public class TestHistogram
         BlockBuilder blockBuilder = function.getFinalType().createBlockBuilder(null, 1000);
 
         groupedAggregator.evaluate(0, blockBuilder);
-        assertTrue(blockBuilder.isNull(0));
+        assertTrue(blockBuilder.build().isNull(0));
     }
 
     @Test

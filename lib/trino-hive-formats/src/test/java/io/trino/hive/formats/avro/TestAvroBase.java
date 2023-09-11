@@ -167,7 +167,7 @@ public abstract class TestAvroBase
         ALL_TYPES_GENERIC_RECORD.put("aString", A_STRING_VALUE);
         allTypeBlocks.add(new VariableWidthBlock(1, Slices.utf8Slice(A_STRING_VALUE), new int[] {0, Slices.utf8Slice(A_STRING_VALUE).length()}, Optional.empty()));
         ALL_TYPES_GENERIC_RECORD.put("aBytes", A_BYTES_VALUE);
-        allTypeBlocks.add(new VariableWidthBlock(1, Slices.wrappedBuffer(A_BYTES_VALUE), new int[] {0, A_BYTES_VALUE.limit()}, Optional.empty()));
+        allTypeBlocks.add(new VariableWidthBlock(1, Slices.wrappedHeapBuffer(A_BYTES_VALUE), new int[] {0, A_BYTES_VALUE.limit()}, Optional.empty()));
         ALL_TYPES_GENERIC_RECORD.put("aFixed", A_FIXED_VALUE);
         allTypeBlocks.add(new VariableWidthBlock(1, Slices.wrappedBuffer(A_FIXED_VALUE.bytes()), new int[] {0, A_FIXED_VALUE.bytes().length}, Optional.empty()));
         ALL_TYPES_GENERIC_RECORD.put("anArray", ImmutableList.of(1, 2, 3, 4));
@@ -369,7 +369,7 @@ public abstract class TestAvroBase
         assertThat(VARCHAR.getObject(p.getBlock(5), 0)).isEqualTo(Slices.utf8Slice(A_STRING_VALUE));
         // test bytes
         assertThat(p.getBlock(6)).isInstanceOf(VariableWidthBlock.class);
-        assertThat(VarbinaryType.VARBINARY.getObject(p.getBlock(6), 0)).isEqualTo(Slices.wrappedBuffer(A_BYTES_VALUE));
+        assertThat(VarbinaryType.VARBINARY.getObject(p.getBlock(6), 0)).isEqualTo(Slices.wrappedHeapBuffer(A_BYTES_VALUE));
         // test fixed
         assertThat(p.getBlock(7)).isInstanceOf(VariableWidthBlock.class);
         assertThat(VarbinaryType.VARBINARY.getObject(p.getBlock(7), 0)).isEqualTo(Slices.wrappedBuffer(A_FIXED_VALUE.bytes()));

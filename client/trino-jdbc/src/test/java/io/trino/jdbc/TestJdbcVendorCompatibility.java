@@ -570,7 +570,7 @@ public class TestJdbcVendorCompatibility
         PostgresqlReferenceDriver()
         {
             // Use the current latest PostgreSQL version as the reference
-            postgresqlContainer = new PostgreSQLContainer<>("postgres:12.4");
+            postgresqlContainer = new PostgreSQLContainer<>("postgres:15");
             postgresqlContainer.start();
         }
 

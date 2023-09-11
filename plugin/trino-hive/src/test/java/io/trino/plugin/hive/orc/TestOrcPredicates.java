@@ -48,7 +48,6 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.buildColumnMappings;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
@@ -219,8 +218,6 @@ public class TestOrcPredicates
 
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
                 ImmutableSet.of(readerFactory),
-                ImmutableSet.of(),
-                newEmptyConfiguration(),
                 session,
                 Location.of(split.getPath().toString()),
                 OptionalInt.empty(),
@@ -229,11 +226,9 @@ public class TestOrcPredicates
                 split.getLength(),
                 splitProperties,
                 predicate,
-                columnHandles,
                 TESTING_TYPE_MANAGER,
                 Optional.empty(),
                 Optional.empty(),
-                false,
                 Optional.empty(),
                 false,
                 NO_ACID_TRANSACTION,

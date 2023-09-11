@@ -24,7 +24,6 @@ import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.metadata.InMemoryNodeManager;
-import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.PageAssertions;
 import io.trino.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
 import io.trino.spi.Page;
@@ -41,7 +40,6 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.testing.TestingTransactionHandle;
-import io.trino.type.BlockTypeOperators;
 import io.trino.util.FinalizerService;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -59,6 +57,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD;
+import static io.trino.operator.InterpretedHashGenerator.createChannelsHashGenerator;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -84,7 +83,7 @@ public class TestLocalExchange
     private static final DataSize RETAINED_PAGE_SIZE = DataSize.ofBytes(createPage(42).getRetainedSizeInBytes());
     private static final DataSize PAGE_SIZE = DataSize.ofBytes(createPage(42).getSizeInBytes());
     private static final DataSize LOCAL_EXCHANGE_MAX_BUFFERED_BYTES = DataSize.of(32, MEGABYTE);
-    private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
+    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
     private static final Session SESSION = testSessionBuilder().build();
     private static final DataSize WRITER_SCALING_MIN_DATA_PROCESSED = DataSize.of(32, MEGABYTE);
 
@@ -100,7 +99,7 @@ public class TestLocalExchange
                 new NodeTaskMap(new FinalizerService())));
         nodePartitioningManager = new NodePartitioningManager(
                 nodeScheduler,
-                new BlockTypeOperators(new TypeOperators()),
+                new TypeOperators(),
                 catalogHandle -> {
                     ConnectorNodePartitioningProvider result = partitionManagers.get(catalogHandle);
                     checkArgument(result != null, "No partition manager for catalog handle: %s", catalogHandle);
@@ -120,7 +119,7 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(99)),
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 WRITER_SCALING_MIN_DATA_PROCESSED);
 
         run(localExchange, exchange -> {
@@ -193,7 +192,7 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 WRITER_SCALING_MIN_DATA_PROCESSED);
 
         run(localExchange, exchange -> {
@@ -242,7 +241,7 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(4)),
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 DataSize.ofBytes(sizeOfPages(2)));
 
         run(localExchange, exchange -> {
@@ -301,7 +300,7 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(4)),
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 DataSize.ofBytes(sizeOfPages(10)));
 
         run(localExchange, exchange -> {
@@ -342,7 +341,7 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(20)),
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 DataSize.ofBytes(sizeOfPages(2)));
 
         run(localExchange, exchange -> {
@@ -388,7 +387,7 @@ public class TestLocalExchange
                 TYPES,
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(2)),
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 DataSize.of(10, KILOBYTE));
 
         run(localExchange, exchange -> {
@@ -477,7 +476,7 @@ public class TestLocalExchange
                 TYPES,
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(2)),
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 DataSize.of(50, MEGABYTE));
 
         run(localExchange, exchange -> {
@@ -540,7 +539,7 @@ public class TestLocalExchange
                 TYPES,
                 Optional.empty(),
                 DataSize.of(50, MEGABYTE),
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 DataSize.of(10, KILOBYTE));
 
         run(localExchange, exchange -> {
@@ -603,7 +602,7 @@ public class TestLocalExchange
                 TYPES,
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(2)),
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 DataSize.of(50, KILOBYTE));
 
         run(localExchange, exchange -> {
@@ -650,7 +649,7 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(1)),
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 WRITER_SCALING_MIN_DATA_PROCESSED);
 
         run(localExchange, exchange -> {
@@ -717,7 +716,7 @@ public class TestLocalExchange
                 TYPES,
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 WRITER_SCALING_MIN_DATA_PROCESSED);
 
         run(localExchange, exchange -> {
@@ -813,7 +812,7 @@ public class TestLocalExchange
                 ImmutableList.of(BIGINT),
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 WRITER_SCALING_MIN_DATA_PROCESSED);
 
         run(localExchange, exchange -> {
@@ -864,7 +863,7 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 WRITER_SCALING_MIN_DATA_PROCESSED);
 
         run(localExchange, exchange -> {
@@ -911,7 +910,7 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 Optional.empty(),
                 DataSize.ofBytes(2),
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 WRITER_SCALING_MIN_DATA_PROCESSED);
 
         run(localExchange, exchange -> {
@@ -1069,7 +1068,7 @@ public class TestLocalExchange
         Page page = source.removePage();
         assertNotNull(page);
 
-        LocalPartitionGenerator partitionGenerator = new LocalPartitionGenerator(new InterpretedHashGenerator(TYPES, new int[] {0}, TYPE_OPERATOR_FACTORY), partitionCount);
+        LocalPartitionGenerator partitionGenerator = new LocalPartitionGenerator(createChannelsHashGenerator(TYPES, new int[]{0}, TYPE_OPERATORS), partitionCount);
         for (int position = 0; position < page.getPositionCount(); position++) {
             assertEquals(partitionGenerator.getPartition(page, position), partition);
         }

@@ -19,6 +19,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
@@ -49,6 +50,7 @@ import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.ReusableConnectionFactoryModule;
 import io.trino.plugin.jdbc.StatsCollecting;
+import io.trino.plugin.jdbc.SyntheticColumnHandleBuilderModule;
 import io.trino.plugin.jdbc.TypeHandlingJdbcConfig;
 import io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties;
 import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
@@ -149,6 +151,7 @@ public class PhoenixClientModule
         install(new JdbcDiagnosticModule());
         install(new IdentifierMappingModule());
         install(new DecimalModule());
+        install(new SyntheticColumnHandleBuilderModule());
     }
 
     private void checkConfiguration(String connectionUrl)
@@ -165,7 +168,7 @@ public class PhoenixClientModule
     @Provides
     @Singleton
     @ForBaseJdbc
-    public ConnectionFactory getConnectionFactory(PhoenixConfig config)
+    public ConnectionFactory getConnectionFactory(PhoenixConfig config, OpenTelemetry openTelemetry)
             throws SQLException
     {
         return new ConfiguringConnectionFactory(
@@ -173,7 +176,8 @@ public class PhoenixClientModule
                         PhoenixDriver.INSTANCE, // Note: for some reason new PhoenixDriver won't work.
                         config.getConnectionUrl(),
                         getConnectionProperties(config),
-                        new EmptyCredentialProvider()),
+                        new EmptyCredentialProvider(),
+                        openTelemetry),
                 connection -> {
                     // Per JDBC spec, a Driver is expected to have new connections in auto-commit mode.
                     // This seems not to be true for PhoenixDriver, so we need to be explicit here.

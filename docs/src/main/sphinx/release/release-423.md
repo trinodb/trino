@@ -40,7 +40,6 @@
 
 ## Blackhole connector
 
-* Add support for materialized views. ({issue}`18016`)
 * Add support for the `COMMENT ON VIEW` statement. ({issue}`18516`)
 
 ## Delta Lake connector
@@ -86,9 +85,6 @@
 
 ## Hudi connector
 
-* Improve memory accounting of the Parquet writer. ({issue}`18564`)
-* Fix incorrectly creating files smaller than the configured
-  `file_size_threshold` as part of `OPTIMIZE`. ({issue}`18388`)
 * Fix query failure when a table has a file with a location ending with
   whitespace. ({issue}`18206`)
 
