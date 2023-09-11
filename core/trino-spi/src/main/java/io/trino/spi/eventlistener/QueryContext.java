@@ -34,6 +34,7 @@ public class QueryContext
     private final String user;
     private final String originalUser;
     private final Optional<String> principal;
+    private final Set<String> enabledRoles;
     private final Set<String> groups;
     private final Optional<String> traceToken;
     private final Optional<String> remoteClientAddress;
@@ -65,6 +66,7 @@ public class QueryContext
             String user,
             String originalUser,
             Optional<String> principal,
+            Set<String> enabledRoles,
             Set<String> groups,
             Optional<String> traceToken,
             Optional<String> remoteClientAddress,
@@ -87,6 +89,7 @@ public class QueryContext
         this.user = requireNonNull(user, "user is null");
         this.originalUser = requireNonNull(originalUser, "originalUser is null");
         this.principal = requireNonNull(principal, "principal is null");
+        this.enabledRoles = requireNonNull(enabledRoles, "enabledRoles is null");
         this.groups = requireNonNull(groups, "groups is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.remoteClientAddress = requireNonNull(remoteClientAddress, "remoteClientAddress is null");
@@ -123,6 +126,12 @@ public class QueryContext
     public Optional<String> getPrincipal()
     {
         return principal;
+    }
+
+    @JsonProperty
+    public Set<String> getEnabledRoles()
+    {
+        return enabledRoles;
     }
 
     @JsonProperty
