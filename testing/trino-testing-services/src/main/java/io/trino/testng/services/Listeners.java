@@ -43,7 +43,7 @@ final class Listeners
 
     public static String formatTestName(ITestClass testClass)
     {
-        return testClass.getName();
+        return testClass.getName() + "@" + testClass.hashCode();
     }
 
     public static String formatTestName(ITestResult testCase)
