@@ -88,6 +88,34 @@ public class TestHiveWithPlanAlternativesConnectorTest
 
     @Override
     @Test
+    public void testMultipleWriters()
+    {
+        // Not applicable with plan alternatives
+    }
+
+    @Override
+    @Test
+    public void testMultipleWritersWithSkewedData()
+    {
+        // Not applicable with plan alternatives
+    }
+
+    @Override
+    @Test
+    public void testMultipleWritersWhenTaskScaleWritersIsEnabled()
+    {
+        // Not applicable with plan alternatives
+    }
+
+    @Override
+    @Test
+    public void testTaskWritersDoesNotScaleWithLargeMinWriterSize()
+    {
+        // Not applicable with plan alternatives
+    }
+
+    @Override
+    @Test
     public void testWritersAcrossMultipleWorkersWhenScaleWritersIsEnabled()
     {
         // Not applicable with plan alternatives
