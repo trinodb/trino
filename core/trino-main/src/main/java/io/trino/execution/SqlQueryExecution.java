@@ -565,6 +565,11 @@ public class SqlQueryExecution
         }
 
         queryScheduler.set(scheduler);
+        stateMachine.addQueryInfoStateChangeListener(queryInfo -> {
+            if (queryInfo.isFinalQueryInfo()) {
+                queryScheduler.set(null);
+            }
+        });
     }
 
     @Override
@@ -686,14 +691,7 @@ public class SqlQueryExecution
         if (scheduler != null) {
             stageInfo = Optional.ofNullable(scheduler.getStageInfo());
         }
-
-        QueryInfo queryInfo = stateMachine.updateQueryInfo(stageInfo);
-        if (queryInfo.isFinalQueryInfo()) {
-            // capture the final query state and drop reference to the scheduler
-            queryScheduler.set(null);
-        }
-
-        return queryInfo;
+        return stateMachine.updateQueryInfo(stageInfo);
     }
 
     @Override
