@@ -95,12 +95,10 @@ public final class Hadoop
         portBinder.exposePort(container, 8088);
         portBinder.exposePort(container, 9000);
         portBinder.exposePort(container, 9083); // Metastore Thrift
-        portBinder.exposePort(container, 9864); // DataNode Web UI since Hadoop 3
-        portBinder.exposePort(container, 9870); // NameNode Web UI since Hadoop 3
+        portBinder.exposePort(container, 9864); // DataNode Web UI
+        portBinder.exposePort(container, 9870); // NameNode Web UI
         portBinder.exposePort(container, 10000); // HiveServer2
         portBinder.exposePort(container, 19888);
-        portBinder.exposePort(container, 50070); // NameNode Web UI prior to Hadoop 3
-        portBinder.exposePort(container, 50075); // DataNode Web UI prior to Hadoop 3
 
         return container;
     }

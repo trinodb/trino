@@ -59,10 +59,4 @@ public class ConfigHdp3
         // When hive performs implicit coercion to/from timestamp for ORC files, it depends on timezone of the HiveServer
         builder.configureContainer(HADOOP, container -> container.withEnv("TZ", "UTC"));
     }
-
-    @Override
-    public String getTemptoEnvironmentConfigFile()
-    {
-        return "/docker/presto-product-tests/conf/tempto/tempto-configuration-for-hive3.yaml";
-    }
 }
