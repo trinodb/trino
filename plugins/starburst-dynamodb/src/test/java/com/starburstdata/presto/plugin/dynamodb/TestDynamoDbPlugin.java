@@ -30,7 +30,7 @@ public class TestDynamoDbPlugin
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         assertThatThrownBy(() -> factory.create("test", ImmutableMap.of(), new TestingConnectorContext()))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Starburst Enterprise requires valid license");
+                .hasMessageContaining("Valid license required to use the feature: Starburst DynamoDB connector");
     }
 
     @Test

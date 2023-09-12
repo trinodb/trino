@@ -18,6 +18,7 @@ import io.trino.plugin.jdbc.JdbcConnectorFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
+import static com.starburstdata.presto.license.StarburstFeature.DYNAMODB;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static java.util.Objects.requireNonNull;
 
@@ -27,7 +28,7 @@ public class DynamoDbPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new LicenceCheckingConnectorFactory(getConnectorFactory(new LicenseManagerProvider().get(), false)));
+        return ImmutableList.of(new LicenceCheckingConnectorFactory(DYNAMODB, getConnectorFactory(new LicenseManagerProvider().get(), false)));
     }
 
     @VisibleForTesting
