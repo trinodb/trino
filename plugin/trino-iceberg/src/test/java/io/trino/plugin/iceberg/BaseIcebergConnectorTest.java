@@ -128,6 +128,7 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -4686,7 +4687,7 @@ public abstract class BaseIcebergConnectorTest
             verifySplitCount("SELECT row_id FROM " + tableName + " WHERE col > " + sampleValue,
                     (format == ORC && testSetup.getTrinoTypeName().contains("timestamp") ? 2 : expectedSplitCount));
             verifySplitCount("SELECT row_id FROM " + tableName + " WHERE col < " + highValue,
-                    (format == ORC && testSetup.getTrinoTypeName().contains("timestamp") ? 2 : expectedSplitCount));
+                    (format == ORC && testSetup.getTrinoTypeName().contains("timestamp(6)") ? 2 : expectedSplitCount));
         }
     }
 
@@ -4817,14 +4818,6 @@ public abstract class BaseIcebergConnectorTest
             // These types are not supported by Iceberg
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
-
-        // According to Iceberg specification all time and timestamp values are stored with microsecond precision.
-        if (typeName.equals("time") ||
-                typeName.equals("timestamp") ||
-                typeName.equals("timestamp(3) with time zone")) {
-            return Optional.of(dataMappingTestSetup.asUnsupported());
-        }
-
         return Optional.of(dataMappingTestSetup);
     }
 
@@ -6991,9 +6984,154 @@ public abstract class BaseIcebergConnectorTest
         assertThat(e).hasMessageMatching("Table name must be shorter than or equal to '128' characters but got .*");
     }
 
+    @Test(dataProvider = "testTimestampPrecisionOnCreateTableAsSelect")
+    public void testTimestampPrecisionOnCreateTableAsSelect(TimestampPrecisionTestSetup setup)
+    {
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_coercion_show_create_table",
+                format("AS SELECT %s a", setup.sourceValueLiteral))) {
+            assertEquals(getColumnType(testTable.getName(), "a"), setup.newColumnType);
+            assertQuery(
+                    format("SELECT * FROM %s", testTable.getName()),
+                    format("VALUES (%s)", setup.newValueLiteral));
+        }
+    }
+
+    @Test(dataProvider = "testTimestampPrecisionOnCreateTableAsSelect")
+    public void testTimestampPrecisionOnCreateTableAsSelectWithNoData(TimestampPrecisionTestSetup setup)
+    {
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_coercion_show_create_table",
+                format("AS SELECT %s a WITH NO DATA", setup.sourceValueLiteral))) {
+            assertEquals(getColumnType(testTable.getName(), "a"), setup.newColumnType);
+        }
+    }
+
+    @DataProvider(name = "testTimestampPrecisionOnCreateTableAsSelect")
+    public Object[][] timestampPrecisionOnCreateTableAsSelectProvider()
+    {
+        return timestampPrecisionOnCreateTableAsSelectData().stream()
+                .map(this::filterTimestampPrecisionOnCreateTableAsSelectProvider)
+                .flatMap(Optional::stream)
+                .collect(toDataProvider());
+    }
+
+    protected Optional<TimestampPrecisionTestSetup> filterTimestampPrecisionOnCreateTableAsSelectProvider(TimestampPrecisionTestSetup setup)
+    {
+        return Optional.of(setup);
+    }
+
+    private List<TimestampPrecisionTestSetup> timestampPrecisionOnCreateTableAsSelectData()
+    {
+        return ImmutableList.<TimestampPrecisionTestSetup>builder()
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.9'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.900000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.56'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.560000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.4896'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.489600'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.89356'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.893560'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123000'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.999'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.999000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123456'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '2020-09-27 12:34:56.1'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.100000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '2020-09-27 12:34:56.9'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.900000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '2020-09-27 12:34:56.123'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.123000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '2020-09-27 12:34:56.123000'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.123000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '2020-09-27 12:34:56.999'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.999000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '2020-09-27 12:34:56.123456'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.123456'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.1234561'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123456499'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123456499999'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.1234565'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123457'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.111222333444'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.111222'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.9999995'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:01.000000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 23:59:59.9999995'", "timestamp(6)", "TIMESTAMP '1970-01-02 00:00:00.000000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1969-12-31 23:59:59.9999995'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.999999'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1969-12-31 23:59:59.9999994'", "timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.999999'"))
+                .build();
+    }
+
+    public record TimestampPrecisionTestSetup(String sourceValueLiteral, String newColumnType, String newValueLiteral)
+    {
+        public TimestampPrecisionTestSetup
+        {
+            requireNonNull(sourceValueLiteral, "sourceValueLiteral is null");
+            requireNonNull(newColumnType, "newColumnType is null");
+            requireNonNull(newValueLiteral, "newValueLiteral is null");
+        }
+
+        public TimestampPrecisionTestSetup withNewValueLiteral(String newValueLiteral)
+        {
+            return new TimestampPrecisionTestSetup(sourceValueLiteral, newColumnType, newValueLiteral);
+        }
+    }
+
+    @Test(dataProvider = "testTimePrecisionOnCreateTableAsSelect")
+    public void testTimePrecisionOnCreateTableAsSelect(String inputType, String tableType, String tableValue)
+    {
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_coercion_show_create_table",
+                format("AS SELECT %s a", inputType))) {
+            assertEquals(getColumnType(testTable.getName(), "a"), tableType);
+            assertQuery(
+                    format("SELECT * FROM %s", testTable.getName()),
+                    format("VALUES (%s)", tableValue));
+        }
+    }
+
+    @Test(dataProvider = "testTimePrecisionOnCreateTableAsSelect")
+    public void testTimePrecisionOnCreateTableAsSelectWithNoData(String inputType, String tableType, String ignored)
+    {
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_coercion_show_create_table",
+                format("AS SELECT %s a WITH NO DATA", inputType))) {
+            assertEquals(getColumnType(testTable.getName(), "a"), tableType);
+        }
+    }
+
+    @DataProvider(name = "testTimePrecisionOnCreateTableAsSelect")
+    public static Object[][] timePrecisionOnCreateTableAsSelectProvider()
+    {
+        return new Object[][] {
+                {"TIME '00:00:00'", "time(6)", "TIME '00:00:00.000000'"},
+                {"TIME '00:00:00.9'", "time(6)", "TIME '00:00:00.900000'"},
+                {"TIME '00:00:00.56'", "time(6)", "TIME '00:00:00.560000'"},
+                {"TIME '00:00:00.123'", "time(6)", "TIME '00:00:00.123000'"},
+                {"TIME '00:00:00.4896'", "time(6)", "TIME '00:00:00.489600'"},
+                {"TIME '00:00:00.89356'", "time(6)", "TIME '00:00:00.893560'"},
+                {"TIME '00:00:00.123000'", "time(6)", "TIME '00:00:00.123000'"},
+                {"TIME '00:00:00.999'", "time(6)", "TIME '00:00:00.999000'"},
+                {"TIME '00:00:00.123456'", "time(6)", "TIME '00:00:00.123456'"},
+                {"TIME '12:34:56.1'", "time(6)", "TIME '12:34:56.100000'"},
+                {"TIME '12:34:56.9'", "time(6)", "TIME '12:34:56.900000'"},
+                {"TIME '12:34:56.123'", "time(6)", "TIME '12:34:56.123000'"},
+                {"TIME '12:34:56.123000'", "time(6)", "TIME '12:34:56.123000'"},
+                {"TIME '12:34:56.999'", "time(6)", "TIME '12:34:56.999000'"},
+                {"TIME '12:34:56.123456'", "time(6)", "TIME '12:34:56.123456'"},
+                {"TIME '00:00:00.1234561'", "time(6)", "TIME '00:00:00.123456'"},
+                {"TIME '00:00:00.123456499'", "time(6)", "TIME '00:00:00.123456'"},
+                {"TIME '00:00:00.123456499999'", "time(6)", "TIME '00:00:00.123456'"},
+                {"TIME '00:00:00.1234565'", "time(6)", "TIME '00:00:00.123457'"},
+                {"TIME '00:00:00.111222333444'", "time(6)", "TIME '00:00:00.111222'"},
+                {"TIME '00:00:00.9999995'", "time(6)", "TIME '00:00:01.000000'"},
+                {"TIME '23:59:59.9999995'", "time(6)", "TIME '00:00:00.000000'"},
+                {"TIME '23:59:59.9999995'", "time(6)", "TIME '00:00:00.000000'"},
+                {"TIME '23:59:59.999999499999'", "time(6)", "TIME '23:59:59.999999'"},
+                {"TIME '23:59:59.9999994'", "time(6)", "TIME '23:59:59.999999'"}};
+    }
+
     @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
+        if (setup.sourceColumnType().equals("timestamp(3) with time zone")) {
+            // The connector returns UTC instead of the given time zone
+            return Optional.of(setup.withNewValueLiteral("TIMESTAMP '2020-02-12 14:03:00.123000 +00:00'"));
+        }
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
             case "bigint -> integer":
             case "decimal(5,3) -> decimal(5,2)":
