@@ -24,6 +24,7 @@ import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.server.testing.TestingTrinoServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -75,6 +76,12 @@ import static org.testng.Assert.assertTrue;
 
 public class TestJdbcPreparedStatement
 {
+    @DataProvider
+    public Object[][] legacyPreparedStatementProvider()
+    {
+        return new Object[][] {{true}, {false}};
+    }
+
     private static final int HEADER_SIZE_LIMIT = 16 * 1024;
 
     private TestingTrinoServer server;
@@ -96,7 +103,7 @@ public class TestJdbcPreparedStatement
         server.createCatalog("memory", "memory");
         server.waitForNodeRefresh(Duration.ofSeconds(10));
 
-        try (Connection connection = createConnection();
+        try (Connection connection = createConnection(false);
                 Statement statement = connection.createStatement()) {
             statement.executeUpdate("CREATE SCHEMA blackhole.blackhole");
         }
@@ -110,11 +117,11 @@ public class TestJdbcPreparedStatement
         server = null;
     }
 
-    @Test
-    public void testExecuteQuery()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testExecuteQuery(boolean useLegacyPreparedStatements)
             throws Exception
     {
-        try (Connection connection = createConnection();
+        try (Connection connection = createConnection(useLegacyPreparedStatements);
                 PreparedStatement statement = connection.prepareStatement("SELECT ?, ?")) {
             statement.setInt(1, 123);
             statement.setString(2, "hello");
@@ -136,11 +143,11 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test
-    public void testGetMetadata()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testGetMetadata(boolean useLegacyPreparedStatements)
             throws Exception
     {
-        try (Connection connection = createConnection("blackhole", "blackhole")) {
+        try (Connection connection = createConnection("blackhole", "blackhole", useLegacyPreparedStatements)) {
             try (Statement statement = connection.createStatement()) {
                 statement.execute("CREATE TABLE test_get_metadata (" +
                         "c_boolean boolean, " +
@@ -194,11 +201,11 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test
-    public void testGetParameterMetaData()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testGetParameterMetaData(boolean useLegacyPreparedStatements)
             throws Exception
     {
-        try (Connection connection = createConnection("blackhole", "blackhole")) {
+        try (Connection connection = createConnection("blackhole", "blackhole", useLegacyPreparedStatements)) {
             try (Statement statement = connection.createStatement()) {
                 statement.execute("CREATE TABLE test_get_parameterMetaData (" +
                         "c_boolean boolean, " +
@@ -382,11 +389,11 @@ public class TestJdbcPreparedStatement
         assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
     }
 
-    @Test
-    public void testDeallocate()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testDeallocate(boolean useLegacyPreparedStatements)
             throws Exception
     {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = createConnection(useLegacyPreparedStatements)) {
             for (int i = 0; i < 200; i++) {
                 try {
                     connection.prepareStatement("SELECT '" + repeat("a", 300) + "'").close();
@@ -398,23 +405,23 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test
-    public void testCloseIdempotency()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testCloseIdempotency(boolean useLegacyPreparedStatements)
             throws Exception
     {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = createConnection(useLegacyPreparedStatements)) {
             PreparedStatement statement = connection.prepareStatement("SELECT 123");
             statement.close();
             statement.close();
         }
     }
 
-    @Test
-    public void testLargePreparedStatement()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testLargePreparedStatement(boolean useLegacyPreparedStatements)
             throws Exception
     {
         int elements = HEADER_SIZE_LIMIT + 1;
-        try (Connection connection = createConnection();
+        try (Connection connection = createConnection(useLegacyPreparedStatements);
                 PreparedStatement statement = connection.prepareStatement("VALUES ?" + repeat(", ?", elements - 1))) {
             for (int i = 0; i < elements; i++) {
                 statement.setLong(i + 1, i);
@@ -426,11 +433,11 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test
-    public void testExecuteUpdate()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testExecuteUpdate(boolean useLegacyPreparedStatements)
             throws Exception
     {
-        try (Connection connection = createConnection("blackhole", "blackhole")) {
+        try (Connection connection = createConnection("blackhole", "blackhole", useLegacyPreparedStatements)) {
             try (Statement statement = connection.createStatement()) {
                 statement.execute("CREATE TABLE test_execute_update (" +
                         "c_boolean boolean, " +
@@ -465,11 +472,11 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test
-    public void testExecuteBatch()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testExecuteBatch(boolean useLegacyPreparedStatements)
             throws Exception
     {
-        try (Connection connection = createConnection("memory", "default")) {
+        try (Connection connection = createConnection("memory", "default", useLegacyPreparedStatements)) {
             try (Statement statement = connection.createStatement()) {
                 statement.execute("CREATE TABLE test_execute_batch(c_int integer)");
             }
@@ -512,11 +519,11 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test
-    public void testInvalidExecuteBatch()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testInvalidExecuteBatch(boolean useLegacyPreparedStatements)
             throws Exception
     {
-        try (Connection connection = createConnection("blackhole", "blackhole")) {
+        try (Connection connection = createConnection("blackhole", "blackhole", useLegacyPreparedStatements)) {
             try (Statement statement = connection.createStatement()) {
                 statement.execute("CREATE TABLE test_invalid_execute_batch(c_int integer)");
             }
@@ -547,11 +554,11 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test
-    public void testPrepareMultiple()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testPrepareMultiple(boolean useLegacyPreparedStatements)
             throws Exception
     {
-        try (Connection connection = createConnection();
+        try (Connection connection = createConnection(useLegacyPreparedStatements);
                 PreparedStatement statement1 = connection.prepareStatement("SELECT 123");
                 PreparedStatement statement2 = connection.prepareStatement("SELECT 456")) {
             try (ResultSet rs = statement1.executeQuery()) {
@@ -568,12 +575,12 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test
-    public void testPrepareLarge()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testPrepareLarge(boolean useLegacyPreparedStatements)
             throws Exception
     {
         String sql = format("SELECT '%s' = '%s'", repeat("x", 100_000), repeat("y", 100_000));
-        try (Connection connection = createConnection();
+        try (Connection connection = createConnection(useLegacyPreparedStatements);
                 PreparedStatement statement = connection.prepareStatement(sql);
                 ResultSet rs = statement.executeQuery()) {
             assertTrue(rs.next());
@@ -582,47 +589,47 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test
-    public void testSetNull()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testSetNull(boolean useLegacyPreparedStatements)
             throws Exception
     {
-        assertSetNull(Types.BOOLEAN);
-        assertSetNull(Types.BIT, Types.BOOLEAN);
-        assertSetNull(Types.TINYINT);
-        assertSetNull(Types.SMALLINT);
-        assertSetNull(Types.INTEGER);
-        assertSetNull(Types.BIGINT);
-        assertSetNull(Types.REAL);
-        assertSetNull(Types.FLOAT, Types.REAL);
-        assertSetNull(Types.DECIMAL);
-        assertSetNull(Types.NUMERIC, Types.DECIMAL);
-        assertSetNull(Types.CHAR);
-        assertSetNull(Types.NCHAR, Types.CHAR);
-        assertSetNull(Types.VARCHAR, Types.VARCHAR);
-        assertSetNull(Types.NVARCHAR, Types.VARCHAR);
-        assertSetNull(Types.LONGVARCHAR, Types.VARCHAR);
-        assertSetNull(Types.VARCHAR, Types.VARCHAR);
-        assertSetNull(Types.CLOB, Types.VARCHAR);
-        assertSetNull(Types.NCLOB, Types.VARCHAR);
-        assertSetNull(Types.VARBINARY, Types.VARBINARY);
-        assertSetNull(Types.VARBINARY);
-        assertSetNull(Types.BLOB, Types.VARBINARY);
-        assertSetNull(Types.DATE);
-        assertSetNull(Types.TIME);
-        assertSetNull(Types.TIMESTAMP);
-        assertSetNull(Types.NULL);
+        assertSetNull(Types.BOOLEAN, useLegacyPreparedStatements);
+        assertSetNull(Types.BIT, Types.BOOLEAN, useLegacyPreparedStatements);
+        assertSetNull(Types.TINYINT, useLegacyPreparedStatements);
+        assertSetNull(Types.SMALLINT, useLegacyPreparedStatements);
+        assertSetNull(Types.INTEGER, useLegacyPreparedStatements);
+        assertSetNull(Types.BIGINT, useLegacyPreparedStatements);
+        assertSetNull(Types.REAL, useLegacyPreparedStatements);
+        assertSetNull(Types.FLOAT, Types.REAL, useLegacyPreparedStatements);
+        assertSetNull(Types.DECIMAL, useLegacyPreparedStatements);
+        assertSetNull(Types.NUMERIC, Types.DECIMAL, useLegacyPreparedStatements);
+        assertSetNull(Types.CHAR, useLegacyPreparedStatements);
+        assertSetNull(Types.NCHAR, Types.CHAR, useLegacyPreparedStatements);
+        assertSetNull(Types.VARCHAR, Types.VARCHAR, useLegacyPreparedStatements);
+        assertSetNull(Types.NVARCHAR, Types.VARCHAR, useLegacyPreparedStatements);
+        assertSetNull(Types.LONGVARCHAR, Types.VARCHAR, useLegacyPreparedStatements);
+        assertSetNull(Types.VARCHAR, Types.VARCHAR, useLegacyPreparedStatements);
+        assertSetNull(Types.CLOB, Types.VARCHAR, useLegacyPreparedStatements);
+        assertSetNull(Types.NCLOB, Types.VARCHAR, useLegacyPreparedStatements);
+        assertSetNull(Types.VARBINARY, Types.VARBINARY, useLegacyPreparedStatements);
+        assertSetNull(Types.VARBINARY, useLegacyPreparedStatements);
+        assertSetNull(Types.BLOB, Types.VARBINARY, useLegacyPreparedStatements);
+        assertSetNull(Types.DATE, useLegacyPreparedStatements);
+        assertSetNull(Types.TIME, useLegacyPreparedStatements);
+        assertSetNull(Types.TIMESTAMP, useLegacyPreparedStatements);
+        assertSetNull(Types.NULL, useLegacyPreparedStatements);
     }
 
-    private void assertSetNull(int sqlType)
+    private void assertSetNull(int sqlType, boolean useLegacyPreparedStatements)
             throws SQLException
     {
-        assertSetNull(sqlType, sqlType);
+        assertSetNull(sqlType, sqlType, useLegacyPreparedStatements);
     }
 
-    private void assertSetNull(int sqlType, int expectedSqlType)
+    private void assertSetNull(int sqlType, int expectedSqlType, boolean useLegacyPreparedStatements)
             throws SQLException
     {
-        try (Connection connection = createConnection();
+        try (Connection connection = createConnection(useLegacyPreparedStatements);
                 PreparedStatement statement = connection.prepareStatement("SELECT ?")) {
             statement.setNull(1, sqlType);
 
@@ -637,219 +644,219 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test
-    public void testConvertBoolean()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testConvertBoolean(boolean useLegacyPreparedStatements)
             throws SQLException
     {
-        assertBind((ps, i) -> ps.setBoolean(i, true)).roundTripsAs(Types.BOOLEAN, true);
-        assertBind((ps, i) -> ps.setBoolean(i, false)).roundTripsAs(Types.BOOLEAN, false);
-        assertBind((ps, i) -> ps.setObject(i, true)).roundTripsAs(Types.BOOLEAN, true);
-        assertBind((ps, i) -> ps.setObject(i, false)).roundTripsAs(Types.BOOLEAN, false);
+        assertBind((ps, i) -> ps.setBoolean(i, true), useLegacyPreparedStatements).roundTripsAs(Types.BOOLEAN, true);
+        assertBind((ps, i) -> ps.setBoolean(i, false), useLegacyPreparedStatements).roundTripsAs(Types.BOOLEAN, false);
+        assertBind((ps, i) -> ps.setObject(i, true), useLegacyPreparedStatements).roundTripsAs(Types.BOOLEAN, true);
+        assertBind((ps, i) -> ps.setObject(i, false), useLegacyPreparedStatements).roundTripsAs(Types.BOOLEAN, false);
 
         for (int type : asList(Types.BOOLEAN, Types.BIT)) {
-            assertBind((ps, i) -> ps.setObject(i, true, type)).roundTripsAs(Types.BOOLEAN, true);
-            assertBind((ps, i) -> ps.setObject(i, false, type)).roundTripsAs(Types.BOOLEAN, false);
-            assertBind((ps, i) -> ps.setObject(i, 13, type)).roundTripsAs(Types.BOOLEAN, true);
-            assertBind((ps, i) -> ps.setObject(i, 0, type)).roundTripsAs(Types.BOOLEAN, false);
-            assertBind((ps, i) -> ps.setObject(i, "1", type)).roundTripsAs(Types.BOOLEAN, true);
-            assertBind((ps, i) -> ps.setObject(i, "true", type)).roundTripsAs(Types.BOOLEAN, true);
-            assertBind((ps, i) -> ps.setObject(i, "0", type)).roundTripsAs(Types.BOOLEAN, false);
-            assertBind((ps, i) -> ps.setObject(i, "false", type)).roundTripsAs(Types.BOOLEAN, false);
+            assertBind((ps, i) -> ps.setObject(i, true, type), useLegacyPreparedStatements).roundTripsAs(Types.BOOLEAN, true);
+            assertBind((ps, i) -> ps.setObject(i, false, type), useLegacyPreparedStatements).roundTripsAs(Types.BOOLEAN, false);
+            assertBind((ps, i) -> ps.setObject(i, 13, type), useLegacyPreparedStatements).roundTripsAs(Types.BOOLEAN, true);
+            assertBind((ps, i) -> ps.setObject(i, 0, type), useLegacyPreparedStatements).roundTripsAs(Types.BOOLEAN, false);
+            assertBind((ps, i) -> ps.setObject(i, "1", type), useLegacyPreparedStatements).roundTripsAs(Types.BOOLEAN, true);
+            assertBind((ps, i) -> ps.setObject(i, "true", type), useLegacyPreparedStatements).roundTripsAs(Types.BOOLEAN, true);
+            assertBind((ps, i) -> ps.setObject(i, "0", type), useLegacyPreparedStatements).roundTripsAs(Types.BOOLEAN, false);
+            assertBind((ps, i) -> ps.setObject(i, "false", type), useLegacyPreparedStatements).roundTripsAs(Types.BOOLEAN, false);
         }
     }
 
-    @Test
-    public void testConvertTinyint()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testConvertTinyint(boolean useLegacyPreparedStatements)
             throws SQLException
     {
-        assertBind((ps, i) -> ps.setByte(i, (byte) 123)).roundTripsAs(Types.TINYINT, (byte) 123);
-        assertBind((ps, i) -> ps.setObject(i, (byte) 123)).roundTripsAs(Types.TINYINT, (byte) 123);
-        assertBind((ps, i) -> ps.setObject(i, (byte) 123, Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 123);
-        assertBind((ps, i) -> ps.setObject(i, (short) 123, Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 123);
-        assertBind((ps, i) -> ps.setObject(i, 123, Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 123);
-        assertBind((ps, i) -> ps.setObject(i, 123L, Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 123);
-        assertBind((ps, i) -> ps.setObject(i, 123.9f, Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 123);
-        assertBind((ps, i) -> ps.setObject(i, 123.9d, Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 123);
-        assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 123);
-        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 123);
-        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 123);
-        assertBind((ps, i) -> ps.setObject(i, "123", Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 123);
-        assertBind((ps, i) -> ps.setObject(i, true, Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 1);
-        assertBind((ps, i) -> ps.setObject(i, false, Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 0);
+        assertBind((ps, i) -> ps.setByte(i, (byte) 123), useLegacyPreparedStatements).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, (byte) 123), useLegacyPreparedStatements).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, (byte) 123, Types.TINYINT), useLegacyPreparedStatements).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, (short) 123, Types.TINYINT), useLegacyPreparedStatements).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, 123, Types.TINYINT), useLegacyPreparedStatements).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, 123L, Types.TINYINT), useLegacyPreparedStatements).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, 123.9f, Types.TINYINT), useLegacyPreparedStatements).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, 123.9d, Types.TINYINT), useLegacyPreparedStatements).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), Types.TINYINT), useLegacyPreparedStatements).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), Types.TINYINT), useLegacyPreparedStatements).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), Types.TINYINT), useLegacyPreparedStatements).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, "123", Types.TINYINT), useLegacyPreparedStatements).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, true, Types.TINYINT), useLegacyPreparedStatements).roundTripsAs(Types.TINYINT, (byte) 1);
+        assertBind((ps, i) -> ps.setObject(i, false, Types.TINYINT), useLegacyPreparedStatements).roundTripsAs(Types.TINYINT, (byte) 0);
     }
 
-    @Test
-    public void testConvertSmallint()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testConvertSmallint(boolean useLegacyPreparedStatements)
             throws SQLException
     {
-        assertBind((ps, i) -> ps.setShort(i, (short) 123)).roundTripsAs(Types.SMALLINT, (short) 123);
-        assertBind((ps, i) -> ps.setObject(i, (short) 123)).roundTripsAs(Types.SMALLINT, (short) 123);
-        assertBind((ps, i) -> ps.setObject(i, (byte) 123, Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 123);
-        assertBind((ps, i) -> ps.setObject(i, (short) 123, Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 123);
-        assertBind((ps, i) -> ps.setObject(i, 123, Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 123);
-        assertBind((ps, i) -> ps.setObject(i, 123L, Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 123);
-        assertBind((ps, i) -> ps.setObject(i, 123.9f, Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 123);
-        assertBind((ps, i) -> ps.setObject(i, 123.9d, Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 123);
-        assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 123);
-        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 123);
-        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 123);
-        assertBind((ps, i) -> ps.setObject(i, "123", Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 123);
-        assertBind((ps, i) -> ps.setObject(i, true, Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 1);
-        assertBind((ps, i) -> ps.setObject(i, false, Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 0);
+        assertBind((ps, i) -> ps.setShort(i, (short) 123), useLegacyPreparedStatements).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, (short) 123), useLegacyPreparedStatements).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, (byte) 123, Types.SMALLINT), useLegacyPreparedStatements).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, (short) 123, Types.SMALLINT), useLegacyPreparedStatements).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, 123, Types.SMALLINT), useLegacyPreparedStatements).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, 123L, Types.SMALLINT), useLegacyPreparedStatements).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, 123.9f, Types.SMALLINT), useLegacyPreparedStatements).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, 123.9d, Types.SMALLINT), useLegacyPreparedStatements).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), Types.SMALLINT), useLegacyPreparedStatements).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), Types.SMALLINT), useLegacyPreparedStatements).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), Types.SMALLINT), useLegacyPreparedStatements).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, "123", Types.SMALLINT), useLegacyPreparedStatements).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, true, Types.SMALLINT), useLegacyPreparedStatements).roundTripsAs(Types.SMALLINT, (short) 1);
+        assertBind((ps, i) -> ps.setObject(i, false, Types.SMALLINT), useLegacyPreparedStatements).roundTripsAs(Types.SMALLINT, (short) 0);
     }
 
-    @Test
-    public void testConvertInteger()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testConvertInteger(boolean useLegacyPreparedStatements)
             throws SQLException
     {
-        assertBind((ps, i) -> ps.setInt(i, 123)).roundTripsAs(Types.INTEGER, 123);
-        assertBind((ps, i) -> ps.setObject(i, 123)).roundTripsAs(Types.INTEGER, 123);
-        assertBind((ps, i) -> ps.setObject(i, (byte) 123, Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
-        assertBind((ps, i) -> ps.setObject(i, (byte) 123, Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
-        assertBind((ps, i) -> ps.setObject(i, (short) 123, Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
-        assertBind((ps, i) -> ps.setObject(i, 123, Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
-        assertBind((ps, i) -> ps.setObject(i, 123L, Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
-        assertBind((ps, i) -> ps.setObject(i, 123.9f, Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
-        assertBind((ps, i) -> ps.setObject(i, 123.9d, Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
-        assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
-        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
-        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
-        assertBind((ps, i) -> ps.setObject(i, "123", Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
-        assertBind((ps, i) -> ps.setObject(i, true, Types.INTEGER)).roundTripsAs(Types.INTEGER, 1);
-        assertBind((ps, i) -> ps.setObject(i, false, Types.INTEGER)).roundTripsAs(Types.INTEGER, 0);
+        assertBind((ps, i) -> ps.setInt(i, 123), useLegacyPreparedStatements).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, 123), useLegacyPreparedStatements).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, (byte) 123, Types.INTEGER), useLegacyPreparedStatements).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, (byte) 123, Types.INTEGER), useLegacyPreparedStatements).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, (short) 123, Types.INTEGER), useLegacyPreparedStatements).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, 123, Types.INTEGER), useLegacyPreparedStatements).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, 123L, Types.INTEGER), useLegacyPreparedStatements).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, 123.9f, Types.INTEGER), useLegacyPreparedStatements).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, 123.9d, Types.INTEGER), useLegacyPreparedStatements).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), Types.INTEGER), useLegacyPreparedStatements).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), Types.INTEGER), useLegacyPreparedStatements).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), Types.INTEGER), useLegacyPreparedStatements).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, "123", Types.INTEGER), useLegacyPreparedStatements).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, true, Types.INTEGER), useLegacyPreparedStatements).roundTripsAs(Types.INTEGER, 1);
+        assertBind((ps, i) -> ps.setObject(i, false, Types.INTEGER), useLegacyPreparedStatements).roundTripsAs(Types.INTEGER, 0);
     }
 
-    @Test
-    public void testConvertBigint()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testConvertBigint(boolean useLegacyPreparedStatements)
             throws SQLException
     {
-        assertBind((ps, i) -> ps.setLong(i, 123L)).roundTripsAs(Types.BIGINT, 123L);
-        assertBind((ps, i) -> ps.setObject(i, 123L)).roundTripsAs(Types.BIGINT, 123L);
-        assertBind((ps, i) -> ps.setObject(i, (byte) 123, Types.BIGINT)).roundTripsAs(Types.BIGINT, 123L);
-        assertBind((ps, i) -> ps.setObject(i, (short) 123, Types.BIGINT)).roundTripsAs(Types.BIGINT, 123L);
-        assertBind((ps, i) -> ps.setObject(i, 123, Types.BIGINT)).roundTripsAs(Types.BIGINT, 123L);
-        assertBind((ps, i) -> ps.setObject(i, 123L, Types.BIGINT)).roundTripsAs(Types.BIGINT, 123L);
-        assertBind((ps, i) -> ps.setObject(i, 123.9f, Types.BIGINT)).roundTripsAs(Types.BIGINT, 123L);
-        assertBind((ps, i) -> ps.setObject(i, 123.9d, Types.BIGINT)).roundTripsAs(Types.BIGINT, 123L);
-        assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), Types.BIGINT)).roundTripsAs(Types.BIGINT, 123L);
-        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), Types.BIGINT)).roundTripsAs(Types.BIGINT, 123L);
-        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), Types.BIGINT)).roundTripsAs(Types.BIGINT, 123L);
-        assertBind((ps, i) -> ps.setObject(i, "123", Types.BIGINT)).roundTripsAs(Types.BIGINT, 123L);
-        assertBind((ps, i) -> ps.setObject(i, true, Types.BIGINT)).roundTripsAs(Types.BIGINT, 1L);
-        assertBind((ps, i) -> ps.setObject(i, false, Types.BIGINT)).roundTripsAs(Types.BIGINT, 0L);
+        assertBind((ps, i) -> ps.setLong(i, 123L), useLegacyPreparedStatements).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, 123L), useLegacyPreparedStatements).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, (byte) 123, Types.BIGINT), useLegacyPreparedStatements).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, (short) 123, Types.BIGINT), useLegacyPreparedStatements).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, 123, Types.BIGINT), useLegacyPreparedStatements).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, 123L, Types.BIGINT), useLegacyPreparedStatements).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, 123.9f, Types.BIGINT), useLegacyPreparedStatements).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, 123.9d, Types.BIGINT), useLegacyPreparedStatements).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), Types.BIGINT), useLegacyPreparedStatements).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), Types.BIGINT), useLegacyPreparedStatements).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), Types.BIGINT), useLegacyPreparedStatements).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, "123", Types.BIGINT), useLegacyPreparedStatements).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, true, Types.BIGINT), useLegacyPreparedStatements).roundTripsAs(Types.BIGINT, 1L);
+        assertBind((ps, i) -> ps.setObject(i, false, Types.BIGINT), useLegacyPreparedStatements).roundTripsAs(Types.BIGINT, 0L);
     }
 
-    @Test
-    public void testConvertReal()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testConvertReal(boolean useLegacyPreparedStatements)
             throws SQLException
     {
-        assertBind((ps, i) -> ps.setFloat(i, 4.2f)).roundTripsAs(Types.REAL, 4.2f);
-        assertBind((ps, i) -> ps.setObject(i, 4.2f)).roundTripsAs(Types.REAL, 4.2f);
+        assertBind((ps, i) -> ps.setFloat(i, 4.2f), useLegacyPreparedStatements).roundTripsAs(Types.REAL, 4.2f);
+        assertBind((ps, i) -> ps.setObject(i, 4.2f), useLegacyPreparedStatements).roundTripsAs(Types.REAL, 4.2f);
 
         for (int type : asList(Types.REAL, Types.FLOAT)) {
-            assertBind((ps, i) -> ps.setObject(i, (byte) 123, type)).roundTripsAs(Types.REAL, 123.0f);
-            assertBind((ps, i) -> ps.setObject(i, (short) 123, type)).roundTripsAs(Types.REAL, 123.0f);
-            assertBind((ps, i) -> ps.setObject(i, 123, type)).roundTripsAs(Types.REAL, 123.0f);
-            assertBind((ps, i) -> ps.setObject(i, 123L, type)).roundTripsAs(Types.REAL, 123.0f);
-            assertBind((ps, i) -> ps.setObject(i, 123.9f, type)).roundTripsAs(Types.REAL, 123.9f);
-            assertBind((ps, i) -> ps.setObject(i, 123.9d, type)).roundTripsAs(Types.REAL, 123.9f);
-            assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), type)).roundTripsAs(Types.REAL, 123.0f);
-            assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), type)).roundTripsAs(Types.REAL, 123.0f);
-            assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), type)).roundTripsAs(Types.REAL, 123.9f);
-            assertBind((ps, i) -> ps.setObject(i, "4.2", type)).roundTripsAs(Types.REAL, 4.2f);
-            assertBind((ps, i) -> ps.setObject(i, true, type)).roundTripsAs(Types.REAL, 1.0f);
-            assertBind((ps, i) -> ps.setObject(i, false, type)).roundTripsAs(Types.REAL, 0.0f);
+            assertBind((ps, i) -> ps.setObject(i, (byte) 123, type), useLegacyPreparedStatements).roundTripsAs(Types.REAL, 123.0f);
+            assertBind((ps, i) -> ps.setObject(i, (short) 123, type), useLegacyPreparedStatements).roundTripsAs(Types.REAL, 123.0f);
+            assertBind((ps, i) -> ps.setObject(i, 123, type), useLegacyPreparedStatements).roundTripsAs(Types.REAL, 123.0f);
+            assertBind((ps, i) -> ps.setObject(i, 123L, type), useLegacyPreparedStatements).roundTripsAs(Types.REAL, 123.0f);
+            assertBind((ps, i) -> ps.setObject(i, 123.9f, type), useLegacyPreparedStatements).roundTripsAs(Types.REAL, 123.9f);
+            assertBind((ps, i) -> ps.setObject(i, 123.9d, type), useLegacyPreparedStatements).roundTripsAs(Types.REAL, 123.9f);
+            assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), type), useLegacyPreparedStatements).roundTripsAs(Types.REAL, 123.0f);
+            assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), type), useLegacyPreparedStatements).roundTripsAs(Types.REAL, 123.0f);
+            assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), type), useLegacyPreparedStatements).roundTripsAs(Types.REAL, 123.9f);
+            assertBind((ps, i) -> ps.setObject(i, "4.2", type), useLegacyPreparedStatements).roundTripsAs(Types.REAL, 4.2f);
+            assertBind((ps, i) -> ps.setObject(i, true, type), useLegacyPreparedStatements).roundTripsAs(Types.REAL, 1.0f);
+            assertBind((ps, i) -> ps.setObject(i, false, type), useLegacyPreparedStatements).roundTripsAs(Types.REAL, 0.0f);
         }
     }
 
-    @Test
-    public void testConvertDouble()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testConvertDouble(boolean useLegacyPreparedStatements)
             throws SQLException
     {
-        assertBind((ps, i) -> ps.setDouble(i, 4.2d)).roundTripsAs(Types.DOUBLE, 4.2d);
-        assertBind((ps, i) -> ps.setObject(i, 4.2d)).roundTripsAs(Types.DOUBLE, 4.2d);
-        assertBind((ps, i) -> ps.setObject(i, (byte) 123, Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 123.0d);
-        assertBind((ps, i) -> ps.setObject(i, (short) 123, Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 123.0d);
-        assertBind((ps, i) -> ps.setObject(i, 123, Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 123.0d);
-        assertBind((ps, i) -> ps.setObject(i, 123L, Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 123.0d);
-        assertBind((ps, i) -> ps.setObject(i, 123.9f, Types.DOUBLE)).roundTripsAs(Types.DOUBLE, (double) 123.9f);
-        assertBind((ps, i) -> ps.setObject(i, 123.9d, Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 123.9d);
-        assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 123.0d);
-        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 123.0d);
-        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 123.9d);
-        assertBind((ps, i) -> ps.setObject(i, "4.2", Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 4.2d);
-        assertBind((ps, i) -> ps.setObject(i, true, Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 1.0d);
-        assertBind((ps, i) -> ps.setObject(i, false, Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 0.0d);
+        assertBind((ps, i) -> ps.setDouble(i, 4.2d), useLegacyPreparedStatements).roundTripsAs(Types.DOUBLE, 4.2d);
+        assertBind((ps, i) -> ps.setObject(i, 4.2d), useLegacyPreparedStatements).roundTripsAs(Types.DOUBLE, 4.2d);
+        assertBind((ps, i) -> ps.setObject(i, (byte) 123, Types.DOUBLE), useLegacyPreparedStatements).roundTripsAs(Types.DOUBLE, 123.0d);
+        assertBind((ps, i) -> ps.setObject(i, (short) 123, Types.DOUBLE), useLegacyPreparedStatements).roundTripsAs(Types.DOUBLE, 123.0d);
+        assertBind((ps, i) -> ps.setObject(i, 123, Types.DOUBLE), useLegacyPreparedStatements).roundTripsAs(Types.DOUBLE, 123.0d);
+        assertBind((ps, i) -> ps.setObject(i, 123L, Types.DOUBLE), useLegacyPreparedStatements).roundTripsAs(Types.DOUBLE, 123.0d);
+        assertBind((ps, i) -> ps.setObject(i, 123.9f, Types.DOUBLE), useLegacyPreparedStatements).roundTripsAs(Types.DOUBLE, (double) 123.9f);
+        assertBind((ps, i) -> ps.setObject(i, 123.9d, Types.DOUBLE), useLegacyPreparedStatements).roundTripsAs(Types.DOUBLE, 123.9d);
+        assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), Types.DOUBLE), useLegacyPreparedStatements).roundTripsAs(Types.DOUBLE, 123.0d);
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), Types.DOUBLE), useLegacyPreparedStatements).roundTripsAs(Types.DOUBLE, 123.0d);
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), Types.DOUBLE), useLegacyPreparedStatements).roundTripsAs(Types.DOUBLE, 123.9d);
+        assertBind((ps, i) -> ps.setObject(i, "4.2", Types.DOUBLE), useLegacyPreparedStatements).roundTripsAs(Types.DOUBLE, 4.2d);
+        assertBind((ps, i) -> ps.setObject(i, true, Types.DOUBLE), useLegacyPreparedStatements).roundTripsAs(Types.DOUBLE, 1.0d);
+        assertBind((ps, i) -> ps.setObject(i, false, Types.DOUBLE), useLegacyPreparedStatements).roundTripsAs(Types.DOUBLE, 0.0d);
     }
 
-    @Test
-    public void testConvertDecimal()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testConvertDecimal(boolean useLegacyPreparedStatements)
             throws SQLException
     {
-        assertBind((ps, i) -> ps.setBigDecimal(i, BigDecimal.valueOf(123))).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
-        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123))).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
+        assertBind((ps, i) -> ps.setBigDecimal(i, BigDecimal.valueOf(123)), useLegacyPreparedStatements).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123)), useLegacyPreparedStatements).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
 
         for (int type : asList(Types.DECIMAL, Types.NUMERIC)) {
-            assertBind((ps, i) -> ps.setObject(i, (byte) 123, type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
-            assertBind((ps, i) -> ps.setObject(i, (short) 123, type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
-            assertBind((ps, i) -> ps.setObject(i, 123, type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
-            assertBind((ps, i) -> ps.setObject(i, 123L, type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
-            assertBind((ps, i) -> ps.setObject(i, 123.9f, type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123.9f));
-            assertBind((ps, i) -> ps.setObject(i, 123.9d, type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123.9d));
-            assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
-            assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
-            assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9d), type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123.9d));
-            assertBind((ps, i) -> ps.setObject(i, "123", type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
-            assertBind((ps, i) -> ps.setObject(i, true, type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(1));
-            assertBind((ps, i) -> ps.setObject(i, false, type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(0));
+            assertBind((ps, i) -> ps.setObject(i, (byte) 123, type), useLegacyPreparedStatements).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
+            assertBind((ps, i) -> ps.setObject(i, (short) 123, type), useLegacyPreparedStatements).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
+            assertBind((ps, i) -> ps.setObject(i, 123, type), useLegacyPreparedStatements).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
+            assertBind((ps, i) -> ps.setObject(i, 123L, type), useLegacyPreparedStatements).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
+            assertBind((ps, i) -> ps.setObject(i, 123.9f, type), useLegacyPreparedStatements).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123.9f));
+            assertBind((ps, i) -> ps.setObject(i, 123.9d, type), useLegacyPreparedStatements).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123.9d));
+            assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), type), useLegacyPreparedStatements).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
+            assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), type), useLegacyPreparedStatements).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
+            assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9d), type), useLegacyPreparedStatements).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123.9d));
+            assertBind((ps, i) -> ps.setObject(i, "123", type), useLegacyPreparedStatements).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
+            assertBind((ps, i) -> ps.setObject(i, true, type), useLegacyPreparedStatements).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(1));
+            assertBind((ps, i) -> ps.setObject(i, false, type), useLegacyPreparedStatements).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(0));
         }
     }
 
-    @Test
-    public void testConvertVarchar()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testConvertVarchar(boolean useLegacyPreparedStatements)
             throws SQLException
     {
-        assertBind((ps, i) -> ps.setString(i, "hello")).roundTripsAs(Types.VARCHAR, "hello");
-        assertBind((ps, i) -> ps.setObject(i, "hello")).roundTripsAs(Types.VARCHAR, "hello");
+        assertBind((ps, i) -> ps.setString(i, "hello"), useLegacyPreparedStatements).roundTripsAs(Types.VARCHAR, "hello");
+        assertBind((ps, i) -> ps.setObject(i, "hello"), useLegacyPreparedStatements).roundTripsAs(Types.VARCHAR, "hello");
 
         String unicodeAndNull = "abc'xyz\0\u2603\uD835\uDCABtest";
-        assertBind((ps, i) -> ps.setString(i, unicodeAndNull)).roundTripsAs(Types.VARCHAR, unicodeAndNull);
+        assertBind((ps, i) -> ps.setString(i, unicodeAndNull), useLegacyPreparedStatements).roundTripsAs(Types.VARCHAR, unicodeAndNull);
 
         for (int type : asList(Types.CHAR, Types.NCHAR, Types.VARCHAR, Types.NVARCHAR, Types.LONGVARCHAR, Types.LONGNVARCHAR)) {
-            assertBind((ps, i) -> ps.setObject(i, (byte) 123, type)).roundTripsAs(Types.VARCHAR, "123");
-            assertBind((ps, i) -> ps.setObject(i, (byte) 123, type)).roundTripsAs(Types.VARCHAR, "123");
-            assertBind((ps, i) -> ps.setObject(i, (short) 123, type)).roundTripsAs(Types.VARCHAR, "123");
-            assertBind((ps, i) -> ps.setObject(i, 123, type)).roundTripsAs(Types.VARCHAR, "123");
-            assertBind((ps, i) -> ps.setObject(i, 123L, type)).roundTripsAs(Types.VARCHAR, "123");
-            assertBind((ps, i) -> ps.setObject(i, 123.9f, type)).roundTripsAs(Types.VARCHAR, "123.9");
-            assertBind((ps, i) -> ps.setObject(i, 123.9d, type)).roundTripsAs(Types.VARCHAR, "123.9");
-            assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), type)).roundTripsAs(Types.VARCHAR, "123");
-            assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), type)).roundTripsAs(Types.VARCHAR, "123");
-            assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), type)).roundTripsAs(Types.VARCHAR, "123.9");
-            assertBind((ps, i) -> ps.setObject(i, "hello", type)).roundTripsAs(Types.VARCHAR, "hello");
-            assertBind((ps, i) -> ps.setObject(i, true, type)).roundTripsAs(Types.VARCHAR, "true");
-            assertBind((ps, i) -> ps.setObject(i, false, type)).roundTripsAs(Types.VARCHAR, "false");
+            assertBind((ps, i) -> ps.setObject(i, (byte) 123, type), useLegacyPreparedStatements).roundTripsAs(Types.VARCHAR, "123");
+            assertBind((ps, i) -> ps.setObject(i, (byte) 123, type), useLegacyPreparedStatements).roundTripsAs(Types.VARCHAR, "123");
+            assertBind((ps, i) -> ps.setObject(i, (short) 123, type), useLegacyPreparedStatements).roundTripsAs(Types.VARCHAR, "123");
+            assertBind((ps, i) -> ps.setObject(i, 123, type), useLegacyPreparedStatements).roundTripsAs(Types.VARCHAR, "123");
+            assertBind((ps, i) -> ps.setObject(i, 123L, type), useLegacyPreparedStatements).roundTripsAs(Types.VARCHAR, "123");
+            assertBind((ps, i) -> ps.setObject(i, 123.9f, type), useLegacyPreparedStatements).roundTripsAs(Types.VARCHAR, "123.9");
+            assertBind((ps, i) -> ps.setObject(i, 123.9d, type), useLegacyPreparedStatements).roundTripsAs(Types.VARCHAR, "123.9");
+            assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), type), useLegacyPreparedStatements).roundTripsAs(Types.VARCHAR, "123");
+            assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), type), useLegacyPreparedStatements).roundTripsAs(Types.VARCHAR, "123");
+            assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), type), useLegacyPreparedStatements).roundTripsAs(Types.VARCHAR, "123.9");
+            assertBind((ps, i) -> ps.setObject(i, "hello", type), useLegacyPreparedStatements).roundTripsAs(Types.VARCHAR, "hello");
+            assertBind((ps, i) -> ps.setObject(i, true, type), useLegacyPreparedStatements).roundTripsAs(Types.VARCHAR, "true");
+            assertBind((ps, i) -> ps.setObject(i, false, type), useLegacyPreparedStatements).roundTripsAs(Types.VARCHAR, "false");
         }
     }
 
-    @Test
-    public void testConvertVarbinary()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testConvertVarbinary(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         String value = "abc\0xyz";
         byte[] bytes = value.getBytes(UTF_8);
 
-        assertBind((ps, i) -> ps.setBytes(i, bytes)).roundTripsAs(Types.VARBINARY, bytes);
-        assertBind((ps, i) -> ps.setObject(i, bytes)).roundTripsAs(Types.VARBINARY, bytes);
+        assertBind((ps, i) -> ps.setBytes(i, bytes), useLegacyPreparedStatements).roundTripsAs(Types.VARBINARY, bytes);
+        assertBind((ps, i) -> ps.setObject(i, bytes), useLegacyPreparedStatements).roundTripsAs(Types.VARBINARY, bytes);
 
         for (int type : asList(Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY)) {
-            assertBind((ps, i) -> ps.setObject(i, bytes, type)).roundTripsAs(Types.VARBINARY, bytes);
-            assertBind((ps, i) -> ps.setObject(i, value, type)).roundTripsAs(Types.VARBINARY, bytes);
+            assertBind((ps, i) -> ps.setObject(i, bytes, type), useLegacyPreparedStatements).roundTripsAs(Types.VARBINARY, bytes);
+            assertBind((ps, i) -> ps.setObject(i, value, type), useLegacyPreparedStatements).roundTripsAs(Types.VARBINARY, bytes);
         }
     }
 
-    @Test
-    public void testConvertDate()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testConvertDate(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         LocalDate date = LocalDate.of(2001, 5, 6);
@@ -858,78 +865,78 @@ public class TestJdbcPreparedStatement
         LocalDateTime dateTime = LocalDateTime.of(date, LocalTime.of(12, 34, 56));
         Timestamp sqlTimestamp = Timestamp.valueOf(dateTime);
 
-        assertBind((ps, i) -> ps.setDate(i, sqlDate))
+        assertBind((ps, i) -> ps.setDate(i, sqlDate), useLegacyPreparedStatements)
                 .resultsIn("date", "DATE '2001-05-06'")
                 .roundTripsAs(Types.DATE, sqlDate);
 
-        assertBind((ps, i) -> ps.setObject(i, sqlDate))
+        assertBind((ps, i) -> ps.setObject(i, sqlDate), useLegacyPreparedStatements)
                 .resultsIn("date", "DATE '2001-05-06'")
                 .roundTripsAs(Types.DATE, sqlDate);
 
-        assertBind((ps, i) -> ps.setObject(i, sqlDate, Types.DATE))
+        assertBind((ps, i) -> ps.setObject(i, sqlDate, Types.DATE), useLegacyPreparedStatements)
                 .resultsIn("date", "DATE '2001-05-06'")
                 .roundTripsAs(Types.DATE, sqlDate);
 
-        assertBind((ps, i) -> ps.setObject(i, sqlTimestamp, Types.DATE))
+        assertBind((ps, i) -> ps.setObject(i, sqlTimestamp, Types.DATE), useLegacyPreparedStatements)
                 .resultsIn("date", "DATE '2001-05-06'")
                 .roundTripsAs(Types.DATE, sqlDate);
 
-        assertBind((ps, i) -> ps.setObject(i, javaDate, Types.DATE))
+        assertBind((ps, i) -> ps.setObject(i, javaDate, Types.DATE), useLegacyPreparedStatements)
                 .resultsIn("date", "DATE '2001-05-06'")
                 .roundTripsAs(Types.DATE, sqlDate);
 
-        assertBind((ps, i) -> ps.setObject(i, date, Types.DATE))
+        assertBind((ps, i) -> ps.setObject(i, date, Types.DATE), useLegacyPreparedStatements)
                 .resultsIn("date", "DATE '2001-05-06'")
                 .roundTripsAs(Types.DATE, sqlDate);
 
-        assertBind((ps, i) -> ps.setObject(i, dateTime, Types.DATE))
+        assertBind((ps, i) -> ps.setObject(i, dateTime, Types.DATE), useLegacyPreparedStatements)
                 .resultsIn("date", "DATE '2001-05-06'")
                 .roundTripsAs(Types.DATE, sqlDate);
 
-        assertBind((ps, i) -> ps.setObject(i, "2001-05-06", Types.DATE))
+        assertBind((ps, i) -> ps.setObject(i, "2001-05-06", Types.DATE), useLegacyPreparedStatements)
                 .resultsIn("date", "DATE '2001-05-06'")
                 .roundTripsAs(Types.DATE, sqlDate);
     }
 
-    @Test
-    public void testConvertLocalDate()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testConvertLocalDate(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         LocalDate date = LocalDate.of(2001, 5, 6);
 
-        assertBind((ps, i) -> ps.setObject(i, date))
+        assertBind((ps, i) -> ps.setObject(i, date), useLegacyPreparedStatements)
                 .resultsIn("date", "DATE '2001-05-06'")
                 .roundTripsAs(Types.DATE, Date.valueOf(date));
 
-        assertBind((ps, i) -> ps.setObject(i, date, Types.DATE))
+        assertBind((ps, i) -> ps.setObject(i, date, Types.DATE), useLegacyPreparedStatements)
                 .resultsIn("date", "DATE '2001-05-06'")
                 .roundTripsAs(Types.DATE, Date.valueOf(date));
 
-        assertBind((ps, i) -> ps.setObject(i, date, Types.TIME))
+        assertBind((ps, i) -> ps.setObject(i, date, Types.TIME), useLegacyPreparedStatements)
                 .isInvalid("Cannot convert instance of java.time.LocalDate to time");
 
-        assertBind((ps, i) -> ps.setObject(i, date, Types.TIME_WITH_TIMEZONE))
+        assertBind((ps, i) -> ps.setObject(i, date, Types.TIME_WITH_TIMEZONE), useLegacyPreparedStatements)
                 .isInvalid("Cannot convert instance of java.time.LocalDate to time with time zone");
 
-        assertBind((ps, i) -> ps.setObject(i, date, Types.TIMESTAMP))
+        assertBind((ps, i) -> ps.setObject(i, date, Types.TIMESTAMP), useLegacyPreparedStatements)
                 .isInvalid("Cannot convert instance of java.time.LocalDate to timestamp");
 
-        assertBind((ps, i) -> ps.setObject(i, date, Types.TIMESTAMP_WITH_TIMEZONE))
+        assertBind((ps, i) -> ps.setObject(i, date, Types.TIMESTAMP_WITH_TIMEZONE), useLegacyPreparedStatements)
                 .isInvalid("Cannot convert instance of java.time.LocalDate to timestamp with time zone");
 
         LocalDate jvmGapDate = LocalDate.of(1970, 1, 1);
         checkIsGap(ZoneId.systemDefault(), jvmGapDate.atTime(LocalTime.MIDNIGHT));
 
-        assertBind((ps, i) -> ps.setObject(i, jvmGapDate))
+        assertBind((ps, i) -> ps.setObject(i, jvmGapDate), useLegacyPreparedStatements)
                 .resultsIn("date", "DATE '1970-01-01'")
                 .roundTripsAs(Types.DATE, Date.valueOf(jvmGapDate));
 
-        assertBind((ps, i) -> ps.setObject(i, jvmGapDate, Types.DATE))
+        assertBind((ps, i) -> ps.setObject(i, jvmGapDate, Types.DATE), useLegacyPreparedStatements)
                 .roundTripsAs(Types.DATE, Date.valueOf(jvmGapDate));
     }
 
-    @Test
-    public void testConvertTime()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testConvertTime(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         LocalTime time = LocalTime.of(12, 34, 56);
@@ -938,110 +945,121 @@ public class TestJdbcPreparedStatement
         LocalDateTime dateTime = LocalDateTime.of(LocalDate.of(2001, 5, 6), time);
         Timestamp sqlTimestamp = Timestamp.valueOf(dateTime);
 
-        assertBind((ps, i) -> ps.setTime(i, sqlTime))
+        assertBind((ps, i) -> ps.setTime(i, sqlTime), useLegacyPreparedStatements)
                 .resultsIn("time(3)", "TIME '12:34:56.000'")
                 .roundTripsAs(Types.TIME, sqlTime);
 
-        assertBind((ps, i) -> ps.setObject(i, sqlTime))
+        assertBind((ps, i) -> ps.setObject(i, sqlTime), useLegacyPreparedStatements)
                 .resultsIn("time(3)", "TIME '12:34:56.000'")
                 .roundTripsAs(Types.TIME, sqlTime);
 
-        assertBind((ps, i) -> ps.setObject(i, sqlTime, Types.TIME))
+        assertBind((ps, i) -> ps.setObject(i, sqlTime, Types.TIME), useLegacyPreparedStatements)
                 .resultsIn("time(3)", "TIME '12:34:56.000'")
                 .roundTripsAs(Types.TIME, sqlTime);
 
-        assertBind((ps, i) -> ps.setObject(i, sqlTimestamp, Types.TIME))
+        assertBind((ps, i) -> ps.setObject(i, sqlTimestamp, Types.TIME), useLegacyPreparedStatements)
                 .resultsIn("time(3)", "TIME '12:34:56.000'")
                 .roundTripsAs(Types.TIME, sqlTime);
 
-        assertBind((ps, i) -> ps.setObject(i, javaDate, Types.TIME))
+        assertBind((ps, i) -> ps.setObject(i, javaDate, Types.TIME), useLegacyPreparedStatements)
                 .resultsIn("time(3)", "TIME '12:34:56.000'")
                 .roundTripsAs(Types.TIME, sqlTime);
 
-        assertBind((ps, i) -> ps.setObject(i, dateTime, Types.TIME))
+        assertBind((ps, i) -> ps.setObject(i, dateTime, Types.TIME), useLegacyPreparedStatements)
                 .resultsIn("time(0)", "TIME '12:34:56'")
                 .roundTripsAs(Types.TIME, sqlTime);
 
-        assertBind((ps, i) -> ps.setObject(i, "12:34:56", Types.TIME))
+        assertBind((ps, i) -> ps.setObject(i, "12:34:56", Types.TIME), useLegacyPreparedStatements)
                 .resultsIn("time(0)", "TIME '12:34:56'")
                 .roundTripsAs(Types.TIME, sqlTime);
 
-        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123", Types.TIME)).resultsIn("time(3)", "TIME '12:34:56.123'");
-        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123456", Types.TIME)).resultsIn("time(6)", "TIME '12:34:56.123456'");
-        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123456789", Types.TIME)).resultsIn("time(9)", "TIME '12:34:56.123456789'");
-        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123456789012", Types.TIME)).resultsIn("time(12)", "TIME '12:34:56.123456789012'");
+        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123", Types.TIME), useLegacyPreparedStatements).resultsIn("time(3)", "TIME '12:34:56.123'");
+        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123456", Types.TIME), useLegacyPreparedStatements).resultsIn("time(6)", "TIME '12:34:56.123456'");
+
+        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123456789", Types.TIME), useLegacyPreparedStatements)
+                .resultsIn("time(9)", "TIME '12:34:56.123456789'");
+
+        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123456789012", Types.TIME), useLegacyPreparedStatements)
+                .resultsIn("time(12)", "TIME '12:34:56.123456789012'");
 
         Time timeWithDecisecond = new Time(sqlTime.getTime() + 100);
-        assertBind((ps, i) -> ps.setObject(i, timeWithDecisecond))
+        assertBind((ps, i) -> ps.setObject(i, timeWithDecisecond), useLegacyPreparedStatements)
                 .resultsIn("time(3)", "TIME '12:34:56.100'")
                 .roundTripsAs(Types.TIME, timeWithDecisecond);
 
-        assertBind((ps, i) -> ps.setObject(i, timeWithDecisecond, Types.TIME))
+        assertBind((ps, i) -> ps.setObject(i, timeWithDecisecond, Types.TIME), useLegacyPreparedStatements)
                 .resultsIn("time(3)", "TIME '12:34:56.100'")
                 .roundTripsAs(Types.TIME, timeWithDecisecond);
 
         Time timeWithMillisecond = new Time(sqlTime.getTime() + 123);
-        assertBind((ps, i) -> ps.setObject(i, timeWithMillisecond))
+        assertBind((ps, i) -> ps.setObject(i, timeWithMillisecond), useLegacyPreparedStatements)
                 .resultsIn("time(3)", "TIME '12:34:56.123'")
                 .roundTripsAs(Types.TIME, timeWithMillisecond);
 
-        assertBind((ps, i) -> ps.setObject(i, timeWithMillisecond, Types.TIME))
+        assertBind((ps, i) -> ps.setObject(i, timeWithMillisecond, Types.TIME), useLegacyPreparedStatements)
                 .resultsIn("time(3)", "TIME '12:34:56.123'")
                 .roundTripsAs(Types.TIME, timeWithMillisecond);
     }
 
-    @Test
-    public void testConvertTimeWithTimeZone()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testConvertTimeWithTimeZone(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         // zero fraction
-        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 0, UTC), Types.TIME_WITH_TIMEZONE))
+        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 0, UTC), Types.TIME_WITH_TIMEZONE), useLegacyPreparedStatements)
                 .resultsIn("time(0) with time zone", "TIME '12:34:56+00:00'")
                 .roundTripsAs(Types.TIME_WITH_TIMEZONE, toSqlTime(LocalTime.of(5, 34, 56)));
 
         // setObject with implicit type
-        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 0, UTC)))
+        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 0, UTC)), useLegacyPreparedStatements)
                 .resultsIn("time(0) with time zone", "TIME '12:34:56+00:00'");
 
         // setObject with JDBCType
-        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 0, UTC), JDBCType.TIME_WITH_TIMEZONE))
+        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 0, UTC), JDBCType.TIME_WITH_TIMEZONE), useLegacyPreparedStatements)
                 .resultsIn("time(0) with time zone", "TIME '12:34:56+00:00'");
 
         // millisecond precision
-        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 555_000_000, UTC), Types.TIME_WITH_TIMEZONE))
+        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 555_000_000, UTC), Types.TIME_WITH_TIMEZONE), useLegacyPreparedStatements)
                 .resultsIn("time(3) with time zone", "TIME '12:34:56.555+00:00'")
                 .roundTripsAs(Types.TIME_WITH_TIMEZONE, toSqlTime(LocalTime.of(5, 34, 56, 555_000_000)));
 
         // microsecond precision
-        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 555_555_000, UTC), Types.TIME_WITH_TIMEZONE))
+        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 555_555_000, UTC), Types.TIME_WITH_TIMEZONE), useLegacyPreparedStatements)
                 .resultsIn("time(6) with time zone", "TIME '12:34:56.555555+00:00'")
                 .roundTripsAs(Types.TIME_WITH_TIMEZONE, toSqlTime(LocalTime.of(5, 34, 56, 556_000_000)));
 
         // nanosecond precision
-        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 555_555_555, UTC), Types.TIME_WITH_TIMEZONE))
+        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 555_555_555, UTC), Types.TIME_WITH_TIMEZONE), useLegacyPreparedStatements)
                 .resultsIn("time(9) with time zone", "TIME '12:34:56.555555555+00:00'")
                 .roundTripsAs(Types.TIME_WITH_TIMEZONE, toSqlTime(LocalTime.of(5, 34, 56, 556_000_000)));
 
         // positive offset
-        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 123_456_789, ZoneOffset.ofHoursMinutes(7, 35)), Types.TIME_WITH_TIMEZONE))
+        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 123_456_789, ZoneOffset.ofHoursMinutes(7, 35)), Types.TIME_WITH_TIMEZONE), useLegacyPreparedStatements)
                 .resultsIn("time(9) with time zone", "TIME '12:34:56.123456789+07:35'");
         // TODO (https://github.com/trinodb/trino/issues/6351) the result is not as expected here:
         //      .roundTripsAs(Types.TIME_WITH_TIMEZONE, toSqlTime(LocalTime.of(20, 59, 56, 123_000_000)));
 
         // negative offset
-        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 123_456_789, ZoneOffset.ofHoursMinutes(-7, -35)), Types.TIME_WITH_TIMEZONE))
+        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 123_456_789, ZoneOffset.ofHoursMinutes(-7, -35)), Types.TIME_WITH_TIMEZONE), useLegacyPreparedStatements)
                 .resultsIn("time(9) with time zone", "TIME '12:34:56.123456789-07:35'")
                 .roundTripsAs(Types.TIME_WITH_TIMEZONE, toSqlTime(LocalTime.of(13, 9, 56, 123_000_000)));
 
         // String as TIME WITH TIME ZONE
-        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123 +05:45", Types.TIME_WITH_TIMEZONE)).resultsIn("time(3) with time zone", "TIME '12:34:56.123 +05:45'");
-        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123456 +05:45", Types.TIME_WITH_TIMEZONE)).resultsIn("time(6) with time zone", "TIME '12:34:56.123456 +05:45'");
-        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123456789 +05:45", Types.TIME_WITH_TIMEZONE)).resultsIn("time(9) with time zone", "TIME '12:34:56.123456789 +05:45'");
-        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123456789012 +05:45", Types.TIME_WITH_TIMEZONE)).resultsIn("time(12) with time zone", "TIME '12:34:56.123456789012 +05:45'");
+        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123 +05:45", Types.TIME_WITH_TIMEZONE), useLegacyPreparedStatements)
+                .resultsIn("time(3) with time zone", "TIME '12:34:56.123 +05:45'");
+
+        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123456 +05:45", Types.TIME_WITH_TIMEZONE), useLegacyPreparedStatements)
+                .resultsIn("time(6) with time zone", "TIME '12:34:56.123456 +05:45'");
+
+        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123456789 +05:45", Types.TIME_WITH_TIMEZONE), useLegacyPreparedStatements)
+                .resultsIn("time(9) with time zone", "TIME '12:34:56.123456789 +05:45'");
+
+        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123456789012 +05:45", Types.TIME_WITH_TIMEZONE), useLegacyPreparedStatements)
+                .resultsIn("time(12) with time zone", "TIME '12:34:56.123456789012 +05:45'");
     }
 
-    @Test
-    public void testConvertTimestamp()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testConvertTimestamp(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         LocalDateTime dateTime = LocalDateTime.of(2001, 5, 6, 12, 34, 56);
@@ -1051,128 +1069,235 @@ public class TestJdbcPreparedStatement
         Timestamp sameInstantInWarsawZone = Timestamp.valueOf(dateTime.atZone(ZoneId.systemDefault()).withZoneSameInstant(ZoneId.of("Europe/Warsaw")).toLocalDateTime());
         java.util.Date javaDate = java.util.Date.from(dateTime.atZone(ZoneId.systemDefault()).toInstant());
 
-        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestamp))
+        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestamp), useLegacyPreparedStatements)
                 .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.000'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
 
-        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestamp, null))
+        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestamp, null), useLegacyPreparedStatements)
                 .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.000'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
 
-        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance()))
+        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance()), useLegacyPreparedStatements)
                 .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.000'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
 
-        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance(TimeZone.getTimeZone(ZoneId.of("Europe/Warsaw")))))
+        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance(TimeZone.getTimeZone(ZoneId.of("Europe/Warsaw")))), useLegacyPreparedStatements)
                 .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 20:34:56.000'")
                 .roundTripsAs(Types.TIMESTAMP, sameInstantInWarsawZone);
 
-        assertBind((ps, i) -> ps.setObject(i, sqlTimestamp))
+        assertBind((ps, i) -> ps.setObject(i, sqlTimestamp), useLegacyPreparedStatements)
                 .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.000'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
 
-        assertBind((ps, i) -> ps.setObject(i, sqlDate, Types.TIMESTAMP))
+        assertBind((ps, i) -> ps.setObject(i, sqlDate, Types.TIMESTAMP), useLegacyPreparedStatements)
                 .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 00:00:00.000'")
                 .roundTripsAs(Types.TIMESTAMP, new Timestamp(sqlDate.getTime()));
 
-        assertBind((ps, i) -> ps.setObject(i, sqlTime, Types.TIMESTAMP))
+        assertBind((ps, i) -> ps.setObject(i, sqlTime, Types.TIMESTAMP), useLegacyPreparedStatements)
                 .resultsIn("timestamp(3)", "TIMESTAMP '1970-01-01 12:34:56.000'")
                 .roundTripsAs(Types.TIMESTAMP, new Timestamp(sqlTime.getTime()));
 
-        assertBind((ps, i) -> ps.setObject(i, sqlTimestamp, Types.TIMESTAMP))
+        assertBind((ps, i) -> ps.setObject(i, sqlTimestamp, Types.TIMESTAMP), useLegacyPreparedStatements)
                 .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.000'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
 
-        assertBind((ps, i) -> ps.setObject(i, javaDate, Types.TIMESTAMP))
+        assertBind((ps, i) -> ps.setObject(i, javaDate, Types.TIMESTAMP), useLegacyPreparedStatements)
                 .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.000'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
 
-        assertBind((ps, i) -> ps.setObject(i, dateTime, Types.TIMESTAMP))
+        assertBind((ps, i) -> ps.setObject(i, dateTime, Types.TIMESTAMP), useLegacyPreparedStatements)
                 .resultsIn("timestamp(0)", "TIMESTAMP '2001-05-06 12:34:56'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
 
-        assertBind((ps, i) -> ps.setObject(i, "2001-05-06 12:34:56", Types.TIMESTAMP))
+        assertBind((ps, i) -> ps.setObject(i, "2001-05-06 12:34:56", Types.TIMESTAMP), useLegacyPreparedStatements)
                 .resultsIn("timestamp(0)", "TIMESTAMP '2001-05-06 12:34:56'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
 
-        assertBind((ps, i) -> ps.setObject(i, "2001-05-06 12:34:56.123", Types.TIMESTAMP)).resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.123'");
-        assertBind((ps, i) -> ps.setObject(i, "2001-05-06 12:34:56.123456", Types.TIMESTAMP)).resultsIn("timestamp(6)", "TIMESTAMP '2001-05-06 12:34:56.123456'");
-        assertBind((ps, i) -> ps.setObject(i, "2001-05-06 12:34:56.123456789", Types.TIMESTAMP)).resultsIn("timestamp(9)", "TIMESTAMP '2001-05-06 12:34:56.123456789'");
-        assertBind((ps, i) -> ps.setObject(i, "2001-05-06 12:34:56.123456789012", Types.TIMESTAMP)).resultsIn("timestamp(12)", "TIMESTAMP '2001-05-06 12:34:56.123456789012'");
+        assertBind((ps, i) -> ps.setObject(i, "2001-05-06 12:34:56.123", Types.TIMESTAMP), useLegacyPreparedStatements)
+                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.123'");
+
+        assertBind((ps, i) -> ps.setObject(i, "2001-05-06 12:34:56.123456", Types.TIMESTAMP), useLegacyPreparedStatements)
+                .resultsIn("timestamp(6)", "TIMESTAMP '2001-05-06 12:34:56.123456'");
+
+        assertBind((ps, i) -> ps.setObject(i, "2001-05-06 12:34:56.123456789", Types.TIMESTAMP), useLegacyPreparedStatements)
+                .resultsIn("timestamp(9)", "TIMESTAMP '2001-05-06 12:34:56.123456789'");
+
+        assertBind((ps, i) -> ps.setObject(i, "2001-05-06 12:34:56.123456789012", Types.TIMESTAMP), useLegacyPreparedStatements)
+                .resultsIn("timestamp(12)", "TIMESTAMP '2001-05-06 12:34:56.123456789012'");
 
         Timestamp timestampWithWithDecisecond = new Timestamp(sqlTimestamp.getTime() + 100);
-        assertBind((ps, i) -> ps.setTimestamp(i, timestampWithWithDecisecond))
+        assertBind((ps, i) -> ps.setTimestamp(i, timestampWithWithDecisecond), useLegacyPreparedStatements)
                 .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.100'")
                 .roundTripsAs(Types.TIMESTAMP, timestampWithWithDecisecond);
 
-        assertBind((ps, i) -> ps.setObject(i, timestampWithWithDecisecond))
+        assertBind((ps, i) -> ps.setObject(i, timestampWithWithDecisecond), useLegacyPreparedStatements)
                 .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.100'")
                 .roundTripsAs(Types.TIMESTAMP, timestampWithWithDecisecond);
 
-        assertBind((ps, i) -> ps.setObject(i, timestampWithWithDecisecond, Types.TIMESTAMP))
+        assertBind((ps, i) -> ps.setObject(i, timestampWithWithDecisecond, Types.TIMESTAMP), useLegacyPreparedStatements)
                 .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.100'")
                 .roundTripsAs(Types.TIMESTAMP, timestampWithWithDecisecond);
 
         Timestamp timestampWithMillisecond = new Timestamp(sqlTimestamp.getTime() + 123);
-        assertBind((ps, i) -> ps.setTimestamp(i, timestampWithMillisecond))
+        assertBind((ps, i) -> ps.setTimestamp(i, timestampWithMillisecond), useLegacyPreparedStatements)
                 .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.123'")
                 .roundTripsAs(Types.TIMESTAMP, timestampWithMillisecond);
 
-        assertBind((ps, i) -> ps.setObject(i, timestampWithMillisecond))
+        assertBind((ps, i) -> ps.setObject(i, timestampWithMillisecond), useLegacyPreparedStatements)
                 .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.123'")
                 .roundTripsAs(Types.TIMESTAMP, timestampWithMillisecond);
 
-        assertBind((ps, i) -> ps.setObject(i, timestampWithMillisecond, Types.TIMESTAMP))
+        assertBind((ps, i) -> ps.setObject(i, timestampWithMillisecond, Types.TIMESTAMP), useLegacyPreparedStatements)
                 .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.123'")
                 .roundTripsAs(Types.TIMESTAMP, timestampWithMillisecond);
     }
 
-    @Test
-    public void testConvertTimestampWithTimeZone()
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testConvertTimestampWithTimeZone(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         // TODO (https://github.com/trinodb/trino/issues/6299) support ZonedDateTime
 
         // String as TIMESTAMP WITH TIME ZONE
-        assertBind((ps, i) -> ps.setObject(i, "1970-01-01 12:34:56.123 +05:45", Types.TIMESTAMP_WITH_TIMEZONE))
+        assertBind((ps, i) -> ps.setObject(i, "1970-01-01 12:34:56.123 +05:45", Types.TIMESTAMP_WITH_TIMEZONE), useLegacyPreparedStatements)
                 .resultsIn("timestamp(3) with time zone", "TIMESTAMP '1970-01-01 12:34:56.123 +05:45'");
 
-        assertBind((ps, i) -> ps.setObject(i, "1970-01-01 12:34:56.123456 +05:45", Types.TIMESTAMP_WITH_TIMEZONE))
+        assertBind((ps, i) -> ps.setObject(i, "1970-01-01 12:34:56.123456 +05:45", Types.TIMESTAMP_WITH_TIMEZONE), useLegacyPreparedStatements)
                 .resultsIn("timestamp(6) with time zone", "TIMESTAMP '1970-01-01 12:34:56.123456 +05:45'");
 
-        assertBind((ps, i) -> ps.setObject(i, "1970-01-01 12:34:56.123456789 +05:45", Types.TIMESTAMP_WITH_TIMEZONE))
+        assertBind((ps, i) -> ps.setObject(i, "1970-01-01 12:34:56.123456789 +05:45", Types.TIMESTAMP_WITH_TIMEZONE), useLegacyPreparedStatements)
                 .resultsIn("timestamp(9) with time zone", "TIMESTAMP '1970-01-01 12:34:56.123456789 +05:45'");
 
-        assertBind((ps, i) -> ps.setObject(i, "1970-01-01 12:34:56.123456789012 +05:45", Types.TIMESTAMP_WITH_TIMEZONE))
+        assertBind((ps, i) -> ps.setObject(i, "1970-01-01 12:34:56.123456789012 +05:45", Types.TIMESTAMP_WITH_TIMEZONE), useLegacyPreparedStatements)
                 .resultsIn("timestamp(12) with time zone", "TIMESTAMP '1970-01-01 12:34:56.123456789012 +05:45'");
     }
 
+    @Test(dataProvider = "legacyPreparedStatementProvider")
+    public void testInvalidConversions(boolean useLegacyPreparedStatements)
+            throws SQLException
+    {
+        assertBind((ps, i) -> ps.setObject(i, String.class), useLegacyPreparedStatements).isInvalid("Unsupported object type: java.lang.Class");
+        assertBind((ps, i) -> ps.setObject(i, String.class, Types.BIGINT), useLegacyPreparedStatements)
+                .isInvalid("Cannot convert instance of java.lang.Class to SQL type " + Types.BIGINT);
+        assertBind((ps, i) -> ps.setObject(i, "abc", Types.SMALLINT), useLegacyPreparedStatements)
+                .isInvalid("Cannot convert instance of java.lang.String to SQL type " + Types.SMALLINT);
+    }
+
     @Test
-    public void testInvalidConversions()
-            throws SQLException
+    public void testLegacyPreparedStatementsTrue()
+            throws Exception
     {
-        assertBind((ps, i) -> ps.setObject(i, String.class)).isInvalid("Unsupported object type: java.lang.Class");
-        assertBind((ps, i) -> ps.setObject(i, String.class, Types.BIGINT)).isInvalid("Cannot convert instance of java.lang.Class to SQL type " + Types.BIGINT);
-        assertBind((ps, i) -> ps.setObject(i, "abc", Types.SMALLINT)).isInvalid("Cannot convert instance of java.lang.String to SQL type " + Types.SMALLINT);
+        testLegacyPreparedStatementsSetting(true,
+                "EXECUTE %statement% USING %values%");
     }
 
-    private BindAssertion assertBind(Binder binder)
+    @Test
+    public void testLegacyPreparedStatementsFalse()
+            throws Exception
     {
-        return new BindAssertion(this::createConnection, binder);
+        testLegacyPreparedStatementsSetting(false,
+                "EXECUTE IMMEDIATE '%query%' USING %values%");
     }
 
-    private Connection createConnection()
+    private BindAssertion assertBind(Binder binder, boolean useLegacyPreparedStatements)
+    {
+        return new BindAssertion(() -> this.createConnection(useLegacyPreparedStatements), binder);
+    }
+
+    private Connection createConnection(boolean useLegacyPreparedStatements)
             throws SQLException
     {
-        String url = format("jdbc:trino://%s", server.getAddress());
+        String url = format("jdbc:trino://%s?legacyPreparedStatements=" + useLegacyPreparedStatements, server.getAddress());
         return DriverManager.getConnection(url, "test", null);
     }
 
-    private Connection createConnection(String catalog, String schema)
+    private Connection createConnection(String catalog, String schema, boolean useLegacyPreparedStatements)
             throws SQLException
     {
-        String url = format("jdbc:trino://%s/%s/%s", server.getAddress(), catalog, schema);
+        String url = format("jdbc:trino://%s/%s/%s?legacyPreparedStatements=" + useLegacyPreparedStatements, server.getAddress(), catalog, schema);
         return DriverManager.getConnection(url, "test", null);
+    }
+
+    private void testLegacyPreparedStatementsSetting(boolean legacyPreparedStatements, String expectedSql)
+            throws Exception
+    {
+        String selectSql = "SELECT * FROM blackhole.blackhole.test_table WHERE x = ? AND y = ? AND y <> 'Test'";
+        String insertSql = "INSERT INTO blackhole.blackhole.test_table (x, y) VALUES (?, ?)";
+
+        try (Connection connection = createConnection(legacyPreparedStatements)) {
+            try (Statement statement = connection.createStatement()) {
+                assertEquals(statement.executeUpdate("CREATE TABLE blackhole.blackhole.test_table (x bigint, y varchar)"), 0);
+            }
+
+            try (PreparedStatement ps = connection.prepareStatement(selectSql)) {
+                ps.setInt(1, 42);
+                ps.setString(2, "value1's");
+
+                ps.executeQuery();
+                checkSQLExecuted(connection, expectedSql
+                        .replace("%statement%", "statement1")
+                        .replace("%query%", selectSql.replace("'", "''"))
+                        .replace("%values%", "INTEGER '42', 'value1''s'"));
+            }
+
+            try (PreparedStatement ps = connection.prepareStatement(selectSql)) {
+                ps.setInt(1, 42);
+                ps.setString(2, "value1's");
+
+                ps.execute();
+                checkSQLExecuted(connection, expectedSql
+                        .replace("%statement%", "statement2")
+                        .replace("%query%", selectSql.replace("'", "''"))
+                        .replace("%values%", "INTEGER '42', 'value1''s'"));
+            }
+
+            try (PreparedStatement ps = connection.prepareStatement(insertSql)) {
+                ps.setInt(1, 42);
+                ps.setString(2, "value1's");
+
+                ps.executeLargeUpdate();
+                checkSQLExecuted(connection, expectedSql
+                        .replace("%statement%", "statement3")
+                        .replace("%query%", insertSql.replace("'", "''"))
+                        .replace("%values%", "INTEGER '42', 'value1''s'"));
+            }
+
+            try (PreparedStatement ps = connection.prepareStatement(insertSql)) {
+                ps.setInt(1, 42);
+                ps.setString(2, "value1's");
+                ps.addBatch();
+
+                ps.setInt(1, 43);
+                ps.setString(2, "value2's");
+                ps.addBatch();
+
+                ps.executeBatch();
+                String statement4 = expectedSql
+                        .replace("%statement%", "statement4")
+                        .replace("%query%", insertSql.replace("'", "''"));
+                checkSQLExecuted(connection, statement4
+                        .replace("%values%", "INTEGER '42', 'value1''s'"));
+                checkSQLExecuted(connection, statement4
+                        .replace("%values%", "INTEGER '43', 'value2''s'"));
+            }
+
+            try (Statement statement = connection.createStatement()) {
+                assertEquals(statement.executeUpdate("DROP TABLE blackhole.blackhole.test_table"), 0);
+            }
+        }
+    }
+
+    private void checkSQLExecuted(Connection connection, String expectedSql)
+    {
+        String sql = format("SELECT state FROM system.runtime.queries WHERE query = '%s'", expectedSql.replace("'", "''"));
+
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
+            assertTrue(resultSet.next(), "Cannot find SQL query " + expectedSql);
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static class BindAssertion
