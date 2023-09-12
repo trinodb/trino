@@ -20,6 +20,7 @@ import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
 import io.trino.cost.TableStatsProvider;
+import io.trino.cost.TaskCountEstimator;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.operator.RetryPolicy;
@@ -94,10 +95,12 @@ public class DeterminePartitionCount
     private static final List<Class<? extends PlanNode>> INSERT_NODES = ImmutableList.of(TableExecuteNode.class, TableWriterNode.class, MergeWriterNode.class);
 
     private final StatsCalculator statsCalculator;
+    private final TaskCountEstimator taskCountEstimator;
 
-    public DeterminePartitionCount(StatsCalculator statsCalculator)
+    public DeterminePartitionCount(StatsCalculator statsCalculator, TaskCountEstimator taskCountEstimator)
     {
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+        this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
     }
 
     @Override
@@ -115,6 +118,7 @@ public class DeterminePartitionCount
         requireNonNull(session, "session is null");
         requireNonNull(types, "types is null");
         requireNonNull(tableStatsProvider, "tableStatsProvider is null");
+        requireNonNull(taskCountEstimator, "taskCountEstimator is null");
 
         // Skip partition count determination if no partitioned remote exchanges exist in the plan anyway
         if (!isEligibleRemoteExchangePresent(plan)) {
@@ -205,6 +209,11 @@ public class DeterminePartitionCount
                 minPartitionCount);
 
         if (partitionCount >= maxPartitionCount) {
+            return Optional.empty();
+        }
+
+        if (partitionCount * 2 >= taskCountEstimator.estimateHashedTaskCount(session) && !getRetryPolicy(session).equals(RetryPolicy.TASK)) {
+            // Do not cap partition count if it's already close to the possible number of tasks.
             return Optional.empty();
         }
 
