@@ -96,7 +96,9 @@ public class TestDeterminePartitionCount
                 .setCatalog(catalogName)
                 .setSchema("default")
                 .build();
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
+        LocalQueryRunner queryRunner = LocalQueryRunner.builder(session)
+                .withNodeCountForStats(100)
+                .build();
         queryRunner.createCatalog(
                 catalogName,
                 connectorFactory,
@@ -175,7 +177,7 @@ public class TestDeterminePartitionCount
         assertDistributedPlan(
                 query,
                 Session.builder(getQueryRunner().getDefaultSession())
-                        .setSystemProperty(MAX_HASH_PARTITION_COUNT, "20")
+                        .setSystemProperty(MAX_HASH_PARTITION_COUNT, "21")
                         .setSystemProperty(MIN_HASH_PARTITION_COUNT, "4")
                         .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
                         .setSystemProperty(MIN_INPUT_ROWS_PER_TASK, "400")
@@ -185,6 +187,33 @@ public class TestDeterminePartitionCount
                                 node(AggregationNode.class,
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION, Optional.of(10),
+                                                        node(AggregationNode.class,
+                                                                project(
+                                                                        node(TableScanNode.class)))))))));
+    }
+
+    @Test
+    public void testDoesNotSetPartitionCountWhenNodeCountIsSmall()
+    {
+        @Language("SQL") String query = """
+                SELECT count(column_a) FROM table_with_stats_a group by column_b
+                """;
+
+        // DeterminePartitionCount shouldn't put partition count when 2 * "determined partition count"
+        // is greater or equal to number of workers.
+        assertDistributedPlan(
+                query,
+                Session.builder(getQueryRunner().getDefaultSession())
+                        .setSystemProperty(MAX_HASH_PARTITION_COUNT, "20")
+                        .setSystemProperty(MIN_HASH_PARTITION_COUNT, "4")
+                        .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
+                        .setSystemProperty(MIN_INPUT_ROWS_PER_TASK, "400")
+                        .build(),
+                output(
+                        project(
+                                node(AggregationNode.class,
+                                        exchange(LOCAL,
+                                                exchange(REMOTE, REPARTITION, Optional.empty(),
                                                         node(AggregationNode.class,
                                                                 project(
                                                                         node(TableScanNode.class)))))))));
@@ -371,7 +400,7 @@ public class TestDeterminePartitionCount
         assertDistributedPlan(
                 query,
                 Session.builder(getQueryRunner().getDefaultSession())
-                        .setSystemProperty(MAX_HASH_PARTITION_COUNT, "20")
+                        .setSystemProperty(MAX_HASH_PARTITION_COUNT, "40")
                         .setSystemProperty(MIN_HASH_PARTITION_COUNT, "15")
                         .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
                         .setSystemProperty(MIN_INPUT_ROWS_PER_TASK, "400")
