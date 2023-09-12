@@ -71,14 +71,14 @@ import static java.util.Objects.requireNonNull;
  * used for remote partitioned exchanges. It helps to increase the concurrency of the engine in the case of large cluster.
  * This rule is also cautious about lack of or incorrect statistics therefore it skips for input multiplying nodes like
  * CROSS JOIN or UNNEST.
- *
+ * <p>
  * E.g. 1:
  * Given query: SELECT count(column_a) FROM table_with_stats_a group by column_b
  * config:
  * MIN_INPUT_SIZE_PER_TASK: 500 MB
  * Input table data size: 1000 MB
  * Estimated partition count: Input table data size / MIN_INPUT_SIZE_PER_TASK => 2
- *
+ * <p>
  * E.g. 2:
  * Given query: SELECT * FROM table_with_stats_a as a JOIN table_with_stats_b as b ON a.column_b = b.column_b
  * config:

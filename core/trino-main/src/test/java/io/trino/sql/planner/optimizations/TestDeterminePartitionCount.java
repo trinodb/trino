@@ -138,8 +138,8 @@ public class TestDeterminePartitionCount
                         .build(),
                 output(
                         project(
-                            filter("column_b IS NULL",
-                                    tableScan("table_with_stats_a", ImmutableMap.of("column_a", "column_a", "column_b", "column_b"))))));
+                                filter("column_b IS NULL",
+                                        tableScan("table_with_stats_a", ImmutableMap.of("column_a", "column_a", "column_b", "column_b"))))));
     }
 
     @Test
