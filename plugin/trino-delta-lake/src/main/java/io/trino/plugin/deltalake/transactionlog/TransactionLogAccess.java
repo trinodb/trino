@@ -338,7 +338,7 @@ public class TransactionLogAccess
         Stream<Object> entries = getEntries(
                 tableSnapshot,
                 entryTypes,
-                (checkpointStream, jsonStream) -> entryMapper.apply(Stream.concat(checkpointStream, jsonStream)),
+                (checkpointStream, jsonStream) -> entryMapper.apply(Stream.concat(checkpointStream, jsonStream.stream().map(Transaction::transactionEntries).flatMap(Collection::stream))),
                 session,
                 fileSystemFactory.create(session),
                 fileFormatDataSourceStats);
