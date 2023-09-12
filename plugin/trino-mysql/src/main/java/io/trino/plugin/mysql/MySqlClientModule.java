@@ -19,7 +19,6 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.mysql.cj.jdbc.Driver;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DecimalModule;
@@ -56,15 +55,14 @@ public class MySqlClientModule
     @Provides
     @Singleton
     @ForBaseJdbc
-    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, MySqlConfig mySqlConfig, OpenTelemetry openTelemetry)
+    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, MySqlConfig mySqlConfig)
             throws SQLException
     {
         return new DriverConnectionFactory(
                 new Driver(),
                 config.getConnectionUrl(),
                 getConnectionProperties(mySqlConfig),
-                credentialProvider,
-                openTelemetry);
+                credentialProvider);
     }
 
     public static Properties getConnectionProperties(MySqlConfig mySqlConfig)

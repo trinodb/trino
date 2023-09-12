@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.jdbc.credential.CredentialPropertiesProvider;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.DefaultCredentialPropertiesProvider;
@@ -35,7 +34,6 @@ public class DriverConnectionFactory
     private final String connectionUrl;
     private final Properties connectionProperties;
     private final CredentialPropertiesProvider<String, String> credentialPropertiesProvider;
-    private final TracingDataSource dataSource;
 
     public DriverConnectionFactory(Driver driver, BaseJdbcConfig config, CredentialProvider credentialProvider)
     {
@@ -47,27 +45,16 @@ public class DriverConnectionFactory
 
     public DriverConnectionFactory(Driver driver, String connectionUrl, Properties connectionProperties, CredentialProvider credentialProvider)
     {
-        this(driver, connectionUrl, connectionProperties, new DefaultCredentialPropertiesProvider(credentialProvider), OpenTelemetry.noop());
+        this(driver, connectionUrl, connectionProperties, new DefaultCredentialPropertiesProvider(credentialProvider));
     }
 
-    public DriverConnectionFactory(Driver driver, String connectionUrl, Properties connectionProperties, CredentialProvider credentialProvider, OpenTelemetry openTelemetry)
-    {
-        this(driver, connectionUrl, connectionProperties, new DefaultCredentialPropertiesProvider(credentialProvider), openTelemetry);
-    }
-
-    public DriverConnectionFactory(
-            Driver driver,
-            String connectionUrl,
-            Properties connectionProperties,
-            CredentialPropertiesProvider<String, String> credentialPropertiesProvider,
-            OpenTelemetry openTelemetry)
+    public DriverConnectionFactory(Driver driver, String connectionUrl, Properties connectionProperties, CredentialPropertiesProvider<String, String> credentialPropertiesProvider)
     {
         this.driver = requireNonNull(driver, "driver is null");
         this.connectionUrl = requireNonNull(connectionUrl, "connectionUrl is null");
         this.connectionProperties = new Properties();
         this.connectionProperties.putAll(requireNonNull(connectionProperties, "connectionProperties is null"));
         this.credentialPropertiesProvider = requireNonNull(credentialPropertiesProvider, "credentialPropertiesProvider is null");
-        this.dataSource = new TracingDataSource(requireNonNull(openTelemetry, "openTelemetry is null"), driver, connectionUrl);
     }
 
     @Override
@@ -75,7 +62,7 @@ public class DriverConnectionFactory
             throws SQLException
     {
         Properties properties = getCredentialProperties(session.getIdentity());
-        Connection connection = dataSource.getConnection(properties);
+        Connection connection = driver.connect(connectionUrl, properties);
         checkState(connection != null, "Driver returned null connection, make sure the connection URL '%s' is valid for the driver %s", connectionUrl, driver);
         return connection;
     }
