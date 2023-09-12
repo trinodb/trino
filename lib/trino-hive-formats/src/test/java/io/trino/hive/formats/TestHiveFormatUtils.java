@@ -18,7 +18,7 @@ import org.testng.annotations.Test;
 import java.time.LocalDate;
 
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveDate;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveFormatUtils
 {

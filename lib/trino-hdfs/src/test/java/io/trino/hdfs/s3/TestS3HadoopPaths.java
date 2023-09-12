@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 import java.net.URI;
 
 import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestS3HadoopPaths
 {
