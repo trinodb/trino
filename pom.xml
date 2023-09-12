@@ -2591,5 +2591,23 @@
                 </plugins>
             </build>
         </profile>
+        <profile>
+            <id>quick</id>
+            <properties>
+                <air.check.skip-all>true</air.check.skip-all>
+            </properties>
+            <build>
+                <defaultGoal>clean install</defaultGoal>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <skipTests>true</skipTests>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 </project>
