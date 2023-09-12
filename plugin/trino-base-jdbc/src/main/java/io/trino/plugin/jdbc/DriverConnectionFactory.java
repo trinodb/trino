@@ -75,7 +75,9 @@ public class DriverConnectionFactory
             throws SQLException
     {
         Properties properties = getCredentialProperties(session.getIdentity());
-        Connection connection = dataSource.getConnection(properties);
+        // TODO: Telemetry is disabled due to NPE being thrown on null connection
+        // Connection connection = dataSource.getConnection(properties);
+        Connection connection = driver.connect(connectionUrl, properties);
         checkState(connection != null, "Driver returned null connection, make sure the connection URL '%s' is valid for the driver %s", connectionUrl, driver);
         return connection;
     }
