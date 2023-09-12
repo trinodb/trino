@@ -24,7 +24,7 @@ import java.time.Duration;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Thread.sleep;
 import static java.util.Objects.requireNonNull;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestReusableConnectionFactory
 {

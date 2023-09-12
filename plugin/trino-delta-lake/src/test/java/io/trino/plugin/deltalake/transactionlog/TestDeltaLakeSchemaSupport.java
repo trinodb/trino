@@ -69,7 +69,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.testng.Assert.assertEquals;
 
 public class TestDeltaLakeSchemaSupport
