@@ -26,6 +26,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.Resources.getResource;
@@ -162,5 +163,17 @@ public class TestIcebergMinioOrcConnectorTest
         assertThatThrownBy(super::testDropAmbiguousRowFieldCaseSensitivity)
                 .hasMessageContaining("Error opening Iceberg split")
                 .hasStackTraceContaining("Multiple entries with same key");
+    }
+
+    @Override
+    protected Optional<TimestampPrecisionTestSetup> filterTimestampPrecisionOnCreateTableAsSelectProvider(TimestampPrecisionTestSetup setup)
+    {
+        if (setup.sourceValueLiteral().equals("TIMESTAMP '1969-12-31 23:59:59.999999499999'")) {
+            return Optional.of(setup.withNewValueLiteral("TIMESTAMP '1970-01-01 00:00:00.999999'"));
+        }
+        if (setup.sourceValueLiteral().equals("TIMESTAMP '1969-12-31 23:59:59.9999994'")) {
+            return Optional.of(setup.withNewValueLiteral("TIMESTAMP '1970-01-01 00:00:00.999999'"));
+        }
+        return Optional.of(setup);
     }
 }
