@@ -34,6 +34,15 @@ public class OutputDataSizeEstimate
         return partitionDataSizes.get(partitionId);
     }
 
+    public long getTotalSizeInBytes()
+    {
+        long totalSizeInBytes = 0;
+        for (int partitionId = 0; partitionId < partitionDataSizes.length(); partitionId++) {
+            totalSizeInBytes += partitionDataSizes.get(partitionId);
+        }
+        return totalSizeInBytes;
+    }
+
     public static OutputDataSizeEstimate merge(Collection<OutputDataSizeEstimate> estimates)
     {
         int partitionCount = getPartitionCount(estimates);

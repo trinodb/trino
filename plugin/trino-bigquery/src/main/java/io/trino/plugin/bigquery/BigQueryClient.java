@@ -14,6 +14,7 @@
 package io.trino.plugin.bigquery;
 
 import com.google.cloud.bigquery.BigQuery;
+import com.google.cloud.bigquery.BigQuery.DatasetDeleteOption;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.DatasetId;
@@ -37,7 +38,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.collect.cache.EvictableCacheBuilder;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -251,9 +252,14 @@ public class BigQueryClient
         bigQuery.create(datasetInfo);
     }
 
-    public void dropSchema(DatasetId datasetId)
+    public void dropSchema(DatasetId datasetId, boolean cascade)
     {
-        bigQuery.delete(datasetId);
+        if (cascade) {
+            bigQuery.delete(datasetId, DatasetDeleteOption.deleteContents());
+        }
+        else {
+            bigQuery.delete(datasetId);
+        }
     }
 
     public void createTable(TableInfo tableInfo)

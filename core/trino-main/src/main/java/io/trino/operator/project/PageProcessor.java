@@ -14,6 +14,7 @@
 package io.trino.operator.project;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.array.ReferenceCountMap;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.DriverYieldSignal;
@@ -26,8 +27,6 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.sql.gen.ExpressionProfiler;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -53,8 +52,8 @@ import static java.util.Objects.requireNonNull;
 public class PageProcessor
 {
     public static final int MAX_BATCH_SIZE = 8 * 1024;
-    static final int MAX_PAGE_SIZE_IN_BYTES = 4 * 1024 * 1024;
-    static final int MIN_PAGE_SIZE_IN_BYTES = 1024 * 1024;
+    static final int MAX_PAGE_SIZE_IN_BYTES = 16 * 1024 * 1024;
+    static final int MIN_PAGE_SIZE_IN_BYTES = 4 * 1024 * 1024;
 
     private final ExpressionProfiler expressionProfiler;
     private final DictionarySourceIdFunction dictionarySourceIdFunction = new DictionarySourceIdFunction();
@@ -323,7 +322,7 @@ public class PageProcessor
         {
             Block[] blocks = new Block[projections.size()];
 
-            int pageSize = 0;
+            long pageSize = 0;
             SelectedPositions positionsBatch = selectedPositions.subRange(0, batchSize);
             for (int i = 0; i < projections.size(); i++) {
                 if (yieldSignal.isSet()) {

@@ -18,6 +18,7 @@ import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Ordering;
 import com.google.common.collect.Streams;
 import com.google.common.primitives.Primitives;
 import com.google.common.primitives.Shorts;
@@ -38,7 +39,7 @@ import com.mongodb.client.model.Updates;
 import com.mongodb.client.result.DeleteResult;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.trino.collect.cache.EvictableCacheBuilder;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -49,6 +50,10 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowFieldName;
@@ -60,14 +65,17 @@ import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 import org.bson.Document;
 import org.bson.types.Binary;
+import org.bson.types.Decimal128;
 import org.bson.types.ObjectId;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -86,10 +94,13 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.plugin.mongodb.ptf.Query.parseFilter;
 import static io.trino.spi.HostAddress.fromParts;
+import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
@@ -151,6 +162,9 @@ public class MongoSession
             .put("authorizedCollections", true)
             .buildOrThrow();
 
+    private static final Ordering<MongoColumnHandle> COLUMN_HANDLE_ORDERING = Ordering
+            .from(Comparator.comparingInt(columnHandle -> columnHandle.getDereferenceNames().size()));
+
     private final TypeManager typeManager;
     private final MongoClient client;
 
@@ -201,9 +215,20 @@ public class MongoSession
         client.getDatabase(schemaName).createCollection(schemaCollection);
     }
 
-    public void dropSchema(String schemaName)
+    public void dropSchema(String schemaName, boolean cascade)
     {
-        client.getDatabase(toRemoteSchemaName(schemaName)).drop();
+        MongoDatabase database = client.getDatabase(toRemoteSchemaName(schemaName));
+        if (!cascade) {
+            try (MongoCursor<String> collections = database.listCollectionNames().cursor()) {
+                while (collections.hasNext()) {
+                    if (collections.next().equals(schemaCollection)) {
+                        continue;
+                    }
+                    throw new TrinoException(SCHEMA_NOT_EMPTY, "Cannot drop non-empty schema '%s'".formatted(schemaName));
+                }
+            }
+        }
+        database.drop();
     }
 
     public Set<String> getAllTables(String schema)
@@ -440,7 +465,7 @@ public class MongoSession
 
         Type type = typeManager.fromSqlType(typeString);
 
-        return new MongoColumnHandle(name, type, hidden, Optional.ofNullable(comment));
+        return new MongoColumnHandle(name, ImmutableList.of(), type, hidden, false, Optional.ofNullable(comment));
     }
 
     private List<Document> getColumnMetadata(Document doc)
@@ -482,21 +507,72 @@ public class MongoSession
 
     public MongoCursor<Document> execute(MongoTableHandle tableHandle, List<MongoColumnHandle> columns)
     {
-        Document output = new Document();
-        for (MongoColumnHandle column : columns) {
-            output.append(column.getName(), 1);
-        }
+        Set<MongoColumnHandle> projectedColumns = tableHandle.getProjectedColumns();
+        checkArgument(projectedColumns.isEmpty() || projectedColumns.containsAll(columns), "projectedColumns must be empty or equal to columns");
+
+        Document projection = buildProjection(columns);
+
         MongoCollection<Document> collection = getCollection(tableHandle.getRemoteTableName());
         Document filter = buildFilter(tableHandle);
-        FindIterable<Document> iterable = collection.find(filter).projection(output).collation(SIMPLE_COLLATION);
+        FindIterable<Document> iterable = collection.find(filter).projection(projection).collation(SIMPLE_COLLATION);
         tableHandle.getLimit().ifPresent(iterable::limit);
-        log.debug("Find documents: collection: %s, filter: %s, projection: %s", tableHandle.getSchemaTableName(), filter, output);
+        log.debug("Find documents: collection: %s, filter: %s, projection: %s", tableHandle.getSchemaTableName(), filter, projection);
 
         if (cursorBatchSize != 0) {
             iterable.batchSize(cursorBatchSize);
         }
 
         return iterable.iterator();
+    }
+
+    @VisibleForTesting
+    static Document buildProjection(List<MongoColumnHandle> columns)
+    {
+        Document output = new Document();
+
+        // _id is always projected by mongodb unless its explicitly excluded.
+        // We exclude it explicitly at the start and later include it if its present within columns list.
+        // https://www.mongodb.com/docs/drivers/java/sync/current/fundamentals/builders/projections/#exclusion-of-_id
+        output.append("_id", 0);
+
+        // Starting in MongoDB 4.4, it is illegal to project an embedded document with any of the embedded document's fields
+        // (https://www.mongodb.com/docs/manual/reference/limits/#mongodb-limit-Projection-Restrictions). So, Project only sufficient columns.
+        for (MongoColumnHandle column : projectSufficientColumns(columns)) {
+            output.append(column.getQualifiedName(), 1);
+        }
+
+        return output;
+    }
+
+    /**
+     * Creates a set of sufficient columns for the input projected columns. For example,
+     * if input {@param columns} include columns "a.b" and "a.b.c", then they will be projected from a single column "a.b".
+     */
+    public static List<MongoColumnHandle> projectSufficientColumns(List<MongoColumnHandle> columnHandles)
+    {
+        List<MongoColumnHandle> sortedColumnHandles = COLUMN_HANDLE_ORDERING.sortedCopy(columnHandles);
+        List<MongoColumnHandle> sufficientColumns = new ArrayList<>();
+        for (MongoColumnHandle column : sortedColumnHandles) {
+            if (!parentColumnExists(sufficientColumns, column)) {
+                sufficientColumns.add(column);
+            }
+        }
+        return sufficientColumns;
+    }
+
+    private static boolean parentColumnExists(List<MongoColumnHandle> existingColumns, MongoColumnHandle column)
+    {
+        for (MongoColumnHandle existingColumn : existingColumns) {
+            List<String> existingColumnDereferenceNames = existingColumn.getDereferenceNames();
+            verify(
+                    column.getDereferenceNames().size() >= existingColumnDereferenceNames.size(),
+                    "Selected column's dereference size must be greater than or equal to the existing column's dereference size");
+            if (existingColumn.getBaseName().equals(column.getBaseName())
+                    && column.getDereferenceNames().subList(0, existingColumnDereferenceNames.size()).equals(existingColumnDereferenceNames)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static Document buildFilter(MongoTableHandle table)
@@ -525,7 +601,7 @@ public class MongoSession
 
     private static Optional<Document> buildPredicate(MongoColumnHandle column, Domain domain)
     {
-        String name = column.getName();
+        String name = column.getQualifiedName();
         Type type = column.getType();
         if (domain.getValues().isNone() && domain.isNullAllowed()) {
             return Optional.of(documentOf(name, isNullPredicate()));
@@ -609,8 +685,20 @@ public class MongoSession
             return Optional.of(trinoNativeValue);
         }
 
+        if (type instanceof DecimalType decimalType) {
+            if (decimalType.isShort()) {
+                return Optional.of(Decimal128.parse(Decimals.toString((long) trinoNativeValue, decimalType.getScale())));
+            }
+            return Optional.of(Decimal128.parse(Decimals.toString((Int128) trinoNativeValue, decimalType.getScale())));
+        }
+
         if (type instanceof ObjectIdType) {
             return Optional.of(new ObjectId(((Slice) trinoNativeValue).getBytes()));
+        }
+
+        if (type instanceof CharType charType) {
+            Slice slice = padSpaces(((Slice) trinoNativeValue), charType);
+            return Optional.of(slice.toStringUtf8());
         }
 
         if (type instanceof VarcharType) {
@@ -740,8 +828,8 @@ public class MongoSession
         Document metadata = new Document(TABLE_NAME_KEY, remoteTableName);
 
         ArrayList<Document> fields = new ArrayList<>();
-        if (!columns.stream().anyMatch(c -> c.getName().equals("_id"))) {
-            fields.add(new MongoColumnHandle("_id", OBJECT_ID, true, Optional.empty()).getDocument());
+        if (!columns.stream().anyMatch(c -> c.getBaseName().equals("_id"))) {
+            fields.add(new MongoColumnHandle("_id", ImmutableList.of(), OBJECT_ID, true, false, Optional.empty()).getDocument());
         }
 
         fields.addAll(columns.stream()
@@ -825,6 +913,16 @@ public class MongoSession
         }
         else if (value instanceof Float || value instanceof Double) {
             typeSignature = DOUBLE.getTypeSignature();
+        }
+        else if (value instanceof Decimal128 decimal128) {
+            BigDecimal decimal;
+            try {
+                decimal = decimal128.bigDecimalValue();
+            }
+            catch (ArithmeticException e) {
+                return Optional.empty();
+            }
+            typeSignature = createDecimalType(decimal.precision(), decimal.scale()).getTypeSignature();
         }
         else if (value instanceof Date) {
             typeSignature = TIMESTAMP_MILLIS.getTypeSignature();

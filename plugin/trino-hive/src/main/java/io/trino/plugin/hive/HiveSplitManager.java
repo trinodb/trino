@@ -45,10 +45,9 @@ import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.type.TypeManager;
+import jakarta.annotation.Nullable;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.Nullable;
 
 import java.util.Collection;
 import java.util.Iterator;
@@ -62,6 +61,7 @@ import java.util.concurrent.RejectedExecutionException;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.peekingIterator;
 import static com.google.common.collect.Iterators.singletonIterator;
@@ -225,13 +225,11 @@ public class HiveSplitManager
         // validate bucket bucketed execution
         Optional<HiveBucketHandle> bucketHandle = hiveTable.getBucketHandle();
 
-        if (bucketHandle.isPresent()) {
-            if (bucketHandle.get().getReadBucketCount() > bucketHandle.get().getTableBucketCount()) {
-                throw new TrinoException(
-                        GENERIC_INTERNAL_ERROR,
-                        "readBucketCount (%s) is greater than the tableBucketCount (%s) which generally points to an issue in plan generation");
-            }
-        }
+        bucketHandle.ifPresent(bucketing ->
+                verify(bucketing.getReadBucketCount() <= bucketing.getTableBucketCount(),
+                        "readBucketCount (%s) is greater than the tableBucketCount (%s) which generally points to an issue in plan generation",
+                        bucketing.getReadBucketCount(),
+                        bucketing.getTableBucketCount()));
 
         // get partitions
         Iterator<HivePartition> partitions = partitionManager.getPartitions(metastore, hiveTable);

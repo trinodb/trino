@@ -121,7 +121,7 @@ public class TestWordStemFunction
                 .hasType(createVarcharType(6))
                 .isEqualTo("bastã");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("word_stem", "'test'", "'xx'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("word_stem", "'test'", "'xx'")::evaluate)
                 .hasMessage("Unknown stemmer language: xx");
     }
 }

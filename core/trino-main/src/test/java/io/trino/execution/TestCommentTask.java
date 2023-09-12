@@ -141,6 +141,25 @@ public class TestCommentTask
                 .hasMessage("Column does not exist: %s", missingColumnName.getSuffix());
     }
 
+    @Test
+    public void testCommentMaterializedViewColumn()
+    {
+        QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
+        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()), someMaterializedView(), false, false);
+        assertThat(metadata.isMaterializedView(testSession, materializedViewName)).isTrue();
+
+        QualifiedName columnName = qualifiedColumnName("existing_materialized_view", "test");
+        QualifiedName missingColumnName = qualifiedColumnName("existing_materialized_view", "missing");
+
+        getFutureValue(setComment(COLUMN, columnName, Optional.of("new test column comment")));
+        assertThat(metadata.getMaterializedView(testSession, materializedViewName).get().getColumns().stream().filter(column -> "test".equals(column.getName())).collect(onlyElement()).getComment())
+                .isEqualTo(Optional.of("new test column comment"));
+
+        assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(COLUMN, missingColumnName, Optional.of("comment for missing column"))))
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("Column does not exist: %s", missingColumnName.getSuffix());
+    }
+
     private ListenableFuture<Void> setComment(Comment.Type type, QualifiedName viewName, Optional<String> comment)
     {
         return new CommentTask(metadata, new AllowAllAccessControl()).execute(new Comment(type, viewName, comment), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);

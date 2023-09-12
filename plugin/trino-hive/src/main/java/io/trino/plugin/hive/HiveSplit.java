@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -69,7 +70,6 @@ public class HiveSplit
             @JsonProperty("fileModifiedTime") long fileModifiedTime,
             @JsonProperty("schema") Properties schema,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
-            @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("readBucketNumber") OptionalInt readBucketNumber,
             @JsonProperty("tableBucketNumber") OptionalInt tableBucketNumber,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
@@ -79,6 +79,47 @@ public class HiveSplit
             @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled,
             @JsonProperty("acidInfo") Optional<AcidInfo> acidInfo,
             @JsonProperty("splitWeight") SplitWeight splitWeight)
+    {
+        this(
+                partitionName,
+                path,
+                start,
+                length,
+                estimatedFileSize,
+                fileModifiedTime,
+                schema,
+                partitionKeys,
+                ImmutableList.of(),
+                readBucketNumber,
+                tableBucketNumber,
+                forceLocalScheduling,
+                tableToPartitionMapping,
+                bucketConversion,
+                bucketValidation,
+                s3SelectPushdownEnabled,
+                acidInfo,
+                splitWeight);
+    }
+
+    public HiveSplit(
+            String partitionName,
+            String path,
+            long start,
+            long length,
+            long estimatedFileSize,
+            long fileModifiedTime,
+            Properties schema,
+            List<HivePartitionKey> partitionKeys,
+            List<HostAddress> addresses,
+            OptionalInt readBucketNumber,
+            OptionalInt tableBucketNumber,
+            boolean forceLocalScheduling,
+            TableToPartitionMapping tableToPartitionMapping,
+            Optional<BucketConversion> bucketConversion,
+            Optional<BucketValidation> bucketValidation,
+            boolean s3SelectPushdownEnabled,
+            Optional<AcidInfo> acidInfo,
+            SplitWeight splitWeight)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -163,7 +204,8 @@ public class HiveSplit
         return partitionKeys;
     }
 
-    @JsonProperty
+    // do not serialize addresses as they are not needed on workers
+    @JsonIgnore
     @Override
     public List<HostAddress> getAddresses()
     {

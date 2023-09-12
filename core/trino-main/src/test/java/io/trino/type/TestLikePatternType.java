@@ -13,7 +13,6 @@
  */
 package io.trino.type;
 
-import io.trino.likematcher.LikeMatcher;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
@@ -30,15 +29,15 @@ public class TestLikePatternType
     public void testGetObject()
     {
         BlockBuilder blockBuilder = LIKE_PATTERN.createBlockBuilder(new PageBuilderStatus().createBlockBuilderStatus(), 10);
-        LIKE_PATTERN.writeObject(blockBuilder, LikeMatcher.compile("helloX_world", Optional.of('X')));
-        LIKE_PATTERN.writeObject(blockBuilder, LikeMatcher.compile("foo%_bar"));
+        LIKE_PATTERN.writeObject(blockBuilder, LikePattern.compile("helloX_world", Optional.of('X')));
+        LIKE_PATTERN.writeObject(blockBuilder, LikePattern.compile("foo%_bar", Optional.empty()));
         Block block = blockBuilder.build();
 
-        LikeMatcher pattern = (LikeMatcher) LIKE_PATTERN.getObject(block, 0);
+        LikePattern pattern = (LikePattern) LIKE_PATTERN.getObject(block, 0);
         assertThat(pattern.getPattern()).isEqualTo("helloX_world");
         assertThat(pattern.getEscape()).isEqualTo(Optional.of('X'));
 
-        pattern = (LikeMatcher) LIKE_PATTERN.getObject(block, 1);
+        pattern = (LikePattern) LIKE_PATTERN.getObject(block, 1);
         assertThat(pattern.getPattern()).isEqualTo("foo%_bar");
         assertThat(pattern.getEscape()).isEqualTo(Optional.empty());
     }

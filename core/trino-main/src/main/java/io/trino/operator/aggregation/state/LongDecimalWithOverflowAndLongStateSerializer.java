@@ -39,17 +39,17 @@ public class LongDecimalWithOverflowAndLongStateSerializer
             long overflow = state.getOverflow();
             long[] decimal = state.getDecimalArray();
             int offset = state.getDecimalArrayOffset();
-            long[] buffer = new long[4];
+            Slice buffer = Slices.allocate(Long.BYTES * 4);
             long high = decimal[offset];
             long low = decimal[offset + 1];
 
-            buffer[0] = low;
-            buffer[1] = high;
+            buffer.setLong(0, low);
+            buffer.setLong(Long.BYTES, high);
             // if high = 0, the count will overwrite it
             int countOffset = 1 + (high == 0 ? 0 : 1);
             // append count, overflow
-            buffer[countOffset] = count;
-            buffer[countOffset + 1] = overflow;
+            buffer.setLong(Long.BYTES * countOffset, count);
+            buffer.setLong(Long.BYTES * (countOffset + 1), overflow);
 
             // cases
             // high == 0 (countOffset = 1)
@@ -59,7 +59,7 @@ public class LongDecimalWithOverflowAndLongStateSerializer
             //    overflow == 0 & count == 1  -> bufferLength = 2
             //    overflow != 0 || count != 1 -> bufferLength = 4
             int bufferLength = countOffset + ((overflow == 0 & count == 1) ? 0 : 2);
-            VARBINARY.writeSlice(out, Slices.wrappedLongArray(buffer, 0, bufferLength));
+            VARBINARY.writeSlice(out, buffer, 0, bufferLength * Long.BYTES);
         }
         else {
             out.appendNull();
@@ -70,27 +70,26 @@ public class LongDecimalWithOverflowAndLongStateSerializer
     public void deserialize(Block block, int index, LongDecimalWithOverflowAndLongState state)
     {
         if (!block.isNull(index)) {
-            Slice slice = VARBINARY.getSlice(block, index);
             long[] decimal = state.getDecimalArray();
             int offset = state.getDecimalArrayOffset();
 
-            int sliceLength = slice.length();
-            long low = slice.getLong(0);
+            int sliceLength = block.getSliceLength(index);
+            long low = block.getLong(index, 0);
             long high = 0;
             long overflow = 0;
             long count = 1;
 
             switch (sliceLength) {
                 case 4 * Long.BYTES:
-                    overflow = slice.getLong(Long.BYTES * 3);
-                    count = slice.getLong(Long.BYTES * 2);
+                    overflow = block.getLong(index, Long.BYTES * 3);
+                    count = block.getLong(index, Long.BYTES * 2);
                     // fall through
                 case 2 * Long.BYTES:
-                    high = slice.getLong(Long.BYTES);
+                    high = block.getLong(index, Long.BYTES);
                     break;
                 case 3 * Long.BYTES:
-                    overflow = slice.getLong(Long.BYTES * 2);
-                    count = slice.getLong(Long.BYTES);
+                    overflow = block.getLong(index, Long.BYTES * 2);
+                    count = block.getLong(index, Long.BYTES);
             }
 
             decimal[offset + 1] = low;

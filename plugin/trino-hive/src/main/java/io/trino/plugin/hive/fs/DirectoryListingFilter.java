@@ -14,8 +14,7 @@
 package io.trino.plugin.hive.fs;
 
 import io.trino.filesystem.Location;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.NoSuchElementException;

@@ -21,8 +21,10 @@ import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
@@ -224,7 +226,7 @@ public class BigQueryStorageAvroPageSource
         }
         else if (type instanceof VarbinaryType) {
             if (value instanceof ByteBuffer) {
-                type.writeSlice(output, Slices.wrappedBuffer((ByteBuffer) value));
+                type.writeSlice(output, Slices.wrappedHeapBuffer((ByteBuffer) value));
             }
             else {
                 output.appendNull();
@@ -250,28 +252,25 @@ public class BigQueryStorageAvroPageSource
     private void writeBlock(BlockBuilder output, Type type, Object value)
     {
         if (type instanceof ArrayType && value instanceof List<?>) {
-            BlockBuilder builder = output.beginBlockEntry();
-
-            for (Object element : (List<?>) value) {
-                appendTo(type.getTypeParameters().get(0), element, builder);
-            }
-
-            output.closeEntry();
+            ((ArrayBlockBuilder) output).buildEntry(elementBuilder -> {
+                for (Object element : (List<?>) value) {
+                    appendTo(type.getTypeParameters().get(0), element, elementBuilder);
+                }
+            });
             return;
         }
         if (type instanceof RowType && value instanceof GenericRecord record) {
-            BlockBuilder builder = output.beginBlockEntry();
-
-            List<String> fieldNames = new ArrayList<>();
-            for (int i = 0; i < type.getTypeSignature().getParameters().size(); i++) {
-                TypeSignatureParameter parameter = type.getTypeSignature().getParameters().get(i);
-                fieldNames.add(parameter.getNamedTypeSignature().getName().orElse("field" + i));
-            }
-            checkState(fieldNames.size() == type.getTypeParameters().size(), "fieldName doesn't match with type size : %s", type);
-            for (int index = 0; index < type.getTypeParameters().size(); index++) {
-                appendTo(type.getTypeParameters().get(index), record.get(fieldNames.get(index)), builder);
-            }
-            output.closeEntry();
+            ((RowBlockBuilder) output).buildEntry(fieldBuilders -> {
+                List<String> fieldNames = new ArrayList<>();
+                for (int i = 0; i < type.getTypeSignature().getParameters().size(); i++) {
+                    TypeSignatureParameter parameter = type.getTypeSignature().getParameters().get(i);
+                    fieldNames.add(parameter.getNamedTypeSignature().getName().orElse("field" + i));
+                }
+                checkState(fieldNames.size() == type.getTypeParameters().size(), "fieldName doesn't match with type size : %s", type);
+                for (int index = 0; index < type.getTypeParameters().size(); index++) {
+                    appendTo(type.getTypeParameters().get(index), record.get(fieldNames.get(index)), fieldBuilders.get(index));
+                }
+            });
             return;
         }
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Block: " + type.getTypeSignature());

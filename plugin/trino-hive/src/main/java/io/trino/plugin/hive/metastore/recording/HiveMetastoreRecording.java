@@ -18,10 +18,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.errorprone.annotations.Immutable;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
-import io.trino.collect.cache.NonEvictableCache;
+import io.trino.cache.NonEvictableCache;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.RecordingMetastoreConfig;
 import io.trino.plugin.hive.metastore.Database;
@@ -39,8 +40,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.RoleGrant;
 import org.weakref.jmx.Managed;
 
-import javax.annotation.concurrent.Immutable;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -55,7 +54,7 @@ import java.util.zip.GZIPOutputStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -87,7 +86,6 @@ public class HiveMetastoreRecording
 
     @Inject
     public HiveMetastoreRecording(RecordingMetastoreConfig config, JsonCodec<Recording> recordingCodec)
-            throws IOException
     {
         this.recordingCodec = recordingCodec;
         this.recordingPath = Paths.get(requireNonNull(config.getRecordingPath(), "recordingPath is null"));
@@ -118,11 +116,13 @@ public class HiveMetastoreRecording
 
     @VisibleForTesting
     void loadRecording()
-            throws IOException
     {
         Recording recording;
         try (GZIPInputStream inputStream = new GZIPInputStream(Files.newInputStream(recordingPath))) {
             recording = recordingCodec.fromJson(inputStream.readAllBytes());
+        }
+        catch (RuntimeException | IOException e) {
+            throw new RuntimeException("Failed to load recording from: " + recordingPath, e);
         }
 
         allDatabases = recording.getAllDatabases();

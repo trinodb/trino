@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.google.common.io.Resources;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import com.google.inject.Key;
 import io.airlift.http.server.HttpServerConfig;
@@ -59,7 +60,6 @@ import okhttp3.Response;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import javax.annotation.concurrent.GuardedBy;
 import javax.crypto.SecretKey;
 
 import java.io.File;
@@ -906,8 +906,8 @@ public class TestWebUi
     {
         TokenPairSerializer tokenPairSerializer = server.getInstance(Key.get(TokenPairSerializer.class));
         TokenPair deserialize = tokenPairSerializer.deserialize(authCookie.getValue());
-        assertEquals(deserialize.getAccessToken(), accessToken);
-        assertEquals(deserialize.getRefreshToken(), Optional.of(REFRESH_TOKEN));
+        assertEquals(deserialize.accessToken(), accessToken);
+        assertEquals(deserialize.refreshToken(), Optional.of(REFRESH_TOKEN));
         assertThat(authCookie.getMaxAge()).isGreaterThan(0).isLessThan(REFRESH_TOKEN_TIMEOUT.getSeconds());
     }
 

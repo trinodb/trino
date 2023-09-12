@@ -22,10 +22,10 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.decoder.DecoderModule;
 import io.trino.plugin.kafka.encoder.EncoderModule;
-import io.trino.plugin.kafka.schema.ContentSchemaReader;
+import io.trino.plugin.kafka.schema.ContentSchemaProvider;
 import io.trino.plugin.kafka.schema.MapBasedTableDescriptionSupplier;
 import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
-import io.trino.plugin.kafka.schema.file.FileContentSchemaReader;
+import io.trino.plugin.kafka.schema.file.FileReadContentSchemaProvider;
 import io.trino.plugin.kafka.util.CodecSupplier;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.SchemaTableName;
@@ -71,7 +71,12 @@ public final class KafkaQueryRunner
 
         protected Builder(TestingKafka testingKafka)
         {
-            super(testingKafka, TPCH_SCHEMA);
+            super(testingKafka, "kafka", TPCH_SCHEMA);
+        }
+
+        protected Builder(TestingKafka testingKafka, String catalogName)
+        {
+            super(testingKafka, catalogName, TPCH_SCHEMA);
         }
 
         public Builder setTables(Iterable<TpchTable<?>> tables)
@@ -127,7 +132,7 @@ public final class KafkaQueryRunner
                             kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
                             binder -> binder.bind(TableDescriptionSupplier.class)
                                     .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions))),
-                    binder -> binder.bind(ContentSchemaReader.class).to(FileContentSchemaReader.class).in(Scopes.SINGLETON),
+                    binder -> binder.bind(ContentSchemaProvider.class).to(FileReadContentSchemaProvider.class).in(Scopes.SINGLETON),
                     new DecoderModule(),
                     new EncoderModule()));
             Map<String, String> properties = new HashMap<>(extraKafkaProperties);

@@ -19,8 +19,7 @@ import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Iterator;
 import java.util.List;
@@ -61,6 +60,7 @@ public class TopNProcessor
                     new SimplePageWithPositionComparator(types, sortChannels, sortOrders, typeOperators),
                     n,
                     false,
+                    new int[0],
                     new NoChannelGroupByHash());
         }
     }

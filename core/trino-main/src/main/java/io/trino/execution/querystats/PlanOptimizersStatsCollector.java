@@ -13,11 +13,10 @@
  */
 package io.trino.execution.querystats;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Comparator;
 import java.util.List;
@@ -70,10 +69,10 @@ public class PlanOptimizersStatsCollector
 
     public List<QueryPlanOptimizerStatistics> getTopRuleStats(int limit)
     {
-        return stats.entrySet().stream()
-                .sorted(Comparator.<Map.Entry<Class<?>, QueryPlanOptimizerStats>, Long>comparing(entry -> entry.getValue().getTotalTime()).reversed())
+        return stats.values().stream()
+                .map(QueryPlanOptimizerStats::snapshot)
+                .sorted(Comparator.comparing(QueryPlanOptimizerStatistics::totalTime).reversed())
                 .limit(limit)
-                .map((Map.Entry<Class<?>, QueryPlanOptimizerStats> entry) -> entry.getValue().snapshot())
                 .collect(toImmutableList());
     }
 

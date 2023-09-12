@@ -5,19 +5,18 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>420</version>
+        <version>426</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-hadoop-toolkit</artifactId>
-    <name>trino-hadoop-toolkit</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
     </properties>
 
     <dependencies>
-
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

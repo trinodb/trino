@@ -48,8 +48,7 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.util.DisjointSet;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Map;
@@ -315,7 +314,8 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitBetweenPredicate(BetweenPredicate node, Void context)
         {
-            if (!(node.getValue() instanceof SymbolReference)) {
+            SymbolStatsEstimate valueStats = getExpressionStats(node.getValue());
+            if (valueStats.isUnknown()) {
                 return PlanNodeStatsEstimate.unknown();
             }
             if (!getExpressionStats(node.getMin()).isSingleValue()) {
@@ -325,7 +325,6 @@ public class FilterStatsCalculator
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            SymbolStatsEstimate valueStats = input.getSymbolStatistics(Symbol.from(node.getValue()));
             Expression lowerBound = new ComparisonExpression(GREATER_THAN_OR_EQUAL, node.getValue(), node.getMin());
             Expression upperBound = new ComparisonExpression(LESS_THAN_OR_EQUAL, node.getValue(), node.getMax());
 
@@ -410,7 +409,19 @@ public class FilterStatsCalculator
             SymbolStatsEstimate leftStats = getExpressionStats(left);
             Optional<Symbol> leftSymbol = left instanceof SymbolReference ? Optional.of(Symbol.from(left)) : Optional.empty();
             if (isEffectivelyLiteral(right)) {
-                OptionalDouble literal = doubleValueFromLiteral(getType(left), right);
+                Type type = getType(left);
+                Object literalValue = evaluateConstantExpression(
+                        right,
+                        type,
+                        plannerContext,
+                        session,
+                        new AllowAllAccessControl(),
+                        ImmutableMap.of());
+                if (literalValue == null) {
+                    // Possible when we process `x IN (..., NULL)` case.
+                    return input.mapOutputRowCount(rowCountEstimate -> 0.);
+                }
+                OptionalDouble literal = toStatsRepresentation(type, literalValue);
                 return estimateExpressionToLiteralComparison(input, leftStats, leftSymbol, literal, operator);
             }
 
@@ -465,18 +476,6 @@ public class FilterStatsCalculator
         private boolean isEffectivelyLiteral(Expression expression)
         {
             return ExpressionUtils.isEffectivelyLiteral(plannerContext, session, expression);
-        }
-
-        private OptionalDouble doubleValueFromLiteral(Type type, Expression literal)
-        {
-            Object literalValue = evaluateConstantExpression(
-                    literal,
-                    type,
-                    plannerContext,
-                    session,
-                    new AllowAllAccessControl(),
-                    ImmutableMap.of());
-            return toStatsRepresentation(type, literalValue);
         }
     }
 

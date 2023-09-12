@@ -172,7 +172,7 @@ public class FilteredRowRangesIterator
         if (rangeStart <= currentIndex) {
             return 0;
         }
-        long skipCount = rangeStart - currentIndex;
+        int skipCount = toIntExact(rangeStart - currentIndex);
         pageValuesConsumed += skipCount;
         return skipCount;
     }

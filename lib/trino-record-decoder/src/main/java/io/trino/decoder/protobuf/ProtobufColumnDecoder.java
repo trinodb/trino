@@ -13,13 +13,19 @@
  */
 package io.trino.decoder.protobuf;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.Descriptors.OneofDescriptor;
 import com.google.protobuf.DynamicMessage;
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Message;
 import com.google.protobuf.util.JsonFormat;
+import com.google.protobuf.util.JsonFormat.TypeRegistry;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.decoder.DecoderColumnHandle;
@@ -41,14 +47,15 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -60,6 +67,9 @@ import static java.util.Objects.requireNonNull;
 
 public class ProtobufColumnDecoder
 {
+    // Trino JSON types are expected to be sorted by key
+    private static final ObjectMapper mapper = JsonMapper.builder().configure(ORDER_MAP_ENTRIES_BY_KEYS, true).build();
+    private static final String ANY_TYPE_NAME = "google.protobuf.Any";
     private static final Slice EMPTY_JSON = Slices.utf8Slice("{}");
 
     private static final Set<Type> SUPPORTED_PRIMITIVE_TYPES = ImmutableSet.of(
@@ -76,13 +86,15 @@ public class ProtobufColumnDecoder
     private final String columnMapping;
     private final String columnName;
     private final TypeManager typeManager;
+    private final DescriptorProvider descriptorProvider;
     private final Type jsonType;
 
-    public ProtobufColumnDecoder(DecoderColumnHandle columnHandle, TypeManager typeManager)
+    public ProtobufColumnDecoder(DecoderColumnHandle columnHandle, TypeManager typeManager, DescriptorProvider descriptorProvider)
     {
         try {
             requireNonNull(columnHandle, "columnHandle is null");
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
+            this.descriptorProvider = requireNonNull(descriptorProvider, "descriptorProvider is null");
             this.jsonType = typeManager.getType(new TypeSignature(JSON));
             this.columnType = columnHandle.getType();
             this.columnMapping = columnHandle.getMapping();
@@ -141,7 +153,7 @@ public class ProtobufColumnDecoder
     }
 
     @Nullable
-    private static Object locateField(DynamicMessage message, String columnMapping)
+    private Object locateField(DynamicMessage message, String columnMapping)
     {
         Object value = message;
         Optional<Descriptor> valueDescriptor = Optional.of(message.getDescriptorForType());
@@ -160,6 +172,11 @@ public class ProtobufColumnDecoder
             value = ((DynamicMessage) value).getField(fieldDescriptor);
             valueDescriptor = getDescriptor(fieldDescriptor);
         }
+
+        if (valueDescriptor.isPresent() && valueDescriptor.get().getFullName().equals(ANY_TYPE_NAME)) {
+            return createAnyJson((Message) value, valueDescriptor.get());
+        }
+
         return value;
     }
 
@@ -205,5 +222,35 @@ public class ProtobufColumnDecoder
             }
         }
         return EMPTY_JSON;
+    }
+
+    private Object createAnyJson(Message value, Descriptor valueDescriptor)
+    {
+        try {
+            String typeUrl = (String) value.getField(valueDescriptor.findFieldByName("type_url"));
+            Optional<Descriptor> descriptor = descriptorProvider.getDescriptorFromTypeUrl(typeUrl);
+            if (descriptor.isPresent()) {
+                return Slices.utf8Slice(sorted(JsonFormat.printer()
+                        .usingTypeRegistry(TypeRegistry.newBuilder().add(descriptor.get()).build())
+                        .omittingInsignificantWhitespace()
+                        .print(value)));
+            }
+            return null;
+        }
+        catch (InvalidProtocolBufferException e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to print JSON from 'any' message type", e);
+        }
+    }
+
+    private static String sorted(String json)
+    {
+        try {
+            // Trino JSON types are expected to be sorted by key
+            // This routine takes an input JSON string and sorts the entire tree by key, including nested maps
+            return mapper.writeValueAsString(mapper.treeToValue(mapper.readTree(json), Map.class));
+        }
+        catch (JsonProcessingException e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to process JSON", e);
+        }
     }
 }

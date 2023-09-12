@@ -47,7 +47,7 @@ public class ScaledWriterScheduler
     private final Supplier<Collection<TaskStatus>> writerTasksProvider;
     private final NodeSelector nodeSelector;
     private final ScheduledExecutorService executor;
-    private final long writerMinSizeBytes;
+    private final long writerScalingMinDataProcessed;
     private final Set<InternalNode> scheduledNodes = new HashSet<>();
     private final AtomicBoolean done = new AtomicBoolean();
     private final int maxWriterNodeCount;
@@ -59,7 +59,7 @@ public class ScaledWriterScheduler
             Supplier<Collection<TaskStatus>> writerTasksProvider,
             NodeSelector nodeSelector,
             ScheduledExecutorService executor,
-            DataSize writerMinSize,
+            DataSize writerScalingMinDataProcessed,
             int maxWriterNodeCount)
     {
         this.stage = requireNonNull(stage, "stage is null");
@@ -67,7 +67,7 @@ public class ScaledWriterScheduler
         this.writerTasksProvider = requireNonNull(writerTasksProvider, "writerTasksProvider is null");
         this.nodeSelector = requireNonNull(nodeSelector, "nodeSelector is null");
         this.executor = requireNonNull(executor, "executor is null");
-        this.writerMinSizeBytes = writerMinSize.toBytes();
+        this.writerScalingMinDataProcessed = writerScalingMinDataProcessed.toBytes();
         this.maxWriterNodeCount = maxWriterNodeCount;
     }
 
@@ -120,17 +120,17 @@ public class ScaledWriterScheduler
     private boolean isWriteThroughputSufficient()
     {
         Collection<TaskStatus> writerTasks = writerTasksProvider.get();
-        long writtenBytes = writerTasks.stream()
-                .map(TaskStatus::getPhysicalWrittenDataSize)
+        long writerInputBytes = writerTasks.stream()
+                .map(TaskStatus::getWriterInputDataSize)
                 .mapToLong(DataSize::toBytes)
                 .sum();
 
-        long minWrittenBytesToScaleUp = writerTasks.stream()
+        long minWriterInputBytesToScaleUp = writerTasks.stream()
                 .map(TaskStatus::getMaxWriterCount)
                 .map(Optional::get)
-                .mapToLong(writerCount -> writerMinSizeBytes * writerCount)
+                .mapToLong(writerCount -> writerScalingMinDataProcessed * writerCount)
                 .sum();
-        return writtenBytes >= minWrittenBytesToScaleUp;
+        return writerInputBytes >= minWriterInputBytesToScaleUp;
     }
 
     private boolean isWeightedBufferFull()

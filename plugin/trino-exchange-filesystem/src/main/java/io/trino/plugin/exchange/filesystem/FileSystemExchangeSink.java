@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -24,9 +26,6 @@ import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.exchange.ExchangeSink;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
 import java.util.ArrayDeque;
@@ -300,7 +299,9 @@ public class FileSystemExchangeSink
                 currentBuffer = null;
             }
 
-            writeInternal(Slices.wrappedIntArray(data.length()));
+            Slice sizeSlice = Slices.allocate(Integer.BYTES);
+            sizeSlice.setInt(0, data.length());
+            writeInternal(sizeSlice);
             writeInternal(data);
 
             currentFileSize += requiredPageStorageSize;

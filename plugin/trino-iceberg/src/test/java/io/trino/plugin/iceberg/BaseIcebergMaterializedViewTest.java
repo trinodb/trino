@@ -62,11 +62,9 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("CREATE TABLE base_table1(_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'])");
         assertUpdate("INSERT INTO base_table1 VALUES (0, DATE '2019-09-08'), (1, DATE '2019-09-09'), (2, DATE '2019-09-09')", 3);
         assertUpdate("INSERT INTO base_table1 VALUES (3, DATE '2019-09-09'), (4, DATE '2019-09-10'), (5, DATE '2019-09-10')", 3);
-        assertQuery("SELECT count(*) FROM base_table1", "VALUES 6");
 
         assertUpdate("CREATE TABLE base_table2 (_varchar VARCHAR, _bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_bigint', '_date'])");
         assertUpdate("INSERT INTO base_table2 VALUES ('a', 0, DATE '2019-09-08'), ('a', 1, DATE '2019-09-08'), ('a', 0, DATE '2019-09-09')", 3);
-        assertQuery("SELECT count(*) FROM base_table2", "VALUES 3");
 
         assertUpdate("CREATE SCHEMA " + storageSchemaName);
     }
@@ -85,6 +83,18 @@ public abstract class BaseIcebergMaterializedViewTest
         assertThat(actualTables).containsAll(expectedTables);
 
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_show_tables_test");
+    }
+
+    @Test
+    public void testCommentColumnMaterializedView()
+    {
+        String viewColumnName = "_bigint";
+        String materializedViewName = "test_materialized_view_" + randomNameSuffix();
+        assertUpdate(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM base_table1", materializedViewName));
+        assertUpdate(format("COMMENT ON COLUMN %s.%s IS 'new comment'", materializedViewName, viewColumnName));
+        assertThat(getColumnComment(materializedViewName, viewColumnName)).isEqualTo("new comment");
+        assertQuery(format("SELECT count(*) FROM %s", materializedViewName), "VALUES 6");
+        assertUpdate(format("DROP MATERIALIZED VIEW %s", materializedViewName));
     }
 
     @Test
@@ -160,6 +170,7 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("CREATE MATERIALIZED VIEW test_mv_show_create " +
                 "WITH (\n" +
                 "   partitioning = ARRAY['_date'],\n" +
+                "   format = 'ORC',\n" +
                 "   orc_bloom_filter_columns = ARRAY['_date'],\n" +
                 "   orc_bloom_filter_fpp = 0.1) AS " +
                 "SELECT _bigint, _date FROM base_table1");
@@ -403,11 +414,80 @@ public abstract class BaseIcebergMaterializedViewTest
         assertThat(getExplainPlan("SELECT * FROM materialized_view_join_part_stale", ExplainType.Type.IO))
                 .doesNotContain("base_table3", "base_table4");
 
-        assertUpdate("DROP TABLE IF EXISTS base_table3");
-        assertUpdate("DROP TABLE IF EXISTS base_table4");
+        assertUpdate("DROP TABLE base_table3");
+        assertUpdate("DROP TABLE base_table4");
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_part_stale");
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_join_stale");
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_join_part_stale");
+    }
+
+    @Test
+    public void testMaterializedViewOnExpiredTable()
+    {
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "expire_snapshots_min_retention", "0s")
+                .build();
+
+        assertUpdate("CREATE TABLE mv_on_expired_base_table AS SELECT 10 a", 1);
+        assertUpdate("""
+                CREATE MATERIALIZED VIEW mv_on_expired_the_mv
+                GRACE PERIOD INTERVAL '0' SECOND
+                AS SELECT sum(a) s FROM mv_on_expired_base_table""");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_on_expired_the_mv", 1);
+        // View is fresh
+        assertThat(query("TABLE mv_on_expired_the_mv"))
+                .matches("VALUES BIGINT '10'");
+
+        // Create two new snapshots
+        assertUpdate("INSERT INTO mv_on_expired_base_table VALUES 7", 1);
+        assertUpdate("INSERT INTO mv_on_expired_base_table VALUES 5", 1);
+
+        // Expire snapshots, so that the original one is not live and not parent of any live
+        computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE mv_on_expired_base_table EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
+
+        // View still can be queried
+        assertThat(query("TABLE mv_on_expired_the_mv"))
+                .matches("VALUES BIGINT '22'");
+
+        // View can also be refreshed
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_on_expired_the_mv", 1);
+        assertThat(query("TABLE mv_on_expired_the_mv"))
+                .matches("VALUES BIGINT '22'");
+
+        assertUpdate("DROP TABLE mv_on_expired_base_table");
+        assertUpdate("DROP MATERIALIZED VIEW mv_on_expired_the_mv");
+    }
+
+    @Test
+    public void testMaterializedViewOnTableRolledBack()
+    {
+        assertUpdate("CREATE TABLE mv_on_rolled_back_base_table(a integer)");
+        assertUpdate("""
+                CREATE MATERIALIZED VIEW mv_on_rolled_back_the_mv
+                GRACE PERIOD INTERVAL '0' SECOND
+                AS SELECT sum(a) s FROM mv_on_rolled_back_base_table""");
+
+        // Create some snapshots
+        assertUpdate("INSERT INTO mv_on_rolled_back_base_table VALUES 4", 1);
+        long firstSnapshot = getLatestSnapshotId("mv_on_rolled_back_base_table");
+        assertUpdate("INSERT INTO mv_on_rolled_back_base_table VALUES 8", 1);
+
+        // Base MV on a snapshot "in the future"
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_on_rolled_back_the_mv", 1);
+        assertUpdate(format("CALL system.rollback_to_snapshot(CURRENT_SCHEMA, 'mv_on_rolled_back_base_table', %s)", firstSnapshot));
+
+        // View still can be queried
+        assertThat(query("TABLE mv_on_rolled_back_the_mv"))
+                .matches("VALUES BIGINT '4'");
+
+        // View can also be refreshed
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_on_rolled_back_the_mv", 1);
+        assertThat(query("TABLE mv_on_rolled_back_the_mv"))
+                .matches("VALUES BIGINT '4'");
+
+        assertUpdate("DROP TABLE mv_on_rolled_back_base_table");
+        assertUpdate("DROP MATERIALIZED VIEW mv_on_rolled_back_the_mv");
     }
 
     @Test
@@ -442,7 +522,7 @@ public abstract class BaseIcebergMaterializedViewTest
         assertThat((String) computeScalar("SHOW CREATE MATERIALIZED VIEW materialized_view_window"))
                 .matches("\\QCREATE MATERIALIZED VIEW " + qualifiedMaterializedViewName + "\n" +
                         "WITH (\n" +
-                        "   format = 'ORC',\n" +
+                        "   format = 'PARQUET',\n" +
                         "   format_version = 2,\n" +
                         "   location = '" + getSchemaDirectory() + "/st_\\E[0-9a-f]+-[0-9a-f]+\\Q',\n" +
                         "   partitioning = ARRAY['_date'],\n" +
@@ -547,7 +627,7 @@ public abstract class BaseIcebergMaterializedViewTest
         assertThat(getExplainPlan("SELECT * FROM materialized_view_level1", ExplainType.Type.IO))
                 .contains("base_table5");
 
-        assertUpdate("DROP TABLE IF EXISTS base_table5");
+        assertUpdate("DROP TABLE base_table5");
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_level1");
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_level2");
     }
@@ -709,6 +789,11 @@ public abstract class BaseIcebergMaterializedViewTest
         };
     }
 
+    protected String getColumnComment(String tableName, String columnName)
+    {
+        return (String) computeScalar("SELECT comment FROM information_schema.columns WHERE table_schema = '" + getSession().getSchema().orElseThrow() + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'");
+    }
+
     private SchemaTableName getStorageTable(String materializedViewName)
     {
         return getStorageTable(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), materializedViewName);
@@ -723,5 +808,10 @@ public abstract class BaseIcebergMaterializedViewTest
                 .getMaterializedView(session, new QualifiedObjectName(catalogName, schemaName, materializedViewName));
         assertThat(materializedView).isPresent();
         return materializedView.get().getStorageTable().get().getSchemaTableName();
+    }
+
+    private long getLatestSnapshotId(String tableName)
+    {
+        return (long) computeScalar(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", tableName));
     }
 }

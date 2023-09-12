@@ -69,6 +69,7 @@ import static io.trino.spi.block.ColumnarMap.toColumnarMap;
 import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.UnaryOperator.identity;
@@ -186,25 +187,21 @@ public class DeltaLakeWriter
             throws IOException
     {
         TrinoInputFile inputFile = fileSystem.newInputFile(rootTableLocation.appendPath(relativeFilePath));
-        List<String> dataColumnNames = columnHandles.stream().map(DeltaLakeColumnHandle::getBasePhysicalColumnName).collect(toImmutableList());
-        List<Type> dataColumnTypes = columnHandles.stream().map(DeltaLakeColumnHandle::getBasePhysicalType).collect(toImmutableList());
+        Map</* lowercase */ String, Type> dataColumnTypes = columnHandles.stream()
+                // Lowercase because the subsequent logic expects lowercase
+                .collect(toImmutableMap(column -> column.getBasePhysicalColumnName().toLowerCase(ENGLISH), DeltaLakeColumnHandle::getBasePhysicalType));
         return new DataFileInfo(
                 relativeFilePath,
                 getWrittenBytes(),
                 creationTime,
                 dataFileType,
                 partitionValues,
-                readStatistics(inputFile, dataColumnNames, dataColumnTypes, rowCount));
+                readStatistics(inputFile, dataColumnTypes, rowCount));
     }
 
-    private static DeltaLakeJsonFileStatistics readStatistics(TrinoInputFile inputFile, List<String> dataColumnNames, List<Type> dataColumnTypes, long rowCount)
+    private static DeltaLakeJsonFileStatistics readStatistics(TrinoInputFile inputFile, Map</* lowercase */ String, Type> typeForColumn, long rowCount)
             throws IOException
     {
-        ImmutableMap.Builder<String, Type> typeForColumn = ImmutableMap.builder();
-        for (int i = 0; i < dataColumnNames.size(); i++) {
-            typeForColumn.put(dataColumnNames.get(i), dataColumnTypes.get(i));
-        }
-
         try (TrinoParquetDataSource trinoParquetDataSource = new TrinoParquetDataSource(
                 inputFile,
                 new ParquetReaderOptions(),
@@ -222,12 +219,12 @@ public class DeltaLakeWriter
                 }
             }
 
-            return mergeStats(metadataForColumn.build(), typeForColumn.buildOrThrow(), rowCount);
+            return mergeStats(metadataForColumn.build(), typeForColumn, rowCount);
         }
     }
 
     @VisibleForTesting
-    static DeltaLakeJsonFileStatistics mergeStats(Multimap<String, ColumnChunkMetaData> metadataForColumn, Map<String, Type> typeForColumn, long rowCount)
+    static DeltaLakeJsonFileStatistics mergeStats(Multimap<String, ColumnChunkMetaData> metadataForColumn, Map</* lowercase */ String, Type> typeForColumn, long rowCount)
     {
         Map<String, Optional<Statistics<?>>> statsForColumn = metadataForColumn.keySet().stream()
                 .collect(toImmutableMap(identity(), key -> mergeMetadataList(metadataForColumn.get(key))));

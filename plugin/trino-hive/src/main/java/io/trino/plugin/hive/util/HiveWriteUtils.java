@@ -52,6 +52,7 @@ import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
@@ -86,6 +87,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.BaseEncoding.base16;
@@ -113,11 +115,13 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.padSpaces;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
@@ -333,6 +337,10 @@ public final class HiveWriteUtils
         }
         if (type instanceof TimestampType timestampType) {
             return getHiveTimestamp(localZone, timestampType, block, position);
+        }
+        if (type instanceof TimestampWithTimeZoneType) {
+            checkArgument(type.equals(TIMESTAMP_TZ_MILLIS));
+            return getHiveTimestampTz(block, position);
         }
         if (type instanceof DecimalType decimalType) {
             return getHiveDecimal(decimalType, block, position);
@@ -779,5 +787,11 @@ public final class HiveWriteUtils
         int microsOfSecond = floorMod(epochMicros, MICROSECONDS_PER_SECOND);
         int nanosOfSecond = microsOfSecond * NANOSECONDS_PER_MICROSECOND + nanosOfMicro;
         return Timestamp.ofEpochSecond(epochSeconds, nanosOfSecond);
+    }
+
+    private static Timestamp getHiveTimestampTz(Block block, int position)
+    {
+        long epochMillis = unpackMillisUtc(block.getLong(position, 0));
+        return Timestamp.ofEpochMilli(epochMillis);
     }
 }

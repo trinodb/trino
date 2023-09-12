@@ -69,7 +69,7 @@ public class TestSmallintOperators
         assertThat(assertions.expression("SMALLINT '17'"))
                 .isEqualTo((short) 17);
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("SMALLINT '" + ((long) Short.MAX_VALUE + 1L) + "'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("SMALLINT '" + ((long) Short.MAX_VALUE + 1L) + "'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL);
     }
 
@@ -92,7 +92,7 @@ public class TestSmallintOperators
         assertThat(assertions.expression("SMALLINT '-17'"))
                 .isEqualTo((short) -17);
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("SMALLINT '-" + Short.MIN_VALUE + "'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("SMALLINT '-" + Short.MIN_VALUE + "'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL);
     }
 
@@ -111,7 +111,7 @@ public class TestSmallintOperators
         assertThat(assertions.operator(ADD, "SMALLINT '17'", "SMALLINT '17'"))
                 .isEqualTo((short) (17 + 17));
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression(format("SMALLINT '%s' + SMALLINT '1'", Short.MAX_VALUE)).evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression(format("SMALLINT '%s' + SMALLINT '1'", Short.MAX_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("smallint addition overflow: 32767 + 1");
     }
@@ -131,7 +131,7 @@ public class TestSmallintOperators
         assertThat(assertions.operator(SUBTRACT, "SMALLINT '17'", "SMALLINT '17'"))
                 .isEqualTo((short) 0);
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression(format("SMALLINT '%s' - SMALLINT '1'", Short.MIN_VALUE)).evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression(format("SMALLINT '%s' - SMALLINT '1'", Short.MIN_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("smallint subtraction overflow: -32768 - 1");
     }
@@ -151,7 +151,7 @@ public class TestSmallintOperators
         assertThat(assertions.operator(MULTIPLY, "SMALLINT '17'", "SMALLINT '17'"))
                 .isEqualTo((short) (17 * 17));
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression(format("SMALLINT '%s' * SMALLINT '2'", Short.MAX_VALUE)).evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression(format("SMALLINT '%s' * SMALLINT '2'", Short.MAX_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("smallint multiplication overflow: 32767 * 2");
     }
@@ -171,7 +171,7 @@ public class TestSmallintOperators
         assertThat(assertions.operator(DIVIDE, "SMALLINT '17'", "SMALLINT '17'"))
                 .isEqualTo((short) 1);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "SMALLINT '17'", "SMALLINT '0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "SMALLINT '17'", "SMALLINT '0'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
     }
 
@@ -190,7 +190,7 @@ public class TestSmallintOperators
         assertThat(assertions.operator(MODULUS, "SMALLINT '17'", "SMALLINT '17'"))
                 .isEqualTo((short) 0);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MODULUS, "SMALLINT '17'", "SMALLINT '0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "SMALLINT '17'", "SMALLINT '0'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
     }
 
@@ -206,7 +206,7 @@ public class TestSmallintOperators
         assertThat(assertions.expression("-(SMALLINT '" + Short.MAX_VALUE + "')"))
                 .isEqualTo((short) (Short.MIN_VALUE + 1));
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression(format("-(SMALLINT '%s')", Short.MIN_VALUE)).evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression(format("-(SMALLINT '%s')", Short.MIN_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("smallint negation overflow: -32768");
     }

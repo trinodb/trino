@@ -39,7 +39,7 @@ import static org.testng.Assert.assertEquals;
 public class TestPredicatePushdown
         extends AbstractTestQueryFramework
 {
-    private static final Path RESOURCE_PATH = Path.of("databricks/pushdown/");
+    private static final Path RESOURCE_PATH = Path.of("databricks73/pushdown/");
     private static final String TEST_SCHEMA = "default";
 
     private final String bucketName = "delta-test-pushdown-" + randomNameSuffix();

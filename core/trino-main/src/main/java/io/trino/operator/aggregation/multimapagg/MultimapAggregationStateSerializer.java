@@ -14,9 +14,11 @@
 package io.trino.operator.aggregation.multimapagg;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarRow;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.ArrayType;
@@ -55,14 +57,13 @@ public class MultimapAggregationStateSerializer
             out.appendNull();
             return;
         }
-        BlockBuilder entryBuilder = out.beginBlockEntry();
-        state.forEach((keyBlock, valueBlock, position) -> {
-            BlockBuilder rowBlockBuilder = entryBuilder.beginBlockEntry();
-            valueType.appendTo(valueBlock, position, rowBlockBuilder);
-            keyType.appendTo(keyBlock, position, rowBlockBuilder);
-            entryBuilder.closeEntry();
+        ((ArrayBlockBuilder) out).buildEntry(elementBuilder -> {
+            RowBlockBuilder rowBlockBuilder = (RowBlockBuilder) elementBuilder;
+            state.forEach((keyBlock, valueBlock, position) -> rowBlockBuilder.buildEntry(fieldBuilders -> {
+                valueType.appendTo(valueBlock, position, fieldBuilders.get(0));
+                keyType.appendTo(keyBlock, position, fieldBuilders.get(1));
+            }));
         });
-        out.closeEntry();
     }
 
     @Override

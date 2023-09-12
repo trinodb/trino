@@ -34,14 +34,21 @@ public abstract class KafkaQueryRunnerBuilder
     protected final TestingKafka testingKafka;
     protected Map<String, String> extraKafkaProperties = ImmutableMap.of();
     protected Module extension = DEFAULT_EXTENSION;
+    private final String catalogName;
 
-    public KafkaQueryRunnerBuilder(TestingKafka testingKafka, String defaultSessionSchema)
+    public KafkaQueryRunnerBuilder(TestingKafka testingKafka, String defaultSessionName)
+    {
+        this(testingKafka, "kafka", defaultSessionName);
+    }
+
+    public KafkaQueryRunnerBuilder(TestingKafka testingKafka, String catalogName, String defaultSessionSchema)
     {
         super(testSessionBuilder()
-                .setCatalog("kafka")
+                .setCatalog(catalogName)
                 .setSchema(defaultSessionSchema)
                 .build());
         this.testingKafka = requireNonNull(testingKafka, "testingKafka is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
     }
 
     public KafkaQueryRunnerBuilder setExtraKafkaProperties(Map<String, String> extraKafkaProperties)
@@ -72,7 +79,7 @@ public abstract class KafkaQueryRunnerBuilder
             Map<String, String> kafkaProperties = new HashMap<>(ImmutableMap.copyOf(extraKafkaProperties));
             kafkaProperties.putIfAbsent("kafka.nodes", testingKafka.getConnectString());
             kafkaProperties.putIfAbsent("kafka.messages-per-split", "1000");
-            queryRunner.createCatalog("kafka", "kafka", kafkaProperties);
+            queryRunner.createCatalog(catalogName, "kafka", kafkaProperties);
             postInit(queryRunner);
             return queryRunner;
         }

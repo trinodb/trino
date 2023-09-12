@@ -16,8 +16,7 @@ package io.trino.plugin.raptor.legacy.systemtables;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Objects;
 

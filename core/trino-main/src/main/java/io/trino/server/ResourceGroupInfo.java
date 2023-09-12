@@ -21,8 +21,6 @@ import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.ResourceGroupState;
 import io.trino.spi.resourcegroups.SchedulingPolicy;
 
-import javax.annotation.Nullable;
-
 import java.util.List;
 import java.util.Optional;
 
@@ -182,7 +180,6 @@ public class ResourceGroupInfo
     }
 
     @JsonProperty
-    @Nullable
     public Optional<List<QueryStateInfo>> getRunningQueries()
     {
         return runningQueries;

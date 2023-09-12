@@ -229,6 +229,7 @@ public class DispatchManager
                 session = Session.builder(sessionPropertyManager)
                         .setQueryId(queryId)
                         .setIdentity(sessionContext.getIdentity())
+                        .setOriginalIdentity(sessionContext.getOriginalIdentity())
                         .setSource(sessionContext.getSource().orElse(null))
                         .build();
             }

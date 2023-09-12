@@ -30,10 +30,9 @@ import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.WindowFrame;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
@@ -101,12 +100,7 @@ public class TestMergeWindows
 
     public TestMergeWindows()
     {
-        this(ImmutableMap.of());
-    }
-
-    public TestMergeWindows(Map<String, String> sessionProperties)
-    {
-        super(sessionProperties);
+        super(ImmutableMap.of());
 
         specificationA = specification(
                 ImmutableList.of(SUPPKEY_ALIAS),

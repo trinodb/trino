@@ -20,8 +20,7 @@ import io.trino.spi.predicate.AllOrNoneValueSet;
 import io.trino.spi.predicate.EquatableValueSet;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.ValueSet;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Objects;
 

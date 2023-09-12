@@ -66,7 +66,7 @@ public class TestSplitPruning
     public void registerTables()
     {
         for (String table : TABLES) {
-            String dataPath = Resources.getResource("databricks/pruning/" + table).toExternalForm();
+            String dataPath = Resources.getResource("databricks73/pruning/" + table).toExternalForm();
             getQueryRunner().execute(
                     format("CALL system.register_table('%s', '%s', '%s')", getSession().getSchema().orElseThrow(), table, dataPath));
         }
@@ -274,7 +274,7 @@ public class TestSplitPruning
     public void testSplitGenerationError()
     {
         // log entry with invalid stats (low > high)
-        String dataPath = Resources.getResource("databricks/pruning/invalid_log").toExternalForm();
+        String dataPath = Resources.getResource("databricks73/pruning/invalid_log").toExternalForm();
         getQueryRunner().execute(
                 format("CALL system.register_table('%s', 'person', '%s')", getSession().getSchema().orElseThrow(), dataPath));
         assertQueryFails("SELECT name FROM person WHERE income < 1000", "Failed to generate splits for tpch.person");

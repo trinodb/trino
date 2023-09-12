@@ -16,62 +16,54 @@ package io.trino.operator.aggregation.histogram;
 
 import io.trino.operator.aggregation.state.AbstractGroupedAccumulatorState;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.type.Type;
-import io.trino.type.BlockTypeOperators.BlockPositionEqual;
-import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
+
+import java.lang.invoke.MethodHandle;
 
 import static io.airlift.slice.SizeOf.instanceSize;
-import static java.util.Objects.requireNonNull;
+import static java.lang.Math.toIntExact;
 
-/**
- * state object that uses a single histogram for all groups. See {@link GroupedTypedHistogram}
- */
 public class GroupedHistogramState
         extends AbstractGroupedAccumulatorState
         implements HistogramState
 {
     private static final int INSTANCE_SIZE = instanceSize(GroupedHistogramState.class);
-    private final Type type;
-    private final BlockPositionEqual equalOperator;
-    private final BlockPositionHashCode hashCodeOperator;
-    private TypedHistogram typedHistogram;
-    private long size;
 
-    public GroupedHistogramState(Type type, BlockPositionEqual equalOperator, BlockPositionHashCode hashCodeOperator, int expectedEntriesCount)
+    private final TypedHistogram histogram;
+
+    public GroupedHistogramState(
+            Type keyType,
+            MethodHandle readFlat,
+            MethodHandle writeFlat,
+            MethodHandle hashFlat,
+            MethodHandle distinctFlatBlock,
+            MethodHandle hashBlock)
     {
-        this.type = requireNonNull(type, "type is null");
-        this.equalOperator = requireNonNull(equalOperator, "equalOperator is null");
-        this.hashCodeOperator = requireNonNull(hashCodeOperator, "hashCodeOperator is null");
-        typedHistogram = new GroupedTypedHistogram(type, equalOperator, hashCodeOperator, expectedEntriesCount);
+        this.histogram = new TypedHistogram(keyType, readFlat, writeFlat, hashFlat, distinctFlatBlock, hashBlock, true);
     }
 
     @Override
     public void ensureCapacity(long size)
     {
-        typedHistogram.ensureCapacity(size);
+        histogram.setMaxGroupId(toIntExact(size));
     }
 
     @Override
-    public TypedHistogram get()
+    public void add(Block block, int position, long count)
     {
-        return typedHistogram.setGroupId(getGroupId());
+        histogram.add(toIntExact(getGroupId()), block, position, count);
     }
 
     @Override
-    public void deserialize(Block block, int expectedSize)
+    public void writeAll(MapBlockBuilder out)
     {
-        typedHistogram = new GroupedTypedHistogram(getGroupId(), block, type, equalOperator, hashCodeOperator, expectedSize);
-    }
-
-    @Override
-    public void addMemoryUsage(long memory)
-    {
-        size += memory;
+        histogram.serialize(toIntExact(getGroupId()), out);
     }
 
     @Override
     public long getEstimatedSize()
     {
-        return INSTANCE_SIZE + size + typedHistogram.getEstimatedSize();
+        return INSTANCE_SIZE + histogram.getEstimatedSize();
     }
 }

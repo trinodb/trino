@@ -5,12 +5,11 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>420</version>
+        <version>426</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-testing-resources</artifactId>
-    <name>trino-testing-resources</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

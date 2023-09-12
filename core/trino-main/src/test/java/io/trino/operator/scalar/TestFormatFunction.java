@@ -146,38 +146,38 @@ public class TestFormatFunction
         assertThat(format("%s", "cast('test' AS char(5))"))
                 .isEqualTo("test ");
 
-        assertTrinoExceptionThrownBy(() -> format("%.4d", "8").evaluate())
+        assertTrinoExceptionThrownBy(format("%.4d", "8")::evaluate)
                 .hasMessage("Invalid format string: %.4d (IllegalFormatPrecision: 4)");
 
-        assertTrinoExceptionThrownBy(() -> format("%-02d", "8").evaluate())
+        assertTrinoExceptionThrownBy(format("%-02d", "8")::evaluate)
                 .hasMessage("Invalid format string: %-02d (IllegalFormatFlags: Flags = '-0')");
 
-        assertTrinoExceptionThrownBy(() -> format("%--2d", "8").evaluate())
+        assertTrinoExceptionThrownBy(format("%--2d", "8")::evaluate)
                 .hasMessage("Invalid format string: %--2d (DuplicateFormatFlags: Flags = '-')");
 
-        assertTrinoExceptionThrownBy(() -> format("%+s", "8").evaluate())
+        assertTrinoExceptionThrownBy(format("%+s", "8")::evaluate)
                 .hasMessage("Invalid format string: %+s (FormatFlagsConversionMismatch: Conversion = s, Flags = +)");
 
-        assertTrinoExceptionThrownBy(() -> format("%-s", "8").evaluate())
+        assertTrinoExceptionThrownBy(format("%-s", "8")::evaluate)
                 .hasMessage("Invalid format string: %-s (MissingFormatWidth: %-s)");
 
-        assertTrinoExceptionThrownBy(() -> format("%5n", "8").evaluate())
+        assertTrinoExceptionThrownBy(format("%5n", "8")::evaluate)
                 .hasMessage("Invalid format string: %5n (IllegalFormatWidth: 5)");
 
-        assertTrinoExceptionThrownBy(() -> format("%s %d", "8").evaluate())
+        assertTrinoExceptionThrownBy(format("%s %d", "8")::evaluate)
                 .hasMessage("Invalid format string: %s %d (MissingFormatArgument: Format specifier '%d')");
 
-        assertTrinoExceptionThrownBy(() -> format("%d", "decimal '8'").evaluate())
+        assertTrinoExceptionThrownBy(format("%d", "decimal '8'")::evaluate)
                 .hasMessage("Invalid format string: %d (IllegalFormatConversion: d != java.math.BigDecimal)");
 
-        assertTrinoExceptionThrownBy(() -> format("%tT", "current_time").evaluate())
+        assertTrinoExceptionThrownBy(format("%tT", "current_time")::evaluate)
                 .hasMessage("Invalid format string: %tT (IllegalFormatConversion: T != java.lang.String)");
 
-        assertTrinoExceptionThrownBy(() -> format("%s", "array[8]").evaluate())
+        assertTrinoExceptionThrownBy(format("%s", "array[8]")::evaluate)
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:20: Type not supported for formatting: array(integer)");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("format", "5", "8").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("format", "5", "8")::evaluate)
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:17: Type of first argument to format() must be VARCHAR (actual: integer)");
     }

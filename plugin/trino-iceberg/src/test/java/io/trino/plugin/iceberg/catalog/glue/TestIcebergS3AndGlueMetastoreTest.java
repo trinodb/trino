@@ -60,7 +60,7 @@ public class TestIcebergS3AndGlueMetastoreTest
         {
             String locationDirectory = location.endsWith("/") ? location : location + "/";
             String partitionPart = partitionColumn.isEmpty() ? "" : partitionColumn + "=[a-z0-9]+/";
-            assertThat(dataFile).matches("^" + locationDirectory + "data/" + partitionPart + "[a-zA-Z0-9_-]+.orc$");
+            assertThat(dataFile).matches("^" + locationDirectory + "data/" + partitionPart + "[a-zA-Z0-9_-]+.(orc|parquet)$");
             verifyPathExist(dataFile);
         });
     }
@@ -119,9 +119,10 @@ public class TestIcebergS3AndGlueMetastoreTest
 
             String expectedStatistics = """
                     VALUES
-                    ('col_str', null, 4.0, 0.0, null, null, null),
+                    ('col_str', %s, 4.0, 0.0, null, null, null),
                     ('col_int', null, 4.0, 0.0, null, 1, 4),
-                    (null, null, null, null, 4.0, null, null)""";
+                    (null, null, null, null, 4.0, null, null)"""
+                    .formatted(partitioned ? "475.0" : "264.0");
 
             // Check extended statistics collection on write
             assertQuery("SHOW STATS FOR " + tableName, expectedStatistics);
@@ -154,25 +155,5 @@ public class TestIcebergS3AndGlueMetastoreTest
                 " WITH (location = '" + location + "')" +
                 " AS SELECT * FROM tpch.tiny.nation"))
                 .hasMessageContaining("Fragment is not allowed in a file system location");
-    }
-
-    @Test
-    public void testCreateSchemaWithIncorrectLocation()
-    {
-        String schemaName = "test_create_schema_with_incorrect_location_" + randomNameSuffix();
-        String schemaLocation = "s3://%s/%s/a#hash/%s".formatted(bucketName, schemaName, schemaName);
-        String tableName = "test_basic_operations_table_" + randomNameSuffix();
-        String qualifiedTableName = schemaName + "." + tableName;
-
-        assertUpdate("CREATE SCHEMA " + schemaName + " WITH (location = '" + schemaLocation + "')");
-        try (UncheckedCloseable ignored = onClose("DROP SCHEMA " + schemaName)) {
-            assertThat(getSchemaLocation(schemaName)).isEqualTo(schemaLocation);
-
-            assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + qualifiedTableName + "(col_str varchar, col_int int)"))
-                    .hasMessageContaining("location contains a fragment");
-
-            assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + qualifiedTableName + " AS SELECT * FROM tpch.tiny.nation"))
-                    .hasMessageContaining("location contains a fragment");
-        }
     }
 }

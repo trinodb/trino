@@ -21,9 +21,8 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
-
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -45,6 +44,7 @@ public class KuduClientConfig
     private boolean schemaEmulationEnabled;
     private String schemaEmulationPrefix = "presto::";
     private Duration dynamicFilteringWaitTimeout = new Duration(0, MINUTES);
+    private boolean allowLocalScheduling;
 
     @NotNull
     @Size(min = 1)
@@ -142,6 +142,19 @@ public class KuduClientConfig
     public KuduClientConfig setDynamicFilteringWaitTimeout(Duration dynamicFilteringWaitTimeout)
     {
         this.dynamicFilteringWaitTimeout = dynamicFilteringWaitTimeout;
+        return this;
+    }
+
+    public boolean isAllowLocalScheduling()
+    {
+        return allowLocalScheduling;
+    }
+
+    @Config("kudu.allow-local-scheduling")
+    @ConfigDescription("Assign Kudu splits to replica host if worker and kudu share the same cluster")
+    public KuduClientConfig setAllowLocalScheduling(boolean allowLocalScheduling)
+    {
+        this.allowLocalScheduling = allowLocalScheduling;
         return this;
     }
 }

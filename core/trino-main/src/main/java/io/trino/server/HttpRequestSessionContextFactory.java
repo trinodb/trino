@@ -107,6 +107,7 @@ public class HttpRequestSessionContextFactory
 
         requireNonNull(authenticatedIdentity, "authenticatedIdentity is null");
         Identity identity = buildSessionIdentity(authenticatedIdentity, protocolHeaders, headers);
+        Identity originalIdentity = buildSessionOriginalIdentity(identity, protocolHeaders, headers);
         SelectedRole selectedRole = parseSystemRoleHeaders(protocolHeaders, headers);
 
         Optional<String> source = Optional.ofNullable(headers.getFirst(protocolHeaders.requestSource()));
@@ -165,6 +166,7 @@ public class HttpRequestSessionContextFactory
                 path,
                 authenticatedIdentity,
                 identity,
+                originalIdentity,
                 selectedRole,
                 source,
                 traceToken,
@@ -209,20 +211,26 @@ public class HttpRequestSessionContextFactory
         }
 
         Identity identity = buildSessionIdentity(optionalAuthenticatedIdentity, protocolHeaders, headers);
+        Identity originalIdentity = buildSessionOriginalIdentity(identity, protocolHeaders, headers);
 
-        accessControl.checkCanSetUser(identity.getPrincipal(), identity.getUser());
+        accessControl.checkCanSetUser(originalIdentity.getPrincipal(), originalIdentity.getUser());
 
         // authenticated may not present for HTTP or if authentication is not setup
         optionalAuthenticatedIdentity.ifPresent(authenticatedIdentity -> {
             // only check impersonation if authenticated user is not the same as the explicitly set user
-            if (!authenticatedIdentity.getUser().equals(identity.getUser())) {
+            if (!authenticatedIdentity.getUser().equals(originalIdentity.getUser())) {
                 // load enabled roles for authenticated identity, so impersonation permissions can be assigned to roles
                 authenticatedIdentity = Identity.from(authenticatedIdentity)
                         .withEnabledRoles(metadata.listEnabledRoles(authenticatedIdentity))
                         .build();
-                accessControl.checkCanImpersonateUser(authenticatedIdentity, identity.getUser());
+                accessControl.checkCanImpersonateUser(authenticatedIdentity, originalIdentity.getUser());
             }
         });
+
+        if (!originalIdentity.getUser().equals(identity.getUser())) {
+            accessControl.checkCanSetUser(originalIdentity.getPrincipal(), identity.getUser());
+            accessControl.checkCanImpersonateUser(originalIdentity, identity.getUser());
+        }
 
         return addEnabledRoles(identity, parseSystemRoleHeaders(protocolHeaders, headers), metadata);
     }
@@ -263,6 +271,20 @@ public class HttpRequestSessionContextFactory
                 .withAdditionalExtraCredentials(parseExtraCredentials(protocolHeaders, headers))
                 .withAdditionalGroups(groupProvider.getGroups(user))
                 .build();
+    }
+
+    private Identity buildSessionOriginalIdentity(Identity identity, ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
+    {
+        // We derive original identity using this header, but older clients will not send it, so fall back to identity
+        Optional<String> optionalOriginalUser = Optional
+                .ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestOriginalUser())));
+        Identity originalIdentity = optionalOriginalUser.map(originalUser -> Identity.from(identity)
+                        .withUser(originalUser)
+                        .withExtraCredentials(new HashMap<>())
+                        .withGroups(groupProvider.getGroups(originalUser))
+                        .build())
+                .orElse(identity);
+        return originalIdentity;
     }
 
     private static List<String> splitHttpHeader(MultivaluedMap<String, String> headers, String name)

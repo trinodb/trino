@@ -1,0 +1,49 @@
+### Appending query metadata
+
+The optional parameter `query.comment-format` allows you to configure a SQL
+comment that is sent to the datasource with each query. The format of this
+comment can contain any characters and the following metadata:
+
+- `$QUERY_ID`: The identifier of the query.
+- `$USER`: The name of the user who submits the query to Trino.
+- `$SOURCE`: The identifier of the client tool used to submit the query, for
+  example `trino-cli`.
+- `$TRACE_TOKEN`: The trace token configured with the client tool.
+
+The comment can provide more context about the query. This additional
+information is available in the logs of the datasource. To include environment
+variables from the Trino cluster with the comment , use the
+`${ENV:VARIABLE-NAME}` syntax.
+
+The following example sets a simple comment that identifies each query sent by
+Trino:
+
+```text
+query.comment-format=Query sent by Trino.
+```
+
+With this configuration, a query such as `SELECT * FROM example_table;` is
+sent to the datasource with the comment appended:
+
+```text
+SELECT * FROM example_table; /*Query sent by Trino.*/
+```
+
+The following example improves on the preceding example by using metadata:
+
+```text
+query.comment-format=Query $QUERY_ID sent by user $USER from Trino.
+```
+
+If `Jane` sent the query with the query identifier
+`20230622_180528_00000_bkizg`, the following comment string is sent to the
+datasource:
+
+```text
+SELECT * FROM example_table; /*Query 20230622_180528_00000_bkizg sent by user Jane from Trino.*/
+```
+
+:::{note}
+Certain JDBC driver settings and logging configurations might cause the
+comment to be removed.
+:::

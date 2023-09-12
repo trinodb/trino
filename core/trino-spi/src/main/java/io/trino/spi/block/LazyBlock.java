@@ -14,9 +14,8 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.NotThreadSafe;
+import io.airlift.slice.SliceOutput;
+import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,7 +30,7 @@ import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
-@NotThreadSafe
+// This class is not considered thread-safe.
 public class LazyBlock
         implements Block
 {
@@ -89,6 +88,12 @@ public class LazyBlock
     }
 
     @Override
+    public void writeSliceTo(int position, int offset, int length, SliceOutput output)
+    {
+        getBlock().writeSliceTo(position, offset, length, output);
+    }
+
+    @Override
     public <T> T getObject(int position, Class<T> clazz)
     {
         return getBlock().getObject(position, clazz);
@@ -110,12 +115,6 @@ public class LazyBlock
                 otherSlice,
                 otherOffset,
                 otherLength);
-    }
-
-    @Override
-    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
-    {
-        getBlock().writeBytesTo(position, offset, length, blockBuilder);
     }
 
     @Override

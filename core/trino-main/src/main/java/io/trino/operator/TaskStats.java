@@ -19,9 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import jakarta.annotation.Nullable;
 import org.joda.time.DateTime;
-
-import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -84,6 +83,7 @@ public class TaskStats
 
     private final Duration outputBlockedTime;
 
+    private final DataSize writerInputDataSize;
     private final DataSize physicalWrittenDataSize;
     private final Optional<Integer> maxWriterCount;
 
@@ -133,6 +133,7 @@ public class TaskStats
                 DataSize.ofBytes(0),
                 0,
                 new Duration(0, MILLISECONDS),
+                DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 Optional.empty(),
                 0,
@@ -192,6 +193,7 @@ public class TaskStats
 
             @JsonProperty("outputBlockedTime") Duration outputBlockedTime,
 
+            @JsonProperty("writerInputDataSize") DataSize writerInputDataSize,
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
             @JsonProperty("writerCount") Optional<Integer> writerCount,
 
@@ -267,6 +269,7 @@ public class TaskStats
 
         this.outputBlockedTime = requireNonNull(outputBlockedTime, "outputBlockedTime is null");
 
+        this.writerInputDataSize = requireNonNull(writerInputDataSize, "writerInputDataSize is null");
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
         this.maxWriterCount = requireNonNull(writerCount, "writerCount is null");
 
@@ -493,6 +496,12 @@ public class TaskStats
     }
 
     @JsonProperty
+    public DataSize getWriterInputDataSize()
+    {
+        return writerInputDataSize;
+    }
+
+    @JsonProperty
     public DataSize getPhysicalWrittenDataSize()
     {
         return physicalWrittenDataSize;
@@ -588,6 +597,7 @@ public class TaskStats
                 outputDataSize,
                 outputPositions,
                 outputBlockedTime,
+                writerInputDataSize,
                 physicalWrittenDataSize,
                 maxWriterCount,
                 fullGcCount,
@@ -637,6 +647,7 @@ public class TaskStats
                 outputDataSize,
                 outputPositions,
                 outputBlockedTime,
+                writerInputDataSize,
                 physicalWrittenDataSize,
                 maxWriterCount,
                 fullGcCount,

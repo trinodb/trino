@@ -19,9 +19,11 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Character.MAX_CODE_POINT;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestBoundedVarcharType
@@ -55,11 +57,25 @@ public class TestBoundedVarcharType
         return Slices.utf8Slice(((Slice) value).toStringUtf8() + "_");
     }
 
-    @Override
+    @Test
     public void testRange()
     {
         Type.Range range = type.getRange().orElseThrow();
         assertEquals(range.getMin(), Slices.utf8Slice(""));
         assertEquals(range.getMax(), Slices.utf8Slice(Character.toString(MAX_CODE_POINT).repeat(((VarcharType) type).getBoundedLength())));
+    }
+
+    @Test
+    public void testPreviousValue()
+    {
+        assertThat(type.getPreviousValue(getSampleValue()))
+                .isEmpty();
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        assertThat(type.getNextValue(getSampleValue()))
+                .isEmpty();
     }
 }

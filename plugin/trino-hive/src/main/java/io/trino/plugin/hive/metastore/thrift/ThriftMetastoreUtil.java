@@ -64,10 +64,10 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -665,6 +665,7 @@ public final class ThriftMetastoreUtil
 
     public static FieldSchema toMetastoreApiFieldSchema(Column column)
     {
+        checkArgument(column.getProperties().isEmpty(), "Persisting column properties is not supported: %s", column);
         return new FieldSchema(column.getName(), column.getType().getHiveTypeName().toString(), column.getComment().orElse(null));
     }
 
@@ -943,7 +944,7 @@ public final class ThriftMetastoreUtil
         if (isNumericType(type) || type.equals(DATE)) {
             return ImmutableSet.of(MIN_VALUE, MAX_VALUE, NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
         }
-        if (type instanceof TimestampType) {
+        if (type instanceof TimestampType || type instanceof TimestampWithTimeZoneType) {
             // TODO (https://github.com/trinodb/trino/issues/5859) Add support for timestamp MIN_VALUE, MAX_VALUE
             return ImmutableSet.of(NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
         }

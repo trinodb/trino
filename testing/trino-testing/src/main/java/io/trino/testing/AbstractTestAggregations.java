@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
+import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
@@ -229,7 +229,15 @@ public abstract class AbstractTestAggregations
     public void testCountDistinct()
     {
         assertQuery("SELECT COUNT(DISTINCT custkey + 1) FROM orders", "SELECT COUNT(*) FROM (SELECT DISTINCT custkey + 1 FROM orders) t");
-        assertQuery("SELECT COUNT(DISTINCT linenumber), COUNT(*) from lineitem where linenumber < 0");
+    }
+
+    @Test
+    public void testMixedDistinctAndZeroOnEmptyInputAggregations()
+    {
+        assertQuery("SELECT COUNT(DISTINCT linenumber), COUNT(*), COUNT(linenumber) from lineitem where linenumber < 0");
+        assertQuery("SELECT COUNT(DISTINCT linenumber), COUNT_IF(linenumber < 0) from lineitem where linenumber < 0", "VALUES (0, 0)");
+        assertQuery("SELECT COUNT(DISTINCT linenumber), approx_distinct(linenumber), approx_distinct(linenumber, 0.5) from lineitem where linenumber < 0", "VALUES (0, 0, 0)");
+        assertQuery("SELECT COUNT(DISTINCT linenumber), approx_distinct(orderkey > 10), approx_distinct(orderkey > 10, 0.5) from lineitem where linenumber < 0", "VALUES (0, 0, 0)");
     }
 
     @Test
@@ -243,7 +251,7 @@ public abstract class AbstractTestAggregations
         assertQuery(query);
         assertQuery(
                 Session.builder(getSession())
-                        .setSystemProperty(USE_MARK_DISTINCT, "false")
+                        .setSystemProperty(MARK_DISTINCT_STRATEGY, "none")
                         .build(),
                 query);
     }

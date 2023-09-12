@@ -20,7 +20,6 @@ import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableOrdersTable;
 import io.trino.testng.services.Flaky;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -79,7 +78,7 @@ public class TestHiveViews
         }
         else {
             assertThat(onTrino().executeQuery(withSchemaFilter)).hasNoRows();
-            Assertions.assertThat(onTrino().executeQuery(withNoFilter).rows()).doesNotContain(ImmutableList.of("correct_view"));
+            assertThat(onTrino().executeQuery(withNoFilter).rows()).doesNotContain(ImmutableList.of("correct_view"));
         }
 
         // Queries with filters on table_schema and table_name are optimized to only fetch the specified table and uses
@@ -92,7 +91,7 @@ public class TestHiveViews
                 .hasMessageContaining("Failed to translate Hive view 'test_list_failing_views.failing_view'");
 
         // Queries on information_schema.columns also trigger ConnectorMetadata#getViews. Columns from failing_view are
-        // listed too since HiveMetadata#listTableColumns does not ignore views.
+        // listed too since HiveMetadata#listTableColumns does not ignore Hive views.
         assertThat(onTrino().executeQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'test_list_failing_views'"))
                 .containsOnly(
                         row("correct_view", "n_nationkey"),
@@ -121,7 +120,7 @@ public class TestHiveViews
         }
         else {
             assertThat(onTrino().executeQuery(withSchemaFilter)).hasNoRows();
-            Assertions.assertThat(onTrino().executeQuery(withNoFilter).rows()).doesNotContain(ImmutableList.of("correct_view"));
+            assertThat(onTrino().executeQuery(withNoFilter).rows()).doesNotContain(ImmutableList.of("correct_view"));
         }
 
         // Queries with filters on table_schema and table_name are optimized to only fetch the specified table and uses
@@ -142,7 +141,7 @@ public class TestHiveViews
                 .hasMessageContaining("Failed to translate Hive view 'test_list_failing_views.failing_view'");
 
         // Queries on system.jdbc.columns also trigger ConnectorMetadata#getViews. Columns from failing_view are
-        // listed too since HiveMetadata#listTableColumns does not ignore views.
+        // listed too since HiveMetadata#listTableColumns does not ignore Hive views.
         assertThat(onTrino().executeQuery("SELECT table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = 'test_list_failing_views'"))
                 .containsOnly(
                         row("correct_view", "n_nationkey"),

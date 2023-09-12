@@ -31,8 +31,7 @@ import io.trino.spi.function.TypeVariableConstraint.TypeVariableConstraintBuilde
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.type.Constraint;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
@@ -63,6 +62,7 @@ import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
@@ -118,6 +118,9 @@ public final class FunctionsParserHelper
                     else {
                         verifyTypeSignatureDoesNotContainAnyTypeParameters(typeSignature, typeSignature, typeParameterNames);
                     }
+                }
+                else if (operator == READ_VALUE) {
+                    verifyOperatorSignature(operator, argumentTypes);
                 }
                 else {
                     throw new IllegalArgumentException("Operator dependency on " + operator + " is not allowed");

@@ -43,7 +43,7 @@ import io.trino.sql.query.QueryAssertions;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -59,7 +59,6 @@ import static io.trino.SystemSessionProperties.SPILL_ENABLED;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.SystemSessionProperties.USE_COST_BASED_PARTITIONING;
 import static io.trino.SystemSessionProperties.USE_EXACT_PARTITIONING;
-import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -99,7 +98,6 @@ import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.TopNNode.Step.FINAL;
 import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
-import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -951,16 +949,9 @@ public class TestAddExchangesPlans
     public void testJoinNotExactlyPartitioned()
     {
         QueryAssertions queryAssertions = new QueryAssertions(getQueryRunner());
-        assertThat(queryAssertions.query("SHOW SESSION LIKE 'colocated_join'")).matches(
-                resultBuilder(
-                        getQueryRunner().getDefaultSession(),
-                        createVarcharType(56),
-                        createVarcharType(14),
-                        createVarcharType(14),
-                        createVarcharType(7),
-                        createVarcharType(151))
-                .row("colocated_join", "true", "true", "boolean", "Use a colocated join when possible")
-                .build());
+        assertThat(queryAssertions.query("SHOW SESSION LIKE 'colocated_join'"))
+                .skippingTypesCheck()
+                .matches("SELECT 'colocated_join', 'true', 'true', 'boolean', 'Use a colocated join when possible'");
 
         assertDistributedPlan(
                 """

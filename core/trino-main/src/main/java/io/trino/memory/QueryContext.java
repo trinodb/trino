@@ -15,6 +15,8 @@ package io.trino.memory;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
 import io.trino.Session;
@@ -25,9 +27,6 @@ import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.TaskContext;
 import io.trino.spi.QueryId;
 import io.trino.spiller.SpillSpaceTracker;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Comparator;
 import java.util.List;

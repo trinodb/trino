@@ -39,10 +39,10 @@ import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveStorageFormat.SEQUENCEFILE;
+import static io.trino.plugin.hive.util.HiveReaderUtil.getDeserializer;
+import static io.trino.plugin.hive.util.HiveReaderUtil.getInputFormat;
 import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
 import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
-import static io.trino.plugin.hive.util.HiveUtil.getDeserializer;
-import static io.trino.plugin.hive.util.HiveUtil.getInputFormat;
 import static io.trino.plugin.hive.util.HiveUtil.parseHiveTimestamp;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
@@ -100,30 +100,25 @@ public class TestHiveUtil
         Properties sequenceFileSchema = new Properties();
         sequenceFileSchema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
         sequenceFileSchema.setProperty(SERIALIZATION_LIB, SEQUENCEFILE.getSerde());
-        assertInstanceOf(getInputFormat(configuration, sequenceFileSchema, false), SymlinkTextInputFormat.class);
-        assertInstanceOf(getInputFormat(configuration, sequenceFileSchema, true), TextInputFormat.class);
+        assertInstanceOf(getInputFormat(configuration, sequenceFileSchema), TextInputFormat.class);
 
         Properties avroSymlinkSchema = new Properties();
         avroSymlinkSchema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
         avroSymlinkSchema.setProperty(SERIALIZATION_LIB, AVRO.getSerde());
-        assertInstanceOf(getInputFormat(configuration, avroSymlinkSchema, false), SymlinkTextInputFormat.class);
-        assertInstanceOf(getInputFormat(configuration, avroSymlinkSchema, true), AvroContainerInputFormat.class);
+        assertInstanceOf(getInputFormat(configuration, avroSymlinkSchema), AvroContainerInputFormat.class);
 
         Properties parquetSymlinkSchema = new Properties();
         parquetSymlinkSchema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
         parquetSymlinkSchema.setProperty(SERIALIZATION_LIB, PARQUET.getSerde());
-        assertInstanceOf(getInputFormat(configuration, parquetSymlinkSchema, false), SymlinkTextInputFormat.class);
-        assertInstanceOf(getInputFormat(configuration, parquetSymlinkSchema, true), MapredParquetInputFormat.class);
+        assertInstanceOf(getInputFormat(configuration, parquetSymlinkSchema), MapredParquetInputFormat.class);
 
         Properties parquetSchema = new Properties();
         parquetSchema.setProperty(FILE_INPUT_FORMAT, PARQUET.getInputFormat());
-        assertInstanceOf(getInputFormat(configuration, parquetSchema, false), MapredParquetInputFormat.class);
-        assertInstanceOf(getInputFormat(configuration, parquetSchema, true), MapredParquetInputFormat.class);
+        assertInstanceOf(getInputFormat(configuration, parquetSchema), MapredParquetInputFormat.class);
 
         Properties legacyParquetSchema = new Properties();
         legacyParquetSchema.setProperty(FILE_INPUT_FORMAT, "parquet.hive.MapredParquetInputFormat");
-        assertInstanceOf(getInputFormat(configuration, legacyParquetSchema, false), MapredParquetInputFormat.class);
-        assertInstanceOf(getInputFormat(configuration, legacyParquetSchema, true), MapredParquetInputFormat.class);
+        assertInstanceOf(getInputFormat(configuration, legacyParquetSchema), MapredParquetInputFormat.class);
     }
 
     @Test

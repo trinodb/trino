@@ -16,34 +16,31 @@ package io.trino.operator.exchange;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.XxHash64;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.HashGenerator;
-import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.PrecomputedHashGenerator;
+import io.trino.operator.output.SkewedPartitionRebalancer;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.MergePartitioningHandle;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.SystemPartitioningHandle;
-import io.trino.type.BlockTypeOperators;
-import it.unimi.dsi.fastutil.longs.Long2LongMap;
-import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -52,6 +49,8 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getSkewedPartitionMinDataProcessedRebalanceThreshold;
+import static io.trino.operator.InterpretedHashGenerator.createChannelsHashGenerator;
 import static io.trino.operator.exchange.LocalExchangeSink.finishedLocalExchangeSink;
 import static io.trino.sql.planner.PartitioningHandle.isScaledWriterHashDistribution;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -71,9 +70,6 @@ public class LocalExchange
     private final Supplier<LocalExchanger> exchangerSupplier;
 
     private final List<LocalExchangeSource> sources;
-
-    // Physical written bytes for each writer in the same order as source buffers
-    private final List<Supplier<Long>> physicalWrittenBytesSuppliers = new CopyOnWriteArrayList<>();
 
     @GuardedBy("this")
     private boolean allSourcesFinished;
@@ -99,8 +95,8 @@ public class LocalExchange
             List<Type> partitionChannelTypes,
             Optional<Integer> partitionHashChannel,
             DataSize maxBufferedBytes,
-            BlockTypeOperators blockTypeOperators,
-            DataSize writerMinSize)
+            TypeOperators typeOperators,
+            DataSize writerScalingMinDataProcessed)
     {
         int bufferCount = computeBufferCount(partitioning, defaultConcurrency, partitionChannels);
 
@@ -130,30 +126,22 @@ public class LocalExchange
             sources = IntStream.range(0, bufferCount)
                     .mapToObj(i -> new LocalExchangeSource(memoryManager, source -> checkAllSourcesFinished()))
                     .collect(toImmutableList());
+            AtomicLong dataProcessed = new AtomicLong(0);
             exchangerSupplier = () -> new ScaleWriterExchanger(
                     asPageConsumers(sources),
                     memoryManager,
                     maxBufferedBytes.toBytes(),
-                    () -> {
-                        // Avoid using stream api for performance reasons
-                        long physicalWrittenBytes = 0;
-                        for (Supplier<Long> physicalWrittenBytesSupplier : physicalWrittenBytesSuppliers) {
-                            physicalWrittenBytes += physicalWrittenBytesSupplier.get();
-                        }
-                        return physicalWrittenBytes;
-                    },
-                    writerMinSize);
+                    dataProcessed,
+                    writerScalingMinDataProcessed);
         }
         else if (isScaledWriterHashDistribution(partitioning)) {
             int partitionCount = bufferCount * SCALE_WRITERS_MAX_PARTITIONS_PER_WRITER;
-            List<Supplier<Long2LongMap>> writerPartitionRowCountsSuppliers = new CopyOnWriteArrayList<>();
-            UniformPartitionRebalancer uniformPartitionRebalancer = new UniformPartitionRebalancer(
-                    physicalWrittenBytesSuppliers,
-                    () -> computeAggregatedPartitionRowCounts(writerPartitionRowCountsSuppliers),
+            SkewedPartitionRebalancer skewedPartitionRebalancer = new SkewedPartitionRebalancer(
                     partitionCount,
                     bufferCount,
-                    writerMinSize.toBytes());
-
+                    1,
+                    writerScalingMinDataProcessed.toBytes(),
+                    getSkewedPartitionMinDataProcessedRebalanceThreshold(session).toBytes());
             LocalExchangeMemoryManager memoryManager = new LocalExchangeMemoryManager(maxBufferedBytes.toBytes());
             sources = IntStream.range(0, bufferCount)
                     .mapToObj(i -> new LocalExchangeSource(memoryManager, source -> checkAllSourcesFinished()))
@@ -163,22 +151,20 @@ public class LocalExchange
                 PartitionFunction partitionFunction = createPartitionFunction(
                         nodePartitioningManager,
                         session,
-                        blockTypeOperators,
+                        typeOperators,
                         partitioning,
                         partitionCount,
                         partitionChannels,
                         partitionChannelTypes,
                         partitionHashChannel);
-                ScaleWriterPartitioningExchanger exchanger = new ScaleWriterPartitioningExchanger(
+                return new ScaleWriterPartitioningExchanger(
                         asPageConsumers(sources),
                         memoryManager,
                         maxBufferedBytes.toBytes(),
                         createPartitionPagePreparer(partitioning, partitionChannels),
                         partitionFunction,
                         partitionCount,
-                        uniformPartitionRebalancer);
-                writerPartitionRowCountsSuppliers.add(exchanger::getAndResetPartitionRowCounts);
-                return exchanger;
+                        skewedPartitionRebalancer);
             };
         }
         else if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent() ||
@@ -191,7 +177,7 @@ public class LocalExchange
                 PartitionFunction partitionFunction = createPartitionFunction(
                         nodePartitioningManager,
                         session,
-                        blockTypeOperators,
+                        typeOperators,
                         partitioning,
                         bufferCount,
                         partitionChannels,
@@ -222,27 +208,12 @@ public class LocalExchange
         return newFactory;
     }
 
-    public synchronized LocalExchangeSource getNextSource(Supplier<Long> physicalWrittenBytesSupplier)
+    public synchronized LocalExchangeSource getNextSource()
     {
         checkState(nextSourceIndex < sources.size(), "All operators already created");
         LocalExchangeSource result = sources.get(nextSourceIndex);
-        physicalWrittenBytesSuppliers.add(physicalWrittenBytesSupplier);
         nextSourceIndex++;
         return result;
-    }
-
-    private Long2LongMap computeAggregatedPartitionRowCounts(List<Supplier<Long2LongMap>> writerPartitionRowCountsSuppliers)
-    {
-        Long2LongMap aggregatedPartitionRowCounts = new Long2LongOpenHashMap();
-        List<Long2LongMap> writerPartitionRowCounts = writerPartitionRowCountsSuppliers.stream()
-                .map(Supplier::get)
-                .collect(toImmutableList());
-
-        writerPartitionRowCounts.forEach(partitionRowCounts ->
-                partitionRowCounts.forEach((writerPartitionId, rowCount) ->
-                        aggregatedPartitionRowCounts.merge(writerPartitionId.longValue(), rowCount.longValue(), Long::sum)));
-
-        return aggregatedPartitionRowCounts;
     }
 
     private static Function<Page, Page> createPartitionPagePreparer(PartitioningHandle partitioning, List<Integer> partitionChannels)
@@ -261,7 +232,7 @@ public class LocalExchange
     private static PartitionFunction createPartitionFunction(
             NodePartitioningManager nodePartitioningManager,
             Session session,
-            BlockTypeOperators blockTypeOperators,
+            TypeOperators typeOperators,
             PartitioningHandle partitioning,
             int partitionCount,
             List<Integer> partitionChannels,
@@ -276,7 +247,7 @@ public class LocalExchange
                 hashGenerator = new PrecomputedHashGenerator(partitionHashChannel.get());
             }
             else {
-                hashGenerator = new InterpretedHashGenerator(partitionChannelTypes, Ints.toArray(partitionChannels), blockTypeOperators);
+                hashGenerator = createChannelsHashGenerator(partitionChannelTypes, Ints.toArray(partitionChannels), typeOperators);
             }
             return new LocalPartitionGenerator(hashGenerator, partitionCount);
         }

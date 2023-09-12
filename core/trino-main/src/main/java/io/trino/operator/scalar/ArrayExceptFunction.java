@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.Convention;
@@ -26,7 +25,6 @@ import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 
-import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
@@ -60,13 +58,13 @@ public final class ArrayExceptFunction
             return leftArray;
         }
 
-        TypedSet typedSet = createDistinctTypedSet(type, isDistinctOperator, elementHashCode, leftPositionCount, "array_except");
-        BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(null, leftPositionCount);
+        BlockSet set = new BlockSet(type, isDistinctOperator, elementHashCode, rightPositionCount + leftPositionCount);
         for (int i = 0; i < rightPositionCount; i++) {
-            typedSet.add(rightArray, i);
+            set.add(rightArray, i);
         }
+        BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(null, leftPositionCount);
         for (int i = 0; i < leftPositionCount; i++) {
-            if (typedSet.add(leftArray, i)) {
+            if (set.add(leftArray, i)) {
                 type.appendTo(leftArray, i, distinctElementBlockBuilder);
             }
         }

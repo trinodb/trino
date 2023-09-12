@@ -25,9 +25,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class LikeMatcher
 {
-    private final String pattern;
-    private final Optional<Character> escape;
-
     private final int minSize;
     private final OptionalInt maxSize;
     private final byte[] prefix;
@@ -35,31 +32,17 @@ public class LikeMatcher
     private final Optional<Matcher> matcher;
 
     private LikeMatcher(
-            String pattern,
-            Optional<Character> escape,
             int minSize,
             OptionalInt maxSize,
             byte[] prefix,
             byte[] suffix,
             Optional<Matcher> matcher)
     {
-        this.pattern = pattern;
-        this.escape = escape;
         this.minSize = minSize;
         this.maxSize = maxSize;
         this.prefix = prefix;
         this.suffix = suffix;
         this.matcher = matcher;
-    }
-
-    public String getPattern()
-    {
-        return pattern;
-    }
-
-    public Optional<Character> getEscape()
-    {
-        return escape;
     }
 
     public static LikeMatcher compile(String pattern)
@@ -154,8 +137,6 @@ public class LikeMatcher
         }
 
         return new LikeMatcher(
-                pattern,
-                escape,
                 minSize,
                 unbounded ? OptionalInt.empty() : OptionalInt.of(maxSize),
                 prefix,

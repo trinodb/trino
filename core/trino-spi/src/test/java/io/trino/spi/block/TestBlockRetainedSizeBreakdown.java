@@ -38,11 +38,10 @@ public class TestBlockRetainedSizeBreakdown
     @Test
     public void testArrayBlock()
     {
-        BlockBuilder arrayBlockBuilder = new ArrayBlockBuilder(BIGINT, null, EXPECTED_ENTRIES);
+        ArrayBlockBuilder arrayBlockBuilder = new ArrayBlockBuilder(BIGINT, null, EXPECTED_ENTRIES);
         for (int i = 0; i < EXPECTED_ENTRIES; i++) {
-            BlockBuilder arrayElementBuilder = arrayBlockBuilder.beginBlockEntry();
-            writeNativeValue(BIGINT, arrayElementBuilder, castIntegerToObject(i, BIGINT));
-            arrayBlockBuilder.closeEntry();
+            int value = i;
+            arrayBlockBuilder.buildEntry(elementBuilder -> writeNativeValue(BIGINT, elementBuilder, castIntegerToObject(value, BIGINT)));
         }
         checkRetainedSize(arrayBlockBuilder.build(), false);
     }
@@ -50,9 +49,9 @@ public class TestBlockRetainedSizeBreakdown
     @Test
     public void testByteArrayBlock()
     {
-        BlockBuilder blockBuilder = new ByteArrayBlockBuilder(null, EXPECTED_ENTRIES);
+        ByteArrayBlockBuilder blockBuilder = new ByteArrayBlockBuilder(null, EXPECTED_ENTRIES);
         for (int i = 0; i < EXPECTED_ENTRIES; i++) {
-            blockBuilder.writeByte(i);
+            blockBuilder.writeByte((byte) i);
         }
         checkRetainedSize(blockBuilder.build(), false);
     }
@@ -95,9 +94,9 @@ public class TestBlockRetainedSizeBreakdown
     @Test
     public void testShortArrayBlock()
     {
-        BlockBuilder blockBuilder = new ShortArrayBlockBuilder(null, EXPECTED_ENTRIES);
+        ShortArrayBlockBuilder blockBuilder = new ShortArrayBlockBuilder(null, EXPECTED_ENTRIES);
         for (int i = 0; i < EXPECTED_ENTRIES; i++) {
-            blockBuilder.writeShort(i);
+            blockBuilder.writeShort((short) i);
         }
         checkRetainedSize(blockBuilder.build(), false);
     }

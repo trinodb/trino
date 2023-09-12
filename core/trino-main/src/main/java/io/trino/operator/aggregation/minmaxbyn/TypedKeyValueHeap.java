@@ -14,69 +14,139 @@
 package io.trino.operator.aggregation.minmaxbyn;
 
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
+import io.airlift.slice.SizeOf;
+import io.trino.operator.VariableWidthData;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import it.unimi.dsi.fastutil.ints.IntArrays;
+import jakarta.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static java.lang.Math.toIntExact;
+import static io.trino.operator.VariableWidthData.EMPTY_CHUNK;
+import static io.trino.operator.VariableWidthData.POINTER_SIZE;
+import static io.trino.operator.VariableWidthData.getChunkOffset;
+import static io.trino.operator.aggregation.minmaxn.TypedHeap.compactIfNecessary;
 import static java.util.Objects.requireNonNull;
 
-public class TypedKeyValueHeap
+public final class TypedKeyValueHeap
 {
     private static final int INSTANCE_SIZE = instanceSize(TypedKeyValueHeap.class);
 
-    private static final int COMPACT_THRESHOLD_BYTES = 32768;
-    private static final int COMPACT_THRESHOLD_RATIO = 3; // when 2/3 of elements in keyBlockBuilder is unreferenced, do compact
-
     private final boolean min;
-    private final MethodHandle compare;
+    private final MethodHandle keyReadFlat;
+    private final MethodHandle keyWriteFlat;
+    private final MethodHandle valueReadFlat;
+    private final MethodHandle valueWriteFlat;
+    private final MethodHandle compareFlatFlat;
+    private final MethodHandle compareFlatBlock;
     private final Type keyType;
     private final Type valueType;
     private final int capacity;
 
+    private final int recordKeyOffset;
+    private final int recordValueOffset;
+
+    private final int recordSize;
+    /**
+     * The fixed chunk contains an array of records. The records are laid out as follows:
+     * <ul>
+     *     <li>12 byte optional pointer to variable width data (only present if the key or value is variable width)</li>
+     *     <li>4 byte optional integer for variable size of the key (only present if the key is variable width)</li>
+     *     <li>1 byte null flag for the value</li>
+     *     <li>N byte fixed size data for the key type</li>
+     *     <li>N byte fixed size data for the value type</li>
+     * </ul>
+     * The pointer is placed first to simplify the offset calculations for variable with code.
+     * This chunk contains {@code capacity + 1} records. The extra record is used for the swap operation.
+     */
+    private final byte[] fixedChunk;
+
+    private final boolean keyVariableWidth;
+    private final boolean valueVariableWidth;
+    private VariableWidthData variableWidthData;
+
     private int positionCount;
-    private final int[] heapIndex;
-    private BlockBuilder keyBlockBuilder;
-    private BlockBuilder valueBlockBuilder;
 
-    public TypedKeyValueHeap(boolean min, MethodHandle compare, Type keyType, Type valueType, int capacity)
+    public TypedKeyValueHeap(
+            boolean min,
+            MethodHandle keyReadFlat,
+            MethodHandle keyWriteFlat,
+            MethodHandle valueReadFlat,
+            MethodHandle valueWriteFlat,
+            MethodHandle compareFlatFlat,
+            MethodHandle compareFlatBlock,
+            Type keyType,
+            Type valueType,
+            int capacity)
     {
         this.min = min;
-        this.compare = requireNonNull(compare, "compare is null");
+        this.keyReadFlat = requireNonNull(keyReadFlat, "keyReadFlat is null");
+        this.keyWriteFlat = requireNonNull(keyWriteFlat, "keyWriteFlat is null");
+        this.valueReadFlat = requireNonNull(valueReadFlat, "valueReadFlat is null");
+        this.valueWriteFlat = requireNonNull(valueWriteFlat, "valueWriteFlat is null");
+        this.compareFlatFlat = requireNonNull(compareFlatFlat, "compareFlatFlat is null");
+        this.compareFlatBlock = requireNonNull(compareFlatBlock, "compareFlatBlock is null");
         this.keyType = requireNonNull(keyType, "keyType is null");
         this.valueType = requireNonNull(valueType, "valueType is null");
         this.capacity = capacity;
-        this.heapIndex = new int[capacity];
-        this.keyBlockBuilder = keyType.createBlockBuilder(null, capacity);
-        this.valueBlockBuilder = valueType.createBlockBuilder(null, capacity);
+
+        keyVariableWidth = keyType.isFlatVariableWidth();
+        valueVariableWidth = valueType.isFlatVariableWidth();
+
+        boolean variableWidth = keyVariableWidth || valueVariableWidth;
+        variableWidthData = variableWidth ? new VariableWidthData() : null;
+
+        recordKeyOffset = (variableWidth ? POINTER_SIZE : 0) + 1;
+        recordValueOffset = recordKeyOffset + keyType.getFlatFixedSize();
+        recordSize = recordValueOffset + valueType.getFlatFixedSize();
+
+        // allocate the fixed chunk with on extra slow for use in swap
+        fixedChunk = new byte[recordSize * (capacity + 1)];
     }
 
-    // for copying
-    private TypedKeyValueHeap(boolean min, MethodHandle compare, Type keyType, Type valueType, int capacity, int positionCount, int[] heapIndex, BlockBuilder keyBlockBuilder, BlockBuilder valueBlockBuilder)
+    public TypedKeyValueHeap(TypedKeyValueHeap typedHeap)
     {
-        this.min = min;
-        this.compare = requireNonNull(compare, "compare is null");
-        this.keyType = requireNonNull(keyType, "keyType is null");
-        this.valueType = requireNonNull(valueType, "valueType is null");
-        this.capacity = capacity;
-        this.positionCount = positionCount;
-        this.heapIndex = heapIndex;
-        this.keyBlockBuilder = keyBlockBuilder;
-        this.valueBlockBuilder = valueBlockBuilder;
+        this.min = typedHeap.min;
+        this.keyReadFlat = typedHeap.keyReadFlat;
+        this.keyWriteFlat = typedHeap.keyWriteFlat;
+        this.valueReadFlat = typedHeap.valueReadFlat;
+        this.valueWriteFlat = typedHeap.valueWriteFlat;
+        this.compareFlatFlat = typedHeap.compareFlatFlat;
+        this.compareFlatBlock = typedHeap.compareFlatBlock;
+        this.keyType = typedHeap.keyType;
+        this.valueType = typedHeap.valueType;
+        this.capacity = typedHeap.capacity;
+        this.positionCount = typedHeap.positionCount;
+
+        this.keyVariableWidth = typedHeap.keyVariableWidth;
+        this.valueVariableWidth = typedHeap.valueVariableWidth;
+
+        this.recordKeyOffset = typedHeap.recordKeyOffset;
+        this.recordValueOffset = typedHeap.recordValueOffset;
+        this.recordSize = typedHeap.recordSize;
+        this.fixedChunk = Arrays.copyOf(typedHeap.fixedChunk, typedHeap.fixedChunk.length);
+
+        if (typedHeap.variableWidthData != null) {
+            this.variableWidthData = new VariableWidthData(typedHeap.variableWidthData);
+        }
+        else {
+            this.variableWidthData = null;
+        }
     }
 
-    public static Type getSerializedType(Type keyType, Type valueType)
+    public Type getKeyType()
     {
-        return RowType.anonymous(ImmutableList.of(BIGINT, new ArrayType(keyType), new ArrayType(valueType)));
+        return keyType;
+    }
+
+    public Type getValueType()
+    {
+        return valueType;
     }
 
     public int getCapacity()
@@ -86,7 +156,9 @@ public class TypedKeyValueHeap
 
     public long getEstimatedSize()
     {
-        return INSTANCE_SIZE + keyBlockBuilder.getRetainedSizeInBytes() + valueBlockBuilder.getRetainedSizeInBytes() + sizeOf(heapIndex);
+        return INSTANCE_SIZE +
+                SizeOf.sizeOf(fixedChunk) +
+                (variableWidthData == null ? 0 : variableWidthData.getRetainedSizeBytes());
     }
 
     public boolean isEmpty()
@@ -94,119 +166,154 @@ public class TypedKeyValueHeap
         return positionCount == 0;
     }
 
-    public void serialize(BlockBuilder out)
+    public void writeAllUnsorted(BlockBuilder keyBuilder, BlockBuilder valueBuilder)
     {
-        BlockBuilder blockBuilder = out.beginBlockEntry();
-        BIGINT.writeLong(blockBuilder, getCapacity());
-
-        BlockBuilder keyElements = blockBuilder.beginBlockEntry();
         for (int i = 0; i < positionCount; i++) {
-            keyType.appendTo(keyBlockBuilder, heapIndex[i], keyElements);
+            write(i, keyBuilder, valueBuilder);
         }
-        blockBuilder.closeEntry();
-
-        BlockBuilder valueElements = blockBuilder.beginBlockEntry();
-        for (int i = 0; i < positionCount; i++) {
-            valueType.appendTo(valueBlockBuilder, heapIndex[i], valueElements);
-        }
-        blockBuilder.closeEntry();
-
-        out.closeEntry();
     }
 
-    public static TypedKeyValueHeap deserialize(boolean min, MethodHandle compare, Type keyType, Type valueType, Block rowBlock)
+    public void writeValuesSorted(BlockBuilder valueBlockBuilder)
     {
-        int capacity = toIntExact(BIGINT.getLong(rowBlock, 0));
-        int[] heapIndex = new int[capacity];
-
-        BlockBuilder keyBlockBuilder = keyType.createBlockBuilder(null, capacity);
-        Block keyBlock = new ArrayType(keyType).getObject(rowBlock, 1);
-        for (int position = 0; position < keyBlock.getPositionCount(); position++) {
-            heapIndex[position] = position;
-            keyType.appendTo(keyBlock, position, keyBlockBuilder);
-        }
-
-        BlockBuilder valueBlockBuilder = valueType.createBlockBuilder(null, capacity);
-        Block valueBlock = new ArrayType(valueType).getObject(rowBlock, 2);
-        for (int position = 0; position < valueBlock.getPositionCount(); position++) {
-            heapIndex[position] = position;
-            if (valueBlock.isNull(position)) {
-                valueBlockBuilder.appendNull();
-            }
-            else {
-                valueType.appendTo(valueBlock, position, valueBlockBuilder);
-            }
-        }
-
-        return new TypedKeyValueHeap(min, compare, keyType, valueType, capacity, keyBlock.getPositionCount(), heapIndex, keyBlockBuilder, valueBlockBuilder);
-    }
-
-    public void popAllReverse(BlockBuilder resultBlockBuilder)
-    {
+        // fully sort the heap
         int[] indexes = new int[positionCount];
-        while (positionCount > 0) {
-            indexes[positionCount - 1] = heapIndex[0];
-            positionCount--;
-            heapIndex[0] = heapIndex[positionCount];
-            siftDown();
+        for (int i = 0; i < indexes.length; i++) {
+            indexes[i] = i;
         }
+        IntArrays.quickSort(indexes, (a, b) -> compare(a, b));
 
         for (int index : indexes) {
-            valueType.appendTo(valueBlockBuilder, index, resultBlockBuilder);
+            write(index, null, valueBlockBuilder);
         }
     }
 
-    public void popAll(BlockBuilder resultBlockBuilder)
+    private void write(int index, @Nullable BlockBuilder keyBlockBuilder, BlockBuilder valueBlockBuilder)
     {
-        while (positionCount > 0) {
-            pop(resultBlockBuilder);
+        int recordOffset = getRecordOffset(index);
+
+        byte[] variableWidthChunk = EMPTY_CHUNK;
+        if (variableWidthData != null) {
+            variableWidthChunk = variableWidthData.getChunk(fixedChunk, recordOffset);
+        }
+
+        if (keyBlockBuilder != null) {
+            try {
+                keyReadFlat.invokeExact(
+                        fixedChunk,
+                        recordOffset + recordKeyOffset,
+                        variableWidthChunk,
+                        keyBlockBuilder);
+            }
+            catch (Throwable throwable) {
+                Throwables.throwIfUnchecked(throwable);
+                throw new RuntimeException(throwable);
+            }
+        }
+        if (fixedChunk[recordOffset + recordKeyOffset - 1] != 0) {
+            valueBlockBuilder.appendNull();
+        }
+        else {
+            try {
+                valueReadFlat.invokeExact(
+                        fixedChunk,
+                        recordOffset + recordValueOffset,
+                        variableWidthChunk,
+                        valueBlockBuilder);
+            }
+            catch (Throwable throwable) {
+                Throwables.throwIfUnchecked(throwable);
+                throw new RuntimeException(throwable);
+            }
         }
     }
 
-    public void pop(BlockBuilder resultBlockBuilder)
+    public void addAll(Block keyBlock, Block valueBlock)
     {
-        valueType.appendTo(valueBlockBuilder, heapIndex[0], resultBlockBuilder);
-        remove();
-    }
-
-    private void remove()
-    {
-        positionCount--;
-        heapIndex[0] = heapIndex[positionCount];
-        siftDown();
+        for (int i = 0; i < keyBlock.getPositionCount(); i++) {
+            add(keyBlock, valueBlock, i);
+        }
     }
 
     public void add(Block keyBlock, Block valueBlock, int position)
     {
         checkArgument(!keyBlock.isNull(position));
         if (positionCount == capacity) {
-            if (keyGreaterThanOrEqual(keyBlockBuilder, heapIndex[0], keyBlock, position)) {
-                return; // and new element is not larger than heap top: do not add
+            // is it possible the value is within the top N values?
+            if (!shouldConsiderValue(keyBlock, position)) {
+                return;
             }
-            heapIndex[0] = keyBlockBuilder.getPositionCount();
-            keyType.appendTo(keyBlock, position, keyBlockBuilder);
-            valueType.appendTo(valueBlock, position, valueBlockBuilder);
+            clear(0);
+            set(0, keyBlock, valueBlock, position);
             siftDown();
         }
         else {
-            heapIndex[positionCount] = keyBlockBuilder.getPositionCount();
+            set(positionCount, keyBlock, valueBlock, position);
             positionCount++;
-            keyType.appendTo(keyBlock, position, keyBlockBuilder);
-            valueType.appendTo(valueBlock, position, valueBlockBuilder);
             siftUp();
         }
-        compactIfNecessary();
     }
 
-    public void addAll(TypedKeyValueHeap otherHeap)
+    private void clear(int index)
     {
-        addAll(otherHeap.keyBlockBuilder, otherHeap.valueBlockBuilder);
+        if (variableWidthData == null) {
+            return;
+        }
+
+        variableWidthData.free(fixedChunk, getRecordOffset(index));
+        variableWidthData = compactIfNecessary(
+                variableWidthData,
+                fixedChunk,
+                recordSize,
+                0,
+                positionCount,
+                (fixedSizeOffset, variableWidthChunk, variableWidthChunkOffset) -> {
+                    int keyVariableWidth = keyType.relocateFlatVariableWidthOffsets(fixedChunk, fixedSizeOffset + recordKeyOffset, variableWidthChunk, variableWidthChunkOffset);
+                    if (fixedChunk[fixedSizeOffset + recordKeyOffset - 1] != 0) {
+                        valueType.relocateFlatVariableWidthOffsets(fixedChunk, fixedSizeOffset + recordValueOffset, variableWidthChunk, variableWidthChunkOffset + keyVariableWidth);
+                    }
+                });
     }
 
-    public void addAll(Block keysBlock, Block valuesBlock)
+    private void set(int index, Block keyBlock, Block valueBlock, int position)
     {
-        for (int i = 0; i < keysBlock.getPositionCount(); i++) {
-            add(keysBlock, valuesBlock, i);
+        int recordOffset = getRecordOffset(index);
+
+        byte[] variableWidthChunk = EMPTY_CHUNK;
+        int variableWidthChunkOffset = 0;
+        int keyVariableWidthLength = 0;
+        if (variableWidthData != null) {
+            if (keyVariableWidth) {
+                keyVariableWidthLength = keyType.getFlatVariableWidthSize(keyBlock, position);
+            }
+            int valueVariableWidthLength = valueType.getFlatVariableWidthSize(valueBlock, position);
+            variableWidthChunk = variableWidthData.allocate(fixedChunk, recordOffset, keyVariableWidthLength + valueVariableWidthLength);
+            variableWidthChunkOffset = getChunkOffset(fixedChunk, recordOffset);
+        }
+
+        try {
+            keyWriteFlat.invokeExact(keyBlock, position, fixedChunk, recordOffset + recordKeyOffset, variableWidthChunk, variableWidthChunkOffset);
+        }
+        catch (Throwable throwable) {
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
+        }
+        if (valueBlock.isNull(position)) {
+            fixedChunk[recordOffset + recordKeyOffset - 1] = 1;
+        }
+        else {
+            try {
+                valueWriteFlat.invokeExact(
+                        valueBlock,
+                        position,
+                        fixedChunk,
+                        recordOffset + recordValueOffset,
+                        variableWidthChunk,
+                        variableWidthChunkOffset + keyVariableWidthLength);
+            }
+            catch (Throwable throwable) {
+                Throwables.throwIfUnchecked(throwable);
+                throw new RuntimeException(throwable);
+            }
         }
     }
 
@@ -224,14 +331,13 @@ public class TypedKeyValueHeap
                 smallerChildPosition = leftPosition;
             }
             else {
-                smallerChildPosition = keyGreaterThanOrEqual(keyBlockBuilder, heapIndex[leftPosition], keyBlockBuilder, heapIndex[rightPosition]) ? rightPosition : leftPosition;
+                smallerChildPosition = compare(leftPosition, rightPosition) < 0 ? rightPosition : leftPosition;
             }
-            if (keyGreaterThanOrEqual(keyBlockBuilder, heapIndex[smallerChildPosition], keyBlockBuilder, heapIndex[position])) {
-                break; // child is larger or equal
+            if (compare(smallerChildPosition, position) < 0) {
+                // child is larger or equal
+                break;
             }
-            int swapTemp = heapIndex[position];
-            heapIndex[position] = heapIndex[smallerChildPosition];
-            heapIndex[smallerChildPosition] = swapTemp;
+            swap(position, smallerChildPosition);
             position = smallerChildPosition;
         }
     }
@@ -241,40 +347,46 @@ public class TypedKeyValueHeap
         int position = positionCount - 1;
         while (position != 0) {
             int parentPosition = (position - 1) / 2;
-            if (keyGreaterThanOrEqual(keyBlockBuilder, heapIndex[position], keyBlockBuilder, heapIndex[parentPosition])) {
-                break; // child is larger or equal
+            if (compare(position, parentPosition) < 0) {
+                // child is larger or equal
+                break;
             }
-            int swapTemp = heapIndex[position];
-            heapIndex[position] = heapIndex[parentPosition];
-            heapIndex[parentPosition] = swapTemp;
+            swap(position, parentPosition);
             position = parentPosition;
         }
     }
 
-    private void compactIfNecessary()
+    private void swap(int leftPosition, int rightPosition)
     {
-        // Byte size check is needed. Otherwise, if size * 3 is small, BlockBuilder can be reallocate too often.
-        // Position count is needed. Otherwise, for large elements, heap will be compacted every time.
-        // Size instead of retained size is needed because default allocation size can be huge for some block builders. And the first check will become useless in such case.
-        if (keyBlockBuilder.getSizeInBytes() < COMPACT_THRESHOLD_BYTES || keyBlockBuilder.getPositionCount() / positionCount < COMPACT_THRESHOLD_RATIO) {
-            return;
-        }
-        BlockBuilder newHeapKeyBlockBuilder = keyType.createBlockBuilder(null, keyBlockBuilder.getPositionCount());
-        BlockBuilder newHeapValueBlockBuilder = valueType.createBlockBuilder(null, valueBlockBuilder.getPositionCount());
-        for (int i = 0; i < positionCount; i++) {
-            keyType.appendTo(keyBlockBuilder, heapIndex[i], newHeapKeyBlockBuilder);
-            valueType.appendTo(valueBlockBuilder, heapIndex[i], newHeapValueBlockBuilder);
-            heapIndex[i] = i;
-        }
-        keyBlockBuilder = newHeapKeyBlockBuilder;
-        valueBlockBuilder = newHeapValueBlockBuilder;
+        int leftOffset = getRecordOffset(leftPosition);
+        int rightOffset = getRecordOffset(rightPosition);
+        int tempOffset = getRecordOffset(capacity);
+        System.arraycopy(fixedChunk, leftOffset, fixedChunk, tempOffset, recordSize);
+        System.arraycopy(fixedChunk, rightOffset, fixedChunk, leftOffset, recordSize);
+        System.arraycopy(fixedChunk, tempOffset, fixedChunk, rightOffset, recordSize);
     }
 
-    private boolean keyGreaterThanOrEqual(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    private int compare(int leftPosition, int rightPosition)
     {
+        int leftRecordOffset = getRecordOffset(leftPosition);
+        int rightRecordOffset = getRecordOffset(rightPosition);
+
+        byte[] leftVariableWidthChunk = EMPTY_CHUNK;
+        byte[] rightVariableWidthChunk = EMPTY_CHUNK;
+        if (keyVariableWidth) {
+            leftVariableWidthChunk = variableWidthData.getChunk(fixedChunk, leftRecordOffset);
+            rightVariableWidthChunk = variableWidthData.getChunk(fixedChunk, rightRecordOffset);
+        }
+
         try {
-            long result = (long) compare.invokeExact(leftBlock, leftPosition, rightBlock, rightPosition);
-            return min ? result <= 0 : result >= 0;
+            long result = (long) compareFlatFlat.invokeExact(
+                    fixedChunk,
+                    leftRecordOffset + recordKeyOffset,
+                    leftVariableWidthChunk,
+                    fixedChunk,
+                    rightRecordOffset + recordKeyOffset,
+                    rightVariableWidthChunk);
+            return (int) (min ? result : -result);
         }
         catch (Throwable throwable) {
             Throwables.throwIfUnchecked(throwable);
@@ -282,25 +394,32 @@ public class TypedKeyValueHeap
         }
     }
 
-    public TypedKeyValueHeap copy()
+    private boolean shouldConsiderValue(Block right, int rightPosition)
     {
-        BlockBuilder keyBlockBuilderCopy = null;
-        if (keyBlockBuilder != null) {
-            keyBlockBuilderCopy = (BlockBuilder) keyBlockBuilder.copyRegion(0, keyBlockBuilder.getPositionCount());
+        byte[] leftFixedRecordChunk = fixedChunk;
+        int leftRecordOffset = getRecordOffset(0);
+        byte[] leftVariableWidthChunk = EMPTY_CHUNK;
+        if (keyVariableWidth) {
+            leftVariableWidthChunk = variableWidthData.getChunk(leftFixedRecordChunk, leftRecordOffset);
         }
-        BlockBuilder valueBlockBuilderCopy = null;
-        if (valueBlockBuilder != null) {
-            valueBlockBuilderCopy = (BlockBuilder) valueBlockBuilder.copyRegion(0, valueBlockBuilder.getPositionCount());
+
+        try {
+            long result = (long) compareFlatBlock.invokeExact(
+                    leftFixedRecordChunk,
+                    leftRecordOffset + recordKeyOffset,
+                    leftVariableWidthChunk,
+                    right,
+                    rightPosition);
+            return min ? result > 0 : result < 0;
         }
-        return new TypedKeyValueHeap(
-                min,
-                compare,
-                keyType,
-                valueType,
-                capacity,
-                positionCount,
-                heapIndex.clone(),
-                keyBlockBuilderCopy,
-                valueBlockBuilderCopy);
+        catch (Throwable throwable) {
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
+        }
+    }
+
+    private int getRecordOffset(int index)
+    {
+        return index * recordSize;
     }
 }

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
@@ -96,9 +97,11 @@ import io.trino.transaction.NoOpTransactionManager;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.time.Duration;
 import java.util.List;
@@ -206,8 +209,9 @@ import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
 public class TestAnalyzer
 {
     private static final String TPCH_CATALOG = "tpch";
@@ -799,6 +803,15 @@ public class TestAnalyzer
         assertFails("SELECT * FROM t1 WHERE foo() over () > 1")
                 .hasErrorCode(EXPRESSION_NOT_SCALAR)
                 .hasMessage("line 1:38: WHERE clause cannot contain aggregations, window functions or grouping operations: [foo() OVER ()]");
+        assertFails("SELECT * FROM t1 WHERE lag(t1.a) > t1.a")
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:34: WHERE clause cannot contain aggregations, window functions or grouping operations: [lag(t1.a)]");
+        assertFails("SELECT * FROM t1 WHERE rank() > 1")
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:31: WHERE clause cannot contain aggregations, window functions or grouping operations: [rank()]");
+        assertFails("SELECT * FROM t1 WHERE first_value(t1.a) > t1.a")
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:42: WHERE clause cannot contain aggregations, window functions or grouping operations: [first_value(t1.a)]");
         assertFails("SELECT * FROM t1 GROUP BY rank() over ()")
                 .hasErrorCode(EXPRESSION_NOT_SCALAR)
                 .hasMessage("line 1:27: GROUP BY clause cannot contain aggregations, window functions or grouping operations: [rank() OVER ()]");
@@ -806,6 +819,9 @@ public class TestAnalyzer
                 .hasErrorCode(EXPRESSION_NOT_SCALAR)
                 .hasMessage("line 1:47: JOIN clause cannot contain aggregations, window functions or grouping operations: [sum(t1.a) OVER ()]");
         assertFails("SELECT 1 FROM (VALUES 1) HAVING count(*) OVER () > 1")
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessage("line 1:33: HAVING clause cannot contain window functions or row pattern measures");
+        assertFails("SELECT 1 FROM (VALUES 1) HAVING rank() > 1")
                 .hasErrorCode(NESTED_WINDOW)
                 .hasMessage("line 1:33: HAVING clause cannot contain window functions or row pattern measures");
 
@@ -3052,7 +3068,8 @@ public class TestAnalyzer
         analyze("SELECT CAST('1' as CHAR(1)) LIKE '1'");
     }
 
-    @Test(enabled = false) // TODO: need to support widening conversion for numbers
+    @Test // TODO: need to support widening conversion for numbers
+    @Disabled
     public void testInWithNumericTypes()
     {
         analyze("SELECT * FROM t1 WHERE 1 IN (1, 2, 3.5)");
@@ -4017,6 +4034,13 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testNullAggregationFilter()
+    {
+        analyze("SELECT count(*) FILTER (WHERE NULL) FROM t1");
+        analyze("SELECT a, count(*) FILTER (WHERE NULL) FROM t1 GROUP BY a");
+    }
+
+    @Test
     public void testInvalidAggregationFilter()
     {
         assertFails("SELECT sum(x) FILTER (WHERE x > 1) OVER (PARTITION BY x) FROM (VALUES (1), (2), (2), (4)) t (x)")
@@ -4028,6 +4052,12 @@ public class TestAnalyzer
         assertFails("SELECT abs(x) FILTER (where y = 1) FROM (VALUES (1, 1, 1)) t(x, y, z) GROUP BY z")
                 .hasErrorCode(FUNCTION_NOT_AGGREGATE)
                 .hasMessage("line 1:8: Filter is only valid for aggregation functions");
+        assertFails("SELECT count(*) FILTER (WHERE 0) FROM t1")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:31: Filter expression must evaluate to a boolean (actual: integer)");
+        assertFails("SELECT a, count(*) FILTER (WHERE 0) FROM t1 GROUP BY a")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:34: Filter expression must evaluate to a boolean (actual: integer)");
     }
 
     @Test
@@ -6681,7 +6711,15 @@ public class TestAnalyzer
                 .hasMessage("line 1:15: JSON_TABLE is not yet supported");
     }
 
-    @BeforeClass
+    @Test
+    public void testDisallowAggregationFunctionInUnnest()
+    {
+        assertFails("SELECT a FROM (VALUES (1), (2)) t(a), UNNEST(ARRAY[COUNT(t.a)])")
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:46: UNNEST cannot contain aggregations, window functions or grouping operations: [COUNT(t.a)]");
+    }
+
+    @BeforeAll
     public void setup()
     {
         closer = Closer.create();
@@ -6693,6 +6731,7 @@ public class TestAnalyzer
                 transactionManager,
                 emptyEventListenerManager(),
                 new AccessControlConfig(),
+                OpenTelemetry.noop(),
                 DefaultSystemAccessControl.NAME);
         accessControlManager.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         this.accessControl = accessControlManager;
@@ -7003,7 +7042,23 @@ public class TestAnalyzer
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedMismatchedColumnType.asSchemaTableName());
     }
 
-    @AfterClass(alwaysRun = true)
+    @Test
+    public void testAlterTableAddRowField()
+    {
+        assertFails("ALTER TABLE a.t1 ADD COLUMN b.f3 INTEGER NOT NULL")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Adding fields with NOT NULL constraint is unsupported");
+
+        assertFails("ALTER TABLE a.t1 ADD COLUMN b.f3 INTEGER WITH(foo='bar')")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Adding fields with column properties is unsupported");
+
+        assertFails("ALTER TABLE a.t1 ADD COLUMN b.f3 INTEGER COMMENT 'test comment'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Adding fields with COMMENT is unsupported");
+    }
+
+    @AfterAll
     public void tearDown()
             throws Exception
     {

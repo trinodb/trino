@@ -14,8 +14,7 @@
 package io.trino.plugin.eventlistener.mysql;
 
 import io.airlift.configuration.Config;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 public class MysqlEventListenerConfig
 {

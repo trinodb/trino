@@ -15,23 +15,26 @@ package io.trino.plugin.hive.parquet;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import io.trino.parquet.writer.ParquetWriterOptions;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import org.apache.parquet.hadoop.ParquetWriter;
 
-import javax.validation.constraints.DecimalMax;
-import javax.validation.constraints.DecimalMin;
-
+@DefunctConfig({
+        "hive.parquet.optimized-writer.enabled",
+        "parquet.experimental-optimized-writer.enabled",
+        "parquet.optimized-writer.enabled",
+})
 public class ParquetWriterConfig
 {
     public static final String PARQUET_WRITER_MAX_BLOCK_SIZE = "2GB";
     public static final String PARQUET_WRITER_MIN_PAGE_SIZE = "8kB";
     public static final String PARQUET_WRITER_MAX_PAGE_SIZE = "8MB";
-
-    private boolean parquetOptimizedWriterEnabled = true;
 
     private DataSize blockSize = DataSize.ofBytes(ParquetWriter.DEFAULT_BLOCK_SIZE);
     private DataSize pageSize = DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE);
@@ -67,20 +70,6 @@ public class ParquetWriterConfig
         return this;
     }
 
-    public boolean isParquetOptimizedWriterEnabled()
-    {
-        return parquetOptimizedWriterEnabled;
-    }
-
-    @Config("parquet.optimized-writer.enabled")
-    @LegacyConfig({"hive.parquet.optimized-writer.enabled", "parquet.experimental-optimized-writer.enabled"})
-    @ConfigDescription("Enable optimized Parquet writer")
-    public ParquetWriterConfig setParquetOptimizedWriterEnabled(boolean parquetOptimizedWriterEnabled)
-    {
-        this.parquetOptimizedWriterEnabled = parquetOptimizedWriterEnabled;
-        return this;
-    }
-
     @Config("parquet.writer.batch-size")
     @ConfigDescription("Maximum number of rows passed to the writer in each batch")
     public ParquetWriterConfig setBatchSize(int batchSize)
@@ -101,7 +90,8 @@ public class ParquetWriterConfig
         return validationPercentage;
     }
 
-    @Config("parquet.optimized-writer.validation-percentage")
+    @Config("parquet.writer.validation-percentage")
+    @LegacyConfig("parquet.optimized-writer.validation-percentage")
     @ConfigDescription("Percentage of parquet files to validate after write by re-reading the whole file")
     public ParquetWriterConfig setValidationPercentage(double validationPercentage)
     {

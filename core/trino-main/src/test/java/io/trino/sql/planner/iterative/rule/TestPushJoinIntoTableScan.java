@@ -42,14 +42,16 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.GenericLiteral;
-import org.assertj.core.api.Assertions;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -126,15 +128,16 @@ public class TestPushJoinIntoTableScan
             .map(entry -> new ColumnMetadata(((MockConnectorColumnHandle) entry.getValue()).getName(), ((MockConnectorColumnHandle) entry.getValue()).getType()))
             .collect(toImmutableList());
 
-    @Test(dataProvider = "testPushJoinIntoTableScanParams")
+    @ParameterizedTest
+    @MethodSource("testPushJoinIntoTableScanParams")
     public void testPushJoinIntoTableScan(JoinNode.Type joinType, Optional<ComparisonExpression.Operator> filterComparisonOperator)
     {
         MockConnectorFactory connectorFactory = createMockConnectorFactory((session, applyJoinType, left, right, joinConditions, leftAssignments, rightAssignments) -> {
             assertThat(((MockConnectorTableHandle) left).getTableName()).isEqualTo(TABLE_A_SCHEMA_TABLE_NAME);
             assertThat(((MockConnectorTableHandle) right).getTableName()).isEqualTo(TABLE_B_SCHEMA_TABLE_NAME);
-            Assertions.assertThat(applyJoinType).isEqualTo(toSpiJoinType(joinType));
+            assertThat(applyJoinType).isEqualTo(toSpiJoinType(joinType));
             JoinCondition.Operator expectedOperator = filterComparisonOperator.map(this::getConditionOperator).orElse(JoinCondition.Operator.EQUAL);
-            Assertions.assertThat(joinConditions).containsExactly(new JoinCondition(expectedOperator, COLUMN_A1_VARIABLE, COLUMN_B1_VARIABLE));
+            assertThat(joinConditions).containsExactly(new JoinCondition(expectedOperator, COLUMN_A1_VARIABLE, COLUMN_B1_VARIABLE));
 
             return Optional.of(new JoinApplicationResult<>(
                     JOIN_CONNECTOR_TABLE_HANDLE,
@@ -179,46 +182,44 @@ public class TestPushJoinIntoTableScan
         }
     }
 
-    @DataProvider
-    public static Object[][] testPushJoinIntoTableScanParams()
+    public static Stream<Arguments> testPushJoinIntoTableScanParams()
     {
-        return new Object[][] {
-                {INNER, Optional.empty()},
-                {INNER, Optional.of(ComparisonExpression.Operator.EQUAL)},
-                {INNER, Optional.of(ComparisonExpression.Operator.LESS_THAN)},
-                {INNER, Optional.of(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)},
-                {INNER, Optional.of(ComparisonExpression.Operator.GREATER_THAN)},
-                {INNER, Optional.of(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)},
-                {INNER, Optional.of(ComparisonExpression.Operator.NOT_EQUAL)},
-                {INNER, Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM)},
+        return Stream.of(
+                Arguments.of(INNER, Optional.empty()),
+                Arguments.of(INNER, Optional.of(ComparisonExpression.Operator.EQUAL)),
+                Arguments.of(INNER, Optional.of(ComparisonExpression.Operator.LESS_THAN)),
+                Arguments.of(INNER, Optional.of(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)),
+                Arguments.of(INNER, Optional.of(ComparisonExpression.Operator.GREATER_THAN)),
+                Arguments.of(INNER, Optional.of(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)),
+                Arguments.of(INNER, Optional.of(ComparisonExpression.Operator.NOT_EQUAL)),
+                Arguments.of(INNER, Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM)),
 
-                {JoinNode.Type.LEFT, Optional.empty()},
-                {JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.EQUAL)},
-                {JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.LESS_THAN)},
-                {JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)},
-                {JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.GREATER_THAN)},
-                {JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)},
-                {JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.NOT_EQUAL)},
-                {JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM)},
+                Arguments.of(JoinNode.Type.LEFT, Optional.empty()),
+                Arguments.of(JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.EQUAL)),
+                Arguments.of(JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.LESS_THAN)),
+                Arguments.of(JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)),
+                Arguments.of(JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.GREATER_THAN)),
+                Arguments.of(JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)),
+                Arguments.of(JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.NOT_EQUAL)),
+                Arguments.of(JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM)),
 
-                {JoinNode.Type.RIGHT, Optional.empty()},
-                {JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.EQUAL)},
-                {JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.LESS_THAN)},
-                {JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)},
-                {JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.GREATER_THAN)},
-                {JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)},
-                {JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.NOT_EQUAL)},
-                {JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM)},
+                Arguments.of(JoinNode.Type.RIGHT, Optional.empty()),
+                Arguments.of(JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.EQUAL)),
+                Arguments.of(JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.LESS_THAN)),
+                Arguments.of(JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)),
+                Arguments.of(JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.GREATER_THAN)),
+                Arguments.of(JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)),
+                Arguments.of(JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.NOT_EQUAL)),
+                Arguments.of(JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM)),
 
-                {JoinNode.Type.FULL, Optional.empty()},
-                {JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.EQUAL)},
-                {JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.LESS_THAN)},
-                {JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)},
-                {JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.GREATER_THAN)},
-                {JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)},
-                {JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.NOT_EQUAL)},
-                {JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM)},
-        };
+                Arguments.of(JoinNode.Type.FULL, Optional.empty()),
+                Arguments.of(JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.EQUAL)),
+                Arguments.of(JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.LESS_THAN)),
+                Arguments.of(JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)),
+                Arguments.of(JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.GREATER_THAN)),
+                Arguments.of(JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)),
+                Arguments.of(JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.NOT_EQUAL)),
+                Arguments.of(JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM)));
     }
 
     /**
@@ -395,7 +396,8 @@ public class TestPushJoinIntoTableScan
         }
     }
 
-    @Test(dataProvider = "testPushJoinIntoTableScanPreservesEnforcedConstraintParams")
+    @ParameterizedTest
+    @MethodSource("testPushJoinIntoTableScanPreservesEnforcedConstraintParams")
     public void testPushJoinIntoTableScanPreservesEnforcedConstraint(JoinNode.Type joinType, TupleDomain<ColumnHandle> leftConstraint, TupleDomain<ColumnHandle> rightConstraint, TupleDomain<Predicate<ColumnHandle>> expectedConstraint)
     {
         MockConnectorFactory connectorFactory = createMockConnectorFactory((session, applyJoinType, left, right, joinConditions, leftAssignments, rightAssignments) -> Optional.of(new JoinApplicationResult<>(
@@ -439,14 +441,13 @@ public class TestPushJoinIntoTableScan
         }
     }
 
-    @DataProvider
-    public static Object[][] testPushJoinIntoTableScanPreservesEnforcedConstraintParams()
+    public static Stream<Arguments> testPushJoinIntoTableScanPreservesEnforcedConstraintParams()
     {
         Domain columnA1Domain = Domain.multipleValues(BIGINT, List.of(3L));
         Domain columnA2Domain = Domain.multipleValues(BIGINT, List.of(10L, 20L));
         Domain columnB1Domain = Domain.multipleValues(BIGINT, List.of(30L, 40L));
-        return new Object[][] {
-                {
+        return Stream.of(
+                Arguments.of(
                         INNER,
                         TupleDomain.withColumnDomains(Map.of(
                                 COLUMN_A1_HANDLE, columnA1Domain,
@@ -456,9 +457,8 @@ public class TestPushJoinIntoTableScan
                         TupleDomain.withColumnDomains(Map.of(
                                 equalTo(JOIN_COLUMN_A1_HANDLE), columnA1Domain,
                                 equalTo(JOIN_COLUMN_A2_HANDLE), columnA2Domain,
-                                equalTo(JOIN_COLUMN_B1_HANDLE), columnB1Domain))
-                },
-                {
+                                equalTo(JOIN_COLUMN_B1_HANDLE), columnB1Domain))),
+                Arguments.of(
                         RIGHT,
                         TupleDomain.withColumnDomains(Map.of(
                                 COLUMN_A1_HANDLE, columnA1Domain,
@@ -468,9 +468,8 @@ public class TestPushJoinIntoTableScan
                         TupleDomain.withColumnDomains(Map.of(
                                 equalTo(JOIN_COLUMN_A1_HANDLE), columnA1Domain.union(onlyNull(BIGINT)),
                                 equalTo(JOIN_COLUMN_A2_HANDLE), columnA2Domain.union(onlyNull(BIGINT)),
-                                equalTo(JOIN_COLUMN_B1_HANDLE), columnB1Domain))
-                },
-                {
+                                equalTo(JOIN_COLUMN_B1_HANDLE), columnB1Domain))),
+                Arguments.of(
                         LEFT,
                         TupleDomain.withColumnDomains(Map.of(
                                 COLUMN_A1_HANDLE, columnA1Domain,
@@ -480,9 +479,8 @@ public class TestPushJoinIntoTableScan
                         TupleDomain.withColumnDomains(Map.of(
                                 equalTo(JOIN_COLUMN_A1_HANDLE), columnA1Domain,
                                 equalTo(JOIN_COLUMN_A2_HANDLE), columnA2Domain,
-                                equalTo(JOIN_COLUMN_B1_HANDLE), columnB1Domain.union(onlyNull(BIGINT))))
-                },
-                {
+                                equalTo(JOIN_COLUMN_B1_HANDLE), columnB1Domain.union(onlyNull(BIGINT))))),
+                Arguments.of(
                         FULL,
                         TupleDomain.withColumnDomains(Map.of(
                                 COLUMN_A1_HANDLE, columnA1Domain,
@@ -492,9 +490,7 @@ public class TestPushJoinIntoTableScan
                         TupleDomain.withColumnDomains(Map.of(
                                 equalTo(JOIN_COLUMN_A1_HANDLE), columnA1Domain.union(onlyNull(BIGINT)),
                                 equalTo(JOIN_COLUMN_A2_HANDLE), columnA2Domain.union(onlyNull(BIGINT)),
-                                equalTo(JOIN_COLUMN_B1_HANDLE), columnB1Domain.union(onlyNull(BIGINT))))
-                }
-        };
+                                equalTo(JOIN_COLUMN_B1_HANDLE), columnB1Domain.union(onlyNull(BIGINT))))));
     }
 
     @Test

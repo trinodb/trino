@@ -103,6 +103,7 @@ import io.trino.sql.tree.RenameSchema;
 import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.RenameView;
 import io.trino.sql.tree.ResetSession;
+import io.trino.sql.tree.ResetSessionAuthorization;
 import io.trino.sql.tree.Revoke;
 import io.trino.sql.tree.RevokeRoles;
 import io.trino.sql.tree.Rollback;
@@ -117,6 +118,7 @@ import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSchemaAuthorization;
 import io.trino.sql.tree.SetSession;
+import io.trino.sql.tree.SetSessionAuthorization;
 import io.trino.sql.tree.SetTableAuthorization;
 import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.SetViewAuthorization;
@@ -166,6 +168,8 @@ import static io.trino.sql.ExpressionFormatter.formatSkipTo;
 import static io.trino.sql.ExpressionFormatter.formatStringLiteral;
 import static io.trino.sql.ExpressionFormatter.formatWindowSpecification;
 import static io.trino.sql.RowPatternFormatter.formatPattern;
+import static io.trino.sql.tree.SaveMode.IGNORE;
+import static io.trino.sql.tree.SaveMode.REPLACE;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -345,30 +349,17 @@ public final class SqlFormatter
             node.getJsonPath().ifPresent(path ->
                     builder.append(" PATH ")
                             .append(formatExpression(path)));
-            switch (node.getWrapperBehavior()) {
-                case WITHOUT:
-                    builder.append(" WITHOUT ARRAY WRAPPER");
-                    break;
-                case CONDITIONAL:
-                    builder.append(" WITH CONDITIONAL ARRAY WRAPPER");
-                    break;
-                case UNCONDITIONAL:
-                    builder.append((" WITH UNCONDITIONAL ARRAY WRAPPER"));
-                    break;
-                default:
-                    throw new IllegalStateException("unexpected array wrapper behavior: " + node.getWrapperBehavior());
-            }
+            builder.append(switch (node.getWrapperBehavior()) {
+                case WITHOUT -> " WITHOUT ARRAY WRAPPER";
+                case CONDITIONAL -> " WITH CONDITIONAL ARRAY WRAPPER";
+                case UNCONDITIONAL -> (" WITH UNCONDITIONAL ARRAY WRAPPER");
+            });
+
             if (node.getQuotesBehavior().isPresent()) {
-                switch (node.getQuotesBehavior().get()) {
-                    case KEEP:
-                        builder.append(" KEEP QUOTES ON SCALAR STRING");
-                        break;
-                    case OMIT:
-                        builder.append(" OMIT QUOTES ON SCALAR STRING");
-                        break;
-                    default:
-                        throw new IllegalStateException("unexpected quotes behavior: " + node.getQuotesBehavior());
-                }
+                builder.append(switch (node.getQuotesBehavior().get()) {
+                    case KEEP -> " KEEP QUOTES ON SCALAR STRING";
+                    case OMIT -> " OMIT QUOTES ON SCALAR STRING";
+                });
             }
             builder.append(" ")
                     .append(node.getEmptyBehavior().toString())
@@ -878,24 +869,14 @@ public final class SqlFormatter
             }
 
             node.getRowsPerMatch().ifPresent(rowsPerMatch -> {
-                String rowsPerMatchDescription;
-                switch (rowsPerMatch) {
-                    case ONE:
-                        rowsPerMatchDescription = "ONE ROW PER MATCH";
-                        break;
-                    case ALL_SHOW_EMPTY:
-                        rowsPerMatchDescription = "ALL ROWS PER MATCH SHOW EMPTY MATCHES";
-                        break;
-                    case ALL_OMIT_EMPTY:
-                        rowsPerMatchDescription = "ALL ROWS PER MATCH OMIT EMPTY MATCHES";
-                        break;
-                    case ALL_WITH_UNMATCHED:
-                        rowsPerMatchDescription = "ALL ROWS PER MATCH WITH UNMATCHED ROWS";
-                        break;
-                    default:
-                        // RowsPerMatch of type WINDOW cannot occur in MATCH_RECOGNIZE clause
-                        throw new IllegalStateException("unexpected rowsPerMatch: " + node.getRowsPerMatch().get());
-                }
+                String rowsPerMatchDescription = switch (rowsPerMatch) {
+                    case ONE -> "ONE ROW PER MATCH";
+                    case ALL_SHOW_EMPTY -> "ALL ROWS PER MATCH SHOW EMPTY MATCHES";
+                    case ALL_OMIT_EMPTY -> "ALL ROWS PER MATCH OMIT EMPTY MATCHES";
+                    case ALL_WITH_UNMATCHED -> "ALL ROWS PER MATCH WITH UNMATCHED ROWS";
+                    default -> // RowsPerMatch of type WINDOW cannot occur in MATCH_RECOGNIZE clause
+                            throw new IllegalStateException("unexpected rowsPerMatch: " + node.getRowsPerMatch().get());
+                };
                 append(indent + 1, rowsPerMatchDescription)
                         .append("\n");
             });
@@ -1523,8 +1504,12 @@ public final class SqlFormatter
         @Override
         protected Void visitCreateTableAsSelect(CreateTableAsSelect node, Integer indent)
         {
-            builder.append("CREATE TABLE ");
-            if (node.isNotExists()) {
+            builder.append("CREATE ");
+            if (node.getSaveMode() == REPLACE) {
+                builder.append("OR REPLACE ");
+            }
+            builder.append("TABLE ");
+            if (node.getSaveMode() == IGNORE) {
                 builder.append("IF NOT EXISTS ");
             }
             builder.append(formatName(node.getName()));
@@ -1553,8 +1538,12 @@ public final class SqlFormatter
         @Override
         protected Void visitCreateTable(CreateTable node, Integer indent)
         {
-            builder.append("CREATE TABLE ");
-            if (node.isNotExists()) {
+            builder.append("CREATE ");
+            if (node.getSaveMode() == REPLACE) {
+                builder.append("OR REPLACE ");
+            }
+            builder.append("TABLE ");
+            if (node.getSaveMode() == IGNORE) {
                 builder.append("IF NOT EXISTS ");
             }
             String tableName = formatName(node.getName());
@@ -1637,27 +1626,19 @@ public final class SqlFormatter
         private static String formatGrantor(GrantorSpecification grantor)
         {
             GrantorSpecification.Type type = grantor.getType();
-            switch (type) {
-                case CURRENT_ROLE:
-                case CURRENT_USER:
-                    return type.name();
-                case PRINCIPAL:
-                    return formatPrincipal(grantor.getPrincipal().get());
-            }
-            throw new IllegalArgumentException("Unsupported principal type: " + type);
+            return switch (type) {
+                case CURRENT_ROLE, CURRENT_USER -> type.name();
+                case PRINCIPAL -> formatPrincipal(grantor.getPrincipal().get());
+            };
         }
 
         private static String formatPrincipal(PrincipalSpecification principal)
         {
             PrincipalSpecification.Type type = principal.getType();
-            switch (type) {
-                case UNSPECIFIED:
-                    return principal.getName().toString();
-                case USER:
-                case ROLE:
-                    return type.name() + " " + principal.getName();
-            }
-            throw new IllegalArgumentException("Unsupported principal type: " + type);
+            return switch (type) {
+                case UNSPECIFIED -> principal.getName().toString();
+                case USER, ROLE -> type.name() + " " + principal.getName();
+            };
         }
 
         @Override
@@ -1691,16 +1672,11 @@ public final class SqlFormatter
         {
             SetProperties.Type type = node.getType();
             builder.append("ALTER ");
-            switch (type) {
-                case TABLE:
-                    builder.append("TABLE ");
-                    break;
-                case MATERIALIZED_VIEW:
-                    builder.append("MATERIALIZED VIEW ");
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unsupported SetProperties.Type: " + type);
-            }
+            builder.append(switch (type) {
+                case TABLE -> "TABLE ";
+                case MATERIALIZED_VIEW -> "MATERIALIZED VIEW ";
+            });
+
             builder.append(formatName(node.getName()))
                     .append(" SET PROPERTIES ")
                     .append(joinProperties(node.getProperties()));
@@ -1723,26 +1699,13 @@ public final class SqlFormatter
                     .map(ExpressionFormatter::formatStringLiteral)
                     .orElse("NULL");
 
-            switch (node.getType()) {
-                case TABLE:
-                    builder.append("COMMENT ON TABLE ")
-                            .append(formatName(node.getName()))
-                            .append(" IS ")
-                            .append(comment);
-                    break;
-                case VIEW:
-                    builder.append("COMMENT ON VIEW ")
-                            .append(formatName(node.getName()))
-                            .append(" IS ")
-                            .append(comment);
-                    break;
-                case COLUMN:
-                    builder.append("COMMENT ON COLUMN ")
-                            .append(formatName(node.getName()))
-                            .append(" IS ")
-                            .append(comment);
-                    break;
-            }
+            String type = switch (node.getType()) {
+                case TABLE -> "TABLE";
+                case VIEW -> "VIEW";
+                case COLUMN -> "COLUMN";
+            };
+
+            builder.append("COMMENT ON " + type + " " + formatName(node.getName()) + " IS " + comment);
 
             return null;
         }
@@ -1929,6 +1892,21 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitSetSessionAuthorization(SetSessionAuthorization node, Integer context)
+        {
+            builder.append("SET SESSION AUTHORIZATION ");
+            builder.append(formatExpression(node.getUser()));
+            return null;
+        }
+
+        @Override
+        protected Void visitResetSessionAuthorization(ResetSessionAuthorization node, Integer context)
+        {
+            builder.append("RESET SESSION AUTHORIZATION");
+            return null;
+        }
+
+        @Override
         protected Void visitCallArgument(CallArgument node, Integer indent)
         {
             node.getName().ifPresent(name -> builder
@@ -2096,17 +2074,10 @@ public final class SqlFormatter
         {
             builder.append("SET ROLE ");
             SetRole.Type type = node.getType();
-            switch (type) {
-                case ALL:
-                case NONE:
-                    builder.append(type.name());
-                    break;
-                case ROLE:
-                    builder.append(formatName(node.getRole().get()));
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unsupported type: " + type);
-            }
+            builder.append(switch (type) {
+                case ALL, NONE -> type.name();
+                case ROLE -> formatName(node.getRole().get());
+            });
             node.getCatalog().ifPresent(catalog -> builder
                     .append(" IN ")
                     .append(formatName(catalog)));

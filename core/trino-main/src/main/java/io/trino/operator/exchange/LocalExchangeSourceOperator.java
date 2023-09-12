@@ -48,7 +48,7 @@ public class LocalExchangeSourceOperator
             checkState(!closed, "Factory is already closed");
 
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LocalExchangeSourceOperator.class.getSimpleName());
-            return new LocalExchangeSourceOperator(operatorContext, localExchange.getNextSource(driverContext::getPhysicalWrittenDataSize));
+            return new LocalExchangeSourceOperator(operatorContext, localExchange.getNextSource());
         }
 
         @Override

@@ -26,8 +26,7 @@ import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.type.Constraint;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URI;

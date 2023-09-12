@@ -16,8 +16,10 @@ package io.trino.plugin.deltalake;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
+import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
@@ -45,6 +47,7 @@ public class DeltaLakeTableHandle
     private final boolean managed;
     private final String location;
     private final MetadataEntry metadataEntry;
+    private final ProtocolEntry protocolEntry;
     private final TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint;
     private final TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint;
     private final Optional<WriteType> writeType;
@@ -62,6 +65,8 @@ public class DeltaLakeTableHandle
     // OPTIMIZE only. Coordinator-only
     private final boolean recordScannedFiles;
     private final Optional<DataSize> maxScannedFileSize;
+    // Used only for validation when config property delta.query-partition-filter-required is enabled.
+    private final Set<DeltaLakeColumnHandle> constraintColumns;
 
     @JsonCreator
     public DeltaLakeTableHandle(
@@ -70,6 +75,7 @@ public class DeltaLakeTableHandle
             @JsonProperty("managed") boolean managed,
             @JsonProperty("location") String location,
             @JsonProperty("metadataEntry") MetadataEntry metadataEntry,
+            @JsonProperty("protocolEntry") ProtocolEntry protocolEntry,
             @JsonProperty("enforcedPartitionConstraint") TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint,
             @JsonProperty("nonPartitionConstraint") TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint,
             @JsonProperty("writeType") Optional<WriteType> writeType,
@@ -85,8 +91,10 @@ public class DeltaLakeTableHandle
                 managed,
                 location,
                 metadataEntry,
+                protocolEntry,
                 enforcedPartitionConstraint,
                 nonPartitionConstraint,
+                ImmutableSet.of(),
                 writeType,
                 projectedColumns,
                 updatedColumns,
@@ -103,8 +111,10 @@ public class DeltaLakeTableHandle
             boolean managed,
             String location,
             MetadataEntry metadataEntry,
+            ProtocolEntry protocolEntry,
             TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint,
             TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint,
+            Set<DeltaLakeColumnHandle> constraintColumns,
             Optional<WriteType> writeType,
             Optional<Set<DeltaLakeColumnHandle>> projectedColumns,
             Optional<List<DeltaLakeColumnHandle>> updatedColumns,
@@ -119,6 +129,7 @@ public class DeltaLakeTableHandle
         this.managed = managed;
         this.location = requireNonNull(location, "location is null");
         this.metadataEntry = requireNonNull(metadataEntry, "metadataEntry is null");
+        this.protocolEntry = requireNonNull(protocolEntry, "protocolEntry is null");
         this.enforcedPartitionConstraint = requireNonNull(enforcedPartitionConstraint, "enforcedPartitionConstraint is null");
         this.nonPartitionConstraint = requireNonNull(nonPartitionConstraint, "nonPartitionConstraint is null");
         this.writeType = requireNonNull(writeType, "writeType is null");
@@ -131,6 +142,7 @@ public class DeltaLakeTableHandle
         this.recordScannedFiles = recordScannedFiles;
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
         this.readVersion = readVersion;
+        this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
     }
 
     public DeltaLakeTableHandle withProjectedColumns(Set<DeltaLakeColumnHandle> projectedColumns)
@@ -141,13 +153,17 @@ public class DeltaLakeTableHandle
                 managed,
                 location,
                 metadataEntry,
+                protocolEntry,
                 enforcedPartitionConstraint,
                 nonPartitionConstraint,
+                constraintColumns,
                 writeType,
                 Optional.of(projectedColumns),
                 updatedColumns,
                 updateRowIdColumns,
                 analyzeHandle,
+                recordScannedFiles,
+                maxScannedFileSize,
                 readVersion);
     }
 
@@ -159,8 +175,10 @@ public class DeltaLakeTableHandle
                 managed,
                 location,
                 metadataEntry,
+                protocolEntry,
                 enforcedPartitionConstraint,
                 nonPartitionConstraint,
+                constraintColumns,
                 writeType,
                 projectedColumns,
                 updatedColumns,
@@ -225,6 +243,12 @@ public class DeltaLakeTableHandle
     }
 
     @JsonProperty
+    public ProtocolEntry getProtocolEntry()
+    {
+        return protocolEntry;
+    }
+
+    @JsonProperty
     public TupleDomain<DeltaLakeColumnHandle> getEnforcedPartitionConstraint()
     {
         return enforcedPartitionConstraint;
@@ -279,6 +303,12 @@ public class DeltaLakeTableHandle
         return maxScannedFileSize;
     }
 
+    @JsonIgnore
+    public Set<DeltaLakeColumnHandle> getConstraintColumns()
+    {
+        return constraintColumns;
+    }
+
     @JsonProperty
     public long getReadVersion()
     {
@@ -308,6 +338,7 @@ public class DeltaLakeTableHandle
                 managed == that.managed &&
                 Objects.equals(location, that.location) &&
                 Objects.equals(metadataEntry, that.metadataEntry) &&
+                Objects.equals(protocolEntry, that.protocolEntry) &&
                 Objects.equals(enforcedPartitionConstraint, that.enforcedPartitionConstraint) &&
                 Objects.equals(nonPartitionConstraint, that.nonPartitionConstraint) &&
                 Objects.equals(writeType, that.writeType) &&
@@ -328,6 +359,7 @@ public class DeltaLakeTableHandle
                 managed,
                 location,
                 metadataEntry,
+                protocolEntry,
                 enforcedPartitionConstraint,
                 nonPartitionConstraint,
                 writeType,

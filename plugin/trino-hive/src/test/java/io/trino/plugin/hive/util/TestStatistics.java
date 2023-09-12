@@ -24,9 +24,9 @@ import io.trino.plugin.hive.metastore.DoubleStatistics;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.IntegerStatistics;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatisticType;
-import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
@@ -53,6 +53,7 @@ import static io.trino.plugin.hive.util.Statistics.createHiveColumnStatistics;
 import static io.trino.plugin.hive.util.Statistics.merge;
 import static io.trino.plugin.hive.util.Statistics.reduce;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -318,7 +319,11 @@ public class TestStatistics
     public void testFromComputedStatistics()
     {
         Function<Integer, Block> singleIntegerValueBlock = value ->
-                BigintType.BIGINT.createBlockBuilder(null, 1).writeLong(value).build();
+        {
+            BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 1);
+            BIGINT.writeLong(blockBuilder, value);
+            return blockBuilder.build();
+        };
 
         ComputedStatistics statistics = ComputedStatistics.builder(ImmutableList.of(), ImmutableList.of())
                 .addTableStatistic(TableStatisticType.ROW_COUNT, singleIntegerValueBlock.apply(5))

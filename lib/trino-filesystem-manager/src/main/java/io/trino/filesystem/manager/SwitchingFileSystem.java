@@ -116,6 +116,20 @@ final class SwitchingFileSystem
         return fileSystem(location).directoryExists(location);
     }
 
+    @Override
+    public void createDirectory(Location location)
+            throws IOException
+    {
+        fileSystem(location).createDirectory(location);
+    }
+
+    @Override
+    public void renameDirectory(Location source, Location target)
+            throws IOException
+    {
+        fileSystem(source).renameDirectory(source, target);
+    }
+
     private TrinoFileSystem fileSystem(Location location)
     {
         return createFileSystem(determineFactory(location));

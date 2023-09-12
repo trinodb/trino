@@ -13,11 +13,11 @@
  */
 package io.trino.array;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestByteBigArray
 {
@@ -38,7 +38,7 @@ public class TestByteBigArray
         array.fill(value);
 
         for (int i = 0; i < capacity; i++) {
-            assertEquals(array.get(i), value);
+            assertThat(array.get(i)).isEqualTo(value);
         }
     }
 
@@ -75,13 +75,13 @@ public class TestByteBigArray
         source.copyTo(sourceIndex, destination, destinationIndex, length);
 
         for (long i = 0; i < destinationIndex; i++) {
-            assertEquals(destination.get(i), destinationFillValue);
+            assertThat(destination.get(i)).isEqualTo(destinationFillValue);
         }
         for (long i = 0; i < length; i++) {
-            assertEquals(source.get(sourceIndex + i), destination.get(destinationIndex + i));
+            assertThat(source.get(sourceIndex + i)).isEqualTo(destination.get(destinationIndex + i));
         }
         for (long i = destinationIndex + length; i < destinationCapacity; i++) {
-            assertEquals(destination.get(i), destinationFillValue);
+            assertThat(destination.get(i)).isEqualTo(destinationFillValue);
         }
     }
 }

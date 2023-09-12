@@ -13,16 +13,12 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
@@ -31,7 +27,7 @@ import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.Fixed12Block.FIXED12_BYTES;
 import static io.trino.spi.block.Fixed12Block.decodeFixed12First;
-import static io.trino.spi.block.Fixed12Block.encodeFirst;
+import static io.trino.spi.block.Fixed12Block.encodeFixed12;
 import static java.lang.Math.max;
 
 public class Fixed12BlockBuilder
@@ -55,8 +51,6 @@ public class Fixed12BlockBuilder
 
     private long retainedSizeInBytes;
 
-    private int entryPositionCount;
-
     public Fixed12BlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         this.blockBuilderStatus = blockBuilderStatus;
@@ -65,60 +59,24 @@ public class Fixed12BlockBuilder
         updateDataSize();
     }
 
-    @Override
-    public BlockBuilder writeLong(long value)
-    {
-        if (entryPositionCount != 0) {
-            throw new IllegalArgumentException("long can only be written at the beginning of the entry");
-        }
-
-        if (valueIsNull.length <= positionCount) {
-            growCapacity();
-        }
-
-        encodeFirst(value, values, positionCount);
-        entryPositionCount += 2;
-
-        hasNonNullValue = true;
-        return this;
-    }
-
-    @Override
-    public BlockBuilder writeInt(int value)
+    public void writeFixed12(long first, int second)
     {
         if (valueIsNull.length <= positionCount) {
             growCapacity();
         }
 
-        values[(positionCount * 3) + entryPositionCount] = value;
-        entryPositionCount++;
+        encodeFixed12(first, second, values, positionCount);
 
         hasNonNullValue = true;
-        return this;
-    }
-
-    @Override
-    public BlockBuilder closeEntry()
-    {
-        if (entryPositionCount != 3) {
-            throw new IllegalStateException("Expected entry size to be exactly " + FIXED12_BYTES + " bytes but was " + (entryPositionCount * SIZE_OF_INT));
-        }
-
         positionCount++;
-        entryPositionCount = 0;
         if (blockBuilderStatus != null) {
             blockBuilderStatus.addBytes(Byte.BYTES + FIXED12_BYTES);
         }
-        return this;
     }
 
     @Override
     public BlockBuilder appendNull()
     {
-        if (entryPositionCount != 0) {
-            throw new IllegalStateException("Current entry must be closed before a null can be written");
-        }
-
         if (valueIsNull.length <= positionCount) {
             growCapacity();
         }
@@ -344,8 +302,8 @@ public class Fixed12BlockBuilder
         return sb.toString();
     }
 
-    Slice getValuesSlice()
+    int[] getRawValues()
     {
-        return Slices.wrappedIntArray(values, 0, positionCount * 3);
+        return values;
     }
 }

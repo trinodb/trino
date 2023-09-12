@@ -15,8 +15,7 @@
 package io.trino.spi.block;
 
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.List;
@@ -43,7 +42,7 @@ public class RowBlockBuilder
     private int[] fieldBlockOffsets;
     private boolean[] rowIsNull;
     private final BlockBuilder[] fieldBlockBuilders;
-    private final SingleRowBlockWriter singleRowBlockWriter;
+    private final List<BlockBuilder> fieldBlockBuildersList;
 
     private boolean currentEntryOpened;
     private boolean hasNullRow;
@@ -67,7 +66,7 @@ public class RowBlockBuilder
         this.fieldBlockOffsets = requireNonNull(fieldBlockOffsets, "fieldBlockOffsets is null");
         this.rowIsNull = requireNonNull(rowIsNull, "rowIsNull is null");
         this.fieldBlockBuilders = requireNonNull(fieldBlockBuilders, "fieldBlockBuilders is null");
-        this.singleRowBlockWriter = new SingleRowBlockWriter(fieldBlockBuilders);
+        this.fieldBlockBuildersList = List.of(fieldBlockBuilders);
     }
 
     private static BlockBuilder[] createFieldBlockBuilders(List<Type> fieldTypes, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
@@ -138,7 +137,6 @@ public class RowBlockBuilder
         if (blockBuilderStatus != null) {
             size += BlockBuilderStatus.INSTANCE_SIZE;
         }
-        size += SingleRowBlockWriter.INSTANCE_SIZE;
         return size;
     }
 
@@ -153,28 +151,17 @@ public class RowBlockBuilder
         consumer.accept(this, INSTANCE_SIZE);
     }
 
-    @Override
-    public SingleRowBlockWriter beginBlockEntry()
+    public <E extends Throwable> void buildEntry(RowValueBuilder<E> builder)
+            throws E
     {
         if (currentEntryOpened) {
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
+
         currentEntryOpened = true;
-        singleRowBlockWriter.setRowIndex(fieldBlockBuilders[0].getPositionCount());
-        return singleRowBlockWriter;
-    }
-
-    @Override
-    public BlockBuilder closeEntry()
-    {
-        if (!currentEntryOpened) {
-            throw new IllegalStateException("Expected entry to be opened but was closed");
-        }
-
+        builder.build(fieldBlockBuildersList);
         entryAdded(false);
         currentEntryOpened = false;
-        singleRowBlockWriter.reset();
-        return this;
     }
 
     @Override

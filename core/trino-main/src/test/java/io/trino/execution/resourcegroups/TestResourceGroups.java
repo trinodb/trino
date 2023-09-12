@@ -20,7 +20,8 @@ import io.trino.execution.MockManagedQueryExecution.MockManagedQueryExecutionBui
 import io.trino.server.QueryStateInfo;
 import io.trino.server.ResourceGroupInfo;
 import org.apache.commons.math3.distribution.BinomialDistribution;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -57,7 +58,8 @@ import static org.testng.Assert.assertTrue;
 
 public class TestResourceGroups
 {
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testQueueFull()
     {
         InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
@@ -76,7 +78,8 @@ public class TestResourceGroups
         assertEquals(query3.getThrowable().getMessage(), "Too many queued queries for \"root\"");
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testFairEligibility()
     {
         InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
@@ -170,7 +173,8 @@ public class TestResourceGroups
         assertEquals(root.getOrCreateSubGroup("2").getSchedulingPolicy(), QUERY_PRIORITY);
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testFairQueuing()
     {
         InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
@@ -210,7 +214,8 @@ public class TestResourceGroups
         assertEquals(query1c.getState(), QUEUED);
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testMemoryLimit()
     {
         InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
@@ -263,7 +268,8 @@ public class TestResourceGroups
         assertEquals(query3.getState(), RUNNING);
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testSoftCpuLimit()
     {
         InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
@@ -301,7 +307,8 @@ public class TestResourceGroups
         assertEquals(query3.getState(), RUNNING);
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testHardCpuLimit()
     {
         InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
@@ -336,7 +343,8 @@ public class TestResourceGroups
      * Test resource group CPU usage update by manually invoking the CPU quota regeneration and queue processing methods
      * that are invoked periodically by the resource group manager
      */
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testCpuUsageUpdateForRunningQuery()
     {
         InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
@@ -378,7 +386,8 @@ public class TestResourceGroups
         assertEquals(q2.getState(), RUNNING);
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testCpuUsageUpdateAtQueryCompletion()
     {
         InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
@@ -418,7 +427,8 @@ public class TestResourceGroups
         assertEquals(q2.getState(), RUNNING);
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testMemoryUsageUpdateForRunningQuery()
     {
         InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
@@ -458,7 +468,8 @@ public class TestResourceGroups
         assertEquals(q3.getState(), RUNNING);
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testMemoryUsageUpdateAtQueryCompletion()
     {
         InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
@@ -493,7 +504,8 @@ public class TestResourceGroups
      * A test for correct CPU usage update aggregation and propagation in non-leaf nodes. It uses in a multi
      * level resource group tree, with non-leaf resource groups having more than one child.
      */
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testRecursiveCpuUsageUpdate()
     {
         InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
@@ -606,7 +618,8 @@ public class TestResourceGroups
      * A test for correct memory usage update aggregation and propagation in non-leaf nodes. It uses in a multi
      * level resource group tree, with non-leaf resource groups having more than one child.
      */
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testMemoryUpdateRecursively()
     {
         InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor())
@@ -697,7 +710,8 @@ public class TestResourceGroups
         assertEquals(q5.getState(), RUNNING);
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testPriorityScheduling()
     {
         InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
@@ -751,7 +765,8 @@ public class TestResourceGroups
         }
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testWeightedScheduling()
     {
         InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor())
@@ -807,7 +822,8 @@ public class TestResourceGroups
         assertGreaterThan(group2Ran, lowerBound);
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testWeightedFairScheduling()
     {
         InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor())
@@ -857,7 +873,8 @@ public class TestResourceGroups
         assertBetweenInclusive(group2Ran, 1995, 2000);
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testWeightedFairSchedulingEqualWeights()
     {
         InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor())
@@ -923,7 +940,8 @@ public class TestResourceGroups
         assertBetweenInclusive(group3Ran, 2 * lowerBound, 2 * upperBound);
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testWeightedFairSchedulingNoStarvation()
     {
         InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor())

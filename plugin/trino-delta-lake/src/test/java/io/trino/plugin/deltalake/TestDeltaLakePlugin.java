@@ -106,29 +106,6 @@ public class TestDeltaLakePlugin
                 .hasMessageContaining("Error: Configuration property 'hive.metastore.uri' was not used");
     }
 
-    /**
-     * Verify the Alluxio metastore is not supported for Delta. Delta connector extends Hive connector and Hive connector supports Alluxio metastore.
-     * We explicitly disallow Alluxio metastore use with Delta.
-     */
-    @Test
-    public void testAlluxioMetastore()
-    {
-        ConnectorFactory factory = getConnectorFactory();
-        assertThatThrownBy(() -> factory.create(
-                "test",
-                ImmutableMap.of("hive.metastore", "alluxio"),
-                new TestingConnectorContext()))
-                .hasMessageMatching("(?s)Unable to create injector, see the following errors:.*" +
-                        "Explicit bindings are required and HiveMetastoreFactory .* is not explicitly bound.*");
-
-        assertThatThrownBy(() -> factory.create(
-                "test",
-                ImmutableMap.of("hive.metastore", "alluxio-deprecated"),
-                new TestingConnectorContext()))
-                .hasMessageMatching("(?s)Unable to create injector, see the following errors:.*" +
-                        "Explicit bindings are required and HiveMetastoreFactory .* is not explicitly bound.*");
-    }
-
     @Test
     public void testNoCaching()
     {

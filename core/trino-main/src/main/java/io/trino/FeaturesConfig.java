@@ -23,11 +23,10 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
 import io.trino.sql.analyzer.RegexLibrary;
-
-import javax.validation.constraints.DecimalMax;
-import javax.validation.constraints.DecimalMin;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -35,6 +34,7 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.sql.analyzer.RegexLibrary.JONI;
 
 @DefunctConfig({
@@ -72,7 +72,7 @@ public class FeaturesConfig
 
     private boolean redistributeWrites = true;
     private boolean scaleWriters = true;
-    private DataSize writerMinSize = DataSize.of(32, DataSize.Unit.MEGABYTE);
+    private DataSize writerScalingMinDataProcessed = DataSize.of(120, DataSize.Unit.MEGABYTE);
     private DataIntegrityVerification exchangeDataIntegrityVerification = DataIntegrityVerification.ABORT;
     /**
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
@@ -107,6 +107,8 @@ public class FeaturesConfig
     private boolean forceSpillingJoin;
 
     private boolean faultTolerantExecutionExchangeEncryptionEnabled = true;
+
+    private boolean flatGroupByHash = true;
 
     public enum DataIntegrityVerification
     {
@@ -154,16 +156,25 @@ public class FeaturesConfig
     }
 
     @NotNull
-    public DataSize getWriterMinSize()
+    public DataSize getWriterScalingMinDataProcessed()
     {
-        return writerMinSize;
+        return writerScalingMinDataProcessed;
     }
 
-    @Config("writer-min-size")
+    @Config("writer-scaling-min-data-processed")
+    @ConfigDescription("Minimum amount of uncompressed output data processed by writers before writer scaling can happen")
+    public FeaturesConfig setWriterScalingMinDataProcessed(DataSize writerScalingMinDataProcessed)
+    {
+        this.writerScalingMinDataProcessed = writerScalingMinDataProcessed;
+        return this;
+    }
+
+    @Deprecated
+    @LegacyConfig(value = "writer-min-size", replacedBy = "writer-scaling-min-data-processed")
     @ConfigDescription("Target minimum size of writer output when scaling writers")
     public FeaturesConfig setWriterMinSize(DataSize writerMinSize)
     {
-        this.writerMinSize = writerMinSize;
+        this.writerScalingMinDataProcessed = succinctBytes(writerMinSize.toBytes() * 2);
         return this;
     }
 
@@ -502,5 +513,19 @@ public class FeaturesConfig
     public void applyFaultTolerantExecutionDefaults()
     {
         exchangeCompressionEnabled = true;
+    }
+
+    @Deprecated
+    public boolean isFlatGroupByHash()
+    {
+        return flatGroupByHash;
+    }
+
+    @Deprecated
+    @Config("legacy.flat-group-by-hash")
+    public FeaturesConfig setFlatGroupByHash(boolean flatGroupByHash)
+    {
+        this.flatGroupByHash = flatGroupByHash;
+        return this;
     }
 }

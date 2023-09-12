@@ -16,7 +16,8 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -35,7 +36,8 @@ import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
 public class TestFullOuterJoinWithCoalesce
         extends BasePlanTest
 {
-    @Test(enabled = false) // TODO: re-enable once FULL join property derivations are re-introduced
+    @Test
+    @Disabled // TODO: re-enable once FULL join property derivations are re-introduced
     public void testFullOuterJoinWithCoalesce()
     {
         assertDistributedPlan(
@@ -62,7 +64,8 @@ public class TestFullOuterJoinWithCoalesce
                                         .right(exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("r")))))))));
     }
 
-    @Test(enabled = false) // TODO: re-enable once FULL join property derivations are re-introduced
+    @Test
+    @Disabled // TODO: re-enable once FULL join property derivations are re-introduced
     public void testArgumentsInDifferentOrder()
     {
         // ensure properties for full outer join are derived properly regardless of the order of arguments to coalesce, since they

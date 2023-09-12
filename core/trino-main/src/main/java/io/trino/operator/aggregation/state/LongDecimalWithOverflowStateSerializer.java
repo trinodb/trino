@@ -38,18 +38,18 @@ public class LongDecimalWithOverflowStateSerializer
             long overflow = state.getOverflow();
             long[] decimal = state.getDecimalArray();
             int offset = state.getDecimalArrayOffset();
-            long[] buffer = new long[3];
+            Slice buffer = Slices.allocate(Long.BYTES * 3);
             long low = decimal[offset + 1];
             long high = decimal[offset];
-            buffer[0] = low;
-            buffer[1] = high;
-            buffer[2] = overflow;
+            buffer.setLong(0, low);
+            buffer.setLong(Long.BYTES, high);
+            buffer.setLong(Long.BYTES * 2, overflow);
             // if high == 0 and overflow == 0 we only write low (bufferLength = 1)
             // if high != 0 and overflow == 0 we write both low and high (bufferLength = 2)
             // if overflow != 0 we write all values (bufferLength = 3)
             int decimalsCount = 1 + (high == 0 ? 0 : 1);
             int bufferLength = overflow == 0 ? decimalsCount : 3;
-            VARBINARY.writeSlice(out, Slices.wrappedLongArray(buffer, 0, bufferLength));
+            VARBINARY.writeSlice(out, buffer, 0, bufferLength * Long.BYTES);
         }
         else {
             out.appendNull();
@@ -60,21 +60,20 @@ public class LongDecimalWithOverflowStateSerializer
     public void deserialize(Block block, int index, LongDecimalWithOverflowState state)
     {
         if (!block.isNull(index)) {
-            Slice slice = VARBINARY.getSlice(block, index);
             long[] decimal = state.getDecimalArray();
             int offset = state.getDecimalArrayOffset();
 
-            long low = slice.getLong(0);
-            int sliceLength = slice.length();
+            long low = block.getLong(index, 0);
+            int sliceLength = block.getSliceLength(index);
             long high = 0;
             long overflow = 0;
 
             switch (sliceLength) {
                 case 3 * Long.BYTES:
-                    overflow = slice.getLong(Long.BYTES * 2);
+                    overflow = block.getLong(index, Long.BYTES * 2);
                     // fall through
                 case 2 * Long.BYTES:
-                    high = slice.getLong(Long.BYTES);
+                    high = block.getLong(index, Long.BYTES);
             }
 
             decimal[offset + 1] = low;

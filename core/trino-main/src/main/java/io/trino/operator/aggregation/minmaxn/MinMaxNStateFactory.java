@@ -14,16 +14,22 @@
 package io.trino.operator.aggregation.minmaxn;
 
 import io.trino.array.ObjectBigArray;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SingleRowBlock;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.GroupedAccumulatorState;
+import io.trino.spi.type.ArrayType;
 
-import java.util.function.Function;
 import java.util.function.LongFunction;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class MinMaxNStateFactory
@@ -34,6 +40,35 @@ public final class MinMaxNStateFactory
             implements MinMaxNState
     {
         abstract TypedHeap getTypedHeap();
+
+        @Override
+        public final void merge(MinMaxNState other)
+        {
+            SingleRowBlock serializedState = ((SingleMinMaxNState) other).removeTempSerializedState();
+
+            int capacity = toIntExact(BIGINT.getLong(serializedState, 0));
+            initialize(capacity);
+            TypedHeap typedHeap = getTypedHeap();
+
+            Block values = new ArrayType(typedHeap.getElementType()).getObject(serializedState, 1);
+            typedHeap.addAll(values);
+        }
+
+        @Override
+        public final void serialize(BlockBuilder out)
+        {
+            TypedHeap typedHeap = getTypedHeap();
+            if (typedHeap == null) {
+                out.appendNull();
+            }
+            else {
+                ((RowBlockBuilder) out).buildEntry(fieldBuilders -> {
+                    BIGINT.writeLong(fieldBuilders.get(0), typedHeap.getCapacity());
+
+                    ((ArrayBlockBuilder) fieldBuilders.get(1)).buildEntry(typedHeap::writeAllUnsorted);
+                });
+            }
+        }
     }
 
     public abstract static class GroupedMinMaxNState
@@ -43,16 +78,14 @@ public final class MinMaxNStateFactory
         private static final int INSTANCE_SIZE = instanceSize(GroupedMinMaxNState.class);
 
         private final LongFunction<TypedHeap> heapFactory;
-        private final Function<Block, TypedHeap> deserializer;
 
         private final ObjectBigArray<TypedHeap> heaps = new ObjectBigArray<>();
         private long groupId;
         private long size;
 
-        public GroupedMinMaxNState(LongFunction<TypedHeap> heapFactory, Function<Block, TypedHeap> deserializer)
+        public GroupedMinMaxNState(LongFunction<TypedHeap> heapFactory)
         {
             this.heapFactory = heapFactory;
-            this.deserializer = deserializer;
         }
 
         @Override
@@ -94,27 +127,7 @@ public final class MinMaxNStateFactory
         }
 
         @Override
-        public final void merge(MinMaxNState other)
-        {
-            TypedHeap otherTypedHeap = ((AbstractMinMaxNState) other).getTypedHeap();
-            if (otherTypedHeap == null) {
-                return;
-            }
-
-            TypedHeap typedHeap = getTypedHeap();
-            if (typedHeap == null) {
-                setTypedHeap(otherTypedHeap);
-                size += otherTypedHeap.getEstimatedSize();
-            }
-            else {
-                size -= typedHeap.getEstimatedSize();
-                typedHeap.addAll(otherTypedHeap);
-                size += typedHeap.getEstimatedSize();
-            }
-        }
-
-        @Override
-        public final void writeAll(BlockBuilder out)
+        public final void writeAllSorted(BlockBuilder out)
         {
             TypedHeap typedHeap = getTypedHeap();
             if (typedHeap == null || typedHeap.isEmpty()) {
@@ -122,33 +135,7 @@ public final class MinMaxNStateFactory
                 return;
             }
 
-            BlockBuilder arrayBlockBuilder = out.beginBlockEntry();
-
-            typedHeap.writeAll(arrayBlockBuilder);
-
-            out.closeEntry();
-        }
-
-        @Override
-        public final void serialize(BlockBuilder out)
-        {
-            TypedHeap typedHeap = getTypedHeap();
-            if (typedHeap == null) {
-                out.appendNull();
-            }
-            else {
-                typedHeap.serialize(out);
-            }
-        }
-
-        @Override
-        public final void deserialize(Block rowBlock)
-        {
-            checkState(getTypedHeap() == null, "State already initialized");
-
-            TypedHeap typedHeap = deserializer.apply(rowBlock);
-            setTypedHeap(typedHeap);
-            size += typedHeap.getEstimatedSize();
+            ((ArrayBlockBuilder) out).buildEntry(typedHeap::writeAllSorted);
         }
 
         @Override
@@ -169,23 +156,25 @@ public final class MinMaxNStateFactory
         private static final int INSTANCE_SIZE = instanceSize(SingleMinMaxNState.class);
 
         private final LongFunction<TypedHeap> heapFactory;
-        private final Function<Block, TypedHeap> deserializer;
 
         private TypedHeap typedHeap;
+        private SingleRowBlock tempSerializedState;
 
-        public SingleMinMaxNState(LongFunction<TypedHeap> heapFactory, Function<Block, TypedHeap> deserializer)
+        public SingleMinMaxNState(LongFunction<TypedHeap> heapFactory)
         {
             this.heapFactory = requireNonNull(heapFactory, "heapFactory is null");
-            this.deserializer = requireNonNull(deserializer, "deserializer is null");
         }
 
         protected SingleMinMaxNState(SingleMinMaxNState state)
         {
+            // tempSerializedState should never be set during a copy operation it is only used during deserialization
+            checkArgument(state.tempSerializedState == null);
+            tempSerializedState = null;
+
             this.heapFactory = state.heapFactory;
-            this.deserializer = state.deserializer;
 
             if (state.typedHeap != null) {
-                this.typedHeap = state.typedHeap.copy();
+                this.typedHeap = new TypedHeap(state.typedHeap);
             }
             else {
                 this.typedHeap = null;
@@ -216,54 +205,33 @@ public final class MinMaxNStateFactory
         }
 
         @Override
-        public final void merge(MinMaxNState other)
-        {
-            TypedHeap otherTypedHeap = ((AbstractMinMaxNState) other).getTypedHeap();
-            if (otherTypedHeap == null) {
-                return;
-            }
-            if (typedHeap == null) {
-                typedHeap = otherTypedHeap;
-            }
-            else {
-                typedHeap.addAll(otherTypedHeap);
-            }
-        }
-
-        @Override
-        public final void writeAll(BlockBuilder out)
+        public final void writeAllSorted(BlockBuilder out)
         {
             if (typedHeap == null || typedHeap.isEmpty()) {
                 out.appendNull();
                 return;
             }
 
-            BlockBuilder arrayBlockBuilder = out.beginBlockEntry();
-            typedHeap.writeAll(arrayBlockBuilder);
-            out.closeEntry();
-        }
-
-        @Override
-        public final void serialize(BlockBuilder out)
-        {
-            if (typedHeap == null) {
-                out.appendNull();
-            }
-            else {
-                typedHeap.serialize(out);
-            }
-        }
-
-        @Override
-        public final void deserialize(Block rowBlock)
-        {
-            typedHeap = deserializer.apply(rowBlock);
+            ((ArrayBlockBuilder) out).buildEntry(typedHeap::writeAllSorted);
         }
 
         @Override
         final TypedHeap getTypedHeap()
         {
             return typedHeap;
+        }
+
+        void setTempSerializedState(SingleRowBlock tempSerializedState)
+        {
+            this.tempSerializedState = tempSerializedState;
+        }
+
+        SingleRowBlock removeTempSerializedState()
+        {
+            SingleRowBlock block = tempSerializedState;
+            checkState(block != null, "tempDeserializeBlock is null");
+            tempSerializedState = null;
+            return block;
         }
     }
 }

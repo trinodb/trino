@@ -135,12 +135,6 @@ class MockConnectorAccessControl
         return Optional.ofNullable(columnMasks.apply(tableName, columnName));
     }
 
-    @Override
-    public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
-    {
-        throw new UnsupportedOperationException();
-    }
-
     public void grantSchemaPrivileges(String schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         schemaGrants.grant(grantee, schemaName, privileges, grantOption);

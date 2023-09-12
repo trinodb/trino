@@ -16,10 +16,9 @@ package io.trino.operator;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.operator.window.WindowPartition;
 import io.trino.spi.Mergeable;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Optional;
@@ -102,7 +101,7 @@ public class WindowInfo
             long totalRowsCount = indexInfos.stream()
                     .mapToLong(IndexInfo::getTotalRowsCount)
                     .sum();
-            double averageIndexPositions = totalRowsCount / indexInfos.size();
+            double averageIndexPositions = (double) totalRowsCount / indexInfos.size();
             double squaredDifferencesPositionsOfIndex = indexInfos.stream()
                     .mapToDouble(index -> Math.pow(index.getTotalRowsCount() - averageIndexPositions, 2))
                     .sum();
@@ -219,7 +218,10 @@ public class WindowInfo
             }
             double avgSize = partitions.stream().mapToLong(Integer::longValue).average().getAsDouble();
             double squaredDifferences = partitions.stream().mapToDouble(size -> Math.pow(size - avgSize, 2)).sum();
-            checkState(partitions.stream().mapToLong(Integer::longValue).sum() == rowsNumber, "Total number of rows in index does not match number of rows in partitions within that index");
+            if (partitions.stream().mapToLong(Integer::longValue).sum() != rowsNumber) {
+                // when operator is cancelled, then rows in index might not match row count from processed partitions
+                return Optional.empty();
+            }
 
             return Optional.of(new IndexInfo(rowsNumber, sizeInBytes, squaredDifferences, partitions.size()));
         }

@@ -15,8 +15,7 @@
 package io.trino.spi.block;
 
 import io.trino.spi.type.MapType;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Optional;
@@ -36,6 +35,11 @@ public class MapBlockBuilder
 {
     private static final int INSTANCE_SIZE = instanceSize(MapBlockBuilder.class);
 
+    private enum HashBuildMode
+    {
+        DUPLICATE_NOT_CHECKED, STRICT_EQUALS, STRICT_NOT_DISTINCT_FROM
+    }
+
     @Nullable
     private final BlockBuilderStatus blockBuilderStatus;
 
@@ -48,7 +52,7 @@ public class MapBlockBuilder
     private final MapHashTables hashTables;
 
     private boolean currentEntryOpened;
-    private boolean strict;
+    private HashBuildMode hashBuildMode = HashBuildMode.DUPLICATE_NOT_CHECKED;
 
     public MapBlockBuilder(MapType mapType, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
@@ -86,7 +90,13 @@ public class MapBlockBuilder
 
     public MapBlockBuilder strict()
     {
-        this.strict = true;
+        this.hashBuildMode = HashBuildMode.STRICT_EQUALS;
+        return this;
+    }
+
+    public MapBlockBuilder strictNotDistinctFrom()
+    {
+        this.hashBuildMode = HashBuildMode.STRICT_NOT_DISTINCT_FROM;
         return this;
     }
 
@@ -173,23 +183,15 @@ public class MapBlockBuilder
         consumer.accept(this, INSTANCE_SIZE);
     }
 
-    @Override
-    public SingleMapBlockWriter beginBlockEntry()
+    public <E extends Throwable> void buildEntry(MapValueBuilder<E> builder)
+            throws E
     {
         if (currentEntryOpened) {
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
+
         currentEntryOpened = true;
-        return new SingleMapBlockWriter(keyBlockBuilder.getPositionCount() * 2, keyBlockBuilder, valueBlockBuilder, this::strict);
-    }
-
-    @Override
-    public BlockBuilder closeEntry()
-    {
-        if (!currentEntryOpened) {
-            throw new IllegalStateException("Expected entry to be opened but was closed");
-        }
-
+        builder.build(keyBlockBuilder, valueBlockBuilder);
         entryAdded(false);
         currentEntryOpened = false;
 
@@ -197,40 +199,11 @@ public class MapBlockBuilder
         int previousAggregatedEntryCount = offsets[positionCount - 1];
         int aggregatedEntryCount = offsets[positionCount];
         int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
-        if (strict) {
-            hashTables.buildHashTableStrict(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
+        switch (hashBuildMode) {
+            case DUPLICATE_NOT_CHECKED -> hashTables.buildHashTable(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
+            case STRICT_EQUALS -> hashTables.buildHashTableStrict(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
+            case STRICT_NOT_DISTINCT_FROM -> hashTables.buildDistinctHashTableStrict(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
         }
-        else {
-            hashTables.buildHashTable(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
-        }
-        return this;
-    }
-
-    /**
-     * This method will check duplicate keys and close entry.
-     * <p>
-     * When duplicate keys are discovered, the block is guaranteed to be in
-     * a consistent state before {@link DuplicateMapKeyException} is thrown.
-     * In other words, one can continue to use this BlockBuilder.
-     *
-     * @deprecated use strict method instead
-     */
-    @Deprecated
-    public void closeEntryStrict()
-            throws DuplicateMapKeyException
-    {
-        if (!currentEntryOpened) {
-            throw new IllegalStateException("Expected entry to be opened but was closed");
-        }
-
-        entryAdded(false);
-        currentEntryOpened = false;
-
-        ensureHashTableSize();
-        int previousAggregatedEntryCount = offsets[positionCount - 1];
-        int aggregatedEntryCount = offsets[positionCount];
-        int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
-        hashTables.buildHashTableStrict(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
     }
 
     @Override

@@ -15,12 +15,15 @@ package io.trino.plugin.iceberg.catalog;
 
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
+import io.trino.annotation.NotThreadSafe;
+import io.trino.filesystem.Location;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.iceberg.util.HiveSchemaUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import jakarta.annotation.Nullable;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.exceptions.CommitFailedException;
@@ -29,9 +32,6 @@ import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.io.OutputFile;
 import org.apache.iceberg.types.Types.NestedField;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.io.FileNotFoundException;
 import java.time.Duration;
@@ -109,7 +109,7 @@ public abstract class AbstractIcebergTableOperations
         currentMetadata = tableMetadata;
         currentMetadataLocation = tableMetadata.metadataFileLocation();
         shouldRefresh = false;
-        version = parseVersion(currentMetadataLocation);
+        version = OptionalInt.of(parseVersion(Location.of(currentMetadataLocation).fileName()));
     }
 
     @Override
@@ -259,7 +259,7 @@ public abstract class AbstractIcebergTableOperations
 
         currentMetadata = newMetadata;
         currentMetadataLocation = newLocation;
-        version = parseVersion(newLocation);
+        version = OptionalInt.of(parseVersion(Location.of(newLocation).fileName()));
         shouldRefresh = false;
     }
 
@@ -286,7 +286,7 @@ public abstract class AbstractIcebergTableOperations
         return format("%s/%s/%s", stripTrailingSlash(metadata.location()), METADATA_FOLDER_NAME, filename);
     }
 
-    protected static List<Column> toHiveColumns(List<NestedField> columns)
+    public static List<Column> toHiveColumns(List<NestedField> columns)
     {
         return columns.stream()
                 .map(column -> new Column(

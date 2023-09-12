@@ -33,7 +33,7 @@ public class TestTransactionLogParser
     {
         TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(SESSION);
 
-        String basePath = getClass().getClassLoader().getResource("databricks").toURI().toString();
+        String basePath = getClass().getClassLoader().getResource("databricks73").toURI().toString();
 
         assertEquals(getMandatoryCurrentVersion(fileSystem, appendPath(basePath, "simple_table_without_checkpoint")), 9);
         assertEquals(getMandatoryCurrentVersion(fileSystem, appendPath(basePath, "simple_table_ending_on_checkpoint")), 10);

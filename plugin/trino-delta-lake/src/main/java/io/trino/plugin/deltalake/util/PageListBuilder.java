@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.type.TimeZoneKey;
@@ -109,23 +110,21 @@ public final class PageListBuilder
 
     public void appendVarcharVarcharMap(Map<String, String> values)
     {
-        BlockBuilder column = nextColumn();
-        BlockBuilder map = column.beginBlockEntry();
-        values.forEach((key, value) -> {
+        MapBlockBuilder column = (MapBlockBuilder) nextColumn();
+        column.buildEntry((keyBuilder, valueBuilder) -> values.forEach((key, value) -> {
             if (key == null) {
-                map.appendNull();
+                keyBuilder.appendNull();
             }
             else {
-                VARCHAR.writeString(map, key);
+                VARCHAR.writeString(keyBuilder, key);
             }
             if (value == null) {
-                map.appendNull();
+                valueBuilder.appendNull();
             }
             else {
-                VARCHAR.writeString(map, value);
+                VARCHAR.writeString(valueBuilder, value);
             }
-        });
-        column.closeEntry();
+        }));
     }
 
     public BlockBuilder nextColumn()

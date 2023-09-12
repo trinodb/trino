@@ -16,6 +16,7 @@ package io.trino.plugin.hive.metastore;
 import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
@@ -25,8 +26,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 import java.util.Map;
@@ -50,7 +49,7 @@ public class CountingAccessHiveMetastore
         GET_TABLE,
         GET_ALL_TABLES,
         GET_ALL_TABLES_FROM_DATABASE,
-        GET_TABLE_WITH_PARAMETER,
+        GET_TABLES_WITH_PARAMETER,
         GET_TABLE_STATISTICS,
         GET_ALL_VIEWS,
         GET_ALL_VIEWS_FROM_DATABASE,
@@ -114,7 +113,7 @@ public class CountingAccessHiveMetastore
     @Override
     public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
     {
-        methodInvocations.add(Method.GET_TABLE_WITH_PARAMETER);
+        methodInvocations.add(Method.GET_TABLES_WITH_PARAMETER);
         return delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue);
     }
 

@@ -22,6 +22,8 @@ import io.trino.decoder.FieldValueProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -51,6 +53,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
@@ -226,7 +229,7 @@ public class AvroColumnDecoder
 
         if (type instanceof VarbinaryType) {
             if (value instanceof ByteBuffer) {
-                return Slices.wrappedBuffer((ByteBuffer) value);
+                return Slices.wrappedHeapBuffer((ByteBuffer) value);
             }
             if (value instanceof GenericFixed) {
                 return Slices.wrappedBuffer(((GenericFixed) value).bytes());
@@ -241,8 +244,8 @@ public class AvroColumnDecoder
         if (type instanceof ArrayType) {
             return serializeList(builder, value, type, columnName);
         }
-        if (type instanceof MapType) {
-            return serializeMap(builder, value, type, columnName);
+        if (type instanceof MapType mapType) {
+            return serializeMap(builder, value, mapType, columnName);
         }
         if (type instanceof RowType) {
             return serializeRow(builder, value, type, columnName);
@@ -310,7 +313,7 @@ public class AvroColumnDecoder
         throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), type, columnName));
     }
 
-    private static Block serializeMap(BlockBuilder parentBlockBuilder, Object value, Type type, String columnName)
+    private static Block serializeMap(BlockBuilder parentBlockBuilder, Object value, MapType type, String columnName)
     {
         if (value == null) {
             checkState(parentBlockBuilder != null, "parentBlockBuilder is null");
@@ -319,26 +322,25 @@ public class AvroColumnDecoder
         }
 
         Map<?, ?> map = (Map<?, ?>) value;
-        List<Type> typeParameters = type.getTypeParameters();
-        Type keyType = typeParameters.get(0);
-        Type valueType = typeParameters.get(1);
+        Type keyType = type.getKeyType();
+        Type valueType = type.getValueType();
 
-        BlockBuilder blockBuilder;
+        MapBlockBuilder blockBuilder;
         if (parentBlockBuilder != null) {
-            blockBuilder = parentBlockBuilder;
+            blockBuilder = (MapBlockBuilder) parentBlockBuilder;
         }
         else {
             blockBuilder = type.createBlockBuilder(null, 1);
         }
 
-        BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-        for (Map.Entry<?, ?> entry : map.entrySet()) {
-            if (entry.getKey() != null) {
-                keyType.writeSlice(entryBuilder, truncateToLength(utf8Slice(entry.getKey().toString()), keyType));
-                serializeObject(entryBuilder, entry.getValue(), valueType, columnName);
+        blockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                if (entry.getKey() != null) {
+                    keyType.writeSlice(keyBuilder, truncateToLength(utf8Slice(entry.getKey().toString()), keyType));
+                    serializeObject(valueBuilder, entry.getValue(), valueType, columnName);
+                }
             }
-        }
-        blockBuilder.closeEntry();
+        });
 
         if (parentBlockBuilder == null) {
             return blockBuilder.getObject(0, Block.class);
@@ -346,32 +348,30 @@ public class AvroColumnDecoder
         return null;
     }
 
-    private static Block serializeRow(BlockBuilder parentBlockBuilder, Object value, Type type, String columnName)
+    private static Block serializeRow(BlockBuilder blockBuilder, Object value, Type type, String columnName)
     {
         if (value == null) {
-            checkState(parentBlockBuilder != null, "parent block builder is null");
-            parentBlockBuilder.appendNull();
+            checkState(blockBuilder != null, "block builder is null");
+            blockBuilder.appendNull();
             return null;
         }
 
-        BlockBuilder blockBuilder;
-        if (parentBlockBuilder != null) {
-            blockBuilder = parentBlockBuilder;
+        RowType rowType = (RowType) type;
+        if (blockBuilder == null) {
+            return buildRowValue(rowType, fieldBuilders -> buildRow(rowType, columnName, (GenericRecord) value, fieldBuilders));
         }
-        else {
-            blockBuilder = type.createBlockBuilder(null, 1);
-        }
-        BlockBuilder singleRowBuilder = blockBuilder.beginBlockEntry();
-        GenericRecord record = (GenericRecord) value;
-        List<Field> fields = ((RowType) type).getFields();
-        for (Field field : fields) {
-            checkState(field.getName().isPresent(), "field name not found");
-            serializeObject(singleRowBuilder, record.get(field.getName().get()), field.getType(), columnName);
-        }
-        blockBuilder.closeEntry();
-        if (parentBlockBuilder == null) {
-            return blockBuilder.getObject(0, Block.class);
-        }
+
+        ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> buildRow(rowType, columnName, (GenericRecord) value, fieldBuilders));
         return null;
+    }
+
+    private static void buildRow(RowType type, String columnName, GenericRecord record, List<BlockBuilder> fieldBuilders)
+    {
+        List<Field> fields = type.getFields();
+        for (int i = 0; i < fields.size(); i++) {
+            Field field = fields.get(i);
+            checkState(field.getName().isPresent(), "field name not found");
+            serializeObject(fieldBuilders.get(i), record.get(field.getName().get()), field.getType(), columnName);
+        }
     }
 }

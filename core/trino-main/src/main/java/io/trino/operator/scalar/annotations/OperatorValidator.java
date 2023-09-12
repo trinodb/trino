@@ -73,6 +73,7 @@ public final class OperatorValidator
             case IS_DISTINCT_FROM:
             case XX_HASH_64:
             case INDETERMINATE:
+            case READ_VALUE:
                 // TODO
         }
     }

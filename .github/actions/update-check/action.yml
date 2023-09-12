@@ -25,7 +25,7 @@ runs:
   steps:
     - uses: actions/github-script@v6
       id: update-check-run
-      if: always() && inputs.check_name != '' && inputs.conclusion != ''
+      if: inputs.check_name != '' && inputs.conclusion != ''
       env:
         number: ${{ inputs.pull_request_number }}
         check_name: ${{ inputs.check_name }}
@@ -97,7 +97,7 @@ runs:
             }
             const { data: result } = await github.rest.issues.updateComment({
               ...context.repo,
-              comment.id,
+              comment_id: comment.id,
               body: finished
             });
 

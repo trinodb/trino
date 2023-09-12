@@ -19,6 +19,7 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.jdbc.BaseJdbcConnectionCreationTest;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
@@ -61,7 +62,7 @@ public class TestPostgreSqlJdbcConnectionCreation
         CredentialProvider credentialProvider = new StaticCredentialProvider(
                 Optional.of(postgreSqlServer.getUser()),
                 Optional.of(postgreSqlServer.getPassword()));
-        DriverConnectionFactory delegate = new DriverConnectionFactory(new Driver(), postgreSqlServer.getJdbcUrl(), connectionProperties, credentialProvider);
+        DriverConnectionFactory delegate = new DriverConnectionFactory(new Driver(), postgreSqlServer.getJdbcUrl(), connectionProperties, credentialProvider, OpenTelemetry.noop());
         this.connectionFactory = new ConnectionCountingConnectionFactory(delegate);
         return createPostgreSqlQueryRunner(postgreSqlServer, ImmutableList.of(NATION, REGION), connectionFactory);
     }

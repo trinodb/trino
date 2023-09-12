@@ -14,12 +14,12 @@
 package io.trino.operator.join;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import io.trino.operator.DriverContext;
 import io.trino.operator.HashGenerator;
-import io.trino.operator.InterpretedHashGenerator;
+import io.trino.operator.JoinOperatorType;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
-import io.trino.operator.OperatorFactories.JoinOperatorType;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PrecomputedHashGenerator;
 import io.trino.operator.ProcessorContext;
@@ -32,9 +32,9 @@ import io.trino.operator.join.JoinProbe.JoinProbeFactory;
 import io.trino.operator.join.LookupOuterOperator.LookupOuterOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.PartitioningSpillerFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
@@ -43,6 +43,7 @@ import java.util.OptionalInt;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.operator.InterpretedHashGenerator.createChannelsHashGenerator;
 import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.INNER;
 import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.PROBE_OUTER;
 import static java.util.Objects.requireNonNull;
@@ -83,7 +84,7 @@ public class LookupJoinOperatorFactory
             List<Type> buildOutputTypes,
             JoinOperatorType joinOperatorType,
             JoinProbeFactory joinProbeFactory,
-            BlockTypeOperators blockTypeOperators,
+            TypeOperators typeOperators,
             OptionalInt totalOperatorsCount,
             List<Integer> probeJoinChannels,
             OptionalInt probeHashChannel,
@@ -123,7 +124,7 @@ public class LookupJoinOperatorFactory
             List<Type> hashTypes = probeJoinChannels.stream()
                     .map(probeTypes::get)
                     .collect(toImmutableList());
-            this.probeHashGenerator = new InterpretedHashGenerator(hashTypes, probeJoinChannels, blockTypeOperators);
+            this.probeHashGenerator = createChannelsHashGenerator(hashTypes, Ints.toArray(probeJoinChannels), typeOperators);
         }
 
         this.partitioningSpillerFactory = requireNonNull(partitioningSpillerFactory, "partitioningSpillerFactory is null");

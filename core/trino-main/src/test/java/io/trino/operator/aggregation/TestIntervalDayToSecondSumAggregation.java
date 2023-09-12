@@ -31,7 +31,7 @@ public class TestIntervalDayToSecondSumAggregation
     {
         BlockBuilder blockBuilder = INTERVAL_DAY_TIME.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
-            INTERVAL_DAY_TIME.writeLong(blockBuilder, i * 1000);
+            INTERVAL_DAY_TIME.writeLong(blockBuilder, i * 1000L);
         }
         return new Block[] {blockBuilder.build()};
     }
@@ -45,7 +45,7 @@ public class TestIntervalDayToSecondSumAggregation
 
         long sum = 0;
         for (int i = start; i < start + length; i++) {
-            sum += i * 1000;
+            sum += i * 1000L;
         }
         return new SqlIntervalDayTime(sum);
     }

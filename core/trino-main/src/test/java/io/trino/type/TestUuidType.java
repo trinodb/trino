@@ -18,13 +18,13 @@ import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.TypeOperators;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.lang.invoke.MethodHandle;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
@@ -58,13 +58,16 @@ public class TestUuidType
     protected Object getGreaterValue(Object value)
     {
         Slice slice = (Slice) value;
-        return Slices.wrappedLongArray(slice.getLong(0), reverseBytes(reverseBytes(slice.getLong(SIZE_OF_LONG)) + 1));
+        Slice greater = Slices.allocate(2 * SIZE_OF_LONG);
+        greater.setLong(0, slice.getLong(0));
+        greater.setLong(SIZE_OF_LONG, reverseBytes(reverseBytes(slice.getLong(SIZE_OF_LONG)) + 1));
+        return greater;
     }
 
     @Override
     protected Object getNonNullValue()
     {
-        return Slices.wrappedLongArray(0, 0);
+        return Slices.allocate(2 * SIZE_OF_LONG);
     }
 
     @Test
@@ -103,7 +106,7 @@ public class TestUuidType
                 .as("value comparison operator result")
                 .isLessThan(0);
 
-        MethodHandle compareFromBlock = new TypeOperators().getComparisonUnorderedFirstOperator(UUID, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+        MethodHandle compareFromBlock = new TypeOperators().getComparisonUnorderedFirstOperator(UUID, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
         long comparisonFromBlock = (long) compareFromBlock.invoke(nativeValueToBlock(UUID, lowerSlice), 0, nativeValueToBlock(UUID, higherSlice), 0);
         assertThat(comparisonFromBlock)
                 .as("block-position comparison operator result")
@@ -113,5 +116,26 @@ public class TestUuidType
         assertThat(lowerSlice)
                 .as("comparing slices lexicographically")
                 .isLessThan(higherSlice);
+    }
+
+    @Test
+    public void testRange()
+    {
+        assertThat(type.getRange())
+                .isEmpty();
+    }
+
+    @Test
+    public void testPreviousValue()
+    {
+        assertThat(type.getPreviousValue(getSampleValue()))
+                .isEmpty();
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        assertThat(type.getNextValue(getSampleValue()))
+                .isEmpty();
     }
 }

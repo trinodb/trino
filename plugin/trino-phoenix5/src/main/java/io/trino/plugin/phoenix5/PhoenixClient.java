@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
+import io.trino.plugin.base.mapping.IdentifierMapping;
+import io.trino.plugin.base.mapping.RemoteIdentifiers;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
@@ -41,7 +43,6 @@ import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.expression.RewriteComparison;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
-import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
@@ -308,7 +309,7 @@ public class PhoenixClient
                 table,
                 columnHandles,
                 Optional.of(split));
-        QueryPlan queryPlan = getQueryPlan((PhoenixPreparedStatement) query);
+        QueryPlan queryPlan = getQueryPlan(query.unwrap(PhoenixPreparedStatement.class));
         ResultSet resultSet = getResultSet(((PhoenixSplit) split).getPhoenixInputSplit(), queryPlan);
         return new DelegatePreparedStatement(query)
         {
@@ -612,8 +613,9 @@ public class PhoenixClient
 
         try (Connection connection = connectionFactory.openConnection(session)) {
             ConnectorIdentity identity = session.getIdentity();
-            schema = getIdentifierMapping().toRemoteSchemaName(identity, connection, schema);
-            table = getIdentifierMapping().toRemoteTableName(identity, connection, schema, table);
+            RemoteIdentifiers remoteIdentifiers = getRemoteIdentifiers(connection);
+            schema = getIdentifierMapping().toRemoteSchemaName(remoteIdentifiers, identity, schema);
+            table = getIdentifierMapping().toRemoteTableName(remoteIdentifiers, identity, schema, table);
             schema = toPhoenixSchemaName(schema);
             LinkedList<ColumnMetadata> tableColumns = new LinkedList<>(tableMetadata.getColumns());
             Map<String, Object> tableProperties = tableMetadata.getProperties();
@@ -637,7 +639,7 @@ public class PhoenixClient
                 if (column.getComment() != null) {
                     throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
                 }
-                String columnName = getIdentifierMapping().toRemoteColumnName(connection, column.getName());
+                String columnName = getIdentifierMapping().toRemoteColumnName(remoteIdentifiers, column.getName());
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
                 String typeStatement = toWriteMapping(session, column.getType()).getDataType();

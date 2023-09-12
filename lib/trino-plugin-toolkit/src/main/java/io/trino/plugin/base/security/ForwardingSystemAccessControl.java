@@ -92,31 +92,13 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
-    {
-        delegate().checkCanViewQueryOwnedBy(context, queryOwner);
-    }
-
-    @Override
     public Collection<Identity> filterViewQueryOwnedBy(SystemSecurityContext context, Collection<Identity> queryOwners)
     {
         return delegate().filterViewQueryOwnedBy(context, queryOwners);
     }
 
     @Override
-    public Set<String> filterViewQueryOwnedBy(SystemSecurityContext context, Set<String> queryOwners)
-    {
-        return delegate().filterViewQueryOwnedBy(context, queryOwners);
-    }
-
-    @Override
     public void checkCanKillQueryOwnedBy(SystemSecurityContext context, Identity queryOwner)
-    {
-        delegate().checkCanKillQueryOwnedBy(context, queryOwner);
-    }
-
-    @Override
-    public void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
     {
         delegate().checkCanKillQueryOwnedBy(context, queryOwner);
     }
@@ -470,12 +452,6 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanShowRoleAuthorizationDescriptors(SystemSecurityContext context)
-    {
-        delegate().checkCanShowRoleAuthorizationDescriptors(context);
-    }
-
-    @Override
     public void checkCanShowCurrentRoles(SystemSecurityContext context)
     {
         delegate().checkCanShowCurrentRoles(context);
@@ -527,11 +503,5 @@ public abstract class ForwardingSystemAccessControl
     public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
         return delegate().getColumnMask(context, tableName, columnName, type);
-    }
-
-    @Override
-    public List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
-    {
-        return delegate().getColumnMasks(context, tableName, columnName, type);
     }
 }

@@ -22,9 +22,8 @@ import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.ClientSession;
 import io.trino.client.StatementClient;
-import okhttp3.OkHttpClient;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
+import okhttp3.Call;
 
 import java.net.URI;
 import java.nio.charset.CharsetEncoder;
@@ -90,15 +89,16 @@ public class TrinoConnection
     private final AtomicReference<String> catalog = new AtomicReference<>();
     private final AtomicReference<String> schema = new AtomicReference<>();
     private final AtomicReference<String> path = new AtomicReference<>();
+    private final AtomicReference<String> authorizationUser = new AtomicReference<>();
     private final AtomicReference<ZoneId> timeZoneId = new AtomicReference<>();
     private final AtomicReference<Locale> locale = new AtomicReference<>();
     private final AtomicReference<Integer> networkTimeoutMillis = new AtomicReference<>(Ints.saturatedCast(MINUTES.toMillis(2)));
     private final AtomicLong nextStatementId = new AtomicLong(1);
+    private final AtomicReference<Optional<String>> sessionUser = new AtomicReference<>();
 
     private final URI jdbcUri;
     private final URI httpUri;
     private final Optional<String> user;
-    private final Optional<String> sessionUser;
     private final boolean compressionDisabled;
     private final boolean assumeLiteralNamesInMetadataCallsForNonConformingClients;
     private final boolean assumeLiteralUnderscoreInMetadataCallsForNonConformingClients;
@@ -110,19 +110,18 @@ public class TrinoConnection
     private final Map<String, String> preparedStatements = new ConcurrentHashMap<>();
     private final Map<String, ClientSelectedRole> roles = new ConcurrentHashMap<>();
     private final AtomicReference<String> transactionId = new AtomicReference<>();
-    private final OkHttpClient httpClient;
+    private final Call.Factory httpCallFactory;
     private final Set<TrinoStatement> statements = newSetFromMap(new ConcurrentHashMap<>());
 
-    TrinoConnection(TrinoDriverUri uri, OkHttpClient httpClient)
-            throws SQLException
+    TrinoConnection(TrinoDriverUri uri, Call.Factory httpCallFactory)
     {
         requireNonNull(uri, "uri is null");
-        this.jdbcUri = uri.getJdbcUri();
+        this.jdbcUri = uri.getUri();
         this.httpUri = uri.getHttpUri();
         uri.getSchema().ifPresent(schema::set);
         uri.getCatalog().ifPresent(catalog::set);
         this.user = uri.getUser();
-        this.sessionUser = uri.getSessionUser();
+        this.sessionUser.set(uri.getSessionUser());
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
         this.source = uri.getSource();
         this.extraCredentials = uri.getExtraCredentials();
@@ -136,7 +135,7 @@ public class TrinoConnection
 
         this.assumeLiteralUnderscoreInMetadataCallsForNonConformingClients = uri.isAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients();
 
-        this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.httpCallFactory = requireNonNull(httpCallFactory, "httpCallFactory is null");
         uri.getClientInfo().ifPresent(tags -> clientInfo.put(CLIENT_INFO, tags));
         uri.getClientTags().ifPresent(tags -> clientInfo.put(CLIENT_TAGS, tags));
         uri.getTraceToken().ifPresent(tags -> clientInfo.put(TRACE_TOKEN, tags));
@@ -327,7 +326,6 @@ public class TrinoConnection
         isolationLevel.set(level);
     }
 
-    @SuppressWarnings("MagicConstant")
     @Override
     public int getTransactionIsolation()
             throws SQLException
@@ -638,6 +636,17 @@ public class TrinoConnection
         sessionProperties.put(name, value);
     }
 
+    public void setSessionUser(String sessionUser)
+    {
+        requireNonNull(sessionUser, "sessionUser is null");
+        this.sessionUser.set(Optional.of(sessionUser));
+    }
+
+    public void clearSessionUser()
+    {
+        this.sessionUser.set(Optional.empty());
+    }
+
     @VisibleForTesting
     Map<String, ClientSelectedRole> getRoles()
     {
@@ -736,7 +745,8 @@ public class TrinoConnection
         ClientSession session = ClientSession.builder()
                 .server(httpUri)
                 .principal(user)
-                .user(sessionUser)
+                .user(sessionUser.get())
+                .authorizationUser(Optional.ofNullable(authorizationUser.get()))
                 .source(source)
                 .traceToken(Optional.ofNullable(clientInfo.get(TRACE_TOKEN)))
                 .clientTags(ImmutableSet.copyOf(clientTags))
@@ -755,7 +765,7 @@ public class TrinoConnection
                 .compressionDisabled(compressionDisabled)
                 .build();
 
-        return newStatementClient(httpClient, session, sql);
+        return newStatementClient(httpCallFactory, session, sql);
     }
 
     void updateSession(StatementClient client)
@@ -771,6 +781,15 @@ public class TrinoConnection
         client.getSetCatalog().ifPresent(catalog::set);
         client.getSetSchema().ifPresent(schema::set);
         client.getSetPath().ifPresent(path::set);
+
+        if (client.getSetAuthorizationUser().isPresent()) {
+            authorizationUser.set(client.getSetAuthorizationUser().get());
+            roles.clear();
+        }
+        if (client.isResetAuthorizationUser()) {
+            authorizationUser.set(null);
+            roles.clear();
+        }
 
         if (client.getStartedTransactionId() != null) {
             transactionId.set(client.getStartedTransactionId());
@@ -799,6 +818,12 @@ public class TrinoConnection
     int activeStatements()
     {
         return statements.size();
+    }
+
+    @VisibleForTesting
+    String getAuthorizationUser()
+    {
+        return authorizationUser.get();
     }
 
     private void checkOpen()

@@ -197,6 +197,20 @@ final class S3FileSystem
         return Optional.empty();
     }
 
+    @Override
+    public void createDirectory(Location location)
+    {
+        validateS3Location(location);
+        // S3 does not have directories
+    }
+
+    @Override
+    public void renameDirectory(Location source, Location target)
+            throws IOException
+    {
+        throw new IOException("S3 does not support directory renames");
+    }
+
     @SuppressWarnings("ResultOfObjectAllocationIgnored")
     private static void validateS3Location(Location location)
     {

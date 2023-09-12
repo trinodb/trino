@@ -136,7 +136,7 @@ public class TestJdbcClient
         String schemaName = "test schema";
         jdbcClient.createSchema(session, schemaName);
         assertThat(jdbcClient.getSchemaNames(session)).contains(schemaName);
-        jdbcClient.dropSchema(session, schemaName);
+        jdbcClient.dropSchema(session, schemaName, false);
         assertThat(jdbcClient.getSchemaNames(session)).doesNotContain(schemaName);
     }
 
@@ -154,7 +154,7 @@ public class TestJdbcClient
         jdbcClient.createTable(session, tableMetadata);
         jdbcClient.renameTable(session, jdbcClient.getTableHandle(session, oldTable).get(), newTable);
         jdbcClient.dropTable(session, jdbcClient.getTableHandle(session, newTable).get());
-        jdbcClient.dropSchema(session, schemaName);
+        jdbcClient.dropSchema(session, schemaName, false);
         assertThat(jdbcClient.getTableNames(session, Optional.empty()))
                 .doesNotContain(oldTable)
                 .doesNotContain(newTable);

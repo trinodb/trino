@@ -14,14 +14,13 @@
 package io.trino.client;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import jakarta.annotation.Nullable;
+import okhttp3.Call;
 import okhttp3.Headers;
 import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -109,7 +108,7 @@ public final class JsonResponse<T>
                 .toString();
     }
 
-    public static <T> JsonResponse<T> execute(JsonCodec<T> codec, OkHttpClient client, Request request, OptionalLong materializedJsonSizeLimit)
+    public static <T> JsonResponse<T> execute(JsonCodec<T> codec, Call.Factory client, Request request, OptionalLong materializedJsonSizeLimit)
     {
         try (Response response = client.newCall(request).execute()) {
             ResponseBody responseBody = requireNonNull(response.body());

@@ -16,10 +16,11 @@ admin/graceful-shutdown
 admin/fault-tolerant-execution
 ```
 
-# Event listeners
+## Event listeners
 
 ```{toctree}
 :titlesonly: true
 
 admin/event-listeners-http
+admin/event-listeners-mysql
 ```

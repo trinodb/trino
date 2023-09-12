@@ -13,26 +13,21 @@
  */
 package io.trino.cli;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.client.Column;
-import io.trino.client.Row;
 
 import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.partition;
-import static com.google.common.collect.Iterables.transform;
-import static com.google.common.io.BaseEncoding.base16;
+import static io.trino.cli.FormatUtils.formatValue;
 import static io.trino.client.ClientStandardTypes.BIGINT;
 import static io.trino.client.ClientStandardTypes.DECIMAL;
 import static io.trino.client.ClientStandardTypes.DOUBLE;
@@ -43,7 +38,6 @@ import static io.trino.client.ClientStandardTypes.TINYINT;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
 import static org.jline.utils.AttributedString.stripAnsi;
 import static org.jline.utils.WCWidth.wcwidth;
 
@@ -53,15 +47,12 @@ public class AlignedTablePrinter
     private static final Set<String> NUMERIC_TYPES = ImmutableSet.of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, DECIMAL);
 
     private static final Splitter LINE_SPLITTER = Splitter.on('\n');
-    private static final Splitter HEX_SPLITTER = Splitter.fixedLength(2);
-    private static final Joiner HEX_BYTE_JOINER = Joiner.on(' ');
-    private static final Joiner HEX_LINE_JOINER = Joiner.on('\n');
 
     private final List<String> fieldNames;
     private final List<Boolean> numericFields;
     private final Writer writer;
 
-    private boolean headerOutput;
+    private boolean headerRendered;
     private long rowCount;
 
     public AlignedTablePrinter(List<Column> columns, Writer writer)
@@ -93,26 +84,26 @@ public class AlignedTablePrinter
         rowCount += rows.size();
         int columns = fieldNames.size();
 
-        int[] maxWidth = new int[columns];
+        int[] columnWidth = new int[columns];
         for (int i = 0; i < columns; i++) {
-            maxWidth[i] = max(1, consoleWidth(fieldNames.get(i)));
+            columnWidth[i] = max(1, consoleWidth(fieldNames.get(i)));
         }
+
         for (List<?> row : rows) {
             for (int i = 0; i < row.size(); i++) {
-                String s = formatValue(row.get(i));
-                maxWidth[i] = max(maxWidth[i], maxLineLength(s));
+                String value = formatValue(row.get(i));
+                columnWidth[i] = max(columnWidth[i], maxLineLength(value));
             }
         }
 
-        if (!headerOutput) {
-            headerOutput = true;
+        if (!headerRendered) {
+            headerRendered = true;
 
             for (int i = 0; i < columns; i++) {
                 if (i > 0) {
                     writer.append('|');
                 }
-                String name = fieldNames.get(i);
-                writer.append(center(name, maxWidth[i], 1));
+                writer.append(center(fieldNames.get(i), columnWidth[i], 1));
             }
             writer.append('\n');
 
@@ -120,7 +111,7 @@ public class AlignedTablePrinter
                 if (i > 0) {
                     writer.append('+');
                 }
-                writer.append(repeat("-", maxWidth[i] + 2));
+                writer.append(repeat("-", columnWidth[i] + 2));
             }
             writer.append('\n');
         }
@@ -129,8 +120,8 @@ public class AlignedTablePrinter
             List<List<String>> columnLines = new ArrayList<>(columns);
             int maxLines = 1;
             for (int i = 0; i < columns; i++) {
-                String s = formatValue(row.get(i));
-                ImmutableList<String> lines = ImmutableList.copyOf(LINE_SPLITTER.split(s));
+                String value = formatValue(row.get(i));
+                ImmutableList<String> lines = ImmutableList.copyOf(LINE_SPLITTER.split(value));
                 columnLines.add(lines);
                 maxLines = max(maxLines, lines.size());
             }
@@ -141,9 +132,9 @@ public class AlignedTablePrinter
                         writer.append('|');
                     }
                     List<String> lines = columnLines.get(column);
-                    String s = (line < lines.size()) ? lines.get(line) : "";
+                    String value = (line < lines.size()) ? lines.get(line) : "";
                     boolean numeric = numericFields.get(column);
-                    String out = align(s, maxWidth[column], 1, numeric);
+                    String out = align(value, columnWidth[column], 1, numeric);
                     if ((!complete || (rowCount > 1)) && ((line + 1) < lines.size())) {
                         out = out.substring(0, out.length() - 1) + "+";
                     }
@@ -156,121 +147,40 @@ public class AlignedTablePrinter
         writer.flush();
     }
 
-    static String formatValue(Object o)
+    private static String center(String value, int maxWidth, int padding)
     {
-        if (o == null) {
-            return "NULL";
-        }
-
-        if (o instanceof Map) {
-            return formatMap((Map<?, ?>) o);
-        }
-
-        if (o instanceof List) {
-            return formatList((List<?>) o);
-        }
-
-        if (o instanceof Row) {
-            return formatRow(((Row) o));
-        }
-
-        if (o instanceof byte[]) {
-            return formatHexDump((byte[]) o, 16);
-        }
-
-        return o.toString();
-    }
-
-    private static String formatHexDump(byte[] bytes, int bytesPerLine)
-    {
-        // hex pairs: ["61", "62", "63"]
-        Iterable<String> hexPairs = createHexPairs(bytes);
-
-        // hex lines: [["61", "62", "63], [...]]
-        Iterable<List<String>> hexLines = partition(hexPairs, bytesPerLine);
-
-        // lines: ["61 62 63", ...]
-        Iterable<String> lines = transform(hexLines, HEX_BYTE_JOINER::join);
-
-        // joined: "61 62 63\n..."
-        return HEX_LINE_JOINER.join(lines);
-    }
-
-    static String formatHexDump(byte[] bytes)
-    {
-        return HEX_BYTE_JOINER.join(createHexPairs(bytes));
-    }
-
-    private static Iterable<String> createHexPairs(byte[] bytes)
-    {
-        // hex dump: "616263"
-        String hexDump = base16().lowerCase().encode(bytes);
-
-        // hex pairs: ["61", "62", "63"]
-        return HEX_SPLITTER.split(hexDump);
-    }
-
-    static String formatList(List<? extends Object> list)
-    {
-        return list.stream()
-                .map(AlignedTablePrinter::formatValue)
-                .collect(joining(", ", "[", "]"));
-    }
-
-    static String formatMap(Map<? extends Object, ? extends Object> map)
-    {
-        return map.entrySet().stream()
-                .map(entry -> format("%s=%s", formatValue(entry.getKey()), formatValue(entry.getValue())))
-                .collect(joining(", ", "{", "}"));
-    }
-
-    static String formatRow(Row row)
-    {
-        return row.getFields().stream()
-                .map(field -> {
-                    String formattedValue = formatValue(field.getValue());
-                    if (field.getName().isPresent()) {
-                        return format("%s=%s", formatValue(field.getName().get()), formattedValue);
-                    }
-                    return formattedValue;
-                })
-                .collect(joining(", ", "{", "}"));
-    }
-
-    private static String center(String s, int maxWidth, int padding)
-    {
-        int width = consoleWidth(s);
-        checkState(width <= maxWidth, "string width is greater than max width");
+        int width = consoleWidth(value);
+        checkState(width <= maxWidth, format("Variable width %d is greater than column width %d", width, maxWidth));
         int left = (maxWidth - width) / 2;
         int right = maxWidth - (left + width);
-        return repeat(" ", left + padding) + s + repeat(" ", right + padding);
+        return repeat(" ", left + padding) + value + repeat(" ", right + padding);
     }
 
-    private static String align(String s, int maxWidth, int padding, boolean right)
+    private static String align(String value, int maxWidth, int padding, boolean right)
     {
-        int width = consoleWidth(s);
-        checkState(width <= maxWidth, "string width is greater than max width");
-        String large = repeat(" ", (maxWidth - width) + padding);
+        int width = consoleWidth(value);
+        checkState(width <= maxWidth, format("Variable width %d is greater than column width %d", width, maxWidth));
+        String large = repeat(" ", maxWidth - width + padding);
         String small = repeat(" ", padding);
-        return right ? (large + s + small) : (small + s + large);
+        return right ? (large + value + small) : (small + value + large);
     }
 
-    static int maxLineLength(String s)
+    static int maxLineLength(String value)
     {
-        int n = 0;
-        for (String line : LINE_SPLITTER.split(s)) {
-            n = max(n, consoleWidth(line));
+        int result = 0;
+        for (String line : LINE_SPLITTER.split(value)) {
+            result = max(result, consoleWidth(line));
         }
-        return n;
+        return result;
     }
 
-    static int consoleWidth(String s)
+    static int consoleWidth(String value)
     {
-        CharSequence plain = stripAnsi(s);
-        int n = 0;
+        CharSequence plain = stripAnsi(value);
+        int result = 0;
         for (int i = 0; i < plain.length(); i++) {
-            n += max(wcwidth(plain.charAt(i)), 0);
+            result += max(wcwidth(plain.charAt(i)), 0);
         }
-        return n;
+        return result;
     }
 }

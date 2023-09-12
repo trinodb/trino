@@ -243,23 +243,17 @@ public final class MetadataListing
 
     private static Map<SchemaTableName, List<ColumnMetadata>> doListTableColumns(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
-        List<TableColumnsMetadata> catalogColumns = metadata.listTableColumns(session, prefix);
+        List<TableColumnsMetadata> catalogColumns = metadata.listTableColumns(
+                session,
+                prefix,
+                relationNames -> accessControl.filterTables(session.toSecurityContext(), prefix.getCatalogName(), relationNames));
 
         Map<SchemaTableName, Optional<List<ColumnMetadata>>> tableColumns = catalogColumns.stream()
                 .collect(toImmutableMap(TableColumnsMetadata::getTable, TableColumnsMetadata::getColumns));
 
-        Set<SchemaTableName> allowedTables = accessControl.filterTables(
-                session.toSecurityContext(),
-                prefix.getCatalogName(),
-                tableColumns.keySet());
-
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> result = ImmutableMap.builder();
 
         tableColumns.forEach((table, columnsOptional) -> {
-            if (!allowedTables.contains(table)) {
-                return;
-            }
-
             QualifiedObjectName originalTableName = new QualifiedObjectName(prefix.getCatalogName(), table.getSchemaName(), table.getTableName());
             List<ColumnMetadata> columns;
             Optional<QualifiedObjectName> targetTableName = Optional.empty();
@@ -275,14 +269,14 @@ public final class MetadataListing
                     // For redirected tables, column listing requires special handling, because the column metadata is unavailable
                     // at the source table, and needs to be fetched from the target table.
                     RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalTableName);
-                    targetTableName = redirection.getRedirectedTableName();
+                    targetTableName = redirection.redirectedTableName();
 
                     // The target table name should be non-empty. If it is empty, it means that there is an
                     // inconsistency in the connector's implementation of ConnectorMetadata#streamTableColumns and
                     // ConnectorMetadata#redirectTable.
                     if (targetTableName.isPresent()) {
                         redirectionSucceeded = true;
-                        targetTableHandle = redirection.getTableHandle().orElseThrow();
+                        targetTableHandle = redirection.tableHandle().orElseThrow();
                     }
                 }
                 catch (TrinoException e) {

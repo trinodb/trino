@@ -190,12 +190,21 @@ public class ReportBadTestAnnotations
                         // testng annotation (@Test, @Before*, @DataProvider, etc.)
                         return true;
                     }
+                    if (isJUnitAnnotation(annotationClass)) {
+                        // allowed so that we can transition tests gradually to JUnit
+                        return true;
+                    }
                     if (isTemptoClass(annotationClass)) {
                         // tempto annotation (@BeforeMethodWithContext, @AfterMethodWithContext)
                         return true;
                     }
                     return false;
                 });
+    }
+
+    private static boolean isJUnitAnnotation(Class<? extends Annotation> clazz)
+    {
+        return clazz.getPackage().getName().startsWith("org.junit.jupiter.api");
     }
 
     @VisibleForTesting

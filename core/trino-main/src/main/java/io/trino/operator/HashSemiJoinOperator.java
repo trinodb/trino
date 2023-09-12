@@ -27,8 +27,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -175,7 +174,7 @@ public class HashSemiJoinOperator
 
             if (channelSet == null) {
                 if (!channelSetFuture.isDone()) {
-                    // This will materialize page but it shouldn't matter for the first page
+                    // This will materialize page, but it shouldn't matter for the first page
                     localMemoryContext.setBytes(inputPage.getSizeInBytes());
                     return blocked(asVoid(channelSetFuture));
                 }
@@ -183,20 +182,20 @@ public class HashSemiJoinOperator
                 channelSet = getFutureValue(channelSetFuture);
                 localMemoryContext.setBytes(0);
             }
-            // use an effectively-final local variable instead of the non-final instance field inside of the loop
+            // use an effectively-final local variable instead of the non-final instance field inside the loop
             ChannelSet channelSet = requireNonNull(this.channelSet, "channelSet is null");
 
             // create the block builder for the new boolean column
             // we know the exact size required for the block
             BlockBuilder blockBuilder = BOOLEAN.createFixedSizeBlockBuilder(inputPage.getPositionCount());
 
-            Page probeJoinPage = inputPage.getLoadedPage(probeJoinChannel);
-            Block probeJoinNulls = probeJoinPage.getBlock(0).mayHaveNull() ? probeJoinPage.getBlock(0) : null;
-            Block hashBlock = probeHashChannel >= 0 ? inputPage.getBlock(probeHashChannel) : null;
+            Block probeBlock = inputPage.getBlock(probeJoinChannel).copyRegion(0, inputPage.getPositionCount());
+            boolean probeMayHaveNull = probeBlock.mayHaveNull();
+            Block hashBlock = probeHashChannel >= 0 ? inputPage.getBlock(probeHashChannel).copyRegion(0, inputPage.getPositionCount()) : null;
 
             // update hashing strategy to use probe cursor
             for (int position = 0; position < inputPage.getPositionCount(); position++) {
-                if (probeJoinNulls != null && probeJoinNulls.isNull(position)) {
+                if (probeMayHaveNull && probeBlock.isNull(position)) {
                     if (channelSet.isEmpty()) {
                         BOOLEAN.writeBoolean(blockBuilder, false);
                     }
@@ -208,10 +207,10 @@ public class HashSemiJoinOperator
                     boolean contains;
                     if (hashBlock != null) {
                         long rawHash = BIGINT.getLong(hashBlock, position);
-                        contains = channelSet.contains(position, probeJoinPage, rawHash);
+                        contains = channelSet.contains(probeBlock, position, rawHash);
                     }
                     else {
-                        contains = channelSet.contains(position, probeJoinPage);
+                        contains = channelSet.contains(probeBlock, position);
                     }
                     if (!contains && channelSet.containsNull()) {
                         blockBuilder.appendNull();

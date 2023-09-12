@@ -196,4 +196,28 @@ public class FunctionType
     {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public int getFlatFixedSize()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isFlatVariableWidth()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public int getFlatVariableWidthSize(Block block, int position)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public int relocateFlatVariableWidthOffsets(byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

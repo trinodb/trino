@@ -26,7 +26,6 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
-import io.trino.type.BlockTypeOperators;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -62,7 +61,6 @@ public class TestRowNumberOperator
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
     private final TypeOperators typeOperators = new TypeOperators();
-    private final BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
     private final JoinCompiler joinCompiler = new JoinCompiler(typeOperators);
 
     @BeforeClass
@@ -128,7 +126,7 @@ public class TestRowNumberOperator
                 Optional.empty(),
                 10,
                 joinCompiler,
-                blockTypeOperators);
+                typeOperators);
 
         MaterializedResult expectedResult = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
                 .row(0.3, 1L)
@@ -165,10 +163,10 @@ public class TestRowNumberOperator
                 ImmutableList.of(0),
                 ImmutableList.of(type),
                 Optional.empty(),
-                Optional.empty(),
+                Optional.of(1),
                 1,
                 joinCompiler,
-                blockTypeOperators);
+                typeOperators);
 
         // get result with yield; pick a relatively small buffer for partitionRowCount's memory usage
         GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((RowNumberOperator) operator).getCapacity(), 280_000);
@@ -217,7 +215,7 @@ public class TestRowNumberOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 joinCompiler,
-                blockTypeOperators);
+                typeOperators);
 
         MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
                 .row(0.3, 1L)
@@ -284,7 +282,7 @@ public class TestRowNumberOperator
                 Optional.empty(),
                 10,
                 joinCompiler,
-                blockTypeOperators);
+                typeOperators);
 
         MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
                 .row(0.3, 1L)
@@ -354,7 +352,7 @@ public class TestRowNumberOperator
                 Optional.empty(),
                 10,
                 joinCompiler,
-                blockTypeOperators);
+                typeOperators);
 
         MaterializedResult expectedRows = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
                 .row(0.3, 1L)

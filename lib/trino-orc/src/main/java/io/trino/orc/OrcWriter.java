@@ -44,8 +44,7 @@ import io.trino.orc.writer.ColumnWriter;
 import io.trino.orc.writer.SliceDictionaryColumnWriter;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -115,7 +114,7 @@ public final class OrcWriter
     private final DictionaryCompressionOptimizer dictionaryCompressionOptimizer;
     private int stripeRowCount;
     private int rowGroupRowCount;
-    private int bufferedBytes;
+    private long bufferedBytes;
     private long columnWritersRetainedBytes;
     private long closedStripesRetainedBytes;
     private long previouslyRecordedSizeInBytes;
@@ -225,7 +224,7 @@ public final class OrcWriter
     /**
      * Number of pending bytes not yet flushed.
      */
-    public int getBufferedBytes()
+    public long getBufferedBytes()
     {
         return bufferedBytes;
     }
@@ -377,7 +376,7 @@ public final class OrcWriter
         }
 
         // convert any dictionary encoded column with a low compression ratio to direct
-        dictionaryCompressionOptimizer.finalOptimize(bufferedBytes);
+        dictionaryCompressionOptimizer.finalOptimize(toIntExact(bufferedBytes));
 
         columnWriters.forEach(ColumnWriter::close);
 

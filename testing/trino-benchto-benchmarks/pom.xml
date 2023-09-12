@@ -4,12 +4,11 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>420</version>
+        <version>426</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-benchto-benchmarks</artifactId>
-    <name>trino-benchto-benchmarks</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -17,6 +16,13 @@
     </properties>
 
     <dependencies>
+        <dependency>
+            <!-- TODO document why we have explicit dependency on Guava -->
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <!-- benchmark queries referenced from benchmark definition files -->
             <groupId>io.trino</groupId>
@@ -35,13 +41,6 @@
             <!-- provides the main class -->
             <groupId>io.trino.benchto</groupId>
             <artifactId>benchto-driver</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <!-- TODO document why we have explicit dependency on Guava -->
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -67,10 +66,10 @@
                 </configuration>
                 <executions>
                     <execution>
-                        <phase>package</phase>
                         <goals>
                             <goal>single</goal>
                         </goals>
+                        <phase>package</phase>
                     </execution>
                 </executions>
             </plugin>

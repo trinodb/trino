@@ -24,8 +24,8 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
 import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
 

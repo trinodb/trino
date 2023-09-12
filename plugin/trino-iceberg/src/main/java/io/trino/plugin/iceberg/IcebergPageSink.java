@@ -398,8 +398,6 @@ public class IcebergPageSink
                 PartitionSpecParser.toJson(partitionSpec),
                 writeContext.getPartitionData().map(PartitionData::toJson),
                 DATA,
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty());
 
         commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));

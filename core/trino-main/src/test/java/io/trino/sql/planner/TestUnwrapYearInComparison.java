@@ -15,7 +15,7 @@ package io.trino.sql.planner;
 
 import io.trino.spi.type.LongTimestamp;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -67,6 +67,13 @@ public class TestUnwrapYearInComparison
         testUnwrap("timestamp(10)", "year(a) = 2022", "a BETWEEN TIMESTAMP '2022-01-01 00:00:00.0000000000' AND TIMESTAMP '2022-12-31 23:59:59.9999999999'");
         testUnwrap("timestamp(11)", "year(a) = 2022", "a BETWEEN TIMESTAMP '2022-01-01 00:00:00.00000000000' AND TIMESTAMP '2022-12-31 23:59:59.99999999999'");
         testUnwrap("timestamp(12)", "year(a) = 2022", "a BETWEEN TIMESTAMP '2022-01-01 00:00:00.000000000000' AND TIMESTAMP '2022-12-31 23:59:59.999999999999'");
+    }
+
+    @Test
+    public void testInPredicate()
+    {
+        testUnwrap("date", "year(a) IN (1000, 1400, 1800)", "a BETWEEN DATE '1000-01-01' AND DATE '1000-12-31' OR a BETWEEN DATE '1400-01-01' AND DATE '1400-12-31' OR a BETWEEN DATE '1800-01-01' AND DATE '1800-12-31'");
+        testUnwrap("timestamp", "year(a) IN (1000, 1400, 1800)", "a BETWEEN TIMESTAMP '1000-01-01 00:00:00.000' AND TIMESTAMP '1000-12-31 23:59:59.999' OR a BETWEEN TIMESTAMP '1400-01-01 00:00:00.000' AND TIMESTAMP '1400-12-31 23:59:59.999' OR a BETWEEN TIMESTAMP '1800-01-01 00:00:00.000' AND TIMESTAMP '1800-12-31 23:59:59.999'");
     }
 
     @Test

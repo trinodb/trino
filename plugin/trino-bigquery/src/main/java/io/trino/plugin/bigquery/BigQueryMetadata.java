@@ -75,8 +75,7 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -426,12 +425,12 @@ public class BigQueryMetadata
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
+    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
         BigQueryClient client = bigQueryClientFactory.create(session);
         String projectId = client.getProjectId();
         String remoteSchemaName = getRemoteSchemaName(client, projectId, schemaName);
-        client.dropSchema(DatasetId.of(projectId, remoteSchemaName));
+        client.dropSchema(DatasetId.of(projectId, remoteSchemaName), cascade);
     }
 
     private void setRollback(Runnable action)

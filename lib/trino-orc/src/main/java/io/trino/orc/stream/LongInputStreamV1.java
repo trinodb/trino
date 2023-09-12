@@ -20,6 +20,7 @@ import io.trino.orc.checkpoint.LongStreamV1Checkpoint;
 import java.io.IOException;
 
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 
 public class LongInputStreamV1
         implements LongInputStream
@@ -87,7 +88,7 @@ public class LongInputStreamV1
             readValues();
         }
         if (repeat) {
-            result = literals[0] + (used++) * delta;
+            result = literals[0] + (used++) * (long) delta;
         }
         else {
             result = literals[used++];
@@ -110,7 +111,7 @@ public class LongInputStreamV1
             int chunkSize = min(numLiterals - used, items);
             if (repeat) {
                 for (int i = 0; i < chunkSize; i++) {
-                    values[offset + i] = literals[0] + ((used + i) * delta);
+                    values[offset + i] = literals[0] + ((used + i) * (long) delta);
                 }
             }
             else {
@@ -137,7 +138,7 @@ public class LongInputStreamV1
             int chunkSize = min(numLiterals - used, items);
             if (repeat) {
                 for (int i = 0; i < chunkSize; i++) {
-                    long literal = literals[0] + ((used + i) * delta);
+                    long literal = literals[0] + ((used + i) * (long) delta);
                     int value = (int) literal;
                     if (literal != value) {
                         throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 32bit number");
@@ -176,7 +177,7 @@ public class LongInputStreamV1
             int chunkSize = min(numLiterals - used, items);
             if (repeat) {
                 for (int i = 0; i < chunkSize; i++) {
-                    long literal = literals[0] + ((used + i) * delta);
+                    long literal = literals[0] + ((used + i) * (long) delta);
                     short value = (short) literal;
                     if (literal != value) {
                         throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 16bit number");
@@ -227,7 +228,7 @@ public class LongInputStreamV1
             if (used == numLiterals) {
                 readValues();
             }
-            long consume = min(items, numLiterals - used);
+            int consume = toIntExact(min(items, numLiterals - used));
             used += consume;
             items -= consume;
         }

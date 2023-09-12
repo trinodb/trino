@@ -36,6 +36,7 @@ public class Suite1
                                 "cli",
                                 "jdbc",
                                 "trino_jdbc",
+                                "jdbc_kerberos_constrained_delegation",
                                 "functions",
                                 "hive_compression",
                                 "large_query",

@@ -18,7 +18,6 @@ import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryResult;
 import org.assertj.core.api.AbstractStringAssert;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -288,7 +287,7 @@ public class TestHiveRedirectionToIceberg
 
         createIcebergTable(icebergTableName, true);
 
-        Assertions.assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + hiveTableName).getOnlyValue())
+        assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + hiveTableName).getOnlyValue())
                 .matches("\\QCREATE TABLE " + icebergTableName + " (\n" +
                         "   nationkey bigint,\n" +
                         "   name varchar,\n" +
@@ -296,7 +295,7 @@ public class TestHiveRedirectionToIceberg
                         "   comment varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = 'ORC',\n" +
+                        "   format = 'PARQUET',\n" +
                         "   format_version = 2,\n" +
                         format("   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/%s-\\E.*\\Q',\n", tableName) +
                         "   partitioning = ARRAY['regionkey']\n" + // 'partitioning' comes from Iceberg
@@ -317,9 +316,9 @@ public class TestHiveRedirectionToIceberg
         assertThat(onTrino().executeQuery("SHOW STATS FOR " + hiveTableName))
                 .containsOnly(
                         row("nationkey", null, 25d, 0d, null, "0", "24"),
-                        row("name", null, 25d, 0d, null, null, null),
+                        row("name", 1231d, 25d, 0d, null, null, null),
                         row("regionkey", null, 5d, 0d, null, "0", "4"),
-                        row("comment", null, 25d, 0d, null, null, null),
+                        row("comment", 3558d, 25d, 0d, null, null, null),
                         row(null, null, null, null, 25d, null, null));
 
         onTrino().executeQuery("DROP TABLE " + icebergTableName);
@@ -362,7 +361,7 @@ public class TestHiveRedirectionToIceberg
 
         onTrino().executeQuery("ALTER TABLE " + hiveTableName + " ADD COLUMN some_new_column double");
 
-        Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
+        assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
                 .containsOnly("nationkey", "name", "regionkey", "comment", "some_new_column");
 
         assertResultsEqual(
@@ -382,7 +381,7 @@ public class TestHiveRedirectionToIceberg
 
         onTrino().executeQuery("ALTER TABLE " + hiveTableName + " DROP COLUMN comment");
 
-        Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
+        assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
                 .containsOnly("nationkey", "name", "regionkey");
 
         assertResultsEqual(
@@ -402,7 +401,7 @@ public class TestHiveRedirectionToIceberg
 
         onTrino().executeQuery("ALTER TABLE " + hiveTableName + " RENAME COLUMN nationkey TO nation_key");
 
-        Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
+        assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
                 .containsOnly("nation_key", "name", "regionkey", "comment");
 
         assertResultsEqual(
@@ -631,7 +630,7 @@ public class TestHiveRedirectionToIceberg
 
     private static AbstractStringAssert<?> assertTableComment(String catalog, String schema, String tableName)
     {
-        return Assertions.assertThat((String) readTableComment(catalog, schema, tableName).getOnlyValue());
+        return assertThat((String) readTableComment(catalog, schema, tableName).getOnlyValue());
     }
 
     private static QueryResult readTableComment(String catalog, String schema, String tableName)
@@ -645,7 +644,7 @@ public class TestHiveRedirectionToIceberg
 
     private static AbstractStringAssert<?> assertColumnComment(String catalog, String schema, String tableName, String columnName)
     {
-        return Assertions.assertThat((String) readColumnComment(catalog, schema, tableName, columnName).getOnlyValue());
+        return assertThat((String) readColumnComment(catalog, schema, tableName, columnName).getOnlyValue());
     }
 
     private static QueryResult readColumnComment(String catalog, String schema, String tableName, String columnName)

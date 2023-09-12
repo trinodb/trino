@@ -19,6 +19,7 @@ import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
@@ -88,56 +89,56 @@ public final class ListaggAggregationFunction
             out.appendNull();
         }
         else {
-            outputState(state, out, MAX_OUTPUT_LENGTH);
+            outputState(state, (VariableWidthBlockBuilder) out, MAX_OUTPUT_LENGTH);
         }
     }
 
     @VisibleForTesting
-    public static void outputState(ListaggAggregationState state, BlockBuilder out, int maxOutputLength)
+    public static void outputState(ListaggAggregationState state, VariableWidthBlockBuilder blockBuilder, int maxOutputLength)
     {
         Slice separator = state.getSeparator();
         int separatorLength = separator.length();
         OutputContext context = new OutputContext();
-        state.forEach((block, position) -> {
-            int entryLength = block.getSliceLength(position);
-            int spaceRequired = entryLength + (context.emittedEntryCount > 0 ? separatorLength : 0);
+        blockBuilder.buildEntry(out -> {
+            state.forEach((block, position) -> {
+                int entryLength = block.getSliceLength(position);
+                int spaceRequired = entryLength + (context.emittedEntryCount > 0 ? separatorLength : 0);
 
-            if (context.outputLength + spaceRequired > maxOutputLength) {
-                context.overflow = true;
-                return false;
+                if (context.outputLength + spaceRequired > maxOutputLength) {
+                    context.overflow = true;
+                    return false;
+                }
+
+                if (context.emittedEntryCount > 0) {
+                    out.writeBytes(separator, 0, separatorLength);
+                    context.outputLength += separatorLength;
+                }
+
+                block.writeSliceTo(position, 0, entryLength, out);
+                context.outputLength += entryLength;
+                context.emittedEntryCount++;
+
+                return true;
+            });
+
+            if (context.overflow) {
+                if (state.isOverflowError()) {
+                    throw new TrinoException(EXCEEDED_FUNCTION_MEMORY_LIMIT, format("Concatenated string has the length in bytes larger than the maximum output length %d", maxOutputLength));
+                }
+
+                if (context.emittedEntryCount > 0) {
+                    out.writeBytes(separator, 0, separatorLength);
+                }
+                out.writeBytes(state.getOverflowFiller(), 0, state.getOverflowFiller().length());
+
+                if (state.showOverflowEntryCount()) {
+                    out.writeBytes(Slices.utf8Slice("("), 0, 1);
+                    Slice count = Slices.utf8Slice(Integer.toString(state.getEntryCount() - context.emittedEntryCount));
+                    out.writeBytes(count, 0, count.length());
+                    out.writeBytes(Slices.utf8Slice(")"), 0, 1);
+                }
             }
-
-            if (context.emittedEntryCount > 0) {
-                out.writeBytes(separator, 0, separatorLength);
-                context.outputLength += separatorLength;
-            }
-
-            block.writeBytesTo(position, 0, entryLength, out);
-            context.outputLength += entryLength;
-            context.emittedEntryCount++;
-
-            return true;
         });
-
-        if (context.overflow) {
-            if (state.isOverflowError()) {
-                throw new TrinoException(EXCEEDED_FUNCTION_MEMORY_LIMIT, format("Concatenated string has the length in bytes larger than the maximum output length %d", maxOutputLength));
-            }
-
-            if (context.emittedEntryCount > 0) {
-                out.writeBytes(separator, 0, separatorLength);
-            }
-            out.writeBytes(state.getOverflowFiller(), 0, state.getOverflowFiller().length());
-
-            if (state.showOverflowEntryCount()) {
-                out.writeBytes(Slices.utf8Slice("("), 0, 1);
-                Slice count = Slices.utf8Slice(Integer.toString(state.getEntryCount() - context.emittedEntryCount));
-                out.writeBytes(count, 0, count.length());
-                out.writeBytes(Slices.utf8Slice(")"), 0, 1);
-            }
-        }
-
-        out.closeEntry();
     }
 
     private static class OutputContext

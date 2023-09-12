@@ -14,6 +14,7 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimestampType;
@@ -31,6 +32,8 @@ import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.InListExpression;
+import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.NodeRef;
@@ -48,6 +51,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.sql.ExpressionUtils.or;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
@@ -120,8 +124,37 @@ public class UnwrapYearInComparison
         @Override
         public Expression rewriteComparisonExpression(ComparisonExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            ComparisonExpression expression = (ComparisonExpression) treeRewriter.defaultRewrite((Expression) node, null);
+            ComparisonExpression expression = treeRewriter.defaultRewrite(node, null);
             return unwrapYear(expression);
+        }
+
+        @Override
+        public Expression rewriteInPredicate(InPredicate node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            InPredicate inPredicate = treeRewriter.defaultRewrite(node, null);
+            Expression value = inPredicate.getValue();
+            Expression valueList = inPredicate.getValueList();
+
+            if (!(value instanceof FunctionCall call) ||
+                    !extractFunctionName(call.getName()).equals("year") ||
+                    call.getArguments().size() != 1 ||
+                    !(valueList instanceof InListExpression inListExpression)) {
+                return inPredicate;
+            }
+
+            // Convert each value to a comparison expression and try to unwrap it.
+            // unwrap the InPredicate only in case we manage to unwrap the entire value list
+            ImmutableList.Builder<Expression> comparisonExpressions = ImmutableList.builderWithExpectedSize(inListExpression.getValues().size());
+            for (Expression rightExpression : inListExpression.getValues()) {
+                ComparisonExpression comparisonExpression = new ComparisonExpression(EQUAL, value, rightExpression);
+                Expression unwrappedExpression = unwrapYear(comparisonExpression);
+                if (unwrappedExpression == comparisonExpression) {
+                    return inPredicate;
+                }
+                comparisonExpressions.add(unwrappedExpression);
+            }
+
+            return or(comparisonExpressions.build());
         }
 
         // Simplify `year(d) ? value`

@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.InMemoryThriftMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
@@ -21,6 +22,10 @@ import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.net.URI;
+
+import static java.nio.file.Files.createDirectories;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 // staging directory is shared mutable state
 @Test(singleThreaded = true)
@@ -34,6 +39,14 @@ public class TestHiveInMemoryMetastore
         ThriftMetastoreConfig metastoreConfig = new ThriftMetastoreConfig();
         InMemoryThriftMetastore hiveMetastore = new InMemoryThriftMetastore(baseDir, metastoreConfig);
         return new BridgingHiveMetastore(hiveMetastore);
+    }
+
+    @Override
+    protected void createTestTable(Table table)
+            throws Exception
+    {
+        createDirectories(new File(URI.create(table.getStorage().getLocation())).toPath());
+        super.createTestTable(table);
     }
 
     @Test
@@ -66,5 +79,23 @@ public class TestHiveInMemoryMetastore
     public void testDisallowQueryingOfIcebergTables()
     {
         throw new SkipException("not supported");
+    }
+
+    @Override
+    public void testDataColumnProperties()
+    {
+        // Column properties are currently not supported in ThriftHiveMetastore
+        assertThatThrownBy(super::testDataColumnProperties)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Persisting column properties is not supported: Column{name=id, type=bigint}");
+    }
+
+    @Override
+    public void testPartitionColumnProperties()
+    {
+        // Column properties are currently not supported in ThriftHiveMetastore
+        assertThatThrownBy(super::testPartitionColumnProperties)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Persisting column properties is not supported: Column{name=part_key, type=varchar(256)}");
     }
 }

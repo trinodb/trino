@@ -17,8 +17,10 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -250,40 +252,40 @@ public class BigQueryArrowToPageConverter
 
     private void writeArrayBlock(BlockBuilder output, Type type, FieldVector vector, int index)
     {
-        BlockBuilder block = output.beginBlockEntry();
-        Type elementType = getOnlyElement(type.getTypeParameters());
+        ((ArrayBlockBuilder) output).buildEntry(elementBuilder -> {
+            Type elementType = getOnlyElement(type.getTypeParameters());
 
-        ArrowBuf offsetBuffer = vector.getOffsetBuffer();
+            ArrowBuf offsetBuffer = vector.getOffsetBuffer();
 
-        int start = offsetBuffer.getInt((long) index * OFFSET_WIDTH);
-        int end = offsetBuffer.getInt((long) (index + 1) * OFFSET_WIDTH);
+            int start = offsetBuffer.getInt((long) index * OFFSET_WIDTH);
+            int end = offsetBuffer.getInt((long) (index + 1) * OFFSET_WIDTH);
 
-        FieldVector innerVector = ((ListVector) vector).getDataVector();
+            FieldVector innerVector = ((ListVector) vector).getDataVector();
 
-        TransferPair transferPair = innerVector.getTransferPair(allocator);
-        transferPair.splitAndTransfer(start, end - start);
-        try (FieldVector sliced = (FieldVector) transferPair.getTo()) {
-            convertType(block, elementType, sliced, 0, sliced.getValueCount());
-        }
-        output.closeEntry();
+            TransferPair transferPair = innerVector.getTransferPair(allocator);
+            transferPair.splitAndTransfer(start, end - start);
+            try (FieldVector sliced = (FieldVector) transferPair.getTo()) {
+                convertType(elementBuilder, elementType, sliced, 0, sliced.getValueCount());
+            }
+        });
     }
 
     private void writeRowBlock(BlockBuilder output, Type type, FieldVector vector, int index)
     {
-        BlockBuilder builder = output.beginBlockEntry();
-        ImmutableList.Builder<String> fieldNamesBuilder = ImmutableList.builder();
-        for (int i = 0; i < type.getTypeSignature().getParameters().size(); i++) {
-            TypeSignatureParameter parameter = type.getTypeSignature().getParameters().get(i);
-            fieldNamesBuilder.add(parameter.getNamedTypeSignature().getName().orElse("field" + i));
-        }
-        List<String> fieldNames = fieldNamesBuilder.build();
-        checkState(fieldNames.size() == type.getTypeParameters().size(), "fieldNames size differs from type %s type parameters size", type);
+        ((RowBlockBuilder) output).buildEntry(fieldBuilders -> {
+            ImmutableList.Builder<String> fieldNamesBuilder = ImmutableList.builder();
+            for (int i = 0; i < type.getTypeSignature().getParameters().size(); i++) {
+                TypeSignatureParameter parameter = type.getTypeSignature().getParameters().get(i);
+                fieldNamesBuilder.add(parameter.getNamedTypeSignature().getName().orElse("field" + i));
+            }
+            List<String> fieldNames = fieldNamesBuilder.build();
+            checkState(fieldNames.size() == type.getTypeParameters().size(), "fieldNames size differs from type %s type parameters size", type);
 
-        for (int i = 0; i < type.getTypeParameters().size(); i++) {
-            FieldVector innerVector = ((StructVector) vector).getChild(fieldNames.get(i));
-            convertType(builder, type.getTypeParameters().get(i), innerVector, index, 1);
-        }
-        output.closeEntry();
+            for (int i = 0; i < type.getTypeParameters().size(); i++) {
+                FieldVector innerVector = ((StructVector) vector).getChild(fieldNames.get(i));
+                convertType(fieldBuilders.get(i), type.getTypeParameters().get(i), innerVector, index, 1);
+            }
+        });
     }
 
     @Override

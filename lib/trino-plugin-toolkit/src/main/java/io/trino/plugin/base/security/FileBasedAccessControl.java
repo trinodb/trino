@@ -607,12 +607,6 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context)
-    {
-        // allow, no roles are supported so show will always be empty
-    }
-
-    @Override
     public void checkCanShowRoles(ConnectorSecurityContext context)
     {
         // allow, no roles are supported so show will always be empty
@@ -688,12 +682,6 @@ public class FileBasedAccessControl
         }
 
         return masks.stream().findFirst();
-    }
-
-    @Override
-    public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
-    {
-        throw new UnsupportedOperationException();
     }
 
     private boolean canSetSessionProperty(ConnectorSecurityContext context, String property)

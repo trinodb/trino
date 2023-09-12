@@ -35,6 +35,7 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
+import io.trino.execution.BaseTestSqlTaskManager;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.NodeTaskMap;
@@ -49,7 +50,6 @@ import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.TaskTestUtils;
-import io.trino.execution.TestSqlTaskManager;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.HandleJsonModule;
@@ -159,8 +159,8 @@ public class TestHttpRemoteTask
     private static final Duration FAIL_TIMEOUT = new Duration(20, SECONDS);
     private static final TaskManagerConfig TASK_MANAGER_CONFIG = new TaskManagerConfig()
             // Shorten status refresh wait and info update interval so that we can have a shorter test timeout
-            .setStatusRefreshMaxWait(new Duration(IDLE_TIMEOUT.roundTo(MILLISECONDS) / 100, MILLISECONDS))
-            .setInfoUpdateInterval(new Duration(IDLE_TIMEOUT.roundTo(MILLISECONDS) / 10, MILLISECONDS));
+            .setStatusRefreshMaxWait(new Duration(IDLE_TIMEOUT.roundTo(MILLISECONDS) / 100.0, MILLISECONDS))
+            .setInfoUpdateInterval(new Duration(IDLE_TIMEOUT.roundTo(MILLISECONDS) / 10.0, MILLISECONDS));
 
     private static final boolean TRACE_HTTP = false;
 
@@ -583,7 +583,7 @@ public class TestHttpRemoteTask
                                 new QueryManagerConfig(),
                                 TASK_MANAGER_CONFIG,
                                 testingHttpClient,
-                                new TestSqlTaskManager.MockLocationFactory(),
+                                new BaseTestSqlTaskManager.MockLocationFactory(),
                                 taskStatusCodec,
                                 dynamicFilterDomainsCodec,
                                 taskInfoCodec,
@@ -879,6 +879,7 @@ public class TestHttpRemoteTask
                     initialTaskStatus.getRunningPartitionedDrivers(),
                     initialTaskStatus.getOutputBufferStatus(),
                     initialTaskStatus.getOutputDataSize(),
+                    initialTaskStatus.getWriterInputDataSize(),
                     initialTaskStatus.getPhysicalWrittenDataSize(),
                     initialTaskStatus.getMaxWriterCount(),
                     initialTaskStatus.getMemoryReservation(),

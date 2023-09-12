@@ -16,10 +16,9 @@ package io.trino.plugin.base.security;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotNull;
 import org.testng.annotations.Test;
-
-import javax.validation.constraints.AssertTrue;
-import javax.validation.constraints.NotNull;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -94,7 +93,7 @@ public class TestFileBasedAccessControlConfig
                 new FileBasedAccessControlConfig()
                     .setRefreshPeriod(Duration.valueOf("1ms")),
                 "configFile",
-                "may not be null",
+                "must not be null",
                 NotNull.class);
 
         assertFailsValidation(
@@ -132,7 +131,7 @@ public class TestFileBasedAccessControlConfig
                 new FileBasedAccessControlConfig()
                         .setRefreshPeriod(Duration.valueOf("1ms")),
                 "configFile",
-                "may not be null",
+                "must not be null",
                 NotNull.class);
 
         assertFailsValidation(
@@ -148,7 +147,7 @@ public class TestFileBasedAccessControlConfig
                         .setConfigFile(securityConfigUrl)
                         .setJsonPointer(null),
                 "jsonPointer",
-                "may not be null",
+                "must not be null",
                 NotNull.class);
 
         assertValidates(

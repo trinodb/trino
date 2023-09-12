@@ -29,9 +29,9 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingSession;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.util.List;
 import java.util.Map;
@@ -47,7 +47,7 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test(singleThreaded = true) // shared mutable state
+@ResourceLock("TestPushDistinctLimitIntoTableScan")
 public class TestPushDistinctLimitIntoTableScan
         extends BaseRuleTest
 {
@@ -82,7 +82,7 @@ public class TestPushDistinctLimitIntoTableScan
         return Optional.of(queryRunner);
     }
 
-    @BeforeClass
+    @BeforeAll
     public void init()
     {
         rule = new PushDistinctLimitIntoTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer());
@@ -90,15 +90,10 @@ public class TestPushDistinctLimitIntoTableScan
         tableHandle = tester().getCurrentCatalogTableHandle("mock_schema", "mock_nation");
     }
 
-    @BeforeMethod
-    public void reset()
-    {
-        testApplyAggregation = null;
-    }
-
     @Test
     public void testDoesNotFireIfNoTableScan()
     {
+        testApplyAggregation = null;
         tester().assertThat(rule)
                 .on(p -> p.values(p.symbol("a", BIGINT)))
                 .doesNotFire();

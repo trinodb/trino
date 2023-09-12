@@ -31,6 +31,8 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.addExact;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class TrinoDataInputStream
@@ -86,7 +88,7 @@ public final class TrinoDataInputStream
     public long getPos()
             throws IOException
     {
-        return checkedCast(bufferOffset + bufferPosition);
+        return addExact(bufferOffset, bufferPosition);
     }
 
     public void seek(long newPos)
@@ -230,10 +232,14 @@ public final class TrinoDataInputStream
     public long skip(long length)
             throws IOException
     {
+        if (length <= 0) {
+            return 0;
+        }
+
         int availableBytes = availableBytes();
         // is skip within the current buffer?
         if (availableBytes >= length) {
-            bufferPosition += length;
+            bufferPosition = addExact(bufferPosition, toIntExact(length));
             return length;
         }
 
@@ -396,13 +402,6 @@ public final class TrinoDataInputStream
         readTimeNanos += System.nanoTime() - start;
 
         return bufferFill;
-    }
-
-    private static int checkedCast(long value)
-    {
-        int result = (int) value;
-        checkArgument(result == value, "Size is greater than maximum int value");
-        return result;
     }
 
     //

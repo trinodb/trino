@@ -13,10 +13,7 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -227,8 +224,13 @@ public class ShortArrayBlock
         return sb.toString();
     }
 
-    Slice getValuesSlice()
+    int getRawValuesOffset()
     {
-        return Slices.wrappedShortArray(values, arrayOffset, positionCount);
+        return arrayOffset;
+    }
+
+    short[] getRawValues()
+    {
+        return values;
     }
 }

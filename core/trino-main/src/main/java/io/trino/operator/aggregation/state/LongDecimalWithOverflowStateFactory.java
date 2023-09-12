@@ -17,8 +17,7 @@ import io.trino.array.BooleanBigArray;
 import io.trino.array.LongBigArray;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;

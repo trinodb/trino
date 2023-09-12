@@ -15,8 +15,7 @@ package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.OptionalInt;
@@ -58,26 +57,19 @@ public class ByteArrayBlockBuilder
         updateDataSize();
     }
 
-    @Override
-    public BlockBuilder writeByte(int value)
+    public BlockBuilder writeByte(byte value)
     {
         if (values.length <= positionCount) {
             growCapacity();
         }
 
-        values[positionCount] = (byte) value;
+        values[positionCount] = value;
 
         hasNonNullValue = true;
         positionCount++;
         if (blockBuilderStatus != null) {
             blockBuilderStatus.addBytes(ByteArrayBlock.SIZE_IN_BYTES_PER_POSITION);
         }
-        return this;
-    }
-
-    @Override
-    public BlockBuilder closeEntry()
-    {
         return this;
     }
 

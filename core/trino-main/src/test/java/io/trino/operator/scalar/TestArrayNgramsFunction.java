@@ -160,7 +160,7 @@ public class TestArrayNgramsFunction
                 .isEqualTo(ImmutableList.of(
                         ImmutableList.of("", "")));
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ngrams", "ARRAY['foo','bar']", "0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ngrams", "ARRAY['foo','bar']", "0")::evaluate)
                 .hasMessage("N must be positive");
     }
 }

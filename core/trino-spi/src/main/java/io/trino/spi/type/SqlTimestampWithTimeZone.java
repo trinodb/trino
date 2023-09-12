@@ -55,7 +55,7 @@ public final class SqlTimestampWithTimeZone
                 throw new IllegalArgumentException(format("Expected picosOfMilli to be 0 for precision %s: %s", precision, picosOfMilli));
             }
             if (round(epochMillis, 3 - precision) != epochMillis) {
-                throw new IllegalArgumentException(format("Expected 0s for digits beyond precision %s: epochMicros = %s", precision, epochMillis));
+                throw new IllegalArgumentException(format("Expected 0s for digits beyond precision %s: epochMillis = %s", precision, epochMillis));
             }
         }
         else {

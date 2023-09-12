@@ -18,6 +18,7 @@ import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.DecoderTestColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
+import io.trino.decoder.RowDecoderSpec;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -38,6 +39,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
 
+import static io.trino.decoder.util.DecoderTestUtil.TESTING_SESSION;
 import static io.trino.decoder.util.DecoderTestUtil.checkIsNull;
 import static io.trino.decoder.util.DecoderTestUtil.checkValue;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -58,7 +60,7 @@ public class TestRawDecoder
         byte[] emptyRow = new byte[0];
         DecoderTestColumnHandle column = new DecoderTestColumnHandle(0, "row1", createUnboundedVarcharType(), null, "BYTE", null, false, false, false);
         Set<DecoderColumnHandle> columns = ImmutableSet.of(column);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(RawRowDecoder.NAME, emptyMap(), columns));
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(emptyRow)
                 .orElseThrow(AssertionError::new);
@@ -86,7 +88,7 @@ public class TestRawDecoder
         DecoderTestColumnHandle row5 = new DecoderTestColumnHandle(4, "row5", createVarcharType(10), "15", null, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4, row5);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(RawRowDecoder.NAME, emptyMap(), columns));
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
@@ -112,7 +114,7 @@ public class TestRawDecoder
         DecoderTestColumnHandle row4 = new DecoderTestColumnHandle(3, "row4", createVarcharType(100), "5:8", null, null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(RawRowDecoder.NAME, emptyMap(), columns));
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
@@ -142,7 +144,7 @@ public class TestRawDecoder
         DecoderTestColumnHandle row2 = new DecoderTestColumnHandle(1, "row2", DOUBLE, "8", "FLOAT", null, false, false, false);
 
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(RawRowDecoder.NAME, emptyMap(), columns));
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
@@ -216,7 +218,7 @@ public class TestRawDecoder
                 row32,
                 row33,
                 row34);
-        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(RawRowDecoder.NAME, emptyMap(), columns));
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
@@ -425,7 +427,7 @@ public class TestRawDecoder
         Set<DecoderColumnHandle> columns = ImmutableSet.of(
                 col1, col2, col3, col4, col5, col6, col7, col8, col9, col10, col11);
 
-        RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
+        RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(RawRowDecoder.NAME, emptyMap(), columns));
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
@@ -470,6 +472,6 @@ public class TestRawDecoder
 
     private void singleColumnDecoder(Type columnType, String mapping, String dataFormat, String formatHint, boolean keyDecoder, boolean hidden, boolean internal)
     {
-        DECODER_FACTORY.create(emptyMap(), ImmutableSet.of(new DecoderTestColumnHandle(0, "some_column", columnType, mapping, dataFormat, formatHint, keyDecoder, hidden, internal)));
+        DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(RawRowDecoder.NAME, emptyMap(), ImmutableSet.of(new DecoderTestColumnHandle(0, "some_column", columnType, mapping, dataFormat, formatHint, keyDecoder, hidden, internal))));
     }
 }

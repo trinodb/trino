@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.groupId;
@@ -45,6 +45,34 @@ public class TestPruneGroupIdSourceColumns
                 .matches(
                         groupId(
                                 ImmutableList.of(ImmutableList.of("k"), ImmutableList.of("k")),
+                                ImmutableList.of("a"),
+                                "group_id",
+                                strictProject(
+                                        ImmutableMap.of("a", expression("a"), "k", expression("k")),
+                                        values("a", "b", "k"))));
+    }
+
+    @Test
+    public void testPruneInputColumnWithMapping()
+    {
+        tester().assertThat(new PruneGroupIdSourceColumns())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol b = p.symbol("b");
+                    Symbol k = p.symbol("k");
+                    Symbol newK = p.symbol("newK");
+                    Symbol groupId = p.symbol("group_id");
+                    return p.groupId(
+                            ImmutableList.of(ImmutableList.of(newK)),
+                            ImmutableMap.of(newK, k),
+                            ImmutableList.of(a),
+                            groupId,
+                            p.values(a, b, k));
+                })
+                .matches(
+                        groupId(
+                                ImmutableList.of(ImmutableList.of("newK")),
+                                ImmutableMap.of("newK", "k"),
                                 ImmutableList.of("a"),
                                 "group_id",
                                 strictProject(

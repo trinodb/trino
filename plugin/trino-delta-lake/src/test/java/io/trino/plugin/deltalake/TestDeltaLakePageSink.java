@@ -36,7 +36,6 @@ import io.trino.tpch.LineItem;
 import io.trino.tpch.LineItemColumn;
 import io.trino.tpch.LineItemGenerator;
 import io.trino.tpch.TpchColumnType;
-import io.trino.type.BlockTypeOperators;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -179,10 +178,13 @@ public class TestDeltaLakePageSink
                 Optional.empty(),
                 Optional.of(false),
                 schemaString,
+                NONE,
+                OptionalInt.empty(),
                 new ProtocolEntry(DEFAULT_READER_VERSION, DEFAULT_WRITER_VERSION, Optional.empty(), Optional.empty()));
 
+        TypeOperators typeOperators = new TypeOperators();
         DeltaLakePageSinkProvider provider = new DeltaLakePageSinkProvider(
-                new GroupByHashPageIndexerFactory(new JoinCompiler(new TypeOperators()), new BlockTypeOperators()),
+                new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), typeOperators),
                 new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS),
                 JsonCodec.jsonCodec(DataFileInfo.class),
                 JsonCodec.jsonCodec(DeltaLakeMergeResult.class),

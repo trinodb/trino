@@ -28,9 +28,10 @@ import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.BUCKET_COUNT;
@@ -48,12 +49,14 @@ import static io.trino.sql.planner.TestTableScanNodePartitioning.UNPARTITIONED_T
 import static io.trino.sql.planner.TestTableScanNodePartitioning.createMockFactory;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestDetermineTableScanNodePartitioning
 {
     private RuleTester tester;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         tester = RuleTester.builder()
@@ -61,7 +64,7 @@ public class TestDetermineTableScanNodePartitioning
                 .build();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         closeAllRuntimeException(tester);

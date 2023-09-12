@@ -19,13 +19,9 @@ import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.trino.plugin.hive.HiveColumnHandle;
-import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
-import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
@@ -33,11 +29,12 @@ import org.joda.time.format.DateTimeFormatter;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static io.trino.plugin.hive.s3select.S3SelectDataType.CSV;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -62,11 +59,27 @@ public class IonSqlQueryBuilder
     private static final String DATA_SOURCE = "S3Object s";
     private final TypeManager typeManager;
     private final S3SelectDataType s3SelectDataType;
+    private final String nullPredicate;
+    private final String notNullPredicate;
 
-    public IonSqlQueryBuilder(TypeManager typeManager, S3SelectDataType s3SelectDataType)
+    public IonSqlQueryBuilder(TypeManager typeManager, S3SelectDataType s3SelectDataType, Optional<String> optionalNullCharacterEncoding)
     {
+        if (optionalNullCharacterEncoding.isPresent()) {
+            checkArgument(s3SelectDataType == CSV, "Null character encoding should only be provided for CSV data");
+        }
+
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.s3SelectDataType = requireNonNull(s3SelectDataType, "s3SelectDataType is null");
+
+        String nullCharacterEncoding = optionalNullCharacterEncoding.orElse("");
+        this.nullPredicate = switch (s3SelectDataType) {
+            case JSON -> "IS NULL";
+            case CSV -> "= '%s'".formatted(nullCharacterEncoding);
+        };
+        this.notNullPredicate = switch (s3SelectDataType) {
+            case JSON -> "IS NOT NULL";
+            case CSV -> "!= '%s'".formatted(nullCharacterEncoding);
+        };
     }
 
     public String buildSql(List<HiveColumnHandle> columns, TupleDomain<HiveColumnHandle> tupleDomain)
@@ -105,14 +118,10 @@ public class IonSqlQueryBuilder
 
     private String getFullyQualifiedColumnName(HiveColumnHandle column)
     {
-        switch (s3SelectDataType) {
-            case JSON:
-                return format("s.%s", column.getBaseColumnName());
-            case CSV:
-                return format("s._%d", column.getBaseHiveColumnIndex() + 1);
-            default:
-                throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Attempted to build SQL for unknown S3SelectDataType");
-        }
+        return switch (s3SelectDataType) {
+            case JSON -> "s.%s".formatted(column.getBaseColumnName());
+            case CSV -> "s._%d".formatted(column.getBaseHiveColumnIndex() + 1);
+        };
     }
 
     private List<String> toConjuncts(List<HiveColumnHandle> columns, TupleDomain<HiveColumnHandle> tupleDomain)
@@ -137,7 +146,6 @@ public class IonSqlQueryBuilder
                 validType.equals(TINYINT) ||
                 validType.equals(SMALLINT) ||
                 validType.equals(INTEGER) ||
-                validType instanceof DecimalType ||
                 validType.equals(BOOLEAN) ||
                 validType.equals(DATE) ||
                 validType instanceof VarcharType;
@@ -149,7 +157,7 @@ public class IonSqlQueryBuilder
 
         if (domain.getValues().isNone()) {
             if (domain.isNullAllowed()) {
-                return getFullyQualifiedColumnName(column) + " = '' ";
+                return getFullyQualifiedColumnName(column) + " " + nullPredicate;
             }
             return "FALSE";
         }
@@ -158,7 +166,7 @@ public class IonSqlQueryBuilder
             if (domain.isNullAllowed()) {
                 return "TRUE";
             }
-            return getFullyQualifiedColumnName(column) + " <> '' ";
+            return getFullyQualifiedColumnName(column) + " " + notNullPredicate;
         }
 
         List<String> disjuncts = new ArrayList<>();
@@ -178,12 +186,17 @@ public class IonSqlQueryBuilder
             }
             // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
             checkState(!rangeConjuncts.isEmpty());
-            disjuncts.add("(" + Joiner.on(" AND ").join(rangeConjuncts) + ")");
+            if (rangeConjuncts.size() == 1) {
+                disjuncts.add("%s %s AND %s".formatted(getFullyQualifiedColumnName(column), notNullPredicate, getOnlyElement(rangeConjuncts)));
+            }
+            else {
+                disjuncts.add("(%s %s AND %s)".formatted(getFullyQualifiedColumnName(column), notNullPredicate, Joiner.on(" AND ").join(rangeConjuncts)));
+            }
         }
 
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(toPredicate("=", getOnlyElement(singleValues), type, column));
+            disjuncts.add("%s %s AND %s".formatted(getFullyQualifiedColumnName(column), notNullPredicate, toPredicate("=", getOnlyElement(singleValues), type, column)));
         }
         else if (singleValues.size() > 1) {
             List<String> values = new ArrayList<>();
@@ -191,13 +204,17 @@ public class IonSqlQueryBuilder
                 checkType(type);
                 values.add(valueToQuery(type, value));
             }
-            disjuncts.add(createColumn(type, column) + " IN (" + Joiner.on(",").join(values) + ")");
+            disjuncts.add("%s %s AND %s IN (%s)".formatted(
+                    getFullyQualifiedColumnName(column),
+                    notNullPredicate,
+                    createColumn(type, column),
+                    Joiner.on(",").join(values)));
         }
 
         // Add nullability disjuncts
         checkState(!disjuncts.isEmpty());
         if (domain.isNullAllowed()) {
-            disjuncts.add(getFullyQualifiedColumnName(column) + " = '' ");
+            disjuncts.add(getFullyQualifiedColumnName(column) + " " + nullPredicate);
         }
 
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
@@ -233,16 +250,11 @@ public class IonSqlQueryBuilder
             return String.valueOf((boolean) value);
         }
         if (type.equals(DATE)) {
-            return "`" + FORMATTER.print(DAYS.toMillis((long) value)) + "`";
+            // CAST('2007-04-05T14:30Z' AS TIMESTAMP)
+            return "'" + FORMATTER.print(DAYS.toMillis((long) value)) + "'";
         }
         if (type.equals(VarcharType.VARCHAR)) {
-            return "'" + ((Slice) value).toStringUtf8() + "'";
-        }
-        if (type instanceof DecimalType decimalType) {
-            if (!decimalType.isShort()) {
-                return Decimals.toString((Int128) value, decimalType.getScale());
-            }
-            return Decimals.toString((long) value, decimalType.getScale());
+            return "'" + ((Slice) value).toStringUtf8().replace("'", "''") + "'";
         }
         return "'" + ((Slice) value).toStringUtf8() + "'";
     }
@@ -252,22 +264,11 @@ public class IonSqlQueryBuilder
         String column = getFullyQualifiedColumnName(columnHandle);
 
         if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT)) {
-            return formatPredicate(column, "INT");
+            return "CAST(" + column + " AS INT)";
         }
         if (type.equals(BOOLEAN)) {
-            return formatPredicate(column, "BOOL");
-        }
-        if (type.equals(DATE)) {
-            return formatPredicate(column, "TIMESTAMP");
-        }
-        if (type instanceof DecimalType decimalType) {
-            return formatPredicate(column, format("DECIMAL(%s,%s)", decimalType.getPrecision(), decimalType.getScale()));
+            return "CAST(" + column + " AS BOOL)";
         }
         return column;
-    }
-
-    private String formatPredicate(String column, String type)
-    {
-        return format("case %s when '' then null else CAST(%s AS %s) end", column, column, type);
     }
 }

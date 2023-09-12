@@ -38,7 +38,7 @@ import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.tree.Expression;
 import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -47,9 +47,11 @@ import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.groupId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
@@ -111,6 +113,29 @@ public class TestUnaliasSymbolReferences
                                                         ImmutableMap.of("probeColumn1", "suppkey", "probeColumn2", "nationkey")))))
                         .right(
                                 project(tableScan(buildTable, ImmutableMap.of("column", "nationkey"))))));
+    }
+
+    @Test
+    public void testGroupIdGroupingSetsDeduplicated()
+    {
+        assertOptimizedPlan(
+                new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
+                (p, session, metadata) -> {
+                    Symbol symbol = p.symbol("symbol");
+                    Symbol alias1 = p.symbol("alias1");
+                    Symbol alias2 = p.symbol("alias2");
+
+                    return p.groupId(ImmutableList.of(ImmutableList.of(alias1, alias2)),
+                            ImmutableList.of(),
+                            p.symbol("groupId"),
+                            p.project(
+                                    Assignments.of(alias1, symbol.toSymbolReference(), alias2, symbol.toSymbolReference()),
+                                    p.values(symbol)));
+                },
+                groupId(
+                        ImmutableList.of(ImmutableList.of("symbol")),
+                        "groupId",
+                        project(values("symbol"))));
     }
 
     private void assertOptimizedPlan(PlanOptimizer optimizer, PlanCreator planCreator, PlanMatchPattern pattern)

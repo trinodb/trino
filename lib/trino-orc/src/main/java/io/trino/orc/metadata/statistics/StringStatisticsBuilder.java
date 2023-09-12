@@ -194,7 +194,7 @@ public class StringStatisticsBuilder
         if (minOrMax.isCompact()) {
             return minOrMax;
         }
-        return Slices.copyOf(minOrMax);
+        return minOrMax.copy();
     }
 
     static final class StringCompactor

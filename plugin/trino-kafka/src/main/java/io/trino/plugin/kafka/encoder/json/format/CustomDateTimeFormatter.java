@@ -84,7 +84,7 @@ public class CustomDateTimeFormatter
     {
         int offsetMinutes = value.getOffsetMinutes();
         DateTimeZone dateTimeZone = DateTimeZone.forOffsetHoursMinutes(offsetMinutes / 60, offsetMinutes % 60);
-        long picos = value.getPicos() - (offsetMinutes * 60 * PICOSECONDS_PER_SECOND);
+        long picos = value.getPicos() - (offsetMinutes * 60L * PICOSECONDS_PER_SECOND);
         return formatter.withZone(dateTimeZone).print(new DateTime(scalePicosToMillis(picos), dateTimeZone));
     }
 

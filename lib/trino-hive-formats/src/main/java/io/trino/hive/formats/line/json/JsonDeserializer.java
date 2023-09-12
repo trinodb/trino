@@ -27,9 +27,11 @@ import io.trino.hive.formats.line.LineBuffer;
 import io.trino.hive.formats.line.LineDeserializer;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.SingleRowBlockWriter;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -528,15 +530,14 @@ public class JsonDeserializer
         void decodeValue(LineBuffer lineBuffer, JsonParser parser, BlockBuilder builder)
                 throws IOException
         {
-            BlockBuilder elementBuilder = builder.beginBlockEntry();
-
-            if (parser.currentToken() != START_ARRAY) {
-                throw invalidJson("start of array expected");
-            }
-            while (nextTokenRequired(parser) != JsonToken.END_ARRAY) {
-                elementDecoder.decode(lineBuffer, parser, elementBuilder);
-            }
-            builder.closeEntry();
+            ((ArrayBlockBuilder) builder).buildEntry(elementBuilder -> {
+                if (parser.currentToken() != START_ARRAY) {
+                    throw invalidJson("start of array expected");
+                }
+                while (nextTokenRequired(parser) != JsonToken.END_ARRAY) {
+                    elementDecoder.decode(lineBuffer, parser, elementBuilder);
+                }
+            });
         }
     }
 
@@ -570,23 +571,23 @@ public class JsonDeserializer
             Block keyBlock = readKeys(createParserAt(parser.currentTokenLocation(), lineBuffer));
             boolean[] distinctKeys = distinctMapKeys.selectDistinctKeys(keyBlock);
 
-            BlockBuilder entryBuilder = builder.beginBlockEntry();
-            if (parser.currentToken() != START_OBJECT) {
-                throw invalidJson("start of object expected");
-            }
-            int keyIndex = 0;
-            while (nextObjectField(parser)) {
-                if (distinctKeys[keyIndex]) {
-                    keyType.appendTo(keyBlock, keyIndex, entryBuilder);
-                    parser.nextToken();
-                    valueDecoder.decode(lineBuffer, parser, entryBuilder);
+            ((MapBlockBuilder) builder).buildEntry((keyBuilder, valueBuilder) -> {
+                if (parser.currentToken() != START_OBJECT) {
+                    throw invalidJson("start of object expected");
                 }
-                else {
-                    skipNextValue(parser);
+                int keyIndex = 0;
+                while (nextObjectField(parser)) {
+                    if (distinctKeys[keyIndex]) {
+                        keyType.appendTo(keyBlock, keyIndex, keyBuilder);
+                        parser.nextToken();
+                        valueDecoder.decode(lineBuffer, parser, valueBuilder);
+                    }
+                    else {
+                        skipNextValue(parser);
+                    }
+                    keyIndex++;
                 }
-                keyIndex++;
-            }
-            builder.closeEntry();
+            });
         }
 
         private Block readKeys(JsonParser fieldNameParser)
@@ -661,17 +662,21 @@ public class JsonDeserializer
     {
         private static final Pattern INTERNAL_PATTERN = Pattern.compile("_col([0-9]+)");
 
-        private final List<String> fieldNames;
+        private final Map<String, Integer> fieldPositions;
         private final List<Decoder> fieldDecoders;
         private final IntUnaryOperator ordinalToFieldPosition;
 
         public RowDecoder(RowType rowType, List<Decoder> fieldDecoders, IntUnaryOperator ordinalToFieldPosition)
         {
             super(rowType);
-            this.fieldNames = rowType.getFields().stream()
-                    .map(field -> field.getName().orElseThrow())
-                    .map(fieldName -> fieldName.toLowerCase(Locale.ROOT))
-                    .collect(toImmutableList());
+
+            ImmutableMap.Builder<String, Integer> fieldPositions = ImmutableMap.builder();
+            List<Field> fields = rowType.getFields();
+            for (int i = 0; i < fields.size(); i++) {
+                Field field = fields.get(i);
+                fieldPositions.put(field.getName().orElseThrow().toLowerCase(Locale.ROOT), i);
+            }
+            this.fieldPositions = fieldPositions.buildOrThrow();
             this.fieldDecoders = fieldDecoders;
             this.ordinalToFieldPosition = ordinalToFieldPosition;
         }
@@ -687,9 +692,7 @@ public class JsonDeserializer
         void decodeValue(LineBuffer lineBuffer, JsonParser parser, BlockBuilder builder)
                 throws IOException
         {
-            SingleRowBlockWriter currentBuilder = (SingleRowBlockWriter) builder.beginBlockEntry();
-            decodeValue(lineBuffer, parser, currentBuilder::getFieldBlockBuilder);
-            builder.closeEntry();
+            ((RowBlockBuilder) builder).buildEntry(fieldBuilders -> decodeValue(lineBuffer, parser, fieldBuilders::get));
         }
 
         private void decodeValue(LineBuffer lineBuffer, JsonParser parser, IntFunction<BlockBuilder> fieldBuilders)
@@ -700,7 +703,7 @@ public class JsonDeserializer
             }
 
             int[] jsonToRowIndex = getJsonToRowIndex(lineBuffer, parser);
-            boolean[] fieldWritten = new boolean[fieldNames.size()];
+            boolean[] fieldWritten = new boolean[fieldDecoders.size()];
 
             int jsonFieldIndex = 0;
             while (nextObjectField(parser)) {
@@ -734,7 +737,7 @@ public class JsonDeserializer
             }
 
             // build a mapping from field in the row to the field in the json object
-            int[] rowToJson = new int[fieldNames.size()];
+            int[] rowToJson = new int[fieldDecoders.size()];
             Arrays.fill(rowToJson, -1);
 
             int jsonFieldIndex = 0;
@@ -763,8 +766,8 @@ public class JsonDeserializer
 
         private int getFieldPosition(String fieldName)
         {
-            int fieldPosition = fieldNames.indexOf(fieldName.toLowerCase(Locale.ROOT));
-            if (fieldPosition >= 0) {
+            Integer fieldPosition = fieldPositions.get(fieldName.toLowerCase(Locale.ROOT));
+            if (fieldPosition != null) {
                 return fieldPosition;
             }
 

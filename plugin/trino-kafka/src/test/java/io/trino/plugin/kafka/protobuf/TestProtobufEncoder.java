@@ -22,9 +22,14 @@ import io.trino.decoder.protobuf.ProtobufDataProviders;
 import io.trino.plugin.kafka.KafkaColumnHandle;
 import io.trino.plugin.kafka.encoder.EncoderColumnHandle;
 import io.trino.plugin.kafka.encoder.RowEncoder;
+import io.trino.plugin.kafka.encoder.RowEncoderSpec;
+import io.trino.plugin.kafka.encoder.protobuf.ProtobufRowEncoder;
 import io.trino.plugin.kafka.encoder.protobuf.ProtobufRowEncoderFactory;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -41,6 +46,7 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.decoder.protobuf.ProtobufRowDecoderFactory.DEFAULT_MESSAGE;
 import static io.trino.decoder.protobuf.ProtobufUtils.getFileDescriptor;
 import static io.trino.decoder.protobuf.ProtobufUtils.getProtoFile;
+import static io.trino.plugin.kafka.encoder.KafkaFieldType.MESSAGE;
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
 import static io.trino.spi.block.RowBlock.fromFieldBlocks;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -157,35 +163,32 @@ public class TestProtobufEncoder
 
         RowEncoder rowEncoder = createRowEncoder("structural_datatypes.proto", columnHandles.subList(0, 3));
 
-        BlockBuilder arrayBlockBuilder = columnHandles.get(0).getType()
+        ArrayBlockBuilder arrayBlockBuilder = (ArrayBlockBuilder) columnHandles.get(0).getType()
                 .createBlockBuilder(null, 1);
-        BlockBuilder singleArrayBlockWriter = arrayBlockBuilder.beginBlockEntry();
-        writeNativeValue(createVarcharType(5), singleArrayBlockWriter, utf8Slice(stringData));
-        arrayBlockBuilder.closeEntry();
+        arrayBlockBuilder.buildEntry(elementBuilder -> writeNativeValue(createVarcharType(5), elementBuilder, utf8Slice(stringData)));
         rowEncoder.appendColumnValue(arrayBlockBuilder.build(), 0);
 
-        BlockBuilder mapBlockBuilder = columnHandles.get(1).getType()
+        MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) columnHandles.get(1).getType()
                 .createBlockBuilder(null, 1);
-        BlockBuilder singleMapBlockWriter = mapBlockBuilder.beginBlockEntry();
-        writeNativeValue(VARCHAR, singleMapBlockWriter, utf8Slice("Key"));
-        writeNativeValue(VARCHAR, singleMapBlockWriter, utf8Slice("Value"));
-        mapBlockBuilder.closeEntry();
+        mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+            writeNativeValue(VARCHAR, keyBuilder, utf8Slice("Key"));
+            writeNativeValue(VARCHAR, valueBuilder, utf8Slice("Value"));
+        });
         rowEncoder.appendColumnValue(mapBlockBuilder.build(), 0);
 
-        BlockBuilder rowBlockBuilder = columnHandles.get(2).getType()
+        RowBlockBuilder rowBlockBuilder = (RowBlockBuilder) columnHandles.get(2).getType()
                 .createBlockBuilder(null, 1);
-        BlockBuilder singleRowBlockWriter = rowBlockBuilder.beginBlockEntry();
-        writeNativeValue(VARCHAR, singleRowBlockWriter, Slices.utf8Slice(stringData));
-        writeNativeValue(INTEGER, singleRowBlockWriter, integerData.longValue());
-        writeNativeValue(BIGINT, singleRowBlockWriter, longData);
-        writeNativeValue(DOUBLE, singleRowBlockWriter, doubleData);
-        writeNativeValue(REAL, singleRowBlockWriter, (long) floatToIntBits(floatData));
-        writeNativeValue(BOOLEAN, singleRowBlockWriter, booleanData);
-        writeNativeValue(VARCHAR, singleRowBlockWriter, enumData);
-        writeNativeValue(createTimestampType(6), singleRowBlockWriter, sqlTimestamp.getEpochMicros());
-        writeNativeValue(VARBINARY, singleRowBlockWriter, bytesData);
-
-        rowBlockBuilder.closeEntry();
+        rowBlockBuilder.buildEntry(fieldBuilders -> {
+            writeNativeValue(VARCHAR, fieldBuilders.get(0), utf8Slice(stringData));
+            writeNativeValue(INTEGER, fieldBuilders.get(1), integerData.longValue());
+            writeNativeValue(BIGINT, fieldBuilders.get(2), longData);
+            writeNativeValue(DOUBLE, fieldBuilders.get(3), doubleData);
+            writeNativeValue(REAL, fieldBuilders.get(4), (long) floatToIntBits(floatData));
+            writeNativeValue(BOOLEAN, fieldBuilders.get(5), booleanData);
+            writeNativeValue(VARCHAR, fieldBuilders.get(6), enumData);
+            writeNativeValue(createTimestampType(6), fieldBuilders.get(7), sqlTimestamp.getEpochMicros());
+            writeNativeValue(VARBINARY, fieldBuilders.get(8), bytesData);
+        });
         rowEncoder.appendColumnValue(rowBlockBuilder.build(), 0);
 
         assertEquals(messageBuilder.build().toByteArray(), rowEncoder.toByteArray());
@@ -246,19 +249,18 @@ public class TestProtobufEncoder
 
         RowEncoder rowEncoder = createRowEncoder("structural_datatypes.proto", columnHandles);
 
-        BlockBuilder rowBlockBuilder = rowType
-                .createBlockBuilder(null, 1);
-        BlockBuilder singleRowBlockWriter = rowBlockBuilder.beginBlockEntry();
-        writeNativeValue(VARCHAR, singleRowBlockWriter, Slices.utf8Slice(stringData));
-        writeNativeValue(INTEGER, singleRowBlockWriter, integerData.longValue());
-        writeNativeValue(BIGINT, singleRowBlockWriter, longData);
-        writeNativeValue(DOUBLE, singleRowBlockWriter, doubleData);
-        writeNativeValue(REAL, singleRowBlockWriter, (long) floatToIntBits(floatData));
-        writeNativeValue(BOOLEAN, singleRowBlockWriter, booleanData);
-        writeNativeValue(VARCHAR, singleRowBlockWriter, enumData);
-        writeNativeValue(createTimestampType(6), singleRowBlockWriter, sqlTimestamp.getEpochMicros());
-        writeNativeValue(VARBINARY, singleRowBlockWriter, bytesData);
-        rowBlockBuilder.closeEntry();
+        RowBlockBuilder rowBlockBuilder = rowType.createBlockBuilder(null, 1);
+        rowBlockBuilder.buildEntry(fieldBuilders -> {
+            writeNativeValue(VARCHAR, fieldBuilders.get(0), Slices.utf8Slice(stringData));
+            writeNativeValue(INTEGER, fieldBuilders.get(1), integerData.longValue());
+            writeNativeValue(BIGINT, fieldBuilders.get(2), longData);
+            writeNativeValue(DOUBLE, fieldBuilders.get(3), doubleData);
+            writeNativeValue(REAL, fieldBuilders.get(4), (long) floatToIntBits(floatData));
+            writeNativeValue(BOOLEAN, fieldBuilders.get(5), booleanData);
+            writeNativeValue(VARCHAR, fieldBuilders.get(6), enumData);
+            writeNativeValue(createTimestampType(6), fieldBuilders.get(7), sqlTimestamp.getEpochMicros());
+            writeNativeValue(VARBINARY, fieldBuilders.get(8), bytesData);
+        });
 
         RowType nestedRowType = (RowType) columnHandles.get(0).getType();
 
@@ -352,7 +354,7 @@ public class TestProtobufEncoder
     private RowEncoder createRowEncoder(String fileName, List<EncoderColumnHandle> columns)
             throws Exception
     {
-        return ENCODER_FACTORY.create(TestingConnectorSession.SESSION, Optional.of(getProtoFile("decoder/protobuf/" + fileName)), columns);
+        return ENCODER_FACTORY.create(TestingConnectorSession.SESSION, new RowEncoderSpec(ProtobufRowEncoder.NAME, Optional.of(getProtoFile("decoder/protobuf/" + fileName)), columns, "ignored", MESSAGE));
     }
 
     private Descriptor getDescriptor(String fileName)

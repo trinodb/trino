@@ -20,8 +20,8 @@ import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericLiteral;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -41,7 +41,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
 {
     private PushInequalityFilterExpressionBelowJoinRuleSet ruleSet;
 
-    @BeforeClass
+    @BeforeAll
     public void setUpBeforeClass()
     {
         ruleSet = new PushInequalityFilterExpressionBelowJoinRuleSet(tester().getMetadata(), tester().getTypeAnalyzer());

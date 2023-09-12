@@ -28,7 +28,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
@@ -85,7 +84,6 @@ import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyShowCurrentRoles;
-import static io.trino.spi.security.AccessDeniedException.denyShowRoleAuthorizationDescriptors;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoles;
 import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
@@ -138,19 +136,6 @@ public interface SystemAccessControl
      */
     default void checkCanViewQueryOwnedBy(SystemSecurityContext context, Identity queryOwner)
     {
-        checkCanViewQueryOwnedBy(context, queryOwner.getUser());
-    }
-
-    /**
-     * Checks if identity can view a query owned by the specified user.  The method
-     * will not be called when the current user is the query owner.
-     *
-     * @throws AccessDeniedException if not allowed
-     * @deprecated Implement {@link #checkCanViewQueryOwnedBy(SystemSecurityContext, Identity)} instead.
-     */
-    @Deprecated
-    default void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
-    {
         denyViewQuery();
     }
 
@@ -159,24 +144,6 @@ public interface SystemAccessControl
      * will not be called with the current user in the set.
      */
     default Collection<Identity> filterViewQueryOwnedBy(SystemSecurityContext context, Collection<Identity> queryOwners)
-    {
-        Set<String> ownerUsers = queryOwners.stream()
-                .map(Identity::getUser)
-                .collect(Collectors.toSet());
-        Set<String> allowedUsers = filterViewQueryOwnedBy(context, ownerUsers);
-        return queryOwners.stream()
-                .filter(owner -> allowedUsers.contains(owner.getUser()))
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Filter the list of users to those the identity view query owned by the user.  The method
-     * will not be called with the current user in the set.
-     *
-     * @deprecated Implement {@link #filterViewQueryOwnedBy(SystemSecurityContext, Collection)} instead.
-     */
-    @Deprecated
-    default Set<String> filterViewQueryOwnedBy(SystemSecurityContext context, Set<String> queryOwners)
     {
         return emptySet();
     }
@@ -188,19 +155,6 @@ public interface SystemAccessControl
      * @throws AccessDeniedException if not allowed
      */
     default void checkCanKillQueryOwnedBy(SystemSecurityContext context, Identity queryOwner)
-    {
-        checkCanKillQueryOwnedBy(context, queryOwner.getUser());
-    }
-
-    /**
-     * Checks if identity can kill a query owned by the specified user.  The method
-     * will not be called when the current user is the query owner.
-     *
-     * @throws AccessDeniedException if not allowed
-     * @deprecated Implement {@link #checkCanKillQueryOwnedBy(SystemSecurityContext, Identity)} instead.
-     */
-    @Deprecated
-    default void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
     {
         denyKillQuery();
     }
@@ -815,16 +769,6 @@ public interface SystemAccessControl
     }
 
     /**
-     * Check if identity is allowed to show role authorization descriptors (i.e. RoleGrants).
-     *
-     * @throws AccessDeniedException if not allowed
-     */
-    default void checkCanShowRoleAuthorizationDescriptors(SystemSecurityContext context)
-    {
-        denyShowRoleAuthorizationDescriptors();
-    }
-
-    /**
      * Check if identity is allowed to show current roles.
      *
      * @throws AccessDeniedException if not allowed
@@ -906,18 +850,7 @@ public interface SystemAccessControl
      */
     default Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
-        List<ViewExpression> masks = getColumnMasks(context, tableName, columnName, type);
-        if (masks.size() > 1) {
-            throw new UnsupportedOperationException("Multiple masks on a single column are no longer supported");
-        }
-
-        return masks.stream().findFirst();
-    }
-
-    @Deprecated
-    default List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
-    {
-        return List.of();
+        return Optional.empty();
     }
 
     /**

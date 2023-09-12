@@ -1,56 +1,55 @@
-Case insensitive matching
-"""""""""""""""""""""""""
+### Case insensitive matching
 
-When ``case-insensitive-name-matching`` is set to ``true``, Trino
+When `case-insensitive-name-matching` is set to `true`, Trino
 is able to query non-lowercase schemas and tables by maintaining a mapping of
 the lowercase name to the actual name in the remote system. However, if two
 schemas and/or tables have names that differ only in case (such as "customers"
 and "Customers") then Trino fails to query them due to ambiguity.
 
-In these cases, use the ``case-insensitive-name-matching.config-file`` catalog
+In these cases, use the `case-insensitive-name-matching.config-file` catalog
 configuration property to specify a configuration file that maps these remote
 schemas/tables to their respective Trino schemas/tables:
 
-.. code-block:: json
+```json
+{
+  "schemas": [
+    {
+      "remoteSchema": "CaseSensitiveName",
+      "mapping": "case_insensitive_1"
+    },
+    {
+      "remoteSchema": "cASEsENSITIVEnAME",
+      "mapping": "case_insensitive_2"
+    }],
+  "tables": [
+    {
+      "remoteSchema": "CaseSensitiveName",
+      "remoteTable": "tablex",
+      "mapping": "table_1"
+    },
+    {
+      "remoteSchema": "CaseSensitiveName",
+      "remoteTable": "TABLEX",
+      "mapping": "table_2"
+    }]
+}
+```
 
-  {
-    "schemas": [
-      {
-        "remoteSchema": "CaseSensitiveName",
-        "mapping": "case_insensitive_1"
-      },
-      {
-        "remoteSchema": "cASEsENSITIVEnAME",
-        "mapping": "case_insensitive_2"
-      }],
-    "tables": [
-      {
-        "remoteSchema": "CaseSensitiveName",
-        "remoteTable": "tablex",
-        "mapping": "table_1"
-      },
-      {
-        "remoteSchema": "CaseSensitiveName",
-        "remoteTable": "TABLEX",
-        "mapping": "table_2"
-      }]
-  }
-
-Queries against one of the tables or schemes defined in the ``mapping``
+Queries against one of the tables or schemes defined in the `mapping`
 attributes are run against the corresponding remote entity. For example, a query
-against tables in the ``case_insensitive_1`` schema is forwarded to the
-CaseSensitiveName schema and a query against ``case_insensitive_2`` is forwarded
-to the ``cASEsENSITIVEnAME`` schema.
+against tables in the `case_insensitive_1` schema is forwarded to the
+CaseSensitiveName schema and a query against `case_insensitive_2` is forwarded
+to the `cASEsENSITIVEnAME` schema.
 
-At the table mapping level, a query on ``case_insensitive_1.table_1`` as
-configured above is forwarded to ``CaseSensitiveName.tablex``, and a query on
-``case_insensitive_1.table_2`` is forwarded to ``CaseSensitiveName.TABLEX``.
+At the table mapping level, a query on `case_insensitive_1.table_1` as
+configured above is forwarded to `CaseSensitiveName.tablex`, and a query on
+`case_insensitive_1.table_2` is forwarded to `CaseSensitiveName.TABLEX`.
 
 By default, when a change is made to the mapping configuration file, Trino must
 be restarted to load the changes. Optionally, you can set the
-``case-insensitive-name-mapping.refresh-period`` to have Trino refresh the
+`case-insensitive-name-mapping.refresh-period` to have Trino refresh the
 properties without requiring a restart:
 
-.. code-block:: properties
-
-  case-insensitive-name-mapping.refresh-period=30s
+```properties
+case-insensitive-name-mapping.refresh-period=30s
+```

@@ -70,7 +70,7 @@ public class TestKdbTreeCasts
                 .hasType(VARCHAR)
                 .isEqualTo("KdbTree");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("typeof", "cast('' AS KdbTree)").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("typeof", "cast('' AS KdbTree)")::evaluate)
                 .hasMessage("Invalid JSON string for KDB tree")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
     }

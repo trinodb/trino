@@ -16,21 +16,14 @@ package io.trino.operator.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.PartitionFunction;
+import io.trino.operator.output.SkewedPartitionRebalancer;
 import io.trino.spi.Page;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.longs.Long2IntMap;
-import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
-import it.unimi.dsi.fastutil.longs.Long2LongMap;
-import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import static io.trino.operator.exchange.UniformPartitionRebalancer.WriterPartitionId;
-import static io.trino.operator.exchange.UniformPartitionRebalancer.WriterPartitionId.serialize;
 import static java.util.Arrays.fill;
 import static java.util.Objects.requireNonNull;
 
@@ -42,23 +35,12 @@ public class ScaleWriterPartitioningExchanger
     private final long maxBufferedBytes;
     private final Function<Page, Page> partitionedPagePreparer;
     private final PartitionFunction partitionFunction;
-    private final UniformPartitionRebalancer partitionRebalancer;
+    private final SkewedPartitionRebalancer partitionRebalancer;
 
     private final IntArrayList[] writerAssignments;
     private final int[] partitionRowCounts;
     private final int[] partitionWriterIds;
     private final int[] partitionWriterIndexes;
-
-    private final IntArrayList usedPartitions = new IntArrayList();
-
-    // Use Long2IntMap instead of Map<WriterPartitionId, Integer> which helps to save memory in the worst case scenario.
-    // Here first 32 bit of long key contains writerId whereas last 32 bit contains partitionId.
-    private final Long2IntMap pageWriterPartitionRowCounts = new Long2IntOpenHashMap();
-
-    // Use Long2LongMap instead of Map<WriterPartitionId, Long> which helps to save memory in the worst case scenario.
-    // Here first 32 bit of long key contains writerId whereas last 32 bit contains partitionId.
-    @GuardedBy("this")
-    private final Long2LongMap writerPartitionRowCounts = new Long2LongOpenHashMap();
 
     public ScaleWriterPartitioningExchanger(
             List<Consumer<Page>> buffers,
@@ -67,7 +49,7 @@ public class ScaleWriterPartitioningExchanger
             Function<Page, Page> partitionedPagePreparer,
             PartitionFunction partitionFunction,
             int partitionCount,
-            UniformPartitionRebalancer partitionRebalancer)
+            SkewedPartitionRebalancer partitionRebalancer)
     {
         this.buffers = requireNonNull(buffers, "buffers is null");
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
@@ -96,7 +78,7 @@ public class ScaleWriterPartitioningExchanger
     {
         // Scale up writers when current buffer memory utilization is more than 50% of the maximum
         if (memoryManager.getBufferedBytes() > maxBufferedBytes * 0.5) {
-            partitionRebalancer.rebalancePartitions();
+            partitionRebalancer.rebalance();
         }
 
         Page partitionPage = partitionedPagePreparer.apply(page);
@@ -115,26 +97,16 @@ public class ScaleWriterPartitioningExchanger
             if (writerId == -1) {
                 writerId = getNextWriterId(partitionId);
                 partitionWriterIds[partitionId] = writerId;
-                usedPartitions.add(partitionId);
             }
             writerAssignments[writerId].add(position);
         }
 
-        for (int partitionId : usedPartitions) {
-            int writerId = partitionWriterIds[partitionId];
-            pageWriterPartitionRowCounts.put(serialize(new WriterPartitionId(writerId, partitionId)), partitionRowCounts[partitionId]);
-
-            // Reset the value of partition row count and writer id for the next page processing cycle
+        for (int partitionId = 0; partitionId < partitionRowCounts.length; partitionId++) {
+            partitionRebalancer.addPartitionRowCount(partitionId, partitionRowCounts[partitionId]);
+            // Reset the value of partition row count
             partitionRowCounts[partitionId] = 0;
             partitionWriterIds[partitionId] = -1;
         }
-
-        // Update partitions row count state which will help with scaling partitions across writers
-        updatePartitionRowCounts(pageWriterPartitionRowCounts);
-
-        // Reset pageWriterPartitionRowCounts and usedPartitions for the next page processing cycle
-        pageWriterPartitionRowCounts.clear();
-        usedPartitions.clear();
 
         // build a page for each writer
         for (int bucket = 0; bucket < writerAssignments.length; bucket++) {
@@ -168,27 +140,16 @@ public class ScaleWriterPartitioningExchanger
         return memoryManager.getNotFullFuture();
     }
 
-    public synchronized Long2LongMap getAndResetPartitionRowCounts()
-    {
-        Long2LongMap result = new Long2LongOpenHashMap(writerPartitionRowCounts);
-        writerPartitionRowCounts.clear();
-        return result;
-    }
-
-    private synchronized void updatePartitionRowCounts(Long2IntMap pagePartitionRowCounts)
-    {
-        pagePartitionRowCounts.forEach((writerPartitionId, rowCount) ->
-                writerPartitionRowCounts.merge(writerPartitionId, rowCount, Long::sum));
-    }
-
     private int getNextWriterId(int partitionId)
     {
-        return partitionRebalancer.getWriterId(partitionId, partitionWriterIndexes[partitionId]++);
+        return partitionRebalancer.getTaskId(partitionId, partitionWriterIndexes[partitionId]++);
     }
 
     private void sendPageToPartition(Consumer<Page> buffer, Page pageSplit)
     {
-        memoryManager.updateMemoryUsage(pageSplit.getRetainedSizeInBytes());
+        long retainedSizeInBytes = pageSplit.getRetainedSizeInBytes();
+        partitionRebalancer.addDataProcessed(retainedSizeInBytes);
+        memoryManager.updateMemoryUsage(retainedSizeInBytes);
         buffer.accept(pageSplit);
     }
 }

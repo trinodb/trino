@@ -33,6 +33,7 @@ public class JdbcWriteSessionProperties
 {
     public static final String WRITE_BATCH_SIZE = "write_batch_size";
     public static final String NON_TRANSACTIONAL_INSERT = "non_transactional_insert";
+    public static final String WRITE_PARALLELISM = "write_parallelism";
 
     private final List<PropertyMetadata<?>> properties;
 
@@ -51,6 +52,11 @@ public class JdbcWriteSessionProperties
                         "Do not use temporary table on insert to table",
                         writeConfig.isNonTransactionalInsert(),
                         false))
+                .add(integerProperty(
+                        WRITE_PARALLELISM,
+                        "Maximum number of parallel write tasks",
+                        writeConfig.getWriteParallelism(),
+                        false))
                 .build();
     }
 
@@ -63,6 +69,11 @@ public class JdbcWriteSessionProperties
     public static int getWriteBatchSize(ConnectorSession session)
     {
         return session.getProperty(WRITE_BATCH_SIZE, Integer.class);
+    }
+
+    public static int getWriteParallelism(ConnectorSession session)
+    {
+        return session.getProperty(WRITE_PARALLELISM, Integer.class);
     }
 
     public static boolean isNonTransactionalInsert(ConnectorSession session)

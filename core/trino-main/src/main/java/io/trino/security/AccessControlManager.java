@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.metadata.QualifiedObjectName;
@@ -43,6 +45,7 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemAccessControlFactory;
+import io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext;
 import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
@@ -88,6 +91,7 @@ public class AccessControlManager
     private final TransactionManager transactionManager;
     private final EventListenerManager eventListenerManager;
     private final List<File> configFiles;
+    private final OpenTelemetry openTelemetry;
     private final String defaultAccessControlName;
     private final Map<String, SystemAccessControlFactory> systemAccessControlFactories = new ConcurrentHashMap<>();
     private final AtomicReference<CatalogServiceProvider<Optional<ConnectorAccessControl>>> connectorAccessControlProvider = new AtomicReference<>();
@@ -102,11 +106,13 @@ public class AccessControlManager
             TransactionManager transactionManager,
             EventListenerManager eventListenerManager,
             AccessControlConfig config,
+            OpenTelemetry openTelemetry,
             @DefaultSystemAccessControlName String defaultAccessControlName)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.configFiles = ImmutableList.copyOf(config.getAccessControlFiles());
+        this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.defaultAccessControlName = requireNonNull(defaultAccessControlName, "defaultAccessControl is null");
         addSystemAccessControlFactory(new DefaultSystemAccessControl.Factory());
         addSystemAccessControlFactory(new AllowAllSystemAccessControl.Factory());
@@ -178,7 +184,7 @@ public class AccessControlManager
 
         SystemAccessControl systemAccessControl;
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            systemAccessControl = factory.create(ImmutableMap.copyOf(properties));
+            systemAccessControl = factory.create(ImmutableMap.copyOf(properties), createContext(name));
         }
 
         log.info("-- Loaded system access control %s --", name);
@@ -196,7 +202,7 @@ public class AccessControlManager
 
         SystemAccessControl systemAccessControl;
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            systemAccessControl = factory.create(ImmutableMap.copyOf(properties));
+            systemAccessControl = factory.create(ImmutableMap.copyOf(properties), createContext(name));
         }
 
         systemAccessControl.getEventListeners()
@@ -205,14 +211,24 @@ public class AccessControlManager
         setSystemAccessControls(ImmutableList.of(systemAccessControl));
     }
 
-    @VisibleForTesting
-    public void addSystemAccessControl(SystemAccessControl systemAccessControl)
+    private SystemAccessControlContext createContext(String systemAccessControlName)
     {
-        systemAccessControls.updateAndGet(currentControls ->
-                ImmutableList.<SystemAccessControl>builder()
-                        .addAll(currentControls)
-                        .add(systemAccessControl)
-                        .build());
+        return new SystemAccessControlContext()
+        {
+            private final Tracer tracer = openTelemetry.getTracer("trino.system-access-control." + systemAccessControlName);
+
+            @Override
+            public OpenTelemetry getOpenTelemetry()
+            {
+                return openTelemetry;
+            }
+
+            @Override
+            public Tracer getTracer()
+            {
+                return tracer;
+            }
+        };
     }
 
     @VisibleForTesting
@@ -275,6 +291,10 @@ public class AccessControlManager
     @Override
     public Collection<Identity> filterQueriesOwnedBy(Identity identity, Collection<Identity> queryOwners)
     {
+        if (queryOwners.isEmpty()) {
+            // Do not call plugin-provided implementation unnecessarily.
+            return ImmutableSet.of();
+        }
         for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
             queryOwners = systemAccessControl.filterViewQueryOwnedBy(new SystemSecurityContext(identity, Optional.empty()), queryOwners);
         }
@@ -313,6 +333,11 @@ public class AccessControlManager
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(catalogs, "catalogs is null");
+
+        if (catalogs.isEmpty()) {
+            // Do not call plugin-provided implementation unnecessarily.
+            return ImmutableSet.of();
+        }
 
         for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
             catalogs = systemAccessControl.filterCatalogs(securityContext.toSystemSecurityContext(), catalogs);
@@ -391,6 +416,11 @@ public class AccessControlManager
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(schemaNames, "schemaNames is null");
+
+        if (schemaNames.isEmpty()) {
+            // Do not call plugin-provided implementation unnecessarily.
+            return ImmutableSet.of();
+        }
 
         if (filterCatalogs(securityContext, ImmutableSet.of(catalogName)).isEmpty()) {
             return ImmutableSet.of();
@@ -546,6 +576,11 @@ public class AccessControlManager
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(tableNames, "tableNames is null");
 
+        if (tableNames.isEmpty()) {
+            // Do not call plugin-provided implementation unnecessarily.
+            return ImmutableSet.of();
+        }
+
         if (filterCatalogs(securityContext, ImmutableSet.of(catalogName)).isEmpty()) {
             return ImmutableSet.of();
         }
@@ -579,6 +614,11 @@ public class AccessControlManager
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(table, "tableName is null");
+
+        if (columns.isEmpty()) {
+            // Do not call plugin-provided implementation unnecessarily.
+            return ImmutableSet.of();
+        }
 
         if (filterTables(securityContext, table.getCatalogName(), ImmutableSet.of(table.getSchemaTableName())).isEmpty()) {
             return ImmutableSet.of();
@@ -1111,22 +1151,6 @@ public class AccessControlManager
 
         checkCanAccessCatalog(securityContext, catalogName);
         catalogAuthorizationCheck(catalogName, securityContext, (control, context) -> control.checkCanSetRole(context, role));
-    }
-
-    @Override
-    public void checkCanShowRoleAuthorizationDescriptors(SecurityContext securityContext, Optional<String> catalogName)
-    {
-        requireNonNull(securityContext, "securityContext is null");
-        requireNonNull(catalogName, "catalogName is null");
-
-        if (catalogName.isPresent()) {
-            checkCanAccessCatalog(securityContext, catalogName.get());
-            checkCatalogRoles(securityContext, catalogName.get());
-            catalogAuthorizationCheck(catalogName.get(), securityContext, ConnectorAccessControl::checkCanShowRoleAuthorizationDescriptors);
-        }
-        else {
-            systemAuthorizationCheck(control -> control.checkCanShowRoleAuthorizationDescriptors(securityContext.toSystemSecurityContext()));
-        }
     }
 
     @Override

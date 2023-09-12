@@ -15,6 +15,7 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.spi.Node;
@@ -22,8 +23,6 @@ import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.sql.planner.MergePartitioningHandle;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.PartitioningHandle;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -61,6 +60,12 @@ public class FaultTolerantPartitioningSchemeFactory
             result = create(handle, partitionCount);
             cache.put(handle, result);
         }
+        else if (partitionCount.isPresent()) {
+            // With runtime adaptive partitioning, it's no longer guaranteed that the same handle will always map to
+            // the same partition count. Therefore, use the supplied `partitionCount` as the source of truth.
+            result = result.withPartitionCount(partitionCount.get());
+        }
+
         return result;
     }
 

@@ -14,12 +14,12 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
-import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
@@ -28,28 +28,44 @@ import io.trino.spi.type.TypeSignature;
 import java.lang.invoke.MethodHandle;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.SUBSCRIPT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.util.Reflection.methodHandle;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
+import static java.lang.invoke.MethodHandles.collectArguments;
+import static java.lang.invoke.MethodHandles.empty;
+import static java.lang.invoke.MethodHandles.explicitCastArguments;
+import static java.lang.invoke.MethodHandles.guardWithTest;
+import static java.lang.invoke.MethodHandles.lookup;
+import static java.lang.invoke.MethodHandles.permuteArguments;
+import static java.lang.invoke.MethodType.methodType;
 
 public class ArraySubscriptOperator
         extends SqlScalarFunction
 {
     public static final ArraySubscriptOperator ARRAY_SUBSCRIPT = new ArraySubscriptOperator();
 
-    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(ArraySubscriptOperator.class, "booleanSubscript", Type.class, Block.class, long.class);
-    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(ArraySubscriptOperator.class, "longSubscript", Type.class, Block.class, long.class);
-    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(ArraySubscriptOperator.class, "doubleSubscript", Type.class, Block.class, long.class);
-    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(ArraySubscriptOperator.class, "sliceSubscript", Type.class, Block.class, long.class);
-    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(ArraySubscriptOperator.class, "objectSubscript", Type.class, Block.class, long.class);
+    private static final MethodHandle GET_POSITION;
+    private static final MethodHandle IS_POSITION_NULL;
 
-    protected ArraySubscriptOperator()
+    static {
+        try {
+            GET_POSITION = lookup().findStatic(ArraySubscriptOperator.class, "getPosition", methodType(int.class, Block.class, long.class));
+            IS_POSITION_NULL = lookup().findVirtual(Block.class, "isNull", methodType(boolean.class, int.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
+    private ArraySubscriptOperator()
     {
         super(FunctionMetadata.scalarBuilder()
                 .signature(Signature.builder()
@@ -64,29 +80,31 @@ public class ArraySubscriptOperator
     }
 
     @Override
-    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+    public FunctionDependencyDeclaration getFunctionDependencies()
+    {
+        return FunctionDependencyDeclaration.builder()
+                .addOperatorSignature(READ_VALUE, ImmutableList.of(new TypeSignature("E")))
+                .build();
+    }
+
+    @Override
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         Type elementType = boundSignature.getReturnType();
+        MethodHandle methodHandle = functionDependencies.getOperatorImplementation(
+                READ_VALUE,
+                ImmutableList.of(elementType),
+                simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL))
+                .getMethodHandle();
+        Class<?> expectedReturnType = methodType(elementType.getJavaType()).wrap().returnType();
+        methodHandle = explicitCastArguments(methodHandle, methodHandle.type().changeReturnType(expectedReturnType));
+        methodHandle = guardWithTest(
+                IS_POSITION_NULL,
+                empty(methodHandle.type()),
+                methodHandle);
+        methodHandle = collectArguments(methodHandle, 1, GET_POSITION);
+        methodHandle = permuteArguments(methodHandle, methodHandle.type().dropParameterTypes(1, 2), 0, 0, 1);
 
-        MethodHandle methodHandle;
-        if (elementType.getJavaType() == boolean.class) {
-            methodHandle = METHOD_HANDLE_BOOLEAN;
-        }
-        else if (elementType.getJavaType() == long.class) {
-            methodHandle = METHOD_HANDLE_LONG;
-        }
-        else if (elementType.getJavaType() == double.class) {
-            methodHandle = METHOD_HANDLE_DOUBLE;
-        }
-        else if (elementType.getJavaType() == Slice.class) {
-            methodHandle = METHOD_HANDLE_SLICE;
-        }
-        else {
-            methodHandle = METHOD_HANDLE_OBJECT.asType(
-                    METHOD_HANDLE_OBJECT.type().changeReturnType(elementType.getJavaType()));
-        }
-        methodHandle = methodHandle.bindTo(elementType);
-        requireNonNull(methodHandle, "methodHandle is null");
         return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 NULLABLE_RETURN,
@@ -94,64 +112,14 @@ public class ArraySubscriptOperator
                 methodHandle);
     }
 
-    @UsedByGeneratedCode
-    public static Long longSubscript(Type elementType, Block array, long index)
+    private static int getPosition(Block array, long index)
     {
-        checkIndex(array, index);
-        int position = toIntExact(index - 1);
-        if (array.isNull(position)) {
-            return null;
+        checkArrayIndex(index);
+        if (index > array.getPositionCount()) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Array subscript must be less than or equal to array length: %s > %s", index, array.getPositionCount()));
         }
-
-        return elementType.getLong(array, position);
-    }
-
-    @UsedByGeneratedCode
-    public static Boolean booleanSubscript(Type elementType, Block array, long index)
-    {
-        checkIndex(array, index);
         int position = toIntExact(index - 1);
-        if (array.isNull(position)) {
-            return null;
-        }
-
-        return elementType.getBoolean(array, position);
-    }
-
-    @UsedByGeneratedCode
-    public static Double doubleSubscript(Type elementType, Block array, long index)
-    {
-        checkIndex(array, index);
-        int position = toIntExact(index - 1);
-        if (array.isNull(position)) {
-            return null;
-        }
-
-        return elementType.getDouble(array, position);
-    }
-
-    @UsedByGeneratedCode
-    public static Slice sliceSubscript(Type elementType, Block array, long index)
-    {
-        checkIndex(array, index);
-        int position = toIntExact(index - 1);
-        if (array.isNull(position)) {
-            return null;
-        }
-
-        return elementType.getSlice(array, position);
-    }
-
-    @UsedByGeneratedCode
-    public static Object objectSubscript(Type elementType, Block array, long index)
-    {
-        checkIndex(array, index);
-        int position = toIntExact(index - 1);
-        if (array.isNull(position)) {
-            return null;
-        }
-
-        return elementType.getObject(array, position);
+        return position;
     }
 
     public static void checkArrayIndex(long index)
@@ -161,14 +129,6 @@ public class ArraySubscriptOperator
         }
         if (index < 0) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Array subscript is negative: " + index);
-        }
-    }
-
-    public static void checkIndex(Block array, long index)
-    {
-        checkArrayIndex(index);
-        if (index > array.getPositionCount()) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Array subscript must be less than or equal to array length: %s > %s", index, array.getPositionCount()));
         }
     }
 }

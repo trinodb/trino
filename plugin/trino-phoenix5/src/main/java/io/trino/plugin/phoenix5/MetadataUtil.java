@@ -13,9 +13,8 @@
  */
 package io.trino.plugin.phoenix5;
 
+import jakarta.annotation.Nullable;
 import org.apache.phoenix.util.SchemaUtil;
-
-import javax.annotation.Nullable;
 
 import static io.trino.plugin.phoenix5.PhoenixMetadata.DEFAULT_SCHEMA;
 
