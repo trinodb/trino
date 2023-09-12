@@ -28,7 +28,7 @@ import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerSessio
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSqlServerParallelQueries
         extends AbstractTestQueryFramework
