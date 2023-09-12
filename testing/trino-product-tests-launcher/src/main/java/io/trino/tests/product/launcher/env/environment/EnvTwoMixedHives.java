@@ -27,6 +27,7 @@ import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
+import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
 import static io.trino.tests.product.launcher.env.common.Hadoop.createHadoopContainer;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
@@ -83,10 +84,16 @@ public final class EnvTwoMixedHives
                         forHostPath(configDir.getPath("hadoop-master-2/core-site.xml")),
                         "/etc/hadoop/conf/core-site.xml")
                 .withCopyFileToContainer(
+                        forHostPath(configDir.getPath("hadoop-master-2/hdfs-site.xml")),
+                        "/etc/hadoop/conf/hdfs-site.xml")
+                .withCopyFileToContainer(
                         forHostPath(configDir.getPath("hadoop-master-2/mapred-site.xml")),
                         "/etc/hadoop/conf/mapred-site.xml")
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath("hadoop-master-2/yarn-site.xml")),
-                        "/etc/hadoop/conf/yarn-site.xml");
+                        "/etc/hadoop/conf/yarn-site.xml")
+                .withCopyFileToContainer(
+                        forHostPath(configDir.getPath("hadoop-master-2/update-location.sh")),
+                        CONTAINER_HADOOP_INIT_D + "update-location.sh");
     }
 }
