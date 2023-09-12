@@ -102,6 +102,7 @@ import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TypeManager;
@@ -268,6 +269,9 @@ import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.TimeType.TIME_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.UuidType.UUID;
 import static java.lang.Math.floorDiv;
@@ -827,6 +831,21 @@ public class IcebergMetadata
         Schema schema = schemaFromMetadata(tableMetadata.getColumns());
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
         return getWriteLayout(schema, partitionSpec, false);
+    }
+
+    @Override
+    public Optional<io.trino.spi.type.Type> getSupportedType(ConnectorSession session, io.trino.spi.type.Type type)
+    {
+        if (type instanceof TimestampWithTimeZoneType) {
+            return Optional.of(TIMESTAMP_TZ_MICROS);
+        }
+        if (type instanceof TimestampType) {
+            return Optional.of(TIMESTAMP_MICROS);
+        }
+        if (type instanceof TimeType) {
+            return Optional.of(TIME_MICROS);
+        }
+        return Optional.empty();
     }
 
     @Override
