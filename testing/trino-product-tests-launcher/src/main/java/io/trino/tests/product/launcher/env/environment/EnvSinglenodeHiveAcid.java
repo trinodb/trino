@@ -23,9 +23,7 @@ import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -49,12 +47,6 @@ public class EnvSinglenodeHiveAcid
             dockerContainer.withCopyFileToContainer(
                     forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-hive-acid/apply-hive-config.sh")),
                     CONTAINER_HADOOP_INIT_D + "apply-hive-config.sh");
-        });
-
-        builder.configureContainer(TESTS, dockerContainer -> {
-            dockerContainer.withCopyFileToContainer(
-                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-hive3.yaml")),
-                    CONTAINER_TEMPTO_PROFILE_CONFIG);
         });
     }
 }

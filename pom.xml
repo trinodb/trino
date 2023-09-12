@@ -189,7 +189,7 @@
         <dep.jmh.version>1.37</dep.jmh.version>
         <dep.junit.version>5.10.0</dep.junit.version>
 
-        <dep.docker.images.version>81</dep.docker.images.version>
+        <dep.docker.images.version>86</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:
