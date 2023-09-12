@@ -35,7 +35,7 @@ import static io.trino.tests.product.TestGroups.TRINO_JDBC;
 import static io.trino.tests.product.TpchTableResults.PRESTO_NATION_RESULT;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestLdapTrinoJdbc
         extends BaseLdapJdbcTest

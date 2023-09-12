@@ -18,7 +18,7 @@ import io.trino.plugin.deltalake.expression.ArithmeticBinaryExpression.Operator;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.deltalake.expression.SparkExpressionParser.createExpression;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestSparkExpressionParser
