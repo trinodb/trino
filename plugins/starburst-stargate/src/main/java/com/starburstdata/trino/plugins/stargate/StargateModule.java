@@ -10,6 +10,7 @@
 package com.starburstdata.trino.plugins.stargate;
 
 import com.google.inject.Binder;
+import com.google.inject.BindingAnnotation;
 import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -25,6 +26,11 @@ import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.function.table.ConnectorTableFunction;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -66,11 +72,17 @@ public class StargateModule
         @SuppressWarnings("TrinoExperimentalSpi")
         Class<ConnectorTableFunction> clazz = ConnectorTableFunction.class;
         newSetBinder(binder, clazz).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+
+        // Using optional binder for overriding ConnectionFactory in Galaxy
+        newOptionalBinder(binder, Key.get(ConnectionFactory.class, ForBaseJdbc.class))
+                .setDefault()
+                .to(Key.get(ConnectionFactory.class, DefaultStargateBinding.class))
+                .in(Scopes.SINGLETON);
     }
 
     @Provides
     @Singleton
-    @ForBaseJdbc
+    @DefaultStargateBinding
     public ConnectionFactory getConnectionFactory(@TransportConnectionFactory ConnectionFactory delegate, @EnableWrites boolean enableWrites)
     {
         requireNonNull(delegate, "delegate is null");
@@ -100,4 +112,9 @@ public class StargateModule
             binder.bind(StargateSslConfig.class).toInstance(new StargateSslConfig());
         }
     }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
+    @BindingAnnotation
+    public @interface DefaultStargateBinding {}
 }
