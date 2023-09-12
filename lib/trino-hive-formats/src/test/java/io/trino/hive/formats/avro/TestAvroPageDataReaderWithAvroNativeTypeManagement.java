@@ -56,7 +56,7 @@ import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.TIME_
 import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.UUID_SCHEMA;
 import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.padBigEndianToSize;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAvroPageDataReaderWithAvroNativeTypeManagement
         extends TestAvroBase
