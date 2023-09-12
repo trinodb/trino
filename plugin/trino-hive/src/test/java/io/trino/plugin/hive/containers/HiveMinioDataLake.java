@@ -51,7 +51,7 @@ public class HiveMinioDataLake
 
     public HiveMinioDataLake(String bucketName)
     {
-        this(bucketName, HiveHadoop.DEFAULT_IMAGE);
+        this(bucketName, HiveHadoop.HIVE3_IMAGE);
     }
 
     public HiveMinioDataLake(String bucketName, String hiveHadoopImage)
