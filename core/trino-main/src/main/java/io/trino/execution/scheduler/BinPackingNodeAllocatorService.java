@@ -512,7 +512,7 @@ public class BinPackingNodeAllocatorService
                     continue;
                 }
                 long nodeReservedMemory = preReservedMemory.getOrDefault(node.getNodeIdentifier(), 0L);
-                nodesRemainingMemory.put(node.getNodeIdentifier(), memoryPoolInfo.getMaxBytes() - nodeReservedMemory);
+                nodesRemainingMemory.put(node.getNodeIdentifier(), max(memoryPoolInfo.getMaxBytes() - nodeReservedMemory, 0L));
             }
 
             nodesRemainingMemoryRuntimeAdjusted = new HashMap<>();
@@ -540,7 +540,7 @@ public class BinPackingNodeAllocatorService
                 // if globally reported memory usage of node is greater than computed one lets use that.
                 // it can be greater if there are tasks executed on cluster which do not have task retries enabled.
                 nodeUsedMemoryRuntimeAdjusted = max(nodeUsedMemoryRuntimeAdjusted, memoryPoolInfo.getReservedBytes());
-                nodesRemainingMemoryRuntimeAdjusted.put(node.getNodeIdentifier(), memoryPoolInfo.getMaxBytes() - nodeUsedMemoryRuntimeAdjusted);
+                nodesRemainingMemoryRuntimeAdjusted.put(node.getNodeIdentifier(), max(memoryPoolInfo.getMaxBytes() - nodeUsedMemoryRuntimeAdjusted, 0L));
             }
         }
 
@@ -610,10 +610,10 @@ public class BinPackingNodeAllocatorService
         {
             nodesRemainingMemoryRuntimeAdjusted.compute(
                     nodeIdentifier,
-                    (key, free) -> free - memoryLease);
+                    (key, free) -> max(free - memoryLease, 0));
             nodesRemainingMemory.compute(
                     nodeIdentifier,
-                    (key, free) -> free - memoryLease);
+                    (key, free) -> max(free - memoryLease, 0));
         }
 
         private boolean isNodeEmpty(String nodeIdentifier)
