@@ -14,10 +14,14 @@
 package io.trino.faulttolerant;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.MoreCollectors;
+import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
+import io.trino.execution.QueryState;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.memory.MemoryQueryRunner;
+import io.trino.server.BasicQueryInfo;
 import io.trino.testing.AbstractDistributedEngineOnlyQueries;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
@@ -25,8 +29,14 @@ import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEventually;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDistributedFaultTolerantEngineOnlyQueries
         extends AbstractDistributedEngineOnlyQueries
@@ -96,5 +106,67 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
                         """.formatted(tableName, tableName, tableName, tableName));
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(timeOut = 30_000)
+    public void testMetadataOnlyQueries()
+            throws InterruptedException
+    {
+        // enforce single task uses whole node
+        Session highTaskMemorySession = Session.builder(getSession())
+                .setSystemProperty("fault_tolerant_execution_coordinator_task_memory", "500GB")
+                .setSystemProperty("fault_tolerant_execution_task_memory", "500GB")
+                .build();
+
+        ExecutorService backgroundExecutor = newCachedThreadPool();
+        try {
+            String longQuery = "select count(*) long_query_count FROM lineitem l1 cross join lineitem l2 cross join lineitem l3 where l1.orderkey * l2.orderkey * l3.orderkey = 1";
+            backgroundExecutor.submit(() -> {
+                query(highTaskMemorySession, longQuery);
+            });
+            assertEventually(() -> queryIsInState(longQuery, QueryState.RUNNING));
+
+            assertThat(query("DESCRIBE lineitem")).succeeds();
+            assertThat(query("SHOW TABLES")).succeeds();
+            assertThat(query("SHOW TABLES LIKE 'line%'")).succeeds();
+            assertThat(query("SHOW SCHEMAS")).succeeds();
+            assertThat(query("SHOW SCHEMAS LIKE 'def%'")).succeeds();
+            assertThat(query("SHOW CATALOGS")).succeeds();
+            assertThat(query("SHOW CATALOGS LIKE 'mem%'")).succeeds();
+            assertThat(query("SHOW FUNCTIONS")).succeeds();
+            assertThat(query("SHOW FUNCTIONS LIKE 'split%'")).succeeds();
+            assertThat(query("SHOW COLUMNS FROM lineitem")).succeeds();
+            assertThat(query("SHOW SESSION")).succeeds();
+            assertThat(query("SELECT count(*) FROM information_schema.tables")).succeeds();
+            assertThat(query("SELECT * FROM system.jdbc.tables WHERE table_schem LIKE 'def%'")).succeeds();
+
+            // check non-metadata queries still wait for resources
+            String nonMetadataQuery = "select count(*) non_metadata_query_count from nation";
+            backgroundExecutor.submit(() -> {
+                query(nonMetadataQuery);
+            });
+            assertEventually(() -> queryIsInState(nonMetadataQuery, QueryState.STARTING));
+            Thread.sleep(1000); // wait a bit longer and query should be still STARTING
+            assertThat(queryState(nonMetadataQuery).orElseThrow()).isEqualTo(QueryState.STARTING);
+
+            // long query should be still running
+            assertThat(queryState(longQuery).orElseThrow()).isEqualTo(QueryState.RUNNING);
+        }
+        finally {
+            backgroundExecutor.shutdownNow();
+        }
+    }
+
+    private Optional<QueryState> queryState(String queryText)
+    {
+        return getDistributedQueryRunner().getCoordinator().getQueryManager().getQueries().stream()
+                .filter(query -> query.getQuery().equals(queryText))
+                .collect(MoreCollectors.toOptional())
+                .map(BasicQueryInfo::getState);
+    }
+
+    private boolean queryIsInState(String queryText, QueryState queryState)
+    {
+        return queryState(queryText).map(state -> state == queryState).orElse(false);
     }
 }
