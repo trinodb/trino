@@ -48,6 +48,7 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -304,17 +305,19 @@ public class ParquetWriter
         }
 
         // update stats
-        long stripeStartOffset = outputStream.longSize();
-        List<ColumnMetaData> columns = bufferDataList.stream()
-                .map(BufferData::getMetaData)
-                .collect(toImmutableList());
-
-        long currentOffset = stripeStartOffset;
-        for (ColumnMetaData columnMetaData : columns) {
-            columnMetaData.setData_page_offset(currentOffset);
+        long currentOffset = outputStream.longSize();
+        ImmutableList.Builder<ColumnMetaData> columnMetaDataBuilder = ImmutableList.builder();
+        for (BufferData bufferData : bufferDataList) {
+            ColumnMetaData columnMetaData = bufferData.getMetaData();
+            OptionalInt dictionaryPageSize = bufferData.getDictionaryPageSize();
+            if (dictionaryPageSize.isPresent()) {
+                columnMetaData.setDictionary_page_offset(currentOffset);
+            }
+            columnMetaData.setData_page_offset(currentOffset + dictionaryPageSize.orElse(0));
+            columnMetaDataBuilder.add(columnMetaData);
             currentOffset += columnMetaData.getTotal_compressed_size();
         }
-        updateRowGroups(columns);
+        updateRowGroups(columnMetaDataBuilder.build());
 
         // flush pages
         for (BufferData bufferData : bufferDataList) {
