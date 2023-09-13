@@ -32,6 +32,7 @@ import java.util.Objects;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.worker;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_TRINO_HIVE_PROPERTIES;
@@ -87,6 +88,10 @@ public final class EnvMultinodeTlsKerberosDelegation
         builder.addConnector("iceberg", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/iceberg.properties")), CONTAINER_TRINO_ICEBERG_PROPERTIES);
 
         builder.addContainers(createTrinoWorker(worker(1)), createTrinoWorker(worker(2)));
+        builder.configureContainer(TESTS, container -> {
+            // Configures a low ticket lifetime to ensure tickets get expired during tests
+            container.withCopyFileToContainer(forHostPath(configDir.getPath("krb5_client.conf")), "/etc/krb5.conf");
+        });
         configureTempto(builder, configDir);
     }
 
