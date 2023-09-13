@@ -116,6 +116,7 @@ import static com.google.common.base.Throwables.getRootCause;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeConnectorFlavour.DISTRIBUTED;
+import static com.starburstdata.trino.plugins.snowflake.SnowflakeConnectorFlavour.JDBC;
 import static com.starburstdata.trino.plugins.snowflake.jdbc.DatabaseSchemaName.parseDatabaseSchemaName;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
@@ -443,7 +444,7 @@ public class SnowflakeClient
     public boolean isTopNGuaranteed(ConnectorSession session)
     {
         // The data returned conforms to TopN requirements, but can be returned out of order
-        return connectorFlavour != DISTRIBUTED;
+        return connectorFlavour == JDBC;
     }
 
     @Override
@@ -938,7 +939,7 @@ public class SnowflakeClient
         }
     }
 
-    private static void throwIfInvalidWarehouse(Throwable throwable)
+    public static void throwIfInvalidWarehouse(Throwable throwable)
     {
         Throwable rootCause = getRootCause(throwable);
         if (rootCause instanceof SQLException && ((SQLException) rootCause).getErrorCode() == 606) {

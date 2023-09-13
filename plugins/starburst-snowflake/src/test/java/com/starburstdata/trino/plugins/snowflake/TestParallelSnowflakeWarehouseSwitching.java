@@ -9,6 +9,9 @@
  */
 package com.starburstdata.trino.plugins.snowflake;
 
+import io.trino.Session;
+import org.testng.annotations.Test;
+
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.parallelBuilder;
 
 public class TestParallelSnowflakeWarehouseSwitching
@@ -18,5 +21,28 @@ public class TestParallelSnowflakeWarehouseSwitching
     protected SnowflakeQueryRunner.Builder createBuilder()
     {
         return parallelBuilder();
+    }
+
+    // overridden because failures in either case have same error message unlike the JDBC connector
+    @Test
+    @Override
+    public void testSwitchNotExistingWarehouse()
+    {
+        Session invalidWarehouseSession = Session.builder(getSession())
+                .setCatalogSessionProperty("snowflake", "warehouse", INVALID_WAREHOUSE)
+                .build();
+
+        String expectedMessageRegExp = "Could not query Snowflake due to invalid warehouse configuration. " +
+                "Fix configuration or select an active Snowflake warehouse with 'warehouse' catalog session property.";
+        assertQuery(invalidWarehouseSession, "SELECT * FROM current_warehouse", "VALUES (NULL)");
+
+        assertQueryFails(invalidWarehouseSession, "SELECT regionkey FROM nation WHERE name = 'ALGERIA'", expectedMessageRegExp);
+
+        // Disable statistics precalculation so that code will throw while executing statement in SnowflakeSplitManager
+        Session sessionWithoutStatisticsPrecalculation = Session.builder(invalidWarehouseSession)
+                .setSystemProperty("statistics_precalculation_for_pushdown_enabled", "false")
+                .build();
+
+        assertQueryFails(sessionWithoutStatisticsPrecalculation, "SELECT COUNT(1) FROM nation WHERE name = 'ALGERIA'", expectedMessageRegExp);
     }
 }

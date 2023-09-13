@@ -9,7 +9,10 @@
  */
 package com.starburstdata.trino.plugins.snowflake;
 
+import io.trino.sql.planner.plan.TopNNode;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
+import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
@@ -17,6 +20,7 @@ import java.util.Optional;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.parallelBuilder;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestParallelSnowflakeConnectorTest
         extends TestJdbcSnowflakeConnectorTest
@@ -33,5 +37,26 @@ public class TestParallelSnowflakeConnectorTest
                 .withConnectorProperties(Map.of("metadata.cache-ttl", "5m"))
                 .withTpchTables(REQUIRED_TPCH_TABLES)
                 .build();
+    }
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_TOPN_PUSHDOWN:
+                // TOPN is retained due to parallelism
+                return false;
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
+    }
+
+    @Test
+    public void testTopNPushdownWithBiggerDataset()
+    {
+        // LIMIT more rows than testTopNPushdown to get chunks > 1, hence making sure order is correct
+        assertThat(query("SELECT * FROM orders ORDER BY orderkey LIMIT 4000"))
+                .ordered()
+                .isNotFullyPushedDown(TopNNode.class);
     }
 }

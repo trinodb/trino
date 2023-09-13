@@ -60,9 +60,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
+import static com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeClient.throwIfInvalidWarehouse;
 import static com.starburstdata.trino.plugins.snowflake.parallel.SnowflakeArrowSplit.newChunkFileSplit;
 import static com.starburstdata.trino.plugins.snowflake.parallel.SnowflakeArrowSplit.newEncodedSplit;
-import static com.starburstdata.trino.plugins.snowflake.parallel.SnowflakeParallelSessionProperties.getFullyParallelModeEnabled;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.dynamicFilteringEnabled;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.lang.String.format;
@@ -102,11 +102,10 @@ public class SnowflakeSplitManager
         if (table instanceof JdbcProcedureHandle) {
             return jdbcSplitManager.getSplits(transaction, session, table, dynamicFilter, constraint);
         }
+        // Synthetic handles represent operations that haven't been pushed down (sort, aggregations etc.)
+        // In Snowflake Parallel the only thing "parallel" is the data transfer - each split doesn't result in its own table scan
+        // which makes it safe to generate multiple splits even for synthetic handles because exactly the same data is returned in the parallel and no-parallel paths.
         JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) table;
-        // push down synthetic table handles to JDBC code path, also sort oder can't be preserved in fully parallel mode
-        if (!getFullyParallelModeEnabled(session) && (!jdbcTableHandle.isNamedRelation() || jdbcTableHandle.getSortOrder().isPresent())) {
-            return jdbcSplitManager.getSplits(transaction, session, table, dynamicFilter, constraint);
-        }
         try (Connection connection = connectionFactory.openConnection(session)) {
             List<JdbcColumnHandle> columns = jdbcTableHandle.getColumns()
                     .map(columnSet -> columnSet.stream().map(JdbcColumnHandle.class::cast).collect(toList()))
@@ -133,6 +132,8 @@ public class SnowflakeSplitManager
             return new FixedSplitSource(parseChunkFiles(jsonResult));
         }
         catch (SFException | SQLException e) {
+            // TODO: https://starburstdata.atlassian.net/browse/SEP-6500
+            throwIfInvalidWarehouse(e);
             throw new TrinoException(JDBC_ERROR, "Couldn't get Snowflake splits", e);
         }
     }
