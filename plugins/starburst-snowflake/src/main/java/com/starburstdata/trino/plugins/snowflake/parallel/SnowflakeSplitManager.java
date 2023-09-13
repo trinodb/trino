@@ -134,7 +134,7 @@ public class SnowflakeSplitManager
         catch (SFException | SQLException e) {
             // TODO: https://starburstdata.atlassian.net/browse/SEP-6500
             throwIfInvalidWarehouse(e);
-            throw new TrinoException(JDBC_ERROR, "Couldn't get Snowflake splits", e);
+            throw new TrinoException(JDBC_ERROR, "Couldn't get Snowflake splits, %s".formatted(e.getMessage()), e);
         }
     }
 
