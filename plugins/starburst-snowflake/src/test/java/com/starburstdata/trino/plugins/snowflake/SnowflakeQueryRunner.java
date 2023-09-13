@@ -27,8 +27,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import static com.starburstdata.trino.plugins.snowflake.SnowflakePlugin.SNOWFLAKE_JDBC;
-import static com.starburstdata.trino.plugins.snowflake.SnowflakePlugin.SNOWFLAKE_PARALLEL;
+import static com.starburstdata.trino.plugins.snowflake.SnowflakeConnectorFlavour.DISTRIBUTED;
+import static com.starburstdata.trino.plugins.snowflake.SnowflakeConnectorFlavour.JDBC;
+import static com.starburstdata.trino.plugins.snowflake.SnowflakeConnectorFlavour.PARALLEL;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeServer.JDBC_URL;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeServer.PASSWORD;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeServer.ROLE;
@@ -51,7 +52,7 @@ public class SnowflakeQueryRunner
 
     public static Builder distributedBuilder()
     {
-        return new Builder(SnowflakePlugin.SNOWFLAKE_DISTRIBUTED)
+        return new Builder(DISTRIBUTED.getName())
                 .withConnectorProperties(ImmutableMap.of(
                         "snowflake.stage-schema", TEST_SCHEMA,
                         "snowflake.retry-canceled-queries", "true"));
@@ -65,12 +66,12 @@ public class SnowflakeQueryRunner
 
     public static Builder jdbcBuilder()
     {
-        return new Builder(SNOWFLAKE_JDBC);
+        return new Builder(JDBC.getName());
     }
 
     public static Builder parallelBuilder()
     {
-        return new Builder(SNOWFLAKE_PARALLEL);
+        return new Builder(PARALLEL.getName());
     }
 
     private static DistributedQueryRunner createSnowflakeQueryRunner(

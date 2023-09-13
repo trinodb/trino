@@ -19,12 +19,14 @@ import io.trino.plugin.jdbc.IdentityCacheMapping;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 
+import static com.starburstdata.trino.plugins.snowflake.SnowflakeConnectorFlavour.PARALLEL;
+
 public class SnowflakeJdbcOverrideModule
         extends SnowflakeJdbcClientModule
 {
     public SnowflakeJdbcOverrideModule()
     {
-        super(false);
+        super(PARALLEL);
     }
 
     @Override

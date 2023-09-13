@@ -17,21 +17,21 @@ import io.trino.plugin.jdbc.JdbcConnectorFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
+import static com.starburstdata.trino.plugins.snowflake.SnowflakeConnectorFlavour.DISTRIBUTED;
+import static com.starburstdata.trino.plugins.snowflake.SnowflakeConnectorFlavour.JDBC;
+import static com.starburstdata.trino.plugins.snowflake.SnowflakeConnectorFlavour.PARALLEL;
+
 public class SnowflakePlugin
         implements Plugin
 {
-    public static final String SNOWFLAKE_JDBC = "snowflake_jdbc";
-    public static final String SNOWFLAKE_DISTRIBUTED = "snowflake_distributed";
-    public static final String SNOWFLAKE_PARALLEL = "snowflake_parallel";
-
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
         return ImmutableList.of(
                 new JdbcConnectorFactory(
-                        SNOWFLAKE_JDBC,
-                        new SnowflakeJdbcClientModule(false)),
-                new SnowflakeDistributedConnectorFactory(SNOWFLAKE_DISTRIBUTED),
-                new SnowflakeParallelConnectorFactory(SNOWFLAKE_PARALLEL));
+                        JDBC.getName(),
+                        new SnowflakeJdbcClientModule(JDBC)),
+                new SnowflakeDistributedConnectorFactory(DISTRIBUTED.getName()),
+                new SnowflakeParallelConnectorFactory(PARALLEL.getName()));
     }
 }

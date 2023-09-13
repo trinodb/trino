@@ -17,6 +17,7 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.starburstdata.trino.plugins.jdbc.JdbcConnectionPoolConfig;
 import com.starburstdata.trino.plugins.snowflake.SnowflakeConfig;
+import com.starburstdata.trino.plugins.snowflake.SnowflakeConnectorFlavour;
 import com.starburstdata.trino.plugins.snowflake.SnowflakeSessionProperties;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.configuration.ConfigBinder;
@@ -53,6 +54,7 @@ import java.util.stream.Collectors;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static com.starburstdata.trino.plugins.snowflake.SnowflakeConnectorFlavour.DISTRIBUTED;
 import static com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeClient.SNOWFLAKE_MAX_LIST_EXPRESSIONS;
 import static com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeJdbcSessionProperties.WAREHOUSE;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -71,11 +73,11 @@ public class SnowflakeJdbcClientModule
 
     // TODO If any module setup is needed by the JDBC client and needs to be disabled in the distributed connector,
     //  move all shared module configuration to a separate module and remove this field.
-    private final boolean distributedConnector;
+    private final SnowflakeConnectorFlavour connectorFlavour;
 
-    public SnowflakeJdbcClientModule(boolean distributedConnector)
+    public SnowflakeJdbcClientModule(SnowflakeConnectorFlavour connectorFlavour)
     {
-        this.distributedConnector = distributedConnector;
+        this.connectorFlavour = connectorFlavour;
     }
 
     @Override
@@ -110,7 +112,7 @@ public class SnowflakeJdbcClientModule
                 .to(SingletonIdentityCacheMapping.class)
                 .in(Scopes.SINGLETON);
 
-        if (!distributedConnector) {
+        if (connectorFlavour != DISTRIBUTED) {
             // The distributed connector doesn't use JDBC for query results fetching so query passthrough doesn't work as expected
             setupTableFunctions(binder);
         }
@@ -136,7 +138,7 @@ public class SnowflakeJdbcClientModule
             IdentifierMapping identifierMapping,
             RemoteQueryModifier queryModifier)
     {
-        return new SnowflakeClient(config, snowflakeConfig, statisticsConfig, connectionFactory, distributedConnector, queryBuilder, typeManager, identifierMapping, queryModifier);
+        return new SnowflakeClient(config, snowflakeConfig, statisticsConfig, connectionFactory, connectorFlavour, queryBuilder, typeManager, identifierMapping, queryModifier);
     }
 
     @Provides

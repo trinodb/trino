@@ -46,6 +46,7 @@ import java.lang.annotation.Target;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static com.starburstdata.trino.plugins.snowflake.SnowflakeConnectorFlavour.DISTRIBUTED;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
@@ -119,7 +120,7 @@ public class SnowflakeDistributedModule
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
 
         install(new JdbcModule());
-        install(new SnowflakeJdbcClientModule(true));
+        install(new SnowflakeJdbcClientModule(DISTRIBUTED));
     }
 
     @Provides
