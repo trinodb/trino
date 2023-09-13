@@ -34,7 +34,6 @@ import org.apache.kudu.client.KuduOperationApplier;
 import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.PartialRow;
 import org.apache.kudu.client.Upsert;
-import org.apache.kudu.util.DateUtil;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -62,6 +61,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.kudu.util.DateUtil.epochDaysToSqlDate;
 
 public class KuduPageSink
         implements ConnectorPageSink, ConnectorMergeSink
@@ -155,7 +155,7 @@ public class KuduPageSink
             row.addLong(destChannel, truncateEpochMicrosToMillis(TIMESTAMP_MILLIS.getLong(block, position)));
         }
         else if (DATE.equals(type)) {
-            row.addDate(destChannel, DateUtil.epochDaysToSqlDate(INTEGER.getInt(block, position)));
+            row.addDate(destChannel, epochDaysToSqlDate(INTEGER.getInt(block, position)));
         }
         else if (REAL.equals(type)) {
             row.addFloat(destChannel, REAL.getFloat(block, position));

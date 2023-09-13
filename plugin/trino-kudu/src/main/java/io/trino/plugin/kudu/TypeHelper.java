@@ -120,12 +120,11 @@ public final class TypeHelper
                 return BooleanType.BOOLEAN;
             case BINARY:
                 return VarbinaryType.VARBINARY;
-            case DATE:
-                return DateType.DATE;
             case DECIMAL:
                 return DecimalType.createDecimalType(attributes.getPrecision(), attributes.getScale());
             // TODO: add support for varchar types: https://github.com/trinodb/trino/issues/11009
-
+            case DATE:
+                return DateType.DATE;
             case VARCHAR:
                 break;
         }

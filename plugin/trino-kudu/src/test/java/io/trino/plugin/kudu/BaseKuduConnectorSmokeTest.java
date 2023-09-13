@@ -14,11 +14,13 @@
 package io.trino.plugin.kudu;
 
 import io.trino.testing.BaseConnectorSmokeTest;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
+import java.time.LocalDate;
 import java.util.Optional;
 
 import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
@@ -28,6 +30,8 @@ import static io.trino.plugin.kudu.TestingKuduServer.EARLIEST_TAG;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public abstract class BaseKuduConnectorSmokeTest
         extends BaseConnectorSmokeTest
@@ -172,5 +176,33 @@ public abstract class BaseKuduConnectorSmokeTest
             assertUpdate("DROP TABLE IF EXISTS " + schemaName + "." + tableName);
             assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
         }
+    }
+
+    @Test
+    public void testCreateTableWithDateColumn()
+    {
+        String dropTable = "DROP TABLE IF EXISTS test_date";
+        String createTable = "" +
+                "CREATE TABLE test_date (\n" +
+                "  id INT WITH (primary_key=true),\n" +
+                "  datecol  DATE\n" +
+                ") WITH (\n" +
+                " partition_by_hash_columns = ARRAY['id'],\n" +
+                " partition_by_hash_buckets = 2\n" +
+                ")";
+
+        assertUpdate(dropTable);
+        assertUpdate(createTable);
+
+        assertUpdate("INSERT INTO test_date VALUES(1, DATE '1977-07-14')", 1);
+        assertUpdate("INSERT INTO test_date VALUES(2, date_parse('2022/10/20/05', '%Y/%m/%d/%H'))", 1);
+        assertUpdate("INSERT INTO test_date VALUES(3, current_date )", 1);
+
+        MaterializedResult result = computeActual("SELECT id, datecol FROM test_date");
+        assertEquals(result.getRowCount(), 3);
+        Object obj = result.getMaterializedRows().get(0).getField(1);
+        assertTrue(obj instanceof LocalDate);
+        String createTableAs = "CREATE TABLE test_date2 AS SELECT *  FROM test_date";
+        assertUpdate(createTableAs, 3);
     }
 }
