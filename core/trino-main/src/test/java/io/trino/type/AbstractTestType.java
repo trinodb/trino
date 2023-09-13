@@ -95,6 +95,7 @@ public abstract class AbstractTestType
     private final TypeOperators typeOperators;
     private final MethodHandle readBlockMethod;
     private final MethodHandle writeBlockMethod;
+    private final MethodHandle writeFlatToBlockMethod;
     private final MethodHandle readFlatMethod;
     private final MethodHandle writeFlatMethod;
     private final MethodHandle writeBlockToFlatMethod;
@@ -127,6 +128,7 @@ public abstract class AbstractTestType
         typeOperators = new TypeOperators();
         readBlockMethod = typeOperators.getReadValueOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
         writeBlockMethod = typeOperators.getReadValueOperator(type, simpleConvention(BLOCK_BUILDER, NEVER_NULL));
+        writeFlatToBlockMethod = typeOperators.getReadValueOperator(type, simpleConvention(BLOCK_BUILDER, FLAT));
         readFlatMethod = typeOperators.getReadValueOperator(type, simpleConvention(FAIL_ON_NULL, FLAT));
         writeFlatMethod = typeOperators.getReadValueOperator(type, simpleConvention(FLAT_RETURN, NEVER_NULL));
         writeBlockToFlatMethod = typeOperators.getReadValueOperator(type, simpleConvention(FLAT_RETURN, BLOCK_POSITION));
@@ -311,6 +313,10 @@ public abstract class AbstractTestType
             else {
                 assertEquals(readFlatMethod.invoke(fixed, elementFixedOffset, variable), expectedStackValue);
             }
+
+            BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+            writeFlatToBlockMethod.invokeExact(fixed, elementFixedOffset, variable, blockBuilder);
+            assertPositionEquals(testBlock, i, expectedStackValue, expectedObjectValues.get(i));
 
             if (type.isComparable()) {
                 assertTrue((Boolean) flatFlatEqualOperator.invokeExact(fixed, elementFixedOffset, variable, fixed, elementFixedOffset, variable));
