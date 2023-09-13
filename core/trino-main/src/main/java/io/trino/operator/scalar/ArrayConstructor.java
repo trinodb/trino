@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.ClassDefinition;
@@ -23,6 +24,7 @@ import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
+import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.metadata.SqlScalarFunction;
@@ -38,8 +40,11 @@ import io.trino.sql.gen.CallSiteBinder;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.PUBLIC;
@@ -50,14 +55,13 @@ import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.equal;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
-import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.Collections.nCopies;
 
@@ -101,7 +105,16 @@ public final class ArrayConstructor
         }
         ImmutableList<Class<?>> stackTypes = builder.build();
         Class<?> clazz = generateArrayConstructor(stackTypes, type);
-        MethodHandle methodHandle = methodHandle(clazz, "arrayConstructor", stackTypes.toArray(new Class<?>[stackTypes.size()]));
+        MethodHandle methodHandle;
+        if (stackTypes.size() >= 255) {
+            // varags
+            methodHandle = methodHandle(Stream.of(clazz.getMethods())
+                    .filter(method -> "arrayConstructor".equals(method.getName()))
+                    .collect(onlyElement()));
+        }
+        else {
+            methodHandle = methodHandle(clazz, "arrayConstructor", stackTypes.toArray(new Class<?>[stackTypes.size()]));
+        }
         return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
@@ -111,18 +124,65 @@ public final class ArrayConstructor
 
     private static Class<?> generateArrayConstructor(List<Class<?>> stackTypes, Type elementType)
     {
-        checkCondition(stackTypes.size() <= 254, NOT_SUPPORTED, "Too many arguments for array constructor");
+//        checkCondition(stackTypes.size() <= 254, NOT_SUPPORTED, "Too many arguments for array constructor");
         List<String> stackTypeNames = stackTypes.stream()
                 .map(Class::getSimpleName)
                 .collect(toImmutableList());
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(Joiner.on("").join(stackTypeNames) + "ArrayConstructor"),
+                stackTypes.size() >= 255
+                        ? makeClassName("VarargArrayConstructor")
+                        : makeClassName(Joiner.on("").join(stackTypeNames) + "ArrayConstructor"),
                 type(Object.class));
 
         // Generate constructor
         definition.declareDefaultConstructor(a(PRIVATE));
+
+        if (stackTypes.size() >= 255) {
+            // Too many elements for a JVM method.
+
+            checkArgument(ImmutableSet.copyOf(stackTypes).size() == 1, "Invalid polymorphic array: %s", stackTypes);
+
+            Class<?> stackType = stackTypes.get(0);
+            Class<?> arrayType;
+            if (stackType == long.class) {
+                arrayType = long[].class;
+            }
+            ////........ TODO
+            else {
+                checkArgument(!stackType.isPrimitive(), "Not primitive: %s", stackType);
+                //arrayType = Array.newInstance(stackType, 0).getClass(); // TODO this is more correct but InterpretedFunctionInvoker needs adapting
+                arrayType = Object[].class;
+            }
+
+            MethodDefinition method = definition.declareMethod(a(PUBLIC, STATIC), "arrayConstructor", type(Block.class), arg("arg", arrayType));
+            Scope scope = method.getScope();
+            BytecodeBlock body = method.getBody();
+
+            Variable blockBuilderVariable = scope.declareVariable(BlockBuilder.class, "blockBuilder");
+            CallSiteBinder binder = new CallSiteBinder();
+
+            BytecodeExpression createBlockBuilder = blockBuilderVariable.set(
+                    constantType(binder, elementType).invoke("createBlockBuilder", BlockBuilder.class, constantNull(BlockBuilderStatus.class), constantInt(stackTypes.size())));
+            body.append(createBlockBuilder);
+
+            Variable index = scope.declareVariable(int.class, "index");
+            body.append(
+                    new ForLoop()
+                            .initialize(index.set(constantInt(0)))
+                            .condition(lessThan(index, constantInt(stackTypes.size())))
+                            .update(index.increment())
+                            .body(new IfStatement()
+                                    // TODO: cast here may not be needed if arrayType properly chosen
+                                    .condition(equal(scope.getVariable("arg").getElement(index).cast(stackType), constantNull(stackType)))
+                                    .ifTrue(blockBuilderVariable.invoke("appendNull", BlockBuilder.class).pop())
+                                    .ifFalse(constantType(binder, elementType).writeValue(blockBuilderVariable, scope.getVariable("arg").getElement(index).cast(elementType.getJavaType())))));
+
+            body.append(blockBuilderVariable.invoke("build", Block.class).ret());
+
+            return defineClass(definition, Object.class, binder.getBindings(), new DynamicClassLoader(ArrayConstructor.class.getClassLoader()));
+        }
 
         // Generate arrayConstructor()
         ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();

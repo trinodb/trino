@@ -14,6 +14,7 @@
 package io.trino.operator.scalar;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.sql.query.QueryAssertions;
@@ -21,6 +22,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+
+import java.util.List;
 
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -59,9 +62,17 @@ public class TestArrayFunctions
                 .binding("c", "3"))
                 .matches("ARRAY[1, 2, 3]");
 
-        assertThatThrownBy(assertions.expression("array[" + Joiner.on(", ").join(nCopies(255, "rand()")) + "]")::evaluate)
-                .isInstanceOf(TrinoException.class)
-                .hasMessage("Too many arguments for array constructor");
+        assertThat(assertions.expression("array[" + Joiner.on(", ").join(nCopies(255, "rand()")) + "]"))
+                .hasType(new ArrayType(DOUBLE))
+                .matches(result -> {
+                    assertThat((List<?>) result).hasSize(255);
+                    assertThat(ImmutableSet.copyOf((List<?>) result)).hasSizeBetween(10, 255);
+                    for (Object value : (List<?>) result) {
+                        assertThat((double) value)
+                                .isBetween(0., 1.);
+                    }
+                    return true;
+                });
     }
 
     @Test

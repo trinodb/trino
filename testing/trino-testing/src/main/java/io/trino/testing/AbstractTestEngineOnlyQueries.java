@@ -554,6 +554,26 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testLargeArray()
+    {
+        // can be constant-folded
+        assertQuery("SELECT " + range(0, 1_000)
+                .mapToObj(Integer::toString)
+                .collect(joining(",", "ARRAY[", "]")));
+
+        // expressions
+        List<?> randomValues = (List<?>) computeScalar("SELECT " + nCopies(1_000, "rand()").stream()
+                .collect(joining(",", "ARRAY[", "]")));
+        for (Object value : randomValues) {
+            assertThat((double) value).isBetween(0., 1.);
+        }
+        assertThat(randomValues)
+                .hasSize(1_000);
+        assertThat(ImmutableSet.copyOf(randomValues))
+                .hasSizeBetween(100, 1_000);
+    }
+
+    @Test
     public void testLargeInArray()
     {
         String arrayValues = range(0, 5000)
