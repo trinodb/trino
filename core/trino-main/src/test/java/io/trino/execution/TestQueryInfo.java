@@ -17,6 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
+import io.airlift.tracing.SpanSerialization.SpanDeserializer;
+import io.airlift.tracing.SpanSerialization.SpanSerializer;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
 import io.trino.client.NodeVersion;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
@@ -26,17 +32,20 @@ import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.SelectedRole;
+import io.trino.spi.type.TypeSignature;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.transaction.TransactionId;
+import io.trino.type.TypeSignatureDeserializer;
+import io.trino.type.TypeSignatureKeyDeserializer;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryState.FINISHED;
-import static io.trino.tracing.TracingJsonCodec.tracingJsonCodecFactory;
 import static org.testng.Assert.assertEquals;
 
 public class TestQueryInfo
@@ -44,7 +53,17 @@ public class TestQueryInfo
     @Test
     public void testQueryInfoRoundTrip()
     {
-        JsonCodec<QueryInfo> codec = tracingJsonCodecFactory().jsonCodec(QueryInfo.class);
+        JsonCodec<QueryInfo> codec = new JsonCodecFactory(
+                new ObjectMapperProvider()
+                        .withJsonSerializers(Map.of(
+                                Span.class, new SpanSerializer(OpenTelemetry.noop())))
+                        .withJsonDeserializers(Map.of(
+                                Span.class, new SpanDeserializer(OpenTelemetry.noop()),
+                                TypeSignature.class, new TypeSignatureDeserializer()))
+                        .withKeyDeserializers(Map.of(
+                                TypeSignature.class, new TypeSignatureKeyDeserializer())))
+                .jsonCodec(QueryInfo.class);
+
         QueryInfo expected = createQueryInfo();
         QueryInfo actual = codec.fromJson(codec.toJsonBytes(expected));
 
