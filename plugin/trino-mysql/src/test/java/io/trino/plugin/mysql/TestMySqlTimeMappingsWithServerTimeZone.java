@@ -16,7 +16,6 @@ package io.trino.plugin.mysql;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -26,534 +25,41 @@ import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
-import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
-import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
-import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
-import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.STRICT;
-import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_DEFAULT_SCALE;
-import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_MAPPING;
-import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_ROUNDING_MODE;
-import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
-import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
-import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.type.JsonType.JSON;
-import static java.lang.String.format;
-import static java.math.RoundingMode.HALF_UP;
-import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
-import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestMySqlTypeMapping
+/**
+ * Default MySQL time zone is set to UTC. This is to test the date and time type mappings when the server has a different time zone.
+ */
+public class TestMySqlTimeMappingsWithServerTimeZone
         extends AbstractTestQueryFramework
 {
     private TestingMySqlServer mySqlServer;
-
-    private final ZoneId jvmZone = ZoneId.systemDefault();
-    // no DST in 1970, but has DST in later years (e.g. 2018)
-    private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
-
-    @BeforeClass
-    public void setUp()
-    {
-        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
-        verify(jvmZone.getRules().getValidOffsets(dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay()).isEmpty());
-
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
-        verify(vilnius.getRules().getValidOffsets(dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay()).isEmpty());
-        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
-        verify(vilnius.getRules().getValidOffsets(dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1)).size() == 2);
-    }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        mySqlServer = closeAfterClass(new TestingMySqlServer());
+        mySqlServer = closeAfterClass(new TestingMySqlServer(ZoneId.of("Pacific/Apia")));
         return createMySqlQueryRunner(mySqlServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
-    }
-
-    @Test
-    public void testBit()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("bit", "b'1'", BOOLEAN, "true")
-                .addRoundTrip("bit", "b'0'", BOOLEAN, "false")
-                .addRoundTrip("bit", "NULL", BOOLEAN, "CAST(NULL AS BOOLEAN)")
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_bit"));
-    }
-
-    @Test
-    public void testBoolean()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("boolean", "true", TINYINT, "TINYINT '1'")
-                .addRoundTrip("boolean", "false", TINYINT, "TINYINT '0'")
-                .addRoundTrip("boolean", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_boolean"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_boolean"));
-
-        SqlDataTypeTest.create()
-                .addRoundTrip("boolean", "1", TINYINT, "TINYINT '1'")
-                .addRoundTrip("boolean", "0", TINYINT, "TINYINT '0'")
-                .addRoundTrip("boolean", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
-                .execute(getQueryRunner(), trinoCreateAndInsert("test_boolean"));
-    }
-
-    @Test
-    public void testTinyint()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("tinyint", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
-                .addRoundTrip("tinyint", "-128", TINYINT, "TINYINT '-128'") // min value in MySQL and Trino
-                .addRoundTrip("tinyint", "5", TINYINT, "TINYINT '5'")
-                .addRoundTrip("tinyint", "127", TINYINT, "TINYINT '127'") // max value in MySQL and Trino
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_tinyint"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_tinyint"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("test_tinyint"));
-    }
-
-    @Test
-    public void testUnsupportedTinyint()
-    {
-        try (TestTable table = new TestTable(mySqlServer::execute, "tpch.test_unsupported_tinyint", "(data tinyint)")) {
-            assertMySqlQueryFails(
-                    "INSERT INTO " + table.getName() + " VALUES (-129)", // min - 1
-                    "Data truncation: Out of range value for column 'data' at row 1");
-            assertMySqlQueryFails(
-                    "INSERT INTO " + table.getName() + " VALUES (128)", // max + 1
-                    "Data truncation: Out of range value for column 'data' at row 1");
-        }
-    }
-
-    @Test
-    public void testSmallint()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("smallint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
-                .addRoundTrip("smallint", "-32768", SMALLINT, "SMALLINT '-32768'") // min value in MySQL and Trino
-                .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
-                .addRoundTrip("smallint", "32767", SMALLINT, "SMALLINT '32767'") // max value in MySQL and Trino
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_smallint"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_smallint"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("test_smallint"));
-    }
-
-    @Test
-    public void testUnsupportedSmallint()
-    {
-        try (TestTable table = new TestTable(mySqlServer::execute, "tpch.test_unsupported_smallint", "(data smallint)")) {
-            assertMySqlQueryFails(
-                    "INSERT INTO " + table.getName() + " VALUES (-32769)", // min - 1
-                    "Data truncation: Out of range value for column 'data' at row 1");
-            assertMySqlQueryFails(
-                    format("INSERT INTO %s VALUES (32768)", table.getName()), // max + 1
-                    "Data truncation: Out of range value for column 'data' at row 1");
-        }
-    }
-
-    @Test
-    public void testInteger()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("integer", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
-                .addRoundTrip("integer", "-2147483648", INTEGER, "-2147483648") // min value in MySQL and Trino
-                .addRoundTrip("integer", "1234567890", INTEGER, "1234567890")
-                .addRoundTrip("integer", "2147483647", INTEGER, "2147483647") // max value in MySQL and Trino
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_int"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_int"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("test_int"));
-    }
-
-    @Test
-    public void testUnsupportedInteger()
-    {
-        try (TestTable table = new TestTable(mySqlServer::execute, "tpch.test_unsupported_integer", "(data integer)")) {
-            assertMySqlQueryFails(
-                    "INSERT INTO " + table.getName() + " VALUES (-2147483649)", // min - 1
-                    "Data truncation: Out of range value for column 'data' at row 1");
-            assertMySqlQueryFails(
-                    "INSERT INTO " + table.getName() + " VALUES (2147483648)", // max + 1
-                    "Data truncation: Out of range value for column 'data' at row 1");
-        }
-    }
-
-    @Test
-    public void testBigint()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("bigint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
-                .addRoundTrip("bigint", "-9223372036854775808", BIGINT, "-9223372036854775808") // min value in MySQL and Trino
-                .addRoundTrip("bigint", "123456789012", BIGINT, "123456789012")
-                .addRoundTrip("bigint", "9223372036854775807", BIGINT, "9223372036854775807") // max value in MySQL and Trino
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_bigint"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_bigint"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("test_bigint"));
-    }
-
-    @Test
-    public void testUnsupportedBigint()
-    {
-        try (TestTable table = new TestTable(mySqlServer::execute, "tpch.test_unsupported_bigint", "(data bigint)")) {
-            assertMySqlQueryFails(
-                    "INSERT INTO " + table.getName() + " VALUES (-9223372036854775809)", // min - 1
-                    "Data truncation: Out of range value for column 'data' at row 1");
-            assertMySqlQueryFails(
-                    "INSERT INTO " + table.getName() + " VALUES (9223372036854775808)", // max + 1
-                    "Data truncation: Out of range value for column 'data' at row 1");
-        }
-    }
-
-    @Test
-    public void testTrinoCreatedParameterizedVarchar()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("varchar(10)", "'text_a'", createVarcharType(255), "CAST('text_a' AS varchar(255))")
-                .addRoundTrip("varchar(255)", "'text_b'", createVarcharType(255), "CAST('text_b' AS varchar(255))")
-                .addRoundTrip("varchar(256)", "'text_c'", createVarcharType(65535), "CAST('text_c' AS varchar(65535))")
-                .addRoundTrip("varchar(65535)", "'text_d'", createVarcharType(65535), "CAST('text_d' AS varchar(65535))")
-                .addRoundTrip("varchar(65536)", "'text_e'", createVarcharType(16777215), "CAST('text_e' AS varchar(16777215))")
-                .addRoundTrip("varchar(16777215)", "'text_f'", createVarcharType(16777215), "CAST('text_f' AS varchar(16777215))")
-                .addRoundTrip("varchar(16777216)", "'text_g'", createUnboundedVarcharType(), "CAST('text_g' AS varchar)")
-                .addRoundTrip("varchar(2147483646)", "'text_h'", createUnboundedVarcharType(), "CAST('text_h' AS varchar)")
-                .addRoundTrip("varchar", "'unbounded'", createUnboundedVarcharType(), "CAST('unbounded' AS varchar)")
-                .addRoundTrip("varchar(10)", "NULL", createVarcharType(255), "CAST(NULL AS varchar(255))")
-                .addRoundTrip("varchar", "NULL", createUnboundedVarcharType(), "CAST(NULL AS varchar)")
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_parameterized_varchar"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_parameterized_varchar"));
-    }
-
-    @Test
-    public void testMySqlCreatedParameterizedVarchar()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("tinytext", "'a'", createVarcharType(255), "CAST('a' AS varchar(255))")
-                .addRoundTrip("text", "'b'", createVarcharType(65535), "CAST('b' AS varchar(65535))")
-                .addRoundTrip("mediumtext", "'c'", createVarcharType(16777215), "CAST('c' AS varchar(16777215))")
-                .addRoundTrip("longtext", "'d'", createUnboundedVarcharType(), "CAST('d' AS varchar)")
-                .addRoundTrip("varchar(32)", "'e'", createVarcharType(32), "CAST('e' AS varchar(32))")
-                .addRoundTrip("varchar(15000)", "'f'", createVarcharType(15000), "CAST('f' AS varchar(15000))")
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar"));
-    }
-
-    @Test
-    public void testMySqlCreatedParameterizedVarcharUnicode()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("tinytext CHARACTER SET utf8", "'攻殻機動隊'", createVarcharType(255), "CAST('攻殻機動隊' AS varchar(255))")
-                .addRoundTrip("text CHARACTER SET utf8", "'攻殻機動隊'", createVarcharType(65535), "CAST('攻殻機動隊' AS varchar(65535))")
-                .addRoundTrip("mediumtext CHARACTER SET utf8", "'攻殻機動隊'", createVarcharType(16777215), "CAST('攻殻機動隊' AS varchar(16777215))")
-                .addRoundTrip("longtext CHARACTER SET utf8", "'攻殻機動隊'", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS varchar)")
-                .addRoundTrip("varchar(5) CHARACTER SET utf8", "'攻殻機動隊'", createVarcharType(5), "CAST('攻殻機動隊' AS varchar(5))")
-                .addRoundTrip("varchar(32) CHARACTER SET utf8", "'攻殻機動隊'", createVarcharType(32), "CAST('攻殻機動隊' AS varchar(32))")
-                .addRoundTrip("varchar(20000) CHARACTER SET utf8", "'攻殻機動隊'", createVarcharType(20000), "CAST('攻殻機動隊' AS varchar(20000))")
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar_unicode"));
-    }
-
-    @Test
-    public void testParameterizedChar()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("char", "''", createCharType(1), "CAST('' AS char(1))")
-                .addRoundTrip("char", "'a'", createCharType(1), "CAST('a' AS char(1))")
-                .addRoundTrip("char(1)", "''", createCharType(1), "CAST('' AS char(1))")
-                .addRoundTrip("char(1)", "'a'", createCharType(1), "CAST('a' AS char(1))")
-                .addRoundTrip("char(8)", "'abc'", createCharType(8), "CAST('abc' AS char(8))")
-                .addRoundTrip("char(8)", "'12345678'", createCharType(8), "CAST('12345678' AS char(8))")
-                .addRoundTrip("char(255)", format("'%s'", "a".repeat(255)), createCharType(255), format("CAST('%s' AS char(255))", "a".repeat(255)))
-                .addRoundTrip("char", "NULL", createCharType(1), "CAST(NULL AS char(1))")
-                .addRoundTrip("char(255)", "NULL", createCharType(255), "CAST(NULL AS char(255))")
-                .execute(getQueryRunner(), trinoCreateAsSelect("mysql_test_parameterized_char"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("mysql_test_parameterized_char"))
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_parameterized_char"));
-    }
-
-    @Test
-    public void testMySqlCreatedParameterizedCharUnicode()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("char(1) CHARACTER SET utf8", "'攻'", createCharType(1), "CAST('攻' AS char(1))")
-                .addRoundTrip("char(5) CHARACTER SET utf8", "'攻殻'", createCharType(5), "CAST('攻殻' AS char(5))")
-                .addRoundTrip("char(5) CHARACTER SET utf8", "'攻殻機動隊'", createCharType(5), "CAST('攻殻機動隊' AS char(5))")
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar"));
-    }
-
-    @Test
-    public void testDecimal()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("decimal(3, 0)", "CAST('193' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('193' AS decimal(3, 0))")
-                .addRoundTrip("decimal(3, 0)", "CAST('19' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('19' AS decimal(3, 0))")
-                .addRoundTrip("decimal(3, 0)", "CAST('-193' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('-193' AS decimal(3, 0))")
-                .addRoundTrip("decimal(3, 1)", "CAST('10.0' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('10.0' AS decimal(3, 1))")
-                .addRoundTrip("decimal(3, 1)", "CAST('10.1' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('10.1' AS decimal(3, 1))")
-                .addRoundTrip("decimal(3, 1)", "CAST('-10.1' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('-10.1' AS decimal(3, 1))")
-                .addRoundTrip("decimal(4, 2)", "CAST('2' AS decimal(4, 2))", createDecimalType(4, 2), "CAST('2' AS decimal(4, 2))")
-                .addRoundTrip("decimal(4, 2)", "CAST('2.3' AS decimal(4, 2))", createDecimalType(4, 2), "CAST('2.3' AS decimal(4, 2))")
-                .addRoundTrip("decimal(24, 2)", "CAST('2' AS decimal(24, 2))", createDecimalType(24, 2), "CAST('2' AS decimal(24, 2))")
-                .addRoundTrip("decimal(24, 2)", "CAST('2.3' AS decimal(24, 2))", createDecimalType(24, 2), "CAST('2.3' AS decimal(24, 2))")
-                .addRoundTrip("decimal(24, 2)", "CAST('123456789.3' AS decimal(24, 2))", createDecimalType(24, 2), "CAST('123456789.3' AS decimal(24, 2))")
-                .addRoundTrip("decimal(24, 4)", "CAST('12345678901234567890.31' AS decimal(24, 4))", createDecimalType(24, 4), "CAST('12345678901234567890.31' AS decimal(24, 4))")
-                .addRoundTrip("decimal(30, 5)", "CAST('3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('3141592653589793238462643.38327' AS decimal(30, 5))")
-                .addRoundTrip("decimal(30, 5)", "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))")
-                .addRoundTrip("decimal(38, 0)", "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))")
-                .addRoundTrip("decimal(38, 0)", "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))")
-                .addRoundTrip("decimal(3, 0)", "CAST(NULL AS decimal(3, 0))", createDecimalType(3, 0), "CAST(NULL AS decimal(3, 0))")
-                .addRoundTrip("decimal(38, 0)", "CAST(NULL AS decimal(38, 0))", createDecimalType(38, 0), "CAST(NULL AS decimal(38, 0))")
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_decimal"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("test_decimal"));
-    }
-
-    @Test
-    public void testDecimalExceedingPrecisionMax()
-    {
-        testUnsupportedDataType("decimal(50,0)");
-    }
-
-    @Test
-    public void testDecimalExceedingPrecisionMaxWithExceedingIntegerValues()
-    {
-        try (TestTable testTable = new TestTable(
-                mySqlServer::execute,
-                "tpch.test_exceeding_max_decimal",
-                "(d_col decimal(65,25))",
-                asList("1234567890123456789012345678901234567890.123456789", "-1234567890123456789012345678901234567890.123456789"))) {
-            assertQuery(
-                    sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
-                    "VALUES ('d_col', 'decimal(38,0)')");
-            assertQueryFails(
-                    sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
-                    "SELECT d_col FROM " + testTable.getName(),
-                    "Rounding necessary");
-            assertQueryFails(
-                    sessionWithDecimalMappingAllowOverflow(HALF_UP, 0),
-                    "SELECT d_col FROM " + testTable.getName(),
-                    "Decimal overflow");
-            assertQuery(
-                    sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
-                    "VALUES ('d_col', 'varchar')");
-            assertQuery(
-                    sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
-                    "SELECT d_col FROM " + testTable.getName(),
-                    "VALUES ('1234567890123456789012345678901234567890.1234567890000000000000000'), ('-1234567890123456789012345678901234567890.1234567890000000000000000')");
-        }
-    }
-
-    @Test
-    public void testDecimalExceedingPrecisionMaxWithNonExceedingIntegerValues()
-    {
-        try (TestTable testTable = new TestTable(
-                mySqlServer::execute,
-                "tpch.test_exceeding_max_decimal",
-                "(d_col decimal(60,20))",
-                asList("123456789012345678901234567890.123456789012345", "-123456789012345678901234567890.123456789012345"))) {
-            assertQuery(
-                    sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
-                    "VALUES ('d_col', 'decimal(38,0)')");
-            assertQueryFails(
-                    sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
-                    "SELECT d_col FROM " + testTable.getName(),
-                    "Rounding necessary");
-            assertQuery(
-                    sessionWithDecimalMappingAllowOverflow(HALF_UP, 0),
-                    "SELECT d_col FROM " + testTable.getName(),
-                    "VALUES (123456789012345678901234567890), (-123456789012345678901234567890)");
-            assertQuery(
-                    sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 8),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
-                    "VALUES ('d_col', 'decimal(38,8)')");
-            assertQueryFails(
-                    sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 8),
-                    "SELECT d_col FROM " + testTable.getName(),
-                    "Rounding necessary");
-            assertQuery(
-                    sessionWithDecimalMappingAllowOverflow(HALF_UP, 8),
-                    "SELECT d_col FROM " + testTable.getName(),
-                    "VALUES (123456789012345678901234567890.12345679), (-123456789012345678901234567890.12345679)");
-            assertQuery(
-                    sessionWithDecimalMappingAllowOverflow(HALF_UP, 22),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
-                    "VALUES ('d_col', 'decimal(38,20)')");
-            assertQueryFails(
-                    sessionWithDecimalMappingAllowOverflow(HALF_UP, 20),
-                    "SELECT d_col FROM " + testTable.getName(),
-                    "Decimal overflow");
-            assertQueryFails(
-                    sessionWithDecimalMappingAllowOverflow(HALF_UP, 9),
-                    "SELECT d_col FROM " + testTable.getName(),
-                    "Decimal overflow");
-            assertQuery(
-                    sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
-                    "VALUES ('d_col', 'varchar')");
-            assertQuery(
-                    sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
-                    "SELECT d_col FROM " + testTable.getName(),
-                    "VALUES ('123456789012345678901234567890.12345678901234500000'), ('-123456789012345678901234567890.12345678901234500000')");
-        }
-    }
-
-    @Test(dataProvider = "testDecimalExceedingPrecisionMaxProvider")
-    public void testDecimalExceedingPrecisionMaxWithSupportedValues(int typePrecision, int typeScale)
-    {
-        try (TestTable testTable = new TestTable(
-                mySqlServer::execute,
-                "tpch.test_exceeding_max_decimal",
-                format("(d_col decimal(%d,%d))", typePrecision, typeScale),
-                asList("12.01", "-12.01", "123", "-123", "1.12345678", "-1.12345678"))) {
-            assertQuery(
-                    sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
-                    "VALUES ('d_col', 'decimal(38,0)')");
-            assertQueryFails(
-                    sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
-                    "SELECT d_col FROM " + testTable.getName(),
-                    "Rounding necessary");
-            assertQuery(
-                    sessionWithDecimalMappingAllowOverflow(HALF_UP, 0),
-                    "SELECT d_col FROM " + testTable.getName(),
-                    "VALUES (12), (-12), (123), (-123), (1), (-1)");
-            assertQuery(
-                    sessionWithDecimalMappingAllowOverflow(HALF_UP, 3),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
-                    "VALUES ('d_col', 'decimal(38,3)')");
-            assertQuery(
-                    sessionWithDecimalMappingAllowOverflow(HALF_UP, 3),
-                    "SELECT d_col FROM " + testTable.getName(),
-                    "VALUES (12.01), (-12.01), (123), (-123), (1.123), (-1.123)");
-            assertQueryFails(
-                    sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 3),
-                    "SELECT d_col FROM " + testTable.getName(),
-                    "Rounding necessary");
-            assertQuery(
-                    sessionWithDecimalMappingAllowOverflow(HALF_UP, 8),
-                    format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
-                    "VALUES ('d_col', 'decimal(38,8)')");
-            assertQuery(
-                    sessionWithDecimalMappingAllowOverflow(HALF_UP, 8),
-                    "SELECT d_col FROM " + testTable.getName(),
-                    "VALUES (12.01), (-12.01), (123), (-123), (1.12345678), (-1.12345678)");
-            assertQuery(
-                    sessionWithDecimalMappingAllowOverflow(HALF_UP, 9),
-                    "SELECT d_col FROM " + testTable.getName(),
-                    "VALUES (12.01), (-12.01), (123), (-123), (1.12345678), (-1.12345678)");
-            assertQuery(
-                    sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 8),
-                    "SELECT d_col FROM " + testTable.getName(),
-                    "VALUES (12.01), (-12.01), (123), (-123), (1.12345678), (-1.12345678)");
-        }
-    }
-
-    @DataProvider
-    public Object[][] testDecimalExceedingPrecisionMaxProvider()
-    {
-        return new Object[][] {
-                {40, 8},
-                {50, 10},
-        };
-    }
-
-    private Session sessionWithDecimalMappingAllowOverflow(RoundingMode roundingMode, int scale)
-    {
-        return Session.builder(getSession())
-                .setCatalogSessionProperty("mysql", DECIMAL_MAPPING, ALLOW_OVERFLOW.name())
-                .setCatalogSessionProperty("mysql", DECIMAL_ROUNDING_MODE, roundingMode.name())
-                .setCatalogSessionProperty("mysql", DECIMAL_DEFAULT_SCALE, Integer.valueOf(scale).toString())
-                .build();
-    }
-
-    private Session sessionWithDecimalMappingStrict(UnsupportedTypeHandling unsupportedTypeHandling)
-    {
-        return Session.builder(getSession())
-                .setCatalogSessionProperty("mysql", DECIMAL_MAPPING, STRICT.name())
-                .setCatalogSessionProperty("mysql", UNSUPPORTED_TYPE_HANDLING, unsupportedTypeHandling.name())
-                .build();
-    }
-
-    @Test
-    public void testVarbinary()
-    {
-        varbinaryTestCases("varbinary(50)")
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
-
-        varbinaryTestCases("tinyblob")
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
-
-        varbinaryTestCases("blob")
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
-
-        varbinaryTestCases("mediumblob")
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
-
-        varbinaryTestCases("longblob")
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
-
-        varbinaryTestCases("varbinary")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"));
-    }
-
-    private SqlDataTypeTest varbinaryTestCases(String insertType)
-    {
-        return SqlDataTypeTest.create()
-                .addRoundTrip(insertType, "NULL", VARBINARY, "CAST(NULL AS varbinary)")
-                .addRoundTrip(insertType, "X''", VARBINARY, "X''")
-                .addRoundTrip(insertType, "X'68656C6C6F'", VARBINARY, "to_utf8('hello')")
-                .addRoundTrip(insertType, "X'5069C4996B6E6120C582C4856B61207720E69DB1E4BAACE983BD'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
-                .addRoundTrip(insertType, "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰')")
-                .addRoundTrip(insertType, "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
-                .addRoundTrip(insertType, "X'000000000000'", VARBINARY, "X'000000000000'");
-    }
-
-    @Test
-    public void testBinary()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("binary(18)", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
-                .addRoundTrip("binary(18)", "X''", VARBINARY, "X'000000000000000000000000000000000000'")
-                .addRoundTrip("binary(18)", "X'68656C6C6F'", VARBINARY, "to_utf8('hello') || X'00000000000000000000000000'")
-                .addRoundTrip("binary(18)", "X'C582C4856B61207720E69DB1E4BAACE983BD'", VARBINARY, "to_utf8('łąka w 東京都')") // no trailing zeros
-                .addRoundTrip("binary(18)", "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰') || X'0000'")
-                .addRoundTrip("binary(18)", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA700000000'") // non-text prefix
-                .addRoundTrip("binary(18)", "X'000000000000'", VARBINARY, "X'000000000000000000000000000000000000'")
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_binary"));
     }
 
     @Test(dataProvider = "sessionZonesDataProvider")
@@ -776,43 +282,44 @@ public class TestMySqlTypeMapping
                 .build();
 
         // Same as above but with inserts from MySQL - i.e. read path
+        // Note the inserted timestamp values are using the server time zone, Pacific/Apia, and the expected timestamps are shifted to UTC time
         SqlDataTypeTest.create()
                 // after epoch (MySQL's timestamp type doesn't support values <= epoch)
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2019-03-18 10:01:17.987'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2019-03-18 10:01:17.987 UTC'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2019-03-18 10:01:17.987'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2019-03-17 20:01:17.987 UTC'")
                 // time doubled in JVM zone
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 01:33:17.456'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2018-10-28 01:33:17.456 UTC'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 01:33:17.456'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2018-10-27 11:33:17.456 UTC'")
                 // time double in Vilnius
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 03:33:33.333'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2018-10-28 03:33:33.333 UTC'")
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:13:42.000'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1970-01-01 00:13:42.000 UTC'")
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-04-01 02:13:55.123'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2018-04-01 02:13:55.123 UTC'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 03:33:33.333'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2018-10-27 13:33:33.333 UTC'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:13:42.000'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1970-01-01 11:13:42.000 UTC'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-04-01 02:13:55.123'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2018-03-31 12:13:55.123 UTC'")
                 // time gap in Vilnius
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-03-25 03:17:17.000'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2018-03-25 03:17:17.000 UTC'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-03-25 03:17:17.000'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2018-03-24 13:17:17.000 UTC'")
                 // time gap in Kathmandu
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '1986-01-01 00:13:07.000'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1986-01-01 00:13:07.000 UTC'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1986-01-01 00:13:07.000'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1986-01-01 11:13:07.000 UTC'")
 
                 // same as above but with higher precision
-                .addRoundTrip("timestamp(6)", "TIMESTAMP '2019-03-18 10:01:17.987654'", createTimestampWithTimeZoneType(6), "TIMESTAMP '2019-03-18 10:01:17.987654 UTC'")
-                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-10-28 01:33:17.456789'", createTimestampWithTimeZoneType(6), "TIMESTAMP '2018-10-28 01:33:17.456789 UTC'")
-                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-10-28 03:33:33.333333'", createTimestampWithTimeZoneType(6), "TIMESTAMP '2018-10-28 03:33:33.333333 UTC'")
-                .addRoundTrip("timestamp(6)", "TIMESTAMP '1970-01-01 00:13:42.000000'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1970-01-01 00:13:42.000000 UTC'")
-                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-04-01 02:13:55.123456'", createTimestampWithTimeZoneType(6), "TIMESTAMP '2018-04-01 02:13:55.123456 UTC'")
-                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-03-25 03:17:17.000000'", createTimestampWithTimeZoneType(6), "TIMESTAMP '2018-03-25 03:17:17.000000 UTC'")
-                .addRoundTrip("timestamp(6)", "TIMESTAMP '1986-01-01 00:13:07.000000'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1986-01-01 00:13:07.000000 UTC'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '2019-03-18 10:01:17.987654'", createTimestampWithTimeZoneType(6), "TIMESTAMP '2019-03-17 20:01:17.987654 UTC'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-10-28 01:33:17.456789'", createTimestampWithTimeZoneType(6), "TIMESTAMP '2018-10-27 11:33:17.456789 UTC'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-10-28 03:33:33.333333'", createTimestampWithTimeZoneType(6), "TIMESTAMP '2018-10-27 13:33:33.333333 UTC'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '1970-01-01 00:13:42.000000'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1970-01-01 11:13:42.000000 UTC'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-04-01 02:13:55.123456'", createTimestampWithTimeZoneType(6), "TIMESTAMP '2018-03-31 12:13:55.123456 UTC'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-03-25 03:17:17.000000'", createTimestampWithTimeZoneType(6), "TIMESTAMP '2018-03-24 13:17:17.000000 UTC'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '1986-01-01 00:13:07.000000'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1986-01-01 11:13:07.000000 UTC'")
 
                 // test arbitrary time for all supported precisions
-                .addRoundTrip("timestamp(0)", "TIMESTAMP '1970-01-01 00:00:01'", createTimestampWithTimeZoneType(0), "TIMESTAMP '1970-01-01 00:00:01 UTC'")
-                .addRoundTrip("timestamp(1)", "TIMESTAMP '1970-01-01 00:00:01.1'", createTimestampWithTimeZoneType(1), "TIMESTAMP '1970-01-01 00:00:01.1 UTC'")
-                .addRoundTrip("timestamp(1)", "TIMESTAMP '1970-01-01 00:00:01.9'", createTimestampWithTimeZoneType(1), "TIMESTAMP '1970-01-01 00:00:01.9 UTC'")
-                .addRoundTrip("timestamp(2)", "TIMESTAMP '1970-01-01 00:00:01.12'", createTimestampWithTimeZoneType(2), "TIMESTAMP '1970-01-01 00:00:01.12 UTC'")
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:00:01.123'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1970-01-01 00:00:01.123 UTC'")
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:00:01.999'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1970-01-01 00:00:01.999 UTC'")
-                .addRoundTrip("timestamp(4)", "TIMESTAMP '1970-01-01 00:00:01.1234'", createTimestampWithTimeZoneType(4), "TIMESTAMP '1970-01-01 00:00:01.1234 UTC'")
-                .addRoundTrip("timestamp(5)", "TIMESTAMP '1970-01-01 00:00:01.12345'", createTimestampWithTimeZoneType(5), "TIMESTAMP '1970-01-01 00:00:01.12345 UTC'")
-                .addRoundTrip("timestamp(1)", "TIMESTAMP '2020-09-27 12:34:56.1'", createTimestampWithTimeZoneType(1), "TIMESTAMP '2020-09-27 12:34:56.1 UTC'")
-                .addRoundTrip("timestamp(1)", "TIMESTAMP '2020-09-27 12:34:56.9'", createTimestampWithTimeZoneType(1), "TIMESTAMP '2020-09-27 12:34:56.9 UTC'")
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2020-09-27 12:34:56.123'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-09-27 12:34:56.123 UTC'")
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2020-09-27 12:34:56.999'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-09-27 12:34:56.999 UTC'")
-                .addRoundTrip("timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.123456'", createTimestampWithTimeZoneType(6), "TIMESTAMP '2020-09-27 12:34:56.123456 UTC'")
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '1970-01-01 00:00:01'", createTimestampWithTimeZoneType(0), "TIMESTAMP '1970-01-01 11:00:01 UTC'")
+                .addRoundTrip("timestamp(1)", "TIMESTAMP '1970-01-01 00:00:01.1'", createTimestampWithTimeZoneType(1), "TIMESTAMP '1970-01-01 11:00:01.1 UTC'")
+                .addRoundTrip("timestamp(1)", "TIMESTAMP '1970-01-01 00:00:01.9'", createTimestampWithTimeZoneType(1), "TIMESTAMP '1970-01-01 11:00:01.9 UTC'")
+                .addRoundTrip("timestamp(2)", "TIMESTAMP '1970-01-01 00:00:01.12'", createTimestampWithTimeZoneType(2), "TIMESTAMP '1970-01-01 11:00:01.12 UTC'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:00:01.123'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1970-01-01 11:00:01.123 UTC'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:00:01.999'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1970-01-01 11:00:01.999 UTC'")
+                .addRoundTrip("timestamp(4)", "TIMESTAMP '1970-01-01 00:00:01.1234'", createTimestampWithTimeZoneType(4), "TIMESTAMP '1970-01-01 11:00:01.1234 UTC'")
+                .addRoundTrip("timestamp(5)", "TIMESTAMP '1970-01-01 00:00:01.12345'", createTimestampWithTimeZoneType(5), "TIMESTAMP '1970-01-01 11:00:01.12345 UTC'")
+                .addRoundTrip("timestamp(1)", "TIMESTAMP '2020-09-27 12:34:56.1'", createTimestampWithTimeZoneType(1), "TIMESTAMP '2020-09-26 22:34:56.1 UTC'")
+                .addRoundTrip("timestamp(1)", "TIMESTAMP '2020-09-27 12:34:56.9'", createTimestampWithTimeZoneType(1), "TIMESTAMP '2020-09-26 22:34:56.9 UTC'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2020-09-27 12:34:56.123'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-09-26 22:34:56.123 UTC'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2020-09-27 12:34:56.999'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-09-26 22:34:56.999 UTC'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.123456'", createTimestampWithTimeZoneType(6), "TIMESTAMP '2020-09-26 22:34:56.123456 UTC'")
 
                 .execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_timestamp"));
     }
@@ -1032,13 +539,13 @@ public class TestMySqlTypeMapping
     {
         // The range for TIMESTAMP values is '1970-01-01 00:00:01.000000' to '2038-01-19 03:14:07.499999'
         try (TestTable table = new TestTable(mySqlServer::execute, "tpch.test_unsupported_timestamp", "(data TIMESTAMP)")) {
-            // Verify MySQL writes
+            // Verify MySQL writes -- the server timezone is set to Pacific/Apia, so we have to account for that when inserting into MySQL
             assertMySqlQueryFails(
-                    "INSERT INTO " + table.getName() + " VALUES ('1970-01-01 00:00:00')",
-                    "Data truncation: Incorrect datetime value: '1970-01-01 00:00:00' for column 'data' at row 1");
+                    "INSERT INTO " + table.getName() + " VALUES ('1969-12-31 13:00:00')",
+                    "Data truncation: Incorrect datetime value: '1969-12-31 13:00:00' for column 'data' at row 1");
             assertMySqlQueryFails(
-                    "INSERT INTO " + table.getName() + " VALUES ('2038-01-19 03:14:08')",
-                    "Data truncation: Incorrect datetime value: '2038-01-19 03:14:08' for column 'data' at row 1");
+                    "INSERT INTO " + table.getName() + " VALUES ('2038-01-19 16:14:08')",
+                    "Data truncation: Incorrect datetime value: '2038-01-19 16:14:08' for column 'data' at row 1");
 
             // Verify Trino writes
             assertQueryFails(
@@ -1144,122 +651,6 @@ public class TestMySqlTypeMapping
             assertThat(queryRunner.execute("SELECT col_ts FROM test_zero_ts").getOnlyValue()).isNull();
 
             statement.execute("DROP TABLE tpch.test_zero_ts");
-        }
-    }
-
-    @Test
-    public void testJson()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("json", "JSON '{}'", JSON, "JSON '{}'")
-                .addRoundTrip("json", "NULL", JSON, "CAST(NULL AS JSON)")
-                .addRoundTrip("json", "JSON 'null'", JSON, "JSON 'null'")
-                .addRoundTrip("json", "JSON '123.4'", JSON, "JSON '123.4'")
-                .addRoundTrip("json", "JSON '\"abc\"'", JSON, "JSON '\"abc\"'")
-                .addRoundTrip("json", "JSON '\"text with '' apostrophes\"'", JSON, "JSON '\"text with '' apostrophes\"'")
-                .addRoundTrip("json", "JSON '\"\"'", JSON, "JSON '\"\"'")
-                .addRoundTrip("json", "JSON '{\"a\":1,\"b\":2}'", JSON, "JSON '{\"a\":1,\"b\":2}'")
-                .addRoundTrip("json", "JSON '{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}'", JSON, "JSON '{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}'")
-                .addRoundTrip("json", "JSON '[]'", JSON, "JSON '[]'")
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_json"));
-
-        SqlDataTypeTest.create()
-                .addRoundTrip("json", "CAST('{}' AS JSON)", JSON, "JSON '{}'")
-                .addRoundTrip("json", "NULL", JSON, "CAST(NULL AS JSON)")
-                .addRoundTrip("json", "CAST('null' AS JSON)", JSON, "JSON 'null'")
-                .addRoundTrip("json", "CAST('123.4' AS JSON)", JSON, "JSON '123.4'")
-                .addRoundTrip("json", "CAST('\"abc\"' AS JSON)", JSON, "JSON '\"abc\"'")
-                .addRoundTrip("json", "CAST('\"text with '' apostrophes\"' AS JSON)", JSON, "JSON '\"text with '' apostrophes\"'")
-                .addRoundTrip("json", "CAST('\"\"' AS JSON)", JSON, "JSON '\"\"'")
-                .addRoundTrip("json", "CAST('{\"a\":1,\"b\":2}' AS JSON)", JSON, "JSON '{\"a\":1,\"b\":2}'")
-                .addRoundTrip("json", "CAST('{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}' AS JSON)", JSON, "JSON '{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}'")
-                .addRoundTrip("json", "CAST('[]' AS JSON)", JSON, "JSON '[]'")
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_json"));
-    }
-
-    @Test
-    public void testFloat()
-    {
-        // we are not testing Nan/-Infinity/+Infinity as those are not supported by MySQL
-        SqlDataTypeTest.create()
-                .addRoundTrip("real", "3.14", REAL, "REAL '3.14'")
-                .addRoundTrip("real", "10.3e0", REAL, "REAL '10.3e0'")
-                .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS REAL)")
-                // .addRoundTrip("real", "3.1415927", REAL, "REAL '3.1415927'") // Overeagerly rounded by mysql to 3.14159
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_float"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_float"));
-
-        SqlDataTypeTest.create()
-                .addRoundTrip("float", "3.14", REAL, "REAL '3.14'")
-                .addRoundTrip("float", "10.3e0", REAL, "REAL '10.3e0'")
-                .addRoundTrip("float", "NULL", REAL, "CAST(NULL AS REAL)")
-                // .addRoundTrip("float", "3.1415927", REAL, "REAL '3.1415927'") // Overeagerly rounded by mysql to 3.14159
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_float"));
-    }
-
-    @Test
-    public void testDouble()
-    {
-        // we are not testing Nan/-Infinity/+Infinity as those are not supported by MySQL
-        SqlDataTypeTest.create()
-                .addRoundTrip("double", "1.0E100", DOUBLE, "1.0E100")
-                .addRoundTrip("double", "1.23456E12", DOUBLE, "1.23456E12")
-                .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_double"))
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_double"));
-    }
-
-    @Test
-    public void testUnsignedTypes()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("TINYINT UNSIGNED", "255", SMALLINT, "SMALLINT '255'")
-                .addRoundTrip("SMALLINT UNSIGNED", "65535", INTEGER, "65535")
-                .addRoundTrip("INT UNSIGNED", "4294967295", BIGINT, "4294967295")
-                .addRoundTrip("INTEGER UNSIGNED", "4294967295", BIGINT, "4294967295")
-                .addRoundTrip("BIGINT UNSIGNED", "18446744073709551615", createDecimalType(20, 0), "DECIMAL '18446744073709551615'")
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_unsigned"));
-    }
-
-    @Test
-    public void testEnum()
-    {
-        SqlExecutor jdbcSqlExecutor = mySqlServer::execute;
-        // Define enum values in an order different from lexicographical
-        jdbcSqlExecutor.execute("CREATE TABLE tpch.test_enum(id int, enum_column ENUM ('b','a','C'))");
-        assertUpdate("INSERT INTO tpch.test_enum(id, enum_column) values (1,'a'),(2,'b'),(3, NULL)", 3);
-        try {
-            assertQuery(
-                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_enum'",
-                    "VALUES ('id','integer'),('enum_column','varchar(1)')");
-            assertQuery("SELECT * FROM test_enum", "VALUES (1,'a'),(2,'b'),(3,NULL)");
-            assertQuery("SELECT * FROM test_enum WHERE enum_column = 'a'", "VALUES (1, 'a')");
-            assertQuery("SELECT * FROM test_enum WHERE enum_column != 'a'", "VALUES (2, 'b')");
-            assertQuery("SELECT * FROM test_enum WHERE enum_column <= 'a'", "VALUES (1, 'a')");
-            assertQuery("SELECT * FROM test_enum WHERE enum_column <= 'b'", "VALUES (1, 'a'), (2, 'b')");
-            assertQuery("SELECT * FROM test_enum WHERE enum_column <= 'c'", "VALUES (1, 'a'), (2, 'b')");
-            assertQueryReturnsEmptyResult("SELECT * FROM test_enum WHERE enum_column <= 'C'");
-            assertQuery("SELECT * FROM test_enum WHERE enum_column IS NOT NULL", "VALUES (1, 'a'), (2, 'b')");
-            assertQuery("SELECT * FROM test_enum WHERE enum_column IS NULL", "VALUES (3, NULL)");
-            assertQuery("SELECT id FROM test_enum ORDER BY enum_column LIMIT 1", "VALUES (1)");
-        }
-        finally {
-            jdbcSqlExecutor.execute("DROP TABLE tpch.test_enum");
-        }
-    }
-
-    private void testUnsupportedDataType(String databaseDataType)
-    {
-        SqlExecutor jdbcSqlExecutor = mySqlServer::execute;
-        jdbcSqlExecutor.execute(format("CREATE TABLE tpch.test_unsupported_data_type(supported_column varchar(5), unsupported_column %s)", databaseDataType));
-        try {
-            assertQuery(
-                    "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'tpch' AND TABLE_NAME = 'test_unsupported_data_type'",
-                    "VALUES 'supported_column'"); // no 'unsupported_column'
-        }
-        finally {
-            jdbcSqlExecutor.execute("DROP TABLE tpch.test_unsupported_data_type");
         }
     }
 

@@ -119,9 +119,19 @@ public abstract class BaseMySqlConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("timestamp(3) with time zone") ||
-                typeName.equals("timestamp(6) with time zone")) {
-            return Optional.of(dataMappingTestSetup.asUnsupported());
+
+        // MySQL TIMESTAMP has a range of '1970-01-01 00:00:01' UTC to '2038-01-19 03:14:07' UTC.
+        if (typeName.equals("timestamp(3) with time zone")) {
+            if (dataMappingTestSetup.getSampleValueLiteral().contains("1969")) {
+                return Optional.of(new DataMappingTestSetup("timestamp(3) with time zone", "TIMESTAMP '1970-01-01 15:03:00.123 +01:00'", "TIMESTAMP '1970-01-31 17:03:00.456 +01:00'"));
+            }
+            return Optional.of(new DataMappingTestSetup("timestamp(3) with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '2038-01-19 03:14:07.000 UTC'"));
+        }
+        else if (typeName.equals("timestamp(6) with time zone")) {
+            if (dataMappingTestSetup.getSampleValueLiteral().contains("1969")) {
+                return Optional.of(new DataMappingTestSetup("timestamp(6) with time zone", "TIMESTAMP '1970-01-01 15:03:00.123456 +01:00'", "TIMESTAMP '1970-01-31 17:03:00.123456 +01:00'"));
+            }
+            return Optional.of(new DataMappingTestSetup("timestamp(6) with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '2038-01-19 03:14:07.000 UTC'"));
         }
 
         if (typeName.equals("timestamp")) {
