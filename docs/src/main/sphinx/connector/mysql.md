@@ -205,10 +205,10 @@ this table:
     - ``TIME(n)``
     -
   * - ``DATETIME(n)``
-    - ``DATETIME(n)``
+    - ``TIMESTAMP(n)``
     -
   * - ``TIMESTAMP(n)``
-    - ``TIMESTAMP(n)``
+    - ``TIMESTAMP(n) WITH TIME ZONE``
     -
 ```
 
@@ -267,6 +267,9 @@ this table:
     - ``TIME(n)``
     -
   * - ``TIMESTAMP(n)``
+    - ``DATETIME(n)``
+    -
+  * - ``TIMESTAMP(n) WITH TIME ZONE``
     - ``TIMESTAMP(n)``
     -
 ```

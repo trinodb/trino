@@ -40,6 +40,8 @@ import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.ObjectReadFunction;
+import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.PredicatePushdownController;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
@@ -63,6 +65,7 @@ import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
@@ -79,9 +82,11 @@ import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
@@ -97,9 +102,12 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
+import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Collection;
 import java.util.List;
@@ -172,6 +180,8 @@ import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -179,12 +189,19 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -207,6 +224,10 @@ public class MySqlClient
     private static final int ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE = 19;
     // MySQL driver returns width of time types instead of precision, same as the above timestamp type.
     private static final int ZERO_PRECISION_TIME_COLUMN_SIZE = 8;
+
+    // MySQL TIMESTAMP has a range of '1970-01-01 00:00:01' UTC to '2038-01-19 03:14:07' UTC
+    private static final Instant MYSQL_TIMESTAMP_MIN_VALUE = Instant.parse("1970-01-01T00:00:01.000000Z");
+    private static final Instant MYSQL_TIMESTAMP_MAX_VALUE = Instant.parse("2038-01-19T03:14:07.499999Z");
 
     // An empty character means that the table doesn't have a comment in MySQL
     private static final String NO_COMMENT = "";
@@ -439,6 +460,21 @@ public class MySqlClient
         return format("CREATE TABLE %s (%s) COMMENT %s", quoted(remoteTableName), join(", ", columns), mysqlVarcharLiteral(tableMetadata.getComment().orElse(NO_COMMENT)));
     }
 
+    // This is overridden to pass NULL to MySQL for TIMESTAMP column types
+    // Without it, an "Invalid default value" error is thrown
+    @Override
+    protected String getColumnDefinitionSql(ConnectorSession session, ColumnMetadata column, String columnName)
+    {
+        if (column.getComment() != null) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+        }
+
+        return "%s %s %s".formatted(
+                quoted(columnName),
+                toWriteMapping(session, column.getType()).getDataType(),
+                column.isNullable() ? "NULL" : "NOT NULL");
+    }
+
     private static String mysqlVarcharLiteral(String value)
     {
         requireNonNull(value, "value is null");
@@ -469,6 +505,8 @@ public class MySqlClient
                 return Optional.of(jsonColumnMapping());
             case "enum":
                 return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+            case "datetime":
+                return mysqlDateTimeToTrinoTimestamp(typeHandle);
         }
 
         switch (typeHandle.getJdbcType()) {
@@ -545,12 +583,7 @@ public class MySqlClient
                         timeWriteFunction(timeType.getPrecision())));
 
             case Types.TIMESTAMP:
-                TimestampType timestampType = createTimestampType(getTimestampPrecision(typeHandle.getRequiredColumnSize()));
-                checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
-                return Optional.of(ColumnMapping.longMapping(
-                        timestampType,
-                        mySqlTimestampReadFunction(timestampType),
-                        timestampWriteFunction(timestampType)));
+                return mysqlTimestampToTrinoTimestampWithTz(typeHandle);
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
@@ -590,6 +623,73 @@ public class MySqlClient
                 ? MYSQL_CHARACTER_PUSHDOWN
                 : CASE_INSENSITIVE_CHARACTER_PUSHDOWN;
         return ColumnMapping.sliceMapping(charType, charReadFunction(charType), charWriteFunction(), pushdownController);
+    }
+
+    private Optional<ColumnMapping> mysqlDateTimeToTrinoTimestamp(JdbcTypeHandle typeHandle)
+    {
+        TimestampType timestampType = createTimestampType(getTimestampPrecision(typeHandle.getRequiredColumnSize()));
+        checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+        return Optional.of(ColumnMapping.longMapping(
+                timestampType,
+                mySqlTimestampReadFunction(timestampType),
+                timestampWriteFunction(timestampType)));
+    }
+
+    private static Optional<ColumnMapping> mysqlTimestampToTrinoTimestampWithTz(JdbcTypeHandle typeHandle)
+    {
+        TimestampWithTimeZoneType trinoType = createTimestampWithTimeZoneType(getTimestampPrecision(typeHandle.getRequiredColumnSize()));
+        if (trinoType.getPrecision() <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
+            return Optional.of(ColumnMapping.longMapping(
+                    trinoType,
+                    shortTimestampWithTimeZoneReadFunction(),
+                    shortTimestampWithTimeZoneWriteFunction()));
+        }
+        return Optional.of(ColumnMapping.objectMapping(
+                trinoType,
+                longTimestampWithTimeZoneReadFunction(),
+                longTimestampWithTimeZoneWriteFunction()));
+    }
+
+    private static LongReadFunction shortTimestampWithTimeZoneReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            Timestamp timestamp = resultSet.getTimestamp(columnIndex);
+            long millisUtc = timestamp.getTime();
+            return packDateTimeWithZone(millisUtc, UTC_KEY);
+        };
+    }
+
+    private static ObjectReadFunction longTimestampWithTimeZoneReadFunction()
+    {
+        return ObjectReadFunction.of(
+                LongTimestampWithTimeZone.class,
+                (resultSet, columnIndex) -> {
+                    OffsetDateTime offsetDateTime = resultSet.getObject(columnIndex, OffsetDateTime.class);
+                    return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(
+                            offsetDateTime.toEpochSecond(),
+                            (long) offsetDateTime.getNano() * PICOSECONDS_PER_NANOSECOND,
+                            UTC_KEY);
+                });
+    }
+
+    private static LongWriteFunction shortTimestampWithTimeZoneWriteFunction()
+    {
+        return (statement, index, value) -> {
+            Instant instantValue = Instant.ofEpochMilli(unpackMillisUtc(value));
+            statement.setObject(index, instantValue);
+        };
+    }
+
+    private static ObjectWriteFunction longTimestampWithTimeZoneWriteFunction()
+    {
+        return ObjectWriteFunction.of(
+                LongTimestampWithTimeZone.class,
+                (statement, index, value) -> {
+                    long epochSeconds = floorDiv(value.getEpochMillis(), MILLISECONDS_PER_SECOND);
+                    long nanosOfSecond = (long) floorMod(value.getEpochMillis(), MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND + value.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND;
+                    Instant instantValue = Instant.ofEpochSecond(epochSeconds, nanosOfSecond);
+                    statement.setObject(index, instantValue);
+                });
     }
 
     private LongWriteFunction mySqlDateWriteFunctionUsingLocalDate()
@@ -728,6 +828,17 @@ public class MySqlClient
                 return WriteMapping.longMapping(format("datetime(%s)", timestampType.getPrecision()), timestampWriteFunction(timestampType));
             }
             return WriteMapping.objectMapping(format("datetime(%s)", MAX_SUPPORTED_DATE_TIME_PRECISION), longTimestampWriteFunction(timestampType, MAX_SUPPORTED_DATE_TIME_PRECISION));
+        }
+
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            if (timestampWithTimeZoneType.getPrecision() <= MAX_SUPPORTED_DATE_TIME_PRECISION) {
+                String dataType = format("timestamp(%d)", timestampWithTimeZoneType.getPrecision());
+                if (timestampWithTimeZoneType.getPrecision() <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
+                    return WriteMapping.longMapping(dataType, shortTimestampWithTimeZoneWriteFunction());
+                }
+                return WriteMapping.objectMapping(dataType, longTimestampWithTimeZoneWriteFunction());
+            }
+            return WriteMapping.objectMapping(format("timestamp(%d)", MAX_SUPPORTED_DATE_TIME_PRECISION), longTimestampWithTimeZoneWriteFunction());
         }
 
         if (VARBINARY.equals(type)) {
