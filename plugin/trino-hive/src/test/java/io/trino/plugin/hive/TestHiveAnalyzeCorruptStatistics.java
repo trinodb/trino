@@ -72,9 +72,33 @@ public class TestHiveAnalyzeCorruptStatistics
 
         // Insert duplicated row to simulate broken column statistics status https://github.com/trinodb/trino/issues/13787
         assertEquals(onMetastore("SELECT COUNT(1) FROM TAB_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'"), "1");
-        onMetastore("INSERT INTO TAB_COL_STATS  " +
-                "SELECT cs_id + 1, cat_name, db_name, table_name, column_name, column_type, tbl_id, long_low_value, long_high_value, double_high_value, double_low_value, big_decimal_low_value, big_decimal_high_value, num_nulls, num_distincts, bit_vector, avg_col_len, max_col_len, num_trues, num_falses, last_analyzed " +
-                "FROM TAB_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'");
+        onMetastore("""
+                INSERT INTO TAB_COL_STATS
+                SELECT
+                  cs_id + 1,
+                  cat_name,
+                  db_name,
+                  table_name,
+                  column_name,
+                  column_type,
+                  tbl_id,
+                  long_low_value,
+                  long_high_value,
+                  double_high_value,
+                  double_low_value,
+                  big_decimal_low_value,
+                  big_decimal_high_value,
+                  num_nulls,
+                  num_distincts,
+                  bit_vector,
+                  avg_col_len,
+                  max_col_len,
+                  num_trues,
+                  num_falses,
+                  last_analyzed
+                FROM TAB_COL_STATS
+                WHERE db_name = 'tpch' AND table_name = '%s'
+                """.formatted(tableName));
         assertEquals(onMetastore("SELECT COUNT(1) FROM TAB_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'"), "2");
     }
 
@@ -103,9 +127,34 @@ public class TestHiveAnalyzeCorruptStatistics
 
         // Insert duplicated row to simulate broken partition statistics status https://github.com/trinodb/trino/issues/13787
         assertEquals(onMetastore("SELECT COUNT(1) FROM PART_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'"), "1");
-        onMetastore("INSERT INTO PART_COL_STATS  " +
-                "SELECT cs_id + 1, cat_name, db_name, table_name, partition_name, column_name, column_type, part_id, long_low_value, long_high_value, double_high_value, double_low_value, big_decimal_low_value, big_decimal_high_value, num_nulls, num_distincts, bit_vector, avg_col_len, max_col_len, num_trues, num_falses, last_analyzed " +
-                "FROM PART_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'");
+        onMetastore("""
+                INSERT INTO PART_COL_STATS
+                SELECT
+                  cs_id + 1,
+                  cat_name,
+                  db_name,
+                  table_name,
+                  partition_name,
+                  column_name,
+                  column_type,
+                  part_id,
+                  long_low_value,
+                  long_high_value,
+                  double_high_value,
+                  double_low_value,
+                  big_decimal_low_value,
+                  big_decimal_high_value,
+                  num_nulls,
+                  num_distincts,
+                  bit_vector,
+                  avg_col_len,
+                  max_col_len,
+                  num_trues,
+                  num_falses,
+                  last_analyzed
+                FROM PART_COL_STATS
+                WHERE db_name = 'tpch' AND table_name = '%s'
+                """.formatted(tableName));
         assertEquals(onMetastore("SELECT COUNT(1) FROM PART_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'"), "2");
     }
 
