@@ -25,7 +25,6 @@ import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toUnmodifiableList;
 
 @Experimental(eta = "2022-10-31")
 public class FunctionDependencyDeclaration
@@ -93,7 +92,7 @@ public class FunctionDependencyDeclaration
         {
             functionDependencies.add(new FunctionDependency(name, parameterTypes.stream()
                     .map(Type::getTypeSignature)
-                    .collect(toUnmodifiableList()), false));
+                    .toList(), false));
             return this;
         }
 
@@ -109,7 +108,7 @@ public class FunctionDependencyDeclaration
                     name,
                     parameterTypes.stream()
                             .map(Type::getTypeSignature)
-                            .collect(toUnmodifiableList()),
+                            .toList(),
                     true));
             return this;
         }
@@ -124,7 +123,7 @@ public class FunctionDependencyDeclaration
         {
             operatorDependencies.add(new OperatorDependency(operatorType, parameterTypes.stream()
                     .map(Type::getTypeSignature)
-                    .collect(toUnmodifiableList()), false));
+                    .toList(), false));
             return this;
         }
 
@@ -140,7 +139,7 @@ public class FunctionDependencyDeclaration
                     operatorType,
                     parameterTypes.stream()
                             .map(Type::getTypeSignature)
-                            .collect(toUnmodifiableList()),
+                            .toList(),
                     true));
             return this;
         }
