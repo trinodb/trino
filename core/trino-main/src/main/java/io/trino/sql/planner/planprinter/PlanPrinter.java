@@ -678,23 +678,21 @@ public class PlanPrinter
         @Override
         public Void visitJoin(JoinNode node, Context context)
         {
-            List<Expression> joinExpressions = new ArrayList<>();
-            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(unresolveFunctions(clause.toExpression()));
-            }
-            node.getFilter()
-                    .map(PlanPrinter::unresolveFunctions)
-                    .ifPresent(joinExpressions::add);
+            List<Expression> criteriaExpressions = node.getCriteria().stream()
+                    .map(clause -> unresolveFunctions(clause.toExpression()))
+                    .collect(toImmutableList());
 
             NodeRepresentation nodeOutput;
             if (node.isCrossJoin()) {
-                checkState(joinExpressions.isEmpty());
+                checkState(criteriaExpressions.isEmpty());
+                checkState(node.getFilter().isEmpty());
                 nodeOutput = addNode(node, "CrossJoin", context.tag());
             }
             else {
                 ImmutableMap.Builder<String, String> descriptor = ImmutableMap.<String, String>builder()
-                        .put("criteria", Joiner.on(" AND ").join(anonymizeExpressions(joinExpressions)))
-                        .put("hash", formatHash(node.getLeftHashSymbol(), node.getRightHashSymbol()));
+                        .put("criteria", Joiner.on(" AND ").join(anonymizeExpressions(criteriaExpressions)));
+                node.getFilter().ifPresent(filter -> descriptor.put("filter", formatFilter(unresolveFunctions(filter))));
+                descriptor.put("hash", formatHash(node.getLeftHashSymbol(), node.getRightHashSymbol()));
                 node.getDistributionType().ifPresent(distribution -> descriptor.put("distribution", distribution.name()));
                 nodeOutput = addNode(node, node.getType().getJoinLabel(), descriptor.buildOrThrow(), node.getReorderJoinStatsAndCost(), context.tag());
             }
