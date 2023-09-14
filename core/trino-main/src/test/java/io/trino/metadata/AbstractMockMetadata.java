@@ -813,20 +813,20 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public ResolvedFunction resolveOperator(Session session, OperatorType operatorType, List<? extends Type> argumentTypes)
+    public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public ResolvedFunction getCoercion(Session session, OperatorType operatorType, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public ResolvedFunction getCoercion(Session session, CatalogSchemaFunctionName name, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(CatalogSchemaFunctionName name, Type fromType, Type toType)
     {
         throw new UnsupportedOperationException();
     }

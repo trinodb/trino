@@ -33,7 +33,6 @@ import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunctionImplementation;
-import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.WindowFunctionSupplier;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
@@ -135,12 +134,9 @@ public class GlobalFunctionCatalog
         return functions.list();
     }
 
-    public Collection<FunctionMetadata> getFunctions(SchemaFunctionName name)
+    public Collection<FunctionMetadata> getBuiltInFunctions(String functionName)
     {
-        if (!BUILTIN_SCHEMA.equals(name.getSchemaName())) {
-            return ImmutableList.of();
-        }
-        return functions.get(name.getFunctionName());
+        return functions.get(functionName);
     }
 
     public FunctionMetadata getFunctionMetadata(FunctionId functionId)

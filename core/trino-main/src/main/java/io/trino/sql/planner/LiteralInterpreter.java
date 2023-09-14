@@ -157,7 +157,7 @@ public final class LiteralInterpreter
                     resolvedFunction = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of("json_parse"), fromTypes(VARCHAR));
                 }
                 else {
-                    resolvedFunction = plannerContext.getMetadata().getCoercion(session, VARCHAR, type);
+                    resolvedFunction = plannerContext.getMetadata().getCoercion(VARCHAR, type);
                 }
                 return evaluatedNode -> {
                     try {

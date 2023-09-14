@@ -605,9 +605,9 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public ResolvedFunction getCoercion(Session session, OperatorType operatorType, Type fromType, Type toType)
+        public ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType)
         {
-            return delegate.getCoercion(session, operatorType, fromType, toType);
+            return delegate.getCoercion(operatorType, fromType, toType);
         }
 
         private static ColumnMetadata withComment(ColumnMetadata tableColumn, Optional<String> comment)

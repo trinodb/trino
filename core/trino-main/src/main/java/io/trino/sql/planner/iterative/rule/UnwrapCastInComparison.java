@@ -234,7 +234,7 @@ public class UnwrapCastInComparison
                 }
             }
 
-            ResolvedFunction sourceToTarget = plannerContext.getMetadata().getCoercion(session, sourceType, targetType);
+            ResolvedFunction sourceToTarget = plannerContext.getMetadata().getCoercion(sourceType, targetType);
 
             Optional<Type.Range> sourceRange = sourceType.getRange();
             if (sourceRange.isPresent()) {
@@ -300,7 +300,7 @@ public class UnwrapCastInComparison
 
             ResolvedFunction targetToSource;
             try {
-                targetToSource = plannerContext.getMetadata().getCoercion(session, targetType, sourceType);
+                targetToSource = plannerContext.getMetadata().getCoercion(targetType, sourceType);
             }
             catch (OperatorNotFoundException e) {
                 // Without a cast between target -> source, there's nothing more we can do
@@ -369,7 +369,7 @@ public class UnwrapCastInComparison
         {
             ResolvedFunction targetToSource;
             try {
-                targetToSource = plannerContext.getMetadata().getCoercion(session, DATE, sourceType);
+                targetToSource = plannerContext.getMetadata().getCoercion(DATE, sourceType);
             }
             catch (OperatorNotFoundException e) {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, e);

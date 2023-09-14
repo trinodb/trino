@@ -285,7 +285,7 @@ public final class LiteralEncoder
             argument = toExpression(session, object, argumentType);
         }
 
-        ResolvedFunction resolvedFunction = plannerContext.getMetadata().getCoercion(session, builtinFunctionName(LITERAL_FUNCTION_NAME), argumentType, type);
+        ResolvedFunction resolvedFunction = plannerContext.getMetadata().getCoercion(builtinFunctionName(LITERAL_FUNCTION_NAME), argumentType, type);
         return FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                 .setName(resolvedFunction.toQualifiedName())
                 .addArgument(argumentType, argument)

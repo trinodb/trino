@@ -261,7 +261,7 @@ public class ApplyTableScanRedirection
             Type sourceType)
     {
         try {
-            plannerContext.getMetadata().getCoercion(session, destinationType, sourceType);
+            plannerContext.getMetadata().getCoercion(destinationType, sourceType);
         }
         catch (TrinoException e) {
             throw new TrinoException(FUNCTION_NOT_FOUND, format(
