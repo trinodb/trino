@@ -1183,6 +1183,16 @@ public class TracingMetadata
     }
 
     @Override
+    public ResolvedFunction resolveBuiltinFunction(String name, List<TypeSignatureProvider> parameterTypes)
+    {
+        Span span = startSpan("resolveBuiltinFunction")
+                .setAllAttributes(attribute(TrinoAttributes.FUNCTION, name));
+        try (var ignored = scopedSpan(span)) {
+            return delegate.resolveBuiltinFunction(name, parameterTypes);
+        }
+    }
+
+    @Override
     public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
