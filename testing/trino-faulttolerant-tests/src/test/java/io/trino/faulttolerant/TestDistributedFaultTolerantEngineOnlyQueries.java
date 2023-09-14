@@ -119,8 +119,9 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
                 .build();
 
         ExecutorService backgroundExecutor = newCachedThreadPool();
+        String longQuery = "select count(*) long_query_count_" + System.currentTimeMillis() + " FROM tpch.sf1000.lineitem l1 cross join tpch.sf1000.lineitem l2 cross join tpch.sf1000.lineitem l3 where l1.orderkey * l2.orderkey * l3.orderkey = 1";
+        String nonMetadataQuery = "select count(*) non_metadata_query_count_" + System.currentTimeMillis() + " from nation";
         try {
-            String longQuery = "select count(*) long_query_count FROM lineitem l1 cross join lineitem l2 cross join lineitem l3 where l1.orderkey * l2.orderkey * l3.orderkey = 1";
             backgroundExecutor.submit(() -> {
                 query(highTaskMemorySession, longQuery);
             });
@@ -141,7 +142,6 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
             assertThat(query("SELECT * FROM system.jdbc.tables WHERE table_schem LIKE 'def%'")).succeeds();
 
             // check non-metadata queries still wait for resources
-            String nonMetadataQuery = "select count(*) non_metadata_query_count from nation";
             backgroundExecutor.submit(() -> {
                 query(nonMetadataQuery);
             });
@@ -153,6 +153,8 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
             assertThat(queryState(longQuery).orElseThrow()).isEqualTo(QueryState.RUNNING);
         }
         finally {
+            cancelQuery(longQuery);
+            cancelQuery(nonMetadataQuery);
             backgroundExecutor.shutdownNow();
         }
     }
@@ -168,5 +170,19 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
     private boolean queryIsInState(String queryText, QueryState queryState)
     {
         return queryState(queryText).map(state -> state == queryState).orElse(false);
+    }
+
+    private void cancelQuery(String queryText)
+    {
+        getDistributedQueryRunner().getCoordinator().getQueryManager().getQueries().stream()
+                .filter(query -> query.getQuery().equals(queryText))
+                .forEach(query -> {
+                    try {
+                        getDistributedQueryRunner().getCoordinator().getQueryManager().cancelQuery(query.getQueryId());
+                    }
+                    catch (Exception e) {
+                        // ignore
+                    }
+                });
     }
 }
