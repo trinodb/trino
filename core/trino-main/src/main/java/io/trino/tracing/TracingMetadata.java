@@ -1183,32 +1183,32 @@ public class TracingMetadata
     }
 
     @Override
-    public ResolvedFunction resolveOperator(Session session, OperatorType operatorType, List<? extends Type> argumentTypes)
+    public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
         // no tracing since it doesn't call any connector
-        return delegate.resolveOperator(session, operatorType, argumentTypes);
+        return delegate.resolveOperator(operatorType, argumentTypes);
     }
 
     @Override
-    public ResolvedFunction getCoercion(Session session, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(Type fromType, Type toType)
     {
         // no tracing since it doesn't call any connector
-        return delegate.getCoercion(session, fromType, toType);
+        return delegate.getCoercion(fromType, toType);
     }
 
     @Override
-    public ResolvedFunction getCoercion(Session session, OperatorType operatorType, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType)
     {
         // no tracing since it doesn't call any connector
-        return delegate.getCoercion(session, operatorType, fromType, toType);
+        return delegate.getCoercion(operatorType, fromType, toType);
     }
 
     @Override
-    public ResolvedFunction getCoercion(Session session, CatalogSchemaFunctionName name, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(CatalogSchemaFunctionName name, Type fromType, Type toType)
     {
         // no tracing since it doesn't call any connector
-        return delegate.getCoercion(session, name, fromType, toType);
+        return delegate.getCoercion(name, fromType, toType);
     }
 
     @Override

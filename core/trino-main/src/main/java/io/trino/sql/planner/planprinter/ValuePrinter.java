@@ -55,7 +55,7 @@ public final class ValuePrinter
             return "NULL";
         }
 
-        ResolvedFunction coercion = metadata.getCoercion(session, type, VARCHAR);
+        ResolvedFunction coercion = metadata.getCoercion(type, VARCHAR);
         Slice coerced = (Slice) new InterpretedFunctionInvoker(functionManager).invoke(coercion, session.toConnectorSession(), value);
         return coerced.toStringUtf8();
     }

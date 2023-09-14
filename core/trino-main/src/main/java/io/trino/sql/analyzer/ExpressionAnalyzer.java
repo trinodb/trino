@@ -1092,7 +1092,7 @@ public class ExpressionAnalyzer
 
                 if (!JSON.equals(resolvedType)) {
                     try {
-                        plannerContext.getMetadata().getCoercion(session, VARCHAR, resolvedType);
+                        plannerContext.getMetadata().getCoercion(VARCHAR, resolvedType);
                     }
                     catch (IllegalArgumentException e) {
                         throw semanticException(INVALID_LITERAL, node, "No literal form for resolvedType %s", resolvedType);
@@ -1553,7 +1553,7 @@ public class ExpressionAnalyzer
                 operatorType = ADD;
             }
             try {
-                function = plannerContext.getMetadata().resolveOperator(session, operatorType, ImmutableList.of(sortKeyType, offsetValueType));
+                function = plannerContext.getMetadata().resolveOperator(operatorType, ImmutableList.of(sortKeyType, offsetValueType));
             }
             catch (TrinoException e) {
                 ErrorCode errorCode = e.getErrorCode();
@@ -2217,7 +2217,7 @@ public class ExpressionAnalyzer
             Type value = process(node.getExpression(), context);
             if (!value.equals(UNKNOWN) && !node.isTypeOnly()) {
                 try {
-                    plannerContext.getMetadata().getCoercion(session, value, type);
+                    plannerContext.getMetadata().getCoercion(value, type);
                 }
                 catch (OperatorNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Cannot cast %s to %s", value, type);
@@ -2578,7 +2578,7 @@ public class ExpressionAnalyzer
             Type resultType = pathAnalysis.getType(pathAnalysis.getPath());
             if (resultType != null && !resultType.equals(returnedType)) {
                 try {
-                    plannerContext.getMetadata().getCoercion(session, resultType, returnedType);
+                    plannerContext.getMetadata().getCoercion(resultType, returnedType);
                 }
                 catch (OperatorNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Return type of JSON path: %s incompatible with return type of function JSON_VALUE: %s", resultType, returnedType);
@@ -2687,7 +2687,7 @@ public class ExpressionAnalyzer
             Type outputType = outputFunction.getSignature().getReturnType();
             if (!outputType.equals(returnedType)) {
                 try {
-                    plannerContext.getMetadata().getCoercion(session, outputType, returnedType);
+                    plannerContext.getMetadata().getCoercion(outputType, returnedType);
                 }
                 catch (OperatorNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Cannot cast %s to %s", outputType, returnedType);
@@ -2777,7 +2777,7 @@ public class ExpressionAnalyzer
                     }
                     else {
                         try {
-                            plannerContext.getMetadata().getCoercion(session, parameterType, VARCHAR);
+                            plannerContext.getMetadata().getCoercion(parameterType, VARCHAR);
                         }
                         catch (OperatorNotFoundException e) {
                             throw semanticException(NOT_SUPPORTED, node, "Unsupported type of JSON path parameter: %s", parameterType.getDisplayName());
@@ -2938,7 +2938,7 @@ public class ExpressionAnalyzer
 
                     if (!isStringType(valueType) && !isNumericType(valueType) && !valueType.equals(BOOLEAN)) {
                         try {
-                            plannerContext.getMetadata().getCoercion(session, valueType, VARCHAR);
+                            plannerContext.getMetadata().getCoercion(valueType, VARCHAR);
                         }
                         catch (OperatorNotFoundException e) {
                             throw semanticException(NOT_SUPPORTED, node, "Unsupported type of value passed to JSON_OBJECT function: %s", valueType.getDisplayName());
@@ -2993,7 +2993,7 @@ public class ExpressionAnalyzer
             Type outputType = outputFunction.getSignature().getReturnType();
             if (!outputType.equals(returnedType)) {
                 try {
-                    plannerContext.getMetadata().getCoercion(session, outputType, returnedType);
+                    plannerContext.getMetadata().getCoercion(outputType, returnedType);
                 }
                 catch (OperatorNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Cannot return type %s from JSON_OBJECT function", returnedType);
@@ -3051,7 +3051,7 @@ public class ExpressionAnalyzer
 
                     if (!isStringType(elementType) && !isNumericType(elementType) && !elementType.equals(BOOLEAN)) {
                         try {
-                            plannerContext.getMetadata().getCoercion(session, elementType, VARCHAR);
+                            plannerContext.getMetadata().getCoercion(elementType, VARCHAR);
                         }
                         catch (OperatorNotFoundException e) {
                             throw semanticException(NOT_SUPPORTED, node, "Unsupported type of value passed to JSON_ARRAY function: %s", elementType.getDisplayName());
@@ -3104,7 +3104,7 @@ public class ExpressionAnalyzer
             Type outputType = outputFunction.getSignature().getReturnType();
             if (!outputType.equals(returnedType)) {
                 try {
-                    plannerContext.getMetadata().getCoercion(session, outputType, returnedType);
+                    plannerContext.getMetadata().getCoercion(outputType, returnedType);
                 }
                 catch (OperatorNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Cannot return type %s from JSON_ARRAY function", returnedType);
@@ -3123,7 +3123,7 @@ public class ExpressionAnalyzer
 
             BoundSignature operatorSignature;
             try {
-                operatorSignature = plannerContext.getMetadata().resolveOperator(session, operatorType, argumentTypes.build()).getSignature();
+                operatorSignature = plannerContext.getMetadata().resolveOperator(operatorType, argumentTypes.build()).getSignature();
             }
             catch (OperatorNotFoundException e) {
                 throw semanticException(TYPE_MISMATCH, node, e, "%s", e.getMessage());
