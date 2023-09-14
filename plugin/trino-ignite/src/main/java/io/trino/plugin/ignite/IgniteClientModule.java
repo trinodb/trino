@@ -18,6 +18,7 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import com.google.inject.assistedinject.FactoryModuleBuilder;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
@@ -25,13 +26,13 @@ import io.trino.plugin.jdbc.DecimalModule;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import org.apache.ignite.IgniteJdbcThinDriver;
 
 import java.util.Properties;
 
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 
@@ -42,7 +43,9 @@ public class IgniteClientModule
     public void configure(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(IgniteClient.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(IgniteJdbcMetadataFactory.class).in(Scopes.SINGLETON);
+        binder.install(new FactoryModuleBuilder()
+                .implement(JdbcMetadata.class, IgniteMetadata.class)
+                .build(JdbcMetadataFactory.class));
         configBinder(binder).bindConfig(IgniteJdbcConfig.class);
         bindTablePropertiesProvider(binder, IgniteTableProperties.class);
         binder.install(new DecimalModule());

@@ -24,6 +24,7 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcMetadataFactoryModule;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 
 import java.sql.DriverManager;
@@ -37,6 +38,7 @@ public class ExampleClientModule
     public void setup(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(ExampleClient.class).in(Scopes.SINGLETON);
+        binder.install(new JdbcMetadataFactoryModule());
     }
 
     @Provides

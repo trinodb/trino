@@ -25,6 +25,7 @@ import io.trino.plugin.jdbc.DecimalModule;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcMetadataFactoryModule;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.function.table.ConnectorTableFunction;
@@ -45,6 +46,7 @@ public class SingleStoreClientModule
         configBinder(binder).bindConfig(SingleStoreConfig.class);
         binder.install(new DecimalModule());
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+        binder.install(new JdbcMetadataFactoryModule());
     }
 
     @Provides

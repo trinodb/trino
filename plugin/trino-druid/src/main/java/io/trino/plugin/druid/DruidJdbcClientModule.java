@@ -24,6 +24,7 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcMetadataFactoryModule;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.function.table.ConnectorTableFunction;
@@ -41,6 +42,7 @@ public class DruidJdbcClientModule
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(DruidJdbcClient.class).in(Scopes.SINGLETON);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+        binder.install(new JdbcMetadataFactoryModule());
     }
 
     @Provides

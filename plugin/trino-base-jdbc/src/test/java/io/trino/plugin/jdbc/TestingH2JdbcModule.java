@@ -14,8 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Binder;
-import com.google.inject.Module;
+import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
@@ -33,7 +32,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class TestingH2JdbcModule
-        implements Module
+        extends AbstractModule
 {
     private final TestingH2JdbcClientFactory testingH2JdbcClientFactory;
 
@@ -48,9 +47,10 @@ public class TestingH2JdbcModule
     }
 
     @Override
-    public void configure(Binder binder)
+    public void configure()
     {
-        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+        newSetBinder(binder(), ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+        install(new JdbcMetadataFactoryModule());
     }
 
     @Provides

@@ -170,6 +170,7 @@
         <dep.gcs.version>2.2.8</dep.gcs.version>
 
         <dep.errorprone.version>2.21.1</dep.errorprone.version>
+        <dep.assistedinject.version>7.0.0</dep.assistedinject.version>
         <dep.testcontainers.version>1.19.0</dep.testcontainers.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
         <dep.confluent.version>7.3.1</dep.confluent.version>
@@ -499,6 +500,12 @@
                 <groupId>com.google.errorprone</groupId>
                 <artifactId>error_prone_annotations</artifactId>
                 <version>${dep.errorprone.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.inject.extensions</groupId>
+                <artifactId>guice-assistedinject</artifactId>
+                <version>${dep.assistedinject.version}</version>
             </dependency>
 
             <dependency>

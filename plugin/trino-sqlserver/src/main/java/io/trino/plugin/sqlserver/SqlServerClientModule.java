@@ -27,6 +27,7 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
+import io.trino.plugin.jdbc.JdbcMetadataFactoryModule;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
@@ -63,6 +64,7 @@ public class SqlServerClientModule
                 SqlServerConfig.class,
                 SqlServerConfig::isStoredProcedureTableFunctionEnabled,
                 internalBinder -> newSetBinder(internalBinder, ConnectorTableFunction.class).addBinding().toProvider(Procedure.class).in(Scopes.SINGLETON)));
+        binder.install(new JdbcMetadataFactoryModule());
     }
 
     @Provides

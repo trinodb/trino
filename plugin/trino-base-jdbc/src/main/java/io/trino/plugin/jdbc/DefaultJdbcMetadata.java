@@ -16,6 +16,9 @@ package io.trino.plugin.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
+import com.google.inject.assistedinject.Assisted;
+import com.google.inject.name.Named;
 import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
@@ -109,23 +112,34 @@ public class DefaultJdbcMetadata
     private static final String DELETE_ROW_ID = "_trino_artificial_column_handle_for_delete_row_id_";
     private static final String MERGE_ROW_ID = "$merge_row_id";
 
-    private final JdbcClient jdbcClient;
-    private final boolean precalculateStatisticsForPushdown;
-    private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
+    @Inject
+    @Named("cachingJdbcClient")
+    protected JdbcClient jdbcClient;
+    @Inject
+    @Named("precalculateStatisticsForPushdown")
+    private boolean precalculateStatisticsForPushdown;
+    @Inject
+    private Set<JdbcQueryEventListener> jdbcQueryEventListeners;
+    private AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
+    @Inject
+    private SyntheticColumnHandleBuilder syntheticColumnBuilder;
 
-    private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
+    private JdbcTransactionHandle transaction;
 
-    private final SyntheticColumnHandleBuilder syntheticColumnBuilder;
+    @Inject
+    public DefaultJdbcMetadata(@Assisted JdbcTransactionHandle transaction)
+    {
+        this.transaction = transaction;
+    }
 
+    @Deprecated
     public DefaultJdbcMetadata(JdbcClient jdbcClient,
             boolean precalculateStatisticsForPushdown,
-            Set<JdbcQueryEventListener> jdbcQueryEventListeners,
-            SyntheticColumnHandleBuilder syntheticColumnBuilder)
+            Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.precalculateStatisticsForPushdown = precalculateStatisticsForPushdown;
         this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "queryEventListeners is null"));
-        this.syntheticColumnBuilder = requireNonNull(syntheticColumnBuilder, "syntheticColumnBuilder is null");
     }
 
     @Override

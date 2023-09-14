@@ -25,6 +25,7 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcMetadataFactoryModule;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.RetryingConnectionFactory;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
@@ -53,6 +54,7 @@ public class OracleClientModule
         configBinder(binder).bindConfig(OracleConfig.class);
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(ORACLE_MAX_LIST_EXPRESSIONS);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+        binder.install(new JdbcMetadataFactoryModule());
     }
 
     @Provides

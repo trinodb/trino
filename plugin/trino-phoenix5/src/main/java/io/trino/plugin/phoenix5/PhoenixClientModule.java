@@ -18,6 +18,7 @@ import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import com.google.inject.assistedinject.FactoryModuleBuilder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
@@ -41,7 +42,9 @@ import io.trino.plugin.jdbc.JdbcDiagnosticModule;
 import io.trino.plugin.jdbc.JdbcDynamicFilteringConfig;
 import io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties;
 import io.trino.plugin.jdbc.JdbcDynamicFilteringSplitManager;
+import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
+import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcMetadataSessionProperties;
 import io.trino.plugin.jdbc.JdbcWriteConfig;
 import io.trino.plugin.jdbc.JdbcWriteSessionProperties;
@@ -128,7 +131,9 @@ public class PhoenixClientModule
         binder.bind(PhoenixClient.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(Key.get(PhoenixClient.class)).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class).to(Key.get(JdbcClient.class, StatsCollecting.class)).in(Scopes.SINGLETON);
-        binder.bind(ConnectorMetadata.class).annotatedWith(ForClassLoaderSafe.class).to(PhoenixMetadata.class).in(Scopes.SINGLETON);
+        binder.install(new FactoryModuleBuilder()
+                .implement(JdbcMetadata.class, PhoenixMetadata.class)
+                .build(JdbcMetadataFactory.class));
         binder.bind(ConnectorMetadata.class).to(ClassLoaderSafeConnectorMetadata.class).in(Scopes.SINGLETON);
 
         binder.bind(ConnectionFactory.class)

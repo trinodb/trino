@@ -15,6 +15,7 @@ package io.trino.plugin.ignite;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import com.google.inject.assistedinject.Assisted;
 import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcClient;
@@ -22,6 +23,7 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.JdbcTransactionHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SyntheticColumnHandleBuilder;
@@ -49,27 +51,30 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
-import static java.util.Objects.requireNonNull;
 
 public class IgniteMetadata
         extends DefaultJdbcMetadata
 {
     private static final String IGNITE_DUMMY_ID = "dummy_id";
-    private final JdbcClient igniteClient;
 
     @Inject
+    public IgniteMetadata(@Assisted JdbcTransactionHandle transactionHandle)
+    {
+        super(transactionHandle);
+    }
+
+    @Deprecated
     public IgniteMetadata(JdbcClient igniteClient,
                 Set<JdbcQueryEventListener> jdbcQueryEventListeners,
                 SyntheticColumnHandleBuilder syntheticColumnHandleBuilder)
     {
-        super(igniteClient, false, jdbcQueryEventListeners, syntheticColumnHandleBuilder);
-        this.igniteClient = requireNonNull(igniteClient, "igniteClient is null");
+        super(igniteClient, false, jdbcQueryEventListeners);
     }
 
     @Override
     public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return igniteClient.getTableHandle(session, schemaTableName)
+        return jdbcClient.getTableHandle(session, schemaTableName)
                 .map(JdbcTableHandle::asPlainTable)
                 .map(JdbcNamedRelationHandle::getRemoteTableName)
                 .map(remoteTableName -> new JdbcTableHandle(
@@ -86,7 +91,7 @@ public class IgniteMetadata
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
         }
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
-        Optional<String> dummyIdColumn = igniteClient.getColumns(session, handle).stream()
+        Optional<String> dummyIdColumn = jdbcClient.getColumns(session, handle).stream()
                 .map(JdbcColumnHandle::getColumnName)
                 .filter(IGNITE_DUMMY_ID::equalsIgnoreCase)
                 .findFirst();
@@ -124,12 +129,12 @@ public class IgniteMetadata
         return new ConnectorTableMetadata(
                 handle.getRequiredNamedRelation().getSchemaTableName(),
                 getColumnMetadata(session, handle),
-                igniteClient.getTableProperties(session, handle));
+                jdbcClient.getTableProperties(session, handle));
     }
 
     private List<ColumnMetadata> getColumnMetadata(ConnectorSession session, JdbcTableHandle handle)
     {
-        return igniteClient.getColumns(session, handle).stream()
+        return jdbcClient.getColumns(session, handle).stream()
                 .filter(column -> !IGNITE_DUMMY_ID.equalsIgnoreCase(column.getColumnName()))
                 .map(JdbcColumnHandle::getColumnMetadata)
                 .collect(toImmutableList());
@@ -149,7 +154,7 @@ public class IgniteMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
-        igniteClient.beginCreateTable(session, tableMetadata);
+        jdbcClient.beginCreateTable(session, tableMetadata);
     }
 
     @Override
@@ -158,7 +163,7 @@ public class IgniteMetadata
         if (retryMode != NO_RETRIES) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
         }
-        return igniteClient.beginCreateTable(session, tableMetadata);
+        return jdbcClient.beginCreateTable(session, tableMetadata);
     }
 
     @Override
@@ -182,6 +187,6 @@ public class IgniteMetadata
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding not null columns");
         }
         JdbcTableHandle handle = (JdbcTableHandle) table;
-        igniteClient.addColumn(session, handle, columnMetadata);
+        jdbcClient.addColumn(session, handle, columnMetadata);
     }
 }

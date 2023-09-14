@@ -28,6 +28,7 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
+import io.trino.plugin.jdbc.JdbcMetadataFactoryModule;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 
 import java.util.Properties;
@@ -50,6 +51,7 @@ public class ClickHouseClientModule
         bindTablePropertiesProvider(binder, ClickHouseTableProperties.class);
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setDomainCompactionThreshold(DEFAULT_DOMAIN_COMPACTION_THRESHOLD));
         binder.install(new DecimalModule());
+        binder.install(new JdbcMetadataFactoryModule());
     }
 
     @Provides

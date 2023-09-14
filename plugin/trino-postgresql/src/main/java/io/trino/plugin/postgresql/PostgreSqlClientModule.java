@@ -20,6 +20,7 @@ import io.trino.plugin.jdbc.DecimalModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
+import io.trino.plugin.jdbc.JdbcMetadataFactoryModule;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteQueryCancellationModule;
@@ -46,5 +47,6 @@ public class PostgreSqlClientModule
         install(new JdbcJoinPushdownSupportModule());
         install(new RemoteQueryCancellationModule());
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+        binder.install(new JdbcMetadataFactoryModule());
     }
 }

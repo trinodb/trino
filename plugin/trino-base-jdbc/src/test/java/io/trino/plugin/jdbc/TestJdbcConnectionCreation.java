@@ -15,8 +15,7 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Binder;
-import com.google.inject.Module;
+import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import io.opentelemetry.api.OpenTelemetry;
@@ -91,7 +90,7 @@ public class TestJdbcConnectionCreation
     }
 
     private static class TestingConnectionH2Module
-            implements Module
+            extends AbstractModule
     {
         private final ConnectionCountingConnectionFactory connectionCountingConnectionFactory;
 
@@ -101,7 +100,10 @@ public class TestJdbcConnectionCreation
         }
 
         @Override
-        public void configure(Binder binder) {}
+        public void configure()
+        {
+            install(new JdbcMetadataFactoryModule());
+        }
 
         @Provides
         @Singleton

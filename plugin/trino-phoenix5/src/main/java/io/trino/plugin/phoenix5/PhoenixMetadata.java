@@ -15,6 +15,7 @@ package io.trino.plugin.phoenix5;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import com.google.inject.assistedinject.Assisted;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.DefaultJdbcMetadata;
@@ -22,9 +23,9 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.JdbcTransactionHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.RemoteTableName;
-import io.trino.plugin.jdbc.SyntheticColumnHandleBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -82,16 +83,23 @@ public class PhoenixMetadata
     // col name used for PK if none provided in DDL
     private static final String ROWKEY = "ROWKEY";
 
-    private final PhoenixClient phoenixClient;
-    private final IdentifierMapping identifierMapping;
+    @Inject
+    private PhoenixClient phoenixClient;
+    @Inject
+    private IdentifierMapping identifierMapping;
 
     @Inject
+    private PhoenixMetadata(@Assisted JdbcTransactionHandle jdbcTransactionHandle)
+    {
+        super(jdbcTransactionHandle);
+    }
+
+    @Deprecated
     public PhoenixMetadata(PhoenixClient phoenixClient,
             IdentifierMapping identifierMapping,
-            Set<JdbcQueryEventListener> jdbcQueryEventListeners,
-            SyntheticColumnHandleBuilder syntheticColumnHandleBuilder)
+            Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
-        super(phoenixClient, false, jdbcQueryEventListeners, syntheticColumnHandleBuilder);
+        super(phoenixClient, false, jdbcQueryEventListeners);
         this.phoenixClient = requireNonNull(phoenixClient, "phoenixClient is null");
         this.identifierMapping = requireNonNull(identifierMapping, "identifierMapping is null");
     }
