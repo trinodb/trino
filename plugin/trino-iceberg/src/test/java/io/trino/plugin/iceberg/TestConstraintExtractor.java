@@ -40,7 +40,6 @@ import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.transaction.NoOpTransactionManager;
 import io.trino.transaction.TransactionId;
@@ -65,7 +64,9 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
@@ -184,7 +185,7 @@ public class TestConstraintExtractor
     {
         String timestampTzColumnSymbol = "timestamp_tz_symbol";
         FunctionCall truncateToDay = new FunctionCall(
-                QualifiedName.of("date_trunc"),
+                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction("date_trunc", fromTypes(VARCHAR, TIMESTAMP_TZ_MICROS)).toQualifiedName(),
                 List.of(
                         LITERAL_ENCODER.toExpression(utf8Slice("day"), createVarcharType(17)),
                         new SymbolReference(timestampTzColumnSymbol)));
@@ -268,7 +269,7 @@ public class TestConstraintExtractor
     {
         String timestampTzColumnSymbol = "timestamp_tz_symbol";
         FunctionCall extractYear = new FunctionCall(
-                QualifiedName.of("year"),
+                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction("year", fromTypes(TIMESTAMP_TZ_MICROS)).toQualifiedName(),
                 List.of(new SymbolReference(timestampTzColumnSymbol)));
 
         LocalDate someDate = LocalDate.of(2005, 9, 10);

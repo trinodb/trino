@@ -35,7 +35,6 @@ import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.StringLiteral;
 import org.testng.annotations.Test;
@@ -46,6 +45,8 @@ import java.util.Optional;
 
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 
 public class TestPushMergeWriterUpdateIntoConnector
@@ -143,7 +144,9 @@ public class TestPushMergeWriterUpdateIntoConnector
                         Symbol rowId = p.symbol("row_id");
                         Symbol rowCount = p.symbol("row_count");
                         // set function call, which represents update all columns statement
-                        Expression updateMergeRowExpression = new Row(ImmutableList.of(new FunctionCall(QualifiedName.of("from_base64"), ImmutableList.of(new StringLiteral("")))));
+                        Expression updateMergeRowExpression = new Row(ImmutableList.of(new FunctionCall(
+                                ruleTester.getMetadata().resolveBuiltinFunction("from_base64", fromTypes(VARCHAR)).toQualifiedName(),
+                                ImmutableList.of(new StringLiteral("")))));
 
                         return p.tableFinish(
                                 p.merge(

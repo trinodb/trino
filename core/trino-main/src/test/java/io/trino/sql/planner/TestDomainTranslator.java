@@ -45,7 +45,6 @@ import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.type.LikePattern;
@@ -82,6 +81,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.ExpressionUtils.and;
 import static io.trino.sql.ExpressionUtils.or;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -96,6 +96,7 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.ColorType.COLOR;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
+import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
@@ -2007,8 +2008,12 @@ public class TestDomainTranslator
     @Test
     public void testUnsupportedFunctions()
     {
-        assertUnsupportedPredicate(new FunctionCall(QualifiedName.of("LENGTH"), ImmutableList.of(C_VARCHAR.toSymbolReference())));
-        assertUnsupportedPredicate(new FunctionCall(QualifiedName.of("REPLACE"), ImmutableList.of(C_VARCHAR.toSymbolReference(), stringLiteral("abc"))));
+        assertUnsupportedPredicate(new FunctionCall(
+                functionResolution.resolveFunction("length", fromTypes(VARCHAR)).toQualifiedName(),
+                ImmutableList.of(C_VARCHAR.toSymbolReference())));
+        assertUnsupportedPredicate(new FunctionCall(
+                functionResolution.resolveFunction("replace", fromTypes(VARCHAR, VARCHAR)).toQualifiedName(),
+                ImmutableList.of(C_VARCHAR.toSymbolReference(), stringLiteral("abc"))));
     }
 
     @Test
@@ -2130,26 +2135,33 @@ public class TestDomainTranslator
 
     private FunctionCall like(Symbol symbol, String pattern)
     {
-        return new FunctionCall(QualifiedName.of(LIKE_FUNCTION_NAME), ImmutableList.of(
-                symbol.toSymbolReference(),
-                literalEncoder.toExpression(LikePattern.compile(pattern, Optional.empty()), LikePatternType.LIKE_PATTERN)));
+        return new FunctionCall(
+                functionResolution.resolveFunction(LIKE_FUNCTION_NAME, fromTypes(VARCHAR, LikePatternType.LIKE_PATTERN)).toQualifiedName(),
+                ImmutableList.of(symbol.toSymbolReference(), literalEncoder.toExpression(LikePattern.compile(pattern, Optional.empty()), LikePatternType.LIKE_PATTERN)));
     }
 
     private FunctionCall like(Symbol symbol, Expression pattern, Expression escape)
     {
-        return new FunctionCall(QualifiedName.of(LIKE_FUNCTION_NAME), ImmutableList.of(symbol.toSymbolReference(), pattern, escape));
+        FunctionCall likePattern = new FunctionCall(
+                functionResolution.resolveFunction(LIKE_PATTERN_FUNCTION_NAME, fromTypes(VARCHAR, VARCHAR)).toQualifiedName(),
+                ImmutableList.of(symbol.toSymbolReference(), pattern, escape));
+        return new FunctionCall(
+                functionResolution.resolveFunction(LIKE_FUNCTION_NAME, fromTypes(VARCHAR, LikePatternType.LIKE_PATTERN)).toQualifiedName(),
+                ImmutableList.of(symbol.toSymbolReference(), pattern, likePattern));
     }
 
     private FunctionCall like(Symbol symbol, String pattern, Character escape)
     {
-        return new FunctionCall(QualifiedName.of(LIKE_FUNCTION_NAME), ImmutableList.of(
-                symbol.toSymbolReference(),
-                literalEncoder.toExpression(LikePattern.compile(pattern, Optional.of(escape)), LikePatternType.LIKE_PATTERN)));
+        return new FunctionCall(
+                functionResolution.resolveFunction(LIKE_FUNCTION_NAME, fromTypes(VARCHAR, LikePatternType.LIKE_PATTERN)).toQualifiedName(),
+                ImmutableList.of(symbol.toSymbolReference(), literalEncoder.toExpression(LikePattern.compile(pattern, Optional.of(escape)), LikePatternType.LIKE_PATTERN)));
     }
 
-    private static FunctionCall startsWith(Symbol symbol, Expression expression)
+    private FunctionCall startsWith(Symbol symbol, Expression expression)
     {
-        return new FunctionCall(QualifiedName.of("STARTS_WITH"), ImmutableList.of(symbol.toSymbolReference(), expression));
+        return new FunctionCall(
+                functionResolution.resolveFunction("starts_with", fromTypes(VARCHAR, VARCHAR)).toQualifiedName(),
+                ImmutableList.of(symbol.toSymbolReference(), expression));
     }
 
     private static Expression isNotNull(Symbol symbol)

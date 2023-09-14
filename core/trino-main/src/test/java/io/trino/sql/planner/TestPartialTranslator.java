@@ -25,7 +25,6 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
@@ -43,7 +42,9 @@ import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.PartialTranslator.extractPartialTranslations;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -91,8 +92,9 @@ public class TestPartialTranslator
                         dereferenceExpression3),
                 List.of(timestamp3SymbolReference, stringLiteral, dereferenceExpression3));
 
-        List<Expression> functionArguments = ImmutableList.of(stringLiteral, dereferenceExpression2);
-        Expression functionCallExpression = new FunctionCall(QualifiedName.of("concat"), functionArguments);
+        Expression functionCallExpression = new FunctionCall(
+                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction("concat", fromTypes(VARCHAR, VARCHAR)).toQualifiedName(),
+                ImmutableList.of(stringLiteral, dereferenceExpression2));
         assertFullTranslation(functionCallExpression);
     }
 

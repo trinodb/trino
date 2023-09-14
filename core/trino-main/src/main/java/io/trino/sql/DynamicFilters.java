@@ -19,6 +19,7 @@ import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.IsNull;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -48,6 +49,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.StandardTypes.BOOLEAN;
 import static io.trino.spi.type.StandardTypes.VARCHAR;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
@@ -191,8 +193,8 @@ public final class DynamicFilters
 
     private static boolean isDynamicFilterFunction(FunctionCall functionCall)
     {
-        String functionName = ResolvedFunction.extractFunctionName(functionCall.getName());
-        return functionName.equals(Function.NAME) || functionName.equals(NullableFunction.NAME);
+        CatalogSchemaFunctionName functionName = ResolvedFunction.extractFunctionName(functionCall.getName());
+        return functionName.equals(builtinFunctionName(Function.NAME)) || functionName.equals(builtinFunctionName(NullableFunction.NAME));
     }
 
     public static class ExtractResult

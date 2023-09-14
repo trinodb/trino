@@ -2230,10 +2230,17 @@ public class PlanPrinter
             public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
-
+                CatalogSchemaFunctionName name = extractFunctionName(node.getName());
+                QualifiedName qualifiedName;
+                if (name.getCatalogName().equals(GlobalSystemConnector.NAME) && name.getSchemaName().equals(BUILTIN_SCHEMA)) {
+                    qualifiedName = QualifiedName.of(name.getFunctionName());
+                }
+                else {
+                    qualifiedName = QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getFunctionName());
+                }
                 return new FunctionCall(
                         rewritten.getLocation(),
-                        QualifiedName.of(extractFunctionName(node.getName())),
+                        qualifiedName,
                         rewritten.getWindow(),
                         rewritten.getFilter(),
                         rewritten.getOrderBy(),

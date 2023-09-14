@@ -54,6 +54,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -156,7 +157,7 @@ public class UnwrapDateTruncInComparison
             // This is provided by CanonicalizeExpressionRewriter.
 
             if (!(expression.getLeft() instanceof FunctionCall call) ||
-                    !extractFunctionName(call.getName()).equals("date_trunc") ||
+                    !extractFunctionName(call.getName()).equals(builtinFunctionName("date_trunc")) ||
                     call.getArguments().size() != 2) {
                 return expression;
             }

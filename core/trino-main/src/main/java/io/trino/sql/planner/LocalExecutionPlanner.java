@@ -164,6 +164,7 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.WindowFunctionSupplier;
@@ -271,7 +272,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -316,6 +316,7 @@ import static io.trino.SystemSessionProperties.isLateMaterializationEnabled;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
 import static io.trino.operator.OperatorFactories.join;
@@ -2601,31 +2602,32 @@ public class LocalExecutionPlanner
 
         private SpatialPredicate spatialTest(FunctionCall functionCall, boolean probeFirst, Optional<ComparisonExpression.Operator> comparisonOperator)
         {
-            String functionName = ResolvedFunction.extractFunctionName(functionCall.getName()).toLowerCase(Locale.ENGLISH);
-            switch (functionName) {
-                case ST_CONTAINS:
-                    if (probeFirst) {
-                        return (buildGeometry, probeGeometry, radius) -> probeGeometry.contains(buildGeometry);
-                    }
-                    return (buildGeometry, probeGeometry, radius) -> buildGeometry.contains(probeGeometry);
-                case ST_WITHIN:
-                    if (probeFirst) {
-                        return (buildGeometry, probeGeometry, radius) -> probeGeometry.within(buildGeometry);
-                    }
-                    return (buildGeometry, probeGeometry, radius) -> buildGeometry.within(probeGeometry);
-                case ST_INTERSECTS:
-                    return (buildGeometry, probeGeometry, radius) -> buildGeometry.intersects(probeGeometry);
-                case ST_DISTANCE:
-                    if (comparisonOperator.get() == LESS_THAN) {
-                        return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) < radius.getAsDouble();
-                    }
-                    if (comparisonOperator.get() == LESS_THAN_OR_EQUAL) {
-                        return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) <= radius.getAsDouble();
-                    }
-                    throw new UnsupportedOperationException("Unsupported comparison operator: " + comparisonOperator.get());
-                default:
-                    throw new UnsupportedOperationException("Unsupported spatial function: " + functionName);
+            CatalogSchemaFunctionName functionName = ResolvedFunction.extractFunctionName(functionCall.getName());
+            if (functionName.equals(builtinFunctionName(ST_CONTAINS))) {
+                if (probeFirst) {
+                    return (buildGeometry, probeGeometry, radius) -> probeGeometry.contains(buildGeometry);
+                }
+                return (buildGeometry, probeGeometry, radius) -> buildGeometry.contains(probeGeometry);
             }
+            else if (functionName.equals(builtinFunctionName(ST_WITHIN))) {
+                if (probeFirst) {
+                    return (buildGeometry, probeGeometry, radius) -> probeGeometry.within(buildGeometry);
+                }
+                return (buildGeometry, probeGeometry, radius) -> buildGeometry.within(probeGeometry);
+            }
+            else if (functionName.equals(builtinFunctionName(ST_INTERSECTS))) {
+                return (buildGeometry, probeGeometry, radius) -> buildGeometry.intersects(probeGeometry);
+            }
+            else if (functionName.equals(builtinFunctionName(ST_DISTANCE))) {
+                if (comparisonOperator.orElseThrow() == LESS_THAN) {
+                    return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) < radius.getAsDouble();
+                }
+                if (comparisonOperator.get() == LESS_THAN_OR_EQUAL) {
+                    return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) <= radius.getAsDouble();
+                }
+                throw new UnsupportedOperationException("Unsupported comparison operator: " + comparisonOperator.get());
+            }
+            throw new UnsupportedOperationException("Unsupported spatial function: " + functionName);
         }
 
         private Set<SymbolReference> getSymbolReferences(Collection<Symbol> symbols)

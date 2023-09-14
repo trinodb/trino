@@ -61,8 +61,6 @@ import static java.util.Objects.requireNonNull;
 
 public class ResolvedFunction
 {
-    private static final String PREFIX = "@";
-    private static final String SCHEMA = "$resolved";
     private final BoundSignature signature;
     private final CatalogHandle catalogHandle;
     private final FunctionId functionId;
@@ -144,7 +142,7 @@ public class ResolvedFunction
 
     public static boolean isResolved(QualifiedName name)
     {
-        return name.getSuffix().startsWith(PREFIX);
+        return SerializedResolvedFunction.isSerializedResolvedFunction(name);
     }
 
     public QualifiedName toQualifiedName()
@@ -158,15 +156,10 @@ public class ResolvedFunction
         return ResolvedFunctionDecoder.toCatalogSchemaFunctionName(this);
     }
 
-    public static String extractFunctionName(QualifiedName qualifiedName)
+    public static CatalogSchemaFunctionName extractFunctionName(QualifiedName qualifiedName)
     {
-        String data = qualifiedName.getSuffix();
-        if (!data.startsWith(PREFIX)) {
-            return data;
-        }
-        List<String> parts = Splitter.on(PREFIX).splitToList(data.subSequence(1, data.length()));
-        checkArgument(parts.size() == 2, "Expected encoded resolved function to contain two parts: %s", qualifiedName);
-        return parts.get(0);
+        checkArgument(isResolved(qualifiedName), "Expected qualifiedName to be a resolved function: %s", qualifiedName);
+        return SerializedResolvedFunction.fromSerializedName(qualifiedName).functionName();
     }
 
     @Override
@@ -225,21 +218,18 @@ public class ResolvedFunction
             jsonCodec = new JsonCodecFactory(objectMapperProvider).jsonCodec(ResolvedFunction.class);
         }
 
+        public Optional<ResolvedFunction> fromCatalogSchemaFunctionName(CatalogSchemaFunctionName name)
+        {
+            return fromQualifiedName(QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getFunctionName()));
+        }
+
         public Optional<ResolvedFunction> fromQualifiedName(QualifiedName qualifiedName)
         {
-            if (!qualifiedName.getSuffix().startsWith(PREFIX)) {
+            if (!isResolved(qualifiedName)) {
                 return Optional.empty();
             }
 
             return Optional.of(resolvedFunctions.getUnchecked(qualifiedName));
-        }
-
-        public Optional<ResolvedFunction> fromCatalogSchemaFunctionName(CatalogSchemaFunctionName name)
-        {
-            if (!name.getCatalogName().equals(GlobalSystemConnector.NAME) || !name.getSchemaName().equals(SCHEMA)) {
-                return Optional.empty();
-            }
-            return Optional.of(resolvedFunctions.getUnchecked(QualifiedName.of(name.getFunctionName())));
         }
 
         public static CatalogSchemaFunctionName toCatalogSchemaFunctionName(ResolvedFunction function)
@@ -249,20 +239,18 @@ public class ResolvedFunction
 
         private ResolvedFunction deserialize(QualifiedName qualifiedName)
         {
-            String data = qualifiedName.getSuffix();
-            List<String> parts = Splitter.on(PREFIX).splitToList(data.substring(1));
-            checkArgument(parts.size() == 2, "Expected encoded resolved function to contain two parts: %s", qualifiedName);
-            String base32 = parts.get(1);
+            SerializedResolvedFunction serialized = SerializedResolvedFunction.fromSerializedName(qualifiedName);
             // name may have been lower cased, but base32 decoder requires upper case
-            base32 = base32.toUpperCase(ENGLISH);
+            String base32 = serialized.base32Data().toUpperCase(ENGLISH);
             byte[] compressed = base32Hex().decode(base32);
 
             ByteBuffer decompressed = allocate(toIntExact(ZstdDecompressor.getDecompressedSize(compressed, 0, compressed.length)));
             COMPRESSOR_DECOMPRESSOR.decompress(ByteBuffer.wrap(compressed), decompressed);
 
             ResolvedFunction resolvedFunction = jsonCodec.fromJson(Arrays.copyOf(decompressed.array(), decompressed.position()));
-            checkArgument(resolvedFunction.getSignature().getName().getFunctionName().equalsIgnoreCase(parts.get(0)),
-                    "Expected decoded function to have name %s, but name is %s", resolvedFunction.getSignature().getName(), parts.get(0));
+            // name may have been lower cased, so we have to compare the string version
+            checkArgument(resolvedFunction.getSignature().getName().toString().equalsIgnoreCase(serialized.functionName().toString()),
+                    "Expected decoded function to have name %s, but name is %s", resolvedFunction.getSignature().getName(), serialized.functionName());
             return resolvedFunction;
         }
 
@@ -275,8 +263,55 @@ public class ResolvedFunction
             // names are case insensitive, so use base32 instead of base64
             String base32 = base32Hex().encode(compressed.array(), 0, compressed.position());
             // add name so expressions are still readable
-            String functionName = PREFIX + function.signature.getName().getFunctionName() + PREFIX + base32;
-            return new CatalogSchemaFunctionName(GlobalSystemConnector.NAME, SCHEMA, functionName);
+            return new SerializedResolvedFunction(function.getSignature().getName(), base32).serialize();
+        }
+    }
+
+    private record SerializedResolvedFunction(CatalogSchemaFunctionName functionName, String base32Data)
+    {
+        private static final String PREFIX = "@";
+        private static final String SCHEMA = "$resolved";
+
+        public static boolean isSerializedResolvedFunction(QualifiedName name)
+        {
+            // a serialized resolved function must be fully qualified in the system.resolved schema
+            List<String> parts = name.getParts();
+            return parts.size() == 3 &&
+                    parts.get(0).equals(GlobalSystemConnector.NAME) &&
+                    parts.get(1).equals(SCHEMA);
+        }
+
+        public static boolean isSerializedResolvedFunction(CatalogSchemaFunctionName name)
+        {
+            return name.getCatalogName().equals(GlobalSystemConnector.NAME) && name.getSchemaName().equals(SCHEMA);
+        }
+
+        public static SerializedResolvedFunction fromSerializedName(QualifiedName qualifiedName)
+        {
+            checkArgument(isSerializedResolvedFunction(qualifiedName), "Expected qualifiedName to be a resolved function: %s", qualifiedName);
+
+            String data = qualifiedName.getSuffix();
+            List<String> parts = Splitter.on(PREFIX).splitToList(data);
+            checkArgument(parts.size() == 5 && parts.get(0).isEmpty(), "Invalid serialized resolved function: %s", qualifiedName);
+            return new SerializedResolvedFunction(
+                    new CatalogSchemaFunctionName(parts.get(1), parts.get(2), parts.get(3)),
+                    parts.get(4));
+        }
+
+        private SerializedResolvedFunction
+        {
+            requireNonNull(functionName, "functionName is null");
+            checkArgument(!isSerializedResolvedFunction(functionName), "function is already a serialized resolved function: %s", functionName);
+            requireNonNull(base32Data, "base32Data is null");
+        }
+
+        public CatalogSchemaFunctionName serialize()
+        {
+            String encodedName = PREFIX + functionName.getCatalogName() +
+                    PREFIX + functionName.getSchemaName() +
+                    PREFIX + functionName.getFunctionName() +
+                    PREFIX + base32Data;
+            return new CatalogSchemaFunctionName(GlobalSystemConnector.NAME, SCHEMA, encodedName);
         }
     }
 }
