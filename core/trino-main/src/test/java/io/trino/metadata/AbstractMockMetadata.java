@@ -796,9 +796,14 @@ public abstract class AbstractMockMetadata
     @Override
     public ResolvedFunction resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
-        String nameSuffix = name.getSuffix();
-        if (nameSuffix.equals("rand") && parameterTypes.isEmpty()) {
-            BoundSignature boundSignature = new BoundSignature(builtinFunctionName(nameSuffix), DOUBLE, ImmutableList.of());
+        return resolveBuiltinFunction(name.getSuffix(), parameterTypes);
+    }
+
+    @Override
+    public ResolvedFunction resolveBuiltinFunction(String name, List<TypeSignatureProvider> parameterTypes)
+    {
+        if (name.equals("rand") && parameterTypes.isEmpty()) {
+            BoundSignature boundSignature = new BoundSignature(builtinFunctionName(name), DOUBLE, ImmutableList.of());
             return new ResolvedFunction(
                     boundSignature,
                     GlobalSystemConnector.CATALOG_HANDLE,
