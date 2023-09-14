@@ -1495,11 +1495,9 @@ public class TracingMetadata
 
     private static Optional<String> extractFunctionName(QualifiedName name)
     {
-        try {
-            return Optional.of(ResolvedFunction.extractFunctionName(name));
+        if (ResolvedFunction.isResolved(name)) {
+            return Optional.of(ResolvedFunction.extractFunctionName(name).toString());
         }
-        catch (IllegalArgumentException e) {
-            return Optional.empty();
-        }
+        return Optional.empty();
     }
 }

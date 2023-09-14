@@ -33,6 +33,7 @@ import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.predicate.DiscreteValues;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
@@ -93,6 +94,7 @@ import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.setCodePointAt;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -1127,14 +1129,14 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitFunctionCall(FunctionCall node, Boolean complement)
         {
-            String name = ResolvedFunction.extractFunctionName(node.getName());
-            if (name.equals("starts_with")) {
+            CatalogSchemaFunctionName name = ResolvedFunction.extractFunctionName(node.getName());
+            if (name.equals(builtinFunctionName("starts_with"))) {
                 Optional<ExtractionResult> result = tryVisitStartsWithFunction(node, complement);
                 if (result.isPresent()) {
                     return result.get();
                 }
             }
-            else if (name.equals(LIKE_FUNCTION_NAME)) {
+            else if (name.equals(builtinFunctionName(LIKE_FUNCTION_NAME))) {
                 Optional<ExtractionResult> result = tryVisitLikeFunction(node, complement);
                 if (result.isPresent()) {
                     return result.get();

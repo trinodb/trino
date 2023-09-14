@@ -48,7 +48,6 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
@@ -66,6 +65,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.TypeProvider.viewOf;
@@ -142,11 +142,14 @@ public class TestPushProjectionIntoTableScan
                     call, VARCHAR);
 
             // Prepare project node assignments
-            ImmutableMap<Symbol, Expression> inputProjections = ImmutableMap.of(
-                    identity, baseColumn.toSymbolReference(),
-                    dereference, new SubscriptExpression(baseColumn.toSymbolReference(), new LongLiteral("1")),
-                    constant, new LongLiteral("5"),
-                    call, new FunctionCall(QualifiedName.of("STARTS_WITH"), ImmutableList.of(new StringLiteral("abc"), new StringLiteral("ab"))));
+            ImmutableMap<Symbol, Expression> inputProjections = ImmutableMap.<Symbol, Expression>builder()
+                    .put(identity, baseColumn.toSymbolReference())
+                    .put(dereference, new SubscriptExpression(baseColumn.toSymbolReference(), new LongLiteral("1")))
+                    .put(constant, new LongLiteral("5"))
+                    .put(call, new FunctionCall(
+                            ruleTester.getMetadata().resolveBuiltinFunction("starts_with", fromTypes(VARCHAR, VARCHAR)).toQualifiedName(),
+                            ImmutableList.of(new StringLiteral("abc"), new StringLiteral("ab"))))
+                    .buildOrThrow();
 
             // Compute expected symbols after applyProjection
             TransactionId transactionId = ruleTester.getQueryRunner().getTransactionManager().beginTransaction(false);
