@@ -35,11 +35,9 @@ import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.AstVisitor;
@@ -108,6 +106,7 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
@@ -116,7 +115,6 @@ import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class ConnectorExpressionTranslator
@@ -242,7 +240,14 @@ public final class ConnectorExpressionTranslator
         protected Optional<Expression> translateCall(Call call)
         {
             if (call.getFunctionName().getCatalogSchema().isPresent()) {
-                return Optional.empty();
+                CatalogSchemaName catalogSchemaName = call.getFunctionName().getCatalogSchema().get();
+                checkArgument(!catalogSchemaName.getCatalogName().equals(GlobalSystemConnector.NAME), "System functions must not be fully qualified");
+                ResolvedFunction resolved = plannerContext.getMetadata().resolveFunction(
+                        session,
+                        QualifiedName.of(catalogSchemaName.getCatalogName(), catalogSchemaName.getSchemaName(), call.getFunctionName().getName()),
+                        fromTypes(call.getArguments().stream().map(ConnectorExpression::getType).collect(toImmutableList())));
+
+                return translateCall(call.getFunctionName().getName(), resolved, call.getArguments());
             }
 
             if (AND_FUNCTION_NAME.equals(call.getFunctionName())) {
@@ -306,15 +311,18 @@ public final class ConnectorExpressionTranslator
                 return translateInPredicate(call.getArguments().get(0), call.getArguments().get(1));
             }
 
-            QualifiedName name = QualifiedName.of(call.getFunctionName().getName());
-            List<TypeSignature> argumentTypes = call.getArguments().stream()
-                    .map(argument -> argument.getType().getTypeSignature())
-                    .collect(toImmutableList());
-            ResolvedFunction resolved = plannerContext.getMetadata().resolveFunction(session, name, TypeSignatureProvider.fromTypeSignatures(argumentTypes));
+            ResolvedFunction resolved = plannerContext.getMetadata().resolveBuiltinFunction(
+                    call.getFunctionName().getName(),
+                    fromTypes(call.getArguments().stream().map(ConnectorExpression::getType).collect(toImmutableList())));
 
+            return translateCall(call.getFunctionName().getName(), resolved, call.getArguments());
+        }
+
+        private Optional<Expression> translateCall(String functionName, ResolvedFunction resolved, List<ConnectorExpression> arguments)
+        {
             ResolvedFunctionCallBuilder builder = ResolvedFunctionCallBuilder.builder(resolved);
-            for (int i = 0; i < call.getArguments().size(); i++) {
-                ConnectorExpression argument = call.getArguments().get(i);
+            for (int i = 0; i < arguments.size(); i++) {
+                ConnectorExpression argument = arguments.get(i);
                 Type formalType = resolved.getSignature().getArgumentTypes().get(i);
                 Type argumentType = argument.getType();
                 Optional<Expression> translated = translate(argument);
@@ -328,7 +336,7 @@ public final class ConnectorExpressionTranslator
                 }
                 else if (!argumentType.equals(formalType)) {
                     // There are no implicit coercions in connector expressions except for engine types that are not exposed in connector expressions.
-                    throw new IllegalArgumentException(format("Unexpected type %s for argument %s of type %s of %s", argumentType, formalType, i, name));
+                    throw new IllegalArgumentException("Unexpected type %s for argument %s of type %s of %s".formatted(argumentType, formalType, i, functionName));
                 }
                 builder.addArgument(expression);
             }
