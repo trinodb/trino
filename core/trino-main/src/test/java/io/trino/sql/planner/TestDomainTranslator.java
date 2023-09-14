@@ -804,7 +804,7 @@ public class TestDomainTranslator
     @Test
     public void testFromBasicComparisonsWithNaN()
     {
-        Expression nanDouble = literalEncoder.toExpression(TEST_SESSION, Double.NaN, DOUBLE);
+        Expression nanDouble = literalEncoder.toExpression(Double.NaN, DOUBLE);
 
         assertPredicateIsAlwaysFalse(equal(C_DOUBLE, nanDouble));
         assertPredicateIsAlwaysFalse(greaterThan(C_DOUBLE, nanDouble));
@@ -822,7 +822,7 @@ public class TestDomainTranslator
         assertPredicateIsAlwaysFalse(not(notEqual(C_DOUBLE, nanDouble)));
         assertUnsupportedPredicate(not(isDistinctFrom(C_DOUBLE, nanDouble)));
 
-        Expression nanReal = literalEncoder.toExpression(TEST_SESSION, (long) Float.floatToIntBits(Float.NaN), REAL);
+        Expression nanReal = literalEncoder.toExpression((long) Float.floatToIntBits(Float.NaN), REAL);
 
         assertPredicateIsAlwaysFalse(equal(C_REAL, nanReal));
         assertPredicateIsAlwaysFalse(greaterThan(C_REAL, nanReal));
@@ -844,7 +844,7 @@ public class TestDomainTranslator
     @Test
     public void testFromCoercionComparisonsWithNaN()
     {
-        Expression nanDouble = literalEncoder.toExpression(TEST_SESSION, Double.NaN, DOUBLE);
+        Expression nanDouble = literalEncoder.toExpression(Double.NaN, DOUBLE);
 
         assertPredicateIsAlwaysFalse(equal(cast(C_TINYINT, DOUBLE), nanDouble));
         assertPredicateIsAlwaysFalse(equal(cast(C_SMALLINT, DOUBLE), nanDouble));
@@ -1206,9 +1206,9 @@ public class TestDomainTranslator
 
     private void testInPredicate(Symbol symbol, Symbol symbol2, Type type, Object one, Object two)
     {
-        Expression oneExpression = literalEncoder.toExpression(TEST_SESSION, one, type);
-        Expression twoExpression = literalEncoder.toExpression(TEST_SESSION, two, type);
-        Expression nullExpression = literalEncoder.toExpression(TEST_SESSION, null, type);
+        Expression oneExpression = literalEncoder.toExpression(one, type);
+        Expression twoExpression = literalEncoder.toExpression(two, type);
+        Expression nullExpression = literalEncoder.toExpression(null, type);
         Expression otherSymbol = symbol2.toSymbolReference();
 
         // IN, single value
@@ -1279,10 +1279,10 @@ public class TestDomainTranslator
 
     private void testInPredicateWithFloatingPoint(Symbol symbol, Symbol symbol2, Type type, Object one, Object two, Object nan)
     {
-        Expression oneExpression = literalEncoder.toExpression(TEST_SESSION, one, type);
-        Expression twoExpression = literalEncoder.toExpression(TEST_SESSION, two, type);
-        Expression nanExpression = literalEncoder.toExpression(TEST_SESSION, nan, type);
-        Expression nullExpression = literalEncoder.toExpression(TEST_SESSION, null, type);
+        Expression oneExpression = literalEncoder.toExpression(one, type);
+        Expression twoExpression = literalEncoder.toExpression(two, type);
+        Expression nanExpression = literalEncoder.toExpression(nan, type);
+        Expression nullExpression = literalEncoder.toExpression(null, type);
         Expression otherSymbol = symbol2.toSymbolReference();
 
         // IN, single value
@@ -1525,7 +1525,7 @@ public class TestDomainTranslator
     public void testExpressionConstantFolding()
     {
         FunctionCall fromHex = functionResolution
-                .functionCallBuilder(QualifiedName.of("from_hex"))
+                .functionCallBuilder("from_hex")
                 .addArgument(VARCHAR, stringLiteral("123456"))
                 .build();
         Expression originalExpression = comparison(GREATER_THAN, C_VARBINARY.toSymbolReference(), fromHex);
@@ -2072,7 +2072,7 @@ public class TestDomainTranslator
 
     private Expression toPredicate(TupleDomain<Symbol> tupleDomain)
     {
-        return domainTranslator.toPredicate(TEST_SESSION, tupleDomain);
+        return domainTranslator.toPredicate(tupleDomain);
     }
 
     private static Expression unprocessableExpression1(Symbol symbol)
@@ -2088,7 +2088,7 @@ public class TestDomainTranslator
     private Expression randPredicate(Symbol symbol, Type type)
     {
         FunctionCall rand = functionResolution
-                .functionCallBuilder(QualifiedName.of("rand"))
+                .functionCallBuilder("rand")
                 .build();
         return comparison(GREATER_THAN, symbol.toSymbolReference(), cast(rand, type));
     }
@@ -2132,7 +2132,7 @@ public class TestDomainTranslator
     {
         return new FunctionCall(QualifiedName.of(LIKE_FUNCTION_NAME), ImmutableList.of(
                 symbol.toSymbolReference(),
-                literalEncoder.toExpression(TEST_SESSION, LikePattern.compile(pattern, Optional.empty()), LikePatternType.LIKE_PATTERN)));
+                literalEncoder.toExpression(LikePattern.compile(pattern, Optional.empty()), LikePatternType.LIKE_PATTERN)));
     }
 
     private FunctionCall like(Symbol symbol, Expression pattern, Expression escape)
@@ -2144,7 +2144,7 @@ public class TestDomainTranslator
     {
         return new FunctionCall(QualifiedName.of(LIKE_FUNCTION_NAME), ImmutableList.of(
                 symbol.toSymbolReference(),
-                literalEncoder.toExpression(TEST_SESSION, LikePattern.compile(pattern, Optional.of(escape)), LikePatternType.LIKE_PATTERN)));
+                literalEncoder.toExpression(LikePattern.compile(pattern, Optional.of(escape)), LikePatternType.LIKE_PATTERN)));
     }
 
     private static FunctionCall startsWith(Symbol symbol, Expression expression)
@@ -2185,7 +2185,7 @@ public class TestDomainTranslator
     private InPredicate in(Expression expression, Type expressisonType, List<?> values)
     {
         List<Type> types = nCopies(values.size(), expressisonType);
-        List<Expression> expressions = literalEncoder.toExpressions(TEST_SESSION, values, types);
+        List<Expression> expressions = literalEncoder.toExpressions(values, types);
         return new InPredicate(expression, new InListExpression(expressions));
     }
 
@@ -2289,7 +2289,7 @@ public class TestDomainTranslator
 
     private Expression colorLiteral(long value)
     {
-        return literalEncoder.toExpression(TEST_SESSION, value, COLOR);
+        return literalEncoder.toExpression(value, COLOR);
     }
 
     private Expression varbinaryLiteral(Slice value)
@@ -2335,7 +2335,7 @@ public class TestDomainTranslator
 
     private Expression toExpression(Object object, Type type)
     {
-        return literalEncoder.toExpression(TEST_SESSION, object, type);
+        return literalEncoder.toExpression(object, type);
     }
 
     private static <T> TupleDomain<T> tupleDomain(T key, Domain domain)

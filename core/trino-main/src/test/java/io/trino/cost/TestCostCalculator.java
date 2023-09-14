@@ -47,7 +47,6 @@ import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
@@ -815,7 +814,7 @@ public class TestCostCalculator
     private AggregationNode aggregation(String id, PlanNode source)
     {
         AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
-                new TestingFunctionResolution(localQueryRunner).resolveFunction(QualifiedName.of("count"), ImmutableList.of()),
+                new TestingFunctionResolution(localQueryRunner).resolveFunction("count", ImmutableList.of()),
                 ImmutableList.of(),
                 false,
                 Optional.empty(),

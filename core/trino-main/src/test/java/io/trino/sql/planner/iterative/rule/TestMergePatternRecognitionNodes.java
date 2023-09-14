@@ -83,7 +83,7 @@ public class TestMergePatternRecognitionNodes
                 .doesNotFire();
 
         // aggregations in variable definitions do not match
-        QualifiedName count = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("count"), fromTypes(BIGINT)).toQualifiedName();
+        QualifiedName count = tester().getMetadata().resolveBuiltinFunction("count", fromTypes(BIGINT)).toQualifiedName();
         tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .pattern(new IrLabel("X"))
@@ -102,7 +102,7 @@ public class TestMergePatternRecognitionNodes
     @Test
     public void testParentDependsOnSourceCreatedOutputs()
     {
-        ResolvedFunction lag = createTestMetadataManager().resolveFunction(tester().getSession(), QualifiedName.of("lag"), fromTypes(BIGINT));
+        ResolvedFunction lag = createTestMetadataManager().resolveBuiltinFunction("lag", fromTypes(BIGINT));
 
         // parent node's measure depends on child node's measure output
         tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
@@ -229,7 +229,7 @@ public class TestMergePatternRecognitionNodes
     @Test
     public void testMergeWithoutProject()
     {
-        ResolvedFunction lag = createTestMetadataManager().resolveFunction(tester().getSession(), QualifiedName.of("lag"), fromTypes(BIGINT));
+        ResolvedFunction lag = createTestMetadataManager().resolveBuiltinFunction("lag", fromTypes(BIGINT));
 
         tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
@@ -501,7 +501,7 @@ public class TestMergePatternRecognitionNodes
     @Test
     public void testMergeWithAggregation()
     {
-        QualifiedName count = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("count"), fromTypes(BIGINT)).toQualifiedName();
+        QualifiedName count = tester().getMetadata().resolveBuiltinFunction("count", fromTypes(BIGINT)).toQualifiedName();
         tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .pattern(new IrLabel("X"))

@@ -117,7 +117,7 @@ public class TestConstraintExtractor
         Cast castOfColumn = new Cast(new SymbolReference(timestampTzColumnSymbol), toSqlType(DATE));
 
         LocalDate someDate = LocalDate.of(2005, 9, 10);
-        Expression someDateExpression = LITERAL_ENCODER.toExpression(TEST_SESSION, someDate.toEpochDay(), DATE);
+        Expression someDateExpression = LITERAL_ENCODER.toExpression(someDate.toEpochDay(), DATE);
 
         long startOfDateUtcEpochMillis = someDate.atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND;
         LongTimestampWithTimeZone startOfDateUtc = timestampTzFromEpochMillis(startOfDateUtcEpochMillis);
@@ -186,16 +186,14 @@ public class TestConstraintExtractor
         FunctionCall truncateToDay = new FunctionCall(
                 QualifiedName.of("date_trunc"),
                 List.of(
-                        LITERAL_ENCODER.toExpression(TEST_SESSION, utf8Slice("day"), createVarcharType(17)),
+                        LITERAL_ENCODER.toExpression(utf8Slice("day"), createVarcharType(17)),
                         new SymbolReference(timestampTzColumnSymbol)));
 
         LocalDate someDate = LocalDate.of(2005, 9, 10);
         Expression someMidnightExpression = LITERAL_ENCODER.toExpression(
-                TEST_SESSION,
                 LongTimestampWithTimeZone.fromEpochMillisAndFraction(someDate.toEpochDay() * MILLISECONDS_PER_DAY, 0, UTC_KEY),
                 TIMESTAMP_TZ_MICROS);
         Expression someMiddayExpression = LITERAL_ENCODER.toExpression(
-                TEST_SESSION,
                 LongTimestampWithTimeZone.fromEpochMillisAndFraction(someDate.toEpochDay() * MILLISECONDS_PER_DAY, PICOSECONDS_PER_MICROSECOND, UTC_KEY),
                 TIMESTAMP_TZ_MICROS);
 
@@ -274,10 +272,7 @@ public class TestConstraintExtractor
                 List.of(new SymbolReference(timestampTzColumnSymbol)));
 
         LocalDate someDate = LocalDate.of(2005, 9, 10);
-        Expression yearExpression = LITERAL_ENCODER.toExpression(
-                TEST_SESSION,
-                2005L,
-                BIGINT);
+        Expression yearExpression = LITERAL_ENCODER.toExpression(2005L, BIGINT);
 
         long startOfYearUtcEpochMillis = someDate.withDayOfYear(1).atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND;
         LongTimestampWithTimeZone startOfYearUtc = timestampTzFromEpochMillis(startOfYearUtcEpochMillis);
@@ -339,7 +334,7 @@ public class TestConstraintExtractor
         Cast castOfColumn = new Cast(new SymbolReference(timestampTzColumnSymbol), toSqlType(DATE));
 
         LocalDate someDate = LocalDate.of(2005, 9, 10);
-        Expression someDateExpression = LITERAL_ENCODER.toExpression(TEST_SESSION, someDate.toEpochDay(), DATE);
+        Expression someDateExpression = LITERAL_ENCODER.toExpression(someDate.toEpochDay(), DATE);
 
         long startOfDateUtcEpochMillis = someDate.atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND;
         LongTimestampWithTimeZone startOfDateUtc = timestampTzFromEpochMillis(startOfDateUtcEpochMillis);

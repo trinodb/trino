@@ -177,7 +177,7 @@ public class MetadataQueryOptimizer
                             // partition key does not have a single value, so bail out to be safe
                             return context.defaultRewrite(node);
                         }
-                        rowBuilder.add(literalEncoder.toExpression(session, value.getValue(), type));
+                        rowBuilder.add(literalEncoder.toExpression(value.getValue(), type));
                     }
                     rowsBuilder.add(new Row(rowBuilder.build()));
                 }

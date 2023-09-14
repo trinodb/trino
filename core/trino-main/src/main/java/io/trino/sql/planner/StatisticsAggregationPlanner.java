@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -80,7 +79,7 @@ public class StatisticsAggregationPlanner
                 throw new TrinoException(NOT_SUPPORTED, "Table-wide statistic type not supported: " + type);
             }
             AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
-                    metadata.resolveFunction(session, QualifiedName.of("count"), ImmutableList.of()),
+                    metadata.resolveBuiltinFunction("count", ImmutableList.of()),
                     ImmutableList.of(),
                     false,
                     Optional.empty(),
@@ -121,28 +120,34 @@ public class StatisticsAggregationPlanner
     private ColumnStatisticsAggregation createColumnAggregation(ColumnStatisticType statisticType, Symbol input, Type inputType)
     {
         return switch (statisticType) {
-            case MIN_VALUE -> createAggregation(QualifiedName.of("min"), input, inputType);
-            case MAX_VALUE -> createAggregation(QualifiedName.of("max"), input, inputType);
-            case NUMBER_OF_DISTINCT_VALUES -> createAggregation(QualifiedName.of("approx_distinct"), input, inputType);
+            case MIN_VALUE -> createAggregation("min", input, inputType);
+            case MAX_VALUE -> createAggregation("max", input, inputType);
+            case NUMBER_OF_DISTINCT_VALUES -> createAggregation("approx_distinct", input, inputType);
             case NUMBER_OF_DISTINCT_VALUES_SUMMARY ->
                 // we use $approx_set here and not approx_set because latter is not defined for all types supported by Trino
-                    createAggregation(QualifiedName.of("$approx_set"), input, inputType);
-            case NUMBER_OF_NON_NULL_VALUES -> createAggregation(QualifiedName.of("count"), input, inputType);
-            case NUMBER_OF_TRUE_VALUES -> createAggregation(QualifiedName.of("count_if"), input, BOOLEAN);
-            case TOTAL_SIZE_IN_BYTES -> createAggregation(QualifiedName.of(SumDataSizeForStats.NAME), input, inputType);
-            case MAX_VALUE_SIZE_IN_BYTES -> createAggregation(QualifiedName.of(MaxDataSizeForStats.NAME), input, inputType);
+                    createAggregation("$approx_set", input, inputType);
+            case NUMBER_OF_NON_NULL_VALUES -> createAggregation("count", input, inputType);
+            case NUMBER_OF_TRUE_VALUES -> createAggregation("count_if", input, BOOLEAN);
+            case TOTAL_SIZE_IN_BYTES -> createAggregation(SumDataSizeForStats.NAME, input, inputType);
+            case MAX_VALUE_SIZE_IN_BYTES -> createAggregation(MaxDataSizeForStats.NAME, input, inputType);
         };
     }
 
     private ColumnStatisticsAggregation createColumnAggregation(FunctionName aggregation, Symbol input, Type inputType)
     {
-        checkArgument(aggregation.getCatalogSchema().isEmpty(), "Catalog/schema name not supported");
-        return createAggregation(QualifiedName.of(aggregation.getName()), input, inputType);
+        QualifiedName name = aggregation.getCatalogSchema()
+                .map(catalogSchemaName -> QualifiedName.of(catalogSchemaName.getCatalogName(), catalogSchemaName.getSchemaName(), aggregation.getName()))
+                .orElseGet(() -> QualifiedName.of(aggregation.getName()));
+        return createAggregation(metadata.resolveFunction(session, name, fromTypes(inputType)), input, inputType);
     }
 
-    private ColumnStatisticsAggregation createAggregation(QualifiedName functionName, Symbol input, Type inputType)
+    private ColumnStatisticsAggregation createAggregation(String functionName, Symbol input, Type inputType)
     {
-        ResolvedFunction resolvedFunction = metadata.resolveFunction(session, functionName, fromTypes(inputType));
+        return createAggregation(metadata.resolveBuiltinFunction(functionName, fromTypes(inputType)), input, inputType);
+    }
+
+    private static ColumnStatisticsAggregation createAggregation(ResolvedFunction resolvedFunction, Symbol input, Type inputType)
+    {
         Type resolvedType = getOnlyElement(resolvedFunction.getSignature().getArgumentTypes());
         verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
         return new ColumnStatisticsAggregation(

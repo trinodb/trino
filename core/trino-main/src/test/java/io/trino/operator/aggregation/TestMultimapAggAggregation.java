@@ -28,7 +28,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -180,7 +179,7 @@ public class TestMultimapAggAggregation
 
     private static TestingAggregationFunction getAggregationFunction(Type keyType, Type valueType)
     {
-        return FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("multimap_agg"), fromTypes(keyType, valueType));
+        return FUNCTION_RESOLUTION.getAggregateFunction("multimap_agg", fromTypes(keyType, valueType));
     }
 
     /**
@@ -206,7 +205,7 @@ public class TestMultimapAggAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("multimap_agg"),
+                "multimap_agg",
                 fromTypes(keyType, valueType),
                 map.isEmpty() ? null : map,
                 builder.build());

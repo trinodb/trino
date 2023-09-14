@@ -2024,7 +2024,7 @@ public class ExpressionAnalyzer
             List<Type> actualTypes = argumentTypes.build();
 
             String functionName = node.getSpecification().getFunctionName();
-            ResolvedFunction function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(functionName), fromTypes(actualTypes));
+            ResolvedFunction function = plannerContext.getMetadata().resolveBuiltinFunction(functionName, fromTypes(actualTypes));
 
             List<Type> expectedTypes = function.getSignature().getArgumentTypes();
             checkState(expectedTypes.size() == actualTypes.size(), "wrong argument number in the resolved signature");
@@ -2059,7 +2059,7 @@ public class ExpressionAnalyzer
 
             for (int i = 1; i < arguments.size(); i++) {
                 try {
-                    plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(FormatFunction.NAME), fromTypes(arguments.get(0), RowType.anonymous(arguments.subList(1, arguments.size()))));
+                    plannerContext.getMetadata().resolveBuiltinFunction(FormatFunction.NAME, fromTypes(arguments.get(0), RowType.anonymous(arguments.subList(1, arguments.size()))));
                 }
                 catch (TrinoException e) {
                     ErrorCode errorCode = e.getErrorCode();
@@ -2534,7 +2534,7 @@ public class ExpressionAnalyzer
             // resolve function
             ResolvedFunction function;
             try {
-                function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(JSON_EXISTS_FUNCTION_NAME), fromTypes(argumentTypes));
+                function = plannerContext.getMetadata().resolveBuiltinFunction(JSON_EXISTS_FUNCTION_NAME, fromTypes(argumentTypes));
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
@@ -2618,7 +2618,7 @@ public class ExpressionAnalyzer
             // resolve function
             ResolvedFunction function;
             try {
-                function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(JSON_VALUE_FUNCTION_NAME), fromTypes(argumentTypes));
+                function = plannerContext.getMetadata().resolveBuiltinFunction(JSON_VALUE_FUNCTION_NAME, fromTypes(argumentTypes));
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
@@ -2656,7 +2656,7 @@ public class ExpressionAnalyzer
             // resolve function
             ResolvedFunction function;
             try {
-                function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(JSON_QUERY_FUNCTION_NAME), fromTypes(argumentTypes));
+                function = plannerContext.getMetadata().resolveBuiltinFunction(JSON_QUERY_FUNCTION_NAME, fromTypes(argumentTypes));
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
@@ -2813,23 +2813,23 @@ public class ExpressionAnalyzer
 
         private ResolvedFunction getInputFunction(Type type, JsonFormat format, Node node)
         {
-            QualifiedName name = switch (format) {
+            String name = switch (format) {
                 case JSON -> {
                     if (UNKNOWN.equals(type) || isCharacterStringType(type)) {
-                        yield QualifiedName.of(VARCHAR_TO_JSON);
+                        yield VARCHAR_TO_JSON;
                     }
                     if (isStringType(type)) {
-                        yield QualifiedName.of(VARBINARY_TO_JSON);
+                        yield VARBINARY_TO_JSON;
                     }
                     throw semanticException(TYPE_MISMATCH, node, format("Cannot read input of type %s as JSON using formatting %s", type, format));
                 }
-                case UTF8 -> QualifiedName.of(VARBINARY_UTF8_TO_JSON);
-                case UTF16 -> QualifiedName.of(VARBINARY_UTF16_TO_JSON);
-                case UTF32 -> QualifiedName.of(VARBINARY_UTF32_TO_JSON);
+                case UTF8 -> VARBINARY_UTF8_TO_JSON;
+                case UTF16 -> VARBINARY_UTF16_TO_JSON;
+                case UTF32 -> VARBINARY_UTF32_TO_JSON;
             };
 
             try {
-                return plannerContext.getMetadata().resolveFunction(session, name, fromTypes(type, BOOLEAN));
+                return plannerContext.getMetadata().resolveBuiltinFunction(name, fromTypes(type, BOOLEAN));
             }
             catch (TrinoException e) {
                 throw new TrinoException(TYPE_MISMATCH, extractLocation(node), format("Cannot read input of type %s as JSON using formatting %s", type, format), e);
@@ -2838,13 +2838,13 @@ public class ExpressionAnalyzer
 
         private ResolvedFunction getOutputFunction(Type type, JsonFormat format, Node node)
         {
-            QualifiedName name = switch (format) {
+            String name = switch (format) {
                 case JSON -> {
                     if (isCharacterStringType(type)) {
-                        yield QualifiedName.of(JSON_TO_VARCHAR);
+                        yield JSON_TO_VARCHAR;
                     }
                     if (isStringType(type)) {
-                        yield QualifiedName.of(JSON_TO_VARBINARY);
+                        yield JSON_TO_VARBINARY;
                     }
                     throw semanticException(TYPE_MISMATCH, node, format("Cannot output JSON value as %s using formatting %s", type, format));
                 }
@@ -2852,24 +2852,24 @@ public class ExpressionAnalyzer
                     if (!VARBINARY.equals(type)) {
                         throw semanticException(TYPE_MISMATCH, node, format("Cannot output JSON value as %s using formatting %s", type, format));
                     }
-                    yield QualifiedName.of(JSON_TO_VARBINARY_UTF8);
+                    yield JSON_TO_VARBINARY_UTF8;
                 }
                 case UTF16 -> {
                     if (!VARBINARY.equals(type)) {
                         throw semanticException(TYPE_MISMATCH, node, format("Cannot output JSON value as %s using formatting %s", type, format));
                     }
-                    yield QualifiedName.of(JSON_TO_VARBINARY_UTF16);
+                    yield JSON_TO_VARBINARY_UTF16;
                 }
                 case UTF32 -> {
                     if (!VARBINARY.equals(type)) {
                         throw semanticException(TYPE_MISMATCH, node, format("Cannot output JSON value as %s using formatting %s", type, format));
                     }
-                    yield QualifiedName.of(JSON_TO_VARBINARY_UTF32);
+                    yield JSON_TO_VARBINARY_UTF32;
                 }
             };
 
             try {
-                return plannerContext.getMetadata().resolveFunction(session, name, fromTypes(JSON_2016, TINYINT, BOOLEAN));
+                return plannerContext.getMetadata().resolveBuiltinFunction(name, fromTypes(JSON_2016, TINYINT, BOOLEAN));
             }
             catch (TrinoException e) {
                 throw new TrinoException(TYPE_MISMATCH, extractLocation(node), format("Cannot output JSON value as %s using formatting %s", type, format), e);
@@ -2962,7 +2962,7 @@ public class ExpressionAnalyzer
             List<Type> argumentTypes = ImmutableList.of(keysRowType, valuesRowType, BOOLEAN, BOOLEAN);
             ResolvedFunction function;
             try {
-                function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(JSON_OBJECT_FUNCTION_NAME), fromTypes(argumentTypes));
+                function = plannerContext.getMetadata().resolveBuiltinFunction(JSON_OBJECT_FUNCTION_NAME, fromTypes(argumentTypes));
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
@@ -3073,7 +3073,7 @@ public class ExpressionAnalyzer
             List<Type> argumentTypes = ImmutableList.of(elementsRowType, BOOLEAN);
             ResolvedFunction function;
             try {
-                function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(JSON_ARRAY_FUNCTION_NAME), fromTypes(argumentTypes));
+                function = plannerContext.getMetadata().resolveBuiltinFunction(JSON_ARRAY_FUNCTION_NAME, fromTypes(argumentTypes));
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {

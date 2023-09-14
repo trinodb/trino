@@ -51,7 +51,6 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -94,7 +93,7 @@ public class TestPatternRecognitionNodeSerialization
                 TypeSignature.class, new TypeSignatureKeyDeserializer()));
         JsonCodec<ValuePointer> codec = new JsonCodecFactory(provider).jsonCodec(ValuePointer.class);
 
-        ResolvedFunction countFunction = createTestMetadataManager().resolveFunction(TEST_SESSION, QualifiedName.of("count"), ImmutableList.of());
+        ResolvedFunction countFunction = createTestMetadataManager().resolveBuiltinFunction("count", ImmutableList.of());
         assertJsonRoundTrip(codec, new AggregationValuePointer(
                 countFunction,
                 new AggregatedSetDescriptor(ImmutableSet.of(), false),
@@ -102,7 +101,7 @@ public class TestPatternRecognitionNodeSerialization
                 new Symbol("classifier"),
                 new Symbol("match_number")));
 
-        ResolvedFunction maxFunction = createTestMetadataManager().resolveFunction(TEST_SESSION, QualifiedName.of("max"), fromTypes(BIGINT));
+        ResolvedFunction maxFunction = createTestMetadataManager().resolveBuiltinFunction("max", fromTypes(BIGINT));
         assertJsonRoundTrip(codec, new AggregationValuePointer(
                 maxFunction,
                 new AggregatedSetDescriptor(ImmutableSet.of(new IrLabel("A"), new IrLabel("B")), true),
@@ -189,7 +188,7 @@ public class TestPatternRecognitionNodeSerialization
                 TypeSignature.class, new TypeSignatureKeyDeserializer()));
         JsonCodec<PatternRecognitionNode> codec = new JsonCodecFactory(provider).jsonCodec(PatternRecognitionNode.class);
 
-        ResolvedFunction rankFunction = createTestMetadataManager().resolveFunction(TEST_SESSION, QualifiedName.of("rank"), ImmutableList.of());
+        ResolvedFunction rankFunction = createTestMetadataManager().resolveBuiltinFunction("rank", ImmutableList.of());
 
         // test remaining fields inside PatternRecognitionNode specific to pattern recognition:
         // windowFunctions, measures, commonBaseFrame, rowsPerMatch, skipToLabel, skipToPosition, initial, pattern, subsets, variableDefinitions

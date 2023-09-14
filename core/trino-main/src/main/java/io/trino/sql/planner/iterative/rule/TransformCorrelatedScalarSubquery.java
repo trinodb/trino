@@ -158,7 +158,7 @@ public class TransformCorrelatedScalarSubquery
                         ImmutableList.of(
                                 new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
                         Optional.of(new Cast(
-                                failFunction(metadata, context.getSession(), SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
+                                failFunction(metadata, SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
                                 toSqlType(BOOLEAN)))));
 
         return Result.ofPlanNode(new ProjectNode(

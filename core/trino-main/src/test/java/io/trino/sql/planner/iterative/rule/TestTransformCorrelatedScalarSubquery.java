@@ -205,7 +205,7 @@ public class TestTransformCorrelatedScalarSubquery
                 new SymbolReference("is_distinct"),
                 ImmutableList.of(new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
                 Optional.of(new Cast(
-                        failFunction(tester().getMetadata(), tester().getSession(), SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
+                        failFunction(tester().getMetadata(), SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
                         toSqlType(BOOLEAN))));
     }
 }

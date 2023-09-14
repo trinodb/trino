@@ -230,7 +230,7 @@ public class PushFilterThroughCountAggregation
             TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(countSymbol));
             Expression newPredicate = combineConjuncts(
                     plannerContext.getMetadata(),
-                    new DomainTranslator(plannerContext).toPredicate(context.getSession(), newTupleDomain),
+                    new DomainTranslator(plannerContext).toPredicate(newTupleDomain),
                     extractionResult.getRemainingExpression());
             if (newPredicate.equals(TRUE_LITERAL)) {
                 return Result.ofPlanNode(filterSource);

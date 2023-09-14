@@ -31,7 +31,6 @@ import io.trino.sql.relational.InputReferenceExpression;
 import io.trino.sql.relational.LambdaDefinitionExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.VariableReferenceExpression;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.type.FunctionType;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -108,9 +107,7 @@ public class BenchmarkArrayTransform
                 Type elementType = TYPES.get(i);
                 ArrayType arrayType = new ArrayType(elementType);
                 projectionsBuilder.add(new CallExpression(
-                        functionResolution.resolveFunction(
-                                QualifiedName.of("transform"),
-                                fromTypes(arrayType, new FunctionType(ImmutableList.of(BIGINT), BOOLEAN))),
+                        functionResolution.resolveFunction("transform", fromTypes(arrayType, new FunctionType(ImmutableList.of(BIGINT), BOOLEAN))),
                         ImmutableList.of(
                                 new InputReferenceExpression(0, arrayType),
                                 new LambdaDefinitionExpression(

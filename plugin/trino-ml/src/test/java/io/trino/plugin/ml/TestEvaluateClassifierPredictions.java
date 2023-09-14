@@ -22,7 +22,6 @@ import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -41,9 +40,7 @@ public class TestEvaluateClassifierPredictions
     public void testEvaluateClassifierPredictions()
     {
         TestingFunctionResolution functionResolution = new TestingFunctionResolution(extractFunctions(new MLPlugin().getFunctions()));
-        TestingAggregationFunction aggregation = functionResolution.getAggregateFunction(
-                QualifiedName.of("evaluate_classifier_predictions"),
-                fromTypes(BIGINT, BIGINT));
+        TestingAggregationFunction aggregation = functionResolution.getAggregateFunction("evaluate_classifier_predictions", fromTypes(BIGINT, BIGINT));
         Aggregator aggregator = aggregation.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1), OptionalInt.empty()).createAggregator();
         aggregator.processPage(getPage());
         BlockBuilder finalOut = VARCHAR.createBlockBuilder(null, 1);

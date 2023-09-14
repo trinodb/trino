@@ -19,7 +19,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.sql.analyzer.TypeSignatureProvider;
-import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -209,7 +208,7 @@ public class TestListaggAggregationFunction
         List<TypeSignatureProvider> parameterTypes = fromTypes(VARCHAR, VARCHAR, BOOLEAN, VARCHAR, BOOLEAN);
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("listagg"),
+                "listagg",
                 parameterTypes,
                 null,
                 createStringsBlock(null, null, null),
@@ -219,7 +218,7 @@ public class TestListaggAggregationFunction
                 createBooleansBlock(false, false, false));
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("listagg"),
+                "listagg",
                 parameterTypes,
                 "a,c",
                 createStringsBlock("a", null, "c"),

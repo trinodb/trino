@@ -22,7 +22,7 @@ import io.trino.operator.RetryPolicy;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.FunctionCallBuilder;
+import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -32,7 +32,6 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.Map;
 import java.util.Optional;
@@ -92,11 +91,8 @@ public class RewriteSpatialPartitioningAggregation
     @Override
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
-        ResolvedFunction spatialPartitioningFunction = plannerContext.getMetadata().resolveFunction(
-                context.getSession(),
-                QualifiedName.of(NAME.getCatalogName(), NAME.getSchemaName(), NAME.getFunctionName()),
-                fromTypeSignatures(GEOMETRY_TYPE_SIGNATURE, INTEGER.getTypeSignature()));
-        ResolvedFunction stEnvelopeFunction = plannerContext.getMetadata().resolveFunction(context.getSession(), QualifiedName.of("ST_Envelope"), fromTypeSignatures(GEOMETRY_TYPE_SIGNATURE));
+        ResolvedFunction spatialPartitioningFunction = plannerContext.getMetadata().resolveBuiltinFunction(NAME.getFunctionName(), fromTypeSignatures(GEOMETRY_TYPE_SIGNATURE, INTEGER.getTypeSignature()));
+        ResolvedFunction stEnvelopeFunction = plannerContext.getMetadata().resolveBuiltinFunction("ST_Envelope", fromTypeSignatures(GEOMETRY_TYPE_SIGNATURE));
 
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         Symbol partitionCountSymbol = context.getSymbolAllocator().newSymbol("partition_count", INTEGER);
@@ -111,8 +107,8 @@ public class RewriteSpatialPartitioningAggregation
                     envelopeAssignments.put(envelopeSymbol, geometry);
                 }
                 else {
-                    envelopeAssignments.put(envelopeSymbol, FunctionCallBuilder.resolve(context.getSession(), plannerContext.getMetadata())
-                            .setName(QualifiedName.of("ST_Envelope"))
+                    envelopeAssignments.put(envelopeSymbol, BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                            .setName("ST_Envelope")
                             .addArgument(GEOMETRY_TYPE_SIGNATURE, geometry)
                             .build());
                 }

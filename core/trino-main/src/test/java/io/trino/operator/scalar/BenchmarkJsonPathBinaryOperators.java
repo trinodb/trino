@@ -35,7 +35,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.RowExpression;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.TestingSession;
 import io.trino.type.JsonPath2016Type;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -150,7 +149,7 @@ public class BenchmarkJsonPathBinaryOperators
                     Optional.empty());
             List<RowExpression> jsonValueProjection = ImmutableList.of(new CallExpression(
                     functionResolution.resolveFunction(
-                            QualifiedName.of(JSON_VALUE_FUNCTION_NAME),
+                            JSON_VALUE_FUNCTION_NAME,
                             fromTypes(ImmutableList.of(
                                     JSON_2016,
                                     jsonPath2016Type,
@@ -161,7 +160,7 @@ public class BenchmarkJsonPathBinaryOperators
                                     VARCHAR))),
                     ImmutableList.of(
                             new CallExpression(
-                                    functionResolution.resolveFunction(QualifiedName.of(VARCHAR_TO_JSON), fromTypes(VARCHAR, BOOLEAN)),
+                                    functionResolution.resolveFunction(VARCHAR_TO_JSON, fromTypes(VARCHAR, BOOLEAN)),
                                     ImmutableList.of(field(0, VARCHAR), constant(true, BOOLEAN))),
                             constant(new IrJsonPath(false, path), jsonPath2016Type),
                             constantNull(JSON_NO_PARAMETERS_ROW_TYPE),

@@ -26,7 +26,6 @@ import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.type.FunctionType;
 import org.testng.annotations.Test;
 
@@ -83,7 +82,7 @@ public class TestDeterminismEvaluator
     private FunctionCall function(String name, List<Type> types, List<Expression> arguments)
     {
         return functionResolution
-                .functionCallBuilder(QualifiedName.of(name))
+                .functionCallBuilder(name)
                 .setArguments(types, arguments)
                 .build();
     }

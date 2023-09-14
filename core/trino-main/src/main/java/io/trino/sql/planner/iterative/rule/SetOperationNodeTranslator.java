@@ -35,7 +35,6 @@ import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
@@ -70,8 +69,8 @@ public class SetOperationNodeTranslator
         this.symbolAllocator = requireNonNull(symbolAllocator, "SymbolAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(metadata, "metadata is null");
-        this.countFunction = metadata.resolveFunction(session, QualifiedName.of("count"), fromTypes(BOOLEAN));
-        this.rowNumberFunction = metadata.resolveFunction(session, QualifiedName.of("row_number"), ImmutableList.of());
+        this.countFunction = metadata.resolveBuiltinFunction("count", fromTypes(BOOLEAN));
+        this.rowNumberFunction = metadata.resolveBuiltinFunction("row_number", ImmutableList.of());
     }
 
     public TranslationResult makeSetContainmentPlanForDistinct(SetOperationNode node)

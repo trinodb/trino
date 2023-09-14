@@ -27,7 +27,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.Test;
 
@@ -69,7 +68,7 @@ public class TestLearnAggregations
     public void testLearn()
     {
         TestingAggregationFunction aggregationFunction = FUNCTION_RESOLUTION.getAggregateFunction(
-                QualifiedName.of("learn_classifier"),
+                "learn_classifier",
                 fromTypeSignatures(BIGINT.getTypeSignature(), mapType(BIGINT.getTypeSignature(), DOUBLE.getTypeSignature())));
         assertLearnClassifier(aggregationFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1), OptionalInt.empty()).createAggregator());
     }
@@ -78,7 +77,7 @@ public class TestLearnAggregations
     public void testLearnLibSvm()
     {
         TestingAggregationFunction aggregationFunction = FUNCTION_RESOLUTION.getAggregateFunction(
-                QualifiedName.of("learn_libsvm_classifier"),
+                "learn_libsvm_classifier",
                 fromTypeSignatures(BIGINT.getTypeSignature(), mapType(BIGINT.getTypeSignature(), DOUBLE.getTypeSignature()), VARCHAR.getTypeSignature()));
         assertLearnClassifier(aggregationFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1, 2), OptionalInt.empty()).createAggregator());
     }

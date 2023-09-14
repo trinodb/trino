@@ -219,7 +219,7 @@ public final class ConnectorExpressionTranslator
             }
 
             if (expression instanceof Constant) {
-                return Optional.of(literalEncoder.toExpression(session, ((Constant) expression).getValue(), expression.getType()));
+                return Optional.of(literalEncoder.toExpression(((Constant) expression).getValue(), expression.getType()));
             }
 
             if (expression instanceof FieldDereference dereference) {
@@ -307,8 +307,7 @@ public final class ConnectorExpressionTranslator
                     .collect(toImmutableList());
             ResolvedFunction resolved = plannerContext.getMetadata().resolveFunction(session, name, TypeSignatureProvider.fromTypeSignatures(argumentTypes));
 
-            FunctionCallBuilder builder = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                    .setName(name);
+            ResolvedFunctionCallBuilder builder = ResolvedFunctionCallBuilder.builder(resolved);
             for (int i = 0; i < call.getArguments().size(); i++) {
                 ConnectorExpression argument = call.getArguments().get(i);
                 Type formalType = resolved.getSignature().getArgumentTypes().get(i);
@@ -326,7 +325,7 @@ public final class ConnectorExpressionTranslator
                     // There are no implicit coercions in connector expressions except for engine types that are not exposed in connector expressions.
                     throw new IllegalArgumentException(format("Unexpected type %s for argument %s of type %s of %s", argumentType, formalType, i, name));
                 }
-                builder.addArgument(formalType, expression);
+                builder.addArgument(expression);
             }
             return Optional.of(builder.build());
         }
@@ -461,21 +460,21 @@ public final class ConnectorExpressionTranslator
                         return Optional.empty();
                     }
 
-                    patternCall = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                            .setName(QualifiedName.of(LIKE_PATTERN_FUNCTION_NAME))
+                    patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                            .setName(LIKE_PATTERN_FUNCTION_NAME)
                             .addArgument(pattern.getType(), translatedPattern.get())
                             .addArgument(escape.get().getType(), translatedEscape.get())
                             .build();
                 }
                 else {
-                    patternCall = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                            .setName(QualifiedName.of(LIKE_PATTERN_FUNCTION_NAME))
+                    patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                            .setName(LIKE_PATTERN_FUNCTION_NAME)
                             .addArgument(pattern.getType(), translatedPattern.get())
                             .build();
                 }
 
-                FunctionCall call = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                        .setName(QualifiedName.of(LikeFunctions.LIKE_FUNCTION_NAME))
+                FunctionCall call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                        .setName(LikeFunctions.LIKE_FUNCTION_NAME)
                         .addArgument(value.getType(), translatedValue.get())
                         .addArgument(LIKE_PATTERN, patternCall)
                         .build();

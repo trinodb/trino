@@ -209,7 +209,7 @@ public abstract class AbstractTestType
         LiteralEncoder literalEncoder = new LiteralEncoder(plannerContext);
         for (int position = 0; position < testBlock.getPositionCount(); position++) {
             Object value = readNativeValue(type, testBlock, position);
-            Expression expression = literalEncoder.toExpression(TEST_SESSION, value, type);
+            Expression expression = literalEncoder.toExpression(value, type);
             if (!isEffectivelyLiteral(plannerContext, TEST_SESSION, expression)) {
                 fail(format(
                         "Expression not recognized literal for value %s at position %s (%s): %s",

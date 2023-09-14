@@ -23,7 +23,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.Type;
-import io.trino.sql.tree.QualifiedName;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.junit.jupiter.api.Test;
 
@@ -182,7 +181,7 @@ public abstract class AbstractTestApproximateSetGeneric
 
     private TestingAggregationFunction getAggregationFunction()
     {
-        return FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("$approx_set"), fromTypes(getValueType()));
+        return FUNCTION_RESOLUTION.getAggregateFunction("$approx_set", fromTypes(getValueType()));
     }
 
     private Page createPage(List<?> values)
