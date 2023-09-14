@@ -43,7 +43,6 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -187,9 +186,8 @@ public class OptimizeMixedDistinctAggregations
                 else {
                     // Aggregations on non-distinct are already done by new node, just extract the non-null value
                     Symbol argument = aggregateInfo.getNewNonDistinctAggregateSymbols().get(entry.getKey());
-                    QualifiedName functionName = QualifiedName.of("arbitrary");
                     Aggregation newAggregation = new Aggregation(
-                            metadata.resolveFunction(session, functionName, fromTypes(symbolAllocator.getTypes().get(argument))),
+                            metadata.resolveBuiltinFunction("arbitrary", fromTypes(symbolAllocator.getTypes().get(argument))),
                             ImmutableList.of(argument.toSymbolReference()),
                             false,
                             Optional.empty(),

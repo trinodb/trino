@@ -279,7 +279,7 @@ public class TestLiteralEncoder
 
     private void assertEncode(Object value, Type type, String expected)
     {
-        Expression expression = encoder.toExpression(TEST_SESSION, value, type);
+        Expression expression = encoder.toExpression(value, type);
         assertEquals(getExpressionType(expression), type);
         assertEquals(getExpressionValue(expression), value);
         assertEquals(formatSql(expression), expected);
@@ -291,7 +291,7 @@ public class TestLiteralEncoder
     @Deprecated
     private void assertEncodeCaseInsensitively(Object value, Type type, String expected)
     {
-        Expression expression = encoder.toExpression(TEST_SESSION, value, type);
+        Expression expression = encoder.toExpression(value, type);
         assertTrue(isEffectivelyLiteral(PLANNER_CONTEXT, TEST_SESSION, expression), "isEffectivelyLiteral returned false for: " + expression);
         assertEquals(getExpressionType(expression), type);
         assertEquals(getExpressionValue(expression), value);
@@ -300,7 +300,7 @@ public class TestLiteralEncoder
 
     private <T> void assertRoundTrip(T value, Type type, BiPredicate<T, T> predicate)
     {
-        Expression expression = encoder.toExpression(TEST_SESSION, value, type);
+        Expression expression = encoder.toExpression(value, type);
         assertTrue(isEffectivelyLiteral(PLANNER_CONTEXT, TEST_SESSION, expression), "isEffectivelyLiteral returned false for: " + expression);
         assertEquals(getExpressionType(expression), type);
         @SuppressWarnings("unchecked")

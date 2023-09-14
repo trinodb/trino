@@ -20,7 +20,6 @@ import io.trino.geospatial.serde.GeometrySerde;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.geospatial.GeoPlugin;
 import io.trino.spi.Page;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -82,7 +81,7 @@ public abstract class AbstractTestGeoAggregationFunctions
         // Test in forward and reverse order to verify that ordering doesn't affect the output
         assertAggregation(
                 functionResolution,
-                QualifiedName.of(getFunctionName()),
+                getFunctionName(),
                 fromTypes(GEOMETRY),
                 equalityFunction,
                 testDescription,
@@ -91,7 +90,7 @@ public abstract class AbstractTestGeoAggregationFunctions
         Collections.reverse(geometrySlices);
         assertAggregation(
                 functionResolution,
-                QualifiedName.of(getFunctionName()),
+                getFunctionName(),
                 fromTypes(GEOMETRY),
                 equalityFunction,
                 testDescription,

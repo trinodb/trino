@@ -16,7 +16,6 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
@@ -45,7 +44,6 @@ import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.WhenClause;
@@ -124,7 +122,7 @@ public class TransformCorrelatedInPredicateToJoin
 
         Symbol inPredicateOutputSymbol = getOnlyElement(subqueryAssignments.getSymbols());
 
-        return apply(apply, inPredicate, inPredicateOutputSymbol, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator(), context.getSession());
+        return apply(apply, inPredicate, inPredicateOutputSymbol, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator());
     }
 
     private Result apply(
@@ -133,8 +131,7 @@ public class TransformCorrelatedInPredicateToJoin
             Symbol inPredicateOutputSymbol,
             Lookup lookup,
             PlanNodeIdAllocator idAllocator,
-            SymbolAllocator symbolAllocator,
-            Session session)
+            SymbolAllocator symbolAllocator)
     {
         Optional<Decorrelated> decorrelated = new DecorrelatingVisitor(lookup, apply.getCorrelation())
                 .decorrelate(apply.getSubquery());
@@ -149,8 +146,7 @@ public class TransformCorrelatedInPredicateToJoin
                 inPredicateOutputSymbol,
                 decorrelated.get(),
                 idAllocator,
-                symbolAllocator,
-                session);
+                symbolAllocator);
 
         return Result.ofPlanNode(projection);
     }
@@ -161,8 +157,7 @@ public class TransformCorrelatedInPredicateToJoin
             Symbol inPredicateOutputSymbol,
             Decorrelated decorrelated,
             PlanNodeIdAllocator idAllocator,
-            SymbolAllocator symbolAllocator,
-            Session session)
+            SymbolAllocator symbolAllocator)
     {
         Expression correlationCondition = and(decorrelated.getCorrelatedPredicates());
         PlanNode decorrelatedBuildSource = decorrelated.getDecorrelatedNode();
@@ -219,8 +214,8 @@ public class TransformCorrelatedInPredicateToJoin
                 idAllocator.getNextId(),
                 preProjection,
                 ImmutableMap.<Symbol, AggregationNode.Aggregation>builder()
-                        .put(countMatchesSymbol, countWithFilter(session, matchConditionSymbol))
-                        .put(countNullMatchesSymbol, countWithFilter(session, nullMatchConditionSymbol))
+                        .put(countMatchesSymbol, countWithFilter(matchConditionSymbol))
+                        .put(countNullMatchesSymbol, countWithFilter(nullMatchConditionSymbol))
                         .buildOrThrow(),
                 singleGroupingSet(probeSide.getOutputSymbols()));
 
@@ -259,10 +254,10 @@ public class TransformCorrelatedInPredicateToJoin
                 Optional.empty());
     }
 
-    private AggregationNode.Aggregation countWithFilter(Session session, Symbol filter)
+    private AggregationNode.Aggregation countWithFilter(Symbol filter)
     {
         return new AggregationNode.Aggregation(
-                metadata.resolveFunction(session, QualifiedName.of("count"), ImmutableList.of()),
+                metadata.resolveBuiltinFunction("count", ImmutableList.of()),
                 ImmutableList.of(),
                 false,
                 Optional.of(filter),

@@ -30,7 +30,6 @@ import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.InputReferenceExpression;
 import io.trino.sql.relational.RowExpression;
-import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -63,7 +62,7 @@ public class TestPageProcessorCompiler
     {
         ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
         ArrayType arrayType = new ArrayType(VARCHAR);
-        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of("concat"), fromTypes(arrayType, arrayType));
+        ResolvedFunction resolvedFunction = functionResolution.resolveFunction("concat", fromTypes(arrayType, arrayType));
         projectionsBuilder.add(new CallExpression(resolvedFunction, ImmutableList.of(field(0, arrayType), field(1, arrayType))));
 
         ImmutableList<RowExpression> projections = projectionsBuilder.build();
@@ -102,7 +101,7 @@ public class TestPageProcessorCompiler
     public void testSanityFilterOnDictionary()
     {
         CallExpression lengthVarchar = new CallExpression(
-                functionResolution.resolveFunction(QualifiedName.of("length"), fromTypes(VARCHAR)),
+                functionResolution.resolveFunction("length", fromTypes(VARCHAR)),
                 ImmutableList.of(field(0, VARCHAR)));
         ResolvedFunction lessThan = functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(lessThan, ImmutableList.of(lengthVarchar, constant(10L, BIGINT)));
@@ -189,7 +188,7 @@ public class TestPageProcessorCompiler
     {
         ResolvedFunction lessThan = functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
         CallExpression random = new CallExpression(
-                functionResolution.resolveFunction(QualifiedName.of("random"), fromTypes(BIGINT)),
+                functionResolution.resolveFunction("random", fromTypes(BIGINT)),
                 singletonList(constant(10L, BIGINT)));
         InputReferenceExpression col0 = field(0, BIGINT);
         CallExpression lessThanRandomExpression = new CallExpression(lessThan, ImmutableList.of(col0, random));

@@ -298,7 +298,7 @@ public class UnwrapDateTruncInComparison
 
         private Expression toExpression(Object value, Type type)
         {
-            return literalEncoder.toExpression(session, value, type);
+            return literalEncoder.toExpression(value, type);
         }
 
         private int compare(Type type, Object first, Object second)

@@ -25,7 +25,6 @@ import io.trino.sql.relational.ConstantExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.relational.optimizer.ExpressionOptimizer;
-import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -87,7 +86,7 @@ public class TestExpressionOptimizer
     @Test
     public void testCastWithJsonParseOptimization()
     {
-        ResolvedFunction jsonParseFunction = functionResolution.resolveFunction(QualifiedName.of("json_parse"), fromTypes(VARCHAR));
+        ResolvedFunction jsonParseFunction = functionResolution.resolveFunction("json_parse", fromTypes(VARCHAR));
 
         // constant
         ResolvedFunction jsonCastFunction = functionResolution.getCoercion(JSON, new ArrayType(INTEGER));

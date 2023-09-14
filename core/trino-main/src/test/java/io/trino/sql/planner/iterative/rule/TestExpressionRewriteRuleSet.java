@@ -27,7 +27,6 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
@@ -88,7 +87,7 @@ public class TestExpressionRewriteRuleSet
     public void testAggregationExpressionRewrite()
     {
         ExpressionRewriteRuleSet functionCallRewriter = new ExpressionRewriteRuleSet((expression, context) -> functionResolution
-                .functionCallBuilder(QualifiedName.of("count"))
+                .functionCallBuilder("count")
                 .addArgument(VARCHAR, new SymbolReference("y"))
                 .build());
         tester().assertThat(functionCallRewriter.aggregationExpressionRewrite())
@@ -97,7 +96,7 @@ public class TestExpressionRewriteRuleSet
                         .addAggregation(
                                 p.symbol("count_1", BigintType.BIGINT),
                                 functionResolution
-                                        .functionCallBuilder(QualifiedName.of("count"))
+                                        .functionCallBuilder("count")
                                         .addArgument(VARCHAR, new SymbolReference("x"))
                                         .build(),
                                 ImmutableList.of(BigintType.BIGINT))
@@ -106,7 +105,7 @@ public class TestExpressionRewriteRuleSet
                 .matches(
                         PlanMatchPattern.aggregation(
                                 ImmutableMap.of("count_1", aliases -> functionResolution
-                                        .functionCallBuilder(QualifiedName.of("count"))
+                                        .functionCallBuilder("count")
                                         .addArgument(VARCHAR, new SymbolReference("y"))
                                         .build()),
                                 values("x", "y")));
@@ -116,7 +115,7 @@ public class TestExpressionRewriteRuleSet
     public void testAggregationExpressionNotRewritten()
     {
         FunctionCall nowCall = functionResolution
-                .functionCallBuilder(QualifiedName.of("now"))
+                .functionCallBuilder("now")
                 .build();
         ExpressionRewriteRuleSet functionCallRewriter = new ExpressionRewriteRuleSet((expression, context) -> nowCall);
 
