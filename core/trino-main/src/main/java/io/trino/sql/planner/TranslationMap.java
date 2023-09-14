@@ -1125,9 +1125,7 @@ class TranslationMap
 
     private static void verifyAstExpression(Expression astExpression)
     {
-        verify(AstUtils.preOrder(astExpression).noneMatch(expression ->
-                expression instanceof SymbolReference ||
-                        expression instanceof FunctionCall && ResolvedFunction.isResolved(((FunctionCall) expression).getName())));
+        verify(AstUtils.preOrder(astExpression).noneMatch(expression -> expression instanceof SymbolReference), "symbol references are not allowed");
     }
 
     public Scope getScope()
