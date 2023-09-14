@@ -74,7 +74,7 @@ public class FunctionResolver
             Collection<CatalogFunctionMetadata> candidates = candidateLoader.apply(catalogSchemaFunctionName);
             if (!candidates.isEmpty()) {
                 return candidates.stream()
-                        .map(CatalogFunctionMetadata::getFunctionMetadata)
+                        .map(CatalogFunctionMetadata::functionMetadata)
                         .map(FunctionMetadata::getKind)
                         .anyMatch(AGGREGATE::equals);
             }
@@ -88,7 +88,7 @@ public class FunctionResolver
             Collection<CatalogFunctionMetadata> candidates = candidateLoader.apply(catalogSchemaFunctionName);
             if (!candidates.isEmpty()) {
                 return candidates.stream()
-                        .map(CatalogFunctionMetadata::getFunctionMetadata)
+                        .map(CatalogFunctionMetadata::functionMetadata)
                         .map(FunctionMetadata::getKind)
                         .anyMatch(WINDOW::equals);
             }
@@ -101,20 +101,20 @@ public class FunctionResolver
         for (CatalogSchemaFunctionName catalogSchemaFunctionName : toPath(session, name)) {
             Collection<CatalogFunctionMetadata> candidates = candidateLoader.apply(catalogSchemaFunctionName);
             List<CatalogFunctionMetadata> exactCandidates = candidates.stream()
-                    .filter(function -> possibleExactCastMatch(signature, function.getFunctionMetadata().getSignature()))
+                    .filter(function -> possibleExactCastMatch(signature, function.functionMetadata().getSignature()))
                     .collect(toImmutableList());
             for (CatalogFunctionMetadata candidate : exactCandidates) {
-                if (canBindSignature(session, candidate.getFunctionMetadata().getSignature(), signature)) {
+                if (canBindSignature(session, candidate.functionMetadata().getSignature(), signature)) {
                     return toFunctionBinding(candidate, signature);
                 }
             }
 
             // only consider generic genericCandidates
             List<CatalogFunctionMetadata> genericCandidates = candidates.stream()
-                    .filter(function -> !function.getFunctionMetadata().getSignature().getTypeVariableConstraints().isEmpty())
+                    .filter(function -> !function.functionMetadata().getSignature().getTypeVariableConstraints().isEmpty())
                     .collect(toImmutableList());
             for (CatalogFunctionMetadata candidate : genericCandidates) {
-                if (canBindSignature(session, candidate.getFunctionMetadata().getSignature(), signature)) {
+                if (canBindSignature(session, candidate.functionMetadata().getSignature(), signature)) {
                     return toFunctionBinding(candidate, signature);
                 }
             }
@@ -138,10 +138,10 @@ public class FunctionResolver
                         .map(typeManager::getType)
                         .collect(toImmutableList()));
         return new CatalogFunctionBinding(
-                functionMetadata.getCatalogHandle(),
+                functionMetadata.catalogHandle(),
                 SignatureBinder.bindFunction(
-                        functionMetadata.getFunctionMetadata().getFunctionId(),
-                        functionMetadata.getFunctionMetadata().getSignature(),
+                        functionMetadata.functionMetadata().getFunctionId(),
+                        functionMetadata.functionMetadata().getSignature(),
                         boundSignature));
     }
 
@@ -169,7 +169,7 @@ public class FunctionResolver
         for (CatalogSchemaFunctionName catalogSchemaFunctionName : toPath(session, name)) {
             Collection<CatalogFunctionMetadata> candidates = candidateLoader.apply(catalogSchemaFunctionName);
             List<CatalogFunctionMetadata> exactCandidates = candidates.stream()
-                    .filter(function -> function.getFunctionMetadata().getSignature().getTypeVariableConstraints().isEmpty())
+                    .filter(function -> function.functionMetadata().getSignature().getTypeVariableConstraints().isEmpty())
                     .collect(toImmutableList());
 
             Optional<CatalogFunctionBinding> match = matchFunctionExact(session, exactCandidates, parameterTypes);
@@ -178,7 +178,7 @@ public class FunctionResolver
             }
 
             List<CatalogFunctionMetadata> genericCandidates = candidates.stream()
-                    .filter(function -> !function.getFunctionMetadata().getSignature().getTypeVariableConstraints().isEmpty())
+                    .filter(function -> !function.functionMetadata().getSignature().getTypeVariableConstraints().isEmpty())
                     .collect(toImmutableList());
 
             match = matchFunctionExact(session, genericCandidates, parameterTypes);
@@ -201,8 +201,8 @@ public class FunctionResolver
 
         List<String> expectedParameters = new ArrayList<>();
         for (CatalogFunctionMetadata function : candidates) {
-            String arguments = Joiner.on(", ").join(function.getFunctionMetadata().getSignature().getArgumentTypes());
-            String constraints = Joiner.on(", ").join(function.getFunctionMetadata().getSignature().getTypeVariableConstraints());
+            String arguments = Joiner.on(", ").join(function.functionMetadata().getSignature().getArgumentTypes());
+            String constraints = Joiner.on(", ").join(function.functionMetadata().getSignature().getTypeVariableConstraints());
             expectedParameters.add(format("%s(%s) %s", name, arguments, constraints).stripTrailing());
         }
 
@@ -262,7 +262,7 @@ public class FunctionResolver
 
         if (applicableFunctions.size() == 1) {
             ApplicableFunction applicableFunction = getOnlyElement(applicableFunctions);
-            return Optional.of(toFunctionBinding(applicableFunction.getFunction(), applicableFunction.getBoundSignature()));
+            return Optional.of(toFunctionBinding(applicableFunction.function(), applicableFunction.boundSignature()));
         }
 
         StringBuilder errorMessageBuilder = new StringBuilder();
@@ -270,7 +270,7 @@ public class FunctionResolver
         errorMessageBuilder.append("Candidates are:\n");
         for (ApplicableFunction function : applicableFunctions) {
             errorMessageBuilder.append("\t * ");
-            errorMessageBuilder.append(function.getBoundSignature());
+            errorMessageBuilder.append(function.boundSignature());
             errorMessageBuilder.append("\n");
         }
         throw new TrinoException(AMBIGUOUS_FUNCTION_CALL, errorMessageBuilder.toString());
@@ -280,7 +280,7 @@ public class FunctionResolver
     {
         ImmutableList.Builder<ApplicableFunction> applicableFunctions = ImmutableList.builder();
         for (CatalogFunctionMetadata function : candidates) {
-            new SignatureBinder(session, metadata, typeManager, function.getFunctionMetadata().getSignature(), allowCoercion)
+            new SignatureBinder(session, metadata, typeManager, function.functionMetadata().getSignature(), allowCoercion)
                     .bind(actualParameters)
                     .ifPresent(signature -> applicableFunctions.add(new ApplicableFunction(function, signature)));
         }
@@ -370,7 +370,7 @@ public class FunctionResolver
 
     private boolean onlyCastsUnknown(ApplicableFunction applicableFunction, List<Type> actualParameters)
     {
-        List<Type> boundTypes = applicableFunction.getBoundSignature().getArgumentTypes().stream()
+        List<Type> boundTypes = applicableFunction.boundSignature().getArgumentTypes().stream()
                 .map(typeManager::getType)
                 .collect(toImmutableList());
         checkState(actualParameters.size() == boundTypes.size(), "type lists are of different lengths");
@@ -385,7 +385,7 @@ public class FunctionResolver
     private boolean returnTypeIsTheSame(List<ApplicableFunction> applicableFunctions)
     {
         Set<Type> returnTypes = applicableFunctions.stream()
-                .map(function -> typeManager.getType(function.getBoundSignature().getReturnType()))
+                .map(function -> typeManager.getType(function.boundSignature().getReturnType()))
                 .collect(Collectors.toSet());
         return returnTypes.size() == 1;
     }
@@ -397,7 +397,7 @@ public class FunctionResolver
 
     private static boolean returnsNullOnGivenInputTypes(ApplicableFunction applicableFunction, List<Type> parameterTypes)
     {
-        FunctionMetadata function = applicableFunction.getFunctionMetadata();
+        FunctionMetadata function = applicableFunction.functionMetadata();
 
         // Window and Aggregation functions have fixed semantic where NULL values are always skipped
         if (function.getKind() != SCALAR) {
@@ -431,95 +431,54 @@ public class FunctionResolver
      */
     private boolean isMoreSpecificThan(Session session, ApplicableFunction left, ApplicableFunction right)
     {
-        List<TypeSignatureProvider> resolvedTypes = fromTypeSignatures(left.getBoundSignature().getArgumentTypes());
-        return new SignatureBinder(session, metadata, typeManager, right.getDeclaredSignature(), true)
+        List<TypeSignatureProvider> resolvedTypes = fromTypeSignatures(left.boundSignature().getArgumentTypes());
+        return new SignatureBinder(session, metadata, typeManager, right.declaredSignature(), true)
                 .canBind(resolvedTypes);
     }
 
-    private static class ApplicableFunction
+    /**
+     * @param boundSignature Ideally this would be a real bound signature,
+     * but the resolver algorithm considers functions with illegal types (e.g., char(large_number))
+     * We could just not consider these applicable functions, but there are tests that depend on
+     * the specific error messages for these failures.
+     */
+    private record ApplicableFunction(CatalogFunctionMetadata function, Signature boundSignature)
     {
-        private final CatalogFunctionMetadata function;
-        // Ideally this would be a real bound signature, but the resolver algorithm considers functions with illegal types (e.g., char(large_number))
-        // We could just not consider these applicable functions, but there are tests that depend on the specific error messages for these failures.
-        private final Signature boundSignature;
-
-        private ApplicableFunction(CatalogFunctionMetadata function, Signature boundSignature)
+        public FunctionMetadata functionMetadata()
         {
-            this.function = function;
-            this.boundSignature = boundSignature;
+            return function.functionMetadata();
         }
 
-        public CatalogFunctionMetadata getFunction()
+        public Signature declaredSignature()
         {
-            return function;
-        }
-
-        public FunctionMetadata getFunctionMetadata()
-        {
-            return function.getFunctionMetadata();
-        }
-
-        public Signature getDeclaredSignature()
-        {
-            return function.getFunctionMetadata().getSignature();
-        }
-
-        public Signature getBoundSignature()
-        {
-            return boundSignature;
+            return function.functionMetadata().getSignature();
         }
 
         @Override
         public String toString()
         {
             return toStringHelper(this)
-                    .add("declaredSignature", function.getFunctionMetadata().getSignature())
+                    .add("declaredSignature", function.functionMetadata().getSignature())
                     .add("boundSignature", boundSignature)
                     .toString();
         }
     }
 
-    static class CatalogFunctionMetadata
+    record CatalogFunctionMetadata(CatalogHandle catalogHandle, FunctionMetadata functionMetadata)
     {
-        private final CatalogHandle catalogHandle;
-        private final FunctionMetadata functionMetadata;
-
-        public CatalogFunctionMetadata(CatalogHandle catalogHandle, FunctionMetadata functionMetadata)
+        CatalogFunctionMetadata
         {
-            this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
-            this.functionMetadata = requireNonNull(functionMetadata, "functionMetadata is null");
-        }
-
-        public CatalogHandle getCatalogHandle()
-        {
-            return catalogHandle;
-        }
-
-        public FunctionMetadata getFunctionMetadata()
-        {
-            return functionMetadata;
+            requireNonNull(catalogHandle, "catalogHandle is null");
+            requireNonNull(functionMetadata, "functionMetadata is null");
         }
     }
 
-    static class CatalogFunctionBinding
+    record CatalogFunctionBinding(CatalogHandle catalogHandle, FunctionBinding functionBinding)
     {
-        private final CatalogHandle catalogHandle;
-        private final FunctionBinding functionBinding;
-
-        private CatalogFunctionBinding(CatalogHandle catalogHandle, FunctionBinding functionBinding)
+        CatalogFunctionBinding
         {
-            this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
-            this.functionBinding = requireNonNull(functionBinding, "functionBinding is null");
-        }
-
-        public CatalogHandle getCatalogHandle()
-        {
-            return catalogHandle;
-        }
-
-        public FunctionBinding getFunctionBinding()
-        {
-            return functionBinding;
+            requireNonNull(catalogHandle, "catalogHandle is null");
+            requireNonNull(functionBinding, "functionBinding is null");
         }
     }
 }
