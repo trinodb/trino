@@ -55,6 +55,7 @@ import jakarta.annotation.Nullable;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.metadata.LiteralFunction.typeForMagicLiteral;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -284,7 +285,7 @@ public final class LiteralEncoder
             argument = toExpression(session, object, argumentType);
         }
 
-        ResolvedFunction resolvedFunction = plannerContext.getMetadata().getCoercion(session, QualifiedName.of(LITERAL_FUNCTION_NAME), argumentType, type);
+        ResolvedFunction resolvedFunction = plannerContext.getMetadata().getCoercion(session, builtinFunctionName(LITERAL_FUNCTION_NAME), argumentType, type);
         return FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                 .setName(resolvedFunction.toQualifiedName())
                 .addArgument(argumentType, argument)

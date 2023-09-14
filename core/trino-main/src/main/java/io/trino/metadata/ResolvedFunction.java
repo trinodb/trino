@@ -26,8 +26,10 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.cache.NonEvictableLoadingCache;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.FunctionNullability;
@@ -60,6 +62,7 @@ import static java.util.Objects.requireNonNull;
 public class ResolvedFunction
 {
     private static final String PREFIX = "@";
+    private static final String SCHEMA = "$resolved";
     private final BoundSignature signature;
     private final CatalogHandle catalogHandle;
     private final FunctionId functionId;
@@ -146,7 +149,13 @@ public class ResolvedFunction
 
     public QualifiedName toQualifiedName()
     {
-        return ResolvedFunctionDecoder.toQualifiedName(this);
+        CatalogSchemaFunctionName name = toCatalogSchemaFunctionName();
+        return QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getFunctionName());
+    }
+
+    public CatalogSchemaFunctionName toCatalogSchemaFunctionName()
+    {
+        return ResolvedFunctionDecoder.toCatalogSchemaFunctionName(this);
     }
 
     public static String extractFunctionName(QualifiedName qualifiedName)
@@ -200,7 +209,7 @@ public class ResolvedFunction
         private final NonEvictableLoadingCache<QualifiedName, ResolvedFunction> resolvedFunctions = buildNonEvictableCache(
                 CacheBuilder.newBuilder().maximumSize(1024), CacheLoader.from(this::deserialize));
 
-        private static final NonEvictableLoadingCache<ResolvedFunction, QualifiedName> qualifiedNames = buildNonEvictableCache(
+        private static final NonEvictableLoadingCache<ResolvedFunction, CatalogSchemaFunctionName> qualifiedNames = buildNonEvictableCache(
                 CacheBuilder.newBuilder().maximumSize(1024), CacheLoader.from(ResolvedFunctionDecoder::serialize));
 
         private final JsonCodec<ResolvedFunction> jsonCodec;
@@ -225,7 +234,15 @@ public class ResolvedFunction
             return Optional.of(resolvedFunctions.getUnchecked(qualifiedName));
         }
 
-        public static QualifiedName toQualifiedName(ResolvedFunction function)
+        public Optional<ResolvedFunction> fromCatalogSchemaFunctionName(CatalogSchemaFunctionName name)
+        {
+            if (!name.getCatalogName().equals(GlobalSystemConnector.NAME) || !name.getSchemaName().equals(SCHEMA)) {
+                return Optional.empty();
+            }
+            return Optional.of(resolvedFunctions.getUnchecked(QualifiedName.of(name.getFunctionName())));
+        }
+
+        public static CatalogSchemaFunctionName toCatalogSchemaFunctionName(ResolvedFunction function)
         {
             return qualifiedNames.getUnchecked(function);
         }
@@ -244,12 +261,12 @@ public class ResolvedFunction
             COMPRESSOR_DECOMPRESSOR.decompress(ByteBuffer.wrap(compressed), decompressed);
 
             ResolvedFunction resolvedFunction = jsonCodec.fromJson(Arrays.copyOf(decompressed.array(), decompressed.position()));
-            checkArgument(resolvedFunction.getSignature().getName().equalsIgnoreCase(parts.get(0)),
+            checkArgument(resolvedFunction.getSignature().getName().getFunctionName().equalsIgnoreCase(parts.get(0)),
                     "Expected decoded function to have name %s, but name is %s", resolvedFunction.getSignature().getName(), parts.get(0));
             return resolvedFunction;
         }
 
-        private static QualifiedName serialize(ResolvedFunction function)
+        private static CatalogSchemaFunctionName serialize(ResolvedFunction function)
         {
             // json can be large so use zstd to compress
             byte[] value = SERIALIZE_JSON_CODEC.toJsonBytes(function);
@@ -258,7 +275,8 @@ public class ResolvedFunction
             // names are case insensitive, so use base32 instead of base64
             String base32 = base32Hex().encode(compressed.array(), 0, compressed.position());
             // add name so expressions are still readable
-            return QualifiedName.of(PREFIX + function.signature.getName() + PREFIX + base32);
+            String functionName = PREFIX + function.signature.getName().getFunctionName() + PREFIX + base32;
+            return new CatalogSchemaFunctionName(GlobalSystemConnector.NAME, SCHEMA, functionName);
         }
     }
 }
