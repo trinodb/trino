@@ -47,7 +47,10 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.analyzer.Analysis;
+import io.trino.sql.analyzer.CorrelationSupport;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
+import io.trino.sql.analyzer.QueryType;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
@@ -129,6 +132,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
+import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
@@ -157,6 +161,7 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.FunctionCallBuilder.resolve;
+import static io.trino.sql.planner.QueryPlanner.coerceIfNecessary;
 import static io.trino.sql.planner.ResolvedFunctionCallRewriter.rewriteResolvedFunctions;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
@@ -210,8 +215,28 @@ public class ExpressionInterpreter
             AccessControl accessControl,
             Map<NodeRef<Parameter>, Expression> parameters)
     {
+        Analysis analysis = new Analysis(null, ImmutableMap.of(), QueryType.OTHERS);
+        Scope scope = Scope.create();
+        ExpressionAnalyzer.analyzeExpressionWithoutSubqueries(
+                session,
+                plannerContext,
+                accessControl,
+                scope,
+                analysis,
+                expression,
+                EXPRESSION_NOT_CONSTANT,
+                "Constant expression cannot contain a subquery",
+                WarningCollector.NOOP,
+                CorrelationSupport.DISALLOWED);
+
+        // Apply casts, desugar expression, and preform other rewrites
+        TranslationMap translationMap = new TranslationMap(Optional.empty(), scope, analysis, ImmutableMap.of(), ImmutableList.of(), session, plannerContext);
+        expression = coerceIfNecessary(analysis, expression, translationMap.rewrite(expression));
+
+        // The expression tree has been rewritten which breaks all the identity maps, so redo the analysis
+        // to re-analyze coercions that might be necessary
         ExpressionAnalyzer analyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, WarningCollector.NOOP);
-        analyzer.analyze(expression, Scope.create());
+        analyzer.analyze(expression, scope);
 
         Type actualType = analyzer.getExpressionTypes().get(NodeRef.of(expression));
         if (!new TypeCoercion(plannerContext.getTypeManager()::getType).canCoerce(actualType, expectedType)) {
