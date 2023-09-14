@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DiskRange;
@@ -26,6 +27,8 @@ import io.trino.parquet.reader.ChunkedInputStream;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.PageReader;
 import io.trino.parquet.reader.TestingParquetDataSource;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.VersionParser;
@@ -49,6 +52,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.operator.scalar.CharacterStringCasts.varcharToVarcharSaturatedFloorCast;
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
 import static io.trino.parquet.ParquetTestUtils.createParquetWriter;
 import static io.trino.parquet.ParquetTestUtils.generateInputPages;
@@ -56,6 +60,7 @@ import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
@@ -124,6 +129,52 @@ public class TestParquetWriter
             assertThat(dataPage.getValueCount()).isBetween(4500, 5500);
         }
         assertThat(pagesRead).isGreaterThan(10);
+    }
+
+    @Test
+    public void testLargeStringTruncation()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("columnA", "columnB");
+        List<Type> types = ImmutableList.of(VARCHAR, VARCHAR);
+
+        Slice minA = Slices.utf8Slice("abc".repeat(300)); // within truncation threshold
+        Block blockA = VARCHAR.createBlockBuilder(null, 2)
+                .writeEntry(minA)
+                .writeEntry(Slices.utf8Slice("y".repeat(3200))) // bigger than truncation threshold
+                .build();
+
+        String threeByteCodePoint = new String(Character.toChars(0x20AC));
+        String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
+        Slice minB = Slices.utf8Slice(threeByteCodePoint.repeat(300)); // truncation in middle of unicode bytes
+        Block blockB = VARCHAR.createBlockBuilder(null, 2)
+                .writeEntry(minB)
+                // start with maxCodePoint to make it max value in stats
+                // last character for truncation is maxCodePoint
+                .writeEntry(Slices.utf8Slice(maxCodePoint + "d".repeat(1017) + maxCodePoint))
+                .build();
+
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder().build(),
+                        types,
+                        columnNames,
+                        ImmutableList.of(new Page(2, blockA, blockB))),
+                new ParquetReaderOptions());
+
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        BlockMetaData blockMetaData = getOnlyElement(parquetMetadata.getBlocks());
+
+        ColumnChunkMetaData chunkMetaData = blockMetaData.getColumns().get(0);
+        assertThat(chunkMetaData.getStatistics().getMinBytes()).isEqualTo(minA.getBytes());
+        Slice truncatedMax = Slices.utf8Slice("y".repeat(1023) + "z");
+        assertThat(chunkMetaData.getStatistics().getMaxBytes()).isEqualTo(truncatedMax.getBytes());
+
+        chunkMetaData = blockMetaData.getColumns().get(1);
+        Slice truncatedMin = varcharToVarcharSaturatedFloorCast(1024, minB);
+        assertThat(chunkMetaData.getStatistics().getMinBytes()).isEqualTo(truncatedMin.getBytes());
+        truncatedMax = Slices.utf8Slice(maxCodePoint + "d".repeat(1016) + "e");
+        assertThat(chunkMetaData.getStatistics().getMaxBytes()).isEqualTo(truncatedMax.getBytes());
     }
 
     @Test
