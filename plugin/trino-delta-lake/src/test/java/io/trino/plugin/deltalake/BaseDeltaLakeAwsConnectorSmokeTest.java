@@ -68,6 +68,14 @@ public abstract class BaseDeltaLakeAwsConnectorSmokeTest
     }
 
     @Override
+    protected void deleteFile(String filePath)
+    {
+        String key = filePath.substring(bucketUrl().length());
+        hiveMinioDataLake.getMinioClient()
+                .removeObject(bucketName, key);
+    }
+
+    @Override
     protected String bucketUrl()
     {
         return format("s3://%s/", bucketName);

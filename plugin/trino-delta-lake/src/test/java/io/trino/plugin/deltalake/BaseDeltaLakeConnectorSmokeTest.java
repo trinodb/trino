@@ -144,6 +144,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
     protected abstract List<String> listCheckpointFiles(String transactionLogDirectory);
 
+    protected abstract void deleteFile(String filePath);
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -1973,10 +1975,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
             String tableLocation = getTableLocation(table.getName());
             // Remove first two transaction logs to mimic log retention duration exceeds
-            String key = tableLocation.substring(bucketUrl().length());
-            MinioClient minio = hiveMinioDataLake.getMinioClient();
-            minio.removeObject(bucketName, "%s/_delta_log/%020d.json".formatted(key, 0));
-            minio.removeObject(bucketName, "%s/_delta_log/%020d.json".formatted(key, 1));
+            deleteFile("%s/_delta_log/%020d.json".formatted(tableLocation, 0));
+            deleteFile("%s/_delta_log/%020d.json".formatted(tableLocation, 1));
 
             assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\"", "VALUES (2, 'WRITE'), (3, 'MERGE'), (4, 'MERGE')");
             assertThat(query("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version = 1")).returnsEmptyResult();
