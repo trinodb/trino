@@ -564,33 +564,7 @@ partitioning change.
 The connector supports the following commands for use with {ref}`ALTER TABLE
 EXECUTE <alter-table-execute>`.
 
-##### optimize
-
-The `optimize` command is used for rewriting the active content of the
-specified table so that it is merged into fewer but larger files. In case that
-the table is partitioned, the data compaction acts separately on each partition
-selected for optimization. This operation improves read performance.
-
-All files with a size below the optional `file_size_threshold` parameter
-(default value for the threshold is `100MB`) are merged:
-
-```sql
-ALTER TABLE test_table EXECUTE optimize
-```
-
-The following statement merges the files in a table that are under 10 megabytes
-in size:
-
-```sql
-ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '10MB')
-```
-
-You can use a `WHERE` clause with the columns used to partition the table, to
-apply `optimize` only on the partitions corresponding to the filter:
-
-```sql
-ALTER TABLE test_partitioned_table EXECUTE optimize
-WHERE partition_key = 1
+```{include} optimize.fragment
 ```
 
 ##### expire_snapshots
