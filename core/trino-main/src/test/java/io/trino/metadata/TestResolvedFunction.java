@@ -32,6 +32,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Integer.parseInt;
@@ -55,7 +56,10 @@ public class TestResolvedFunction
     private static ResolvedFunction createResolvedFunction(String name, int depth)
     {
         return new ResolvedFunction(
-                new BoundSignature(name + "_" + depth, createVarcharType(10 + depth), ImmutableList.of(createVarcharType(20 + depth), createVarcharType(30 + depth))),
+                new BoundSignature(
+                        builtinFunctionName(name + "_" + depth),
+                        createVarcharType(10 + depth),
+                        ImmutableList.of(createVarcharType(20 + depth), createVarcharType(30 + depth))),
                 GlobalSystemConnector.CATALOG_HANDLE,
                 FunctionId.toFunctionId(Signature.builder()
                         .name(name)

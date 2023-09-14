@@ -32,6 +32,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.SingleRowBlock;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
@@ -132,6 +133,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -177,6 +179,8 @@ import static java.util.stream.Collectors.toList;
 
 public class ExpressionInterpreter
 {
+    private static final CatalogSchemaFunctionName FAIL_NAME = builtinFunctionName("fail");
+
     private final Expression expression;
     private final PlannerContext plannerContext;
     private final Metadata metadata;
@@ -1072,7 +1076,7 @@ public class ExpressionInterpreter
             if (optimize && (!resolvedFunction.isDeterministic() ||
                     hasUnresolvedValue(argumentValues) ||
                     isDynamicFilter(node) ||
-                    resolvedFunction.getSignature().getName().equals("fail"))) {
+                    resolvedFunction.getSignature().getName().equals(FAIL_NAME))) {
                 verify(!node.isDistinct(), "distinct not supported");
                 verify(node.getOrderBy().isEmpty(), "order by not supported");
                 verify(node.getFilter().isEmpty(), "filter not supported");

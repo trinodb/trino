@@ -20,6 +20,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.ArrayDistinctFunction;
 import io.trino.operator.scalar.ArraySortFunction;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.FunctionCallBuilder;
@@ -34,10 +35,14 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 
 public class ArraySortAfterArrayDistinct
         extends ExpressionRewriteRuleSet
 {
+    private static final CatalogSchemaFunctionName ARRAY_DISTINCT_NAME = builtinFunctionName(ArrayDistinctFunction.NAME);
+    private static final CatalogSchemaFunctionName ARRAY_SORT_NAME = builtinFunctionName(ArraySortFunction.NAME);
+
     public ArraySortAfterArrayDistinct(PlannerContext plannerContext)
     {
         super((expression, context) -> rewrite(expression, context, plannerContext.getMetadata()));
@@ -79,12 +84,12 @@ public class ArraySortAfterArrayDistinct
         public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
-            if (metadata.decodeFunction(rewritten.getName()).getSignature().getName().equals(ArrayDistinctFunction.NAME) &&
+            if (metadata.decodeFunction(rewritten.getName()).getSignature().getName().equals(ARRAY_DISTINCT_NAME) &&
                     getOnlyElement(rewritten.getArguments()) instanceof FunctionCall) {
                 Expression expression = getOnlyElement(rewritten.getArguments());
                 FunctionCall functionCall = (FunctionCall) expression;
                 ResolvedFunction resolvedFunction = metadata.decodeFunction(functionCall.getName());
-                if (resolvedFunction.getSignature().getName().equals(ArraySortFunction.NAME)) {
+                if (resolvedFunction.getSignature().getName().equals(ARRAY_SORT_NAME)) {
                     List<Expression> arraySortArguments = functionCall.getArguments();
                     List<Type> arraySortArgumentsTypes = resolvedFunction.getSignature().getArgumentTypes();
 
