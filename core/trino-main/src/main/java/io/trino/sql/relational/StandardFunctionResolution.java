@@ -66,7 +66,7 @@ public final class StandardFunctionResolution
             default:
                 throw new IllegalStateException("Unknown arithmetic operator: " + operator);
         }
-        return metadata.resolveOperator(session, operatorType, ImmutableList.of(leftType, rightType));
+        return metadata.resolveOperator(operatorType, ImmutableList.of(leftType, rightType));
     }
 
     public ResolvedFunction comparisonFunction(ComparisonExpression.Operator operator, Type leftType, Type rightType)
@@ -89,6 +89,6 @@ public final class StandardFunctionResolution
                 throw new IllegalStateException("Unsupported comparison operator type: " + operator);
         }
 
-        return metadata.resolveOperator(session, operatorType, ImmutableList.of(leftType, rightType));
+        return metadata.resolveOperator(operatorType, ImmutableList.of(leftType, rightType));
     }
 }

@@ -15,14 +15,11 @@ package io.trino.json;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
-import io.trino.FullConnectorSession;
-import io.trino.Session;
 import io.trino.cache.NonEvictableCache;
 import io.trino.json.ir.IrPathNode;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
@@ -56,18 +53,15 @@ public class CachingResolver
     private static final int MAX_CACHE_SIZE = 1000;
 
     private final Metadata metadata;
-    private final Session session;
     private final TypeCoercion typeCoercion;
     private final NonEvictableCache<NodeAndTypes, ResolvedOperatorAndCoercions> operators = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(MAX_CACHE_SIZE));
 
-    public CachingResolver(Metadata metadata, ConnectorSession connectorSession, TypeManager typeManager)
+    public CachingResolver(Metadata metadata, TypeManager typeManager)
     {
         requireNonNull(metadata, "metadata is null");
-        requireNonNull(connectorSession, "connectorSession is null");
         requireNonNull(typeManager, "typeManager is null");
 
         this.metadata = metadata;
-        this.session = ((FullConnectorSession) connectorSession).getSession();
         this.typeCoercion = new TypeCoercion(typeManager::getType);
     }
 
@@ -86,7 +80,7 @@ public class CachingResolver
     {
         ResolvedFunction operator;
         try {
-            operator = metadata.resolveOperator(session, operatorType, ImmutableList.of(leftType, rightType));
+            operator = metadata.resolveOperator(operatorType, ImmutableList.of(leftType, rightType));
         }
         catch (OperatorNotFoundException e) {
             return RESOLUTION_ERROR;
@@ -97,7 +91,7 @@ public class CachingResolver
         Optional<ResolvedFunction> leftCast = Optional.empty();
         if (!signature.getArgumentTypes().get(0).equals(leftType) && !typeCoercion.isTypeOnlyCoercion(leftType, signature.getArgumentTypes().get(0))) {
             try {
-                leftCast = Optional.of(metadata.getCoercion(session, leftType, signature.getArgumentTypes().get(0)));
+                leftCast = Optional.of(metadata.getCoercion(leftType, signature.getArgumentTypes().get(0)));
             }
             catch (OperatorNotFoundException e) {
                 return RESOLUTION_ERROR;
@@ -107,7 +101,7 @@ public class CachingResolver
         Optional<ResolvedFunction> rightCast = Optional.empty();
         if (!signature.getArgumentTypes().get(1).equals(rightType) && !typeCoercion.isTypeOnlyCoercion(rightType, signature.getArgumentTypes().get(1))) {
             try {
-                rightCast = Optional.of(metadata.getCoercion(session, rightType, signature.getArgumentTypes().get(1)));
+                rightCast = Optional.of(metadata.getCoercion(rightType, signature.getArgumentTypes().get(1)));
             }
             catch (OperatorNotFoundException e) {
                 return RESOLUTION_ERROR;

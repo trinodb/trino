@@ -48,7 +48,6 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
@@ -175,9 +174,9 @@ public class BenchmarkInCodeGenerator
             Metadata metadata = createTestMetadataManager();
 
             List<ResolvedFunction> functionalDependencies = ImmutableList.of(
-                    metadata.resolveOperator(TEST_SESSION, OperatorType.EQUAL, ImmutableList.of(trinoType, trinoType)),
-                    metadata.resolveOperator(TEST_SESSION, OperatorType.HASH_CODE, ImmutableList.of(trinoType)),
-                    metadata.resolveOperator(TEST_SESSION, OperatorType.INDETERMINATE, ImmutableList.of(trinoType)));
+                    metadata.resolveOperator(OperatorType.EQUAL, ImmutableList.of(trinoType, trinoType)),
+                    metadata.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(trinoType)),
+                    metadata.resolveOperator(OperatorType.INDETERMINATE, ImmutableList.of(trinoType)));
             RowExpression filter = new SpecialForm(IN, BOOLEAN, arguments, functionalDependencies);
 
             FunctionManager functionManager = createTestingFunctionManager();
