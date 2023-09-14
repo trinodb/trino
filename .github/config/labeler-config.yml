@@ -6,6 +6,8 @@
   - plugin/trino-hive-hadoop2/**
   - plugin/trino-hive/**
   - testing/trino-product-tests/**
+  - lib/trino-filesystem/**
+  - lib/trino-filesystem-*/**
 
 jdbc:
   - client/trino-jdbc/**
