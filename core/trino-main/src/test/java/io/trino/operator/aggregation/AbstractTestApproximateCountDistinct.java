@@ -20,7 +20,6 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import io.trino.sql.tree.QualifiedName;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -156,7 +155,7 @@ public abstract class AbstractTestApproximateCountDistinct
 
     private TestingAggregationFunction getAggregationFunction()
     {
-        return FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("approx_distinct"), fromTypes(getValueType(), DOUBLE));
+        return FUNCTION_RESOLUTION.getAggregateFunction("approx_distinct", fromTypes(getValueType(), DOUBLE));
     }
 
     private Page createPage(List<?> values, double maxStandardError)

@@ -31,7 +31,6 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
 
 import java.util.LinkedHashMap;
@@ -79,7 +78,7 @@ public class SimplifyCountOverConstant
         boolean changed = false;
         Map<Symbol, AggregationNode.Aggregation> aggregations = new LinkedHashMap<>(parent.getAggregations());
 
-        ResolvedFunction countFunction = plannerContext.getMetadata().resolveFunction(context.getSession(), QualifiedName.of("count"), ImmutableList.of());
+        ResolvedFunction countFunction = plannerContext.getMetadata().resolveBuiltinFunction("count", ImmutableList.of());
 
         for (Entry<Symbol, AggregationNode.Aggregation> entry : parent.getAggregations().entrySet()) {
             Symbol symbol = entry.getKey();

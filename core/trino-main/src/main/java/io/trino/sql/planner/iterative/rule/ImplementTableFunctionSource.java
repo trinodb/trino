@@ -45,7 +45,6 @@ import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.Collection;
 import java.util.Comparator;
@@ -197,8 +196,8 @@ public class ImplementTableFunctionSource
         }
         Map<String, SourceWithProperties> sources = mapSourcesByName(node.getSources(), node.getTableArgumentProperties());
         ImmutableList.Builder<NodeWithSymbols> intermediateResultsBuilder = ImmutableList.builder();
-        ResolvedFunction rowNumberFunction = metadata.resolveFunction(context.getSession(), QualifiedName.of("row_number"), ImmutableList.of());
-        ResolvedFunction countFunction = metadata.resolveFunction(context.getSession(), QualifiedName.of("count"), ImmutableList.of());
+        ResolvedFunction rowNumberFunction = metadata.resolveBuiltinFunction("row_number", ImmutableList.of());
+        ResolvedFunction countFunction = metadata.resolveBuiltinFunction("count", ImmutableList.of());
 
         // handle co-partitioned sources
         for (List<String> copartitioningList : node.getCopartitioningLists()) {

@@ -13,32 +13,22 @@
  */
 package io.trino.sql.planner;
 
-import io.trino.Session;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
-import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.OrderBy;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Window;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
-public class FunctionCallBuilder
+public class ResolvedFunctionCallBuilder
 {
-    private final Session session;
-    private final Metadata metadata;
-    private QualifiedName name;
-    private List<TypeSignature> argumentTypes = new ArrayList<>();
+    private final ResolvedFunction resolvedFunction;
     private List<Expression> argumentValues = new ArrayList<>();
     private Optional<NodeLocation> location = Optional.empty();
     private Optional<Window> window = Optional.empty();
@@ -46,92 +36,73 @@ public class FunctionCallBuilder
     private Optional<OrderBy> orderBy = Optional.empty();
     private boolean distinct;
 
-    public static FunctionCallBuilder resolve(Session session, Metadata metadata)
+    public static ResolvedFunctionCallBuilder builder(ResolvedFunction resolvedFunction)
     {
-        return new FunctionCallBuilder(session, metadata);
+        return new ResolvedFunctionCallBuilder(resolvedFunction);
     }
 
-    private FunctionCallBuilder(Session session, Metadata metadata)
+    private ResolvedFunctionCallBuilder(ResolvedFunction resolvedFunction)
     {
-        this.session = requireNonNull(session, "session is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.resolvedFunction = requireNonNull(resolvedFunction, "resolvedFunction is null");
     }
 
-    public FunctionCallBuilder setName(QualifiedName name)
+    public ResolvedFunctionCallBuilder addArgument(Expression value)
     {
-        this.name = requireNonNull(name, "name is null");
-        return this;
-    }
-
-    public FunctionCallBuilder addArgument(Type type, Expression value)
-    {
-        requireNonNull(type, "type is null");
-        return addArgument(type.getTypeSignature(), value);
-    }
-
-    public FunctionCallBuilder addArgument(TypeSignature typeSignature, Expression value)
-    {
-        requireNonNull(typeSignature, "typeSignature is null");
         requireNonNull(value, "value is null");
-        argumentTypes.add(typeSignature);
         argumentValues.add(value);
         return this;
     }
 
-    public FunctionCallBuilder setArguments(List<Type> types, List<Expression> values)
+    public ResolvedFunctionCallBuilder setArguments(List<Expression> values)
     {
-        requireNonNull(types, "types is null");
         requireNonNull(values, "values is null");
-        argumentTypes = types.stream()
-                .map(Type::getTypeSignature)
-                .collect(Collectors.toList());
         argumentValues = new ArrayList<>(values);
         return this;
     }
 
-    public FunctionCallBuilder setLocation(NodeLocation location)
+    public ResolvedFunctionCallBuilder setLocation(NodeLocation location)
     {
         this.location = Optional.of(requireNonNull(location, "location is null"));
         return this;
     }
 
-    public FunctionCallBuilder setWindow(Window window)
+    public ResolvedFunctionCallBuilder setWindow(Window window)
     {
         this.window = Optional.of(requireNonNull(window, "window is null"));
         return this;
     }
 
-    public FunctionCallBuilder setWindow(Optional<Window> window)
+    public ResolvedFunctionCallBuilder setWindow(Optional<Window> window)
     {
         this.window = requireNonNull(window, "window is null");
         return this;
     }
 
-    public FunctionCallBuilder setFilter(Expression filter)
+    public ResolvedFunctionCallBuilder setFilter(Expression filter)
     {
         this.filter = Optional.of(requireNonNull(filter, "filter is null"));
         return this;
     }
 
-    public FunctionCallBuilder setFilter(Optional<Expression> filter)
+    public ResolvedFunctionCallBuilder setFilter(Optional<Expression> filter)
     {
         this.filter = requireNonNull(filter, "filter is null");
         return this;
     }
 
-    public FunctionCallBuilder setOrderBy(OrderBy orderBy)
+    public ResolvedFunctionCallBuilder setOrderBy(OrderBy orderBy)
     {
         this.orderBy = Optional.of(requireNonNull(orderBy, "orderBy is null"));
         return this;
     }
 
-    public FunctionCallBuilder setOrderBy(Optional<OrderBy> orderBy)
+    public ResolvedFunctionCallBuilder setOrderBy(Optional<OrderBy> orderBy)
     {
         this.orderBy = requireNonNull(orderBy, "orderBy is null");
         return this;
     }
 
-    public FunctionCallBuilder setDistinct(boolean distinct)
+    public ResolvedFunctionCallBuilder setDistinct(boolean distinct)
     {
         this.distinct = distinct;
         return this;
@@ -139,7 +110,6 @@ public class FunctionCallBuilder
 
     public FunctionCall build()
     {
-        ResolvedFunction resolvedFunction = metadata.resolveFunction(session, name, TypeSignatureProvider.fromTypeSignatures(argumentTypes));
         return new FunctionCall(
                 location,
                 resolvedFunction.toQualifiedName(),

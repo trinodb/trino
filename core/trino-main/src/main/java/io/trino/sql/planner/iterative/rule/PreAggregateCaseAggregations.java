@@ -41,7 +41,6 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.WhenClause;
@@ -367,10 +366,7 @@ public class PreAggregateCaseAggregations
         Type aggregationType = resolvedFunction.getSignature().getReturnType();
         ResolvedFunction cumulativeFunction;
         try {
-            cumulativeFunction = plannerContext.getMetadata().resolveFunction(
-                    context.getSession(),
-                    QualifiedName.of(name.getFunctionName()),
-                    fromTypes(aggregationType));
+            cumulativeFunction = plannerContext.getMetadata().resolveBuiltinFunction(name.getFunctionName(), fromTypes(aggregationType));
         }
         catch (TrinoException e) {
             // there is no cumulative aggregation

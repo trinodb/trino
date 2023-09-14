@@ -35,7 +35,6 @@ import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SubscriptExpression;
@@ -316,7 +315,7 @@ public class TestEqualityInference
         List<Expression> candidates = ImmutableList.of(
                 new Cast(nameReference("b"), toSqlType(BIGINT), true), // try_cast
                 functionResolution
-                        .functionCallBuilder(QualifiedName.of(TryFunction.NAME))
+                        .functionCallBuilder(TryFunction.NAME)
                         .addArgument(new FunctionType(ImmutableList.of(), VARCHAR), new LambdaExpression(ImmutableList.of(), nameReference("b")))
                         .build(),
                 new NullIfExpression(nameReference("b"), number(1)),

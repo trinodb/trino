@@ -342,7 +342,7 @@ public class IndexJoinOptimizer
 
             Expression resultingPredicate = combineConjuncts(
                     plannerContext.getMetadata(),
-                    domainTranslator.toPredicate(session, resolvedIndex.getUnresolvedTupleDomain().transformKeys(inverseAssignments::get)),
+                    domainTranslator.toPredicate(resolvedIndex.getUnresolvedTupleDomain().transformKeys(inverseAssignments::get)),
                     decomposedPredicate.getRemainingExpression());
 
             if (!resultingPredicate.equals(TRUE_LITERAL)) {

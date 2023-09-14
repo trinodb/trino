@@ -24,7 +24,6 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
@@ -47,9 +46,9 @@ public class TestMergeAdjacentWindows
         extends BaseRuleTest
 {
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
-    private static final ResolvedFunction AVG = FUNCTION_RESOLUTION.resolveFunction(QualifiedName.of("avg"), fromTypes(DOUBLE));
-    private static final ResolvedFunction SUM = FUNCTION_RESOLUTION.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
-    private static final ResolvedFunction LAG = FUNCTION_RESOLUTION.resolveFunction(QualifiedName.of("lag"), fromTypes(DOUBLE));
+    private static final ResolvedFunction AVG = FUNCTION_RESOLUTION.resolveFunction("avg", fromTypes(DOUBLE));
+    private static final ResolvedFunction SUM = FUNCTION_RESOLUTION.resolveFunction("sum", fromTypes(DOUBLE));
+    private static final ResolvedFunction LAG = FUNCTION_RESOLUTION.resolveFunction("lag", fromTypes(DOUBLE));
 
     private static final String columnAAlias = "ALIAS_A";
     private static final ExpectedValueProvider<DataOrganizationSpecification> specificationA =

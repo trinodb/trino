@@ -29,7 +29,6 @@ import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.transaction.TestingTransactionManager;
@@ -120,7 +119,7 @@ public class TestScalarStatsCalculator
     {
         assertCalculate(
                 functionResolution
-                        .functionCallBuilder(QualifiedName.of("length"))
+                        .functionCallBuilder("length")
                         .addArgument(createVarcharType(10), new Cast(new NullLiteral(), toSqlType(createVarcharType(10))))
                         .build())
                 .distinctValuesCount(0.0)
@@ -130,7 +129,7 @@ public class TestScalarStatsCalculator
 
         assertCalculate(
                 functionResolution
-                        .functionCallBuilder(QualifiedName.of("length"))
+                        .functionCallBuilder("length")
                         .addArgument(createVarcharType(2), new SymbolReference("x"))
                         .build(),
                 PlanNodeStatsEstimate.unknown(),
@@ -145,7 +144,7 @@ public class TestScalarStatsCalculator
     public void testVarbinaryConstant()
     {
         LiteralEncoder literalEncoder = new LiteralEncoder(functionResolution.getPlannerContext());
-        Expression expression = literalEncoder.toExpression(session, Slices.utf8Slice("ala ma kota"), VARBINARY);
+        Expression expression = literalEncoder.toExpression(Slices.utf8Slice("ala ma kota"), VARBINARY);
 
         assertCalculate(expression)
                 .distinctValuesCount(1.0)
