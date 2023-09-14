@@ -2401,15 +2401,15 @@ public final class MetadataManager
     {
         FunctionDependencyDeclaration dependencies = getDependencies(
                 session,
-                functionBinding.getCatalogHandle(),
-                functionBinding.getFunctionBinding().getFunctionId(),
-                functionBinding.getFunctionBinding().getBoundSignature());
+                functionBinding.catalogHandle(),
+                functionBinding.functionBinding().getFunctionId(),
+                functionBinding.functionBinding().getBoundSignature());
         FunctionMetadata functionMetadata = getFunctionMetadata(
                 session,
-                functionBinding.getCatalogHandle(),
-                functionBinding.getFunctionBinding().getFunctionId(),
-                functionBinding.getFunctionBinding().getBoundSignature());
-        return resolve(session, functionBinding.getCatalogHandle(), functionBinding.getFunctionBinding(), functionMetadata, dependencies);
+                functionBinding.catalogHandle(),
+                functionBinding.functionBinding().getFunctionId(),
+                functionBinding.functionBinding().getBoundSignature());
+        return resolve(session, functionBinding.catalogHandle(), functionBinding.functionBinding(), functionMetadata, dependencies);
     }
 
     private FunctionDependencyDeclaration getDependencies(Session session, CatalogHandle catalogHandle, FunctionId functionId, BoundSignature boundSignature)
