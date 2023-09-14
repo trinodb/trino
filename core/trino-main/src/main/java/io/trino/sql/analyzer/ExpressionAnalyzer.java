@@ -3466,6 +3466,37 @@ public class ExpressionAnalyzer
                 analyzer.getWindowFunctions());
     }
 
+    public static void analyzeExpressionWithoutSubqueries(
+            Session session,
+            PlannerContext plannerContext,
+            AccessControl accessControl,
+            Scope scope,
+            Analysis analysis,
+            Expression expression,
+            ErrorCodeSupplier errorCode,
+            String message,
+            WarningCollector warningCollector,
+            CorrelationSupport correlationSupport)
+    {
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(
+                plannerContext,
+                accessControl,
+                (node, ignored) -> {
+                    throw semanticException(errorCode, node, message);
+                },
+                session,
+                TypeProvider.empty(),
+                analysis.getParameters(),
+                warningCollector,
+                analysis.isDescribe(),
+                analysis::getType,
+                analysis::getWindow);
+        analyzer.analyze(expression, scope, correlationSupport);
+
+        updateAnalysis(analysis, analyzer, session, accessControl);
+        analysis.addExpressionFields(expression, analyzer.getSourceFields());
+    }
+
     public static ExpressionAnalysis analyzeWindow(
             Session session,
             PlannerContext plannerContext,
