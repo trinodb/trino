@@ -50,6 +50,7 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -97,7 +98,7 @@ public class TestAnnotationEngineForScalars
 
         assertImplementationCount(scalar, 1, 0, 0);
 
-        BoundSignature boundSignature = new BoundSignature(expectedSignature.getName(), DOUBLE, ImmutableList.of(DOUBLE));
+        BoundSignature boundSignature = new BoundSignature(builtinFunctionName(expectedSignature.getName()), DOUBLE, ImmutableList.of(DOUBLE));
         ChoicesSpecializedSqlScalarFunction specialized = (ChoicesSpecializedSqlScalarFunction) scalar.specialize(
                 boundSignature,
                 new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
@@ -186,7 +187,7 @@ public class TestAnnotationEngineForScalars
         assertFalse(functionMetadata.getFunctionNullability().isArgumentNullable(0));
         assertTrue(functionMetadata.getFunctionNullability().isArgumentNullable(1));
 
-        BoundSignature boundSignature = new BoundSignature(expectedSignature.getName(), DOUBLE, ImmutableList.of(DOUBLE, DOUBLE));
+        BoundSignature boundSignature = new BoundSignature(builtinFunctionName(expectedSignature.getName()), DOUBLE, ImmutableList.of(DOUBLE, DOUBLE));
         ChoicesSpecializedSqlScalarFunction specialized = (ChoicesSpecializedSqlScalarFunction) scalar.specialize(
                 boundSignature,
                 new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
@@ -228,7 +229,7 @@ public class TestAnnotationEngineForScalars
         assertFalse(functionMetadata.getFunctionNullability().isArgumentNullable(0));
         assertTrue(functionMetadata.getFunctionNullability().isArgumentNullable(1));
 
-        BoundSignature boundSignature = new BoundSignature(expectedSignature.getName(), DOUBLE, ImmutableList.of(DOUBLE, DOUBLE));
+        BoundSignature boundSignature = new BoundSignature(builtinFunctionName(expectedSignature.getName()), DOUBLE, ImmutableList.of(DOUBLE, DOUBLE));
         ChoicesSpecializedSqlScalarFunction specialized = (ChoicesSpecializedSqlScalarFunction) scalar.specialize(
                 boundSignature,
                 new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));

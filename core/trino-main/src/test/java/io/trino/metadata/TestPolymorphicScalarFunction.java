@@ -33,6 +33,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.TestPolymorphicScalarFunction.TestMethods.VARCHAR_TO_BIGINT_RETURN_VALUE;
 import static io.trino.metadata.TestPolymorphicScalarFunction.TestMethods.VARCHAR_TO_VARCHAR_RETURN_VALUE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
@@ -62,7 +63,11 @@ public class TestPolymorphicScalarFunction
             .build();
     private static final int INPUT_VARCHAR_LENGTH = 10;
     private static final Slice INPUT_SLICE = Slices.allocate(INPUT_VARCHAR_LENGTH);
-    private static final BoundSignature BOUND_SIGNATURE = new BoundSignature(SIGNATURE.getName(), BIGINT, ImmutableList.of(createVarcharType(INPUT_VARCHAR_LENGTH)));
+
+    private static final BoundSignature BOUND_SIGNATURE = new BoundSignature(
+            builtinFunctionName(SIGNATURE.getName()),
+            BIGINT,
+            ImmutableList.of(createVarcharType(INPUT_VARCHAR_LENGTH)));
 
     private static final TypeSignature DECIMAL_SIGNATURE = new TypeSignature("decimal", typeVariable("a_precision"), typeVariable("a_scale"));
 
@@ -98,7 +103,10 @@ public class TestPolymorphicScalarFunction
                                         asList(Optional.of(long.class), Optional.of(long.class)))))
                 .build();
 
-        BoundSignature shortDecimalBoundSignature = new BoundSignature(signature.getName(), BOOLEAN, ImmutableList.of(SHORT_DECIMAL_BOUND_TYPE, SHORT_DECIMAL_BOUND_TYPE));
+        BoundSignature shortDecimalBoundSignature = new BoundSignature(
+                builtinFunctionName(signature.getName()),
+                BOOLEAN,
+                ImmutableList.of(SHORT_DECIMAL_BOUND_TYPE, SHORT_DECIMAL_BOUND_TYPE));
         ChoicesSpecializedSqlScalarFunction specializedFunction = (ChoicesSpecializedSqlScalarFunction) function.specialize(
                 shortDecimalBoundSignature,
                 new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
@@ -114,7 +122,10 @@ public class TestPolymorphicScalarFunction
         Block block2 = new LongArrayBlock(0, Optional.empty(), new long[0]);
         assertFalse((boolean) specializedFunction.getChoices().get(1).getMethodHandle().invoke(block1, 0, block2, 0));
 
-        BoundSignature longDecimalBoundSignature = new BoundSignature(signature.getName(), BOOLEAN, ImmutableList.of(LONG_DECIMAL_BOUND_TYPE, LONG_DECIMAL_BOUND_TYPE));
+        BoundSignature longDecimalBoundSignature = new BoundSignature(
+                builtinFunctionName(signature.getName()),
+                BOOLEAN,
+                ImmutableList.of(LONG_DECIMAL_BOUND_TYPE, LONG_DECIMAL_BOUND_TYPE));
         specializedFunction = (ChoicesSpecializedSqlScalarFunction) function.specialize(
                 longDecimalBoundSignature,
                 new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
@@ -179,7 +190,10 @@ public class TestPolymorphicScalarFunction
                         .implementation(methodsGroup -> methodsGroup.methods("varcharToVarchar")))
                 .build();
 
-        BoundSignature boundSignature = new BoundSignature(signature.getName(), createVarcharType(INPUT_VARCHAR_LENGTH), ImmutableList.of(createVarcharType(INPUT_VARCHAR_LENGTH)));
+        BoundSignature boundSignature = new BoundSignature(
+                builtinFunctionName(signature.getName()),
+                createVarcharType(INPUT_VARCHAR_LENGTH),
+                ImmutableList.of(createVarcharType(INPUT_VARCHAR_LENGTH)));
 
         ChoicesSpecializedSqlScalarFunction specializedFunction = (ChoicesSpecializedSqlScalarFunction) function.specialize(
                 boundSignature,
@@ -209,7 +223,10 @@ public class TestPolymorphicScalarFunction
                         .implementation(methodsGroup -> methodsGroup.methods("varcharToVarchar")))
                 .build();
 
-        BoundSignature boundSignature = new BoundSignature(signature.getName(), VARCHAR, ImmutableList.of(VARCHAR));
+        BoundSignature boundSignature = new BoundSignature(
+                builtinFunctionName(signature.getName()),
+                VARCHAR,
+                ImmutableList.of(VARCHAR));
 
         ChoicesSpecializedSqlScalarFunction specializedFunction = (ChoicesSpecializedSqlScalarFunction) function.specialize(
                 boundSignature,
@@ -234,7 +251,10 @@ public class TestPolymorphicScalarFunction
                         .implementation(methodsGroup -> methodsGroup.methods("varcharToVarchar")))
                 .build();
 
-        BoundSignature boundSignature = new BoundSignature(signature.getName(), createVarcharType(INPUT_VARCHAR_LENGTH), ImmutableList.of(createVarcharType(INPUT_VARCHAR_LENGTH)));
+        BoundSignature boundSignature = new BoundSignature(
+                builtinFunctionName(signature.getName()),
+                createVarcharType(INPUT_VARCHAR_LENGTH),
+                ImmutableList.of(createVarcharType(INPUT_VARCHAR_LENGTH)));
         function.specialize(boundSignature, new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
     }
 

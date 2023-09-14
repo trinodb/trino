@@ -95,6 +95,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.function.FunctionId.toFunctionId;
 import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -1207,7 +1208,7 @@ public class TestEffectivePredicateExtractor
 
     private static ResolvedFunction fakeFunction(String name)
     {
-        BoundSignature boundSignature = new BoundSignature(name, UNKNOWN, ImmutableList.of());
+        BoundSignature boundSignature = new BoundSignature(builtinFunctionName(name), UNKNOWN, ImmutableList.of());
         return new ResolvedFunction(
                 boundSignature,
                 GlobalSystemConnector.CATALOG_HANDLE,

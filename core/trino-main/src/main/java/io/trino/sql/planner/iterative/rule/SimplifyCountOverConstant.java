@@ -23,6 +23,7 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -40,6 +41,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
@@ -50,6 +52,7 @@ import static java.util.Objects.requireNonNull;
 public class SimplifyCountOverConstant
         implements Rule<AggregationNode>
 {
+    private static final CatalogSchemaFunctionName COUNT_NAME = builtinFunctionName("count");
     private static final Capture<ProjectNode> CHILD = newCapture();
 
     private static final Pattern<AggregationNode> PATTERN = aggregation()
@@ -108,7 +111,7 @@ public class SimplifyCountOverConstant
     private boolean isCountOverConstant(Session session, AggregationNode.Aggregation aggregation, Assignments inputs)
     {
         BoundSignature signature = aggregation.getResolvedFunction().getSignature();
-        if (!signature.getName().equals("count") || signature.getArgumentTypes().size() != 1) {
+        if (!signature.getName().equals(COUNT_NAME) || signature.getArgumentTypes().size() != 1) {
             return false;
         }
 

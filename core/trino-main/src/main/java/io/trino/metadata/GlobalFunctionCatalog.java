@@ -18,11 +18,13 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import com.google.errorprone.annotations.ThreadSafe;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.operator.table.ExcludeColumns.ExcludeColumnsFunctionHandle;
 import io.trino.operator.table.Sequence.SequenceFunctionHandle;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
@@ -48,6 +50,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.metadata.OperatorNameUtil.isOperatorName;
+import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.metadata.OperatorNameUtil.unmangleOperator;
 import static io.trino.operator.table.ExcludeColumns.getExcludeColumnsFunctionProcessorProvider;
 import static io.trino.operator.table.Sequence.getSequenceFunctionProcessorProvider;
@@ -188,6 +191,16 @@ public class GlobalFunctionCatalog
         }
 
         return null;
+    }
+
+    public static CatalogSchemaFunctionName builtinFunctionName(OperatorType operatorType)
+    {
+        return builtinFunctionName(mangleOperatorName(operatorType));
+    }
+
+    public static CatalogSchemaFunctionName builtinFunctionName(String functionName)
+    {
+        return new CatalogSchemaFunctionName(GlobalSystemConnector.NAME, BUILTIN_SCHEMA, functionName);
     }
 
     private static class FunctionMap

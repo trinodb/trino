@@ -23,6 +23,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.Re2JCastToRegexpFunction;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.LongTimestamp;
@@ -47,6 +48,7 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreCase;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.operator.scalar.JoniRegexpCasts.castVarcharToJoniRegexp;
 import static io.trino.operator.scalar.JsonFunctions.castVarcharToJsonPath;
@@ -85,7 +87,10 @@ public class TestLiteralEncoder
     private final LiteralEncoder encoder = new LiteralEncoder(PLANNER_CONTEXT);
 
     private final ResolvedFunction literalFunction = new ResolvedFunction(
-            new BoundSignature(LITERAL_FUNCTION_NAME, VARBINARY, ImmutableList.of(VARBINARY)),
+            new BoundSignature(
+                    builtinFunctionName(LITERAL_FUNCTION_NAME),
+                    VARBINARY,
+                    ImmutableList.of(VARBINARY)),
             GlobalSystemConnector.CATALOG_HANDLE,
             new LiteralFunction(PLANNER_CONTEXT.getBlockEncodingSerde()).getFunctionMetadata().getFunctionId(),
             SCALAR,
@@ -95,7 +100,10 @@ public class TestLiteralEncoder
             ImmutableSet.of());
 
     private final ResolvedFunction base64Function = new ResolvedFunction(
-            new BoundSignature("from_base64", VARBINARY, ImmutableList.of(VARCHAR)),
+            new BoundSignature(
+                    builtinFunctionName("from_base64"),
+                    VARBINARY,
+                    ImmutableList.of(VARCHAR)),
             GlobalSystemConnector.CATALOG_HANDLE,
             toFunctionId(Signature.builder()
                     .name("from_base64")
@@ -324,9 +332,13 @@ public class TestLiteralEncoder
 
     private String literalVarbinary(byte[] value)
     {
-        return "\"" + literalFunction.toQualifiedName() + "\"" +
-                "(\"" + base64Function.toQualifiedName() + "\"" +
-                "('" + Base64.getEncoder().encodeToString(value) + "'))";
+        return "%s(%s('%s'))".formatted(serializeResolvedFunction(literalFunction), serializeResolvedFunction(base64Function), Base64.getEncoder().encodeToString(value));
+    }
+
+    private static String serializeResolvedFunction(ResolvedFunction function)
+    {
+        CatalogSchemaFunctionName name = function.toCatalogSchemaFunctionName();
+        return "%s.\"%s\".\"%s\"".formatted(name.getCatalogName(), name.getSchemaName(), name.getFunctionName());
     }
 
     private static Re2JRegexp castVarcharToRe2JRegexp(Slice value)

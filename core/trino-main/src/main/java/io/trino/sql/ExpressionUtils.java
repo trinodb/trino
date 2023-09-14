@@ -293,7 +293,7 @@ public final class ExpressionUtils
             QualifiedName functionName = ((FunctionCall) expression).getName();
             if (isResolved(functionName)) {
                 ResolvedFunction resolvedFunction = plannerContext.getMetadata().decodeFunction(functionName);
-                return LITERAL_FUNCTION_NAME.equals(resolvedFunction.getSignature().getName());
+                return LITERAL_FUNCTION_NAME.equals(resolvedFunction.getSignature().getName().getFunctionName());
             }
         }
 

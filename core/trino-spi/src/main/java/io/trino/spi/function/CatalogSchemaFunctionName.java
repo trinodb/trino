@@ -11,28 +11,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.metadata;
+package io.trino.spi.function;
 
-import io.trino.spi.function.SchemaFunctionName;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
 
 public final class CatalogSchemaFunctionName
 {
     private final String catalogName;
     private final SchemaFunctionName schemaFunctionName;
 
-    public CatalogSchemaFunctionName(String catalogName, SchemaFunctionName schemaFunctionName)
+    public CatalogSchemaFunctionName(
+            String catalogName,
+            SchemaFunctionName schemaFunctionName)
     {
         this.catalogName = catalogName;
-        this.schemaFunctionName = schemaFunctionName;
+        if (catalogName.isEmpty()) {
+            throw new IllegalArgumentException("catalogName is empty");
+        }
+        this.schemaFunctionName = requireNonNull(schemaFunctionName, "schemaFunctionName is null");
     }
 
+    @JsonCreator
     public CatalogSchemaFunctionName(String catalogName, String schemaName, String functionName)
     {
         this(catalogName, new SchemaFunctionName(schemaName, functionName));
     }
 
+    @JsonProperty
     public String getCatalogName()
     {
         return catalogName;
@@ -41,6 +51,18 @@ public final class CatalogSchemaFunctionName
     public SchemaFunctionName getSchemaFunctionName()
     {
         return schemaFunctionName;
+    }
+
+    @JsonProperty
+    public String getSchemaName()
+    {
+        return schemaFunctionName.getSchemaName();
+    }
+
+    @JsonProperty
+    public String getFunctionName()
+    {
+        return schemaFunctionName.getFunctionName();
     }
 
     @Override

@@ -112,9 +112,9 @@ public class ExpressionEquivalence
                             .map(expression -> expression.accept(this, context))
                             .collect(toImmutableList()));
 
-            String callName = call.getResolvedFunction().getSignature().getName();
+            String callName = call.getResolvedFunction().getSignature().getName().getFunctionName();
 
-            if (callName.equals(mangleOperatorName(EQUAL)) || callName.equals(mangleOperatorName(IS_DISTINCT_FROM))) {
+            if (callName.equalsIgnoreCase(mangleOperatorName(EQUAL)) || callName.equalsIgnoreCase(mangleOperatorName(IS_DISTINCT_FROM))) {
                 // sort arguments
                 return new CallExpression(
                         call.getResolvedFunction(),

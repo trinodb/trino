@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
@@ -176,10 +177,12 @@ public class ExpressionRewriteRuleSet
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
             for (Map.Entry<Symbol, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
                 Aggregation aggregation = entry.getValue();
+                CatalogSchemaFunctionName name = aggregation.getResolvedFunction().getSignature().getName();
+                QualifiedName qualifiedName = QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getFunctionName());
                 FunctionCall call = (FunctionCall) rewriter.rewrite(
                         new FunctionCall(
                                 Optional.empty(),
-                                QualifiedName.of(aggregation.getResolvedFunction().getSignature().getName()),
+                                qualifiedName,
                                 Optional.empty(),
                                 aggregation.getFilter().map(symbol -> new SymbolReference(symbol.getName())),
                                 aggregation.getOrderingScheme().map(orderBy -> new OrderBy(orderBy.getOrderBy().stream()
@@ -194,7 +197,7 @@ public class ExpressionRewriteRuleSet
                                 aggregation.getArguments()),
                         context);
                 verify(
-                        QualifiedName.of(extractFunctionName(call.getName())).equals(QualifiedName.of(aggregation.getResolvedFunction().getSignature().getName())),
+                        extractFunctionName(call.getName()).equals(aggregation.getResolvedFunction().getSignature().getName().getFunctionName()),
                         "Aggregation function name changed");
                 Aggregation newAggregation = new Aggregation(
                         aggregation.getResolvedFunction(),

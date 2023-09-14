@@ -58,6 +58,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.OperatorType;
@@ -84,6 +85,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.function.FunctionId.toFunctionId;
@@ -94,6 +96,8 @@ import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 public abstract class AbstractMockMetadata
         implements Metadata
 {
+    private static final CatalogSchemaFunctionName RAND_NAME = builtinFunctionName("rand");
+
     public static Metadata dummyMetadata()
     {
         return new AbstractMockMetadata() {};
@@ -794,7 +798,7 @@ public abstract class AbstractMockMetadata
     {
         String nameSuffix = name.getSuffix();
         if (nameSuffix.equals("rand") && parameterTypes.isEmpty()) {
-            BoundSignature boundSignature = new BoundSignature(nameSuffix, DOUBLE, ImmutableList.of());
+            BoundSignature boundSignature = new BoundSignature(builtinFunctionName(nameSuffix), DOUBLE, ImmutableList.of());
             return new ResolvedFunction(
                     boundSignature,
                     GlobalSystemConnector.CATALOG_HANDLE,
@@ -822,7 +826,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public ResolvedFunction getCoercion(Session session, QualifiedName name, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(Session session, CatalogSchemaFunctionName name, Type fromType, Type toType)
     {
         throw new UnsupportedOperationException();
     }
@@ -843,7 +847,7 @@ public abstract class AbstractMockMetadata
     public FunctionMetadata getFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
         BoundSignature signature = resolvedFunction.getSignature();
-        if (signature.getName().equals("rand") && signature.getArgumentTypes().isEmpty()) {
+        if (signature.getName().equals(RAND_NAME) && signature.getArgumentTypes().isEmpty()) {
             return FunctionMetadata.scalarBuilder()
                     .signature(signature.toSignature())
                     .nondeterministic()

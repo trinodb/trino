@@ -26,6 +26,7 @@ import io.airlift.stats.TDigest;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
@@ -36,10 +37,12 @@ import io.trino.execution.StageStats;
 import io.trino.execution.TableInfo;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.FunctionName;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.table.Argument;
 import io.trino.spi.function.table.DescriptorArgument;
 import io.trino.spi.function.table.ScalarArgument;
@@ -158,6 +161,8 @@ import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctNanos;
 import static io.trino.execution.StageInfo.getAllStages;
+import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.trino.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
@@ -185,6 +190,7 @@ public class PlanPrinter
 {
     private static final JsonCodec<Map<PlanFragmentId, JsonRenderedNode>> DISTRIBUTED_PLAN_CODEC =
             mapJsonCodec(PlanFragmentId.class, JsonRenderedNode.class);
+    private static final CatalogSchemaFunctionName COUNT_NAME = builtinFunctionName("count");
 
     private final PlanRepresentation representation;
     private final Function<TableScanNode, TableInfo> tableInfoSupplier;
@@ -938,7 +944,7 @@ public class PlanPrinter
                 nodeOutput.appendDetails(
                         "%s := %s(%s) %s",
                         anonymizer.anonymize(entry.getKey()),
-                        function.getResolvedFunction().getSignature().getName(),
+                        formatFunctionName(function.getResolvedFunction()),
                         Joiner.on(", ").join(anonymizeExpressions(function.getArguments())),
                         frameInfo);
             }
@@ -990,7 +996,7 @@ public class PlanPrinter
                 nodeOutput.appendDetails(
                         "%s := %s(%s)",
                         anonymizer.anonymize(entry.getKey()),
-                        function.getResolvedFunction().getSignature().getName(),
+                        formatFunctionName(function.getResolvedFunction()),
                         Joiner.on(", ").join(anonymizeExpressions(function.getArguments())));
             }
 
@@ -1039,12 +1045,17 @@ public class PlanPrinter
                 }
                 else if (pointer instanceof AggregationValuePointer aggregationPointer) {
                     String processingMode = aggregationPointer.getSetDescriptor().isRunning() ? "RUNNING " : "FINAL ";
-                    String name = aggregationPointer.getFunction().getSignature().getName();
                     String arguments = Joiner.on(", ").join(anonymizeExpressions(aggregationPointer.getArguments()));
                     String labels = aggregationPointer.getSetDescriptor().getLabels().stream()
                             .map(IrLabel::getName)
                             .collect(joining(", ", "{", "}"));
-                    nodeOutput.appendDetails("%s%s := %s%s(%s)%s", indentString(1), anonymizer.anonymize(symbol), processingMode, name, arguments, labels);
+                    nodeOutput.appendDetails("%s%s := %s%s(%s)%s",
+                            indentString(1),
+                            anonymizer.anonymize(symbol),
+                            processingMode,
+                            formatFunctionName(aggregationPointer.getFunction()),
+                            arguments,
+                            labels);
                 }
                 else {
                     throw new UnsupportedOperationException("unexpected ValuePointer type: " + pointer.getClass().getSimpleName());
@@ -2176,14 +2187,14 @@ public class PlanPrinter
                 .map(anonymizer::anonymize)
                 .collect(toImmutableList());
         String arguments = Joiner.on(", ").join(anonymizedArguments);
-        if (aggregation.getArguments().isEmpty() && "count".equalsIgnoreCase(aggregation.getResolvedFunction().getSignature().getName())) {
+        if (aggregation.getArguments().isEmpty() && COUNT_NAME.equals(aggregation.getResolvedFunction().getSignature().getName())) {
             arguments = "*";
         }
         if (aggregation.isDistinct()) {
             arguments = "DISTINCT " + arguments;
         }
 
-        builder.append(aggregation.getResolvedFunction().getSignature().getName())
+        builder.append(formatFunctionName(aggregation.getResolvedFunction()))
                 .append('(').append(arguments);
 
         aggregation.getOrderingScheme().ifPresent(orderingScheme -> builder.append(' ').append(orderingScheme.getOrderBy().stream()
@@ -2200,6 +2211,15 @@ public class PlanPrinter
                 .map(anonymizer::anonymize)
                 .ifPresent(symbol -> builder.append(" (mask = ").append(symbol).append(")"));
         return builder.toString();
+    }
+
+    private static String formatFunctionName(ResolvedFunction function)
+    {
+        CatalogSchemaFunctionName name = function.getSignature().getName();
+        if (name.getCatalogName().equals(GlobalSystemConnector.NAME) && name.getSchemaName().equals(BUILTIN_SCHEMA)) {
+            return name.getFunctionName();
+        }
+        return name.toString();
     }
 
     private static Expression unresolveFunctions(Expression expression)

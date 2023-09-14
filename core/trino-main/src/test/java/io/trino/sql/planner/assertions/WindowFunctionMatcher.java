@@ -93,7 +93,7 @@ public class WindowFunctionMatcher
 
         return resolvedFunction.map(windowFunction.getResolvedFunction()::equals).orElse(true) &&
                 expectedFrame.map(windowFunction.getFrame()::equals).orElse(true) &&
-                Objects.equals(extractFunctionName(expectedCall.getName()), windowFunction.getResolvedFunction().getSignature().getName()) &&
+                Objects.equals(extractFunctionName(expectedCall.getName()), windowFunction.getResolvedFunction().getSignature().getName().getFunctionName()) &&
                 Objects.equals(expectedCall.getArguments(), windowFunction.getArguments());
     }
 

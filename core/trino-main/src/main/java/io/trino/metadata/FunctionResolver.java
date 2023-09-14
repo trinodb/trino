@@ -17,10 +17,10 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import io.trino.Session;
-import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.QualifiedFunctionName;
@@ -44,7 +44,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
@@ -96,27 +96,24 @@ public class FunctionResolver
         return false;
     }
 
-    CatalogFunctionBinding resolveCoercion(Session session, QualifiedFunctionName name, Signature signature, Function<CatalogSchemaFunctionName, Collection<CatalogFunctionMetadata>> candidateLoader)
+    CatalogFunctionBinding resolveCoercion(Session session, Signature signature, Collection<CatalogFunctionMetadata> candidates)
     {
-        for (CatalogSchemaFunctionName catalogSchemaFunctionName : toPath(session, name)) {
-            Collection<CatalogFunctionMetadata> candidates = candidateLoader.apply(catalogSchemaFunctionName);
-            List<CatalogFunctionMetadata> exactCandidates = candidates.stream()
-                    .filter(function -> possibleExactCastMatch(signature, function.functionMetadata().getSignature()))
-                    .collect(toImmutableList());
-            for (CatalogFunctionMetadata candidate : exactCandidates) {
-                if (canBindSignature(session, candidate.functionMetadata().getSignature(), signature)) {
-                    return toFunctionBinding(candidate, signature);
-                }
+        List<CatalogFunctionMetadata> exactCandidates = candidates.stream()
+                .filter(function -> possibleExactCastMatch(signature, function.functionMetadata().getSignature()))
+                .collect(toImmutableList());
+        for (CatalogFunctionMetadata candidate : exactCandidates) {
+            if (canBindSignature(session, candidate.functionMetadata().getSignature(), signature)) {
+                return toFunctionBinding(candidate, signature);
             }
+        }
 
-            // only consider generic genericCandidates
-            List<CatalogFunctionMetadata> genericCandidates = candidates.stream()
-                    .filter(function -> !function.functionMetadata().getSignature().getTypeVariableConstraints().isEmpty())
-                    .collect(toImmutableList());
-            for (CatalogFunctionMetadata candidate : genericCandidates) {
-                if (canBindSignature(session, candidate.functionMetadata().getSignature(), signature)) {
-                    return toFunctionBinding(candidate, signature);
-                }
+        // only consider generic genericCandidates
+        List<CatalogFunctionMetadata> genericCandidates = candidates.stream()
+                .filter(function -> !function.functionMetadata().getSignature().getTypeVariableConstraints().isEmpty())
+                .collect(toImmutableList());
+        for (CatalogFunctionMetadata candidate : genericCandidates) {
+            if (canBindSignature(session, candidate.functionMetadata().getSignature(), signature)) {
+                return toFunctionBinding(candidate, signature);
             }
         }
 
@@ -132,7 +129,7 @@ public class FunctionResolver
     private CatalogFunctionBinding toFunctionBinding(CatalogFunctionMetadata functionMetadata, Signature signature)
     {
         BoundSignature boundSignature = new BoundSignature(
-                signature.getName(),
+                functionMetadata.name(),
                 typeManager.getType(signature.getReturnType()),
                 signature.getArgumentTypes().stream()
                         .map(typeManager::getType)
@@ -168,35 +165,35 @@ public class FunctionResolver
         ImmutableList.Builder<CatalogFunctionMetadata> allCandidates = ImmutableList.builder();
         for (CatalogSchemaFunctionName catalogSchemaFunctionName : toPath(session, name)) {
             Collection<CatalogFunctionMetadata> candidates = candidateLoader.apply(catalogSchemaFunctionName);
-            List<CatalogFunctionMetadata> exactCandidates = candidates.stream()
-                    .filter(function -> function.functionMetadata().getSignature().getTypeVariableConstraints().isEmpty())
-                    .collect(toImmutableList());
-
-            Optional<CatalogFunctionBinding> match = matchFunctionExact(session, exactCandidates, parameterTypes);
+            Optional<CatalogFunctionBinding> match = match(session, parameterTypes, candidates);
             if (match.isPresent()) {
                 return match.get();
             }
-
-            List<CatalogFunctionMetadata> genericCandidates = candidates.stream()
-                    .filter(function -> !function.functionMetadata().getSignature().getTypeVariableConstraints().isEmpty())
-                    .collect(toImmutableList());
-
-            match = matchFunctionExact(session, genericCandidates, parameterTypes);
-            if (match.isPresent()) {
-                return match.get();
-            }
-
-            match = matchFunctionWithCoercion(session, candidates, parameterTypes);
-            if (match.isPresent()) {
-                return match.get();
-            }
-
             allCandidates.addAll(candidates);
         }
 
         List<CatalogFunctionMetadata> candidates = allCandidates.build();
+        throw functionNotFound(name.toString(), parameterTypes, candidates);
+    }
+
+    CatalogFunctionBinding resolveFullyQualifiedFunction(
+            Session session,
+            CatalogSchemaFunctionName name,
+            List<TypeSignatureProvider> parameterTypes,
+            Collection<CatalogFunctionMetadata> candidates)
+    {
+        Optional<CatalogFunctionBinding> match = match(session, parameterTypes, candidates);
+        if (match.isPresent()) {
+            return match.get();
+        }
+
+        throw functionNotFound(name.toString(), parameterTypes, candidates);
+    }
+
+    private static TrinoException functionNotFound(String name, List<TypeSignatureProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates)
+    {
         if (candidates.isEmpty()) {
-            throw new TrinoException(FUNCTION_NOT_FOUND, format("Function '%s' not registered", name));
+            return new TrinoException(FUNCTION_NOT_FOUND, format("Function '%s' not registered", name));
         }
 
         List<String> expectedParameters = new ArrayList<>();
@@ -209,7 +206,30 @@ public class FunctionResolver
         String parameters = Joiner.on(", ").join(parameterTypes);
         String expected = Joiner.on(", ").join(expectedParameters);
         String message = format("Unexpected parameters (%s) for function %s. Expected: %s", parameters, name, expected);
-        throw new TrinoException(FUNCTION_NOT_FOUND, message);
+        return new TrinoException(FUNCTION_NOT_FOUND, message);
+    }
+
+    private Optional<CatalogFunctionBinding> match(Session session, List<TypeSignatureProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates)
+    {
+        List<CatalogFunctionMetadata> exactCandidates = candidates.stream()
+                .filter(function -> function.functionMetadata().getSignature().getTypeVariableConstraints().isEmpty())
+                .collect(toImmutableList());
+
+        Optional<CatalogFunctionBinding> match = matchFunctionExact(session, exactCandidates, parameterTypes);
+        if (match.isPresent()) {
+            return match;
+        }
+
+        List<CatalogFunctionMetadata> genericCandidates = candidates.stream()
+                .filter(function -> !function.functionMetadata().getSignature().getTypeVariableConstraints().isEmpty())
+                .collect(toImmutableList());
+
+        match = matchFunctionExact(session, genericCandidates, parameterTypes);
+        if (match.isPresent()) {
+            return match;
+        }
+
+        return matchFunctionWithCoercion(session, candidates, parameterTypes);
     }
 
     public static List<CatalogSchemaFunctionName> toPath(Session session, QualifiedFunctionName name)
@@ -227,7 +247,7 @@ public class FunctionResolver
         ImmutableList.Builder<CatalogSchemaFunctionName> names = ImmutableList.builder();
 
         // global namespace
-        names.add(new CatalogSchemaFunctionName(GlobalSystemConnector.NAME, BUILTIN_SCHEMA, name.getFunctionName()));
+        names.add(builtinFunctionName(name.getFunctionName()));
 
         // add resolved path items
         for (SqlPathElement sqlPathElement : session.getPath().getParsedPath()) {
@@ -464,10 +484,11 @@ public class FunctionResolver
         }
     }
 
-    record CatalogFunctionMetadata(CatalogHandle catalogHandle, FunctionMetadata functionMetadata)
+    record CatalogFunctionMetadata(CatalogSchemaFunctionName name, CatalogHandle catalogHandle, FunctionMetadata functionMetadata)
     {
         CatalogFunctionMetadata
         {
+            requireNonNull(name, "name is null");
             requireNonNull(catalogHandle, "catalogHandle is null");
             requireNonNull(functionMetadata, "functionMetadata is null");
         }

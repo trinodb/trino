@@ -91,11 +91,13 @@ import io.trino.spi.expression.Variable;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.AggregationFunctionMetadata.AggregationFunctionMetadataBuilder;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.QualifiedFunctionName;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.Signature;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
@@ -158,6 +160,8 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.client.NodeVersion.UNKNOWN;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.CONNECTOR;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.SYSTEM;
+import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
@@ -2323,15 +2327,14 @@ public final class MetadataManager
 
     private ResolvedFunction resolvedFunctionInternal(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
-        return functionDecoder.fromQualifiedName(name)
-                .orElseGet(() -> resolvedFunctionInternal(session, toQualifiedFunctionName(name), parameterTypes));
-    }
+        Optional<ResolvedFunction> resolvedFunction = functionDecoder.fromQualifiedName(name);
+        if (resolvedFunction.isPresent()) {
+            return resolvedFunction.get();
+        }
 
-    private ResolvedFunction resolvedFunctionInternal(Session session, QualifiedFunctionName name, List<TypeSignatureProvider> parameterTypes)
-    {
         CatalogFunctionBinding catalogFunctionBinding = functionResolver.resolveFunction(
                 session,
-                name,
+                toQualifiedFunctionName(name),
                 parameterTypes,
                 catalogSchemaFunctionName -> getFunctions(session, catalogSchemaFunctionName));
         return resolve(session, catalogFunctionBinding);
@@ -2358,16 +2361,15 @@ public final class MetadataManager
         try {
             // todo we should not be caching functions across session
             return uncheckedCacheGet(coercionCache, new CoercionCacheKey(operatorType, fromType, toType), () -> {
-                String name = mangleOperatorName(operatorType);
+                CatalogSchemaFunctionName name = builtinFunctionName(operatorType);
                 CatalogFunctionBinding functionBinding = functionResolver.resolveCoercion(
                         session,
-                        QualifiedFunctionName.of(name),
                         Signature.builder()
-                                .name(name)
+                                .name(name.getFunctionName())
                                 .returnType(toType)
                                 .argumentType(fromType)
                                 .build(),
-                        catalogSchemaFunctionName -> getFunctions(session, catalogSchemaFunctionName));
+                        getFunctions(session, name));
                 return resolve(session, functionBinding);
             });
         }
@@ -2383,17 +2385,16 @@ public final class MetadataManager
     }
 
     @Override
-    public ResolvedFunction getCoercion(Session session, QualifiedName name, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(Session session, CatalogSchemaFunctionName name, Type fromType, Type toType)
     {
         CatalogFunctionBinding catalogFunctionBinding = functionResolver.resolveCoercion(
                 session,
-                toQualifiedFunctionName(name),
                 Signature.builder()
-                        .name(name.getSuffix())
+                        .name(name.getFunctionName())
                         .returnType(toType)
                         .argumentType(fromType)
                         .build(),
-                catalogSchemaFunctionName -> getFunctions(session, catalogSchemaFunctionName));
+                getFunctions(session, name));
         return resolve(session, catalogFunctionBinding);
     }
 
@@ -2433,8 +2434,20 @@ public final class MetadataManager
         dependencies.getFunctionDependencies().stream()
                 .map(functionDependency -> {
                     try {
-                        List<TypeSignature> argumentTypes = applyBoundVariables(functionDependency.getArgumentTypes(), functionBinding);
-                        return resolvedFunctionInternal(session, functionDependency.getName(), fromTypeSignatures(argumentTypes));
+                        CatalogSchemaFunctionName name = functionDependency.getName();
+
+                        Optional<ResolvedFunction> resolvedFunction = functionDecoder.fromCatalogSchemaFunctionName(name);
+                        if (resolvedFunction.isPresent()) {
+                            return resolvedFunction.get();
+                        }
+
+                        CatalogFunctionBinding catalogFunctionBinding = functionResolver.resolveFullyQualifiedFunction(
+                                session,
+                                name,
+                                fromTypeSignatures(applyBoundVariables(functionDependency.getArgumentTypes(), functionBinding)),
+                                getFunctions(session, name));
+
+                        return resolve(session, catalogFunctionBinding);
                     }
                     catch (TrinoException e) {
                         if (functionDependency.isOptional()) {
@@ -2504,18 +2517,22 @@ public final class MetadataManager
 
     private Collection<CatalogFunctionMetadata> getFunctions(Session session, CatalogSchemaFunctionName name)
     {
-        if (name.getCatalogName().equals(GlobalSystemConnector.NAME)) {
+        if (isBuiltinFunction(name)) {
             return functions.getFunctions(name.getSchemaFunctionName()).stream()
-                    .map(function -> new CatalogFunctionMetadata(GlobalSystemConnector.CATALOG_HANDLE, function))
+                    .map(function -> new CatalogFunctionMetadata(name, GlobalSystemConnector.CATALOG_HANDLE, function))
                     .collect(toImmutableList());
         }
 
         return getOptionalCatalogMetadata(session, name.getCatalogName())
-                .map(metadata -> metadata.getMetadata(session)
-                        .getFunctions(session.toConnectorSession(metadata.getCatalogHandle()), name.getSchemaFunctionName()).stream()
-                        .map(function -> new CatalogFunctionMetadata(metadata.getCatalogHandle(), function))
-                        .collect(toImmutableList()))
+                .map(metadata -> getFunctions(session, metadata.getMetadata(session), metadata.getCatalogHandle(), name.getSchemaFunctionName()))
                 .orElse(ImmutableList.of());
+    }
+
+    private static List<CatalogFunctionMetadata> getFunctions(Session session, ConnectorMetadata metadata, CatalogHandle catalogHandle, SchemaFunctionName name)
+    {
+        return metadata.getFunctions(session.toConnectorSession(catalogHandle), name).stream()
+                .map(function -> new CatalogFunctionMetadata(new CatalogSchemaFunctionName(catalogHandle.getCatalogName(), name), catalogHandle, function))
+                .collect(toImmutableList());
     }
 
     @Override
@@ -2614,6 +2631,11 @@ public final class MetadataManager
                 functionId,
                 functionSignature,
                 boundSignature);
+    }
+
+    private static boolean isBuiltinFunction(CatalogSchemaFunctionName name)
+    {
+        return name.getCatalogName().equals(GlobalSystemConnector.NAME) && name.getSchemaFunctionName().getSchemaName().equals(BUILTIN_SCHEMA);
     }
 
     //
