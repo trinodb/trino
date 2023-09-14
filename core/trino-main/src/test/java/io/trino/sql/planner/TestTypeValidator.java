@@ -37,7 +37,6 @@ import io.trino.sql.planner.sanity.TypeValidator;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FrameBound;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import org.testng.annotations.BeforeMethod;
@@ -144,7 +143,7 @@ public class TestTypeValidator
     public void testValidWindow()
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
-        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
+        ResolvedFunction resolvedFunction = functionResolution.resolveFunction("sum", fromTypes(DOUBLE));
 
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,
@@ -182,7 +181,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)),
+                        functionResolution.resolveFunction("sum", fromTypes(DOUBLE)),
                         ImmutableList.of(columnC.toSymbolReference()),
                         false,
                         Optional.empty(),
@@ -234,7 +233,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)),
+                        functionResolution.resolveFunction("sum", fromTypes(DOUBLE)),
                         ImmutableList.of(columnA.toSymbolReference()),
                         false,
                         Optional.empty(),
@@ -256,7 +255,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)),
+                        functionResolution.resolveFunction("sum", fromTypes(DOUBLE)),
                         ImmutableList.of(columnC.toSymbolReference()),
                         false,
                         Optional.empty(),
@@ -273,7 +272,7 @@ public class TestTypeValidator
     public void testInvalidWindowFunctionCall()
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
-        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
+        ResolvedFunction resolvedFunction = functionResolution.resolveFunction("sum", fromTypes(DOUBLE));
 
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,
@@ -308,7 +307,7 @@ public class TestTypeValidator
     public void testInvalidWindowFunctionSignature()
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", BIGINT);
-        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
+        ResolvedFunction resolvedFunction = functionResolution.resolveFunction("sum", fromTypes(DOUBLE));
 
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,

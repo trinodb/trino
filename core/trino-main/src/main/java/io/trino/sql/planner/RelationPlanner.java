@@ -312,7 +312,7 @@ class RelationPlanner
                     // When predicate evaluates to UNKNOWN (e.g. NULL > 100), it should not violate the check constraint.
                     new CoalesceExpression(coerceIfNecessary(analysis, constraint, planBuilder.rewrite(constraint)), TRUE_LITERAL),
                     TRUE_LITERAL,
-                    new Cast(failFunction(plannerContext.getMetadata(), session, CONSTRAINT_VIOLATION, "Check constraint violation: " + constraint), toSqlType(BOOLEAN)));
+                    new Cast(failFunction(plannerContext.getMetadata(), CONSTRAINT_VIOLATION, "Check constraint violation: " + constraint), toSqlType(BOOLEAN)));
 
             planBuilder = planBuilder.withNewRoot(new FilterNode(
                     idAllocator.getNextId(),

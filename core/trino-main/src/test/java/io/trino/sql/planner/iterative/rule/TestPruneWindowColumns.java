@@ -31,7 +31,6 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.WindowFrame;
 import org.junit.jupiter.api.Test;
 
@@ -56,7 +55,7 @@ import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 public class TestPruneWindowColumns
         extends BaseRuleTest
 {
-    private static final ResolvedFunction MIN_FUNCTION = new TestingFunctionResolution().resolveFunction(QualifiedName.of("min"), fromTypes(BIGINT));
+    private static final ResolvedFunction MIN_FUNCTION = new TestingFunctionResolution().resolveFunction("min", fromTypes(BIGINT));
 
     private static final List<String> inputSymbolNameList =
             ImmutableList.of("orderKey", "partitionKey", "hash", "startValue1", "startValue2", "endValue1", "endValue2", "input1", "input2", "unused");

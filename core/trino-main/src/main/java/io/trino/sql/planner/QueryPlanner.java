@@ -98,7 +98,6 @@ import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.Relation;
@@ -317,7 +316,7 @@ class QueryPlanner
         // 1. append window to count rows
         NodeAndMappings checkConvergenceStep = copy(recursionStep, mappings);
         Symbol countSymbol = symbolAllocator.newSymbol("count", BIGINT);
-        ResolvedFunction function = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of("count"), ImmutableList.of());
+        ResolvedFunction function = plannerContext.getMetadata().resolveBuiltinFunction("count", ImmutableList.of());
         WindowNode.Function countFunction = new WindowNode.Function(function, ImmutableList.of(), DEFAULT_FRAME, false);
 
         WindowNode windowNode = new WindowNode(
@@ -337,7 +336,7 @@ class QueryPlanner
                         countSymbol.toSymbolReference(),
                         new GenericLiteral("BIGINT", "0")),
                 new Cast(
-                        failFunction(plannerContext.getMetadata(), session, NOT_SUPPORTED, recursionLimitExceededMessage),
+                        failFunction(plannerContext.getMetadata(), NOT_SUPPORTED, recursionLimitExceededMessage),
                         toSqlType(BOOLEAN)),
                 TRUE_LITERAL);
         FilterNode filterNode = new FilterNode(idAllocator.getNextId(), windowNode, predicate);
@@ -650,7 +649,7 @@ class QueryPlanner
                 // If the updated column is non-null, check that the value is not null
                 if (mergeAnalysis.getNonNullableColumnHandles().contains(dataColumnHandle)) {
                     String columnName = columnSchema.getName();
-                    rewritten = new CoalesceExpression(rewritten, new Cast(failFunction(metadata, session, INVALID_ARGUMENTS, "NULL value not allowed for NOT NULL column: " + columnName), toSqlType(columnSchema.getType())));
+                    rewritten = new CoalesceExpression(rewritten, new Cast(failFunction(metadata, INVALID_ARGUMENTS, "NULL value not allowed for NOT NULL column: " + columnName), toSqlType(columnSchema.getType())));
                 }
                 rowBuilder.add(rewritten);
                 assignments.put(field, rewritten);
@@ -730,7 +729,7 @@ class QueryPlanner
                     // When predicate evaluates to UNKNOWN (e.g. NULL > 100), it should not violate the check constraint.
                     new CoalesceExpression(coerceIfNecessary(analysis, symbol, symbol), TRUE_LITERAL),
                     TRUE_LITERAL,
-                    new Cast(failFunction(plannerContext.getMetadata(), session, CONSTRAINT_VIOLATION, "Check constraint violation: " + constraint), toSqlType(BOOLEAN)));
+                    new Cast(failFunction(plannerContext.getMetadata(), CONSTRAINT_VIOLATION, "Check constraint violation: " + constraint), toSqlType(BOOLEAN)));
 
             predicates.add(predicate);
         }
@@ -811,7 +810,7 @@ class QueryPlanner
                     if (nonNullableColumnHandles.contains(dataColumnHandle)) {
                         ColumnSchema columnSchema = dataColumnSchemas.get(fieldNumber);
                         String columnName = columnSchema.getName();
-                        rewritten = new CoalesceExpression(rewritten, new Cast(failFunction(metadata, session, INVALID_ARGUMENTS, "Assigning NULL to non-null MERGE target table column " + columnName), toSqlType(columnSchema.getType())));
+                        rewritten = new CoalesceExpression(rewritten, new Cast(failFunction(metadata, INVALID_ARGUMENTS, "Assigning NULL to non-null MERGE target table column " + columnName), toSqlType(columnSchema.getType())));
                     }
                     rowBuilder.add(rewritten);
                     assignments.put(field, rewritten);
@@ -909,7 +908,7 @@ class QueryPlanner
                         new NotExpression(isDistinctSymbol.toSymbolReference()),
                         new IsNotNullPredicate(uniqueIdSymbol.toSymbolReference())),
                 new Cast(
-                        failFunction(metadata, session, MERGE_TARGET_ROW_MULTIPLE_MATCHES, "One MERGE target table row matched more than one source row"),
+                        failFunction(metadata, MERGE_TARGET_ROW_MULTIPLE_MATCHES, "One MERGE target table row matched more than one source row"),
                         toSqlType(BOOLEAN)),
                 TRUE_LITERAL);
 
@@ -1534,7 +1533,7 @@ class QueryPlanner
                         zeroOffset),
                 TRUE_LITERAL,
                 new Cast(
-                        failFunction(plannerContext.getMetadata(), session, INVALID_WINDOW_FRAME, "Window frame offset value must not be negative or null"),
+                        failFunction(plannerContext.getMetadata(), INVALID_WINDOW_FRAME, "Window frame offset value must not be negative or null"),
                         toSqlType(BOOLEAN)));
         subPlan = subPlan.withNewRoot(new FilterNode(
                 idAllocator.getNextId(),
@@ -1634,7 +1633,7 @@ class QueryPlanner
                 new ComparisonExpression(GREATER_THAN_OR_EQUAL, offsetSymbol.toSymbolReference(), zeroOffset),
                 TRUE_LITERAL,
                 new Cast(
-                        failFunction(plannerContext.getMetadata(), session, INVALID_WINDOW_FRAME, "Window frame offset value must not be negative or null"),
+                        failFunction(plannerContext.getMetadata(), INVALID_WINDOW_FRAME, "Window frame offset value must not be negative or null"),
                         toSqlType(BOOLEAN)));
         subPlan = subPlan.withNewRoot(new FilterNode(
                 idAllocator.getNextId(),

@@ -2404,9 +2404,9 @@ public final class MetadataManager
     private ResolvedFunction resolveBuiltin(FunctionBinding functionBinding)
     {
         FunctionDependencyDeclaration dependencies = functions.getFunctionDependencies(functionBinding.getFunctionId(), functionBinding.getBoundSignature());
-        FunctionMetadata functionMetadata = functions.getFunctionMetadata(functionBinding.getFunctionId());
+        FunctionMetadata functionMetadata = bindFunctionMetadata(functionBinding.getBoundSignature(), functions.getFunctionMetadata(functionBinding.getFunctionId()));
 
-        ResolvedFunction resolvedFunction = resolve(
+        return resolve(
                 GlobalSystemConnector.CATALOG_HANDLE,
                 functionBinding,
                 functionMetadata,
@@ -2421,8 +2421,6 @@ public final class MetadataManager
                     return getBuiltinFunctions(catalogSchemaFunctionName.getFunctionName());
                 },
                 catalogFunctionBinding -> resolveBuiltin(catalogFunctionBinding.functionBinding()));
-
-        return resolvedFunction;
     }
 
     private ResolvedFunction resolve(Session session, CatalogFunctionBinding functionBinding)
@@ -2605,11 +2603,13 @@ public final class MetadataManager
             functionMetadata = functions.getFunctionMetadata(functionId);
         }
         else {
-            ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
-            functionMetadata = getMetadata(session, catalogHandle)
-                    .getFunctionMetadata(connectorSession, functionId);
+            functionMetadata = getMetadata(session, catalogHandle).getFunctionMetadata(session.toConnectorSession(catalogHandle), functionId);
         }
+        return bindFunctionMetadata(signature, functionMetadata);
+    }
 
+    private static FunctionMetadata bindFunctionMetadata(BoundSignature signature, FunctionMetadata functionMetadata)
+    {
         FunctionMetadata.Builder newMetadata = FunctionMetadata.builder(functionMetadata.getKind())
                 .functionId(functionMetadata.getFunctionId())
                 .signature(signature.toSignature())

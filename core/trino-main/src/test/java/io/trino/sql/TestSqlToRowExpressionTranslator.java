@@ -102,7 +102,7 @@ public class TestSqlToRowExpressionTranslator
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(expression);
         ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
         Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
-        return literalEncoder.toExpression(TEST_SESSION, value, expressionTypes.get(NodeRef.of(expression)));
+        return literalEncoder.toExpression(value, expressionTypes.get(NodeRef.of(expression)));
     }
 
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)

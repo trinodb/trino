@@ -49,7 +49,6 @@ import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.List;
 import java.util.Optional;
@@ -411,7 +410,7 @@ public class DecorrelateUnnest
                             rowNumberSymbol.toSymbolReference(),
                             new GenericLiteral("BIGINT", "1")),
                     new Cast(
-                            failFunction(metadata, session, SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
+                            failFunction(metadata, SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
                             toSqlType(BOOLEAN)),
                     TRUE_LITERAL);
 
@@ -464,7 +463,7 @@ public class DecorrelateUnnest
             // Do not reuse source's rowNumberSymbol, because it might not follow the TopNNode's ordering.
             Symbol rowNumberSymbol = symbolAllocator.newSymbol("row_number", BIGINT);
             WindowNode.Function rowNumberFunction = new WindowNode.Function(
-                    metadata.resolveFunction(session, QualifiedName.of("row_number"), ImmutableList.of()),
+                    metadata.resolveBuiltinFunction("row_number", ImmutableList.of()),
                     ImmutableList.of(),
                     DEFAULT_FRAME,
                     false);

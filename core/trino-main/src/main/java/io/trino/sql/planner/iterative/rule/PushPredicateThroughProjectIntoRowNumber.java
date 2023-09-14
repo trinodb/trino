@@ -141,7 +141,7 @@ public class PushPredicateThroughProjectIntoRowNumber
         Expression newPredicate = ExpressionUtils.combineConjuncts(
                 plannerContext.getMetadata(),
                 extractionResult.getRemainingExpression(),
-                new DomainTranslator(plannerContext).toPredicate(context.getSession(), newTupleDomain));
+                new DomainTranslator(plannerContext).toPredicate(newTupleDomain));
         if (newPredicate.equals(TRUE_LITERAL)) {
             return Result.ofPlanNode(project);
         }

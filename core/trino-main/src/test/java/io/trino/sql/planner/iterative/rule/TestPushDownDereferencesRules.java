@@ -32,7 +32,6 @@ import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.FrameBound;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.testing.TestingTransactionHandle;
@@ -40,7 +39,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -599,7 +597,7 @@ public class TestPushDownDereferencesRules
                                                 p.symbol("msg6", ROW_TYPE),
                                                 // min function on MSG_TYPE
                                                 new WindowNode.Function(
-                                                        createTestMetadataManager().resolveFunction(TEST_SESSION, QualifiedName.of("min"), fromTypes(ROW_TYPE)),
+                                                        createTestMetadataManager().resolveBuiltinFunction("min", fromTypes(ROW_TYPE)),
                                                         ImmutableList.of(p.symbol("msg3", ROW_TYPE).toSymbolReference()),
                                                         new WindowNode.Frame(
                                                                 WindowFrame.Type.RANGE,

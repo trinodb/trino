@@ -30,7 +30,6 @@ import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -68,7 +67,7 @@ public class TestSpatialPartitioningInternalAggregation
         runner.installPlugin(new GeoPlugin());
 
         TestingAggregationFunction function = new TestingFunctionResolution(runner)
-                .getAggregateFunction(QualifiedName.of("spatial_partitioning"), fromTypes(GEOMETRY, INTEGER));
+                .getAggregateFunction("spatial_partitioning", fromTypes(GEOMETRY, INTEGER));
 
         List<OGCGeometry> geometries = makeGeometries();
         Block geometryBlock = makeGeometryBlock(geometries);

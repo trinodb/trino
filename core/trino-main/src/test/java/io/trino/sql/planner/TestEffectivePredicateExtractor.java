@@ -287,7 +287,7 @@ public class TestEffectivePredicateExtractor
                         greaterThan(
                                 AE,
                                 functionResolution
-                                        .functionCallBuilder(QualifiedName.of("rand"))
+                                        .functionCallBuilder("rand")
                                         .build()),
                         lessThan(BE, bigintLiteral(10))));
 
@@ -736,7 +736,7 @@ public class TestEffectivePredicateExtractor
                         or(new ComparisonExpression(EQUAL, BE, bigintLiteral(200)), new IsNullPredicate(BE))));
 
         // non-deterministic
-        ResolvedFunction rand = functionResolution.resolveFunction(QualifiedName.of("rand"), ImmutableList.of());
+        ResolvedFunction rand = functionResolution.resolveFunction("rand", ImmutableList.of());
         ValuesNode node = new ValuesNode(
                 newId(),
                 ImmutableList.of(A, B),
