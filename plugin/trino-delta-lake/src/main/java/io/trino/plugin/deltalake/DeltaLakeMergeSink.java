@@ -54,6 +54,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -495,11 +496,11 @@ public class DeltaLakeMergeSink
             throws IOException
     {
         TrinoInputFile inputFile = fileSystem.newInputFile(path);
-
+        long fileSize = inputFile.length();
         return ParquetPageSourceFactory.createPageSource(
                 inputFile,
                 0,
-                inputFile.length(),
+                fileSize,
                 dataColumns.stream()
                         .map(DeltaLakeColumnHandle::toHiveColumnHandle)
                         .collect(toImmutableList()),
@@ -509,7 +510,8 @@ public class DeltaLakeMergeSink
                 new FileFormatDataSourceStats(),
                 new ParquetReaderOptions().withBloomFilter(false),
                 Optional.empty(),
-                domainCompactionThreshold);
+                domainCompactionThreshold,
+                OptionalLong.of(fileSize));
     }
 
     @Override

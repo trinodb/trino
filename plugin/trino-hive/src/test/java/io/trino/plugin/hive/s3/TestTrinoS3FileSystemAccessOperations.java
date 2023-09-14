@@ -17,12 +17,14 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
+import io.airlift.units.DataSize;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
+import io.trino.Session;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
@@ -117,10 +119,20 @@ public class TestTrinoS3FileSystemAccessOperations
 
         assertUpdate("CREATE TABLE test_select_from_where WITH (format = '" + format + "', external_location = '" + tableLocation + "') AS SELECT 2 AS age", 1);
 
-        assertFileSystemAccesses("SELECT * FROM test_select_from_where WHERE age = 2",
+        assertFileSystemAccesses(
+                withSmallFileThreshold(getSession(), DataSize.valueOf("1MB")), // large enough threshold for single request of small file
+                "SELECT * FROM test_select_from_where WHERE age = 2",
                 ImmutableMultiset.<String>builder()
-                        // TODO https://github.com/trinodb/trino/issues/18334 Reduce GetObject call for Parquet format
-                        .addCopies("S3.GetObject", occurrences(format, 1, 2))
+                        .add("S3.GetObject")
+                        .add("S3.ListObjectsV2")
+                        .addCopies("S3.GetObjectMetadata", occurrences(format, 1, 0))
+                        .build());
+
+        assertFileSystemAccesses(
+                withSmallFileThreshold(getSession(), DataSize.valueOf("10B")), // disables single request for small file
+                "SELECT * FROM test_select_from_where WHERE age = 2",
+                ImmutableMultiset.<String>builder()
+                        .addCopies("S3.GetObject", occurrences(format, 3, 2))
                         .add("S3.ListObjectsV2")
                         .addCopies("S3.GetObjectMetadata", occurrences(format, 1, 0))
                         .build());
@@ -140,16 +152,14 @@ public class TestTrinoS3FileSystemAccessOperations
 
         assertFileSystemAccesses("SELECT * FROM test_select_from_partition",
                 ImmutableMultiset.<String>builder()
-                        // TODO https://github.com/trinodb/trino/issues/18334 Reduce GetObject call for Parquet format
-                        .addCopies("S3.GetObject", occurrences(format, 2, 4))
+                        .addCopies("S3.GetObject", 2)
                         .addCopies("S3.ListObjectsV2", 2)
                         .addCopies("S3.GetObjectMetadata", occurrences(format, 2, 0))
                         .build());
 
         assertFileSystemAccesses("SELECT * FROM test_select_from_partition WHERE key = 'part1'",
                 ImmutableMultiset.<String>builder()
-                        // TODO https://github.com/trinodb/trino/issues/18334 Reduce GetObject call for Parquet format
-                        .addCopies("S3.GetObject", occurrences(format, 1, 2))
+                        .add("S3.GetObject")
                         .add("S3.ListObjectsV2")
                         .addCopies("S3.GetObjectMetadata", occurrences(format, 1, 0))
                         .build());
@@ -157,8 +167,7 @@ public class TestTrinoS3FileSystemAccessOperations
         assertUpdate("INSERT INTO test_select_from_partition VALUES (11, 'part1')", 1);
         assertFileSystemAccesses("SELECT * FROM test_select_from_partition WHERE key = 'part1'",
                 ImmutableMultiset.<String>builder()
-                        // TODO https://github.com/trinodb/trino/issues/18334 Reduce GetObject call for Parquet format
-                        .addCopies("S3.GetObject", occurrences(format, 2, 4))
+                        .addCopies("S3.GetObject", 2)
                         .addCopies("S3.ListObjectsV2", 1)
                         .addCopies("S3.GetObjectMetadata", occurrences(format, 2, 0))
                         .build());
@@ -173,9 +182,14 @@ public class TestTrinoS3FileSystemAccessOperations
 
     private void assertFileSystemAccesses(@Language("SQL") String query, Multiset<String> expectedAccesses)
     {
+        assertFileSystemAccesses(getDistributedQueryRunner().getDefaultSession(), query, expectedAccesses);
+    }
+
+    private void assertFileSystemAccesses(Session session, @Language("SQL") String query, Multiset<String> expectedAccesses)
+    {
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         spanExporter.reset();
-        queryRunner.executeWithQueryId(queryRunner.getDefaultSession(), query);
+        queryRunner.executeWithQueryId(session, query);
         assertMultisetsEqual(getOperations(), expectedAccesses);
     }
 
@@ -200,6 +214,15 @@ public class TestTrinoS3FileSystemAccessOperations
             case ORC -> orcValue;
             case PARQUET -> parquetValue;
         };
+    }
+
+    private static Session withSmallFileThreshold(Session session, DataSize sizeThreshold)
+    {
+        String catalog = session.getCatalog().orElseThrow();
+        return Session.builder(session)
+                .setCatalogSessionProperty(catalog, "parquet_small_file_threshold", sizeThreshold.toString())
+                .setCatalogSessionProperty(catalog, "orc_tiny_stripe_threshold", sizeThreshold.toString())
+                .build();
     }
 
     enum StorageFormat
