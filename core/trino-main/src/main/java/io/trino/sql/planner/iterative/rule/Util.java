@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
@@ -35,11 +36,15 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 
 final class Util
 {
+    private static final CatalogSchemaFunctionName ROW_NUMBER_NAME = builtinFunctionName("row_number");
+    private static final CatalogSchemaFunctionName RANK_NAME = builtinFunctionName("rank");
+
     private Util()
     {
     }
@@ -132,10 +137,10 @@ final class Util
         if (!signature.getArgumentTypes().isEmpty()) {
             return Optional.empty();
         }
-        if (signature.getName().equals("row_number")) {
+        if (signature.getName().equals(ROW_NUMBER_NAME)) {
             return Optional.of(ROW_NUMBER);
         }
-        if (signature.getName().equals("rank")) {
+        if (signature.getName().equals(RANK_NAME)) {
             return Optional.of(RANK);
         }
         return Optional.empty();

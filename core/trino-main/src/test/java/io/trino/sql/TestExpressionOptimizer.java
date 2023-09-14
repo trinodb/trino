@@ -32,6 +32,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.toValues;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
 import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
@@ -115,7 +116,7 @@ public class TestExpressionOptimizer
         assertEquals(
                 resultExpression,
                 call(
-                        functionResolution.getCoercion(QualifiedName.of(jsonStringToRowName), VARCHAR, targetType),
+                        functionResolution.getCoercion(builtinFunctionName(jsonStringToRowName), VARCHAR, targetType),
                         field(1, VARCHAR)));
     }
 

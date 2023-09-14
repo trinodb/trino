@@ -138,7 +138,7 @@ public final class AccumulatorCompiler
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(boundSignature.getName() + accumulatorInterface.getSimpleName()),
+                makeClassName(boundSignature.getName().getFunctionName() + accumulatorInterface.getSimpleName()),
                 type(Object.class),
                 type(accumulatorInterface));
 
@@ -242,7 +242,7 @@ public final class AccumulatorCompiler
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(boundSignature.getName() + WindowAccumulator.class.getSimpleName()),
+                makeClassName(boundSignature.getName().getFunctionName() + WindowAccumulator.class.getSimpleName()),
                 type(Object.class),
                 type(WindowAccumulator.class));
 

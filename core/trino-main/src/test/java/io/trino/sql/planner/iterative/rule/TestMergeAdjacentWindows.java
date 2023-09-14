@@ -152,8 +152,8 @@ public class TestMergeAdjacentWindows
                 .matches(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationA)
-                                        .addFunction(functionCall(AVG.getSignature().getName(), Optional.empty(), ImmutableList.of(columnAAlias)))
-                                        .addFunction(functionCall(SUM.getSignature().getName(), Optional.empty(), ImmutableList.of(columnAAlias))),
+                                        .addFunction(functionCall(AVG.getSignature().getName().getFunctionName(), Optional.empty(), ImmutableList.of(columnAAlias)))
+                                        .addFunction(functionCall(SUM.getSignature().getName().getFunctionName(), Optional.empty(), ImmutableList.of(columnAAlias))),
                                 values(ImmutableMap.of(columnAAlias, 0))));
     }
 
@@ -190,8 +190,8 @@ public class TestMergeAdjacentWindows
                                         avgOutputAlias, PlanMatchPattern.expression(avgOutputAlias)),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationA)
-                                                .addFunction(lagOutputAlias, functionCall(LAG.getSignature().getName(), Optional.empty(), ImmutableList.of(columnAAlias, oneAlias)))
-                                                .addFunction(avgOutputAlias, functionCall(AVG.getSignature().getName(), Optional.empty(), ImmutableList.of(columnAAlias))),
+                                                .addFunction(lagOutputAlias, functionCall(LAG.getSignature().getName().getFunctionName(), Optional.empty(), ImmutableList.of(columnAAlias, oneAlias)))
+                                                .addFunction(avgOutputAlias, functionCall(AVG.getSignature().getName().getFunctionName(), Optional.empty(), ImmutableList.of(columnAAlias))),
                                         strictProject(
                                                 ImmutableMap.of(
                                                         oneAlias, PlanMatchPattern.expression("CAST(1 AS bigint)"),

@@ -15,7 +15,6 @@ package io.trino.sql.relational;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.OperatorNameUtil;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.OperatorType;
@@ -25,6 +24,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.spi.function.OperatorType.CAST;
 import static java.util.Objects.requireNonNull;
 
@@ -66,9 +67,9 @@ public class SpecialForm
 
     public ResolvedFunction getOperatorDependency(OperatorType operator)
     {
-        String mangleOperatorName = OperatorNameUtil.mangleOperatorName(operator);
+        String mangleOperatorName = mangleOperatorName(operator);
         for (ResolvedFunction function : functionDependencies) {
-            if (function.getSignature().getName().equals(mangleOperatorName)) {
+            if (function.getSignature().getName().getFunctionName().equalsIgnoreCase(mangleOperatorName)) {
                 return function;
             }
         }
@@ -80,7 +81,7 @@ public class SpecialForm
         if (fromType.equals(toType)) {
             return Optional.empty();
         }
-        BoundSignature boundSignature = new BoundSignature(OperatorNameUtil.mangleOperatorName(CAST), toType, ImmutableList.of(fromType));
+        BoundSignature boundSignature = new BoundSignature(builtinFunctionName(CAST), toType, ImmutableList.of(fromType));
         for (ResolvedFunction function : functionDependencies) {
             if (function.getSignature().equals(boundSignature)) {
                 return Optional.of(function);
