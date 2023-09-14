@@ -220,6 +220,17 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     }
 
     @Override
+    protected void deleteFile(String filePath)
+    {
+        try {
+            fileSystem.deleteFile(Location.of(filePath));
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
     protected String bucketUrl()
     {
         return format("gs://%s/%s/", gcpStorageBucket, bucketName);

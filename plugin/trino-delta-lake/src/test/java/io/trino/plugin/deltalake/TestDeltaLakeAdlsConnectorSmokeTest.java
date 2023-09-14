@@ -183,6 +183,14 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
     }
 
     @Override
+    protected void deleteFile(String filePath)
+    {
+        String blobName = bucketName + "/" + filePath.substring(bucketUrl().length());
+        azureContainerClient.getBlobClient(blobName)
+                .deleteIfExists();
+    }
+
+    @Override
     protected String bucketUrl()
     {
         return format("abfs://%s@%s.dfs.core.windows.net/%s/", container, account, bucketName);
