@@ -393,7 +393,7 @@ public class TrinoConnection
     {
         checkOpen();
         if (holdability != ResultSet.HOLD_CURSORS_OVER_COMMIT) {
-            throw new SQLFeatureNotSupportedException("Changing holdability not supported");
+            throw new SQLFeatureNotSupportedException("Changing holdability not allowed");
         }
     }
 

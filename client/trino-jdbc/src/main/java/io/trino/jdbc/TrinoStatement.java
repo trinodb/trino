@@ -218,7 +218,7 @@ public class TrinoStatement
             throws SQLException
     {
         checkOpen();
-        // ignore: positioned modifications not supported
+        // ignore: positioned modifications not allowed
     }
 
     private Map<String, String> getStatementSessionProperties()
@@ -396,7 +396,7 @@ public class TrinoStatement
             throws SQLException
     {
         checkOpen();
-        throw new SQLFeatureNotSupportedException("Batches not supported");
+        throw new SQLFeatureNotSupportedException("Batches not allowed");
     }
 
     @Override
@@ -404,7 +404,7 @@ public class TrinoStatement
             throws SQLException
     {
         checkOpen();
-        throw new SQLFeatureNotSupportedException("Batches not supported");
+        throw new SQLFeatureNotSupportedException("Batches not allowed");
     }
 
     @Override
@@ -412,7 +412,7 @@ public class TrinoStatement
             throws SQLException
     {
         checkOpen();
-        throw new SQLFeatureNotSupportedException("Batches not supported");
+        throw new SQLFeatureNotSupportedException("Batches not allowed");
     }
 
     @Override
@@ -440,7 +440,7 @@ public class TrinoStatement
             throw new SQLException("Invalid argument: " + current);
         }
 
-        throw new SQLFeatureNotSupportedException("Multiple open results not supported");
+        throw new SQLFeatureNotSupportedException("Multiple open results not allowed");
     }
 
     @Override
@@ -549,7 +549,7 @@ public class TrinoStatement
             throws SQLException
     {
         checkOpen();
-        // ignore: statement pooling not supported
+        // ignore: statement pooling not allowed
     }
 
     @Override

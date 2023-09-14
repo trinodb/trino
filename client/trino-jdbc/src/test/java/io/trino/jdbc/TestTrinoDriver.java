@@ -608,7 +608,7 @@ public class TestTrinoDriver
         }
     }
 
-    @Test(expectedExceptions = SQLFeatureNotSupportedException.class, expectedExceptionsMessageRegExp = "Multiple open results not supported")
+    @Test(expectedExceptions = SQLFeatureNotSupportedException.class, expectedExceptionsMessageRegExp = "Multiple open results not allowed")
     public void testGetMoreResultsException()
             throws Exception
     {

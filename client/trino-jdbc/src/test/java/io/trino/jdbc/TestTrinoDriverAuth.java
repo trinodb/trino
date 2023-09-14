@@ -165,7 +165,7 @@ public class TestTrinoDriverAuth
         }
     }
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Authentication failed: Unsigned Claims JWTs are not supported.")
+    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Authentication failed: Unsigned Claims JWTs are not allowed.")
     public void testFailedUnsigned()
             throws Exception
     {

@@ -1027,7 +1027,7 @@ public class TrinoDatabaseMetaData
             throws SQLException
     {
         columnNamePattern = escapeIfNecessary(columnNamePattern);
-        throw new SQLFeatureNotSupportedException("privileges not supported");
+        throw new SQLFeatureNotSupportedException("privileges not allowed");
     }
 
     @Override
@@ -1036,21 +1036,21 @@ public class TrinoDatabaseMetaData
     {
         schemaPattern = escapeIfNecessary(schemaPattern);
         tableNamePattern = escapeIfNecessary(tableNamePattern);
-        throw new SQLFeatureNotSupportedException("privileges not supported");
+        throw new SQLFeatureNotSupportedException("privileges not allowed");
     }
 
     @Override
     public ResultSet getBestRowIdentifier(String catalog, String schema, String table, int scope, boolean nullable)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("row identifiers not supported");
+        throw new SQLFeatureNotSupportedException("row identifiers not allowed");
     }
 
     @Override
     public ResultSet getVersionColumns(String catalog, String schema, String table)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("version columns not supported");
+        throw new SQLFeatureNotSupportedException("version columns not allowed");
     }
 
     @Override
@@ -1095,14 +1095,14 @@ public class TrinoDatabaseMetaData
     public ResultSet getExportedKeys(String catalog, String schema, String table)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("exported keys not supported");
+        throw new SQLFeatureNotSupportedException("exported keys not allowed");
     }
 
     @Override
     public ResultSet getCrossReference(String parentCatalog, String parentSchema, String parentTable, String foreignCatalog, String foreignSchema, String foreignTable)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("cross reference not supported");
+        throw new SQLFeatureNotSupportedException("cross reference not allowed");
     }
 
     @Override
@@ -1122,7 +1122,7 @@ public class TrinoDatabaseMetaData
     public ResultSet getIndexInfo(String catalog, String schema, String table, boolean unique, boolean approximate)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("indexes not supported");
+        throw new SQLFeatureNotSupportedException("indexes not allowed");
     }
 
     @Override

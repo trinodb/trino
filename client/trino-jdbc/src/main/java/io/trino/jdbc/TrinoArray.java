@@ -61,7 +61,7 @@ public class TrinoArray
     public Object getArray(Map<String, Class<?>> map)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getArray not supported");
+        throw new SQLFeatureNotSupportedException("getArray not allowed");
     }
 
     @Override
@@ -79,35 +79,35 @@ public class TrinoArray
     public Object getArray(long index, int count, Map<String, Class<?>> map)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getArray not supported");
+        throw new SQLFeatureNotSupportedException("getArray not allowed");
     }
 
     @Override
     public ResultSet getResultSet()
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getResultSet not supported");
+        throw new SQLFeatureNotSupportedException("getResultSet not allowed");
     }
 
     @Override
     public ResultSet getResultSet(Map<String, Class<?>> map)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getResultSet not supported");
+        throw new SQLFeatureNotSupportedException("getResultSet not allowed");
     }
 
     @Override
     public ResultSet getResultSet(long index, int count)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getResultSet not supported");
+        throw new SQLFeatureNotSupportedException("getResultSet not allowed");
     }
 
     @Override
     public ResultSet getResultSet(long index, int count, Map<String, Class<?>> map)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getResultSet not supported");
+        throw new SQLFeatureNotSupportedException("getResultSet not allowed");
     }
 
     @Override
