@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.function.FunctionKind;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.planner.Symbol;
@@ -45,7 +46,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.isPatternRecognitionFunction;
@@ -166,8 +166,8 @@ public class LogicalIndexExtractor
                 };
             }
 
-            if (metadata.isAggregationFunction(session, QualifiedName.of(extractFunctionName(node.getName())))) {
-                ResolvedFunction resolvedFunction = metadata.decodeFunction(node.getName());
+            ResolvedFunction resolvedFunction = metadata.decodeFunction(node.getName());
+            if (resolvedFunction.getFunctionKind() == FunctionKind.AGGREGATE) {
                 Type type = resolvedFunction.getSignature().getReturnType();
 
                 Symbol aggregationSymbol = symbolAllocator.newSymbol(node, type);
