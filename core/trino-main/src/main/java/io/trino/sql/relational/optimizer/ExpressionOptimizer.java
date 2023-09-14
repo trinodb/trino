@@ -197,24 +197,24 @@ public class ExpressionOptimizer
                     Type returnType = call.getType();
                     if (returnType instanceof ArrayType) {
                         return call(
-                                metadata.getCoercion(session, builtinFunctionName(JSON_STRING_TO_ARRAY_NAME), VARCHAR, returnType),
+                                metadata.getCoercion(builtinFunctionName(JSON_STRING_TO_ARRAY_NAME), VARCHAR, returnType),
                                 innerCall.getArguments());
                     }
                     if (returnType instanceof MapType) {
                         return call(
-                                metadata.getCoercion(session, builtinFunctionName(JSON_STRING_TO_MAP_NAME), VARCHAR, returnType),
+                                metadata.getCoercion(builtinFunctionName(JSON_STRING_TO_MAP_NAME), VARCHAR, returnType),
                                 innerCall.getArguments());
                     }
                     if (returnType instanceof RowType) {
                         return call(
-                                metadata.getCoercion(session, builtinFunctionName(JSON_STRING_TO_ROW_NAME), VARCHAR, returnType),
+                                metadata.getCoercion(builtinFunctionName(JSON_STRING_TO_ROW_NAME), VARCHAR, returnType),
                                 innerCall.getArguments());
                     }
                 }
             }
 
             return call(
-                    metadata.getCoercion(session, call.getArguments().get(0).getType(), call.getType()),
+                    metadata.getCoercion(call.getArguments().get(0).getType(), call.getType()),
                     call.getArguments());
         }
     }

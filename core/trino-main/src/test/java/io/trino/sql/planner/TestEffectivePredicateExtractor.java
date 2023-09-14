@@ -157,9 +157,9 @@ public class TestEffectivePredicateExtractor
         }
 
         @Override
-        public ResolvedFunction getCoercion(Session session, Type fromType, Type toType)
+        public ResolvedFunction getCoercion(Type fromType, Type toType)
         {
-            return delegate.getCoercion(session, fromType, toType);
+            return delegate.getCoercion(fromType, toType);
         }
 
         @Override

@@ -657,8 +657,8 @@ public class ExpressionInterpreter
                         set = FastutilSetHelper.toFastutilHashSet(
                                 objectSet,
                                 type,
-                                plannerContext.getFunctionManager().getScalarFunctionImplementation(metadata.resolveOperator(session, HASH_CODE, ImmutableList.of(type)), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle(),
-                                plannerContext.getFunctionManager().getScalarFunctionImplementation(metadata.resolveOperator(session, EQUAL, ImmutableList.of(type, type)), simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle());
+                                plannerContext.getFunctionManager().getScalarFunctionImplementation(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type)), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle(),
+                                plannerContext.getFunctionManager().getScalarFunctionImplementation(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type)), simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle());
                     }
                     inListCache.put(valueList, set);
                 }
@@ -674,7 +674,7 @@ public class ExpressionInterpreter
             List<Object> values = new ArrayList<>(valueList.getValues().size());
             List<Type> types = new ArrayList<>(valueList.getValues().size());
 
-            ResolvedFunction equalsOperator = metadata.resolveOperator(session, OperatorType.EQUAL, types(node.getValue(), valueList));
+            ResolvedFunction equalsOperator = metadata.resolveOperator(OperatorType.EQUAL, types(node.getValue(), valueList));
             for (Expression expression : valueList.getValues()) {
                 if (value instanceof Expression && expression instanceof Literal) {
                     // skip interpreting of literal IN term since it cannot be compared
@@ -779,7 +779,7 @@ public class ExpressionInterpreter
             return switch (node.getSign()) {
                 case PLUS -> value;
                 case MINUS -> {
-                    ResolvedFunction resolvedOperator = metadata.resolveOperator(session, OperatorType.NEGATION, types(node.getValue()));
+                    ResolvedFunction resolvedOperator = metadata.resolveOperator(OperatorType.NEGATION, types(node.getValue()));
                     InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(NEVER_NULL), FAIL_ON_NULL, true, false);
                     MethodHandle handle = plannerContext.getFunctionManager().getScalarFunctionImplementation(resolvedOperator, invocationConvention).getMethodHandle();
 
@@ -960,8 +960,8 @@ public class ExpressionInterpreter
 
             Type commonType = typeCoercion.getCommonSuperType(firstType, secondType).get();
 
-            ResolvedFunction firstCast = metadata.getCoercion(session, firstType, commonType);
-            ResolvedFunction secondCast = metadata.getCoercion(session, secondType, commonType);
+            ResolvedFunction firstCast = metadata.getCoercion(firstType, commonType);
+            ResolvedFunction secondCast = metadata.getCoercion(secondType, commonType);
 
             // cast(first as <common type>) == cast(second as <common type>)
             boolean equal = Boolean.TRUE.equals(invokeOperator(
@@ -1298,7 +1298,7 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            ResolvedFunction operator = metadata.getCoercion(session, sourceType, targetType);
+            ResolvedFunction operator = metadata.getCoercion(sourceType, targetType);
 
             try {
                 return functionInvoker.invoke(operator, connectorSession, ImmutableList.of(value));
@@ -1401,7 +1401,7 @@ public class ExpressionInterpreter
                 ResolvedFunction function = plannerContext.getMetadata()
                         .resolveFunction(session, QualifiedName.of("$at_timezone"), TypeSignatureProvider.fromTypes(timeWithTimeZoneType, timeZoneType));
 
-                ResolvedFunction cast = metadata.getCoercion(session, valueType, timeWithTimeZoneType);
+                ResolvedFunction cast = metadata.getCoercion(valueType, timeWithTimeZoneType);
                 return functionInvoker.invoke(function, connectorSession, ImmutableList.of(
                         functionInvoker.invoke(cast, connectorSession, ImmutableList.of(value)),
                         timeZone));
@@ -1421,7 +1421,7 @@ public class ExpressionInterpreter
                 ResolvedFunction function = plannerContext.getMetadata()
                         .resolveFunction(session, QualifiedName.of("at_timezone"), TypeSignatureProvider.fromTypes(timestampWithTimeZoneType, timeZoneType));
 
-                ResolvedFunction cast = metadata.getCoercion(session, valueType, timestampWithTimeZoneType);
+                ResolvedFunction cast = metadata.getCoercion(valueType, timestampWithTimeZoneType);
                 return functionInvoker.invoke(function, connectorSession, ImmutableList.of(
                         functionInvoker.invoke(cast, connectorSession, ImmutableList.of(value)),
                         timeZone));
@@ -1649,7 +1649,7 @@ public class ExpressionInterpreter
 
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
         {
-            ResolvedFunction operator = metadata.resolveOperator(session, operatorType, argumentTypes);
+            ResolvedFunction operator = metadata.resolveOperator(operatorType, argumentTypes);
             return functionInvoker.invoke(operator, connectorSession, argumentValues);
         }
 

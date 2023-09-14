@@ -105,17 +105,17 @@ public class TestingFunctionResolution
     public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
-        return inTransaction(session -> metadata.resolveOperator(session, operatorType, argumentTypes));
+        return inTransaction(session -> metadata.resolveOperator(operatorType, argumentTypes));
     }
 
     public ResolvedFunction getCoercion(Type fromType, Type toType)
     {
-        return inTransaction(session -> metadata.getCoercion(session, fromType, toType));
+        return inTransaction(session -> metadata.getCoercion(fromType, toType));
     }
 
     public ResolvedFunction getCoercion(CatalogSchemaFunctionName name, Type fromType, Type toType)
     {
-        return inTransaction(session -> metadata.getCoercion(session, name, fromType, toType));
+        return inTransaction(session -> metadata.getCoercion(name, fromType, toType));
     }
 
     public TestingFunctionCallBuilder functionCallBuilder(QualifiedName name)
