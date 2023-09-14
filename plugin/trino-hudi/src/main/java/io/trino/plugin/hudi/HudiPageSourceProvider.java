@@ -19,6 +19,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
@@ -31,7 +32,6 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
-import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.plugin.hudi.model.HudiFileFormat;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -64,6 +64,7 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
@@ -76,6 +77,7 @@ import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.predicateMatches;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.ParquetReaderProvider;
+import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.createDataSource;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.createParquetPageSource;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.getColumnIndexStore;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.getParquetMessageType;
@@ -86,6 +88,7 @@ import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CURSOR_ERROR;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNSUPPORTED_FILE_FORMAT;
+import static io.trino.plugin.hudi.HudiSessionProperties.getParquetSmallFileThreshold;
 import static io.trino.plugin.hudi.HudiSessionProperties.shouldUseParquetColumnNames;
 import static io.trino.plugin.hudi.HudiUtil.getHudiFileFormat;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -165,7 +168,7 @@ public class HudiPageSourceProvider
                 split,
                 inputFile,
                 dataSourceStats,
-                options,
+                options.withSmallFileThreshold(getParquetSmallFileThreshold(session)),
                 timeZone);
 
         return new HudiPageSource(
@@ -193,7 +196,8 @@ public class HudiPageSourceProvider
         long start = hudiSplit.getStart();
         long length = hudiSplit.getLength();
         try {
-            dataSource = new TrinoParquetDataSource(inputFile, options, dataSourceStats);
+            AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
+            dataSource = createDataSource(inputFile, OptionalLong.of(hudiSplit.getFileSize()), options, memoryContext, dataSourceStats);
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
@@ -241,7 +245,7 @@ public class HudiPageSourceProvider
                     blockStarts.build(),
                     finalDataSource,
                     timeZone,
-                    newSimpleAggregatedMemoryContext(),
+                    memoryContext,
                     options,
                     exception -> handleException(dataSourceId, exception),
                     Optional.of(parquetPredicate),
