@@ -197,7 +197,8 @@ public class CheckpointEntryIterator
                 stats,
                 parquetReaderOptions,
                 Optional.empty(),
-                domainCompactionThreshold);
+                domainCompactionThreshold,
+                OptionalLong.empty());
 
         verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");
 

@@ -34,6 +34,7 @@ import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty
 import static io.trino.plugin.base.session.PropertyMetadataUtil.validateMaxDataSize;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.validateMinDataSize;
 import static io.trino.plugin.hive.HiveTimestampPrecision.MILLISECONDS;
+import static io.trino.plugin.hive.parquet.ParquetReaderConfig.PARQUET_READER_MAX_SMALL_FILE_THRESHOLD;
 import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MAX_BLOCK_SIZE;
 import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MAX_PAGE_SIZE;
 import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MIN_PAGE_SIZE;
@@ -53,6 +54,7 @@ public final class DeltaLakeSessionProperties
     private static final String HIVE_CATALOG_NAME = "hive_catalog_name";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_MAX_READ_BLOCK_ROW_COUNT = "parquet_max_read_block_row_count";
+    private static final String PARQUET_SMALL_FILE_THRESHOLD = "parquet_small_file_threshold";
     private static final String PARQUET_USE_COLUMN_INDEX = "parquet_use_column_index";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
@@ -116,6 +118,12 @@ public final class DeltaLakeSessionProperties
                                         format("%s must be between 128 and 65536: %s", PARQUET_MAX_READ_BLOCK_ROW_COUNT, value));
                             }
                         },
+                        false),
+                dataSizeProperty(
+                        PARQUET_SMALL_FILE_THRESHOLD,
+                        "Parquet: Size below which a parquet file will be read entirely",
+                        parquetReaderConfig.getSmallFileThreshold(),
+                        value -> validateMaxDataSize(PARQUET_SMALL_FILE_THRESHOLD, value, DataSize.valueOf(PARQUET_READER_MAX_SMALL_FILE_THRESHOLD)),
                         false),
                 booleanProperty(
                         PARQUET_USE_COLUMN_INDEX,
@@ -231,6 +239,11 @@ public final class DeltaLakeSessionProperties
     public static int getParquetMaxReadBlockRowCount(ConnectorSession session)
     {
         return session.getProperty(PARQUET_MAX_READ_BLOCK_ROW_COUNT, Integer.class);
+    }
+
+    public static DataSize getParquetSmallFileThreshold(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_SMALL_FILE_THRESHOLD, DataSize.class);
     }
 
     public static boolean isParquetUseColumnIndex(ConnectorSession session)
