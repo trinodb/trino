@@ -3027,6 +3027,14 @@ public class TestDeltaLakeConnectorTest
         }
     }
 
+    @Override
+    protected Session withoutSmallFileThreshold(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "parquet_small_file_threshold", "0B")
+                .build();
+    }
+
     private Session sessionWithPartitionFilterRequirement()
     {
         return Session.builder(getSession())

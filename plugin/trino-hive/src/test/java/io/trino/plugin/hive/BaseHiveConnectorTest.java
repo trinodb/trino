@@ -8988,6 +8988,15 @@ public abstract class BaseHiveConnectorTest
         return false;
     }
 
+    @Override
+    protected Session withoutSmallFileThreshold(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "parquet_small_file_threshold", "0B")
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "orc_tiny_stripe_threshold", "0B")
+                .build();
+    }
+
     private static final class BucketedFilterTestSetup
     {
         private final String typeName;
