@@ -15,17 +15,22 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.UnnestNode;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.StringLiteral;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.UnnestMapping.unnestMapping;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -201,7 +206,7 @@ public class TestDecorrelateUnnest
                         project(// restore semantics of INNER unnest after it was rewritten to LEFT
                                 ImmutableMap.of("corr", expression("corr"), "unnested_corr", expression("IF((ordinality IS NULL), CAST(null AS bigint), unnested_corr)")),
                                 filter(
-                                        "IF((row_number > BIGINT '1'), CAST(\"@fail@52QIVV94JMEG607IGOBHL05P1613CN1P9T92HEMH7BITOAOHO6M5DJCDG6AVS0EF51Q4I3398DN9SEQVJ68ED8D9AA82LGAE01OA96R7FI8O05GF5V71FKQKBAP7GSQ55HDD19GI0FESCSJFDP48HV1S2NABNSUSOP897D7E08301TKKLOLOGECE3MO5MF6NVBB4I1GJJ9N18===\"(INTEGER '28', VARCHAR 'Scalar sub-query has returned multiple rows') AS boolean), true)",
+                                        "IF((row_number > BIGINT '1'), CAST(fail(INTEGER '28', VARCHAR 'Scalar sub-query has returned multiple rows') AS boolean), true)",
                                         rowNumber(
                                                 builder -> builder
                                                         .partitionBy(ImmutableList.of("unique"))
@@ -416,7 +421,7 @@ public class TestDecorrelateUnnest
                 .matches(
                         project(
                                 filter(// enforce single row
-                                        "IF((row_number > BIGINT '1'), CAST(\"@fail@52QIVV94JMEG607IGOBHL05P1613CN1P9T92HEMH7BITOAOHO6M5DJCDG6AVS0EF51Q4I3398DN9SEQVJ68ED8D9AA82LGAE01OA96R7FI8O05GF5V71FKQKBAP7GSQ55HDD19GI0FESCSJFDP48HV1S2NABNSUSOP897D7E08301TKKLOLOGECE3MO5MF6NVBB4I1GJJ9N18===\"(INTEGER '28', VARCHAR 'Scalar sub-query has returned multiple rows') AS boolean), true)",
+                                        "IF((row_number > BIGINT '1'), CAST(fail(INTEGER '28', VARCHAR 'Scalar sub-query has returned multiple rows') AS boolean), true)",
                                         project(// second projection
                                                 ImmutableMap.of("corr", expression("corr"), "unique", expression("unique"), "ordinality", expression("ordinality"), "row_number", expression("row_number"), "integer_result", expression("IF(boolean_result, 1, -1)")),
                                                 filter(// limit
@@ -472,20 +477,27 @@ public class TestDecorrelateUnnest
     public void testPreprojectUnnestSymbol()
     {
         tester().assertThat(new DecorrelateUnnest(tester().getMetadata()))
-                .on(p -> p.correlatedJoin(
-                        ImmutableList.of(p.symbol("corr")),
-                        p.values(p.symbol("corr")),
-                        CorrelatedJoinNode.Type.LEFT,
-                        TRUE_LITERAL,
-                        p.unnest(
-                                ImmutableList.of(),
-                                ImmutableList.of(new UnnestNode.Mapping(p.symbol("char_array"), ImmutableList.of(p.symbol("unnested_char")))),
-                                Optional.empty(),
-                                LEFT,
-                                Optional.empty(),
-                                p.project(
-                                        Assignments.of(p.symbol("char_array"), PlanBuilder.expression("regexp_extract_all(corr, '.')")),
-                                        p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of()))))))
+                .on(p -> {
+                    Symbol corr = p.symbol("corr", VARCHAR);
+                    FunctionCall regexpExtractAll = new FunctionCall(
+                            tester().getMetadata().resolveBuiltinFunction("regexp_extract_all", fromTypes(VARCHAR, VARCHAR)).toQualifiedName(),
+                            ImmutableList.of(corr.toSymbolReference(), new StringLiteral(".")));
+
+                    return p.correlatedJoin(
+                            ImmutableList.of(corr),
+                            p.values(corr),
+                            CorrelatedJoinNode.Type.LEFT,
+                            TRUE_LITERAL,
+                            p.unnest(
+                                    ImmutableList.of(),
+                                    ImmutableList.of(new UnnestNode.Mapping(p.symbol("char_array"), ImmutableList.of(p.symbol("unnested_char")))),
+                                    Optional.empty(),
+                                    LEFT,
+                                    Optional.empty(),
+                                    p.project(
+                                            Assignments.of(p.symbol("char_array"), regexpExtractAll),
+                                            p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of())))));
+                })
                 .matches(
                         project(
                                 unnest(

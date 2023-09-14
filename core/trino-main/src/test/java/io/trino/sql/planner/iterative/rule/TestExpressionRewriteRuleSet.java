@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.QueryUtil.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.patternRecognition;
@@ -95,19 +96,13 @@ public class TestExpressionRewriteRuleSet
                         .globalGrouping()
                         .addAggregation(
                                 p.symbol("count_1", BigintType.BIGINT),
-                                functionResolution
-                                        .functionCallBuilder("count")
-                                        .addArgument(VARCHAR, new SymbolReference("x"))
-                                        .build(),
+                                functionCall("count", new SymbolReference("x")),
                                 ImmutableList.of(BigintType.BIGINT))
                         .source(
                                 p.values(p.symbol("x"), p.symbol("y")))))
                 .matches(
                         PlanMatchPattern.aggregation(
-                                ImmutableMap.of("count_1", aliases -> functionResolution
-                                        .functionCallBuilder("count")
-                                        .addArgument(VARCHAR, new SymbolReference("y"))
-                                        .build()),
+                                ImmutableMap.of("count_1", PlanMatchPattern.functionCall("count", ImmutableList.of("y"))),
                                 values("x", "y")));
     }
 

@@ -22,7 +22,6 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -129,7 +128,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
     public void testNondeterministicJoins()
     {
         FunctionCall randomFunction = new FunctionCall(
-                tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("random"), ImmutableList.of()).toQualifiedName(),
+                tester().getMetadata().resolveBuiltinFunction("random", ImmutableList.of()).toQualifiedName(),
                 ImmutableList.of());
 
         tester().assertThat(new OptimizeDuplicateInsensitiveJoins(tester().getMetadata()))
@@ -165,7 +164,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
     public void testNondeterministicFilter()
     {
         FunctionCall randomFunction = new FunctionCall(
-                tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("random"), ImmutableList.of()).toQualifiedName(),
+                tester().getMetadata().resolveBuiltinFunction("random", ImmutableList.of()).toQualifiedName(),
                 ImmutableList.of());
 
         tester().assertThat(new OptimizeDuplicateInsensitiveJoins(tester().getMetadata()))
@@ -187,7 +186,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
     public void testNondeterministicProjection()
     {
         FunctionCall randomFunction = new FunctionCall(
-                tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("random"), ImmutableList.of()).toQualifiedName(),
+                tester().getMetadata().resolveBuiltinFunction("random", ImmutableList.of()).toQualifiedName(),
                 ImmutableList.of());
 
         tester().assertThat(new OptimizeDuplicateInsensitiveJoins(tester().getMetadata()))
