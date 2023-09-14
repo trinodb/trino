@@ -2313,12 +2313,19 @@ public final class MetadataManager
     }
 
     @Override
+    public ResolvedFunction resolveBuiltinFunction(String name, List<TypeSignatureProvider> parameterTypes)
+    {
+        FunctionBinding functionBinding = functionResolver.resolveFullyQualifiedFunction(builtinFunctionName(name), parameterTypes, getBuiltinFunctions(name)).functionBinding();
+        return resolveBuiltin(functionBinding);
+    }
+
+    @Override
     public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
         try {
-            return uncheckedCacheGet(operatorCache, new OperatorCacheKey(operatorType, argumentTypes), () -> resolveOperatorInternal(
-                    operatorType,
+            return uncheckedCacheGet(operatorCache, new OperatorCacheKey(operatorType, argumentTypes), () -> resolveBuiltinFunction(
+                    mangleOperatorName(operatorType),
                     argumentTypes.stream()
                             .map(Type::getTypeSignature)
                             .map(TypeSignatureProvider::new)
@@ -2333,16 +2340,6 @@ public final class MetadataManager
             }
             throw e;
         }
-    }
-
-    private ResolvedFunction resolveOperatorInternal(OperatorType operatorType, List<TypeSignatureProvider> parameterTypes)
-    {
-        String name = mangleOperatorName(operatorType);
-        CatalogFunctionBinding functionBinding = functionResolver.resolveFullyQualifiedFunction(
-                builtinFunctionName(name),
-                parameterTypes,
-                getBuiltinFunctions(name));
-        return resolveBuiltin(functionBinding.functionBinding());
     }
 
     // this is only public for TableFunctionRegistry, which is effectively part of MetadataManager but for some reason is a separate class
@@ -2517,7 +2514,7 @@ public final class MetadataManager
                 .map(operatorDependency -> {
                     try {
                         List<TypeSignature> argumentTypes = applyBoundVariables(operatorDependency.getArgumentTypes(), functionBinding);
-                        return resolveOperatorInternal(operatorDependency.getOperatorType(), fromTypeSignatures(argumentTypes));
+                        return resolveBuiltinFunction(mangleOperatorName(operatorDependency.getOperatorType()), fromTypeSignatures(argumentTypes));
                     }
                     catch (TrinoException e) {
                         if (operatorDependency.isOptional()) {

@@ -151,6 +151,12 @@ public class TestEffectivePredicateExtractor
         }
 
         @Override
+        public ResolvedFunction resolveBuiltinFunction(String name, List<TypeSignatureProvider> parameterTypes)
+        {
+            return delegate.resolveBuiltinFunction(name, parameterTypes);
+        }
+
+        @Override
         public FunctionMetadata getFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
         {
             return delegate.getFunctionMetadata(session, resolvedFunction);
