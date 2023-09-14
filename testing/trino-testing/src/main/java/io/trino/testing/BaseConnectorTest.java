@@ -545,7 +545,8 @@ public abstract class BaseConnectorTest
     {
         // Verify the predicate of '-1996-09-14' doesn't match '1997-09-14'. Both values return same formatted string when we use 'yyyy-MM-dd' in DateTimeFormatter
         assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
-        assertQueryReturnsEmptyResult("SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'");
+        assertQueryFails("SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'", ".* out of range for Type: date column:.*$");
+
     }
 
     @Test

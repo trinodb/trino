@@ -179,7 +179,7 @@ public class TestKuduConnectorTest
                 .row("custkey", "bigint", extra, "")
                 .row("orderstatus", "varchar", extra, "")
                 .row("totalprice", "double", extra, "")
-                .row("orderdate", "varchar", extra, "")
+                .row("orderdate", "date", extra, "")
                 .row("orderpriority", "varchar", extra, "")
                 .row("clerk", "varchar", extra, "")
                 .row("shippriority", "integer", extra, "")
@@ -204,7 +204,7 @@ public class TestKuduConnectorTest
                         "   custkey bigint COMMENT '' WITH ( nullable = true ),\n" +
                         "   orderstatus varchar COMMENT '' WITH ( nullable = true ),\n" +
                         "   totalprice double COMMENT '' WITH ( nullable = true ),\n" +
-                        "   orderdate varchar COMMENT '' WITH ( nullable = true ),\n" +
+                        "   orderdate date COMMENT '' WITH ( nullable = true ),\n" +
                         "   orderpriority varchar COMMENT '' WITH ( nullable = true ),\n" +
                         "   clerk varchar COMMENT '' WITH ( nullable = true ),\n" +
                         "   shippriority integer COMMENT '' WITH ( nullable = true ),\n" +
@@ -601,7 +601,7 @@ public class TestKuduConnectorTest
     public void testInsertNegativeDate()
     {
         // TODO Remove this overriding test once kudu connector can create tables with default partitions
-        // TODO Update this test once kudu connector supports DATE type: https://github.com/trinodb/trino/issues/11009
+        // TODO Update this test once kudu connector supports DATE type: https://github.com/trinodb/trino/iss   ues/11009
         // DATE type is not supported by Kudu connector
         try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_date",
                 "(dt DATE WITH (primary_key=true)) " +
@@ -613,7 +613,7 @@ public class TestKuduConnectorTest
     @Override
     protected String errorMessageForInsertNegativeDate(String date)
     {
-        return "Insert query has mismatched column types: Table: \\[varchar\\], Query: \\[date\\]";
+        return ".* is out of range.*$";
     }
 
     @Test
@@ -760,9 +760,7 @@ public class TestKuduConnectorTest
         String tableName = "negative_date_" + randomNameSuffix();
 
         try {
-            assertUpdate(format("CREATE TABLE %s AS SELECT DATE '-0001-01-01' AS dt", tableName), 1);
-            assertQuery("SELECT * FROM " + tableName, "VALUES '-0001-01-01'");
-            assertQuery(format("SELECT * FROM %s WHERE dt = '-0001-01-01'", tableName), "VALUES '-0001-01-01'");
+            assertQueryFails(format("CREATE TABLE %s AS SELECT DATE '-0001-01-01' AS dt", tableName), errorMessageForInsertNegativeDate("-0001-01-01"));
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
@@ -774,7 +772,7 @@ public class TestKuduConnectorTest
     public void testDateYearOfEraPredicate()
     {
         assertThatThrownBy(super::testDateYearOfEraPredicate)
-                .hasStackTraceContaining("Cannot apply operator: varchar = date");
+                .hasStackTraceContaining("integer value out of range for Type");
     }
 
     @Override

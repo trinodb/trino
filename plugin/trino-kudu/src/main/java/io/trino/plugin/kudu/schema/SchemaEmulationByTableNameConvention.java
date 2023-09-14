@@ -39,6 +39,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.kudu.KuduClientSession.DEFAULT_SCHEMA;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.StandardErrorCode.INVALID_RANGE;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 
 public class SchemaEmulationByTableNameConvention
@@ -128,7 +129,7 @@ public class SchemaEmulationByTableNameConvention
             return result;
         }
         catch (KuduException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
+            throw new TrinoException(INVALID_RANGE, e);
         }
     }
 
