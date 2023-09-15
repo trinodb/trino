@@ -164,13 +164,11 @@ public final class FlatHash
         int recordOffset = getRecordOffset(index);
 
         byte[] variableWidthChunk = EMPTY_CHUNK;
-        int variableWidthOffset = 0;
         if (variableWidthData != null) {
             variableWidthChunk = variableWidthData.getChunk(records, recordOffset);
-            variableWidthOffset = VariableWidthData.getChunkOffset(records, recordOffset);
         }
 
-        flatHashStrategy.readFlat(records, recordOffset + recordValueOffset, variableWidthChunk, variableWidthOffset, blockBuilders);
+        flatHashStrategy.readFlat(records, recordOffset + recordValueOffset, variableWidthChunk, blockBuilders);
         if (hasPrecomputedHash) {
             BIGINT.writeLong(blockBuilders[blockBuilders.length - 1], (long) LONG_HANDLE.get(records, recordOffset + recordHashOffset));
         }
