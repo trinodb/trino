@@ -25,6 +25,8 @@ import java.io.File;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.starburstdata.trino.plugins.stargate.StargateConfig.PASSWORD;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class StargateAuthenticationModule
@@ -33,7 +35,10 @@ public class StargateAuthenticationModule
     @Override
     protected void setup(Binder binder)
     {
-        install(new PasswordModule());
+        install(conditionalModule(
+                StargateConfig.class,
+                config -> PASSWORD.equalsIgnoreCase(config.getAuthenticationType()),
+                new PasswordModule()));
     }
 
     private static class PasswordModule

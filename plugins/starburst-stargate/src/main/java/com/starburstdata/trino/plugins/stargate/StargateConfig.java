@@ -10,10 +10,27 @@
 package com.starburstdata.trino.plugins.stargate;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.LegacyConfig;
 
 public class StargateConfig
 {
+    public static final String PASSWORD = "PASSWORD";
+
+    private String authenticationType = PASSWORD;
     private boolean sslEnabled;
+
+    public String getAuthenticationType()
+    {
+        return authenticationType;
+    }
+
+    @LegacyConfig("starburst.authentication.type")
+    @Config("stargate.authentication.type")
+    public StargateConfig setAuthenticationType(String authenticationType)
+    {
+        this.authenticationType = authenticationType;
+        return this;
+    }
 
     public boolean isSslEnabled()
     {

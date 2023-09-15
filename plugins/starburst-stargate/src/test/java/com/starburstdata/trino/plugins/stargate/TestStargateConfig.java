@@ -24,6 +24,7 @@ public class TestStargateConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(StargateConfig.class)
+                .setAuthenticationType("PASSWORD")
                 .setSslEnabled(false));
     }
 
@@ -31,10 +32,12 @@ public class TestStargateConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("stargate.authentication.type", "NONE")
                 .put("ssl.enabled", "true")
                 .buildOrThrow();
 
         StargateConfig expected = new StargateConfig()
+                .setAuthenticationType("NONE")
                 .setSslEnabled(true);
 
         assertFullMapping(properties, expected);
