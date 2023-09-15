@@ -32,6 +32,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.operator.FlatHash.sumExact;
 import static java.lang.Math.min;
 import static java.lang.Math.multiplyExact;
 
@@ -93,10 +94,11 @@ public class FlatGroupByHash
     @Override
     public long getEstimatedSize()
     {
-        return INSTANCE_SIZE +
-                flatHash.getEstimatedSize() +
-                currentPageSizeInBytes +
-                (dictionaryLookBack != null ? dictionaryLookBack.getRetainedSizeInBytes() : 0);
+        return sumExact(
+                INSTANCE_SIZE,
+                flatHash.getEstimatedSize(),
+                currentPageSizeInBytes,
+                (dictionaryLookBack != null ? dictionaryLookBack.getRetainedSizeInBytes() : 0));
     }
 
     @Override
@@ -279,9 +281,10 @@ public class FlatGroupByHash
 
         public long getRetainedSizeInBytes()
         {
-            return INSTANCE_SIZE +
-                    sizeOf(processed) +
-                    dictionary.getRetainedSizeInBytes();
+            return sumExact(
+                    INSTANCE_SIZE,
+                    sizeOf(processed),
+                    dictionary.getRetainedSizeInBytes());
         }
     }
 
