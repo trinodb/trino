@@ -165,6 +165,20 @@ public class SetDigest
 
     public static double jaccardIndex(SetDigest a, SetDigest b)
     {
+        LongSortedSet minUnion = new LongRBTreeSet(a.minhash.keySet());
+        minUnion.addAll(b.minhash.keySet());
+
+        int intersection = 0;
+        for (long key : minUnion) {
+            if (a.minhash.containsKey(key) && b.minhash.containsKey(key)) {
+                intersection++;
+            }
+        }
+        return intersection / (double) minUnion.size();
+    }
+
+    public static double jaccard(SetDigest a, SetDigest b)
+    {
         int sizeOfSmallerSet = Math.min(a.minhash.size(), b.minhash.size());
         LongSortedSet minUnion = new LongRBTreeSet(a.minhash.keySet());
         minUnion.addAll(b.minhash.keySet());

@@ -54,7 +54,7 @@ public final class SetDigestFunctions
 
         long cardinality1 = digest1.cardinality();
         long cardinality2 = digest2.cardinality();
-        double jaccard = SetDigest.jaccardIndex(digest1, digest2);
+        double jaccard = SetDigest.jaccard(digest1, digest2);
         digest1.mergeWith(digest2);
         long result = Math.round(jaccard * digest1.cardinality());
 
