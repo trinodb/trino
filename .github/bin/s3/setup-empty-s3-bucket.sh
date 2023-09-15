@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+S3_SCRIPTS_DIR="${BASH_SOURCE%/*}"
+
+S3_BUCKET_IDENTIFIER=trino-s3fs-ci-$(openssl rand -hex 8)
+
+# Support both -d and -v date offset formats depending on operating system (-d for linux, -v for osx)
+S3_BUCKET_TTL=$(date -u -d "+2 hours" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -v "+2H" +"%Y-%m-%dT%H:%M:%SZ")
+
+echo "Creating an empty AWS S3 bucket ${S3_BUCKET_IDENTIFIER} in the region ${AWS_REGION}"
+S3_CREATE_BUCKET_OUTPUT=$(aws s3api create-bucket \
+  --bucket "${S3_BUCKET_IDENTIFIER}" \
+  --region "${AWS_REGION}" \
+  --create-bucket-configuration LocationConstraint="${AWS_REGION}")
+
+if [ -z "${S3_CREATE_BUCKET_OUTPUT}" ]; then
+    echo "Unexpected error while attempting to create the S3 bucket ${S3_BUCKET_IDENTIFIER} in the region ${AWS_REGION}"
+    exit 1
+fi
+
+echo "${S3_BUCKET_IDENTIFIER}" > "${S3_SCRIPTS_DIR}"/.bucket-identifier
+echo "Waiting for the AWS S3 bucket ${S3_BUCKET_IDENTIFIER} in the region ${AWS_REGION} to exist"
+
+# Wait for the bucket to exist
+aws s3api wait bucket-exists \
+  --bucket "${S3_BUCKET_IDENTIFIER}"
+
+echo "The AWS S3 bucket ${S3_BUCKET_IDENTIFIER} in the region ${AWS_REGION} exists"
+
+echo "Tagging the AWS S3 bucket ${S3_BUCKET_IDENTIFIER} with TTL tags"
+
+aws s3api put-bucket-tagging \
+  --bucket "${S3_BUCKET_IDENTIFIER}" \
+  --tagging "TagSet=[{Key=ttl,Value=${S3_BUCKET_TTL}}]"
