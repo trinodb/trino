@@ -59,8 +59,6 @@ public class StargateModule
                 new SslModule(),
                 new NoSslModule()));
 
-        binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(StargateClient.class).in(Scopes.SINGLETON);
-
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> {
             config.setDomainCompactionThreshold(STARGATE_DEFAULT_DOMAIN_COMPACTION_THRESHOLD);
         });
@@ -72,6 +70,12 @@ public class StargateModule
         @SuppressWarnings("TrinoExperimentalSpi")
         Class<ConnectorTableFunction> clazz = ConnectorTableFunction.class;
         newSetBinder(binder, clazz).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+
+        // Using optional binder for overriding StargateClient in SEP
+        newOptionalBinder(binder, Key.get(JdbcClient.class, ForBaseJdbc.class))
+                .setDefault()
+                .to(StargateClient.class)
+                .in(Scopes.SINGLETON);
 
         // Using optional binder for overriding ConnectionFactory in Galaxy
         newOptionalBinder(binder, Key.get(ConnectionFactory.class, ForBaseJdbc.class))
