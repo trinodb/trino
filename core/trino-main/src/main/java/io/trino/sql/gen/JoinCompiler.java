@@ -89,6 +89,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.notEqual;
 import static io.airlift.bytecode.expression.BytecodeExpressions.setStatic;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.operator.FlatHashStrategyCompiler.compileFlatHashStrategy;
 import static io.trino.operator.join.JoinUtils.getSingleBigintJoinChannel;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
@@ -138,7 +139,7 @@ public class JoinCompiler
                     CacheBuilder.newBuilder()
                             .recordStats()
                             .maximumSize(1000),
-                    CacheLoader.from(key -> new FlatHashStrategy(key, typeOperators)));
+                    CacheLoader.from(key -> compileFlatHashStrategy(key, typeOperators)));
     }
 
     @Managed
@@ -158,7 +159,7 @@ public class JoinCompiler
     // This should be in a separate cache, but it is convenient during the transition to keep this in the join compiler
     public FlatHashStrategy getFlatHashStrategy(List<Type> types)
     {
-        return flatHashStrategies.getUnchecked(types);
+        return flatHashStrategies.getUnchecked(ImmutableList.copyOf(types));
     }
 
     public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<Integer> sortChannel, Optional<List<Integer>> outputChannels)
