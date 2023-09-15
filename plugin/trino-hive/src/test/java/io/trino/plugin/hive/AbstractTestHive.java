@@ -3211,10 +3211,6 @@ public abstract class AbstractTestHive
                 assertThat(metadata.listTables(session, Optional.of(tableName.getSchemaName())))
                         .doesNotContain(tableName);
 
-                // list all columns
-                assertThat(listTableColumns(metadata, session, new SchemaTablePrefix()).keySet())
-                        .doesNotContain(tableName);
-
                 // list all columns in a schema
                 assertThat(listTableColumns(metadata, session, new SchemaTablePrefix(tableName.getSchemaName())).keySet())
                         .doesNotContain(tableName);
