@@ -122,9 +122,9 @@ public final class TypeHelper
                 return VarbinaryType.VARBINARY;
             case DECIMAL:
                 return DecimalType.createDecimalType(attributes.getPrecision(), attributes.getScale());
-            // TODO: add support for varchar types: https://github.com/trinodb/trino/issues/11009
             case DATE:
                 return DateType.DATE;
+            // TODO: add support for varchar types: https://github.com/trinodb/trino/issues/11009
             case VARCHAR:
                 break;
         }
