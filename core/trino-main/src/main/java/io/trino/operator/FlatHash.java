@@ -30,6 +30,7 @@ import static io.trino.operator.VariableWidthData.EMPTY_CHUNK;
 import static io.trino.operator.VariableWidthData.POINTER_SIZE;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static java.lang.Math.addExact;
 import static java.lang.Math.max;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
@@ -121,12 +122,13 @@ public final class FlatHash
 
     public long getEstimatedSize()
     {
-        return INSTANCE_SIZE +
-                sizeOf(control) +
-                (sizeOf(recordGroups[0]) * recordGroups.length) +
-                (variableWidthData == null ? 0 : variableWidthData.getRetainedSizeBytes()) +
-                sizeOf(groupRecordIndex) +
-                rehashMemoryReservation;
+        return sumExact(
+                INSTANCE_SIZE,
+                sizeOf(control),
+                multiplyExact(sizeOf(recordGroups[0]), recordGroups.length),
+                (variableWidthData == null ? 0 : variableWidthData.getRetainedSizeBytes()),
+                sizeOf(groupRecordIndex),
+                rehashMemoryReservation);
     }
 
     public int size()
@@ -468,5 +470,14 @@ public final class FlatHash
     public int getPhysicalPosition(int groupId)
     {
         return groupRecordIndex[groupId];
+    }
+
+    public static long sumExact(long... values)
+    {
+        long result = 0;
+        for (long value : values) {
+            result = addExact(result, value);
+        }
+        return result;
     }
 }
