@@ -29,6 +29,8 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import org.apache.pinot.common.datatable.DataTable;
+import org.apache.pinot.common.datatable.DataTableImplV4;
 import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.common.utils.DataSchema.ColumnDataType;
 
@@ -347,6 +349,10 @@ public class PinotSegmentPageSource
             return getUtf8Slice(field);
         }
         if (trinoType instanceof VarbinaryType) {
+            DataTable baseDataTable = currentDataTable.getDataTable();
+            if (baseDataTable instanceof DataTableImplV4) {
+                return Slices.wrappedBuffer(toBytes(currentDataTable.getDataTable().getBytes(rowIndex, columnIndex).toHexString()));
+            }
             return Slices.wrappedBuffer(toBytes(currentDataTable.getDataTable().getString(rowIndex, columnIndex)));
         }
         if (trinoType.getTypeSignature().getBase() == StandardTypes.JSON) {
