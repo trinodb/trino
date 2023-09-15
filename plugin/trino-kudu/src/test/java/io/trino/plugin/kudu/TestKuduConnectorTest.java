@@ -601,8 +601,6 @@ public class TestKuduConnectorTest
     public void testInsertNegativeDate()
     {
         // TODO Remove this overriding test once kudu connector can create tables with default partitions
-        // TODO Update this test once kudu connector supports DATE type: https://github.com/trinodb/trino/iss   ues/11009
-        // DATE type is not supported by Kudu connector
         try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_date",
                 "(dt DATE WITH (primary_key=true)) " +
                         "WITH (partition_by_hash_columns = ARRAY['dt'], partition_by_hash_buckets = 2)")) {
