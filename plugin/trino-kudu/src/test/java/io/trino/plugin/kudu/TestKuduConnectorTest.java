@@ -771,8 +771,9 @@ public class TestKuduConnectorTest
     @Override
     public void testDateYearOfEraPredicate()
     {
-        assertThatThrownBy(super::testDateYearOfEraPredicate)
-                .hasStackTraceContaining("integer value out of range for Type");
+        // Verify the predicate of '-1996-09-14' doesn't match '1997-09-14'. Both values return same formatted string when we use 'yyyy-MM-dd' in DateTimeFormatter
+        assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
+        assertQueryFails("SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'", ".* out of range for Type: date column:.*$");
     }
 
     @Override
@@ -1003,7 +1004,8 @@ public class TestKuduConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("time")
+        if (typeName.equals("date")
+                ||typeName.equals("time")
                 || typeName.equals("time(6)")
                 || typeName.equals("timestamp(6)")
                 || typeName.equals("timestamp(3) with time zone")
@@ -1011,8 +1013,7 @@ public class TestKuduConnectorTest
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 
-        if (typeName.equals("date") // date gets stored as varchar
-                || typeName.equals("varbinary") // TODO (https://github.com/trinodb/trino/issues/3416)
+        if ( typeName.equals("varbinary") // TODO (https://github.com/trinodb/trino/issues/3416)
                 || (typeName.startsWith("char") && dataMappingTestSetup.getSampleValueLiteral().contains(" "))) { // TODO: https://github.com/trinodb/trino/issues/3597
             // TODO this should either work or fail cleanly
             return Optional.empty();
