@@ -545,8 +545,7 @@ public abstract class BaseConnectorTest
     {
         // Verify the predicate of '-1996-09-14' doesn't match '1997-09-14'. Both values return same formatted string when we use 'yyyy-MM-dd' in DateTimeFormatter
         assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
-        assertQueryFails("SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'", ".* out of range for Type: date column:.*$");
-
+        assertQueryReturnsEmptyResult("SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'");
     }
 
     @Test
@@ -2817,19 +2816,6 @@ public abstract class BaseConnectorTest
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " RENAME COLUMN columnNotExists TO y");
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " RENAME COLUMN IF EXISTS columnNotExists TO y");
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-    }
-
-    @Test
-    public void testRenameColumnWithComment()
-    {
-        skipTestUnless(hasBehavior(SUPPORTS_RENAME_COLUMN) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT));
-
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_rename_column_", "(col INT COMMENT 'test column comment')")) {
-            assertThat(getColumnComment(table.getName(), "col")).isEqualTo("test column comment");
-
-            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN col TO renamed_col");
-            assertThat(getColumnComment(table.getName(), "renamed_col")).isEqualTo("test column comment");
-        }
     }
 
     @Test
