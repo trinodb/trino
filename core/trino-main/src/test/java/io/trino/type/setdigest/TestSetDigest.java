@@ -19,7 +19,10 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.SingleMapBlock;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.TypeOperators;
-import org.junit.jupiter.api.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -41,6 +44,21 @@ import static org.testng.Assert.assertTrue;
 
 public class TestSetDigest
 {
+    private QueryAssertions assertions;
+
+    @BeforeClass
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
     @Test
     public void testIntersectionCardinality()
     {
@@ -172,5 +190,18 @@ public class TestSetDigest
                         (double) size1 < 0.05);
             }
         }
+    }
+
+    @Test
+    public void testJaccardIndex()
+    {
+        assertEquals("0.0", assertions.getQueryRunner().execute(
+                "SELECT jaccard_index(make_set_digest(value), make_set_digest(value1)) FROM (VALUES ('ca', 'da'),('ea', 'fa')) T(value,value1)").getMaterializedRows().get(0).getField(0).toString());
+        assertEquals("0.0", assertions.getQueryRunner().execute(
+                "SELECT jaccard_index(make_set_digest(value), make_set_digest(value1)) FROM (VALUES ('a', 'c'),('b', 'd')) T(value,value1)").getMaterializedRows().get(0).getField(0).toString());
+        assertEquals("1.0", assertions.getQueryRunner().execute(
+                "SELECT jaccard_index(make_set_digest(value), make_set_digest(value1)) FROM (VALUES (1,2),(2,1)) T(value,value1)").getMaterializedRows().get(0).getField(0).toString());
+        assertEquals("1.0", assertions.getQueryRunner().execute(
+                "SELECT jaccard_index(make_set_digest(value), make_set_digest(value1)) FROM (VALUES (1.2, 2.3),(2.3, 1.2)) T(value,value1)").getMaterializedRows().get(0).getField(0).toString());
     }
 }
