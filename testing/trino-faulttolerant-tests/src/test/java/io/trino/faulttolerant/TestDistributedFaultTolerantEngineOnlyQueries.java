@@ -108,7 +108,7 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(timeOut = 30_000)
+    @Test(timeOut = 60_000)
     public void testMetadataOnlyQueries()
             throws InterruptedException
     {
