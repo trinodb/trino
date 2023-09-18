@@ -188,6 +188,7 @@
         <dep.parquet.version>1.13.1</dep.parquet.version>
         <dep.jmh.version>1.37</dep.jmh.version>
         <dep.junit.version>5.10.0</dep.junit.version>
+        <dep.antlr.version>4.13.1</dep.antlr.version>
 
         <dep.docker.images.version>86</dep.docker.images.version>
 
