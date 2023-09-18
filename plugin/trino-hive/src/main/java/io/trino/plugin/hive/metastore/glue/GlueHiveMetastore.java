@@ -145,6 +145,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
@@ -684,7 +685,11 @@ public class GlueHiveMetastore
     @Override
     public void commentTable(String databaseName, String tableName, Optional<String> comment)
     {
-        throw new TrinoException(NOT_SUPPORTED, "Table comment is not yet supported by Glue service");
+        Table oldTable = getExistingTable(databaseName, tableName);
+        Table newTable = Table.builder(oldTable)
+                .setParameter(TABLE_COMMENT, comment)
+                .build();
+        replaceTable(databaseName, tableName, newTable, null);
     }
 
     @Override
