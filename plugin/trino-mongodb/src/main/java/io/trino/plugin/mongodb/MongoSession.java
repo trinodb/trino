@@ -922,7 +922,10 @@ public class MongoSession
             catch (ArithmeticException e) {
                 return Optional.empty();
             }
-            typeSignature = createDecimalType(decimal.precision(), decimal.scale()).getTypeSignature();
+            // Java's BigDecimal.precision() returns precision for the unscaled value, so it skips leading zeros for values lower than 1.
+            // Trino's (SQL) decimal precision must include leading zeros in values less than 1, and can never be lower than scale.
+            int precision = Math.max(decimal.precision(), decimal.scale());
+            typeSignature = createDecimalType(precision, decimal.scale()).getTypeSignature();
         }
         else if (value instanceof Date) {
             typeSignature = TIMESTAMP_MILLIS.getTypeSignature();
