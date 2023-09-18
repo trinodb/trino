@@ -2833,4 +2833,18 @@ public abstract class BasePinotConnectorSmokeTest
                 .matches("VALUES (VARCHAR 'Los Angeles', BIGINT '50000')")
                 .isFullyPushedDown();
     }
+
+    @Test
+    public void testQueryOptions()
+    {
+        assertThat(query("SELECT city, \"sum(long_number)\" FROM" +
+                         " \"SET skipUpsert = 'true';" +
+                         " SET numReplicaGroupsToQuery = '1';" +
+                         " SELECT city, SUM(long_number)" +
+                         "  FROM my_table" +
+                         "  GROUP BY city" +
+                         "  HAVING SUM(long_number) > 10000\""))
+                .matches("VALUES (VARCHAR 'Los Angeles', DOUBLE '50000.0'), (VARCHAR 'New York', DOUBLE '20000.0')")
+                .isFullyPushedDown();
+    }
 }
