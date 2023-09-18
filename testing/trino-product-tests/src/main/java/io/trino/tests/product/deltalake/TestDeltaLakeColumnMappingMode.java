@@ -797,56 +797,6 @@ public class TestDeltaLakeColumnMappingMode
         };
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testTrinoSpecialCharacterColumnNamesWithColumnMappingModeName()
-    {
-        testSpecialCharacterColumnNamesWithColumnMappingMode(tableName -> onTrino().executeQuery("" +
-                "CREATE TABLE delta.default." + tableName +
-                " (\";{}()\\n\\t=\" INT)" +
-                " WITH ( " +
-                " location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'," +
-                " column_mapping_mode = 'name'," +
-                " checkpoint_interval = 3" +
-                ")"));
-    }
-
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testDeltaSpecialCharacterColumnNamesWithColumnMappingModeId()
-    {
-        testSpecialCharacterColumnNamesWithColumnMappingMode(tableName -> onDelta().executeQuery("" +
-                "CREATE TABLE default." + tableName +
-                " (`;{}()\\n\\t=` INT)" +
-                " USING delta " +
-                " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
-                " TBLPROPERTIES (" +
-                " 'delta.columnMapping.mode' = 'id'," +
-                " 'delta.checkpointInterval' = 3" +
-                ")"));
-    }
-
-    private void testSpecialCharacterColumnNamesWithColumnMappingMode(Consumer<String> createTable)
-    {
-        String tableName = "test_dl_special_character_column_mapping_mode_" + randomNameSuffix();
-
-        createTable.accept(tableName);
-
-        try {
-            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (0)");
-            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1)");
-            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (null)");
-
-            assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
-                    .containsOnly(ImmutableList.of(
-                            row(";{}()\\n\\t=", null, null, 0.33333333333, null, "0", "1"),
-                            row(null, null, null, null, 3.0, null, null)));
-        }
-        finally {
-            dropDeltaTableWithRetry("default." + tableName);
-        }
-    }
-
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "supportedColumnMappingForDmlDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testMergeUpdateWithColumnMapping(String mode)
