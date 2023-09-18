@@ -36,9 +36,12 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.function.LanguageFunction;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.metastoreFunctionName;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toResourceUris;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
@@ -61,15 +64,21 @@ public final class GlueInputConverter
 
     public static TableInput convertTable(Table table)
     {
+        Optional<String> comment = Optional.ofNullable(table.getParameters().get(TABLE_COMMENT));
+        Map<String, String> tableParameters = table.getParameters().entrySet().stream()
+                .filter(entry -> !entry.getKey().equals(TABLE_COMMENT))
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
         TableInput input = new TableInput();
         input.setName(table.getTableName());
         input.setOwner(table.getOwner().orElse(null));
         input.setTableType(table.getTableType());
         input.setStorageDescriptor(convertStorage(table.getStorage(), table.getDataColumns()));
         input.setPartitionKeys(table.getPartitionColumns().stream().map(GlueInputConverter::convertColumn).collect(toImmutableList()));
-        input.setParameters(table.getParameters());
+        input.setParameters(tableParameters);
         table.getViewOriginalText().ifPresent(input::setViewOriginalText);
         table.getViewExpandedText().ifPresent(input::setViewExpandedText);
+        comment.ifPresent(input::setDescription);
         return input;
     }
 

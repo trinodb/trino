@@ -1420,6 +1420,29 @@ public class TestHiveGlueMetastore
     }
 
     @Test
+    public void testAlterTableComment()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("test_alter_table_comment");
+        doCreateEmptyTable(tableName, ORC, ImmutableList.of(new ColumnMetadata("name", BIGINT)), ImmutableList.of());
+        try {
+            assertThat(metastore.getTable(tableName.getSchemaName(), tableName.getTableName()).orElseThrow().getParameters()).doesNotContainKey(TABLE_COMMENT);
+            metastore.commentTable(tableName.getSchemaName(), tableName.getTableName(), Optional.of("a table comment"));
+            Map<String, String> tableParameters = metastore.getTable(tableName.getSchemaName(), tableName.getTableName()).orElseThrow().getParameters();
+            assertThat(tableParameters.get(TABLE_COMMENT)).isEqualTo("a table comment");
+
+            metastore.commentTable(tableName.getSchemaName(), tableName.getTableName(), Optional.empty());
+            tableParameters = metastore.getTable(tableName.getSchemaName(), tableName.getTableName()).orElseThrow().getParameters();
+            assertThat(tableParameters.get(TABLE_COMMENT)).isNull();
+        }
+        finally {
+            glueClient.deleteTable(new DeleteTableRequest()
+                    .withDatabaseName(tableName.getSchemaName())
+                    .withName(tableName.getTableName()));
+        }
+    }
+
+    @Test
     public void testAlterColumnComment()
             throws Exception
     {
