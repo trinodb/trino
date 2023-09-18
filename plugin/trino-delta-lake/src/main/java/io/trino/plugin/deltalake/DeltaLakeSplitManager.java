@@ -194,7 +194,7 @@ public class DeltaLakeSplitManager
                         return Stream.empty();
                     }
 
-                    if (maxScannedFileSizeInBytes.isPresent() && addAction.getSize() > maxScannedFileSizeInBytes.get()) {
+                    if (addAction.getDeletionVector().isEmpty() && maxScannedFileSizeInBytes.isPresent() && addAction.getSize() > maxScannedFileSizeInBytes.get()) {
                         return Stream.empty();
                     }
 
