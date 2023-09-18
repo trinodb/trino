@@ -1425,6 +1425,38 @@ public class TestHiveGlueMetastore
         }
     }
 
+    @Test
+    public void testAlterColumnComment()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("test_alter_column_comment");
+        List<ColumnMetadata> columns = ImmutableList.of(
+                new ColumnMetadata("first_column", BIGINT),
+                new ColumnMetadata("second_column", VARCHAR),
+                new ColumnMetadata("partition_column", BIGINT));
+        createDummyPartitionedTable(tableName, columns, ImmutableList.of("partition_column"), ImmutableList.of());
+        try {
+            metastore.commentColumn(tableName.getSchemaName(), tableName.getTableName(), "second_column", Optional.of("second column comment"));
+            metastore.commentColumn(tableName.getSchemaName(), tableName.getTableName(), "partition_column", Optional.of("partition column comment"));
+
+            Table withComment = metastore.getTable(tableName.getSchemaName(), tableName.getTableName()).orElseThrow();
+            assertThat(withComment.getColumn("first_column").orElseThrow().getComment()).isEmpty();
+            assertThat(withComment.getColumn("second_column").orElseThrow().getComment()).isEqualTo(Optional.of("second column comment"));
+            assertThat(withComment.getColumn("partition_column").orElseThrow().getComment()).isEqualTo(Optional.of("partition column comment"));
+
+            metastore.commentColumn(tableName.getSchemaName(), tableName.getTableName(), "second_column", Optional.empty());
+            withComment = metastore.getTable(tableName.getSchemaName(), tableName.getTableName()).orElseThrow();
+            assertThat(withComment.getColumn("first_column").orElseThrow().getComment()).isEmpty();
+            assertThat(withComment.getColumn("second_column").orElseThrow().getComment()).isEmpty();
+            assertThat(withComment.getColumn("partition_column").orElseThrow().getComment()).isEqualTo(Optional.of("partition column comment"));
+        }
+        finally {
+            glueClient.deleteTable(new DeleteTableRequest()
+                    .withDatabaseName(tableName.getSchemaName())
+                    .withName(tableName.getTableName()));
+        }
+    }
+
     private Block singleValueBlock(long value)
     {
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 1);
