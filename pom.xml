@@ -162,7 +162,7 @@
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.takari.version>2.1.1</dep.takari.version>
         <dep.aws-sdk.version>1.12.537</dep.aws-sdk.version>
-        <dep.aws-sdk-v2.version>2.20.134</dep.aws-sdk-v2.version>
+        <dep.aws-sdk-v2.version>2.20.149</dep.aws-sdk-v2.version>
         <dep.jsonwebtoken.version>0.11.5</dep.jsonwebtoken.version>
         <dep.oracle.version>21.9.0.0</dep.oracle.version>
         <dep.drift.version>1.21</dep.drift.version>
