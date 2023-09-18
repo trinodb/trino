@@ -130,6 +130,36 @@ public class TestIcebergParquetConnectorTest
         }
     }
 
+    @Test
+    public void testPushdownPredicateToParquetAfterColumnRename()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_pushdown_predicate_statistics",
+                "WITH (sorted_by = ARRAY['custkey']) AS TABLE tpch.tiny.customer WITH NO DATA")) {
+            assertUpdate(
+                    withSmallRowGroups(getSession()),
+                    "INSERT INTO " + table.getName() + " TABLE tpch.tiny.customer",
+                    "VALUES 1500");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN custkey TO custkey1");
+
+            DistributedQueryRunner queryRunner = getDistributedQueryRunner();
+            MaterializedResultWithQueryId resultWithoutPredicate = queryRunner.executeWithQueryId(getSession(), "TABLE " + table.getName());
+            OperatorStats queryStatsWithoutPredicate = getOperatorStats(resultWithoutPredicate.getQueryId());
+            assertThat(queryStatsWithoutPredicate.getPhysicalInputPositions()).isGreaterThan(0);
+            assertThat(resultWithoutPredicate.getResult()).hasSize(1500);
+
+            @Language("SQL") String selectiveQuery = "SELECT * FROM " + table.getName() + " WHERE custkey1 = 100";
+            MaterializedResultWithQueryId selectiveQueryResult = queryRunner.executeWithQueryId(getSession(), selectiveQuery);
+            OperatorStats queryStatsSelectiveQuery = getOperatorStats(selectiveQueryResult.getQueryId());
+            assertThat(queryStatsSelectiveQuery.getPhysicalInputPositions()).isGreaterThan(0);
+            assertThat(queryStatsSelectiveQuery.getPhysicalInputPositions())
+                    .isLessThan(queryStatsWithoutPredicate.getPhysicalInputPositions());
+            assertThat(selectiveQueryResult.getResult()).hasSize(1);
+        }
+    }
+
     @Override
     protected boolean isFileSorted(String path, String sortColumnName)
     {
