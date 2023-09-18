@@ -4356,7 +4356,7 @@ class StatementAnalyzer
                 return fields;
             }
 
-            List<Field> accessibleFields = new ArrayList<>();
+            ImmutableSet.Builder<Field> accessibleFields = ImmutableSet.builder();
 
             //collect fields by table
             ListMultimap<QualifiedObjectName, Field> tableFieldsMap = ArrayListMultimap.create();
@@ -4384,7 +4384,7 @@ class StatementAnalyzer
             });
 
             return fields.stream()
-                    .filter(field -> accessibleFields.contains(field))
+                    .filter(accessibleFields.build()::contains)
                     .collect(toImmutableList());
         }
 
