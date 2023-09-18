@@ -84,6 +84,8 @@ public class TestFilterInaccessibleColumns
         // No filtering baseline
         assertThat(assertions.query("SELECT * FROM nation WHERE name = 'FRANCE'"))
                 .matches("VALUES (BIGINT '6', CAST('FRANCE' AS VARCHAR(25)), BIGINT '3', CAST('refully final requests. regular, ironi' AS VARCHAR(152)))");
+        assertThat(assertions.query("TABLE nation"))
+                .matches("SELECT * FROM nation");
     }
 
     @Test
@@ -92,6 +94,8 @@ public class TestFilterInaccessibleColumns
         accessControl.deny(privilege(USER, "nation.comment", SELECT_COLUMN));
         assertThat(assertions.query("SELECT * FROM nation WHERE name = 'FRANCE'"))
                 .matches("VALUES (BIGINT '6', CAST('FRANCE' AS VARCHAR(25)), BIGINT '3')");
+        assertThat(assertions.query("TABLE nation"))
+                .matches("SELECT * FROM nation");
     }
 
     @Test

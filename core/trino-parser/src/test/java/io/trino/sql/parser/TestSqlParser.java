@@ -608,6 +608,9 @@ public class TestSqlParser
                                         ImmutableList.of()))),
                 table(QualifiedName.of("t"))));
 
+        assertStatement("TABLE t", query(new Table(
+                QualifiedName.of("t"))));
+
         assertStatement("SELECT ROW (1, 'a', true).*", simpleQuery(
                 new Select(
                         false,
