@@ -448,4 +448,27 @@ public class TestDynamicTable
         assertEquals(extractPql(dynamicTable, TupleDomain.all()), expectedPql);
         assertEquals(dynamicTable.getTableName(), tableName);
     }
+
+    @Test
+    public void testQueryOptions()
+    {
+        String tableName = realtimeOnlyTable.getTableName();
+        String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
+        String query = """
+                SET skipUpsert='true';
+                SET useMultistageEngine='true';
+                SELECT FlightNum
+                FROM %s
+                LIMIT 50;
+                """.formatted(tableNameWithSuffix);
+        DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
+        String expectedPql = """
+                SET skipUpsert = 'true';
+                SET useMultistageEngine = 'true';
+                SELECT "FlightNum" \
+                FROM %s \
+                LIMIT 50""".formatted(tableNameWithSuffix);
+        assertEquals(extractPql(dynamicTable, TupleDomain.all()), expectedPql);
+        assertEquals(dynamicTable.getTableName(), tableName);
+    }
 }
