@@ -144,6 +144,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
@@ -727,7 +728,56 @@ public class GlueHiveMetastore
     @Override
     public void commentColumn(String databaseName, String tableName, String columnName, Optional<String> comment)
     {
-        throw new TrinoException(NOT_SUPPORTED, "Column comment is not yet supported by Glue service");
+        Table table = getExistingTable(databaseName, tableName);
+        List<Column> dataColumns = table.getDataColumns();
+        List<Column> partitionColumns = table.getPartitionColumns();
+
+        Optional<Integer> matchingDataColumn = indexOfColumnWithName(dataColumns, columnName);
+        Optional<Integer> matchingPartitionColumn = indexOfColumnWithName(partitionColumns, columnName);
+
+        if (matchingDataColumn.isPresent() && matchingPartitionColumn.isPresent()) {
+            throw new TrinoException(HIVE_INVALID_METADATA, "Found two columns with names matching " + columnName);
+        }
+        if (matchingDataColumn.isEmpty() && matchingPartitionColumn.isEmpty()) {
+            throw new ColumnNotFoundException(table.getSchemaTableName(), columnName);
+        }
+
+        Table updatedTable = Table.builder(table)
+                .setDataColumns(matchingDataColumn.map(index -> setColumnCommentForIndex(dataColumns, index, comment)).orElse(dataColumns))
+                .setPartitionColumns(matchingPartitionColumn.map(index -> setColumnCommentForIndex(partitionColumns, index, comment)).orElse(partitionColumns))
+                .build();
+
+        replaceTable(databaseName, tableName, updatedTable, null);
+    }
+
+    private static Optional<Integer> indexOfColumnWithName(List<Column> columns, String columnName)
+    {
+        Optional<Integer> index = Optional.empty();
+        for (int i = 0; i < columns.size(); i++) {
+            // Glue columns are always lowercase
+            if (columns.get(i).getName().equals(columnName)) {
+                index.ifPresent(ignored -> {
+                    throw new TrinoException(HIVE_INVALID_METADATA, "Found two columns with names matching " + columnName);
+                });
+                index = Optional.of(i);
+            }
+        }
+        return index;
+    }
+
+    private static List<Column> setColumnCommentForIndex(List<Column> columns, int indexToUpdate, Optional<String> comment)
+    {
+        ImmutableList.Builder<Column> newColumns = ImmutableList.builder();
+        for (int i = 0; i < columns.size(); i++) {
+            Column originalColumn = columns.get(i);
+            if (i == indexToUpdate) {
+                newColumns.add(new Column(originalColumn.getName(), originalColumn.getType(), comment, originalColumn.getProperties()));
+            }
+            else {
+                newColumns.add(originalColumn);
+            }
+        }
+        return newColumns.build();
     }
 
     @Override
