@@ -1288,6 +1288,24 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testSpecialCharacterColumnNamesWithColumnMappingMode(ColumnMappingMode mode)
+    {
+        String tableName = "test_special_characters_column_namnes_with_column_mapping_mode_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (\";{}()\\n\\t=\" INT) " +
+                "WITH (column_mapping_mode='" + mode + "', checkpoint_interval=3)");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (0)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (null)", 1);
+
+        assertQuery("SHOW STATS FOR " + tableName, "VALUES" +
+                "(';{}()\\n\\t=', null, 2.0, 0.33333333333, null, 0, 1)," +
+                "(null, null, null, null, 3.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Test(dataProvider = "columnMappingWithTrueAndFalseDataProvider")
     public void testDeltaColumnMappingModeAllDataTypes(ColumnMappingMode mode, boolean partitioned)
     {
