@@ -53,6 +53,7 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
@@ -126,7 +127,16 @@ public final class GlueToTrinoConverter
         SchemaTableName table = new SchemaTableName(dbName, glueTable.getName());
 
         String tableType = getTableType(glueTable);
-        Map<String, String> tableParameters = ImmutableMap.copyOf(getTableParameters(glueTable));
+
+        ImmutableMap.Builder<String, String> parameters = ImmutableMap.builder();
+        Optional<String> description = Optional.ofNullable(glueTable.getDescription());
+        description.ifPresent(comment -> parameters.put(TABLE_COMMENT, comment));
+        getTableParameters(glueTable).entrySet().stream()
+                // If the description was set we may have two "comment"s, prefer the description field
+                .filter(entry -> description.isEmpty() || !entry.getKey().equals(TABLE_COMMENT))
+                .forEach(parameters::put);
+        Map<String, String> tableParameters = parameters.buildOrThrow();
+
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(table.getSchemaName())
                 .setTableName(table.getTableName())
