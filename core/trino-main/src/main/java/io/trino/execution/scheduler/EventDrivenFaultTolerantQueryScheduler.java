@@ -132,7 +132,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.util.concurrent.Futures.getDone;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultCoordinatorTaskMemory;
@@ -1340,30 +1339,24 @@ public class EventDrivenFaultTolerantQueryScheduler
             ExchangeSinkInstanceHandle sinkInstanceHandle = sinkInstanceHandleAcquiredEvent.getSinkInstanceHandle();
             StageExecution stageExecution = getStageExecution(stageId);
 
-            try {
-                InternalNode node = getDone(nodeLease.getNode());
-                Optional<RemoteTask> remoteTask = stageExecution.schedule(partitionId, sinkInstanceHandle, attempt, node, context.isSpeculative());
-                remoteTask.ifPresent(task -> {
-                    task.addStateChangeListener(createExchangeSinkInstanceHandleUpdateRequiredListener());
-                    task.addStateChangeListener(taskStatus -> {
-                        if (taskStatus.getState().isDone()) {
-                            nodeLease.release();
-                        }
-                    });
-                    task.addFinalTaskInfoListener(taskExecutionStats::update);
-                    task.addFinalTaskInfoListener(taskInfo -> eventQueue.add(new RemoteTaskCompletedEvent(taskInfo.getTaskStatus())));
-                    nodeLease.attachTaskId(task.getTaskId());
-                    task.start();
-                    if (queryStateMachine.getQueryState() == QueryState.STARTING) {
-                        queryStateMachine.transitionToRunning();
+            Optional<RemoteTask> remoteTask = stageExecution.schedule(partitionId, sinkInstanceHandle, attempt, nodeLease, context.isSpeculative());
+            remoteTask.ifPresent(task -> {
+                task.addStateChangeListener(createExchangeSinkInstanceHandleUpdateRequiredListener());
+                task.addStateChangeListener(taskStatus -> {
+                    if (taskStatus.getState().isDone()) {
+                        nodeLease.release();
                     }
                 });
-                if (remoteTask.isEmpty()) {
-                    nodeLease.release();
+                task.addFinalTaskInfoListener(taskExecutionStats::update);
+                task.addFinalTaskInfoListener(taskInfo -> eventQueue.add(new RemoteTaskCompletedEvent(taskInfo.getTaskStatus())));
+                nodeLease.attachTaskId(task.getTaskId());
+                task.start();
+                if (queryStateMachine.getQueryState() == QueryState.STARTING) {
+                    queryStateMachine.transitionToRunning();
                 }
-            }
-            catch (ExecutionException e) {
-                throw new UncheckedExecutionException(e);
+            });
+            if (remoteTask.isEmpty()) {
+                nodeLease.release();
             }
         }
 
@@ -1798,8 +1791,17 @@ public class EventDrivenFaultTolerantQueryScheduler
                     attempt));
         }
 
-        public Optional<RemoteTask> schedule(int partitionId, ExchangeSinkInstanceHandle exchangeSinkInstanceHandle, int attempt, InternalNode node, boolean speculative)
+        public Optional<RemoteTask> schedule(int partitionId, ExchangeSinkInstanceHandle exchangeSinkInstanceHandle, int attempt, NodeLease nodeLease, boolean speculative)
         {
+            InternalNode node;
+            try {
+                // "schedule" should be called when we have node assigned already
+                node = Futures.getDone(nodeLease.getNode());
+            }
+            catch (ExecutionException e) {
+                throw new UncheckedExecutionException(e);
+            }
+
             if (getState().isDone()) {
                 return Optional.empty();
             }
@@ -1842,7 +1844,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                     Optional.of(partition.getMemoryRequirements().getRequiredMemory()),
                     speculative);
             task.ifPresent(remoteTask -> {
-                partition.addTask(remoteTask, outputBuffers);
+                // record nodeLease so we can change execution class later
+                partition.addTask(remoteTask, outputBuffers, nodeLease);
                 runningPartitions.add(partitionId);
             });
             return task;
@@ -2291,6 +2294,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final Map<TaskId, RemoteTask> tasks = new HashMap<>();
         private final Map<TaskId, SpoolingOutputBuffers> taskOutputBuffers = new HashMap<>();
         private final Set<TaskId> runningTasks = new HashSet<>();
+        private final Map<TaskId, NodeLease> taskNodeLeases = new HashMap<>();
         private final Set<PlanNodeId> finalSelectors = new HashSet<>();
         private final Set<PlanNodeId> noMoreSplits = new HashSet<>();
         private boolean taskScheduled;
@@ -2362,10 +2366,13 @@ public class EventDrivenFaultTolerantQueryScheduler
             if (!finished) {
                 taskDescriptorStorage.put(stageId, taskDescriptor);
 
-                // update speculative flag for running tasks
+                // update speculative flag for running tasks.
+                // Remote task is updated so we no longer prioritize non-longer speculative task if worker runs out of memory.
+                // Lease is updated as execution class plays a role in how NodeAllocator works.
                 for (TaskId runningTaskId : runningTasks) {
                     RemoteTask runningTask = tasks.get(runningTaskId);
                     runningTask.setSpeculative(false);
+                    taskNodeLeases.get(runningTaskId).setSpeculative(false);
                 }
             }
         }
@@ -2429,11 +2436,12 @@ public class EventDrivenFaultTolerantQueryScheduler
             return remainingAttempts;
         }
 
-        public void addTask(RemoteTask remoteTask, SpoolingOutputBuffers outputBuffers)
+        public void addTask(RemoteTask remoteTask, SpoolingOutputBuffers outputBuffers, NodeLease nodeLease)
         {
             TaskId taskId = remoteTask.getTaskId();
             tasks.put(taskId, remoteTask);
             taskOutputBuffers.put(taskId, outputBuffers);
+            taskNodeLeases.put(taskId, nodeLease);
             runningTasks.add(taskId);
         }
 
