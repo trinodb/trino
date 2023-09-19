@@ -201,6 +201,13 @@ public class TestDeltaLakeGcsConnectorSmokeTest
                 .collect(toImmutableList());
     }
 
+    @Override
+    protected List<String> listFiles(String directory)
+    {
+        return listAllFilesRecursive(directory).stream()
+                .collect(toImmutableList());
+    }
+
     private List<String> listAllFilesRecursive(String directory)
     {
         ImmutableList.Builder<String> locations = ImmutableList.builder();
