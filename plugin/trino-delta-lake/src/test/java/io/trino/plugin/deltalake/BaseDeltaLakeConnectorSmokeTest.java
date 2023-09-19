@@ -38,7 +38,6 @@ import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.minio.MinioClient;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
@@ -143,6 +142,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     protected abstract List<String> getTableFiles(String tableName);
 
     protected abstract List<String> listCheckpointFiles(String transactionLogDirectory);
+
+    protected abstract List<String> listFiles(String directory);
 
     protected abstract void deleteFile(String filePath);
 
@@ -2122,12 +2123,10 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String tableLocation = getTableLocation(tableName);
 
         // Break the table by deleting files from the storage
-        String key = tableLocation.substring(bucketUrl().length());
-        MinioClient minio = hiveMinioDataLake.getMinioClient();
-        for (String file : minio.listObjects(bucketName, key)) {
-            minio.removeObject(bucketName, file);
+        String directory = tableLocation.substring(bucketUrl().length());
+        for (String file : listFiles(directory)) {
+            deleteFile(file);
         }
-        assertThat(minio.listObjects(bucketName, key)).isEmpty();
 
         // Verify unregister_table successfully deletes the table from metastore
         assertUpdate("CALL system.unregister_table(CURRENT_SCHEMA, '" + tableName + "')");
