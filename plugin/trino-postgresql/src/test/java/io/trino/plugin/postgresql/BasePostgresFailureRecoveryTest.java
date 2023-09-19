@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BasePostgresFailureRecoveryTest
         extends BaseJdbcFailureRecoveryTest
