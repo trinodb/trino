@@ -301,9 +301,11 @@
                     <rules combine.children="append">
                         <RestrictImports>
                             <reason>Use AssertJ assertions instead of TestNG</reason>
-                            <bannedImport>org.testng.Assert.*</bannedImport>
-                            <bannedImport>org.testng.AssertJUnit.*</bannedImport>
-                            <bannedImport>org.testng.asserts.**</bannedImport>
+                            <bannedImports>
+                                <bannedImport>org.testng.Assert.*</bannedImport>
+                                <bannedImport>org.testng.AssertJUnit.*</bannedImport>
+                                <bannedImport>org.testng.asserts.**</bannedImport>
+                            </bannedImports>
                         </RestrictImports>
                     </rules>
                 </configuration>
