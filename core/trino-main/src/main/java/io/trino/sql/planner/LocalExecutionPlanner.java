@@ -335,6 +335,7 @@ import static io.trino.operator.join.NestedLoopBuildOperator.NestedLoopBuildOper
 import static io.trino.operator.join.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
 import static io.trino.operator.output.SkewedPartitionRebalancer.checkCanScalePartitionsRemotely;
 import static io.trino.operator.output.SkewedPartitionRebalancer.createPartitionFunction;
+import static io.trino.operator.output.SkewedPartitionRebalancer.getScaleWritersMaxSkewedPartitions;
 import static io.trino.operator.output.SkewedPartitionRebalancer.getTaskCount;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.CLASSIFIER;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.MATCH_NUMBER;
@@ -382,6 +383,7 @@ import static io.trino.util.SpatialJoinUtils.ST_WITHIN;
 import static io.trino.util.SpatialJoinUtils.extractSupportedSpatialComparisons;
 import static io.trino.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
 import static java.lang.Math.ceil;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -588,7 +590,10 @@ public class LocalExecutionPlanner
                     taskCount,
                     taskBucketCount,
                     getWriterScalingMinDataProcessed(taskContext.getSession()).toBytes(),
-                    getSkewedPartitionMinDataProcessedRebalanceThreshold(taskContext.getSession()).toBytes()));
+                    getSkewedPartitionMinDataProcessedRebalanceThreshold(taskContext.getSession()).toBytes(),
+                    // Keep the maxPartitionsToRebalance to atleast task count such that single partition writes do
+                    // not suffer from skewness and can scale uniformly across all tasks.
+                    max(getScaleWritersMaxSkewedPartitions(taskContext.getSession()), taskCount)));
         }
         else {
             partitionFunction = nodePartitioningManager.getPartitionFunction(taskContext.getSession(), partitioningScheme, partitionChannelTypes);

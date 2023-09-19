@@ -56,6 +56,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
 import static io.trino.SystemSessionProperties.SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD;
 import static io.trino.operator.InterpretedHashGenerator.createChannelsHashGenerator;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
@@ -584,6 +585,114 @@ public class TestLocalExchange
             assertSource(sourceA, 2);
             assertSource(sourceB, 0);
             assertSource(sourceC, 0);
+            assertSource(sourceD, 6);
+        });
+    }
+
+    @Test(dataProvider = "scalingPartitionHandles")
+    public void testNoScalingWhenMaxScaledPartitionsPerTaskIsSmall(PartitioningHandle partitioningHandle)
+    {
+        LocalExchange localExchange = new LocalExchange(
+                nodePartitioningManager,
+                testSessionBuilder()
+                        .setSystemProperty(SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD, "20kB")
+                        .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "256MB")
+                        .build(),
+                4,
+                partitioningHandle,
+                ImmutableList.of(0),
+                TYPES,
+                Optional.empty(),
+                DataSize.ofBytes(retainedSizeOfPages(2)),
+                TYPE_OPERATORS,
+                DataSize.of(10, KILOBYTE));
+
+        run(localExchange, exchange -> {
+            assertEquals(exchange.getBufferCount(), 4);
+            assertExchangeTotalBufferedBytes(exchange, 0);
+
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
+            LocalExchangeSink sink = sinkFactory.createSink();
+            assertSinkCanWrite(sink);
+            sinkFactory.close();
+
+            LocalExchangeSource sourceA = exchange.getNextSource();
+            assertSource(sourceA, 0);
+
+            LocalExchangeSource sourceB = exchange.getNextSource();
+            assertSource(sourceB, 0);
+
+            LocalExchangeSource sourceC = exchange.getNextSource();
+            assertSource(sourceC, 0);
+
+            LocalExchangeSource sourceD = exchange.getNextSource();
+            assertSource(sourceD, 0);
+
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(1, 2));
+            sink.addPage(createSingleValuePage(1, 2));
+
+            // Two partitions are assigned to two different writers
+            assertSource(sourceA, 2);
+            assertSource(sourceB, 0);
+            assertSource(sourceC, 0);
+            assertSource(sourceD, 2);
+
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+
+            // partition 0 is assigned to writer B after scaling.
+            assertSource(sourceA, 2);
+            assertSource(sourceB, 2);
+            assertSource(sourceC, 0);
+            assertSource(sourceD, 4);
+
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+
+            // partition 0 is assigned to writer A after scaling.
+            assertSource(sourceA, 3);
+            assertSource(sourceB, 4);
+            assertSource(sourceC, 0);
+            assertSource(sourceD, 5);
+
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+
+            // partition 0 is assigned to writer C after scaling.
+            assertSource(sourceA, 4);
+            assertSource(sourceB, 5);
+            assertSource(sourceC, 1);
+            assertSource(sourceD, 6);
+
+            sink.addPage(createSingleValuePage(1, 10000));
+            sink.addPage(createSingleValuePage(1, 10000));
+            sink.addPage(createSingleValuePage(1, 10000));
+            sink.addPage(createSingleValuePage(1, 10000));
+
+            // partition 1 is assigned to writer B after scaling.
+            assertSource(sourceA, 6);
+            assertSource(sourceB, 7);
+            assertSource(sourceC, 1);
+            assertSource(sourceD, 6);
+
+            sink.addPage(createSingleValuePage(1, 10000));
+            sink.addPage(createSingleValuePage(1, 10000));
+            sink.addPage(createSingleValuePage(1, 10000));
+            sink.addPage(createSingleValuePage(1, 10000));
+
+            // no scaling will happen since we have scaled to maximum limit which is the number of writer count.
+            assertSource(sourceA, 8);
+            assertSource(sourceB, 9);
+            assertSource(sourceC, 1);
             assertSource(sourceD, 6);
         });
     }
