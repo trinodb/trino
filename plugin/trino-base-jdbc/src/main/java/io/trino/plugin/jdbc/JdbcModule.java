@@ -17,9 +17,13 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Provider;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
+import com.google.inject.name.Named;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.units.Duration;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.mapping.IdentifierMappingModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
@@ -33,12 +37,14 @@ import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
 import jakarta.annotation.PreDestroy;
 
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class JdbcModule
@@ -107,6 +113,19 @@ public class JdbcModule
                 .in(Scopes.SINGLETON);
 
         newSetBinder(binder, JdbcQueryEventListener.class);
+    }
+
+    @Provides
+    @Named("cachedJdbcClient")
+    public JdbcClient getCaching(JdbcClient jdbcClient)
+    {
+        return new CachingJdbcClient(
+                jdbcClient,
+                Set.of(),
+                new SingletonIdentityCacheMapping(),
+                new Duration(1, DAYS),
+                true,
+                Integer.MAX_VALUE);
     }
 
     public static Multibinder<SessionPropertiesProvider> sessionPropertiesProviderBinder(Binder binder)
