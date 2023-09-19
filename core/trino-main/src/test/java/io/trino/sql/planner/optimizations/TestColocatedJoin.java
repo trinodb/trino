@@ -52,7 +52,6 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAS
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
@@ -132,16 +131,13 @@ public class TestColocatedJoin
                 """,
                 prepareSession(20, colocatedJoinEnabled),
                 anyTree(
-                        project(
-                                anyTree(
-                                        tableScan("orders"))),
+                        anyTree(
+                                tableScan("orders")),
                         exchange(
                                 LOCAL,
-                                project(
-                                        exchange(
-                                                REMOTE,
-                                                anyTree(
-                                                        tableScan("orders")))))));
+                                exchange(
+                                        REMOTE,
+                                        tableScan("orders")))));
     }
 
     @Test
@@ -168,13 +164,11 @@ public class TestColocatedJoin
                 """,
                 prepareSession(0.01, true),
                 anyTree(
-                        project(
-                                anyTree(
-                                        tableScan("orders"))),
+                        anyTree(
+                                tableScan("orders")),
                         exchange(
                                 LOCAL,
-                                project(
-                                        tableScan("orders")))));
+                                tableScan("orders"))));
     }
 
     private Session prepareSession(double tableScanNodePartitioningMinBucketToTaskRatio, boolean colocatedJoinEnabled)
