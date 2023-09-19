@@ -706,6 +706,31 @@ public class TestBinPackingNodeAllocator
         }
     }
 
+    @Test(timeOut = TEST_TIMEOUT)
+    public void testSwitchAcquiredSpeculativeToStandard()
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1);
+        setupNodeAllocatorService(nodeManager);
+
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
+            // allocate speculative task
+            NodeAllocator.NodeLease acquireSpeculative = nodeAllocator.acquire(REQ_NONE, DataSize.of(64, GIGABYTE), true);
+            assertAcquired(acquireSpeculative, NODE_1);
+
+            // check if standard task can fit and release - it should fit
+            NodeAllocator.NodeLease acquireStandard1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), false);
+            assertAcquired(acquireStandard1, NODE_1);
+            acquireStandard1.release();
+
+            // switch acquireSpeculative to standard
+            acquireSpeculative.setSpeculative(false);
+
+            // extra standard task should no longer fit
+            NodeAllocator.NodeLease acquireStandard2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), false);
+            assertNotAcquired(acquireStandard2);
+        }
+    }
+
     private TaskId taskId(int partition)
     {
         return new TaskId(new StageId("test_query", 0), partition, 0);
