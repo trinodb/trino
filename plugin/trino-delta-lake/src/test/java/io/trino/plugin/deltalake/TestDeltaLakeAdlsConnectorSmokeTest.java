@@ -187,7 +187,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
     {
         String blobName = bucketName + "/" + filePath.substring(bucketUrl().length());
         azureContainerClient.getBlobClient(blobName)
-                .deleteIfExists();
+                .delete();
     }
 
     @Override
