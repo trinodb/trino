@@ -449,12 +449,12 @@ public abstract class BaseDynamicPartitionPruningTest
         assertUpdate("DROP TABLE IF EXISTS t0_bucketed");
         assertUpdate("DROP TABLE IF EXISTS t1_bucketed");
         assertUpdate("DROP TABLE IF EXISTS t2_bucketed");
-        createPartitionedAndBucketedTable("t0_bucketed", ImmutableList.of("v0 real", "k0 integer"), ImmutableList.of("k0"), ImmutableList.of("v0"));
-        createPartitionedAndBucketedTable("t1_bucketed", ImmutableList.of("v1 real", "i1 integer"), ImmutableList.of(), ImmutableList.of("v1"));
-        createPartitionedAndBucketedTable("t2_bucketed", ImmutableList.of("v2 real", "i2 integer", "k2 integer"), ImmutableList.of("k2"), ImmutableList.of("v2"));
-        assertUpdate("INSERT INTO t0_bucketed VALUES (1.0, 1), (1.0, 2)", 2);
-        assertUpdate("INSERT INTO t1_bucketed VALUES (2.0, 10), (2.0, 20)", 2);
-        assertUpdate("INSERT INTO t2_bucketed VALUES (3.0, 1, 1), (3.0, 2, 2)", 2);
+        createPartitionedAndBucketedTable("t0_bucketed", ImmutableList.of("v0 bigint", "k0 integer"), ImmutableList.of("k0"), ImmutableList.of("v0"));
+        createPartitionedAndBucketedTable("t1_bucketed", ImmutableList.of("v1 bigint", "i1 integer"), ImmutableList.of(), ImmutableList.of("v1"));
+        createPartitionedAndBucketedTable("t2_bucketed", ImmutableList.of("v2 bigint", "i2 integer", "k2 integer"), ImmutableList.of("k2"), ImmutableList.of("v2"));
+        assertUpdate("INSERT INTO t0_bucketed VALUES (1, 1), (1, 2)", 2);
+        assertUpdate("INSERT INTO t1_bucketed VALUES (2, 10), (2, 20)", 2);
+        assertUpdate("INSERT INTO t2_bucketed VALUES (3, 1, 1), (3, 2, 2)", 2);
         testJoinDynamicFilteringMultiJoin(PARTITIONED, "t0_bucketed", "t1_bucketed", "t2_bucketed");
     }
 
