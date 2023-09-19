@@ -14,7 +14,6 @@ import io.trino.plugin.sqlserver.TestingSqlServer;
 import io.trino.spi.security.Identity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.ALICE_USER;
@@ -33,22 +32,14 @@ public class TestSqlServerCatalogOverrideDisabled
             .setCatalogSessionProperty(CATALOG, OVERRIDE_CATALOG, "master")
             .build();
 
-    private TestingSqlServer sqlServer;
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        sqlServer = closeAfterClass(new TestingSqlServer());
+        TestingSqlServer sqlServer = closeAfterClass(new TestingSqlServer());
         return StarburstSqlServerQueryRunner.builder(sqlServer)
                 .withEnterpriseFeatures()
                 .build();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void destroy()
-    {
-        sqlServer.close();
     }
 
     @Test

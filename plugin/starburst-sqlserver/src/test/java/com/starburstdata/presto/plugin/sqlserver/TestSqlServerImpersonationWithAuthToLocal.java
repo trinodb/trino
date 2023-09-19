@@ -12,7 +12,6 @@ package com.starburstdata.presto.plugin.sqlserver;
 import io.trino.plugin.sqlserver.TestingSqlServer;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.ALICE_USER;
@@ -24,25 +23,17 @@ import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryR
 public class TestSqlServerImpersonationWithAuthToLocal
         extends AbstractTestQueryFramework
 {
-    private TestingSqlServer sqlServer;
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        sqlServer = closeAfterClass(new TestingSqlServer());
+        TestingSqlServer sqlServer = closeAfterClass(new TestingSqlServer());
 
         return StarburstSqlServerQueryRunner.builder(sqlServer)
                 .withEnterpriseFeatures()
                 .withSessionModifier(session -> createSession(ALICE_USER + "/admin@company.com"))
                 .withImpersonation("auth-to-local.json")
                 .build();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void destroy()
-    {
-        sqlServer.close();
     }
 
     @Test
