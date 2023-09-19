@@ -18,6 +18,7 @@ import io.trino.filesystem.TrinoOutputFile;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
+import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
@@ -34,12 +35,12 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.parquet.ParquetUtil.fileMetrics;
 
-public class IcebergParquetFileWriter
-        extends ParquetFileWriter
+public final class IcebergParquetFileWriter
         implements IcebergFileWriter
 {
     private final MetricsConfig metricsConfig;
     private final InputFile inputFile;
+    private final ParquetFileWriter parquetFileWriter;
 
     public IcebergParquetFileWriter(
             MetricsConfig metricsConfig,
@@ -56,7 +57,8 @@ public class IcebergParquetFileWriter
             TrinoFileSystem fileSystem)
             throws IOException
     {
-        super(outputFile,
+        this.parquetFileWriter = new ParquetFileWriter(
+                outputFile,
                 rollbackAction,
                 fileColumnTypes,
                 fileColumnNames,
@@ -76,5 +78,41 @@ public class IcebergParquetFileWriter
     public Metrics getMetrics()
     {
         return fileMetrics(inputFile, metricsConfig);
+    }
+
+    @Override
+    public long getWrittenBytes()
+    {
+        return parquetFileWriter.getWrittenBytes();
+    }
+
+    @Override
+    public long getMemoryUsage()
+    {
+        return parquetFileWriter.getMemoryUsage();
+    }
+
+    @Override
+    public void appendRows(Page dataPage)
+    {
+        parquetFileWriter.appendRows(dataPage);
+    }
+
+    @Override
+    public Closeable commit()
+    {
+        return parquetFileWriter.commit();
+    }
+
+    @Override
+    public void rollback()
+    {
+        parquetFileWriter.rollback();
+    }
+
+    @Override
+    public long getValidationCpuNanos()
+    {
+        return parquetFileWriter.getValidationCpuNanos();
     }
 }
