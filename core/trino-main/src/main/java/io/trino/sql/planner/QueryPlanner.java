@@ -1156,7 +1156,7 @@ class QueryPlanner
             groupingSetMappings.put(output, input);
         }
 
-        Map<ScopeAware<Expression>, Symbol> complexExpressions = new HashMap<>();
+        Map<ScopeAware<Expression>, Symbol> complexExpressions = new LinkedHashMap<>();
         for (Expression expression : groupingSetAnalysis.getComplexExpressions()) {
             if (!complexExpressions.containsKey(scopeAwareKey(expression, analysis, subPlan.getScope()))) {
                 Symbol input = subPlan.translate(expression);
