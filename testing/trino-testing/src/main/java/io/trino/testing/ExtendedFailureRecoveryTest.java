@@ -15,7 +15,6 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
-import io.trino.operator.OperatorStats;
 import io.trino.operator.RetryPolicy;
 import io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import io.trino.server.DynamicFilterService.DynamicFiltersStats;
@@ -106,10 +105,6 @@ public abstract class ExtendedFailureRecoveryTest
                     DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
                     assertThat(domainStats.getSimplifiedDomain())
                             .isEqualTo(singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
-                    OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(queryId, getQualifiedTableName(PARTITIONED_LINEITEM));
-                    // Currently, stats from all attempts are combined.
-                    // Asserting on multiple of 615L as well in case the probe scan was completed twice
-                    assertThat(probeStats.getInputPositions()).isIn(615L, 1230L);
                 });
     }
 

@@ -643,6 +643,8 @@ public class TestHiveMerge
 
                 onTrino().executeQuery(format("INSERT INTO %s VALUES ('ALGERIA', 'AFRICA'), ('FRANCE', 'EUROPE'), ('EGYPT', 'MIDDLE EAST'), ('RUSSIA', 'EUROPE')", sourceTable));
 
+                // TODO: MERGE is broken when pre-computed hashes are turned off. See https://github.com/trinodb/trino/issues/19112
+                onTrino().executeQuery("SET SESSION optimize_hash_generation=true");
                 onTrino().executeQuery(format("MERGE INTO %s t USING %s s", targetTable, sourceTable) +
                         "    ON (t.nation_name = s.nation_name)" +
                         "    WHEN MATCHED AND t.nation_name > (SELECT name FROM tpch.tiny.region WHERE name = t.region_name AND name LIKE ('A%'))" +

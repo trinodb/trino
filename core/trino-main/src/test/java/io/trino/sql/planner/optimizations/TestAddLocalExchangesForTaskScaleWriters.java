@@ -57,7 +57,6 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableWriter;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
@@ -293,11 +292,9 @@ public class TestAddLocalExchangesForTaskScaleWriters
                         tableWriter(
                                 ImmutableList.of("customer", "year"),
                                 ImmutableList.of("customer", "year"),
-                                project(
-                                        exchange(LOCAL, REPARTITION, SCALED_WRITER_HASH_DISTRIBUTION,
-                                                exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                        project(
-                                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))))));
+                                exchange(LOCAL, REPARTITION, SCALED_WRITER_HASH_DISTRIBUTION,
+                                        exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
 
         assertDistributedPlan(
                 "INSERT INTO system_partitioned_table SELECT * FROM source_table",
@@ -313,11 +310,9 @@ public class TestAddLocalExchangesForTaskScaleWriters
                         tableWriter(
                                 ImmutableList.of("customer", "year"),
                                 ImmutableList.of("customer", "year"),
-                                project(
-                                        exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                        project(
-                                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))))));
+                                exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                        exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
     }
 
     @Test
@@ -382,11 +377,9 @@ public class TestAddLocalExchangesForTaskScaleWriters
                         tableWriter(
                                 ImmutableList.of("customer", "year"),
                                 ImmutableList.of("customer", "year"),
-                                project(
-                                        exchange(LOCAL, REPARTITION, SCALED_WRITER_HASH_DISTRIBUTION,
-                                                exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                        project(
-                                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))))));
+                                exchange(LOCAL, REPARTITION, SCALED_WRITER_HASH_DISTRIBUTION,
+                                        exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
 
         assertDistributedPlan(
                 "INSERT INTO system_partitioned_table SELECT * FROM source_table",
@@ -400,11 +393,9 @@ public class TestAddLocalExchangesForTaskScaleWriters
                         tableWriter(
                                 ImmutableList.of("customer", "year"),
                                 ImmutableList.of("customer", "year"),
-                                project(
-                                        exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                        project(
-                                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))))));
+                                exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                        exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
     }
 
     @Test
@@ -423,11 +414,9 @@ public class TestAddLocalExchangesForTaskScaleWriters
                 session,
                 anyTree(
                         node(TableExecuteNode.class,
-                                project(
-                                        exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                exchange(REMOTE, REPARTITION, SCALED_WRITER_HASH_DISTRIBUTION,
-                                                        project(
-                                                                node(TableScanNode.class))))))));
+                                exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                        exchange(REMOTE, REPARTITION, SCALED_WRITER_HASH_DISTRIBUTION,
+                                                node(TableScanNode.class))))));
     }
 
     @Test
