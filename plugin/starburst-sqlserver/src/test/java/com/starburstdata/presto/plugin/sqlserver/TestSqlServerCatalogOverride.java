@@ -15,7 +15,6 @@ import io.trino.plugin.sqlserver.TestingSqlServer;
 import io.trino.spi.security.Identity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.ALICE_USER;
@@ -50,12 +49,6 @@ public class TestSqlServerCatalogOverride
                 .withEnterpriseFeatures()
                 .withConnectorProperties(ImmutableMap.of("sqlserver.override-catalog.enabled", "true"))
                 .build();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void destroy()
-    {
-        sqlServer.close();
     }
 
     @Test
