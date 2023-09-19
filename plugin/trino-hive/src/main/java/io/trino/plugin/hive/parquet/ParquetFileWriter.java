@@ -50,7 +50,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static java.util.Objects.requireNonNull;
 
-public class ParquetFileWriter
+public final class ParquetFileWriter
         implements FileWriter
 {
     private static final int INSTANCE_SIZE = instanceSize(ParquetFileWriter.class);
