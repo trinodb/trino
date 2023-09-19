@@ -164,6 +164,13 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
                 .collect(toImmutableList());
     }
 
+    @Override
+    protected List<String> listFiles(String directory)
+    {
+        return listAllFilesRecursive(directory).stream()
+                .collect(toImmutableList());
+    }
+
     private List<String> listAllFilesRecursive(String directory)
     {
         String azurePath = bucketName + "/" + directory;
