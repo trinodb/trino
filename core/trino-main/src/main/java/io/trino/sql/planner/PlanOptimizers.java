@@ -456,7 +456,6 @@ public class PlanOptimizers
                                         new RemoveRedundantExists(),
                                         new RemoveRedundantWindow(),
                                         new ImplementFilteredAggregations(metadata),
-                                        new MultipleDistinctAggregationsToSubqueries(metadata, distinctAggregationController),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MergeLimitWithDistinct(),
                                         new PruneCountAggregationOverScalar(metadata),
@@ -660,6 +659,11 @@ public class PlanOptimizers
                                 new RemoveRedundantIdentityProjections(),
                                 new PushAggregationThroughOuterJoin(),
                                 new ReplaceRedundantJoinWithSource(), // Run this after PredicatePushDown optimizer as it inlines filter constants
+                                // Run this after PredicatePushDown and PushProjectionIntoTableScan as it uses stats, and those two rules may reduce the number of partitions
+                                // and columns we need stats for thus reducing the overhead of reading statistics from the metastore.
+                                new MultipleDistinctAggregationsToSubqueries(metadata, distinctAggregationController),
+                                // Run SingleDistinctAggregationToGroupBy after MultipleDistinctAggregationsToSubqueries to ensure the single column distinct is optimized
+                                new SingleDistinctAggregationToGroupBy(),
                                 new DistinctAggregationToGroupBy(plannerContext, distinctAggregationController), // Run this after aggregation pushdown so that multiple distinct aggregations can be pushed into a connector
                                                                             // It also is run before MultipleDistinctAggregationToMarkDistinct to take precedence f enabled
                                 new ImplementFilteredAggregations(metadata), // DistinctAggregationToGroupBy will add filters if fired
