@@ -191,6 +191,18 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <!--Run this after uncommenting properties below-->
+                        <exclude>**/TestMinimalFunctionality.java</exclude>
+                        <exclude>**/TestS3TableConfigClient.java</exclude>
+                    </excludes>
+                    <systemPropertyVariables>
+                        <kinesis.awsAccessKey>ACCESS-KEY</kinesis.awsAccessKey>
+                        <kinesis.awsSecretKey>SECRET-KEY</kinesis.awsSecretKey>
+                        <kinesis.test-table-description-location>s3://S3-LOC</kinesis.test-table-description-location>
+                    </systemPropertyVariables>
+                </configuration>
                 <dependencies>
                     <!-- allow both JUnit and TestNG -->
                     <dependency>
@@ -209,22 +221,6 @@
                         <version>${dep.junit.version}</version>
                     </dependency>
                 </dependencies>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <!--Run this after uncommenting properties below-->
-                        <exclude>**/TestMinimalFunctionality.java</exclude>
-                        <exclude>**/TestS3TableConfigClient.java</exclude>
-                    </excludes>
-                    <systemPropertyVariables>
-                        <kinesis.awsAccessKey>ACCESS-KEY</kinesis.awsAccessKey>
-                        <kinesis.awsSecretKey>SECRET-KEY</kinesis.awsSecretKey>
-                        <kinesis.test-table-description-location>s3://S3-LOC</kinesis.test-table-description-location>
-                    </systemPropertyVariables>
-                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.basepom.maven</groupId>
