@@ -1080,7 +1080,11 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             for (SubPlan source : subPlan.getChildren()) {
                 StageExecution sourceStageExecution = stageExecutions.get(getStageId(source.getFragment().getId()));
-                if (sourceStageExecution != null) {
+                if (sourceStageExecution != null && sourceStageExecution.getState().isDone()) {
+                    // Only close source exchange if source stage writing to it is already done.
+                    // It could be that closeSourceExchanges was called because downstream stage already
+                    // finished while some upstream stages are still running.
+                    // E.g this may happen in case of early limit termination.
                     sourceStageExecution.closeExchange();
                 }
             }
