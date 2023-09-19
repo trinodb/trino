@@ -27,7 +27,7 @@ import io.trino.filesystem.TrinoOutputFile;
 import io.trino.hadoop.ConfigurationInstantiator;
 import io.trino.hdfs.gcs.GoogleGcsConfigurationInitializer;
 import io.trino.hdfs.gcs.HiveGcsConfig;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.testing.QueryRunner;
 import org.apache.hadoop.conf.Configuration;
 import org.testng.annotations.AfterClass;
@@ -53,6 +53,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.regex.Matcher.quoteReplacement;
+import static org.testcontainers.containers.Network.newNetwork;
 
 /**
  * This test requires these variables to connect to GCS:
@@ -114,7 +115,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     }
 
     @Override
-    protected HiveMinioDataLake createHiveMinioDataLake()
+    protected HiveHadoop createHiveHadoop()
             throws Exception
     {
         String gcpSpecificCoreSiteXmlContent = Resources.toString(Resources.getResource("io/trino/plugin/deltalake/hdp3.1-core-site.xml.gcs-template"), UTF_8)
@@ -124,14 +125,15 @@ public class TestDeltaLakeGcsConnectorSmokeTest
         hadoopCoreSiteXmlTempFile.toFile().deleteOnExit();
         Files.writeString(hadoopCoreSiteXmlTempFile, gcpSpecificCoreSiteXmlContent);
 
-        HiveMinioDataLake dataLake = new HiveMinioDataLake(
-                bucketName,
-                ImmutableMap.of(
+        HiveHadoop hiveHadoop = HiveHadoop.builder()
+                .withImage(HIVE3_IMAGE)
+                .withNetwork(closeAfterClass(newNetwork()))
+                .withFilesToMount(ImmutableMap.of(
                         "/etc/hadoop/conf/core-site.xml", hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString(),
-                        "/etc/hadoop/conf/gcp-credentials.json", gcpCredentialsFile.toAbsolutePath().toString()),
-                HIVE3_IMAGE);
-        dataLake.start();
-        return dataLake; // closed by superclass
+                        "/etc/hadoop/conf/gcp-credentials.json", gcpCredentialsFile.toAbsolutePath().toString()))
+                .build();
+        hiveHadoop.start();
+        return hiveHadoop; // closed by superclass
     }
 
     @Override
