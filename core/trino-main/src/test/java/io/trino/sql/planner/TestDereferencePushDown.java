@@ -132,9 +132,9 @@ public class TestDereferencePushDown
                         "SELECT msg.x AS x, ROW_NUMBER() OVER (PARTITION BY msg.y) AS rn " +
                         "FROM t ",
                 anyTree(
-                        project(values(
+                        values(
                                 ImmutableList.of("x", "y"),
-                                ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral("2e0")))))));
+                                ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral("2e0"))))));
 
         assertPlanWithSession(
                 "WITH t(msg1, msg2, msg3, msg4, msg5) AS (VALUES " +
@@ -191,7 +191,7 @@ public class TestDereferencePushDown
                                 project(
                                         ImmutableMap.of("a_y", expression("msg[2]")),
                                         values(ImmutableList.of("msg", "a_x"), ImmutableList.of())),
-                                project(values(ImmutableList.of("b_z"), ImmutableList.of())))));
+                                values(ImmutableList.of("b_z"), ImmutableList.of()))));
     }
 
     @Test

@@ -147,7 +147,7 @@ public class TestKuduIntegrationDynamicFilter
                 "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.comment = 'nstructions sleep furiously among '",
                 withBroadcastJoin(),
                 6,
-                6, 1);
+                1);
     }
 
     @Test
@@ -161,7 +161,7 @@ public class TestKuduIntegrationDynamicFilter
                         " AND p.partkey = l.partkey AND p.comment = 'onic deposits'",
                 withBroadcastJoinNonReordering(),
                 1,
-                1, 1, 1);
+                1, 1);
     }
 
     private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedOperatorRowsRead)

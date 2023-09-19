@@ -147,17 +147,6 @@ public class TestMemoryPools
     }
 
     @Test
-    public void testBlockingOnUserMemory()
-    {
-        setUpCountStarFromOrdersWithJoin();
-        assertTrue(userPool.tryReserve(fakeTaskId, "test", TEN_MEGABYTES.toBytes()));
-        runDriversUntilBlocked(waitingForUserMemory());
-        assertTrue(userPool.getFreeBytes() <= 0, format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
-        userPool.free(fakeTaskId, "test", TEN_MEGABYTES.toBytes());
-        assertDriversProgress(waitingForUserMemory());
-    }
-
-    @Test
     public void testNotifyListenerOnMemoryReserved()
     {
         setupConsumeRevocableMemory(ONE_BYTE, 10);

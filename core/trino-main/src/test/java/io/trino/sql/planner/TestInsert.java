@@ -118,10 +118,9 @@ public class TestInsert
                 withForcedPreferredPartitioning(),
                 anyTree(
                         node(TableWriterNode.class,
-                                anyTree(
-                                        exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                                        anyTree(values("column1", "column2"))))))));
+                                exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                                values("column1", "column2"))))));
     }
 
     @Test
@@ -166,10 +165,9 @@ public class TestInsert
                 withForcedPreferredPartitioning(),
                 anyTree(
                         node(TableWriterNode.class,
-                                anyTree(
-                                        exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                                        anyTree(values("column1", "column2"))))))));
+                                exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                                values("column1", "column2"))))));
     }
 
     @Test
