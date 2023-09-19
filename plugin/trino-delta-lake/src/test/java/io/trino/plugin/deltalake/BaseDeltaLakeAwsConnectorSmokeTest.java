@@ -68,6 +68,14 @@ public abstract class BaseDeltaLakeAwsConnectorSmokeTest
     }
 
     @Override
+    protected List<String> listFiles(String directory)
+    {
+        return hiveMinioDataLake.listFiles(directory).stream()
+                .map(path -> format("s3://%s/%s", bucketName, path))
+                .collect(toImmutableList());
+    }
+
+    @Override
     protected void deleteFile(String filePath)
     {
         String key = filePath.substring(bucketUrl().length());
