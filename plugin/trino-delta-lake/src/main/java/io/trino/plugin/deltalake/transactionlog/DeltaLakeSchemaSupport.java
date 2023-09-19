@@ -94,18 +94,27 @@ public final class DeltaLakeSchemaSupport
     private static final String DELETION_VECTORS_CONFIGURATION_KEY = "delta.enableDeletionVectors";
 
     // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#valid-feature-names-in-table-features
+    private static final String APPEND_ONLY_FEATURE_NAME = "appendOnly";
+    private static final String CHANGE_DATA_FEED_FEATURE_NAME = "changeDataFeed";
+    private static final String CHECK_CONSTRAINTS_FEATURE_NAME = "checkConstraints";
+    private static final String COLUMN_MAPPING_FEATURE_NAME = "columnMapping";
+    private static final String DELETION_VECTORS_FEATURE_NAME = "deletionVectors";
+    private static final String IDENTITY_COLUMNS_FEATURE_NAME = "identityColumns";
+    private static final String INVARIANTS_FEATURE_NAME = "invariants";
+    public static final String TIMESTAMP_NTZ_FEATURE_NAME = "timestampNtz";
+
     private static final Set<String> SUPPORTED_READER_FEATURES = ImmutableSet.<String>builder()
-            .add("columnMapping")
-            .add("timestampNtz")
-            .add("deletionVectors")
+            .add(COLUMN_MAPPING_FEATURE_NAME)
+            .add(TIMESTAMP_NTZ_FEATURE_NAME)
+            .add(DELETION_VECTORS_FEATURE_NAME)
             .build();
     private static final Set<String> SUPPORTED_WRITER_FEATURES = ImmutableSet.<String>builder()
-            .add("appendOnly")
-            .add("invariants")
-            .add("checkConstraints")
-            .add("changeDataFeed")
-            .add("columnMapping")
-            .add("timestampNtz")
+            .add(APPEND_ONLY_FEATURE_NAME)
+            .add(INVARIANTS_FEATURE_NAME)
+            .add(CHECK_CONSTRAINTS_FEATURE_NAME)
+            .add(CHANGE_DATA_FEED_FEATURE_NAME)
+            .add(COLUMN_MAPPING_FEATURE_NAME)
+            .add(TIMESTAMP_NTZ_FEATURE_NAME)
             .build();
 
     public enum ColumnMappingMode
@@ -134,7 +143,7 @@ public final class DeltaLakeSchemaSupport
 
     public static boolean isAppendOnly(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
     {
-        if (protocolEntry.supportsWriterFeatures() && !protocolEntry.writerFeaturesContains("appendOnly")) {
+        if (protocolEntry.supportsWriterFeatures() && !protocolEntry.writerFeaturesContains(APPEND_ONLY_FEATURE_NAME)) {
             return false;
         }
         return parseBoolean(metadataEntry.getConfiguration().getOrDefault(APPEND_ONLY_CONFIGURATION_KEY, "false"));
@@ -142,7 +151,7 @@ public final class DeltaLakeSchemaSupport
 
     public static boolean isDeletionVectorEnabled(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
     {
-        if (protocolEntry.supportsWriterFeatures() && !protocolEntry.writerFeaturesContains("deletionVectors")) {
+        if (protocolEntry.supportsWriterFeatures() && !protocolEntry.writerFeaturesContains(DELETION_VECTORS_FEATURE_NAME)) {
             return false;
         }
         return parseBoolean(metadataEntry.getConfiguration().get(DELETION_VECTORS_CONFIGURATION_KEY));
@@ -151,8 +160,8 @@ public final class DeltaLakeSchemaSupport
     public static ColumnMappingMode getColumnMappingMode(MetadataEntry metadata, ProtocolEntry protocolEntry)
     {
         if (protocolEntry.supportsReaderFeatures() || protocolEntry.supportsWriterFeatures()) {
-            boolean supportsColumnMappingReader = protocolEntry.readerFeaturesContains("columnMapping");
-            boolean supportsColumnMappingWriter = protocolEntry.writerFeaturesContains("columnMapping");
+            boolean supportsColumnMappingReader = protocolEntry.readerFeaturesContains(COLUMN_MAPPING_FEATURE_NAME);
+            boolean supportsColumnMappingWriter = protocolEntry.writerFeaturesContains(COLUMN_MAPPING_FEATURE_NAME);
             int columnMappingEnabled = countTrue(supportsColumnMappingReader, supportsColumnMappingWriter);
             checkArgument(
                     columnMappingEnabled == 0 || columnMappingEnabled == 2,
@@ -487,7 +496,7 @@ public final class DeltaLakeSchemaSupport
 
     public static Map<String, Boolean> getColumnIdentities(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
     {
-        if (protocolEntry.supportsWriterFeatures() && !protocolEntry.writerFeaturesContains("identityColumns")) {
+        if (protocolEntry.supportsWriterFeatures() && !protocolEntry.writerFeaturesContains(IDENTITY_COLUMNS_FEATURE_NAME)) {
             return ImmutableMap.of();
         }
         return getColumnProperties(metadataEntry, DeltaLakeSchemaSupport::isIdentityColumn);
@@ -502,7 +511,7 @@ public final class DeltaLakeSchemaSupport
     public static Map<String, String> getColumnInvariants(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
     {
         if (protocolEntry.supportsWriterFeatures()) {
-            if (!protocolEntry.writerFeaturesContains("invariants")) {
+            if (!protocolEntry.writerFeaturesContains(INVARIANTS_FEATURE_NAME)) {
                 return ImmutableMap.of();
             }
             return getColumnProperties(metadataEntry, DeltaLakeSchemaSupport::getInvariantsWriterFeature);
@@ -548,7 +557,7 @@ public final class DeltaLakeSchemaSupport
 
     public static Map<String, String> getCheckConstraints(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
     {
-        if (protocolEntry.supportsWriterFeatures() && !protocolEntry.writerFeaturesContains("checkConstraints")) {
+        if (protocolEntry.supportsWriterFeatures() && !protocolEntry.writerFeaturesContains(CHECK_CONSTRAINTS_FEATURE_NAME)) {
             return ImmutableMap.of();
         }
         return metadataEntry.getConfiguration().entrySet().stream()
@@ -558,7 +567,7 @@ public final class DeltaLakeSchemaSupport
 
     public static Optional<Boolean> changeDataFeedEnabled(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
     {
-        if (protocolEntry.supportsWriterFeatures() && !protocolEntry.writerFeaturesContains("changeDataFeed")) {
+        if (protocolEntry.supportsWriterFeatures() && !protocolEntry.writerFeaturesContains(CHANGE_DATA_FEED_FEATURE_NAME)) {
             return Optional.empty();
         }
         String enableChangeDataFeed = metadataEntry.getConfiguration().get(DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY);
