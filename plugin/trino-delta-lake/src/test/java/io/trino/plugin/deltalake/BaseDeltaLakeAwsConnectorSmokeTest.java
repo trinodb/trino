@@ -13,8 +13,10 @@
  */
 package io.trino.plugin.deltalake;
 
+import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.testing.QueryRunner;
+import org.testng.annotations.AfterClass;
 
 import java.util.List;
 
@@ -24,12 +26,22 @@ import static java.lang.String.format;
 public abstract class BaseDeltaLakeAwsConnectorSmokeTest
         extends BaseDeltaLakeConnectorSmokeTest
 {
+    protected HiveMinioDataLake hiveMinioDataLake;
+
     @Override
-    protected HiveMinioDataLake createHiveMinioDataLake()
+    protected HiveHadoop createHiveHadoop()
     {
-        hiveMinioDataLake = new HiveMinioDataLake(bucketName); // closed by superclass
+        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         hiveMinioDataLake.start();
-        return hiveMinioDataLake;
+        return hiveMinioDataLake.getHiveHadoop();  // closed by superclass
+    }
+
+    @Override
+    @AfterClass(alwaysRun = true)
+    public void cleanUp()
+    {
+        hiveMinioDataLake = null; // closed by closeAfterClass
+        super.cleanUp();
     }
 
     @Override
