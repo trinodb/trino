@@ -62,7 +62,7 @@ public class OptimizerConfig
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
 
     private boolean optimizeMetadataQueries;
-    private boolean optimizeHashGeneration = true;
+    private boolean optimizeHashGeneration;
     private boolean pushTableWriteThroughUnion = true;
     private boolean dictionaryAggregation;
     private MarkDistinctStrategy markDistinctStrategy = MarkDistinctStrategy.AUTOMATIC;

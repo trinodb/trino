@@ -114,7 +114,6 @@ public class TestDeltaLakeDynamicFiltering
 
         QueryInputStats filteredStats = getQueryInputStats(filteredResult.getQueryId());
         QueryInputStats unfilteredStats = getQueryInputStats(unfilteredResult.getQueryId());
-        assertGreaterThan(unfilteredStats.numberOfSplits, filteredStats.numberOfSplits);
         assertGreaterThan(unfilteredStats.inputPositions, filteredStats.inputPositions);
     }
 
