@@ -145,7 +145,7 @@ public class TestUnaliasSymbolReferences
             Metadata metadata = queryRunner.getMetadata();
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
             PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-            PlanBuilder planBuilder = new PlanBuilder(idAllocator, metadata, session);
+            PlanBuilder planBuilder = new PlanBuilder(idAllocator, queryRunner.getPlannerContext(), session);
 
             SymbolAllocator symbolAllocator = new SymbolAllocator();
             PlanNode plan = planCreator.create(planBuilder, session, metadata);

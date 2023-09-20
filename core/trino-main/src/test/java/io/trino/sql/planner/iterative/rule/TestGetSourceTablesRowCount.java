@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.cost.PlanNodeStatsEstimate.unknown;
-import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -107,7 +107,7 @@ public class TestGetSourceTablesRowCount
 
     private PlanBuilder planBuilder()
     {
-        return new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata(), testSessionBuilder().build());
+        return new PlanBuilder(new PlanNodeIdAllocator(), PLANNER_CONTEXT, testSessionBuilder().build());
     }
 
     private static StatsProvider testStatsProvider()
