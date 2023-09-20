@@ -80,7 +80,7 @@ public class ConnectorAwareSplitSource
             if (noMoreSplits) {
                 finished = true;
                 tableExecuteSplitsInfo = Optional.of(source.getTableExecuteSplitsInfo());
-                source = null;
+                closeSource();
             }
             return new SplitBatch(result.build(), noMoreSplits);
         }, directExecutor());
@@ -88,6 +88,11 @@ public class ConnectorAwareSplitSource
 
     @Override
     public void close()
+    {
+        closeSource();
+    }
+
+    private void closeSource()
     {
         if (source != null) {
             try {
@@ -107,7 +112,7 @@ public class ConnectorAwareSplitSource
             if (source.isFinished()) {
                 finished = true;
                 tableExecuteSplitsInfo = Optional.of(source.getTableExecuteSplitsInfo());
-                source = null;
+                closeSource();
             }
         }
         return finished;
