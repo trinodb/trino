@@ -15,6 +15,8 @@ package io.trino.tests.product.deltalake;
 
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
+import com.amazonaws.services.glue.model.Database;
+import com.amazonaws.services.glue.model.GetDatabaseRequest;
 import com.amazonaws.services.glue.model.GetTableRequest;
 import com.amazonaws.services.glue.model.Table;
 import com.google.common.collect.ImmutableSet;
@@ -69,6 +71,12 @@ public class TestDatabricksWithGlueMetastoreCleanUp
 
     private void cleanSchema(String schema, long startTime, AWSGlueAsync glueClient)
     {
+        Database database = glueClient.getDatabase(new GetDatabaseRequest().withName(schema)).getDatabase();
+        if (database.getCreateTime().toInstant().isAfter(SCHEMA_CLEANUP_THRESHOLD)) {
+            log.info("Skip dropping recently created schema %s", schema);
+            return;
+        }
+
         Set<String> allTestTableNames = findAllTablesInSchema(schema).stream()
                 .filter(name -> name.toLowerCase(ENGLISH).startsWith("test"))
                 .collect(toImmutableSet());
