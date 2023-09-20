@@ -43,7 +43,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicLong;
@@ -200,12 +199,6 @@ public class SortingFileWriter
                 .add("tempFilePrefix", tempFilePrefix)
                 .add("outputWriter", outputWriter)
                 .toString();
-    }
-
-    @Override
-    public Optional<Runnable> getVerificationTask()
-    {
-        return outputWriter.getVerificationTask();
     }
 
     private void flushToTempFile()
