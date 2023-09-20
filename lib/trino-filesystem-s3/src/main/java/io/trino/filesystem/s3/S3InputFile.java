@@ -17,6 +17,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -35,15 +36,17 @@ final class S3InputFile
         implements TrinoInputFile
 {
     private final S3Client client;
+    private final AwsRequestOverrideConfiguration awsRequestOverrideConfiguration;
     private final S3Location location;
     private final RequestPayer requestPayer;
     private Long length;
     private Instant lastModified;
 
-    public S3InputFile(S3Client client, S3Context context, S3Location location, Long length)
+    public S3InputFile(S3Client client, S3Context context, AwsRequestOverrideConfiguration awsRequestOverrideConfiguration, S3Location location, Long length)
     {
         this.client = requireNonNull(client, "client is null");
         this.location = requireNonNull(location, "location is null");
+        this.awsRequestOverrideConfiguration = awsRequestOverrideConfiguration;
         this.requestPayer = context.requestPayer();
         this.length = length;
         location.location().verifyValidFileLocation();
@@ -100,6 +103,7 @@ final class S3InputFile
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
                 .key(location.key())
+                .overrideConfiguration(awsRequestOverrideConfiguration)
                 .build();
     }
 
@@ -110,6 +114,7 @@ final class S3InputFile
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
                 .key(location.key())
+                .overrideConfiguration(awsRequestOverrideConfiguration)
                 .build();
 
         try {

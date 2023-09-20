@@ -16,6 +16,7 @@ package io.trino.filesystem.s3;
 import io.trino.filesystem.s3.S3FileSystemConfig.S3SseType;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -54,6 +55,7 @@ final class S3OutputStream
     private final List<CompletedPart> parts = new ArrayList<>();
     private final LocalMemoryContext memoryContext;
     private final S3Client client;
+    private final AwsRequestOverrideConfiguration awsRequestOverrideConfiguration;
     private final S3Location location;
     private final int partSize;
     private final RequestPayer requestPayer;
@@ -75,11 +77,12 @@ final class S3OutputStream
     // Visibility is ensured by calling get() on inProgressUploadFuture.
     private Optional<String> uploadId = Optional.empty();
 
-    public S3OutputStream(AggregatedMemoryContext memoryContext, S3Client client, S3Context context, S3Location location)
+    public S3OutputStream(AggregatedMemoryContext memoryContext, S3Client client, S3Context context, AwsRequestOverrideConfiguration awsRequestOverrideConfiguration, S3Location location)
     {
         this.memoryContext = memoryContext.newLocalMemoryContext(S3OutputStream.class.getSimpleName());
         this.client = requireNonNull(client, "client is null");
         this.location = requireNonNull(location, "location is null");
+        this.awsRequestOverrideConfiguration = awsRequestOverrideConfiguration;
         this.partSize = context.partSize();
         this.requestPayer = context.requestPayer();
         this.sseType = context.sseType();
@@ -203,6 +206,7 @@ final class S3OutputStream
                             case KMS -> builder.serverSideEncryption(AWS_KMS).ssekmsKeyId(sseKmsKeyId);
                         }
                     })
+                    .overrideConfiguration(awsRequestOverrideConfiguration)
                     .build();
 
             ByteBuffer bytes = ByteBuffer.wrap(buffer, 0, bufferSize);
@@ -278,6 +282,7 @@ final class S3OutputStream
                             case KMS -> builder.serverSideEncryption(AWS_KMS).ssekmsKeyId(sseKmsKeyId);
                         }
                     })
+                    .overrideConfiguration(awsRequestOverrideConfiguration)
                     .build();
 
             uploadId = Optional.of(client.createMultipartUpload(request).uploadId());
@@ -291,6 +296,7 @@ final class S3OutputStream
                 .contentLength((long) length)
                 .uploadId(uploadId.get())
                 .partNumber(currentPartNumber)
+                .overrideConfiguration(awsRequestOverrideConfiguration)
                 .build();
 
         ByteBuffer bytes = ByteBuffer.wrap(data, 0, length);
@@ -314,6 +320,7 @@ final class S3OutputStream
                 .key(location.key())
                 .uploadId(uploadId)
                 .multipartUpload(x -> x.parts(parts))
+                .overrideConfiguration(awsRequestOverrideConfiguration)
                 .build();
 
         client.completeMultipartUpload(request);
@@ -326,6 +333,7 @@ final class S3OutputStream
                         .bucket(location.bucket())
                         .key(location.key())
                         .uploadId(id)
+                        .overrideConfiguration(awsRequestOverrideConfiguration)
                         .build())
                 .ifPresent(client::abortMultipartUpload);
     }

@@ -103,6 +103,6 @@ public final class S3FileSystemFactory
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        return new S3FileSystem(client, context);
+        return new S3FileSystem(client, context, null);
     }
 }

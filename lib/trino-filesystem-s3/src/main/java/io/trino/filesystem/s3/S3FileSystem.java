@@ -20,6 +20,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CommonPrefix;
@@ -53,30 +54,32 @@ final class S3FileSystem
     private final S3Client client;
     private final S3Context context;
     private final RequestPayer requestPayer;
+    private final AwsRequestOverrideConfiguration awsRequestOverrideConfiguration;
 
-    public S3FileSystem(S3Client client, S3Context context)
+    public S3FileSystem(S3Client client, S3Context context, AwsRequestOverrideConfiguration awsRequestOverrideConfiguration)
     {
         this.client = requireNonNull(client, "client is null");
         this.context = requireNonNull(context, "context is null");
         this.requestPayer = context.requestPayer();
+        this.awsRequestOverrideConfiguration = awsRequestOverrideConfiguration;
     }
 
     @Override
     public TrinoInputFile newInputFile(Location location)
     {
-        return new S3InputFile(client, context, new S3Location(location), null);
+        return new S3InputFile(client, context, awsRequestOverrideConfiguration, new S3Location(location), null);
     }
 
     @Override
     public TrinoInputFile newInputFile(Location location, long length)
     {
-        return new S3InputFile(client, context, new S3Location(location), length);
+        return new S3InputFile(client, context, awsRequestOverrideConfiguration, new S3Location(location), length);
     }
 
     @Override
     public TrinoOutputFile newOutputFile(Location location)
     {
-        return new S3OutputFile(client, context, new S3Location(location));
+        return new S3OutputFile(client, context, awsRequestOverrideConfiguration, new S3Location(location));
     }
 
     @Override
@@ -89,6 +92,7 @@ final class S3FileSystem
                 .requestPayer(requestPayer)
                 .key(s3Location.key())
                 .bucket(s3Location.bucket())
+                .overrideConfiguration(awsRequestOverrideConfiguration)
                 .build();
 
         try {
@@ -138,6 +142,7 @@ final class S3FileSystem
                         .requestPayer(requestPayer)
                         .bucket(bucket)
                         .delete(builder -> builder.objects(objects).quiet(true))
+                        .overrideConfiguration(awsRequestOverrideConfiguration)
                         .build();
 
                 try {
@@ -178,6 +183,7 @@ final class S3FileSystem
         ListObjectsV2Request request = ListObjectsV2Request.builder()
                 .bucket(s3Location.bucket())
                 .prefix(key)
+                .overrideConfiguration(awsRequestOverrideConfiguration)
                 .build();
 
         try {
@@ -230,6 +236,7 @@ final class S3FileSystem
                 .bucket(s3Location.bucket())
                 .prefix(key)
                 .delimiter("/")
+                .overrideConfiguration(awsRequestOverrideConfiguration)
                 .build();
 
         try {

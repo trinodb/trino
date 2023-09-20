@@ -16,6 +16,7 @@ package io.trino.filesystem.s3;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.services.s3.S3Client;
 
 import java.io.OutputStream;
@@ -27,13 +28,15 @@ final class S3OutputFile
 {
     private final S3Client client;
     private final S3Context context;
+    private final AwsRequestOverrideConfiguration awsRequestOverrideConfiguration;
     private final S3Location location;
 
-    public S3OutputFile(S3Client client, S3Context context, S3Location location)
+    public S3OutputFile(S3Client client, S3Context context, AwsRequestOverrideConfiguration awsRequestOverrideConfiguration, S3Location location)
     {
         this.client = requireNonNull(client, "client is null");
         this.context = requireNonNull(context, "context is null");
         this.location = requireNonNull(location, "location is null");
+        this.awsRequestOverrideConfiguration = awsRequestOverrideConfiguration;
         location.location().verifyValidFileLocation();
     }
 
@@ -47,7 +50,7 @@ final class S3OutputFile
     @Override
     public OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
     {
-        return new S3OutputStream(memoryContext, client, context, location);
+        return new S3OutputStream(memoryContext, client, context, awsRequestOverrideConfiguration, location);
     }
 
     @Override
