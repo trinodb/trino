@@ -64,6 +64,7 @@ public enum PropertyName
     DNS_RESOLVER("dnsResolver"),
     DNS_RESOLVER_CONTEXT("dnsResolverContext"),
     HOSTNAME_IN_CERTIFICATE("hostnameInCertificate"),
+    TIMEZONE("timezone"),
     // these two are not actual properties but parts of the path
     CATALOG("catalog"),
     SCHEMA("schema");

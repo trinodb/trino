@@ -248,4 +248,8 @@ may not be specified using both methods.
         treated as underscores. You can use this as a workaround for
         applications that do not escape schema or table names when passing them
         to ``DatabaseMetaData`` methods as schema or table name patterns.
+   * - ``timezone``
+     - Sets the time zone for the session using the `time zone passed
+       <https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/time/ZoneId.html#of(java.lang.String)>`_. Defaults
+       to the timezone of the JVM running the JDBC driver.
 ```
