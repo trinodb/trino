@@ -28,7 +28,6 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.Page;
@@ -435,7 +434,7 @@ public class ExtractSpatialJoins
             }
         }
 
-        ResolvedFunction resolvedFunction = new ResolvedFunctionDecoder(plannerContext.getTypeManager()::getType)
+        ResolvedFunction resolvedFunction = plannerContext.getFunctionDecoder()
                 .fromQualifiedName(spatialFunction.getName())
                 .orElseThrow(() -> new IllegalArgumentException("function call not resolved"));
         Expression newSpatialFunction = ResolvedFunctionCallBuilder.builder(resolvedFunction)

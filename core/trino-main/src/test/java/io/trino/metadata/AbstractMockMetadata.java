@@ -59,9 +59,12 @@ import io.trino.spi.expression.Constant;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.Signature;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
@@ -85,9 +88,11 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 
+import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.trino.spi.function.FunctionDependencyDeclaration.NO_DEPENDENCIES;
 import static io.trino.spi.function.FunctionId.toFunctionId;
 import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -794,12 +799,6 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public ResolvedFunction resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
-    {
-        return resolveBuiltinFunction(name.getSuffix(), parameterTypes);
-    }
-
-    @Override
     public ResolvedFunction resolveBuiltinFunction(String name, List<TypeSignatureProvider> parameterTypes)
     {
         if (name.equals("rand") && parameterTypes.isEmpty()) {
@@ -837,35 +836,32 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public boolean isAggregationFunction(Session session, QualifiedName name)
+    public Collection<CatalogFunctionMetadata> getFunctions(Session session, CatalogSchemaFunctionName catalogSchemaFunctionName)
     {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean isWindowFunction(Session session, QualifiedName name)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public FunctionMetadata getFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
-    {
-        BoundSignature signature = resolvedFunction.getSignature();
-        if (signature.getName().equals(RAND_NAME) && signature.getArgumentTypes().isEmpty()) {
-            return FunctionMetadata.scalarBuilder("random")
-                    .signature(signature.toSignature())
-                    .nondeterministic()
-                    .noDescription()
-                    .build();
+        if (!catalogSchemaFunctionName.equals(RAND_NAME)) {
+            return ImmutableList.of();
         }
-        throw new TrinoException(FUNCTION_NOT_FOUND, signature.toString());
+        return ImmutableList.of(new CatalogFunctionMetadata(
+                GlobalSystemConnector.CATALOG_HANDLE,
+                BUILTIN_SCHEMA,
+                FunctionMetadata.scalarBuilder("random")
+                        .signature(Signature.builder().returnType(DOUBLE).build())
+                        .alias(RAND_NAME.getFunctionName())
+                        .nondeterministic()
+                        .noDescription()
+                        .build()));
     }
 
     @Override
     public AggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public FunctionDependencyDeclaration getFunctionDependencies(Session session, CatalogHandle catalogHandle, FunctionId functionId, BoundSignature boundSignature)
+    {
+        return NO_DEPENDENCIES;
     }
 
     @Override

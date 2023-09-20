@@ -23,6 +23,7 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.InternalFunctionDependencies;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.SignatureBinder;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.ParametricAggregation;
 import io.trino.operator.aggregation.ParametricAggregationImplementation;
@@ -46,6 +47,7 @@ import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.LiteralParameter;
@@ -61,6 +63,7 @@ import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.type.Constraint;
 import org.testng.annotations.Test;
 
@@ -71,8 +74,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
+import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.operator.aggregation.AggregationFromAnnotationsParser.parseFunctionDefinitions;
 import static io.trino.operator.aggregation.AggregationFromAnnotationsParser.toAccumulatorStateDetails;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INDEX;
@@ -86,6 +91,8 @@ import static io.trino.spi.type.StandardTypes.DOUBLE;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static java.lang.invoke.MethodType.methodType;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -1145,10 +1152,35 @@ public class TestAnnotationEngineForAggregates
         AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata();
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertFalse(aggregationMetadata.getIntermediateTypes().isEmpty());
+        FunctionDependencyDeclaration dependencyDeclaration = aggregation.getFunctionDependencies(boundSignature);
 
-        ResolvedFunction resolvedFunction = METADATA.resolve(TEST_SESSION, GlobalSystemConnector.CATALOG_HANDLE, functionBinding, functionMetadata, aggregation.getFunctionDependencies(boundSignature));
-        FunctionDependencies functionDependencies = new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
-        aggregation.specialize(boundSignature, functionDependencies);
+        ImmutableMap.Builder<TypeSignature, Type> typeDependencies = ImmutableMap.builder();
+        for (TypeSignature typeSignature : dependencyDeclaration.getTypeDependencies()) {
+            typeSignature = SignatureBinder.applyBoundVariables(typeSignature, functionBinding);
+            typeDependencies.put(typeSignature, PLANNER_CONTEXT.getTypeManager().getType(typeSignature));
+        }
+
+        ImmutableSet.Builder<ResolvedFunction> functionDependencies = ImmutableSet.builder();
+        dependencyDeclaration.getOperatorDependencies().stream()
+                .map(TestAnnotationEngineForAggregates::resolveDependency)
+                .forEach(functionDependencies::add);
+        dependencyDeclaration.getFunctionDependencies().stream()
+                .map(TestAnnotationEngineForAggregates::resolveDependency)
+                .forEach(functionDependencies::add);
+
+        aggregation.specialize(boundSignature, new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, typeDependencies.buildOrThrow(), functionDependencies.build()));
+    }
+
+    private static ResolvedFunction resolveDependency(FunctionDependencyDeclaration.OperatorDependency dependency)
+    {
+        QualifiedName name = QualifiedName.of(GlobalSystemConnector.NAME, BUILTIN_SCHEMA, mangleOperatorName(dependency.getOperatorType()));
+        return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeSignatures(dependency.getArgumentTypes()));
+    }
+
+    private static ResolvedFunction resolveDependency(FunctionDependencyDeclaration.FunctionDependency dependency)
+    {
+        QualifiedName name = QualifiedName.of(dependency.getName().getCatalogName(), dependency.getName().getSchemaName(), dependency.getName().getFunctionName());
+        return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeSignatures(dependency.getArgumentTypes()));
     }
 
     private static BoundSignature builtinFunction(String name, Type returnType, ImmutableList<Type> argumentTypes)

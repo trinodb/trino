@@ -229,7 +229,7 @@ public class TestAnonymizeJsonRepresentation
 
     private void assertAnonymizedRepresentation(Function<PlanBuilder, PlanNode> sourceNodeSupplier, JsonRenderedNode expectedRepresentation)
     {
-        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), queryRunner.getMetadata(), queryRunner.getDefaultSession());
+        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), queryRunner.getPlannerContext(), queryRunner.getDefaultSession());
         ValuePrinter valuePrinter = new ValuePrinter(queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getDefaultSession());
         String jsonRenderedNode = new PlanPrinter(
                 sourceNodeSupplier.apply(planBuilder),

@@ -14,7 +14,6 @@
 package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.AbstractMockMetadata;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
@@ -30,12 +29,13 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static org.testng.Assert.assertEquals;
 
 public class TestPlanNodeSearcher
 {
-    private static final PlanBuilder BUILDER = new PlanBuilder(new PlanNodeIdAllocator(), new AbstractMockMetadata() {}, TEST_SESSION);
+    private static final PlanBuilder BUILDER = new PlanBuilder(new PlanNodeIdAllocator(), PLANNER_CONTEXT, TEST_SESSION);
 
     @Test
     public void testFindAll()
