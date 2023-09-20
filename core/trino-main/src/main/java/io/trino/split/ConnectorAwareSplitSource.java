@@ -72,8 +72,9 @@ public class ConnectorAwareSplitSource
         checkState(source != null, "Already finished or closed");
         ListenableFuture<ConnectorSplitBatch> nextBatch = toListenableFuture(source.getNextBatch(maxSize));
         return Futures.transform(nextBatch, splitBatch -> {
-            ImmutableList.Builder<Split> result = ImmutableList.builder();
-            for (ConnectorSplit connectorSplit : splitBatch.getSplits()) {
+            List<ConnectorSplit> connectorSplits = splitBatch.getSplits();
+            ImmutableList.Builder<Split> result = ImmutableList.builderWithExpectedSize(connectorSplits.size());
+            for (ConnectorSplit connectorSplit : connectorSplits) {
                 result.add(new Split(catalogHandle, connectorSplit));
             }
             boolean noMoreSplits = splitBatch.isNoMoreSplits();
