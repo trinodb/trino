@@ -49,6 +49,7 @@ import java.sql.Types;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.zone.ZoneRulesException;
 import java.util.ArrayList;
 import java.util.GregorianCalendar;
 import java.util.List;
@@ -666,6 +667,32 @@ public class TestTrinoDriver
                 assertEquals(rs.getTimestamp("ts"), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
             }
         }
+
+        try (Connection connection = createConnectionWithParameter("timezone=Asia/Kolkata")) {
+            try (Statement statement = connection.createStatement();
+                    ResultSet rs = statement.executeQuery(sql)) {
+                assertTrue(rs.next());
+                assertEquals(rs.getString("zone"), "Asia/Kolkata");
+                // setting the session timezone has no effect on the interpretation of timestamps in the JDBC driver
+                assertEquals(rs.getTimestamp("ts"), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
+            }
+        }
+
+        try (Connection connection = createConnectionWithParameter("timezone=UTC+05:30")) {
+            try (Statement statement = connection.createStatement();
+                    ResultSet rs = statement.executeQuery(sql)) {
+                assertTrue(rs.next());
+                assertEquals(rs.getString("zone"), "+05:30");
+                // setting the session timezone has no effect on the interpretation of timestamps in the JDBC driver
+                assertEquals(rs.getTimestamp("ts"), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
+            }
+        }
+
+        assertThatThrownBy(() -> createConnectionWithParameter("timezone=Asia/NOT_FOUND"))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property timezone value is invalid: Asia/NOT_FOUND")
+                .hasRootCauseInstanceOf(ZoneRulesException.class)
+                .hasRootCauseMessage("Unknown time-zone ID: Asia/NOT_FOUND");
     }
 
     @Test
@@ -1197,6 +1224,13 @@ public class TestTrinoDriver
             throws SQLException
     {
         String url = format("jdbc:trino://%s/%s/%s", server.getAddress(), catalog, schema);
+        return DriverManager.getConnection(url, "test", null);
+    }
+
+    private Connection createConnectionWithParameter(String parameter)
+            throws SQLException
+    {
+        String url = format("jdbc:trino://%s?%s", server.getAddress(), parameter);
         return DriverManager.getConnection(url, "test", null);
     }
 

@@ -36,6 +36,7 @@ import java.net.URISyntaxException;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -104,6 +105,7 @@ import static io.trino.client.uri.ConnectionProperties.SslVerificationMode;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.CA;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.FULL;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.NONE;
+import static io.trino.client.uri.ConnectionProperties.TIMEZONE;
 import static io.trino.client.uri.ConnectionProperties.TRACE_TOKEN;
 import static io.trino.client.uri.ConnectionProperties.USER;
 import static java.lang.String.format;
@@ -159,6 +161,7 @@ public class TrinoUri
     private Optional<KnownTokenCache> externalAuthenticationTokenCache;
     private Optional<Map<String, String>> extraCredentials;
     private Optional<String> hostnameInCertificate;
+    private Optional<ZoneId> timeZone;
     private Optional<String> clientInfo;
     private Optional<String> clientTags;
     private Optional<String> traceToken;
@@ -211,6 +214,7 @@ public class TrinoUri
             Optional<KnownTokenCache> externalAuthenticationTokenCache,
             Optional<Map<String, String>> extraCredentials,
             Optional<String> hostnameInCertificate,
+            Optional<ZoneId> timeZone,
             Optional<String> clientInfo,
             Optional<String> clientTags,
             Optional<String> traceToken,
@@ -262,6 +266,7 @@ public class TrinoUri
         this.externalAuthenticationTokenCache = EXTERNAL_AUTHENTICATION_TOKEN_CACHE.getValueOrDefault(urlProperties, externalAuthenticationTokenCache);
         this.extraCredentials = EXTRA_CREDENTIALS.getValueOrDefault(urlProperties, extraCredentials);
         this.hostnameInCertificate = HOSTNAME_IN_CERTIFICATE.getValueOrDefault(urlProperties, hostnameInCertificate);
+        this.timeZone = TIMEZONE.getValueOrDefault(urlProperties, timeZone);
         this.clientInfo = CLIENT_INFO.getValueOrDefault(urlProperties, clientInfo);
         this.clientTags = CLIENT_TAGS.getValueOrDefault(urlProperties, clientTags);
         this.traceToken = TRACE_TOKEN.getValueOrDefault(urlProperties, traceToken);
@@ -347,6 +352,7 @@ public class TrinoUri
                                 .map(entry -> entry.getKey() + ":" + entry.getValue())
                                 .collect(Collectors.joining(";"))));
         hostnameInCertificate.ifPresent(value -> properties.setProperty(PropertyName.HOSTNAME_IN_CERTIFICATE.toString(), value));
+        timeZone.ifPresent(value -> properties.setProperty(PropertyName.TIMEZONE.toString(), value.getId()));
         clientInfo.ifPresent(value -> properties.setProperty(PropertyName.CLIENT_INFO.toString(), value));
         clientTags.ifPresent(value -> properties.setProperty(PropertyName.CLIENT_TAGS.toString(), value));
         traceToken.ifPresent(value -> properties.setProperty(PropertyName.TRACE_TOKEN.toString(), value));
@@ -404,6 +410,7 @@ public class TrinoUri
         this.externalAuthenticationTokenCache = EXTERNAL_AUTHENTICATION_TOKEN_CACHE.getValue(properties);
         this.extraCredentials = EXTRA_CREDENTIALS.getValue(properties);
         this.hostnameInCertificate = HOSTNAME_IN_CERTIFICATE.getValue(properties);
+        this.timeZone = TIMEZONE.getValue(properties);
         this.clientInfo = CLIENT_INFO.getValue(properties);
         this.clientTags = CLIENT_TAGS.getValue(properties);
         this.traceToken = TRACE_TOKEN.getValue(properties);
@@ -529,6 +536,11 @@ public class TrinoUri
     public boolean isAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients()
     {
         return assumeLiteralUnderscoreInMetadataCallsForNonConformingClients.orElse(false);
+    }
+
+    public ZoneId getTimeZone()
+    {
+        return timeZone.orElseGet(ZoneId::systemDefault);
     }
 
     public Properties getProperties()
@@ -909,6 +921,7 @@ public class TrinoUri
         private KnownTokenCache externalAuthenticationTokenCache;
         private Map<String, String> extraCredentials;
         private String hostnameInCertificate;
+        private ZoneId timeZone;
         private String clientInfo;
         private String clientTags;
         private String traceToken;
@@ -1166,6 +1179,12 @@ public class TrinoUri
             return this;
         }
 
+        public Builder setTimeZone(ZoneId timeZone)
+        {
+            this.timeZone = requireNonNull(timeZone, "timeZone is null");
+            return this;
+        }
+
         public Builder setClientInfo(String clientInfo)
         {
             this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
@@ -1239,6 +1258,7 @@ public class TrinoUri
                     Optional.ofNullable(externalAuthenticationTokenCache),
                     Optional.ofNullable(extraCredentials),
                     Optional.ofNullable(hostnameInCertificate),
+                    Optional.ofNullable(timeZone),
                     Optional.ofNullable(clientInfo),
                     Optional.ofNullable(clientTags),
                     Optional.ofNullable(traceToken),

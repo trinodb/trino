@@ -141,7 +141,7 @@ public class TrinoConnection
         uri.getTraceToken().ifPresent(tags -> clientInfo.put(TRACE_TOKEN, tags));
 
         roles.putAll(uri.getRoles());
-        timeZoneId.set(ZoneId.systemDefault());
+        timeZoneId.set(uri.getTimeZone());
         locale.set(Locale.getDefault());
         sessionProperties.putAll(uri.getSessionProperties());
     }
