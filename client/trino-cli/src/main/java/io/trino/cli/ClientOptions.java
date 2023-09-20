@@ -325,7 +325,7 @@ public class ClientOptions
                 .clientInfo(clientInfo.orElse(null))
                 .catalog(uri.getCatalog().orElse(catalog.orElse(null)))
                 .schema(uri.getSchema().orElse(schema.orElse(null)))
-                .timeZone(timeZone)
+                .timeZone(uri.getTimeZone())
                 .locale(Locale.getDefault())
                 .resourceEstimates(toResourceEstimates(resourceEstimates))
                 .properties(toProperties(sessionProperties))
@@ -409,6 +409,7 @@ public class ClientOptions
         traceToken.ifPresent(builder::setTraceToken);
         socksProxy.ifPresent(builder::setSocksProxy);
         httpProxy.ifPresent(builder::setHttpProxy);
+        builder.setTimeZone(timeZone);
         builder.setDisableCompression(disableCompression);
         TrinoUri trinoUri;
 
