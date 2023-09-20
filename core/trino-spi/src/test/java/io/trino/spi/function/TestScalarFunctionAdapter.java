@@ -62,6 +62,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -96,6 +97,32 @@ public class TestScalarFunctionAdapter
                 false,
                 true);
         verifyAllAdaptations(actualConvention, "neverNull", RETURN_TYPE, ARGUMENT_TYPES);
+    }
+
+    @Test
+    public void testAdaptFromNeverNullToNullableReturn()
+            throws Throwable
+    {
+        InvocationConvention actualConvention = new InvocationConvention(
+                nCopies(1, NEVER_NULL),
+                NULLABLE_RETURN,
+                false,
+                true);
+        InvocationConvention expectedConvention = new InvocationConvention(
+                nCopies(1, BLOCK_POSITION_NOT_NULL),
+                BLOCK_BUILDER,
+                false,
+                true);
+        List<Type> argumentTypes = ImmutableList.of(VARCHAR);
+        MethodType type = methodType(Boolean.class, toCallArgumentTypes(actualConvention, argumentTypes));
+        MethodHandle methodHandle = lookup().findVirtual(Target.class, "neverNullToNullableReturn", type);
+
+        adaptAndVerify(
+                methodHandle,
+                actualConvention,
+                expectedConvention,
+                BOOLEAN,
+                argumentTypes);
     }
 
     @Test
@@ -611,6 +638,17 @@ public class TestScalarFunctionAdapter
             this.doubleValue = doubleValue;
             this.sliceValue = sliceValue;
             this.blockValue = blockValue;
+            return true;
+        }
+
+        @SuppressWarnings("unused")
+        public Boolean neverNullToNullableReturn(Slice sliceValue)
+        {
+            checkState(!invoked, "Already invoked");
+            invoked = true;
+            objectsMethod = false;
+
+            this.sliceValue = sliceValue;
             return true;
         }
 

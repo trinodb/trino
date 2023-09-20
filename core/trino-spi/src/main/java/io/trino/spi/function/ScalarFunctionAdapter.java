@@ -264,7 +264,7 @@ public final class ScalarFunctionAdapter
         if (expectedReturnConvention == BLOCK_BUILDER) {
             // write the result to block builder
             // type.writeValue(BlockBuilder, value), f(a,b)::value => method(BlockBuilder, a, b)::void
-            methodHandle = collectArguments(writeBlockValue(returnType), 1, methodHandle);
+            methodHandle = collectArguments(writeBlockValue(returnType, actualReturnConvention.isNullable()), 1, methodHandle);
             // f(BlockBuilder, a, b)::void => f(a, b, BlockBuilder)
             MethodType newType = methodHandle.type()
                     .dropParameterTypes(0, 1)
@@ -668,18 +668,28 @@ public final class ScalarFunctionAdapter
         }
     }
 
-    private static MethodHandle writeBlockValue(Type type)
+    private static MethodHandle writeBlockValue(Type type, boolean nullable)
     {
         Class<?> methodArgumentType = type.getJavaType();
+        Class<?> wrapperType = methodArgumentType;
         String getterName;
         if (methodArgumentType == boolean.class) {
             getterName = "writeBoolean";
+            if (nullable) {
+                wrapperType = Boolean.class;
+            }
         }
         else if (methodArgumentType == long.class) {
             getterName = "writeLong";
+            if (nullable) {
+                wrapperType = Long.class;
+            }
         }
         else if (methodArgumentType == double.class) {
             getterName = "writeDouble";
+            if (nullable) {
+                wrapperType = Double.class;
+            }
         }
         else if (methodArgumentType == Slice.class) {
             getterName = "writeSlice";
@@ -692,7 +702,7 @@ public final class ScalarFunctionAdapter
         try {
             return lookup().findVirtual(Type.class, getterName, methodType(void.class, BlockBuilder.class, methodArgumentType))
                     .bindTo(type)
-                    .asType(methodType(void.class, BlockBuilder.class, type.getJavaType()));
+                    .asType(methodType(void.class, BlockBuilder.class, wrapperType));
         }
         catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
