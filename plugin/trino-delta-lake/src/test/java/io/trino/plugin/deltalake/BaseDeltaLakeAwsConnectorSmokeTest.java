@@ -58,16 +58,6 @@ public abstract class BaseDeltaLakeAwsConnectorSmokeTest
     }
 
     @Override
-    protected List<String> listCheckpointFiles(String transactionLogDirectory)
-    {
-        return hiveMinioDataLake.listFiles(transactionLogDirectory)
-                .stream()
-                .filter(path -> path.contains("checkpoint.parquet"))
-                .map(path -> format("s3://%s/%s", bucketName, path))
-                .collect(toImmutableList());
-    }
-
-    @Override
     protected List<String> listFiles(String directory)
     {
         return hiveMinioDataLake.listFiles(directory).stream()
