@@ -21,7 +21,7 @@ import io.opentelemetry.context.Context;
 import io.trino.Session;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.FunctionResolver;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
@@ -109,11 +109,11 @@ public class Analyzer
         return analysis;
     }
 
-    static void verifyNoAggregateWindowOrGroupingFunctions(Session session, Metadata metadata, Expression predicate, String clause)
+    static void verifyNoAggregateWindowOrGroupingFunctions(Session session, FunctionResolver functionResolver, Expression predicate, String clause)
     {
-        List<FunctionCall> aggregates = extractAggregateFunctions(ImmutableList.of(predicate), session, metadata);
+        List<FunctionCall> aggregates = extractAggregateFunctions(ImmutableList.of(predicate), session, functionResolver);
 
-        List<Expression> windowExpressions = extractWindowExpressions(ImmutableList.of(predicate), session, metadata);
+        List<Expression> windowExpressions = extractWindowExpressions(ImmutableList.of(predicate), session, functionResolver);
 
         List<GroupingOperation> groupingOperations = extractExpressions(ImmutableList.of(predicate), GroupingOperation.class);
 
