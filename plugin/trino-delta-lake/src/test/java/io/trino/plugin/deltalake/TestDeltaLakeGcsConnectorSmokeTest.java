@@ -194,14 +194,6 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     }
 
     @Override
-    protected List<String> listCheckpointFiles(String transactionLogDirectory)
-    {
-        return listAllFilesRecursive(transactionLogDirectory).stream()
-                .filter(path -> path.contains("checkpoint.parquet"))
-                .collect(toImmutableList());
-    }
-
-    @Override
     protected List<String> listFiles(String directory)
     {
         return listAllFilesRecursive(directory).stream()
