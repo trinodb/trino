@@ -46,7 +46,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -337,9 +336,6 @@ public class HivePageSink
 
         PartitionUpdate partitionUpdate = writer.getPartitionUpdate();
         partitionUpdates.add(wrappedBuffer(partitionUpdateCodec.toJsonBytes(partitionUpdate)));
-        writer.getVerificationTask()
-                .map(Executors::callable)
-                .ifPresent(verificationTasks::add);
     }
 
     private int[] getWriterIndexes(Page page)
