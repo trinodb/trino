@@ -169,9 +169,8 @@ public class DeltaLakePageSourceProvider
 
         // We reach here when we could not prune the split using file level stats, table predicate
         // and the dynamic filter in the coordinator during split generation. The file level stats
-        // in DeltaLakeSplit#filePredicate could help to prune this split when a more selective dynamic filter
+        // in DeltaLakeSplit#statisticsPredicate could help to prune this split when a more selective dynamic filter
         // is available now, without having to access parquet file footer for row-group stats.
-        // We avoid sending DeltaLakeSplit#splitPredicate to workers by using table.getPredicate() here.
         TupleDomain<DeltaLakeColumnHandle> filteredSplitPredicate = TupleDomain.intersect(ImmutableList.of(
                 table.getNonPartitionConstraint(),
                 split.getStatisticsPredicate(),
