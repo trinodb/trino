@@ -93,6 +93,7 @@ public class SignatureBinder
     private final boolean allowCoercion;
     private final Map<String, TypeVariableConstraint> typeVariableConstraints;
 
+    // this could use the function resolver instead of Metadata, but Metadata caches coercion resolution
     SignatureBinder(Metadata metadata, TypeManager typeManager, Signature declaredSignature, boolean allowCoercion)
     {
         checkNoLiteralVariableUsageAcrossTypes(declaredSignature);

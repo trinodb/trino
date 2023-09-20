@@ -64,7 +64,7 @@ public class TestDynamicFiltersChecker
     {
         plannerContext = getQueryRunner().getPlannerContext();
         metadata = plannerContext.getMetadata();
-        builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata, TEST_SESSION);
+        builder = new PlanBuilder(new PlanNodeIdAllocator(), plannerContext, TEST_SESSION);
         CatalogHandle catalogHandle = getCurrentCatalogHandle();
         TableHandle lineitemTableHandle = new TableHandle(
                 catalogHandle,

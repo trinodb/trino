@@ -76,7 +76,7 @@ public class TestPlanFragmentPartitionCount
     @Test
     public void testPartitionCountInPlanFragment()
     {
-        PlanBuilder p = new PlanBuilder(new PlanNodeIdAllocator(), localQueryRunner.getMetadata(), session);
+        PlanBuilder p = new PlanBuilder(new PlanNodeIdAllocator(), localQueryRunner.getPlannerContext(), session);
         Symbol a = p.symbol("a", VARCHAR);
         Symbol b = p.symbol("b", VARCHAR);
         Symbol c = p.symbol("c", VARCHAR);

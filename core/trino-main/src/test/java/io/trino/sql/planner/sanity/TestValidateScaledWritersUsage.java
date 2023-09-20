@@ -75,7 +75,7 @@ public class TestValidateScaledWritersUsage
         queryRunner = LocalQueryRunner.create(TEST_SESSION);
         queryRunner.createCatalog(catalog.getCatalogName(), createConnectorFactory(catalog.getCatalogName()), ImmutableMap.of());
         plannerContext = queryRunner.getPlannerContext();
-        planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), plannerContext.getMetadata(), TEST_SESSION);
+        planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), plannerContext, TEST_SESSION);
         TableHandle nationTableHandle = new TableHandle(
                 catalog,
                 new TpchTableHandle("sf1", "nation", 1.0),

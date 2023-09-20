@@ -242,7 +242,7 @@ public final class ConnectorExpressionTranslator
             if (call.getFunctionName().getCatalogSchema().isPresent()) {
                 CatalogSchemaName catalogSchemaName = call.getFunctionName().getCatalogSchema().get();
                 checkArgument(!catalogSchemaName.getCatalogName().equals(GlobalSystemConnector.NAME), "System functions must not be fully qualified");
-                ResolvedFunction resolved = plannerContext.getMetadata().resolveFunction(
+                ResolvedFunction resolved = plannerContext.getFunctionResolver().resolveFunction(
                         session,
                         QualifiedName.of(catalogSchemaName.getCatalogName(), catalogSchemaName.getSchemaName(), call.getFunctionName().getName()),
                         fromTypes(call.getArguments().stream().map(ConnectorExpression::getType).collect(toImmutableList())));

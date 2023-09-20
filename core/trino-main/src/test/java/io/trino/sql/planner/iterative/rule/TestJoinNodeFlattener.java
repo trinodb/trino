@@ -447,7 +447,7 @@ public class TestJoinNodeFlattener
 
     private PlanBuilder planBuilder(PlanNodeIdAllocator planNodeIdAllocator)
     {
-        return new PlanBuilder(planNodeIdAllocator, queryRunner.getMetadata(), queryRunner.getDefaultSession());
+        return new PlanBuilder(planNodeIdAllocator, queryRunner.getPlannerContext(), queryRunner.getDefaultSession());
     }
 
     private void assertPlan(TypeProvider typeProvider, PlanNode actual, PlanMatchPattern pattern)

@@ -22,6 +22,7 @@ import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
 import io.trino.metadata.AnalyzeMetadata;
 import io.trino.metadata.AnalyzeTableHandle;
+import io.trino.metadata.CatalogFunctionMetadata;
 import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.InsertTableHandle;
 import io.trino.metadata.MaterializedViewDefinition;
@@ -78,7 +79,10 @@ import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.function.AggregationFunctionMetadata;
+import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
@@ -1173,12 +1177,11 @@ public class TracingMetadata
     }
 
     @Override
-    public ResolvedFunction resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    public Collection<CatalogFunctionMetadata> getFunctions(Session session, CatalogSchemaFunctionName catalogSchemaFunctionName)
     {
-        Span span = startSpan("resolveFunction")
-                .setAllAttributes(attribute(TrinoAttributes.FUNCTION, extractFunctionName(name)));
+        Span span = startSpan("getFunctions", catalogSchemaFunctionName);
         try (var ignored = scopedSpan(span)) {
-            return delegate.resolveFunction(session, name, parameterTypes);
+            return delegate.getFunctions(session, catalogSchemaFunctionName);
         }
     }
 
@@ -1222,37 +1225,6 @@ public class TracingMetadata
     }
 
     @Override
-    public boolean isAggregationFunction(Session session, QualifiedName name)
-    {
-        Span span = startSpan("isAggregationFunction")
-                .setAllAttributes(attribute(TrinoAttributes.FUNCTION, extractFunctionName(name)));
-        try (var ignored = scopedSpan(span)) {
-            return delegate.isAggregationFunction(session, name);
-        }
-    }
-
-    @Override
-    public boolean isWindowFunction(Session session, QualifiedName name)
-    {
-        Span span = startSpan("isWindowFunction")
-                .setAllAttributes(attribute(TrinoAttributes.FUNCTION, extractFunctionName(name)));
-        try (var ignored = scopedSpan(span)) {
-            return delegate.isWindowFunction(session, name);
-        }
-    }
-
-    @Override
-    public FunctionMetadata getFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
-    {
-        Span span = startSpan("getFunctionMetadata")
-                .setAttribute(TrinoAttributes.CATALOG, resolvedFunction.getCatalogHandle().getCatalogName())
-                .setAttribute(TrinoAttributes.FUNCTION, resolvedFunction.getSignature().getName().toString());
-        try (var ignored = scopedSpan(span)) {
-            return delegate.getFunctionMetadata(session, resolvedFunction);
-        }
-    }
-
-    @Override
     public AggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
         Span span = startSpan("getAggregationFunctionMetadata")
@@ -1260,6 +1232,16 @@ public class TracingMetadata
                 .setAttribute(TrinoAttributes.FUNCTION, resolvedFunction.getSignature().getName().toString());
         try (var ignored = scopedSpan(span)) {
             return delegate.getAggregationFunctionMetadata(session, resolvedFunction);
+        }
+    }
+
+    @Override
+    public FunctionDependencyDeclaration getFunctionDependencies(Session session, CatalogHandle catalogHandle, FunctionId functionId, BoundSignature boundSignature)
+    {
+        Span span = startSpan("getFunctionDependencies", catalogHandle.getCatalogName())
+                .setAttribute(TrinoAttributes.FUNCTION, functionId.toString());
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getFunctionDependencies(session, catalogHandle, functionId, boundSignature);
         }
     }
 
@@ -1493,11 +1475,11 @@ public class TracingMetadata
         return span;
     }
 
-    private static Optional<String> extractFunctionName(QualifiedName name)
+    private Span startSpan(String methodName, CatalogSchemaFunctionName table)
     {
-        if (ResolvedFunction.isResolved(name)) {
-            return Optional.of(ResolvedFunction.extractFunctionName(name).toString());
-        }
-        return Optional.empty();
+        return startSpan(methodName)
+                .setAttribute(TrinoAttributes.CATALOG, table.getCatalogName())
+                .setAttribute(TrinoAttributes.SCHEMA, table.getSchemaName())
+                .setAttribute(TrinoAttributes.FUNCTION, table.getFunctionName());
     }
 }

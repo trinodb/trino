@@ -46,6 +46,7 @@ import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -346,10 +347,54 @@ class FunctionBinder
                         .collect(toImmutableList()));
         return new CatalogFunctionBinding(
                 functionMetadata.catalogHandle(),
+                bindFunctionMetadata(boundSignature, functionMetadata.functionMetadata()),
                 SignatureBinder.bindFunction(
                         functionMetadata.functionMetadata().getFunctionId(),
                         functionMetadata.functionMetadata().getSignature(),
                         boundSignature));
+    }
+
+    private static FunctionMetadata bindFunctionMetadata(BoundSignature signature, FunctionMetadata functionMetadata)
+    {
+        FunctionMetadata.Builder newMetadata = FunctionMetadata.builder(functionMetadata.getCanonicalName(), functionMetadata.getKind())
+                .functionId(functionMetadata.getFunctionId())
+                .signature(signature.toSignature());
+
+        functionMetadata.getNames().forEach(newMetadata::alias);
+
+        if (functionMetadata.getDescription().isEmpty()) {
+            newMetadata.noDescription();
+        }
+        else {
+            newMetadata.description(functionMetadata.getDescription());
+        }
+
+        if (functionMetadata.isHidden()) {
+            newMetadata.hidden();
+        }
+        if (!functionMetadata.isDeterministic()) {
+            newMetadata.nondeterministic();
+        }
+        if (functionMetadata.isDeprecated()) {
+            newMetadata.deprecated();
+        }
+        if (functionMetadata.getFunctionNullability().isReturnNullable()) {
+            newMetadata.nullable();
+        }
+
+        // specialize function metadata to resolvedFunction
+        List<Boolean> argumentNullability = functionMetadata.getFunctionNullability().getArgumentNullable();
+        if (functionMetadata.getSignature().isVariableArity()) {
+            List<Boolean> fixedArgumentNullability = argumentNullability.subList(0, argumentNullability.size() - 1);
+            int variableArgumentCount = signature.getArgumentTypes().size() - fixedArgumentNullability.size();
+            argumentNullability = ImmutableList.<Boolean>builder()
+                    .addAll(fixedArgumentNullability)
+                    .addAll(nCopies(variableArgumentCount, argumentNullability.get(argumentNullability.size() - 1)))
+                    .build();
+        }
+        newMetadata.argumentNullability(argumentNullability);
+
+        return newMetadata.build();
     }
 
     static TrinoException functionNotFound(String name, List<TypeSignatureProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates)
@@ -399,11 +444,12 @@ class FunctionBinder
         }
     }
 
-    record CatalogFunctionBinding(CatalogHandle catalogHandle, FunctionBinding functionBinding)
+    record CatalogFunctionBinding(CatalogHandle catalogHandle, FunctionMetadata functionMetadata, FunctionBinding functionBinding)
     {
         CatalogFunctionBinding
         {
             requireNonNull(catalogHandle, "catalogHandle is null");
+            requireNonNull(functionMetadata, "functionMetadata is null");
             requireNonNull(functionBinding, "functionBinding is null");
         }
     }
