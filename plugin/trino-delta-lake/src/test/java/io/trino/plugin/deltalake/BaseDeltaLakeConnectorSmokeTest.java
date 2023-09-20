@@ -53,6 +53,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.union;
@@ -140,8 +141,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     protected abstract String getLocationForTable(String bucketName, String tableName);
 
     protected abstract List<String> getTableFiles(String tableName);
-
-    protected abstract List<String> listCheckpointFiles(String transactionLogDirectory);
 
     protected abstract List<String> listFiles(String directory);
 
@@ -2244,6 +2243,13 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             assertQueryFails(session, "SELECT * FROM %s WHERE x='a'".formatted(table.getName()), "Filter required on .*" + table.getName() + " for at least one partition column:.*");
             assertQuery(session, "SELECT * FROM %s WHERE part='part_a'".formatted(table.getName()), "VALUES ('a', 'part_a')");
         }
+    }
+
+    protected List<String> listCheckpointFiles(String transactionLogDirectory)
+    {
+        return listFiles(transactionLogDirectory).stream()
+                .filter(path -> path.contains("checkpoint.parquet"))
+                .collect(toImmutableList());
     }
 
     private Set<String> getActiveFiles(String tableName)
