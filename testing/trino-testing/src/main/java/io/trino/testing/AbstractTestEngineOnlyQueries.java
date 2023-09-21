@@ -33,7 +33,8 @@ import io.trino.tpch.TpchTable;
 import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -6228,7 +6229,8 @@ public abstract class AbstractTestEngineOnlyQueries
         return format("SELECT * FROM (SELECT %s FROM region LIMIT 1) a(%s) INNER JOIN unnest(ARRAY[%s], ARRAY[%2$s]) b(b1, b2) ON true", fields, columns, literals);
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testLateMaterializationOuterJoin()
     {
         Session session = Session.builder(getSession())
