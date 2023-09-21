@@ -28,7 +28,9 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -75,14 +77,15 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
     }
 
     @Override
-    @Test(enabled = false)
+    @Test
+    @Disabled
     public void testExplainAnalyzeVerbose()
     {
         // Spooling exchange does not prove output buffer utilization histogram
     }
 
     @Override
-    @Test(enabled = false)
+    @Disabled
     public void testSelectiveLimit()
     {
         // FTE mode does not terminate query when limit is reached
@@ -111,7 +114,8 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testMetadataOnlyQueries()
             throws InterruptedException
     {
