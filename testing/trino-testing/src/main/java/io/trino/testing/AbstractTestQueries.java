@@ -19,7 +19,7 @@ import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.tpch.TpchTable;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Set;
