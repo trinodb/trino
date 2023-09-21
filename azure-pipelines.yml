@@ -24,7 +24,7 @@ jobs:
       m2RepoContainerPath: /tmp/m2/repository
       JAVA_TOOL_OPTIONS: " -Xmx8g"
     container:
-      image: uchimera.azurecr.io/cccs/dev/projector-intellij-ce:trino_20221115170918_b5437
+      image: uchimera.azurecr.io/cccs/dev/projector-intellij-ce:trino_20230921152943_b7790
       options: --entrypoint="" --user=0
       volumes:
         - "${{ variables.m2RepoNodePath }}:${{ variables.m2RepoContainerPath }}"
