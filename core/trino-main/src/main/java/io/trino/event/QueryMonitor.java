@@ -354,6 +354,7 @@ public class QueryMonitor
                 session.getClientTags(),
                 session.getClientCapabilities(),
                 session.getSource(),
+                session.getTimeZone(),
                 session.getCatalog(),
                 session.getSchema(),
                 resourceGroup,
