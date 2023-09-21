@@ -49,7 +49,8 @@ public class TestDeltaLakeDatabricksUnityCompatibility
     {
         unityCatalogName = requireNonNull(System.getenv("DATABRICKS_UNITY_CATALOG_NAME"), "Environment variable not set: DATABRICKS_UNITY_CATALOG_NAME");
         externalLocationPath = requireNonNull(System.getenv("DATABRICKS_UNITY_EXTERNAL_LOCATION"), "Environment variable not set: DATABRICKS_UNITY_EXTERNAL_LOCATION");
-        onDelta().executeQuery(format("CREATE SCHEMA %s.%s", unityCatalogName, schemaName));
+        onDelta().executeQuery(
+                format("CREATE SCHEMA %s.%s", unityCatalogName, schemaName));
     }
 
     @AfterMethodWithContext
@@ -137,6 +138,19 @@ public class TestDeltaLakeDatabricksUnityCompatibility
     public void testManagedTables()
     {
         String tableName = "test_managed_table_" + randomNameSuffix();
+        onDelta().executeQuery(
+                format("CREATE TABLE %s.%s.%s (c1 int, c2 string)",
+                        unityCatalogName, schemaName, tableName));
+        assertThat(onTrino().executeQuery(format("SHOW CREATE SCHEMA delta.%s", schemaName)))
+                .containsOnly(row(format("CREATE SCHEMA delta.%s", schemaName)));
+        assertThat(onTrino().executeQuery("SHOW TABLES IN delta." + schemaName)).hasNoRows();
+    }
+
+    @Test(groups = {DATABRICKS_UNITY_HTTP_HMS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testManagedSchemas()
+    {
+        String tableName = "test_managed_table";
         onDelta().executeQuery(
                 format("CREATE TABLE %s.%s.%s (c1 int, c2 string)",
                         unityCatalogName, schemaName, tableName));
