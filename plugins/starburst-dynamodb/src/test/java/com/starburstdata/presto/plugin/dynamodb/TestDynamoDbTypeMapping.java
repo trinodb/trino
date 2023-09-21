@@ -178,8 +178,8 @@ public class TestDynamoDbTypeMapping
     @Test
     public void testChar()
     {
-        // Driver converts CHAR types to VARCHAR(2000), so flag as unsupported
-        testUnsupportedValue("char", "'a'", createCharType(1), "expected:<[char(1])> but was:<[varchar(2000])>", "Unsupported column type: char");
+        // Driver converts CHAR types to VARCHAR, so flag as unsupported
+        testUnsupportedValue("char(10)", "'abcdefghik'", createCharType(10), "expected:<[]char(10)> but was:<[var]char(10)>", "Unsupported column type: char");
     }
 
     @Test
