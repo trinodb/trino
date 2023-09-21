@@ -14,11 +14,13 @@
 package io.trino.plugin.hive.type;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.hive.util.SerdeConstants.CHAR_TYPE_NAME;
 
 public final class CharTypeInfo
         extends BaseCharTypeInfo
 {
+    private static final int INSTANCE_SIZE = instanceSize(CharTypeInfo.class);
     public static final int MAX_CHAR_LENGTH = 255;
 
     public CharTypeInfo(int length)
@@ -38,5 +40,11 @@ public final class CharTypeInfo
     public int hashCode()
     {
         return getLength();
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + getDeclaredFieldsRetainedSizeInBytes();
     }
 }

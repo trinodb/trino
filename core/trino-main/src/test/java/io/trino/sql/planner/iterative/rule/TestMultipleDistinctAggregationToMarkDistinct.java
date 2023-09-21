@@ -23,7 +23,7 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.function.Function;
@@ -31,7 +31,6 @@ import java.util.function.Function;
 import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
 import static io.trino.SystemSessionProperties.OPTIMIZE_DISTINCT_AGGREGATIONS;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
-import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
@@ -230,28 +229,16 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                 .overrideStats(aggregationNodeId.toString(), PlanNodeStatsEstimate.builder().setOutputRowCount(1000 * clusterThreadCount).build())
                 .doesNotFire();
 
-        // big NDV, mark_distinct_strategy = always, use_mark_distinct = null
+        // big NDV, mark_distinct_strategy = always
         tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(plan)
                 .setSystemProperty(MARK_DISTINCT_STRATEGY, "always")
                 .overrideStats(aggregationNodeId.toString(), PlanNodeStatsEstimate.builder().setOutputRowCount(1000 * clusterThreadCount).build())
                 .matches(expectedMarkDistinct);
-        // big NDV, mark_distinct_strategy = null, use_mark_distinct = true
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
-                .on(plan)
-                .setSystemProperty(USE_MARK_DISTINCT, "true")
-                .overrideStats(aggregationNodeId.toString(), PlanNodeStatsEstimate.builder().setOutputRowCount(1000 * clusterThreadCount).build())
-                .doesNotFire();
-        // small NDV, mark_distinct_strategy = none, use_mark_distinct = null
+        // small NDV, mark_distinct_strategy = none
         tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(plan)
                 .setSystemProperty(MARK_DISTINCT_STRATEGY, "none")
-                .overrideStats(aggregationNodeId.toString(), PlanNodeStatsEstimate.builder().setOutputRowCount(2 * clusterThreadCount).build())
-                .doesNotFire();
-        // small NDV, mark_distinct_strategy = null, use_mark_distinct = false
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
-                .on(plan)
-                .setSystemProperty(USE_MARK_DISTINCT, "false")
                 .overrideStats(aggregationNodeId.toString(), PlanNodeStatsEstimate.builder().setOutputRowCount(2 * clusterThreadCount).build())
                 .doesNotFire();
 

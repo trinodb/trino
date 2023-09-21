@@ -48,7 +48,6 @@ import io.trino.geospatial.Rectangle;
 import io.trino.geospatial.serde.GeometrySerde;
 import io.trino.geospatial.serde.GeometrySerializationType;
 import io.trino.geospatial.serde.JtsGeometrySerde;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -92,7 +91,7 @@ import static com.esri.core.geometry.NonSimpleResult.Reason.OGCPolylineSelfTange
 import static com.esri.core.geometry.ogc.OGCGeometry.createFromEsriGeometry;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.airlift.slice.Slices.wrappedHeapBuffer;
 import static io.trino.geospatial.GeometryType.GEOMETRY_COLLECTION;
 import static io.trino.geospatial.GeometryType.LINE_STRING;
 import static io.trino.geospatial.GeometryType.MULTI_LINE_STRING;
@@ -112,6 +111,7 @@ import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY_TYPE_NAME;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.StandardTypes.BIGINT;
 import static io.trino.spi.type.StandardTypes.BOOLEAN;
 import static io.trino.spi.type.StandardTypes.DOUBLE;
@@ -387,7 +387,7 @@ public final class GeoFunctions
     @SqlType(VARBINARY)
     public static Slice stAsBinary(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        return wrappedBuffer(deserialize(input).asBinary());
+        return wrappedHeapBuffer(deserialize(input).asBinary());
     }
 
     @SqlNullable
@@ -1201,18 +1201,13 @@ public final class GeoFunctions
         }
 
         RowType rowType = RowType.anonymous(ImmutableList.of(GEOMETRY, GEOMETRY));
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(rowType));
         GeometryFactory geometryFactory = leftGeometry.getFactory();
         Coordinate[] nearestCoordinates = DistanceOp.nearestPoints(leftGeometry, rightGeometry);
 
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
-        BlockBuilder entryBlockBuilder = blockBuilder.beginBlockEntry();
-        GEOMETRY.writeSlice(entryBlockBuilder, JtsGeometrySerde.serialize(geometryFactory.createPoint(nearestCoordinates[0])));
-        GEOMETRY.writeSlice(entryBlockBuilder, JtsGeometrySerde.serialize(geometryFactory.createPoint(nearestCoordinates[1])));
-        blockBuilder.closeEntry();
-        pageBuilder.declarePosition();
-
-        return rowType.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
+        return buildRowValue(rowType, fieldBuilders -> {
+            GEOMETRY.writeSlice(fieldBuilders.get(0), serialize(geometryFactory.createPoint(nearestCoordinates[0])));
+            GEOMETRY.writeSlice(fieldBuilders.get(1), serialize(geometryFactory.createPoint(nearestCoordinates[1])));
+        });
     }
 
     @SqlNullable
@@ -1487,7 +1482,7 @@ public final class GeoFunctions
             for (Map.Entry<Integer, Rectangle> partition : partitions.entrySet()) {
                 if (envelope.getXMin() < partition.getValue().getXMax() && envelope.getYMin() < partition.getValue().getYMax()) {
                     BlockBuilder blockBuilder = IntegerType.INTEGER.createFixedSizeBlockBuilder(1);
-                    blockBuilder.writeInt(partition.getKey());
+                    IntegerType.INTEGER.writeInt(blockBuilder, partition.getKey());
                     return blockBuilder.build();
                 }
             }
@@ -1496,7 +1491,7 @@ public final class GeoFunctions
 
         BlockBuilder blockBuilder = IntegerType.INTEGER.createFixedSizeBlockBuilder(partitions.size());
         for (int id : partitions.keySet()) {
-            blockBuilder.writeInt(id);
+            IntegerType.INTEGER.writeInt(blockBuilder, id);
         }
 
         return blockBuilder.build();

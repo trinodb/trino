@@ -13,10 +13,8 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
 
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
@@ -41,7 +39,15 @@ public class Fixed12BlockEncoding
         encodeNullsAsBits(sliceOutput, block);
 
         if (!block.mayHaveNull()) {
-            sliceOutput.writeBytes(getValuesSlice(block));
+            if (block instanceof Fixed12Block valueBlock) {
+                sliceOutput.writeInts(valueBlock.getRawValues(), valueBlock.getPositionOffset() * 3, valueBlock.getPositionCount() * 3);
+            }
+            else if (block instanceof Fixed12BlockBuilder blockBuilder) {
+                sliceOutput.writeInts(blockBuilder.getRawValues(), 0, blockBuilder.getPositionCount() * 3);
+            }
+            else {
+                throw new IllegalArgumentException("Unexpected block type " + block.getClass().getSimpleName());
+            }
         }
         else {
             int[] valuesWithoutNull = new int[positionCount * 3];
@@ -56,7 +62,7 @@ public class Fixed12BlockEncoding
             }
 
             sliceOutput.writeInt(nonNullPositionCount / 3);
-            sliceOutput.writeBytes(Slices.wrappedIntArray(valuesWithoutNull, 0, nonNullPositionCount));
+            sliceOutput.writeInts(valuesWithoutNull, 0, nonNullPositionCount);
         }
     }
 
@@ -69,11 +75,11 @@ public class Fixed12BlockEncoding
 
         int[] values = new int[positionCount * 3];
         if (valueIsNull == null) {
-            sliceInput.readBytes(Slices.wrappedIntArray(values));
+            sliceInput.readInts(values);
         }
         else {
             int nonNullPositionCount = sliceInput.readInt();
-            sliceInput.readBytes(Slices.wrappedIntArray(values, 0, nonNullPositionCount * 3));
+            sliceInput.readInts(values, 0, nonNullPositionCount * 3);
             int position = 3 * (nonNullPositionCount - 1);
             for (int i = positionCount - 1; i >= 0 && position >= 0; i--) {
                 System.arraycopy(values, position, values, 3 * i, 3);
@@ -83,17 +89,5 @@ public class Fixed12BlockEncoding
             }
         }
         return new Fixed12Block(0, positionCount, valueIsNull, values);
-    }
-
-    private static Slice getValuesSlice(Block block)
-    {
-        if (block instanceof Fixed12Block) {
-            return ((Fixed12Block) block).getValuesSlice();
-        }
-        if (block instanceof Fixed12BlockBuilder) {
-            return ((Fixed12BlockBuilder) block).getValuesSlice();
-        }
-
-        throw new IllegalArgumentException("Unexpected block type " + block.getClass().getSimpleName());
     }
 }

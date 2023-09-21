@@ -15,9 +15,12 @@ package io.trino.plugin.exchange.hdfs;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.Slice;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.plugin.exchange.filesystem.ExchangeSourceFile;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageReader;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageWriter;
@@ -28,10 +31,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.NotThreadSafe;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.File;
 import java.io.IOException;
@@ -175,8 +174,13 @@ public class HadoopFileSystemExchangeStorage
                 return null;
             }
 
-            if (sliceInput != null && sliceInput.isReadable()) {
-                return sliceInput.readSlice(sliceInput.readInt());
+            if (sliceInput != null) {
+                if (sliceInput.isReadable()) {
+                    return sliceInput.readSlice(sliceInput.readInt());
+                }
+                else {
+                    sliceInput.close();
+                }
             }
 
             ExchangeSourceFile sourceFile = sourceFiles.poll();

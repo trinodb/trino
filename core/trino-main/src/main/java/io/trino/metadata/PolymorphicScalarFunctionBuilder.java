@@ -36,6 +36,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static java.util.Arrays.asList;
@@ -256,9 +257,9 @@ public final class PolymorphicScalarFunctionBuilder
             Iterator<Optional<Class<?>>> typesIterator = types.iterator();
             while (argumentConventionIterator.hasNext() && typesIterator.hasNext()) {
                 Optional<Class<?>> classOptional = typesIterator.next();
-                InvocationArgumentConvention argumentProperty = argumentConventionIterator.next();
-                checkState((argumentProperty == BLOCK_POSITION) == classOptional.isPresent(),
-                        "Explicit type is not set when null convention is BLOCK_AND_POSITION");
+                InvocationArgumentConvention argumentConvention = argumentConventionIterator.next();
+                checkState((argumentConvention == BLOCK_POSITION || argumentConvention == BLOCK_POSITION_NOT_NULL) == classOptional.isPresent(),
+                        "Explicit type is not set when argument convention is block and position");
             }
             methodAndNativeContainerTypesList.add(methodAndNativeContainerTypes);
             return this;

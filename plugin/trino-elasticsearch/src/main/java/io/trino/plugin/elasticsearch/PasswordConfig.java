@@ -15,8 +15,7 @@ package io.trino.plugin.elasticsearch;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigSecuritySensitive;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 public class PasswordConfig
 {

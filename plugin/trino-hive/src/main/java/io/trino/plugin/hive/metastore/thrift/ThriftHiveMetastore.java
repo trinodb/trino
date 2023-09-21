@@ -18,11 +18,13 @@ import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.hdfs.HdfsContext;
-import io.trino.hdfs.HdfsEnvironment;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hive.thrift.metastore.AlreadyExistsException;
 import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
 import io.trino.hive.thrift.metastore.ConfigValSecurityException;
@@ -80,10 +82,8 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.fs.Path;
 import org.apache.thrift.TException;
-
-import javax.annotation.concurrent.ThreadSafe;
+import org.apache.thrift.transport.TTransportException;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -151,7 +151,7 @@ public class ThriftHiveMetastore
     private static final CharMatcher DOT_MATCHER = CharMatcher.is('.');
 
     private final Optional<ConnectorIdentity> identity;
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final IdentityAwareMetastoreClientFactory metastoreClientFactory;
     private final double backoffScaleFactor;
     private final Duration minBackoffDelay;
@@ -163,12 +163,13 @@ public class ThriftHiveMetastore
     private final boolean translateHiveViews;
     private final boolean assumeCanonicalPartitionKeys;
     private final boolean useSparkTableStatisticsFallback;
+    private final boolean batchMetadataFetchEnabled;
     private final ThriftMetastoreStats stats;
     private final ExecutorService writeStatisticsExecutor;
 
     public ThriftHiveMetastore(
             Optional<ConnectorIdentity> identity,
-            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
             IdentityAwareMetastoreClientFactory metastoreClientFactory,
             double backoffScaleFactor,
             Duration minBackoffDelay,
@@ -180,11 +181,12 @@ public class ThriftHiveMetastore
             boolean translateHiveViews,
             boolean assumeCanonicalPartitionKeys,
             boolean useSparkTableStatisticsFallback,
+            boolean batchMetadataFetchEnabled,
             ThriftMetastoreStats stats,
             ExecutorService writeStatisticsExecutor)
     {
         this.identity = requireNonNull(identity, "identity is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.metastoreClientFactory = requireNonNull(metastoreClientFactory, "metastoreClientFactory is null");
         this.backoffScaleFactor = backoffScaleFactor;
         this.minBackoffDelay = requireNonNull(minBackoffDelay, "minBackoffDelay is null");
@@ -196,6 +198,7 @@ public class ThriftHiveMetastore
         this.translateHiveViews = translateHiveViews;
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         this.useSparkTableStatisticsFallback = useSparkTableStatisticsFallback;
+        this.batchMetadataFetchEnabled = batchMetadataFetchEnabled;
         this.stats = requireNonNull(stats, "stats is null");
         this.writeStatisticsExecutor = requireNonNull(writeStatisticsExecutor, "writeStatisticsExecutor is null");
     }
@@ -400,8 +403,11 @@ public class ThriftHiveMetastore
             // When the table has partitions, but row count statistics are set to zero, we treat this case as empty
             // statistics to avoid underestimation in the CBO. This scenario may be caused when other engines are
             // used to ingest data into partitioned hive tables.
-            partitionBasicStatistics = partitionBasicStatistics.keySet().stream()
-                    .map(partitionName -> new SimpleEntry<>(partitionName, HiveBasicStatistics.createEmptyStatistics()))
+            // https://github.com/trinodb/trino/issues/18798 Hive Metastore assumes any new partition statistics to at least have all parameters that the partition used to have
+            partitionBasicStatistics = partitionBasicStatistics.entrySet().stream()
+                    .map(entry -> new SimpleEntry<>(
+                            entry.getKey(),
+                            entry.getValue().withEmptyRowCount()))
                     .collect(toImmutableMap(SimpleEntry::getKey, SimpleEntry::getValue));
         }
 
@@ -591,6 +597,9 @@ public class ThriftHiveMetastore
     public void updatePartitionStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         List<Partition> partitions = getPartitionsByNames(table.getDbName(), table.getTableName(), ImmutableList.of(partitionName));
+        if (partitions.isEmpty()) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, "No partition found for name: " + partitionName);
+        }
         if (partitions.size() != 1) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Metastore returned multiple partitions for name: " + partitionName);
         }
@@ -884,6 +893,10 @@ public class ThriftHiveMetastore
     @Override
     public Optional<List<SchemaTableName>> getAllTables()
     {
+        if (!batchMetadataFetchEnabled) {
+            return Optional.empty();
+        }
+
         try {
             return retry()
                     .stopOn(UnknownDBException.class)
@@ -893,6 +906,11 @@ public class ThriftHiveMetastore
                             return client.getAllTables();
                         }
                     }));
+        }
+        catch (TTransportException e) {
+            log.warn(e, "Failed to get all views");
+            // fallback in case of HMS error
+            return Optional.empty();
         }
         catch (TException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -911,6 +929,10 @@ public class ThriftHiveMetastore
             return Optional.empty();
         }
 
+        if (!batchMetadataFetchEnabled) {
+            return Optional.empty();
+        }
+
         try {
             return retry()
                     .stopOn(UnknownDBException.class)
@@ -920,6 +942,11 @@ public class ThriftHiveMetastore
                             return client.getAllViews();
                         }
                     }));
+        }
+        catch (TTransportException e) {
+            log.warn(e, "Failed to get all tables");
+            // fallback in case of HMS error
+            return Optional.empty();
         }
         catch (TException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -1064,7 +1091,7 @@ public class ThriftHiveMetastore
                             client.dropTable(databaseName, tableName, deleteData);
                             String tableLocation = table.getSd().getLocation();
                             if (deleteFilesOnDrop && deleteData && isManagedTable(table) && !isNullOrEmpty(tableLocation)) {
-                                deleteDirRecursive(new Path(tableLocation));
+                                deleteDirRecursive(Location.of(tableLocation));
                             }
                         }
                         return null;
@@ -1081,12 +1108,12 @@ public class ThriftHiveMetastore
         }
     }
 
-    private void deleteDirRecursive(Path path)
+    private void deleteDirRecursive(Location path)
     {
         try {
-            HdfsContext context = new HdfsContext(identity.orElseGet(() ->
-                    ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER)));
-            hdfsEnvironment.getFileSystem(context, path).delete(path, true);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(
+                    identity.orElseGet(() -> ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER)));
+            fileSystem.deleteDirectory(path);
         }
         catch (IOException | RuntimeException e) {
             // don't fail if unable to delete path
@@ -1282,7 +1309,7 @@ public class ThriftHiveMetastore
                             client.dropPartition(databaseName, tableName, parts, deleteData);
                             String partitionLocation = partition.getSd().getLocation();
                             if (deleteFilesOnDrop && deleteData && !isNullOrEmpty(partitionLocation) && isManagedTable(client.getTable(databaseName, tableName))) {
-                                deleteDirRecursive(new Path(partitionLocation));
+                                deleteDirRecursive(Location.of(partitionLocation));
                             }
                         }
                         return null;

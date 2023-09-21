@@ -23,9 +23,8 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
+import jakarta.annotation.Nullable;
 import org.testng.annotations.Test;
-
-import javax.annotation.Nullable;
 
 @SuppressWarnings("UtilityClassWithoutPrivateConstructor")
 public class TestScalarValidation

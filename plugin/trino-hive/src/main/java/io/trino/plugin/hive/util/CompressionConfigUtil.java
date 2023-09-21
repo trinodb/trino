@@ -51,7 +51,7 @@ public final class CompressionConfigUtil
         config.set(ParquetOutputFormat.COMPRESSION, compressionCodec.getParquetCompressionCodec().name());
 
         // For Avro
-        compressionCodec.getAvroCompressionCodec().ifPresent(codec -> config.set(AvroJob.OUTPUT_CODEC, codec));
+        compressionCodec.getAvroCompressionKind().ifPresent(kind -> config.set(AvroJob.OUTPUT_CODEC, kind.toString()));
 
         // For SequenceFile
         config.set(FileOutputFormat.COMPRESS_TYPE, BLOCK.toString());

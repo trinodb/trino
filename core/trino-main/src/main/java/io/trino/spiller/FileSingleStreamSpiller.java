@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
@@ -32,7 +33,6 @@ import io.trino.operator.SpillContext;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 
-import javax.annotation.concurrent.NotThreadSafe;
 import javax.crypto.SecretKey;
 
 import java.io.Closeable;

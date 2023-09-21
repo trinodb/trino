@@ -162,13 +162,18 @@ public class StringEncoding
 
     private static void unescape(byte escapeByte, SliceOutput output, Slice slice, int offset, int length)
     {
-        for (int i = 0; i < length; i++) {
+        int i = 0;
+        while (i < length) {
             byte value = slice.getByte(offset + i);
             if (value == escapeByte && i + 1 < length) {
-                // skip the escape byte
+                // write the next byte immediately to handle cases of multiple escape characters in a row
+                output.write(slice.getByte(offset + i + 1));
+                // skip the escape and the next byte
+                i += 2;
                 continue;
             }
             output.write(value);
+            i++;
         }
     }
 }

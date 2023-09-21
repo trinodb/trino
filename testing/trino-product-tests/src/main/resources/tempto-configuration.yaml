@@ -30,7 +30,7 @@ databases:
     jdbc_driver_class: io.trino.jdbc.TrinoDriver
     jdbc_url: jdbc:trino://${databases.presto.host}:${databases.presto.port}/hive/${databases.hive.schema}
     jdbc_user: hive
-    jdbc_password: "***empty***"
+    jdbc_password: ""
     jdbc_pooling: false
 
   presto_no_default_catalog:
@@ -46,7 +46,7 @@ databases:
     jdbc_driver_class: ${databases.presto.jdbc_driver_class}
     jdbc_url: jdbc:trino://${databases.presto.host}:${databases.presto.port}/hive/tpcds
     jdbc_user: hive
-    jdbc_password: "***empty***"
+    jdbc_password: ""
     jdbc_pooling: false
 
   alice@presto:
@@ -56,7 +56,7 @@ databases:
     jdbc_driver_class: ${databases.presto.jdbc_driver_class}
     jdbc_url: ${databases.presto.jdbc_url}
     jdbc_user: alice
-    jdbc_password: "***empty***"
+    jdbc_password: ""
     jdbc_pooling: false
     https_keystore_path: ${databases.presto.https_keystore_path}
     https_keystore_password: ${databases.presto.https_keystore_password}
@@ -68,7 +68,7 @@ databases:
     jdbc_driver_class: ${databases.presto.jdbc_driver_class}
     jdbc_url: ${databases.presto.jdbc_url}
     jdbc_user: bob
-    jdbc_password: "***empty***"
+    jdbc_password: ""
     jdbc_pooling: false
     https_keystore_path: ${databases.presto.https_keystore_path}
     https_keystore_password: ${databases.presto.https_keystore_password}
@@ -80,7 +80,7 @@ databases:
     jdbc_driver_class: ${databases.presto.jdbc_driver_class}
     jdbc_url: ${databases.presto.jdbc_url}
     jdbc_user: charlie
-    jdbc_password: "***empty***"
+    jdbc_password: ""
     jdbc_pooling: false
     https_keystore_path: ${databases.presto.https_keystore_path}
     https_keystore_password: ${databases.presto.https_keystore_password}
@@ -92,7 +92,7 @@ databases:
     jdbc_driver_class: ${databases.presto.jdbc_driver_class}
     jdbc_url: ${databases.presto.jdbc_url}
     jdbc_user: hdfs
-    jdbc_password: "***empty***"
+    jdbc_password: ""
     jdbc_pooling: false
     https_keystore_path: ${databases.presto.https_keystore_path}
     https_keystore_password: ${databases.presto.https_keystore_password}
@@ -104,7 +104,7 @@ databases:
     jdbc_driver_class: ${databases.presto.jdbc_driver_class}
     jdbc_url: ${databases.presto.jdbc_url}
     jdbc_user: CaseSensitiveUserName
-    jdbc_password: "***empty***"
+    jdbc_password: ""
     jdbc_pooling: false
     https_keystore_path: ${databases.presto.https_keystore_path}
     https_keystore_password: ${databases.presto.https_keystore_password}

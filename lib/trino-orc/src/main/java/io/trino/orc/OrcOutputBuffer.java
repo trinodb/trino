@@ -24,8 +24,7 @@ import io.airlift.slice.SliceOutput;
 import io.trino.orc.checkpoint.InputStreamCheckpoint;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.plugin.base.io.ChunkedSliceOutput;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -272,6 +271,66 @@ public class OrcOutputBuffer
             ensureWritableBytes(length);
             slice.setBytes(bufferPosition, source, sourceIndex, length);
             bufferPosition += length;
+        }
+    }
+
+    @Override
+    public void writeShorts(short[] source, int sourceIndex, int length)
+    {
+        while (length > 0) {
+            int flushLength = ensureBatchSize(length * Short.BYTES) / Short.BYTES;
+            slice.setShorts(bufferPosition, source, sourceIndex, flushLength);
+            bufferPosition += flushLength * Short.BYTES;
+            sourceIndex += flushLength;
+            length -= flushLength;
+        }
+    }
+
+    @Override
+    public void writeInts(int[] source, int sourceIndex, int length)
+    {
+        while (length > 0) {
+            int flushLength = ensureBatchSize(length * Integer.BYTES) / Integer.BYTES;
+            slice.setInts(bufferPosition, source, sourceIndex, flushLength);
+            bufferPosition += flushLength * Integer.BYTES;
+            sourceIndex += flushLength;
+            length -= flushLength;
+        }
+    }
+
+    @Override
+    public void writeLongs(long[] source, int sourceIndex, int length)
+    {
+        while (length > 0) {
+            int flushLength = ensureBatchSize(length * Long.BYTES) / Long.BYTES;
+            slice.setLongs(bufferPosition, source, sourceIndex, flushLength);
+            bufferPosition += flushLength * Long.BYTES;
+            sourceIndex += flushLength;
+            length -= flushLength;
+        }
+    }
+
+    @Override
+    public void writeFloats(float[] source, int sourceIndex, int length)
+    {
+        while (length > 0) {
+            int flushLength = ensureBatchSize(length * Float.BYTES) / Float.BYTES;
+            slice.setFloats(bufferPosition, source, sourceIndex, flushLength);
+            bufferPosition += flushLength * Float.BYTES;
+            sourceIndex += flushLength;
+            length -= flushLength;
+        }
+    }
+
+    @Override
+    public void writeDoubles(double[] source, int sourceIndex, int length)
+    {
+        while (length > 0) {
+            int flushLength = ensureBatchSize(length * Double.BYTES) / Double.BYTES;
+            slice.setDoubles(bufferPosition, source, sourceIndex, flushLength);
+            bufferPosition += flushLength * Double.BYTES;
+            sourceIndex += flushLength;
+            length -= flushLength;
         }
     }
 

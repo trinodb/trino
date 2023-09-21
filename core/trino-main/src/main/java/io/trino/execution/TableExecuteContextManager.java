@@ -13,9 +13,8 @@
  */
 package io.trino.execution;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.spi.QueryId;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;

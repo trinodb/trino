@@ -1,0 +1,69 @@
+#### Avro decoder
+
+The Avro decoder converts the bytes representing a message or key in Avro format
+based on a schema. The message must have the Avro schema embedded. Trino does
+not support schemaless Avro decoding.
+
+The `dataSchema` must be defined for any key or message using `Avro`
+decoder. `Avro` decoder should point to the location of a valid Avro
+schema file of the message which must be decoded. This location can be a remote
+web server (e.g.: `dataSchema: 'http://example.org/schema/avro_data.avsc'`) or
+local file system(e.g.: `dataSchema: '/usr/local/schema/avro_data.avsc'`). The
+decoder fails if this location is not accessible from the Trino cluster.
+
+The following attributes are supported:
+
+- `name` - Name of the column in the Trino table.
+- `type` - Trino data type of column.
+- `mapping` - A slash-separated list of field names to select a field from the
+  Avro schema. If the field specified in `mapping` does not exist in the
+  original Avro schema, a read operation returns `NULL`.
+
+The following table lists the supported Trino types that can be used in `type`
+for the equivalent Avro field types:
+
+```{eval-rst}
+.. list-table::
+  :widths: 40, 60
+  :header-rows: 1
+
+  * - Trino data type
+    - Allowed Avro data type
+  * - ``BIGINT``
+    - ``INT``, ``LONG``
+  * - ``DOUBLE``
+    - ``DOUBLE``, ``FLOAT``
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+  * - ``VARCHAR`` / ``VARCHAR(x)``
+    - ``STRING``
+  * - ``VARBINARY``
+    - ``FIXED``, ``BYTES``
+  * - ``ARRAY``
+    - ``ARRAY``
+  * - ``MAP``
+    - ``MAP``
+```
+
+No other types are supported.
+
+##### Avro schema evolution
+
+The Avro decoder supports schema evolution with backward compatibility. With
+backward compatibility, a newer schema can be used to read Avro data created
+with an older schema. Any change in the Avro schema must also be reflected in
+Trino's topic definition file. Newly added or renamed fields must have a
+default value in the Avro schema file.
+
+The schema evolution behavior is as follows:
+
+- Column added in new schema: Data created with an older schema produces a
+  *default* value when the table is using the new schema.
+- Column removed in new schema: Data created with an older schema no longer
+  outputs the data from the column that was removed.
+- Column is renamed in the new schema: This is equivalent to removing the column
+  and adding a new one, and data created with an older schema produces a
+  *default* value when the table is using the new schema.
+- Changing type of column in the new schema: If the type coercion is supported
+  by Avro, then the conversion happens. An error is thrown for incompatible
+  types.

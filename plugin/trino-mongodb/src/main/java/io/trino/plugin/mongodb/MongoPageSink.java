@@ -116,7 +116,7 @@ public class MongoPageSink
 
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
                 MongoColumnHandle column = columns.get(channel);
-                doc.append(column.getName(), getObjectValue(columns.get(channel).getType(), page.getBlock(channel), position));
+                doc.append(column.getBaseName(), getObjectValue(columns.get(channel).getType(), page.getBlock(channel), position));
             }
             batch.add(doc);
         }
@@ -270,7 +270,9 @@ public class MongoPageSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        return completedFuture(ImmutableList.of(Slices.wrappedLongArray(pageSinkId.getId())));
+        Slice value = Slices.allocate(Long.BYTES);
+        value.setLong(0, pageSinkId.getId());
+        return completedFuture(ImmutableList.of(value));
     }
 
     @Override

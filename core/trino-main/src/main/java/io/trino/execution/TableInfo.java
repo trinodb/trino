@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.Session;
 import io.trino.connector.ConnectorName;
 import io.trino.metadata.CatalogInfo;
@@ -28,8 +29,6 @@ import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.Map;
 import java.util.Optional;

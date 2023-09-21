@@ -24,6 +24,7 @@ import io.trino.spi.type.DecimalConversions;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
@@ -80,7 +81,9 @@ import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static java.lang.Math.floorDiv;
@@ -314,6 +317,29 @@ public final class ValueDecoders
                 (values, offset, length) -> {
                     for (int i = offset; i < offset + length; i++) {
                         values[i] = values[i] * PICOSECONDS_PER_MICROSECOND;
+                    }
+                });
+    }
+
+    public ValueDecoder<long[]> getTimeMillisDecoder(ParquetEncoding encoding)
+    {
+        int precision = ((TimeType) field.getType()).getPrecision();
+        if (precision < 3) {
+            return new InlineTransformDecoder<>(
+                    getInt32ToLongDecoder(encoding),
+                    (values, offset, length) -> {
+                        // decoded values are millis, round to lower precision and convert to picos
+                        // modulo PICOSECONDS_PER_DAY is applied for the case when a value is rounded up to PICOSECONDS_PER_DAY
+                        for (int i = offset; i < offset + length; i++) {
+                            values[i] = (round(values[i], 3 - precision) * PICOSECONDS_PER_MILLISECOND) % PICOSECONDS_PER_DAY;
+                        }
+                    });
+        }
+        return new InlineTransformDecoder<>(
+                getInt32ToLongDecoder(encoding),
+                (values, offset, length) -> {
+                    for (int i = offset; i < offset + length; i++) {
+                        values[i] = values[i] * PICOSECONDS_PER_MILLISECOND;
                     }
                 });
     }

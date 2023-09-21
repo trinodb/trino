@@ -33,8 +33,7 @@ import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.time.ZoneId;
@@ -189,6 +188,9 @@ public class LongColumnReader
         if (type instanceof BigintType) {
             return longReadNullBlock(isNull, nonNullCount);
         }
+        if (type instanceof TimeType) {
+            return longReadNullBlock(isNull, nonNullCount);
+        }
         if (type instanceof IntegerType || type instanceof DateType) {
             return intReadNullBlock(isNull, nonNullCount);
         }
@@ -210,6 +212,7 @@ public class LongColumnReader
 
         dataStream.next(longNonNullValueTemp, nonNullCount);
 
+        maybeTransformValues(longNonNullValueTemp, nonNullCount);
         long[] result = unpackLongNulls(longNonNullValueTemp, isNull);
 
         return new LongArrayBlock(nextBatchSize, Optional.of(isNull), result);

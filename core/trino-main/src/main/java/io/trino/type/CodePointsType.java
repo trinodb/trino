@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.TypeSignature;
@@ -53,14 +54,16 @@ public class CodePointsType
 
         Slice slice = block.getSlice(position, 0, block.getSliceLength(position));
         int[] codePoints = new int[slice.length() / Integer.BYTES];
-        slice.getBytes(0, Slices.wrappedIntArray(codePoints));
+        slice.getInts(0, codePoints);
         return codePoints;
     }
 
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        Slice slice = Slices.wrappedIntArray((int[]) value);
-        blockBuilder.writeBytes(slice, 0, slice.length()).closeEntry();
+        int[] codePoints = (int[]) value;
+        Slice slice = Slices.allocate(codePoints.length * Integer.BYTES);
+        slice.setInts(0, codePoints);
+        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(slice);
     }
 }

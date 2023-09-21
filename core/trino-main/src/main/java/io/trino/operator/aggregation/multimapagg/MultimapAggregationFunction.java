@@ -14,10 +14,10 @@
 package io.trino.operator.aggregation.multimapagg;
 
 import io.trino.array.ObjectBigArray;
-import io.trino.operator.aggregation.NullablePosition;
-import io.trino.operator.aggregation.TypedSet;
+import io.trino.operator.scalar.BlockSet;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
@@ -29,6 +29,7 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.ArrayType;
@@ -36,7 +37,6 @@ import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 
-import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -56,7 +56,7 @@ public final class MultimapAggregationFunction
     public static void input(
             @AggregationState({"K", "V"}) MultimapAggregationState state,
             @BlockPosition @SqlType("K") Block key,
-            @NullablePosition @BlockPosition @SqlType("V") Block value,
+            @SqlNullable @BlockPosition @SqlType("V") Block value,
             @BlockIndex int position)
     {
         state.add(key, value, position);
@@ -95,7 +95,7 @@ public final class MultimapAggregationFunction
             ObjectBigArray<BlockBuilder> valueArrayBlockBuilders = new ObjectBigArray<>();
             valueArrayBlockBuilders.ensureCapacity(state.getEntryCount());
             BlockBuilder distinctKeyBlockBuilder = keyType.createBlockBuilder(null, state.getEntryCount(), expectedValueSize(keyType, 100));
-            TypedSet keySet = createDistinctTypedSet(keyType, keyDistinctFrom, keyHashCode, state.getEntryCount(), "multimap_agg");
+            BlockSet keySet = new BlockSet(keyType, keyDistinctFrom, keyHashCode, state.getEntryCount());
 
             state.forEach((key, value, keyValueIndex) -> {
                 // Merge values of the same key into an array
@@ -109,12 +109,12 @@ public final class MultimapAggregationFunction
 
             // Write keys and value arrays into one Block
             Type valueArrayType = new ArrayType(valueType);
-            BlockBuilder multimapBlockBuilder = out.beginBlockEntry();
-            for (int i = 0; i < distinctKeyBlockBuilder.getPositionCount(); i++) {
-                keyType.appendTo(distinctKeyBlockBuilder, i, multimapBlockBuilder);
-                valueArrayType.writeObject(multimapBlockBuilder, valueArrayBlockBuilders.get(i).build());
-            }
-            out.closeEntry();
+            ((MapBlockBuilder) out).buildEntry((keyBuilder, valueBuilder) -> {
+                for (int i = 0; i < distinctKeyBlockBuilder.getPositionCount(); i++) {
+                    keyType.appendTo(distinctKeyBlockBuilder, i, keyBuilder);
+                    valueArrayType.writeObject(valueBuilder, valueArrayBlockBuilders.get(i).build());
+                }
+            });
         }
     }
 }

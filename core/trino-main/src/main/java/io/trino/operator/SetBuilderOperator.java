@@ -13,18 +13,15 @@
  */
 package io.trino.operator;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.operator.ChannelSet.ChannelSetBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.type.BlockTypeOperators;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Optional;
 
@@ -74,7 +71,7 @@ public class SetBuilderOperator
         private final int expectedPositions;
         private boolean closed;
         private final JoinCompiler joinCompiler;
-        private final BlockTypeOperators blockTypeOperators;
+        private final TypeOperators typeOperators;
 
         public SetBuilderOperatorFactory(
                 int operatorId,
@@ -84,7 +81,7 @@ public class SetBuilderOperator
                 Optional<Integer> hashChannel,
                 int expectedPositions,
                 JoinCompiler joinCompiler,
-                BlockTypeOperators blockTypeOperators)
+                TypeOperators typeOperators)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -94,7 +91,7 @@ public class SetBuilderOperator
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
             this.expectedPositions = expectedPositions;
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-            this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
+            this.typeOperators = requireNonNull(typeOperators, "blockTypeOperators is null");
         }
 
         public SetSupplier getSetProvider()
@@ -107,7 +104,7 @@ public class SetBuilderOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, SetBuilderOperator.class.getSimpleName());
-            return new SetBuilderOperator(operatorContext, setProvider, setChannel, hashChannel, expectedPositions, joinCompiler, blockTypeOperators);
+            return new SetBuilderOperator(operatorContext, setProvider, setChannel, hashChannel, expectedPositions, joinCompiler, typeOperators);
         }
 
         @Override
@@ -119,20 +116,18 @@ public class SetBuilderOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new SetBuilderOperatorFactory(operatorId, planNodeId, setProvider.getType(), setChannel, hashChannel, expectedPositions, joinCompiler, blockTypeOperators);
+            return new SetBuilderOperatorFactory(operatorId, planNodeId, setProvider.getType(), setChannel, hashChannel, expectedPositions, joinCompiler, typeOperators);
         }
     }
 
     private final OperatorContext operatorContext;
     private final SetSupplier setSupplier;
-    private final int[] sourceChannels;
+    private final int setChannel;
+    private final int hashChannel;
 
     private final ChannelSetBuilder channelSetBuilder;
 
     private boolean finished;
-
-    @Nullable
-    private Work<?> unfinishedWork;  // The pending work for current page.
 
     public SetBuilderOperator(
             OperatorContext operatorContext,
@@ -141,26 +136,18 @@ public class SetBuilderOperator
             Optional<Integer> hashChannel,
             int expectedPositions,
             JoinCompiler joinCompiler,
-            BlockTypeOperators blockTypeOperators)
+            TypeOperators typeOperators)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.setSupplier = requireNonNull(setSupplier, "setSupplier is null");
 
-        if (hashChannel.isPresent()) {
-            this.sourceChannels = new int[] {setChannel, hashChannel.get()};
-        }
-        else {
-            this.sourceChannels = new int[] {setChannel};
-        }
-        // Set builder is has a single channel which goes in channel 0, if hash is present, add a hachBlock to channel 1
-        Optional<Integer> channelSetHashChannel = hashChannel.isPresent() ? Optional.of(1) : Optional.empty();
+        this.setChannel = setChannel;
+        this.hashChannel = hashChannel.orElse(-1);
+
+        // Set builder has a single channel which goes in channel 0, if hash is present, add a hashBlock to channel 1
         this.channelSetBuilder = new ChannelSetBuilder(
                 setSupplier.getType(),
-                channelSetHashChannel,
-                expectedPositions,
-                requireNonNull(operatorContext, "operatorContext is null"),
-                requireNonNull(joinCompiler, "joinCompiler is null"),
-                requireNonNull(blockTypeOperators, "blockTypeOperators is null"));
+                requireNonNull(typeOperators, "typeOperators is null"), operatorContext.localUserMemoryContext());
     }
 
     @Override
@@ -192,9 +179,8 @@ public class SetBuilderOperator
     public boolean needsInput()
     {
         // Since SetBuilderOperator doesn't produce any output, the getOutput()
-        // method may never be called. We need to handle any unfinished work
-        // before addInput() can be called again.
-        return !finished && (unfinishedWork == null || processUnfinishedWork());
+        // method may never be called.
+        return !finished;
     }
 
     @Override
@@ -203,33 +189,12 @@ public class SetBuilderOperator
         requireNonNull(page, "page is null");
         checkState(!isFinished(), "Operator is already finished");
 
-        unfinishedWork = channelSetBuilder.addPage(page.getColumns(sourceChannels));
-        processUnfinishedWork();
+        channelSetBuilder.addAll(page.getBlock(setChannel), hashChannel == -1 ? null : page.getBlock(hashChannel));
     }
 
     @Override
     public Page getOutput()
     {
         return null;
-    }
-
-    private boolean processUnfinishedWork()
-    {
-        // Processes the unfinishedWork for this page by adding the data to the hash table. If this page
-        // can't be fully consumed (e.g. rehashing fails), the unfinishedWork will be left with non-empty value.
-        checkState(unfinishedWork != null, "unfinishedWork is empty");
-        boolean done = unfinishedWork.process();
-        if (done) {
-            unfinishedWork = null;
-        }
-        // We need to update the memory reservation again since the page builder memory may also be increasing.
-        channelSetBuilder.updateMemoryReservation();
-        return done;
-    }
-
-    @VisibleForTesting
-    public int getCapacity()
-    {
-        return channelSetBuilder.getCapacity();
     }
 }

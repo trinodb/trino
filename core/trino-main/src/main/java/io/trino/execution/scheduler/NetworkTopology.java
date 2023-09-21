@@ -13,9 +13,8 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.spi.HostAddress;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 /**
  * Implementations of this interface must be thread safe.

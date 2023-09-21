@@ -25,7 +25,7 @@ import io.trino.sql.planner.iterative.rule.MergeIntersect;
 import io.trino.sql.planner.iterative.rule.MergeUnion;
 import io.trino.sql.planner.iterative.rule.PruneDistinctAggregation;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 

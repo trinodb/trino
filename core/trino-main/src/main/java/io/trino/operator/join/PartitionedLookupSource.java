@@ -14,16 +14,14 @@
 package io.trino.operator.join;
 
 import com.google.common.io.Closer;
-import io.trino.operator.InterpretedHashGenerator;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.operator.exchange.LocalPartitionGenerator;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
-import io.trino.type.BlockTypeOperators;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.NotThreadSafe;
+import io.trino.spi.type.TypeOperators;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -36,6 +34,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.operator.InterpretedHashGenerator.createPagePrefixHashGenerator;
 import static java.lang.Integer.numberOfTrailingZeros;
 import static java.lang.Math.toIntExact;
 
@@ -43,7 +42,7 @@ import static java.lang.Math.toIntExact;
 public class PartitionedLookupSource
         implements LookupSource
 {
-    public static TrackingLookupSourceSupplier createPartitionedLookupSourceSupplier(List<Supplier<LookupSource>> partitions, List<Type> hashChannelTypes, boolean outer, BlockTypeOperators blockTypeOperators)
+    public static TrackingLookupSourceSupplier createPartitionedLookupSourceSupplier(List<Supplier<LookupSource>> partitions, List<Type> hashChannelTypes, boolean outer, TypeOperators typeOperators)
     {
         if (outer) {
             OuterPositionTracker.Factory outerPositionTrackerFactory = new OuterPositionTracker.Factory(partitions);
@@ -59,7 +58,7 @@ public class PartitionedLookupSource
                                     .collect(toImmutableList()),
                             hashChannelTypes,
                             Optional.of(outerPositionTrackerFactory.create()),
-                            blockTypeOperators);
+                            typeOperators);
                 }
 
                 @Override
@@ -76,7 +75,7 @@ public class PartitionedLookupSource
                                 .collect(toImmutableList()),
                         hashChannelTypes,
                         Optional.empty(),
-                        blockTypeOperators));
+                        typeOperators));
     }
 
     private final LookupSource[] lookupSources;
@@ -88,13 +87,13 @@ public class PartitionedLookupSource
 
     private boolean closed;
 
-    private PartitionedLookupSource(List<? extends LookupSource> lookupSources, List<Type> hashChannelTypes, Optional<OuterPositionTracker> outerPositionTracker, BlockTypeOperators blockTypeOperators)
+    private PartitionedLookupSource(List<? extends LookupSource> lookupSources, List<Type> hashChannelTypes, Optional<OuterPositionTracker> outerPositionTracker, TypeOperators typeOperators)
     {
         this.lookupSources = lookupSources.toArray(new LookupSource[lookupSources.size()]);
 
         // this generator is only used for getJoinPosition without a rawHash and in this case
         // the hash channels are always packed in a page without extra columns
-        this.partitionGenerator = new LocalPartitionGenerator(InterpretedHashGenerator.createPositionalWithTypes(hashChannelTypes, blockTypeOperators), lookupSources.size());
+        this.partitionGenerator = new LocalPartitionGenerator(createPagePrefixHashGenerator(hashChannelTypes, typeOperators), lookupSources.size());
 
         this.partitionMask = lookupSources.size() - 1;
         this.shiftSize = numberOfTrailingZeros(lookupSources.size()) + 1;

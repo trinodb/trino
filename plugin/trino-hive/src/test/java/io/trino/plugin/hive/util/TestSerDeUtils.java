@@ -41,6 +41,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Consumer;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveTestUtils.mapType;
@@ -61,9 +62,6 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.StructuralTestUtil.arrayBlockOf;
 import static io.trino.testing.StructuralTestUtil.mapBlockOf;
 import static io.trino.testing.StructuralTestUtil.rowBlockOf;
-import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
-import static java.lang.Double.doubleToLongBits;
-import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.ObjectInspectorOptions;
@@ -126,62 +124,69 @@ public class TestSerDeUtils
     public void testPrimitiveSlice()
     {
         // boolean
-        Block expectedBoolean = VARBINARY.createBlockBuilder(null, 1).writeByte(1).closeEntry().build();
+        Block expectedBoolean = createSingleValue(BOOLEAN, blockBuilder -> BOOLEAN.writeBoolean(blockBuilder, true));
         Block actualBoolean = toBinaryBlock(BOOLEAN, true, getInspector(Boolean.class));
         assertBlockEquals(actualBoolean, expectedBoolean);
 
         // byte
-        Block expectedByte = VARBINARY.createBlockBuilder(null, 1).writeByte(5).closeEntry().build();
+        Block expectedByte = createSingleValue(TINYINT, blockBuilder -> TINYINT.writeLong(blockBuilder, 5));
         Block actualByte = toBinaryBlock(TINYINT, (byte) 5, getInspector(Byte.class));
         assertBlockEquals(actualByte, expectedByte);
 
         // short
-        Block expectedShort = VARBINARY.createBlockBuilder(null, 1).writeShort(2).closeEntry().build();
+        Block expectedShort = createSingleValue(SMALLINT, blockBuilder -> SMALLINT.writeLong(blockBuilder, 2));
         Block actualShort = toBinaryBlock(SMALLINT, (short) 2, getInspector(Short.class));
         assertBlockEquals(actualShort, expectedShort);
 
         // int
-        Block expectedInt = VARBINARY.createBlockBuilder(null, 1).writeInt(1).closeEntry().build();
+        Block expectedInt = createSingleValue(INTEGER, blockBuilder -> INTEGER.writeLong(blockBuilder, 1));
         Block actualInt = toBinaryBlock(INTEGER, 1, getInspector(Integer.class));
         assertBlockEquals(actualInt, expectedInt);
 
         // long
-        Block expectedLong = VARBINARY.createBlockBuilder(null, 1).writeLong(10).closeEntry().build();
+        Block expectedLong = createSingleValue(BIGINT, blockBuilder -> BIGINT.writeLong(blockBuilder, 10));
         Block actualLong = toBinaryBlock(BIGINT, 10L, getInspector(Long.class));
         assertBlockEquals(actualLong, expectedLong);
 
         // float
-        Block expectedFloat = VARBINARY.createBlockBuilder(null, 1).writeInt(floatToRawIntBits(20.0f)).closeEntry().build();
+        Block expectedFloat = createSingleValue(REAL, blockBuilder -> REAL.writeLong(blockBuilder, Float.floatToIntBits(20.0f)));
         Block actualFloat = toBinaryBlock(REAL, 20.0f, getInspector(Float.class));
         assertBlockEquals(actualFloat, expectedFloat);
 
         // double
-        Block expectedDouble = VARBINARY.createBlockBuilder(null, 1).writeLong(doubleToLongBits(30.12)).closeEntry().build();
+        Block expectedDouble = createSingleValue(DOUBLE, blockBuilder -> DOUBLE.writeDouble(blockBuilder, 30.12d));
         Block actualDouble = toBinaryBlock(DOUBLE, 30.12d, getInspector(Double.class));
         assertBlockEquals(actualDouble, expectedDouble);
 
         // string
-        Block expectedString = VARBINARY.createBlockBuilder(null, 1).writeBytes(utf8Slice("abdd"), 0, 4).closeEntry().build();
-        Block actualString = toBinaryBlock(createUnboundedVarcharType(), "abdd", getInspector(String.class));
+        Block expectedString = createSingleValue(VARCHAR, blockBuilder -> VARCHAR.writeString(blockBuilder, "value"));
+        Block actualString = toBinaryBlock(VARCHAR, "value", getInspector(String.class));
         assertBlockEquals(actualString, expectedString);
 
         // date
         int date = toIntExact(LocalDate.of(2008, 10, 28).toEpochDay());
-        Block expectedDate = VARBINARY.createBlockBuilder(null, 1).writeInt(date).closeEntry().build();
+        Block expectedDate = createSingleValue(DATE, blockBuilder -> DATE.writeLong(blockBuilder, date));
         Block actualDate = toBinaryBlock(DATE, Date.ofEpochDay(date), getInspector(Date.class));
         assertBlockEquals(actualDate, expectedDate);
 
         // timestamp
         DateTime dateTime = new DateTime(2008, 10, 28, 16, 7, 15, 123);
-        Block expectedTimestamp = VARBINARY.createBlockBuilder(null, 1).writeLong(dateTime.getMillis() * MICROSECONDS_PER_MILLISECOND).closeEntry().build();
+        Block expectedTimestamp = createSingleValue(TIMESTAMP_MILLIS, blockBuilder -> TIMESTAMP_MILLIS.writeLong(blockBuilder, dateTime.getMillis() * 1000));
         Block actualTimestamp = toBinaryBlock(TIMESTAMP_MILLIS, Timestamp.ofEpochMilli(dateTime.getMillis()), getInspector(Timestamp.class));
         assertBlockEquals(actualTimestamp, expectedTimestamp);
 
         // binary
         byte[] byteArray = {81, 82, 84, 85};
-        Block expectedBinary = VARBINARY.createBlockBuilder(null, 1).writeBytes(Slices.wrappedBuffer(byteArray), 0, 4).closeEntry().build();
+        Block expectedBinary = createSingleValue(VARBINARY, blockBuilder -> VARBINARY.writeSlice(blockBuilder, Slices.wrappedBuffer(byteArray)));
         Block actualBinary = toBinaryBlock(VARBINARY, byteArray, getInspector(byte[].class));
         assertBlockEquals(actualBinary, expectedBinary);
+    }
+
+    private static Block createSingleValue(io.trino.spi.type.Type type, Consumer<BlockBuilder> outputConsumer)
+    {
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        outputConsumer.accept(blockBuilder);
+        return blockBuilder.build();
     }
 
     @Test
@@ -334,7 +339,7 @@ public class TestSerDeUtils
 
     private static Block getPrimitiveBlock(io.trino.spi.type.Type type, Object object, ObjectInspector inspector)
     {
-        BlockBuilder builder = VARBINARY.createBlockBuilder(null, 1);
+        BlockBuilder builder = type.createBlockBuilder(null, 1);
         serializeObject(type, builder, object, inspector);
         return builder.build();
     }

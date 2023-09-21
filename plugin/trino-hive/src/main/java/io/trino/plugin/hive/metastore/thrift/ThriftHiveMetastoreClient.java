@@ -747,7 +747,7 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         AddDynamicPartitions request = new AddDynamicPartitions(transactionId, writeId, dbName, tableName, partitionNames);
-        request.setOperationType(operation.getMetastoreOperationType().orElseThrow());
+        request.setOperationType(operation.getMetastoreOperationType());
         client.addDynamicPartitions(request);
     }
 

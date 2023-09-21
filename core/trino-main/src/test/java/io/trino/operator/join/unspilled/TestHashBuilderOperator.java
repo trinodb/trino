@@ -22,9 +22,9 @@ import io.trino.operator.PagesIndex;
 import io.trino.operator.TaskContext;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
-import io.trino.type.BlockTypeOperators;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -98,7 +98,7 @@ public class TestHashBuilderOperator
                 ImmutableList.of(BIGINT),
                 1,
                 false,
-                new BlockTypeOperators());
+                new TypeOperators());
         try (HashBuilderOperator operator = new HashBuilderOperator(
                 operatorContext,
                 lookupSourceFactory,

@@ -14,6 +14,7 @@
 package io.trino.spiller;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import io.trino.FeaturesConfig;
 import io.trino.RowPagesBuilder;
 import io.trino.execution.buffer.PageSerializer;
@@ -45,7 +46,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.Double.doubleToLongBits;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -110,9 +110,9 @@ public class TestBinaryFileSpiller
         BlockBuilder col2 = DOUBLE.createBlockBuilder(null, 1);
         BlockBuilder col3 = VARBINARY.createBlockBuilder(null, 1);
 
-        col1.writeLong(42).closeEntry();
-        col2.writeLong(doubleToLongBits(43.0)).closeEntry();
-        col3.writeLong(doubleToLongBits(43.0)).writeLong(1).closeEntry();
+        BIGINT.writeLong(col1, 42);
+        DOUBLE.writeDouble(col2, 43.0);
+        VARBINARY.writeSlice(col3, Slices.allocate(16).getOutput().appendDouble(43.0).appendLong(1).slice());
 
         Page page = new Page(col1.build(), col2.build(), col3.build());
 
@@ -156,7 +156,7 @@ public class TestBinaryFileSpiller
         assertEquals(spillerStats.getTotalSpilledBytes() - spilledBytesBefore, spilledBytes);
         // At this point, the buffers should still be accounted for in the memory context, because
         // the spiller (FileSingleStreamSpiller) doesn't release its memory reservation until it's closed.
-        assertEquals(memoryContext.getBytes(), spills.length * FileSingleStreamSpiller.BUFFER_SIZE);
+        assertEquals(memoryContext.getBytes(), (long) spills.length * FileSingleStreamSpiller.BUFFER_SIZE);
 
         List<Iterator<Page>> actualSpills = spiller.getSpills();
         assertEquals(actualSpills.size(), spills.length);

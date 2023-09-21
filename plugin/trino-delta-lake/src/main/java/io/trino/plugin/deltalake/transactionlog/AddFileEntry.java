@@ -22,8 +22,7 @@ import io.airlift.slice.SizeOf;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Map;
 import java.util.Objects;
@@ -99,6 +98,9 @@ public class AddFileEntry
         return partitionValues;
     }
 
+    /**
+     * @return the original key and canonical value. The value returns {@code Optional.empty()} when it's null or empty string.
+     */
     @JsonIgnore
     public Map<String, Optional<String>> getCanonicalPartitionValues()
     {

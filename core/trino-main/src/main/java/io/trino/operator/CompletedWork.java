@@ -13,7 +13,7 @@
  */
 package io.trino.operator;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import static java.util.Objects.requireNonNull;
 

@@ -24,9 +24,10 @@ import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HDFS_IMPERSONATION;
 import static io.trino.tests.product.TestGroups.HDFS_NO_IMPERSONATION;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -34,12 +35,14 @@ import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_IS
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.connectToTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestImpersonation
         extends ProductTest
 {
     private QueryExecutor aliceExecutor;
+    private QueryExecutor bobExecutor;
 
     @Inject
     private HdfsClient hdfsClient;
@@ -48,6 +51,10 @@ public class TestImpersonation
     @Named("databases.alice@presto.jdbc_user")
     private String aliceJdbcUser;
 
+    @Inject
+    @Named("databases.bob@presto.jdbc_user")
+    private String bobJdbcUser;
+
     // The value for configuredHdfsUser is profile dependent
     // For non-Kerberos environments this variable will be equal to -DHADOOP_USER_NAME as set in jvm.config
     // For Kerberized environments this variable will be equal to the hive.hdfs.trino.principal property as set in hive.properties
@@ -55,10 +62,15 @@ public class TestImpersonation
     @Named("databases.presto.configured_hdfs_user")
     private String configuredHdfsUser;
 
+    @Inject
+    @Named("databases.hive.warehouse_directory_path")
+    private String warehouseLocation;
+
     @BeforeMethodWithContext
     public void setup()
     {
         aliceExecutor = connectToTrino("alice@presto");
+        bobExecutor = connectToTrino("bob@presto");
     }
 
     @AfterMethodWithContext
@@ -66,6 +78,49 @@ public class TestImpersonation
     {
         // should not be closed, this would close a shared, global QueryExecutor
         aliceExecutor = null;
+        bobExecutor = null;
+    }
+
+    @Test(groups = {HDFS_IMPERSONATION, PROFILE_SPECIFIC_TESTS})
+    public void testExternalLocationTableCreationFailure()
+    {
+        String commonExternalLocationPath = warehouseLocation + "/nested_" + randomNameSuffix();
+
+        String tableNameBob = "bob_external_table" + randomNameSuffix();
+        String tableLocationBob = commonExternalLocationPath + "/bob_table";
+        bobExecutor.executeQuery(format("CREATE TABLE %s (a bigint) WITH (external_location = '%s')", tableNameBob, tableLocationBob));
+        String owner = hdfsClient.getOwner(commonExternalLocationPath);
+        assertEquals(owner, bobJdbcUser);
+
+        String tableNameAlice = "alice_external_table" + randomNameSuffix();
+        String tableLocationAlice = commonExternalLocationPath + "/alice_table";
+        assertQueryFailure(() -> aliceExecutor.executeQuery(format("CREATE TABLE %s (a bigint) WITH (external_location = '%s')", tableNameAlice, tableLocationAlice)))
+                .hasStackTraceContaining("Permission denied");
+
+        bobExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableNameBob));
+        aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableNameAlice));
+    }
+
+    @Test(groups = {HDFS_NO_IMPERSONATION, PROFILE_SPECIFIC_TESTS})
+    public void testExternalLocationTableCreationSuccess()
+    {
+        String commonExternalLocationPath = warehouseLocation + "/nested_" + randomNameSuffix();
+
+        String tableNameBob = "bob_external_table" + randomNameSuffix();
+        String tableLocationBob = commonExternalLocationPath + "/bob_table";
+        bobExecutor.executeQuery(format("CREATE TABLE %s (a bigint) WITH (external_location = '%s')", tableNameBob, tableLocationBob));
+        String owner = hdfsClient.getOwner(tableLocationBob);
+        assertEquals(owner, configuredHdfsUser);
+
+        String tableNameAlice = "alice_external_table" + randomNameSuffix();
+        String tableLocationAlice = commonExternalLocationPath + "/alice_table";
+        aliceExecutor.executeQuery(format("CREATE TABLE %s (a bigint) WITH (external_location = '%s')", tableNameAlice, tableLocationAlice));
+        assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableNameAlice))).hasRowsCount(0);
+        owner = hdfsClient.getOwner(tableLocationAlice);
+        assertEquals(owner, configuredHdfsUser);
+
+        bobExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableNameBob));
+        aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableNameAlice));
     }
 
     @Test(groups = {HDFS_NO_IMPERSONATION, PROFILE_SPECIFIC_TESTS})
@@ -89,13 +144,7 @@ public class TestImpersonation
     {
         String location = getOnlyElement(executor.executeQuery(format("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM %s", tableName)).column(1));
         if (location.startsWith("hdfs://")) {
-            try {
-                URI uri = new URI(location);
-                return uri.getPath();
-            }
-            catch (URISyntaxException e) {
-                throw new RuntimeException(e);
-            }
+            return URI.create(location).getPath();
         }
         return location;
     }

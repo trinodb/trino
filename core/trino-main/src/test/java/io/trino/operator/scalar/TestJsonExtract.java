@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -327,6 +328,13 @@ public class TestJsonExtract
         assertInvalidExtract("", " ", "Invalid JSON path: ' '");
         assertInvalidExtract("", ".", "Invalid JSON path: '.'");
         assertInvalidExtract("{ \"store\": { \"book\": [{ \"title\": \"title\" }] } }", "$.store.book[", "Invalid JSON path: '$.store.book['");
+    }
+
+    @Test
+    public void testExtractLongString()
+    {
+        String longString = "a".repeat(StreamReadConstraints.DEFAULT_MAX_STRING_LEN + 1);
+        assertEquals(doJsonExtract("{\"key\": \"" + longString + "\"}", "$.key"), '"' + longString + '"');
     }
 
     @Test

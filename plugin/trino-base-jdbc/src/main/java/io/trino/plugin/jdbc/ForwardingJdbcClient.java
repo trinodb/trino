@@ -39,6 +39,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -121,6 +122,12 @@ public abstract class ForwardingJdbcClient
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         return delegate().toWriteMapping(session, type);
+    }
+
+    @Override
+    public Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    {
+        return delegate().getSupportedType(session, type);
     }
 
     @Override
@@ -379,9 +386,9 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
+    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
-        delegate().dropSchema(session, schemaName);
+        delegate().dropSchema(session, schemaName, cascade);
     }
 
     @Override
@@ -430,5 +437,11 @@ public abstract class ForwardingJdbcClient
     public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
     {
         delegate().truncateTable(session, handle);
+    }
+
+    @Override
+    public OptionalInt getMaxWriteParallelism(ConnectorSession session)
+    {
+        return delegate().getMaxWriteParallelism(session);
     }
 }

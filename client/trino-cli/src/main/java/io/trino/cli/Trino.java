@@ -18,6 +18,8 @@ import io.airlift.units.Duration;
 import io.trino.cli.ClientOptions.ClientExtraCredential;
 import io.trino.cli.ClientOptions.ClientResourceEstimate;
 import io.trino.cli.ClientOptions.ClientSessionProperty;
+import org.jline.utils.AttributedStringBuilder;
+import org.jline.utils.AttributedStyle;
 import picocli.CommandLine;
 import picocli.CommandLine.IVersionProvider;
 
@@ -31,7 +33,10 @@ import java.util.stream.Stream;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.StandardSystemProperty.USER_HOME;
 import static com.google.common.base.Strings.emptyToNull;
+import static com.google.common.base.Throwables.getStackTraceAsString;
+import static io.trino.cli.ClientOptions.DEBUG_OPTION_NAME;
 import static java.lang.System.getenv;
+import static java.util.regex.Pattern.quote;
 
 public final class Trino
 {
@@ -50,10 +55,32 @@ public final class Trino
                 .registerConverter(ClientSessionProperty.class, ClientSessionProperty::new)
                 .registerConverter(ClientExtraCredential.class, ClientExtraCredential::new)
                 .registerConverter(HostAndPort.class, HostAndPort::fromString)
-                .registerConverter(Duration.class, Duration::valueOf);
+                .registerConverter(Duration.class, Duration::valueOf)
+                .setExecutionExceptionHandler((e, cmd, parseResult) -> {
+                    System.err.println(formatCliErrorMessage(e, parseResult.hasMatchedOption(DEBUG_OPTION_NAME)));
+                    return 1;
+                });
 
         getConfigFile().ifPresent(file -> ValidatingPropertiesDefaultProvider.attach(commandLine, file));
         return commandLine;
+    }
+
+    public static String formatCliErrorMessage(Throwable throwable, boolean debug)
+    {
+        AttributedStringBuilder builder = new AttributedStringBuilder();
+        if (debug) {
+            builder.append(throwable.getClass().getName()).append(": ");
+        }
+
+        builder.append(throwable.getMessage(), AttributedStyle.BOLD.foreground(AttributedStyle.RED));
+
+        if (debug) {
+            String messagePattern = quote(throwable.getClass().getName() + ": " + throwable.getMessage());
+            String stackTraceWithoutMessage = getStackTraceAsString(throwable).replaceFirst(messagePattern, "");
+            builder.append(stackTraceWithoutMessage);
+        }
+
+        return builder.toAnsi();
     }
 
     private static Optional<File> getConfigFile()

@@ -14,9 +14,9 @@
 package io.trino.plugin.hive.orc;
 
 import io.trino.orc.metadata.OrcType.OrcTypeKind;
-import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToVarcharCoercer;
-import io.trino.plugin.hive.coercions.TimestampCoercer.ShortTimestampToVarcharCoercer;
+import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToLongTimestampCoercer;
+import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToShortTimestampCoercer;
 import io.trino.plugin.hive.coercions.TypeCoercer;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
@@ -24,21 +24,32 @@ import io.trino.spi.type.VarcharType;
 
 import java.util.Optional;
 
-import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.STRING;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.VARCHAR;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 
 public final class OrcTypeTranslator
 {
     private OrcTypeTranslator() {}
 
-    public static Optional<TypeCoercer<? extends Type, ? extends Type>> createCoercer(OrcTypeKind fromOrcType, Type toTrinoType, HiveTimestampPrecision timestampPrecision)
+    public static Optional<TypeCoercer<? extends Type, ? extends Type>> createCoercer(OrcTypeKind fromOrcType, Type toTrinoType)
     {
-        if (fromOrcType.equals(OrcTypeKind.TIMESTAMP) && toTrinoType instanceof VarcharType varcharType) {
-            TimestampType timestampType = createTimestampType(timestampPrecision.getPrecision());
+        if (fromOrcType == TIMESTAMP && toTrinoType instanceof VarcharType varcharType) {
+            return Optional.of(new LongTimestampToVarcharCoercer(TIMESTAMP_NANOS, varcharType));
+        }
+        if (isVarcharType(fromOrcType) && toTrinoType instanceof TimestampType timestampType) {
             if (timestampType.isShort()) {
-                return Optional.of(new ShortTimestampToVarcharCoercer(timestampType, varcharType));
+                return Optional.of(new VarcharToShortTimestampCoercer(createUnboundedVarcharType(), timestampType));
             }
-            return Optional.of(new LongTimestampToVarcharCoercer(timestampType, varcharType));
+            return Optional.of(new VarcharToLongTimestampCoercer(createUnboundedVarcharType(), timestampType));
         }
         return Optional.empty();
+    }
+
+    private static boolean isVarcharType(OrcTypeKind orcTypeKind)
+    {
+        return orcTypeKind == STRING || orcTypeKind == VARCHAR;
     }
 }

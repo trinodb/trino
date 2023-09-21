@@ -18,8 +18,7 @@ import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.parquet.reader.decoders.RleBitPackingHybridDecoder;
 import io.trino.parquet.reader.decoders.ValueDecoder;
 import io.trino.spi.block.Block;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import static java.util.Objects.requireNonNull;
 

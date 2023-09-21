@@ -23,18 +23,21 @@ import io.trino.server.SliceSerialization.SliceDeserializer;
 import io.trino.server.SliceSerialization.SliceSerializer;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeSourceOutputSelector;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.spi.exchange.ExchangeSourceOutputSelector.Selection.EXCLUDED;
 import static io.trino.spi.exchange.ExchangeSourceOutputSelector.Selection.INCLUDED;
 import static io.trino.spi.exchange.ExchangeSourceOutputSelector.Selection.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public class TestExchangeSourceOutputSelector
 {
     private static final ExchangeId EXCHANGE_ID_1 = new ExchangeId("exchange_1");
@@ -42,7 +45,7 @@ public class TestExchangeSourceOutputSelector
 
     private JsonCodec<ExchangeSourceOutputSelector> codec;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
@@ -51,7 +54,7 @@ public class TestExchangeSourceOutputSelector
         codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(ExchangeSourceOutputSelector.class);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         codec = null;

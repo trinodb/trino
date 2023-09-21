@@ -516,14 +516,6 @@ public interface AccessControl
     void checkCanSetCatalogRole(SecurityContext context, String role, String catalogName);
 
     /**
-     * Check if identity is allowed to show role authorization descriptors (i.e. RoleGrants).
-     *
-     * @param catalogName if present, the role catalog; otherwise the role is a system role
-     * @throws AccessDeniedException if not allowed
-     */
-    void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, Optional<String> catalogName);
-
-    /**
      * Check if identity is allowed to show roles on the specified catalog.
      *
      * @param catalogName if present, the role catalog; otherwise the role is a system role

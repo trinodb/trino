@@ -25,9 +25,10 @@ import io.trino.parquet.reader.flat.RowRangesIterator;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.type.AbstractVariableWidthType;
+import io.trino.spi.type.DateType;
+import io.trino.spi.type.Type;
+import jakarta.annotation.Nullable;
 import org.apache.parquet.io.ParquetDecodingException;
-
-import javax.annotation.Nullable;
 
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -150,9 +151,7 @@ public abstract class AbstractColumnReader<BufferType>
         //   2. Number of dictionary entries exceeds a threshold (Integer.MAX_VALUE for parquet-mr by default).
         // Trino dictionary blocks are produced only when the entire column chunk is dictionary encoded
         if (pageReader.hasOnlyDictionaryEncodedPages()) {
-            // TODO: DictionaryBlocks are currently restricted to variable width types where dictionary processing is most beneficial.
-            //   Dictionary processing for other data types can be enabled after validating improvements on benchmarks.
-            if (!(field.getType() instanceof AbstractVariableWidthType)) {
+            if (!shouldProduceDictionaryForType(field.getType())) {
                 return false;
             }
             requireNonNull(dictionaryDecoder, "dictionaryDecoder is null");
@@ -162,6 +161,13 @@ public abstract class AbstractColumnReader<BufferType>
                     .orElse(true);
         }
         return false;
+    }
+
+    static boolean shouldProduceDictionaryForType(Type type)
+    {
+        // TODO: DictionaryBlocks are currently restricted to variable width and date types where dictionary processing is most beneficial.
+        //   Dictionary processing for other data types can be enabled after validating improvements on benchmarks.
+        return type instanceof AbstractVariableWidthType || type instanceof DateType;
     }
 
     private static long getMaxDictionaryBlockSize(Block dictionary, long batchSize)

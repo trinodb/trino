@@ -6,12 +6,11 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>420</version>
+        <version>426</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-phoenix5-patched</artifactId>
-    <name>trino-phoenix5-patched</name>
     <description>Trino - patched Phoenix5 client to work with JDK17</description>
 
     <properties>
@@ -39,10 +38,10 @@
                 <artifactId>maven-shade-plugin</artifactId>
                 <executions>
                     <execution>
-                        <phase>package</phase>
                         <goals>
                             <goal>shade</goal>
                         </goals>
+                        <phase>package</phase>
                         <configuration>
                             <createSourcesJar>false</createSourcesJar>
                             <shadeSourcesContent>false</shadeSourcesContent>

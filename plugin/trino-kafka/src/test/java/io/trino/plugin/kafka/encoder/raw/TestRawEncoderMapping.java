@@ -18,6 +18,7 @@ import io.airlift.slice.Slices;
 import io.trino.plugin.kafka.KafkaColumnHandle;
 import io.trino.plugin.kafka.encoder.EncoderColumnHandle;
 import io.trino.plugin.kafka.encoder.RowEncoder;
+import io.trino.plugin.kafka.encoder.RowEncoderSpec;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LongArrayBlockBuilder;
 import io.trino.spi.block.VariableWidthBlockBuilder;
@@ -28,6 +29,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
+import static io.trino.plugin.kafka.encoder.KafkaFieldType.MESSAGE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -36,6 +38,7 @@ import static org.testng.Assert.assertEquals;
 public class TestRawEncoderMapping
 {
     private static final RawRowEncoderFactory ENCODER_FACTORY = new RawRowEncoderFactory();
+    private static final String TOPIC = "topic";
 
     @Test
     public void testMapping()
@@ -48,7 +51,7 @@ public class TestRawEncoderMapping
         EncoderColumnHandle col6 = new KafkaColumnHandle("test6", createVarcharType(6), "36:42", "BYTE", null, false, false, false);
         EncoderColumnHandle col7 = new KafkaColumnHandle("test7", createVarcharType(6), "42:48", "BYTE", null, false, false, false);
 
-        RowEncoder rowEncoder = ENCODER_FACTORY.create(TestingConnectorSession.SESSION, Optional.empty(), ImmutableList.of(col1, col2, col3, col4, col5, col6, col7));
+        RowEncoder rowEncoder = ENCODER_FACTORY.create(TestingConnectorSession.SESSION, new RowEncoderSpec(RawRowEncoder.NAME, Optional.empty(), ImmutableList.of(col1, col2, col3, col4, col5, col6, col7), TOPIC, MESSAGE));
 
         ByteBuffer buf = ByteBuffer.allocate(48);
         buf.putLong(123456789); // 0-8
@@ -59,10 +62,13 @@ public class TestRawEncoderMapping
         buf.put("abcdef".getBytes(StandardCharsets.UTF_8)); // 36-42
         buf.put("abcdef".getBytes(StandardCharsets.UTF_8)); // 42-48
 
-        Block longArrayBlock = new LongArrayBlockBuilder(null, 1).writeLong(123456789).closeEntry().build();
+        LongArrayBlockBuilder longArrayBlockBuilder = new LongArrayBlockBuilder(null, 1);
+        BIGINT.writeLong(longArrayBlockBuilder, 123456789);
+        Block longArrayBlock = longArrayBlockBuilder.build();
+
         Block varArrayBlock = new VariableWidthBlockBuilder(null, 1, 6)
-                .writeBytes(Slices.wrappedBuffer("abcdef".getBytes(StandardCharsets.UTF_8)), 0, 6)
-                .closeEntry().build();
+                .writeEntry(Slices.wrappedBuffer("abcdef".getBytes(StandardCharsets.UTF_8)), 0, 6)
+                .build();
 
         rowEncoder.appendColumnValue(longArrayBlock, 0);
         rowEncoder.appendColumnValue(varArrayBlock, 0);

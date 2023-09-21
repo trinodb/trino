@@ -135,7 +135,7 @@ public class TestPlanFragmentPartitionCount
                 new PlanFragmentId("4"), Optional.empty(),
                 new PlanFragmentId("5"), Optional.empty());
 
-        assertThat(expectedPartitionCount).isEqualTo(actualPartitionCount.buildOrThrow());
+        assertThat(actualPartitionCount.buildOrThrow()).isEqualTo(expectedPartitionCount);
     }
 
     private SubPlan fragment(Plan plan)

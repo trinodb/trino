@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 
 import java.util.HashMap;
@@ -46,10 +47,13 @@ public class SheetsQueryRunner
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("gsheets.credentials-path", getTestCredentialsPath());
             connectorProperties.putIfAbsent("gsheets.max-data-cache-size", "1000");
-            connectorProperties.putIfAbsent("gsheets.data-cache-ttl", "5m");
+            connectorProperties.putIfAbsent("gsheets.data-cache-ttl", "1m");
 
             queryRunner.installPlugin(new SheetsPlugin());
             queryRunner.createCatalog(GOOGLE_SHEETS, GOOGLE_SHEETS, connectorProperties);
+
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
 
             return queryRunner;
         }

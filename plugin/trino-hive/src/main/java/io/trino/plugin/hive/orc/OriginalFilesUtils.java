@@ -54,7 +54,7 @@ public final class OriginalFilesUtils
         long rowCount = 0;
         for (OriginalFileInfo originalFileInfo : originalFileInfos) {
             if (originalFileInfo.getName().compareTo(splitPath.fileName()) < 0) {
-                Location path = splitPath.parentDirectory().appendPath(originalFileInfo.getName());
+                Location path = splitPath.sibling(originalFileInfo.getName());
                 TrinoInputFile inputFile = fileSystemFactory.create(identity)
                         .newInputFile(path, originalFileInfo.getFileSize());
                 rowCount += getRowsInFile(inputFile, options, stats);

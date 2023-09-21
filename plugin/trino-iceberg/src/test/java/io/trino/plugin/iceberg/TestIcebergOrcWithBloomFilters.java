@@ -35,7 +35,7 @@ public class TestIcebergOrcWithBloomFilters
     protected String getTableProperties(String bloomFilterColumnName, String bucketingColumnName)
     {
         return format(
-                "orc_bloom_filter_columns = ARRAY['%s'], partitioning = ARRAY['bucket(%s, 1)']",
+                "format = 'ORC', orc_bloom_filter_columns = ARRAY['%s'], partitioning = ARRAY['bucket(%s, 1)']",
                 bloomFilterColumnName,
                 bucketingColumnName);
     }

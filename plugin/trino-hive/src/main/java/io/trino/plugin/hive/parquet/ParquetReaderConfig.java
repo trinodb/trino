@@ -20,14 +20,15 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.MinDataSize;
 import io.trino.parquet.ParquetReaderOptions;
-
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 @DefunctConfig({
         "hive.parquet.fail-on-corrupted-statistics",
         "parquet.fail-on-corrupted-statistics",
+        "parquet.optimized-reader.enabled",
+        "parquet.optimized-nested-reader.enabled"
 })
 public class ParquetReaderConfig
 {
@@ -115,32 +116,6 @@ public class ParquetReaderConfig
     public boolean isUseColumnIndex()
     {
         return options.isUseColumnIndex();
-    }
-
-    @Config("parquet.optimized-reader.enabled")
-    @ConfigDescription("Use optimized Parquet reader")
-    public ParquetReaderConfig setOptimizedReaderEnabled(boolean optimizedReaderEnabled)
-    {
-        options = options.withBatchColumnReaders(optimizedReaderEnabled);
-        return this;
-    }
-
-    public boolean isOptimizedReaderEnabled()
-    {
-        return options.useBatchColumnReaders();
-    }
-
-    @Config("parquet.optimized-nested-reader.enabled")
-    @ConfigDescription("Use optimized Parquet reader for nested columns")
-    public ParquetReaderConfig setOptimizedNestedReaderEnabled(boolean optimizedNestedReaderEnabled)
-    {
-        options = options.withBatchNestedColumnReaders(optimizedNestedReaderEnabled);
-        return this;
-    }
-
-    public boolean isOptimizedNestedReaderEnabled()
-    {
-        return options.useBatchNestedColumnReaders();
     }
 
     @Config("parquet.use-bloom-filter")

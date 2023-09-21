@@ -18,7 +18,9 @@ import io.trino.Session;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
+import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAndTrinoInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
@@ -31,6 +33,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -45,6 +48,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
@@ -54,6 +58,9 @@ public abstract class BaseBigQueryTypeMapping
         extends AbstractTestQueryFramework
 {
     private BigQueryQueryRunner.BigQuerySqlExecutor bigQuerySqlExecutor;
+    private final ZoneId jvmZone = ZoneId.systemDefault();
+    private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
+    private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
 
     @BeforeClass(alwaysRun = true)
     public void initBigQueryExecutor()
@@ -526,44 +533,129 @@ public abstract class BaseBigQueryTypeMapping
                 .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.time"));
     }
 
-    @Test
-    public void testTimestampWithTimeZone()
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTimestampWithTimeZone(ZoneId zoneId)
     {
-        SqlDataTypeTest.create()
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(zoneId.getId()))
+                .build();
+
+        testTimestampWithTimeZone("TIMESTAMP(6) WITH TIME ZONE")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test.timestamp_tz"))
+                .execute(getQueryRunner(), trinoCreateAsSelect(session, "test.timestamp_tz"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test.timestamp_tz"));
+
+        testTimestampWithTimeZone("TIMESTAMP")
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.timestamp_tz"));
+    }
+
+    private SqlDataTypeTest testTimestampWithTimeZone(String inputType)
+    {
+        return SqlDataTypeTest.create()
                 // min value in BigQuery
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '0001-01-01 00:00:00.000000 UTC'",
+                .addRoundTrip(inputType, "TIMESTAMP '0001-01-01 00:00:00.000 UTC'",
                         TIMESTAMP_TZ_MICROS, "TIMESTAMP '0001-01-01 00:00:00.000000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1970-01-01 00:00:00.000000 Asia/Kathmandu'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1969-12-31 18:30:00.000000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1970-01-01 00:00:00.000000+02:17'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1969-12-31 21:43:00.000000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1970-01-01 00:00:00.000000-07:31'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 07:31:00.000000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1958-01-01 13:18:03.123456 UTC'",
+                // before epoch
+                .addRoundTrip(inputType, "TIMESTAMP '1958-01-01 13:18:03.123 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1958-01-01 13:18:03.123000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1958-01-01 13:18:03.123456 UTC'",
                         TIMESTAMP_TZ_MICROS, "TIMESTAMP '1958-01-01 13:18:03.123456 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1958-01-01 13:18:03.123000 Asia/Kathmandu'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1958-01-01 07:48:03.123000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1958-01-01 13:18:03.123000+02:17'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1958-01-01 11:01:03.123000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1958-01-01 13:18:03.123000-07:31'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1958-01-01 20:49:03.123000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '2019-03-18 10:01:17.987654 UTC'",
+                .addRoundTrip(inputType, "TIMESTAMP '1958-01-01 13:18:03.123000 Asia/Kathmandu'",
+                         TIMESTAMP_TZ_MICROS, "TIMESTAMP '1958-01-01 07:48:03.123000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1969-12-31 23:59:59.999995 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1969-12-31 23:59:59.999995 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1969-12-31 23:59:59.999949 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1969-12-31 23:59:59.999949 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1969-12-31 23:59:59.999994 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1969-12-31 23:59:59.999994 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:00.000000 Asia/Kathmandu'",
+                         TIMESTAMP_TZ_MICROS, "TIMESTAMP '1969-12-31 18:30:00.000000 UTC'")
+                // epoch
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:00.000 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'")
+                // after epoch
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:01 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:01.000000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:01.1 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:01.100000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:01.12 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:01.120000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:01.123 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:01.123000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:01.1234 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:01.123400 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:01.12345 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:01.123450 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:01.123456 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:01.123456 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:13:42.000 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:13:42.000000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:13:42.123456 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:13:42.123456 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1986-01-01 00:13:07.000 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1986-01-01 00:13:07.000000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '1986-01-01 00:13:07.456789 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1986-01-01 00:13:07.456789 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '2018-03-25 03:17:17.000 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-03-25 03:17:17.000000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '2018-03-25 03:17:17.456789 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-03-25 03:17:17.456789 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '2018-04-01 02:13:55.123 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-04-01 02:13:55.123000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '2018-04-01 02:13:55.123456 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-04-01 02:13:55.123456 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '2018-10-28 01:33:17.456 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-10-28 01:33:17.456000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '2018-10-28 01:33:17.123456 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-10-28 01:33:17.123456 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '2018-10-28 03:33:33.333 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-10-28 03:33:33.333000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '2018-10-28 03:33:33.333333 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-10-28 03:33:33.333333 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '2019-03-18 10:01:17.987 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2019-03-18 10:01:17.987000 UTC'")
+                .addRoundTrip(inputType, "TIMESTAMP '2019-03-18 10:01:17.987654 UTC'",
                         TIMESTAMP_TZ_MICROS, "TIMESTAMP '2019-03-18 10:01:17.987654 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '2019-03-18 10:01:17.987000 Asia/Kathmandu'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2019-03-18 04:16:17.987000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '2019-03-18 10:01:17.987000+02:17'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2019-03-18 07:44:17.987000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '2019-03-18 10:01:17.987000-07:31'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2019-03-18 17:32:17.987000 UTC'")
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '2021-09-07 23:59:59.999999-00:00'",
+                .addRoundTrip(inputType, "TIMESTAMP '2021-09-07 23:59:59.999999 UTC'",
                         TIMESTAMP_TZ_MICROS, "TIMESTAMP '2021-09-07 23:59:59.999999 UTC'")
                 // max value in BigQuery
-                .addRoundTrip("TIMESTAMP", "TIMESTAMP '9999-12-31 23:59:59.999999-00:00'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '9999-12-31 23:59:59.999999 UTC'")
-                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.timestamp_tz"));
-        // TODO (https://github.com/trinodb/trino/pull/12210) Add support for timestamp with time zone type in views
+                .addRoundTrip(inputType, "TIMESTAMP '9999-12-31 23:59:59.999999 UTC'",
+                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '9999-12-31 23:59:59.999999 UTC'");
+    }
+
+    @DataProvider
+    public Object[][] sessionZonesDataProvider()
+    {
+        return new Object[][] {
+                {UTC},
+                {jvmZone},
+                // using two non-JVM zones so that we don't need to worry what BigQuery system zone is
+                {vilnius},
+                {kathmandu},
+                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
+        };
+    }
+
+    @Test
+    public void testUnsupportedTimestampWithTimeZone()
+    {
+        try (TestTable table = new TestTable(getBigQuerySqlExecutor(), "test.unsupported_tz", "(col timestamp)")) {
+            assertQueryFails("INSERT INTO " + table.getName() + " VALUES (timestamp '-2021-09-07 23:59:59.999999 UTC')", "Failed to insert rows.*");
+            assertQueryFails("INSERT INTO " + table.getName() + " VALUES (timestamp '-0001-01-01 00:00:00.000000 UTC')", "Failed to insert rows.*");
+            assertQueryFails("INSERT INTO " + table.getName() + " VALUES (timestamp '0000-12-31 23:59:59.999999 UTC')", "Failed to insert rows.*");
+            assertQueryFails("INSERT INTO " + table.getName() + " VALUES (timestamp '10000-01-01 00:00:00.000000 UTC')", "Failed to insert rows.*");
+
+            assertThatThrownBy(() -> getBigQuerySqlExecutor().execute("INSERT INTO " + table.getName() + " VALUES (timestamp '-2021-09-07 23:59:59.999999 UTC')"))
+                    .hasMessageContaining("Invalid TIMESTAMP literal");
+            assertThatThrownBy(() -> getBigQuerySqlExecutor().execute("INSERT INTO " + table.getName() + " VALUES (timestamp '-0001-01-01 00:00:00.000000 UTC')"))
+                    .hasMessageContaining("Invalid TIMESTAMP literal");
+            assertThatThrownBy(() -> getBigQuerySqlExecutor().execute("INSERT INTO " + table.getName() + " VALUES (timestamp '0000-12-31 23:59:59.999999 UTC')"))
+                    .hasMessageContaining("Invalid TIMESTAMP literal");
+            assertThatThrownBy(() -> getBigQuerySqlExecutor().execute("INSERT INTO " + table.getName() + " VALUES (timestamp '10000-01-01 00:00:00.000000 UTC')"))
+                    .hasMessageContaining("Invalid TIMESTAMP literal");
+        }
     }
 
     @Test

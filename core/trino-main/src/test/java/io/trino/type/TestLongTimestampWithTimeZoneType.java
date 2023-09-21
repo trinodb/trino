@@ -18,10 +18,13 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.Type;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
@@ -61,7 +64,7 @@ public class TestLongTimestampWithTimeZoneType
         return LongTimestampWithTimeZone.fromEpochMillisAndFraction(((LongTimestampWithTimeZone) value).getEpochMillis() + 1, 0, getTimeZoneKeyForOffset(33));
     }
 
-    @Override
+    @Test
     public void testPreviousValue()
     {
         LongTimestampWithTimeZone minValue = LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MIN_VALUE, 0, UTC_KEY);
@@ -76,6 +79,8 @@ public class TestLongTimestampWithTimeZoneType
 
         assertThat(type.getPreviousValue(getSampleValue()))
                 .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1110, 999_000_000, getTimeZoneKeyForOffset(0))));
+        assertThat(type.getPreviousValue(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1483228800000L, 000_000_000, getTimeZoneKeyForOffset(0))))
+                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1483228799999L, 999_000_000, getTimeZoneKeyForOffset(0))));
 
         assertThat(type.getPreviousValue(previousToMaxValue))
                 .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, 997_000_000, UTC_KEY)));
@@ -83,7 +88,7 @@ public class TestLongTimestampWithTimeZoneType
                 .isEqualTo(Optional.of(previousToMaxValue));
     }
 
-    @Override
+    @Test
     public void testNextValue()
     {
         LongTimestampWithTimeZone minValue = LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MIN_VALUE, 0, UTC_KEY);
@@ -98,6 +103,8 @@ public class TestLongTimestampWithTimeZoneType
 
         assertThat(type.getNextValue(getSampleValue()))
                 .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1111, 1_000_000, getTimeZoneKeyForOffset(0))));
+        assertThat(type.getNextValue(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1483228799999L, 999_000_000, getTimeZoneKeyForOffset(0))))
+                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1483228800000L, 000_000_000, getTimeZoneKeyForOffset(0))));
 
         assertThat(type.getNextValue(previousToMaxValue))
                 .isEqualTo(Optional.of(maxValue));
@@ -105,7 +112,8 @@ public class TestLongTimestampWithTimeZoneType
                 .isEqualTo(Optional.empty());
     }
 
-    @Test(dataProvider = "testPreviousNextValueEveryPrecisionDatProvider")
+    @ParameterizedTest
+    @MethodSource("testPreviousNextValueEveryPrecisionDataProvider")
     public void testPreviousValueEveryPrecision(int precision, long minValue, long maxValue, long step)
     {
         Type type = createTimestampType(precision);
@@ -126,7 +134,8 @@ public class TestLongTimestampWithTimeZoneType
                 .isEqualTo(Optional.of(maxValue - step));
     }
 
-    @Test(dataProvider = "testPreviousNextValueEveryPrecisionDatProvider")
+    @ParameterizedTest
+    @MethodSource("testPreviousNextValueEveryPrecisionDataProvider")
     public void testNextValueEveryPrecision(int precision, long minValue, long maxValue, long step)
     {
         Type type = createTimestampType(precision);
@@ -147,17 +156,22 @@ public class TestLongTimestampWithTimeZoneType
                 .isEqualTo(Optional.empty());
     }
 
-    @DataProvider
-    public Object[][] testPreviousNextValueEveryPrecisionDatProvider()
+    public static Stream<Arguments> testPreviousNextValueEveryPrecisionDataProvider()
     {
-        return new Object[][] {
-                {0, Long.MIN_VALUE + 775808, Long.MAX_VALUE - 775807, 1_000_000L},
-                {1, Long.MIN_VALUE + 75808, Long.MAX_VALUE - 75807, 100_000L},
-                {2, Long.MIN_VALUE + 5808, Long.MAX_VALUE - 5807, 10_000L},
-                {3, Long.MIN_VALUE + 808, Long.MAX_VALUE - 807, 1_000L},
-                {4, Long.MIN_VALUE + 8, Long.MAX_VALUE - 7, 100L},
-                {5, Long.MIN_VALUE + 8, Long.MAX_VALUE - 7, 10L},
-                {6, Long.MIN_VALUE, Long.MAX_VALUE, 1L},
-        };
+        return Stream.of(
+                Arguments.of(0, Long.MIN_VALUE + 775808, Long.MAX_VALUE - 775807, 1_000_000L),
+                Arguments.of(1, Long.MIN_VALUE + 75808, Long.MAX_VALUE - 75807, 100_000L),
+                Arguments.of(2, Long.MIN_VALUE + 5808, Long.MAX_VALUE - 5807, 10_000L),
+                Arguments.of(3, Long.MIN_VALUE + 808, Long.MAX_VALUE - 807, 1_000L),
+                Arguments.of(4, Long.MIN_VALUE + 8, Long.MAX_VALUE - 7, 100L),
+                Arguments.of(5, Long.MIN_VALUE + 8, Long.MAX_VALUE - 7, 10L),
+                Arguments.of(6, Long.MIN_VALUE, Long.MAX_VALUE, 1L));
+    }
+
+    @Test
+    public void testRange()
+    {
+        assertThat(type.getRange())
+                .isEmpty();
     }
 }

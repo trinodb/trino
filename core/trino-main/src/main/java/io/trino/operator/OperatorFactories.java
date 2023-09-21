@@ -14,28 +14,28 @@
 package io.trino.operator;
 
 import io.trino.operator.join.JoinBridgeManager;
-import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
+import io.trino.operator.join.JoinProbe.JoinProbeFactory;
+import io.trino.operator.join.LookupJoinOperatorFactory;
 import io.trino.operator.join.LookupSourceFactory;
+import io.trino.operator.join.unspilled.JoinProbe;
 import io.trino.operator.join.unspilled.PartitionedLookupSourceFactory;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.PartitioningSpillerFactory;
-import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.stream.IntStream;
 
-import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.FULL_OUTER;
-import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.INNER;
-import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.LOOKUP_OUTER;
-import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.PROBE_OUTER;
-import static java.util.Objects.requireNonNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
-public interface OperatorFactories
+public class OperatorFactories
 {
-    OperatorFactory join(
+    private OperatorFactories() {}
+
+    public static OperatorFactory join(
             JoinOperatorType joinType,
             int operatorId,
             PlanNodeId planNodeId,
@@ -44,10 +44,29 @@ public interface OperatorFactories
             List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
-            Optional<List<Integer>> probeOutputChannels,
-            BlockTypeOperators blockTypeOperators);
+            Optional<List<Integer>> probeOutputChannelsOptional,
+            TypeOperators typeOperators)
+    {
+        List<Integer> probeOutputChannels = probeOutputChannelsOptional.orElseGet(() -> rangeList(probeTypes.size()));
+        List<Type> probeOutputChannelTypes = probeOutputChannels.stream()
+                .map(probeTypes::get)
+                .collect(toImmutableList());
 
-    OperatorFactory spillingJoin(
+        return new io.trino.operator.join.unspilled.LookupJoinOperatorFactory(
+                operatorId,
+                planNodeId,
+                lookupSourceFactory,
+                probeTypes,
+                probeOutputChannelTypes,
+                lookupSourceFactory.getBuildOutputTypes(),
+                joinType,
+                new JoinProbe.JoinProbeFactory(probeOutputChannels, probeJoinChannel, probeHashChannel, hasFilter),
+                typeOperators,
+                probeJoinChannel,
+                probeHashChannel);
+    }
+
+    public static OperatorFactory spillingJoin(
             JoinOperatorType joinType,
             int operatorId,
             PlanNodeId planNodeId,
@@ -56,67 +75,36 @@ public interface OperatorFactories
             List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
-            Optional<List<Integer>> probeOutputChannels,
+            Optional<List<Integer>> probeOutputChannelsOptional,
             OptionalInt totalOperatorsCount,
             PartitioningSpillerFactory partitioningSpillerFactory,
-            BlockTypeOperators blockTypeOperators);
-
-    class JoinOperatorType
+            TypeOperators typeOperators)
     {
-        private final JoinType type;
-        private final boolean outputSingleMatch;
-        private final boolean waitForBuild;
+        List<Integer> probeOutputChannels = probeOutputChannelsOptional.orElseGet(() -> rangeList(probeTypes.size()));
+        List<Type> probeOutputChannelTypes = probeOutputChannels.stream()
+                .map(probeTypes::get)
+                .collect(toImmutableList());
 
-        public static JoinOperatorType ofJoinNodeType(JoinNode.Type joinNodeType, boolean outputSingleMatch, boolean waitForBuild)
-        {
-            return switch (joinNodeType) {
-                case INNER -> innerJoin(outputSingleMatch, waitForBuild);
-                case LEFT -> probeOuterJoin(outputSingleMatch);
-                case RIGHT -> lookupOuterJoin(waitForBuild);
-                case FULL -> fullOuterJoin();
-            };
-        }
+        return new LookupJoinOperatorFactory(
+                operatorId,
+                planNodeId,
+                lookupSourceFactory,
+                probeTypes,
+                probeOutputChannelTypes,
+                lookupSourceFactory.getBuildOutputTypes(),
+                joinType,
+                new JoinProbeFactory(probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel),
+                typeOperators,
+                totalOperatorsCount,
+                probeJoinChannel,
+                probeHashChannel,
+                partitioningSpillerFactory);
+    }
 
-        public static JoinOperatorType innerJoin(boolean outputSingleMatch, boolean waitForBuild)
-        {
-            return new JoinOperatorType(INNER, outputSingleMatch, waitForBuild);
-        }
-
-        public static JoinOperatorType probeOuterJoin(boolean outputSingleMatch)
-        {
-            return new JoinOperatorType(PROBE_OUTER, outputSingleMatch, false);
-        }
-
-        public static JoinOperatorType lookupOuterJoin(boolean waitForBuild)
-        {
-            return new JoinOperatorType(LOOKUP_OUTER, false, waitForBuild);
-        }
-
-        public static JoinOperatorType fullOuterJoin()
-        {
-            return new JoinOperatorType(FULL_OUTER, false, false);
-        }
-
-        private JoinOperatorType(JoinType type, boolean outputSingleMatch, boolean waitForBuild)
-        {
-            this.type = requireNonNull(type, "type is null");
-            this.outputSingleMatch = outputSingleMatch;
-            this.waitForBuild = waitForBuild;
-        }
-
-        public boolean isOutputSingleMatch()
-        {
-            return outputSingleMatch;
-        }
-
-        public boolean isWaitForBuild()
-        {
-            return waitForBuild;
-        }
-
-        public JoinType getType()
-        {
-            return type;
-        }
+    private static List<Integer> rangeList(int endExclusive)
+    {
+        return IntStream.range(0, endExclusive)
+                .boxed()
+                .collect(toImmutableList());
     }
 }

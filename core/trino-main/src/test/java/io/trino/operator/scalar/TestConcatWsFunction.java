@@ -14,6 +14,7 @@
 package io.trino.operator.scalar;
 
 import io.trino.sql.query.QueryAssertions;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,8 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 @TestInstance(PER_CLASS)
 public class TestConcatWsFunction
 {
+    private static final int MAX_INPUT_VALUES = 254;
+    private static final int MAX_CONCAT_VALUES = MAX_INPUT_VALUES - 1;
     private QueryAssertions assertions;
 
     @BeforeAll
@@ -159,26 +162,50 @@ public class TestConcatWsFunction
         assertThat(assertions.function("concat_ws", "','", "ARRAY['abc', '', '', 'xyz','abcdefghi']"))
                 .hasType(VARCHAR)
                 .isEqualTo("abc,,,xyz,abcdefghi");
+
+        // array may exceed the limit
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < MAX_CONCAT_VALUES; i++) {
+            builder.append(i).append(',');
+        }
+        builder.append(MAX_CONCAT_VALUES);
+        assertThat(assertions.function("concat_ws", "','", "transform(sequence(0, " + MAX_CONCAT_VALUES + "), x -> cast(x as varchar))"))
+                .hasType(VARCHAR)
+                .isEqualTo(builder.toString());
     }
 
     @Test
     public void testBadArray()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.function("concat_ws", "','", "ARRAY[1, 15]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("concat_ws", "','", "ARRAY[1, 15]")::evaluate)
                 .hasMessageContaining("Unexpected parameters");
     }
 
     @Test
     public void testBadArguments()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.function("concat_ws", "','", "1", "15").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("concat_ws", "','", "1", "15")::evaluate)
                 .hasMessageContaining("Unexpected parameters");
+    }
+
+    @Test
+    public void testTooManyArguments()
+    {
+        // all function arguments limit to 127 in io.trino.sql.analyzer.ExpressionAnalyzer.Visitor.visitFunctionCall
+        int argumentsLimit = 127;
+        @Language("SQL") String[] inputValues = new String[argumentsLimit + 1];
+        inputValues[0] = "','";
+        for (int i = 1; i <= argumentsLimit; i++) {
+            inputValues[i] = ("'" + i + "'");
+        }
+        assertTrinoExceptionThrownBy(assertions.function("concat_ws", inputValues)::evaluate)
+                .hasMessage("line 1:8: Too many arguments for function call concat_ws()");
     }
 
     @Test
     public void testLowArguments()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.function("concat_ws", "','").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("concat_ws", "','")::evaluate)
                 .hasMessage("There must be two or more arguments");
     }
 }

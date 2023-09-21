@@ -22,10 +22,9 @@ import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
 import io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy;
 import io.trino.spi.HostAddress;
-
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.Size;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 
 import java.util.Set;
 
@@ -76,7 +75,7 @@ public class ConfluentSchemaRegistryConfig
     }
 
     @Config("kafka.empty-field-strategy")
-    @ConfigDescription("How to handle struct types with no fields: ignore, add a boolean field named 'dummy' or fail the query")
+    @ConfigDescription("How to handle struct types with no fields: ignore, add a marker field named '$empty_field_marker' or fail the query")
     public ConfluentSchemaRegistryConfig setEmptyFieldStrategy(EmptyFieldStrategy emptyFieldStrategy)
     {
         this.emptyFieldStrategy = emptyFieldStrategy;

@@ -75,12 +75,12 @@ public class TestLongDecode
         else {
             writeVulong(output, value);
         }
-        Slice hiveBytes = Slices.copyOf(output.slice());
+        Slice hiveBytes = output.slice().copy();
 
         // write using Trino's code, and verify they are the same
         output.reset();
         writeVLong(output, value, signed);
-        Slice trinoBytes = Slices.copyOf(output.slice());
+        Slice trinoBytes = output.slice().copy();
         if (!trinoBytes.equals(hiveBytes)) {
             assertEquals(trinoBytes, hiveBytes);
         }

@@ -14,8 +14,7 @@
 package io.trino.spi.function.table;
 
 import io.trino.spi.Experimental;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import static io.trino.spi.function.table.Preconditions.checkArgument;
 import static io.trino.spi.function.table.Preconditions.checkNotNullOrEmpty;

@@ -21,13 +21,12 @@ import io.trino.spi.function.Convention;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
-import io.trino.spi.function.TypeParameterSpecialization;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.OperatorType.CAST;
 
 @ScalarOperator(CAST)
@@ -37,11 +36,10 @@ public final class ArrayToArrayCast
 
     @TypeParameter("F")
     @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = long.class)
     @SqlType("array(T)")
-    public static Block filterLong(
+    public static Block filter(
             @TypeParameter("T") Type resultType,
-            @CastDependency(fromType = "F", toType = "T", convention = @Convention(arguments = BLOCK_POSITION, result = NULLABLE_RETURN, session = true)) MethodHandle cast,
+            @CastDependency(fromType = "F", toType = "T", convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = BLOCK_BUILDER, session = true)) MethodHandle cast,
             ConnectorSession session,
             @SqlType("array(F)") Block array)
             throws Throwable
@@ -49,92 +47,12 @@ public final class ArrayToArrayCast
         int positionCount = array.getPositionCount();
         BlockBuilder resultBuilder = resultType.createBlockBuilder(null, positionCount);
         for (int position = 0; position < positionCount; position++) {
-            if (!array.isNull(position)) {
-                Long value = (Long) cast.invokeExact(session, array, position);
-                if (value != null) {
-                    resultType.writeLong(resultBuilder, value);
-                    continue;
-                }
+            if (array.isNull(position)) {
+                resultBuilder.appendNull();
             }
-            resultBuilder.appendNull();
-        }
-        return resultBuilder.build();
-    }
-
-    @TypeParameter("F")
-    @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = double.class)
-    @SqlType("array(T)")
-    public static Block filterDouble(
-            @TypeParameter("T") Type resultType,
-            @CastDependency(fromType = "F", toType = "T", convention = @Convention(arguments = BLOCK_POSITION, result = NULLABLE_RETURN, session = true)) MethodHandle cast,
-            ConnectorSession session,
-            @SqlType("array(F)") Block array)
-            throws Throwable
-    {
-        int positionCount = array.getPositionCount();
-        BlockBuilder resultBuilder = resultType.createBlockBuilder(null, positionCount);
-        for (int position = 0; position < positionCount; position++) {
-            if (!array.isNull(position)) {
-                Double value = (Double) cast.invokeExact(session, array, position);
-                if (value != null) {
-                    resultType.writeDouble(resultBuilder, value);
-                    continue;
-                }
+            else {
+                cast.invokeExact(session, array, position, resultBuilder);
             }
-            resultBuilder.appendNull();
-        }
-        return resultBuilder.build();
-    }
-
-    @TypeParameter("F")
-    @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = boolean.class)
-    @SqlType("array(T)")
-    public static Block filterBoolean(
-            @TypeParameter("T") Type resultType,
-            @CastDependency(fromType = "F", toType = "T", convention = @Convention(arguments = BLOCK_POSITION, result = NULLABLE_RETURN, session = true)) MethodHandle cast,
-            ConnectorSession session,
-            @SqlType("array(F)") Block array)
-            throws Throwable
-    {
-        int positionCount = array.getPositionCount();
-        BlockBuilder resultBuilder = resultType.createBlockBuilder(null, positionCount);
-        for (int position = 0; position < positionCount; position++) {
-            if (!array.isNull(position)) {
-                Boolean value = (Boolean) cast.invokeExact(session, array, position);
-                if (value != null) {
-                    resultType.writeBoolean(resultBuilder, value);
-                    continue;
-                }
-            }
-            resultBuilder.appendNull();
-        }
-        return resultBuilder.build();
-    }
-
-    @TypeParameter("F")
-    @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = Object.class)
-    @SqlType("array(T)")
-    public static Block filterObject(
-            @TypeParameter("T") Type resultType,
-            @CastDependency(fromType = "F", toType = "T", convention = @Convention(arguments = BLOCK_POSITION, result = NULLABLE_RETURN, session = true)) MethodHandle cast,
-            ConnectorSession session,
-            @SqlType("array(F)") Block array)
-            throws Throwable
-    {
-        int positionCount = array.getPositionCount();
-        BlockBuilder resultBuilder = resultType.createBlockBuilder(null, positionCount);
-        for (int position = 0; position < positionCount; position++) {
-            if (!array.isNull(position)) {
-                Object value = (Object) cast.invoke(session, array, position);
-                if (value != null) {
-                    resultType.writeObject(resultBuilder, value);
-                    continue;
-                }
-            }
-            resultBuilder.appendNull();
         }
         return resultBuilder.build();
     }

@@ -39,8 +39,7 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -94,7 +93,7 @@ public final class BigQueryType
             1, // 9 digits after the dot
     };
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("''HH:mm:ss.SSSSSS''");
-    private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("''yyyy-MM-dd HH:mm:ss.SSSSSS''");
+    private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSSSS").withZone(UTC);
 
     private static RowType.Field toRawTypeField(String name, Field field)
     {
@@ -158,7 +157,6 @@ public final class BigQueryType
         return TIME_FORMATTER.format(toZonedDateTime(epochSeconds, nanoAdjustment, UTC));
     }
 
-    @VisibleForTesting
     public static String timestampToStringConverter(Object value)
     {
         LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) value;
@@ -289,7 +287,7 @@ public final class BigQueryType
             case DATE:
                 return Optional.of(dateToStringConverter(value));
             case DATETIME:
-                return Optional.of(datetimeToStringConverter(value));
+                return Optional.of(datetimeToStringConverter(value)).map("'%s'"::formatted);
             case FLOAT64:
                 return Optional.of(floatToStringConverter(value));
             case INT64:
@@ -312,7 +310,7 @@ public final class BigQueryType
             case TIME:
                 return Optional.of(timeToStringConverter(value));
             case TIMESTAMP:
-                return Optional.of(timestampToStringConverter(value));
+                return Optional.of(timestampToStringConverter(value)).map("'%s'"::formatted);
             default:
                 throw new IllegalArgumentException("Unsupported type: " + bigqueryType);
         }

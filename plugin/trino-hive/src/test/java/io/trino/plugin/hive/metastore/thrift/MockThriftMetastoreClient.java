@@ -189,6 +189,7 @@ public class MockThriftMetastoreClient
 
     @Override
     public Optional<List<SchemaTableName>> getAllViews()
+            throws TException
     {
         throw new UnsupportedOperationException();
     }

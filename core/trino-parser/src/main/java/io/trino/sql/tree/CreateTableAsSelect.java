@@ -27,28 +27,28 @@ public class CreateTableAsSelect
 {
     private final QualifiedName name;
     private final Query query;
-    private final boolean notExists;
+    private final SaveMode saveMode;
     private final List<Property> properties;
     private final boolean withData;
     private final Optional<List<Identifier>> columnAliases;
     private final Optional<String> comment;
 
-    public CreateTableAsSelect(QualifiedName name, Query query, boolean notExists, List<Property> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
+    public CreateTableAsSelect(QualifiedName name, Query query, SaveMode saveMode, List<Property> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
     {
-        this(Optional.empty(), name, query, notExists, properties, withData, columnAliases, comment);
+        this(Optional.empty(), name, query, saveMode, properties, withData, columnAliases, comment);
     }
 
-    public CreateTableAsSelect(NodeLocation location, QualifiedName name, Query query, boolean notExists, List<Property> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
+    public CreateTableAsSelect(NodeLocation location, QualifiedName name, Query query, SaveMode saveMode, List<Property> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
     {
-        this(Optional.of(location), name, query, notExists, properties, withData, columnAliases, comment);
+        this(Optional.of(location), name, query, saveMode, properties, withData, columnAliases, comment);
     }
 
-    private CreateTableAsSelect(Optional<NodeLocation> location, QualifiedName name, Query query, boolean notExists, List<Property> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
+    private CreateTableAsSelect(Optional<NodeLocation> location, QualifiedName name, Query query, SaveMode saveMode, List<Property> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
         this.query = requireNonNull(query, "query is null");
-        this.notExists = notExists;
+        this.saveMode = requireNonNull(saveMode, "saveMode is null");
         this.properties = ImmutableList.copyOf(requireNonNull(properties, "properties is null"));
         this.withData = withData;
         this.columnAliases = columnAliases;
@@ -65,9 +65,9 @@ public class CreateTableAsSelect
         return query;
     }
 
-    public boolean isNotExists()
+    public SaveMode getSaveMode()
     {
-        return notExists;
+        return saveMode;
     }
 
     public List<Property> getProperties()
@@ -108,7 +108,7 @@ public class CreateTableAsSelect
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, query, properties, withData, columnAliases, comment);
+        return Objects.hash(name, query, saveMode, properties, withData, columnAliases, comment);
     }
 
     @Override
@@ -123,7 +123,7 @@ public class CreateTableAsSelect
         CreateTableAsSelect o = (CreateTableAsSelect) obj;
         return Objects.equals(name, o.name)
                 && Objects.equals(query, o.query)
-                && Objects.equals(notExists, o.notExists)
+                && Objects.equals(saveMode, o.saveMode)
                 && Objects.equals(properties, o.properties)
                 && Objects.equals(withData, o.withData)
                 && Objects.equals(columnAliases, o.columnAliases)
@@ -136,7 +136,7 @@ public class CreateTableAsSelect
         return toStringHelper(this)
                 .add("name", name)
                 .add("query", query)
-                .add("notExists", notExists)
+                .add("saveMode", saveMode)
                 .add("properties", properties)
                 .add("withData", withData)
                 .add("columnAliases", columnAliases)

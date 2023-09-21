@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.units.DataSize;
@@ -71,8 +72,6 @@ import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.Statement;
 import org.joda.time.DateTime;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Collection;
 import java.util.List;

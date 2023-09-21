@@ -17,8 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 // This is separate from MemoryManagerConfig because it's difficult to test the default value of maxQueryMemoryPerNode
 @DefunctConfig({

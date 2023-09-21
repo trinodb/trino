@@ -15,22 +15,22 @@ package io.trino.sql.planner;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigHidden;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-
-import javax.annotation.Nullable;
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-@DefunctConfig({"adaptive-partial-aggregation.min-rows", "preferred-write-partitioning-min-number-of-partitions"})
+@DefunctConfig({"adaptive-partial-aggregation.min-rows", "preferred-write-partitioning-min-number-of-partitions", "optimizer.use-mark-distinct"})
 public class OptimizerConfig
 {
     private double cpuCostWeight = 75;
@@ -43,6 +43,7 @@ public class OptimizerConfig
 
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private int maxReorderedJoins = 9;
+    private int maxPrefetchedInformationSchemaPrefixes = 100;
 
     private boolean enableStatsCalculator = true;
     private boolean statisticsPrecalculationForPushdownEnabled = true;
@@ -64,10 +65,7 @@ public class OptimizerConfig
     private boolean optimizeHashGeneration = true;
     private boolean pushTableWriteThroughUnion = true;
     private boolean dictionaryAggregation;
-    @Nullable
-    private Boolean useMarkDistinct;
-    @Nullable
-    private MarkDistinctStrategy markDistinctStrategy;
+    private MarkDistinctStrategy markDistinctStrategy = MarkDistinctStrategy.AUTOMATIC;
     private boolean preferPartialAggregation = true;
     private boolean pushAggregationThroughOuterJoin = true;
     private boolean enableIntermediateAggregations;
@@ -228,6 +226,21 @@ public class OptimizerConfig
     public OptimizerConfig setMaxReorderedJoins(int maxReorderedJoins)
     {
         this.maxReorderedJoins = maxReorderedJoins;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxPrefetchedInformationSchemaPrefixes()
+    {
+        return maxPrefetchedInformationSchemaPrefixes;
+    }
+
+    @Config("optimizer.experimental-max-prefetched-information-schema-prefixes")
+    @ConfigHidden
+    @ConfigDescription("Experimental: maximum number of internal \"prefixes\" to be prefetched when optimizing information_schema queries")
+    public OptimizerConfig setMaxPrefetchedInformationSchemaPrefixes(int maxPrefetchedInformationSchemaPrefixes)
+    {
+        this.maxPrefetchedInformationSchemaPrefixes = maxPrefetchedInformationSchemaPrefixes;
         return this;
     }
 
@@ -456,21 +469,6 @@ public class OptimizerConfig
     public OptimizerConfig setOptimizeMetadataQueries(boolean optimizeMetadataQueries)
     {
         this.optimizeMetadataQueries = optimizeMetadataQueries;
-        return this;
-    }
-
-    @Deprecated
-    @Nullable
-    public Boolean isUseMarkDistinct()
-    {
-        return useMarkDistinct;
-    }
-
-    @Deprecated
-    @LegacyConfig(value = "optimizer.use-mark-distinct", replacedBy = "optimizer.mark-distinct-strategy")
-    public OptimizerConfig setUseMarkDistinct(Boolean value)
-    {
-        this.useMarkDistinct = value;
         return this;
     }
 

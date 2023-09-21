@@ -239,7 +239,7 @@ public class TestMapBlock
     private BlockBuilder createBlockBuilderWithValues(Map<String, Long>[] maps)
     {
         MapType mapType = mapType(VARCHAR, BIGINT);
-        BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
+        MapBlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
         for (Map<String, Long> map : maps) {
             createBlockBuilderWithValues(map, mapBlockBuilder);
         }
@@ -276,23 +276,23 @@ public class TestMapBlock
                 createLongsBlock(values));
     }
 
-    private void createBlockBuilderWithValues(Map<String, Long> map, BlockBuilder mapBlockBuilder)
+    private void createBlockBuilderWithValues(Map<String, Long> map, MapBlockBuilder mapBlockBuilder)
     {
         if (map == null) {
             mapBlockBuilder.appendNull();
         }
         else {
-            BlockBuilder elementBlockBuilder = mapBlockBuilder.beginBlockEntry();
-            for (Map.Entry<String, Long> entry : map.entrySet()) {
-                VARCHAR.writeSlice(elementBlockBuilder, utf8Slice(entry.getKey()));
-                if (entry.getValue() == null) {
-                    elementBlockBuilder.appendNull();
+            mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+                for (Map.Entry<String, Long> entry : map.entrySet()) {
+                    VARCHAR.writeSlice(keyBuilder, utf8Slice(entry.getKey()));
+                    if (entry.getValue() == null) {
+                        valueBuilder.appendNull();
+                    }
+                    else {
+                        BIGINT.writeLong(valueBuilder, entry.getValue());
+                    }
                 }
-                else {
-                    BIGINT.writeLong(elementBlockBuilder, entry.getValue());
-                }
-            }
-            mapBlockBuilder.closeEntry();
+            });
         }
     }
 
@@ -353,59 +353,35 @@ public class TestMapBlock
     public void testStrict()
     {
         MapType mapType = mapType(BIGINT, BIGINT);
-        MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) mapType.createBlockBuilder(null, 1);
+        MapBlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
         mapBlockBuilder.strict();
 
         // Add 100 maps with only one entry but the same key
         for (int i = 0; i < 100; i++) {
-            BlockBuilder entryBuilder = mapBlockBuilder.beginBlockEntry();
-            BIGINT.writeLong(entryBuilder, 1);
-            BIGINT.writeLong(entryBuilder, -1);
-            mapBlockBuilder.closeEntry();
+            mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+                BIGINT.writeLong(keyBuilder, 1);
+                BIGINT.writeLong(valueBuilder, -1);
+            });
         }
 
-        BlockBuilder entryBuilder = mapBlockBuilder.beginBlockEntry();
-        // Add 50 keys so we get some chance to get hash conflict
-        // The purpose of this test is to make sure offset is calculated correctly in MapBlockBuilder.closeEntryStrict()
-        for (int i = 0; i < 50; i++) {
-            BIGINT.writeLong(entryBuilder, i);
-            BIGINT.writeLong(entryBuilder, -1);
-        }
-        mapBlockBuilder.closeEntry();
+        mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+            // Add 50 keys so we get some chance to get hash conflict
+            // The purpose of this test is to make sure offset is calculated correctly in MapBlockBuilder.closeEntryStrict()
+            for (int i = 0; i < 50; i++) {
+                BIGINT.writeLong(keyBuilder, i);
+                BIGINT.writeLong(valueBuilder, -1);
+            }
+        });
 
-        entryBuilder = mapBlockBuilder.beginBlockEntry();
-        for (int i = 0; i < 2; i++) {
-            BIGINT.writeLong(entryBuilder, 99);
-            BIGINT.writeLong(entryBuilder, -1);
-        }
-        assertThatThrownBy(mapBlockBuilder::closeEntry)
+        assertThatThrownBy(
+                () -> mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+                    for (int i = 0; i < 2; i++) {
+                        BIGINT.writeLong(keyBuilder, 99);
+                        BIGINT.writeLong(valueBuilder, -1);
+                    }
+                }))
                 .isInstanceOf(DuplicateMapKeyException.class)
                 .hasMessage("Duplicate map keys are not allowed");
-    }
-
-    @Test
-    public void testCloseEntryStrict()
-            throws Exception
-    {
-        MapType mapType = mapType(BIGINT, BIGINT);
-        MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) mapType.createBlockBuilder(null, 1);
-
-        // Add 100 maps with only one entry but the same key
-        for (int i = 0; i < 100; i++) {
-            BlockBuilder entryBuilder = mapBlockBuilder.beginBlockEntry();
-            BIGINT.writeLong(entryBuilder, 1);
-            BIGINT.writeLong(entryBuilder, -1);
-            mapBlockBuilder.closeEntry();
-        }
-
-        BlockBuilder entryBuilder = mapBlockBuilder.beginBlockEntry();
-        // Add 50 keys so we get some chance to get hash conflict
-        // The purpose of this test is to make sure offset is calculated correctly in MapBlockBuilder.closeEntryStrict()
-        for (int i = 0; i < 50; i++) {
-            BIGINT.writeLong(entryBuilder, i);
-            BIGINT.writeLong(entryBuilder, -1);
-        }
-        mapBlockBuilder.closeEntryStrict();
     }
 
     @Test

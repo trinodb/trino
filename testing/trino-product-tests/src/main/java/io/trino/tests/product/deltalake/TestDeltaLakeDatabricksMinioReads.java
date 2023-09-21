@@ -25,7 +25,7 @@ public class TestDeltaLakeDatabricksMinioReads
 {
     public TestDeltaLakeDatabricksMinioReads()
     {
-        super("region_databricks", "io/trino/plugin/deltalake/testing/resources/databricks/region");
+        super("region_databricks", "io/trino/plugin/deltalake/testing/resources/databricks73/region");
     }
 
     @Override

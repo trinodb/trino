@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.decoder.DispatchingRowDecoderFactory;
 import io.trino.decoder.RowDecoder;
+import io.trino.decoder.RowDecoderSpec;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
@@ -31,6 +32,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.decoder.avro.AvroRowDecoderFactory.DATA_SCHEMA;
 import static java.util.Objects.requireNonNull;
 
 public class KafkaRecordSetProvider
@@ -58,20 +60,24 @@ public class KafkaRecordSetProvider
                 .collect(toImmutableList());
 
         RowDecoder keyDecoder = decoderFactory.create(
-                kafkaSplit.getKeyDataFormat(),
-                getDecoderParameters(kafkaSplit.getKeyDataSchemaContents()),
-                kafkaColumns.stream()
-                        .filter(col -> !col.isInternal())
-                        .filter(KafkaColumnHandle::isKeyCodec)
-                        .collect(toImmutableSet()));
+                session,
+                new RowDecoderSpec(
+                        kafkaSplit.getKeyDataFormat(),
+                        getDecoderParameters(kafkaSplit.getKeyDataSchemaContents()),
+                        kafkaColumns.stream()
+                                .filter(col -> !col.isInternal())
+                                .filter(KafkaColumnHandle::isKeyCodec)
+                                .collect(toImmutableSet())));
 
         RowDecoder messageDecoder = decoderFactory.create(
-                kafkaSplit.getMessageDataFormat(),
-                getDecoderParameters(kafkaSplit.getMessageDataSchemaContents()),
-                kafkaColumns.stream()
-                        .filter(col -> !col.isInternal())
-                        .filter(col -> !col.isKeyCodec())
-                        .collect(toImmutableSet()));
+                session,
+                new RowDecoderSpec(
+                        kafkaSplit.getMessageDataFormat(),
+                        getDecoderParameters(kafkaSplit.getMessageDataSchemaContents()),
+                        kafkaColumns.stream()
+                                .filter(col -> !col.isInternal())
+                                .filter(col -> !col.isKeyCodec())
+                                .collect(toImmutableSet())));
 
         return new KafkaRecordSet(kafkaSplit, consumerFactory, session, kafkaColumns, keyDecoder, messageDecoder, kafkaInternalFieldManager);
     }
@@ -79,7 +85,7 @@ public class KafkaRecordSetProvider
     private static Map<String, String> getDecoderParameters(Optional<String> dataSchema)
     {
         ImmutableMap.Builder<String, String> parameters = ImmutableMap.builder();
-        dataSchema.ifPresent(schema -> parameters.put("dataSchema", schema));
+        dataSchema.ifPresent(schema -> parameters.put(DATA_SCHEMA, schema));
         return parameters.buildOrThrow();
     }
 }

@@ -14,11 +14,10 @@
 package io.trino.server.remotetask;
 
 import com.google.common.util.concurrent.AtomicDouble;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.stats.DistributionStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 public class RemoteTaskStats
 {

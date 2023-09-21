@@ -25,6 +25,7 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.scheduler.SplitAssigner.AssignmentResult;
@@ -45,8 +46,6 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.Collection;

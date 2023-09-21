@@ -28,8 +28,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Deque;
 import java.util.LinkedList;

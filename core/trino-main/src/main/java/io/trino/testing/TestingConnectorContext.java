@@ -25,12 +25,12 @@ import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
-import io.trino.type.BlockTypeOperators;
 import io.trino.version.EmbedVersion;
 
 import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
@@ -48,8 +48,14 @@ public final class TestingConnectorContext
     public TestingConnectorContext()
     {
         TypeOperators typeOperators = new TypeOperators();
-        pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), new BlockTypeOperators(typeOperators));
+        pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), typeOperators);
         nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", TEST_CATALOG_HANDLE, true);
+    }
+
+    @Override
+    public CatalogHandle getCatalogHandle()
+    {
+        return TEST_CATALOG_HANDLE;
     }
 
     @Override

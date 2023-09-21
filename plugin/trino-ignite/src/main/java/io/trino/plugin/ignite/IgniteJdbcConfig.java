@@ -14,13 +14,12 @@
 package io.trino.plugin.ignite;
 
 import io.trino.plugin.jdbc.BaseJdbcConfig;
+import jakarta.validation.constraints.AssertTrue;
 import org.apache.ignite.IgniteJdbcThinDriver;
-
-import javax.validation.constraints.AssertTrue;
 
 import java.sql.SQLException;
 
-import static org.apache.ignite.IgniteJdbcDriver.URL_PREFIX;
+import static org.apache.ignite.internal.jdbc.thin.JdbcThinUtils.URL_PREFIX;
 
 public class IgniteJdbcConfig
         extends BaseJdbcConfig

@@ -31,7 +31,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
@@ -55,7 +55,7 @@ public class TestHiveS3MinioQueries
                     File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
                     return new FileHiveMetastore(
                             new NodeVersion("testversion"),
-                            HDFS_ENVIRONMENT,
+                            HDFS_FILE_SYSTEM_FACTORY,
                             new HiveMetastoreConfig().isHideDeltaLakeTables(),
                             new FileHiveMetastoreConfig()
                                     .setCatalogDirectory(baseDir.toURI().toString())

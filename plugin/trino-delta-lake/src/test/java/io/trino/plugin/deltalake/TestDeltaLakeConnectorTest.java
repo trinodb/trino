@@ -14,11 +14,17 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.QueryInfo;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.sql.planner.plan.TableDeleteNode;
+import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DataProviders;
 import io.trino.testing.DistributedQueryRunner;
@@ -30,6 +36,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.containers.Minio;
 import io.trino.testing.minio.MinioClient;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TrinoSqlExecutor;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -37,10 +44,13 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.ZonedDateTime;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -54,7 +64,10 @@ import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.toDataProvider;
+import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_FUNCTION;
@@ -66,11 +79,13 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestDeltaLakeConnectorTest
         extends BaseConnectorTest
@@ -129,34 +144,23 @@ public class TestDeltaLakeConnectorTest
         minioClient = null; // closed by closeAfterClass
     }
 
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_TRUNCATE:
-                return false;
-
-            case SUPPORTS_PREDICATE_PUSHDOWN:
-            case SUPPORTS_LIMIT_PUSHDOWN:
-            case SUPPORTS_TOPN_PUSHDOWN:
-            case SUPPORTS_AGGREGATION_PUSHDOWN:
-                return false;
-
-            case SUPPORTS_RENAME_SCHEMA:
-                return false;
-
-            case SUPPORTS_DROP_COLUMN:
-            case SUPPORTS_RENAME_COLUMN:
-            case SUPPORTS_SET_COLUMN_TYPE:
-                return false;
-
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_REPORTING_WRITTEN_BYTES -> true;
+            case SUPPORTS_ADD_FIELD,
+                    SUPPORTS_AGGREGATION_PUSHDOWN,
+                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                    SUPPORTS_DROP_FIELD,
+                    SUPPORTS_LIMIT_PUSHDOWN,
+                    SUPPORTS_PREDICATE_PUSHDOWN,
+                    SUPPORTS_RENAME_FIELD,
+                    SUPPORTS_RENAME_SCHEMA,
+                    SUPPORTS_SET_COLUMN_TYPE,
+                    SUPPORTS_TOPN_PUSHDOWN -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     @Override
@@ -305,6 +309,54 @@ public class TestDeltaLakeConnectorTest
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'first#1', 'second#1'), (2, 'first#2', NULL), (3, NULL, 'second#3'), (4, NULL, NULL)");
     }
 
+    @Test
+    public void testCreateTableWithAllPartitionColumns()
+    {
+        String tableName = "test_create_table_all_partition_columns_" + randomNameSuffix();
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(part INT) WITH (partitioned_by = ARRAY['part'])",
+                "Using all columns for partition columns is unsupported");
+    }
+
+    @Test
+    public void testCreateTableAsSelectAllPartitionColumns()
+    {
+        String tableName = "test_create_table_all_partition_columns_" + randomNameSuffix();
+        assertQueryFails(
+                "CREATE TABLE " + tableName + " WITH (partitioned_by = ARRAY['part']) AS SELECT 1 part",
+                "Using all columns for partition columns is unsupported");
+    }
+
+    @Test
+    public void testCreateTableWithUnsupportedPartitionType()
+    {
+        String tableName = "test_create_table_unsupported_partition_types_" + randomNameSuffix();
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(a INT, part ARRAY(INT)) WITH (partitioned_by = ARRAY['part'])",
+                "Using array, map or row type on partitioned columns is unsupported");
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(a INT, part MAP(INT,INT)) WITH (partitioned_by = ARRAY['part'])",
+                "Using array, map or row type on partitioned columns is unsupported");
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(a INT, part ROW(field INT)) WITH (partitioned_by = ARRAY['part'])",
+                "Using array, map or row type on partitioned columns is unsupported");
+    }
+
+    @Test
+    public void testCreateTableAsSelectWithUnsupportedPartitionType()
+    {
+        String tableName = "test_ctas_unsupported_partition_types_" + randomNameSuffix();
+        assertQueryFails(
+                "CREATE TABLE " + tableName + " WITH (partitioned_by = ARRAY['part']) AS SELECT 1 a, array[1] part",
+                "Using array, map or row type on partitioned columns is unsupported");
+        assertQueryFails(
+                "CREATE TABLE " + tableName + " WITH (partitioned_by = ARRAY['part']) AS SELECT 1 a, map() part",
+                "Using array, map or row type on partitioned columns is unsupported");
+        assertQueryFails(
+                "CREATE TABLE " + tableName + " WITH (partitioned_by = ARRAY['part']) AS SELECT 1 a, row(1) part",
+                "Using array, map or row type on partitioned columns is unsupported");
+    }
+
     @Override
     public void testShowCreateSchema()
     {
@@ -329,6 +381,105 @@ public class TestDeltaLakeConnectorTest
         assertQueryFails("DROP SCHEMA " + schemaName, ".*Cannot drop non-empty schema '\\Q" + schemaName + "\\E'");
         assertUpdate("DROP TABLE " + schemaName + ".t");
         assertUpdate("DROP SCHEMA " + schemaName);
+    }
+
+    @Override
+    public void testDropColumn()
+    {
+        // Override because the connector doesn't support dropping columns with 'none' column mapping
+        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
+        assertThatThrownBy(super::testDropColumn)
+                .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
+    }
+
+    @Override
+    public void testAddAndDropColumnName(String columnName)
+    {
+        // Override because the connector doesn't support dropping columns with 'none' column mapping
+        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
+        assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
+                .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
+    }
+
+    @Override
+    public void testDropAndAddColumnWithSameName()
+    {
+        // Override because the connector doesn't support dropping columns with 'none' column mapping
+        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
+        assertThatThrownBy(super::testDropAndAddColumnWithSameName)
+                .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
+    }
+
+    @Test
+    public void testDropLastNonPartitionColumn()
+    {
+        String tableName = "test_drop_last_non_partition_column_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(data int, part int) WITH (partitioned_by = ARRAY['part'], column_mapping_mode = 'name')");
+
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN data", "Dropping the last non-partition column is unsupported");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Override
+    public void testRenameColumn()
+    {
+        // Override because the connector doesn't support renaming columns with 'none' column mapping
+        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
+        assertThatThrownBy(super::testRenameColumn)
+                .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
+    }
+
+    @Override
+    public void testRenameColumnWithComment()
+    {
+        // Override because the connector doesn't support renaming columns with 'none' column mapping
+        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
+        assertThatThrownBy(super::testRenameColumnWithComment)
+                .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
+    }
+
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testDeltaRenameColumnWithComment(ColumnMappingMode mode)
+    {
+        if (mode == ColumnMappingMode.NONE) {
+            throw new SkipException("The connector doesn't support renaming columns with 'none' column mapping");
+        }
+
+        String tableName = "test_rename_column_" + randomNameSuffix();
+        assertUpdate("" +
+                "CREATE TABLE " + tableName +
+                "(col INT COMMENT 'test column comment', part INT COMMENT 'test partition comment')" +
+                "WITH (" +
+                "partitioned_by = ARRAY['part']," +
+                "location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'," +
+                "column_mapping_mode = '" + mode + "')");
+
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN col TO new_col");
+        assertEquals(getColumnComment(tableName, "new_col"), "test column comment");
+
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN part TO new_part");
+        assertEquals(getColumnComment(tableName, "new_part"), "test partition comment");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Override
+    public void testAlterTableRenameColumnToLongName()
+    {
+        // Override because the connector doesn't support renaming columns with 'none' column mapping
+        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
+        assertThatThrownBy(super::testAlterTableRenameColumnToLongName)
+                .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
+    }
+
+    @Override
+    public void testRenameColumnName(String columnName)
+    {
+        // Override because the connector doesn't support renaming columns with 'none' column mapping
+        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
+        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
+                .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
     }
 
     @Override
@@ -364,6 +515,46 @@ public class TestDeltaLakeConnectorTest
                 "SELECT * FROM " + tableName + " WHERE t = TIMESTAMP '" + value + "'",
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
                 results -> {});
+    }
+
+    @Test
+    public void testTimestampWithTimeZonePartition()
+    {
+        String tableName = "test_timestamp_tz_partition_" + randomNameSuffix();
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        assertUpdate("CREATE TABLE " + tableName + "(id INT, part TIMESTAMP WITH TIME ZONE) WITH (partitioned_by = ARRAY['part'])");
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(1, NULL)," +
+                        "(2, TIMESTAMP '0001-01-01 00:00:00.000 UTC')," +
+                        "(3, TIMESTAMP '2023-07-20 01:02:03.9999 -01:00')," +
+                        "(4, TIMESTAMP '9999-12-31 23:59:59.999 UTC')",
+                4);
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES " +
+                        "(1, NULL)," +
+                        "(2, TIMESTAMP '0001-01-01 00:00:00.000 UTC')," +
+                        "(3, TIMESTAMP '2023-07-20 02:02:04.000 UTC')," +
+                        "(4, TIMESTAMP '9999-12-31 23:59:59.999 UTC')");
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('id', null, 4.0, 0.0, null, 1, 4)," +
+                        "('part', null, 3.0, 0.25, null, null, null)," +
+                        "(null, null, null, null, 4.0, null, null)");
+
+        assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 1"))
+                .contains("/part=__HIVE_DEFAULT_PARTITION__/");
+        assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 2"))
+                .contains("/part=0001-01-01 00%3A00%3A00/");
+        assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 3"))
+                .contains("/part=2023-07-20 02%3A02%3A04/");
+        assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 4"))
+                .contains("/part=9999-12-31 23%3A59%3A59.999/");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @DataProvider
@@ -877,6 +1068,17 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test(dataProvider = "changeDataFeedColumnNamesDataProvider")
+    public void testUnsupportedRenameColumnWithChangeDataFeed(String columnName)
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_rename_column", "(col int) WITH (change_data_feed_enabled = true)")) {
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " RENAME COLUMN col TO " + columnName,
+                    "Cannot rename column when change data feed is enabled");
+            assertTableColumnNames(table.getName(), "col");
+        }
+    }
+
+    @Test(dataProvider = "changeDataFeedColumnNamesDataProvider")
     public void testUnsupportedSetTablePropertyWithChangeDataFeed(String columnName)
     {
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_properties", "(" + columnName + " int)")) {
@@ -905,6 +1107,456 @@ public class TestDeltaLakeConnectorTest
                 .contains("change_data_feed_enabled = true");
     }
 
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testCreateTableWithColumnMappingMode(ColumnMappingMode mode)
+    {
+        testCreateTableColumnMappingMode(mode, tableName -> {
+            assertUpdate("CREATE TABLE " + tableName + "(a_int integer, a_row row(x integer)) WITH (column_mapping_mode='" + mode + "')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, row(11))", 1);
+        });
+    }
+
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testCreateTableAsSelectWithColumnMappingMode(ColumnMappingMode mode)
+    {
+        testCreateTableColumnMappingMode(mode, tableName ->
+                assertUpdate("CREATE TABLE " + tableName + " WITH (column_mapping_mode='" + mode + "')" +
+                        " AS SELECT 1 AS a_int, CAST(row(11) AS row(x integer)) AS a_row", 1));
+    }
+
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testCreatePartitionTableAsSelectWithColumnMappingMode(ColumnMappingMode mode)
+    {
+        testCreateTableColumnMappingMode(mode, tableName ->
+                assertUpdate("CREATE TABLE " + tableName + " WITH (column_mapping_mode='" + mode + "', partitioned_by=ARRAY['a_int'])" +
+                        " AS SELECT 1 AS a_int, CAST(row(11) AS row(x integer)) AS a_row", 1));
+    }
+
+    private void testCreateTableColumnMappingMode(ColumnMappingMode mode, Consumer<String> createTable)
+    {
+        String tableName = "test_create_table_column_mapping_" + randomNameSuffix();
+        createTable.accept(tableName);
+
+        String showCreateTableResult = (String) computeScalar("SHOW CREATE TABLE " + tableName);
+        if (mode != ColumnMappingMode.NONE) {
+            assertThat(showCreateTableResult).contains("column_mapping_mode = '" + mode + "'");
+        }
+        else {
+            assertThat(showCreateTableResult).doesNotContain("column_mapping_mode");
+        }
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, CAST(row(11) AS row(x integer)))");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "columnMappingWithTrueAndFalseDataProvider")
+    public void testDeltaColumnMappingModeAllDataTypes(ColumnMappingMode mode, boolean partitioned)
+    {
+        String tableName = "test_column_mapping_mode_name_all_types_" + randomNameSuffix();
+
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (" +
+                "    a_boolean BOOLEAN," +
+                "    a_tinyint TINYINT," +
+                "    a_smallint SMALLINT," +
+                "    a_int INT," +
+                "    a_bigint BIGINT," +
+                "    a_decimal_5_2 DECIMAL(5,2)," +
+                "    a_decimal_21_3 DECIMAL(21,3)," +
+                "    a_double DOUBLE," +
+                "    a_float REAL," +
+                "    a_string VARCHAR," +
+                "    a_date DATE," +
+                "    a_timestamp TIMESTAMP(3) WITH TIME ZONE," +
+                "    a_binary VARBINARY," +
+                "    a_string_array ARRAY(VARCHAR)," +
+                "    a_struct_array ARRAY(ROW(a_string VARCHAR))," +
+                "    a_map MAP(VARCHAR, VARCHAR)," +
+                "    a_complex_map MAP(VARCHAR, ROW(a_string VARCHAR))," +
+                "    a_struct ROW(a_string VARCHAR, a_int INT)," +
+                "    a_complex_struct ROW(nested_struct ROW(a_string VARCHAR), a_int INT)" +
+                (partitioned ? ", part VARCHAR" : "") +
+                ")" +
+                "WITH (" +
+                (partitioned ? " partitioned_by = ARRAY['part']," : "") +
+                "column_mapping_mode = '" + mode + "'" +
+                ")");
+
+        assertUpdate("" +
+                "INSERT INTO " + tableName +
+                " VALUES " +
+                "(" +
+                "   true, " +
+                "   1, " +
+                "   10," +
+                "   100, " +
+                "   1000, " +
+                "   CAST('123.12' AS DECIMAL(5,2)), " +
+                "   CAST('123456789012345678.123' AS DECIMAL(21,3)), " +
+                "   DOUBLE '0', " +
+                "   REAL '0', " +
+                "   'a', " +
+                "   DATE '2020-08-21', " +
+                "   TIMESTAMP '2020-10-21 01:00:00.123 UTC', " +
+                "   X'abcd', " +
+                "   ARRAY['element 1'], " +
+                "   ARRAY[ROW('nested 1')], " +
+                "   MAP(ARRAY['key'], ARRAY['value1']), " +
+                "   MAP(ARRAY['key'], ARRAY[ROW('nested value1')]), " +
+                "   ROW('item 1', 1), " +
+                "   ROW(ROW('nested item 1'), 11) " +
+                (partitioned ? ", 'part1'" : "") +
+                "), " +
+                "(" +
+                "   true, " +
+                "   2, " +
+                "   20," +
+                "   200, " +
+                "   2000, " +
+                "   CAST('223.12' AS DECIMAL(5,2)), " +
+                "   CAST('223456789012345678.123' AS DECIMAL(21,3)), " +
+                "   DOUBLE '0', " +
+                "   REAL '0', " +
+                "   'b', " +
+                "   DATE '2020-08-22', " +
+                "   TIMESTAMP '2020-10-22 02:00:00.456 UTC', " +
+                "   X'abcd', " +
+                "   ARRAY['element 2'], " +
+                "   ARRAY[ROW('nested 2')], " +
+                "   MAP(ARRAY['key'], ARRAY[null]), " +
+                "   MAP(ARRAY['key'], ARRAY[null]), " +
+                "   ROW('item 2', 2), " +
+                "   ROW(ROW('nested item 2'), 22) " +
+                (partitioned ? ", 'part2'" : "") +
+                ")", 2);
+
+        String selectTrinoValues = "SELECT " +
+                "a_boolean, a_tinyint, a_smallint, a_int, a_bigint, a_decimal_5_2, a_decimal_21_3, a_double , a_float, a_string, a_date, a_binary, a_string_array[1], a_struct_array[1].a_string, a_map['key'], a_complex_map['key'].a_string, a_struct.a_string, a_struct.a_int, a_complex_struct.nested_struct.a_string, a_complex_struct.a_int " +
+                "FROM " + tableName;
+
+        assertThat(query(selectTrinoValues))
+                .skippingTypesCheck()
+                .matches("VALUES" +
+                        "(true, tinyint '1', smallint '10', integer '100', bigint '1000', decimal '123.12', decimal '123456789012345678.123', double '0', real '0', 'a', date '2020-08-21', X'abcd', 'element 1', 'nested 1', 'value1', 'nested value1', 'item 1', 1, 'nested item 1', 11)," +
+                        "(true, tinyint '2', smallint '20', integer '200', bigint '2000', decimal '223.12', decimal '223456789012345678.123', double '0.0', real '0.0', 'b', date '2020-08-22', X'abcd', 'element 2', 'nested 2', null, null, 'item 2', 2, 'nested item 2', 22)");
+
+        assertQuery(
+                "SELECT format('%1$tF %1$tT.%1$tL', a_timestamp) FROM " + tableName,
+                "VALUES '2020-10-21 01:00:00.123', '2020-10-22 02:00:00.456'");
+
+        assertUpdate("UPDATE " + tableName + " SET a_boolean = false where a_tinyint = 1", 1);
+        assertThat(query(selectTrinoValues))
+                .skippingTypesCheck()
+                .matches("VALUES" +
+                        "(false, tinyint '1', smallint '10', integer '100', bigint '1000', decimal '123.12', decimal '123456789012345678.123', double '0', real '0', 'a', date '2020-08-21', X'abcd', 'element 1', 'nested 1', 'value1', 'nested value1', 'item 1', 1, 'nested item 1', 11)," +
+                        "(true, tinyint '2', smallint '20', integer '200', bigint '2000', decimal '223.12', decimal '223456789012345678.123', double '0.0', real '0.0', 'b', date '2020-08-22', X'abcd', 'element 2', 'nested 2', null, null, 'item 2', 2, 'nested item 2', 22)");
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE a_tinyint = 2", 1);
+        assertThat(query(selectTrinoValues))
+                .skippingTypesCheck()
+                .matches("VALUES" +
+                        "(false, tinyint '1', smallint '10', integer '100', bigint '1000', decimal '123.12', decimal '123456789012345678.123', double '0', real '0', 'a', date '2020-08-21', X'abcd', 'element 1', 'nested 1', 'value1', 'nested value1', 'item 1', 1, 'nested item 1', 11)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "columnMappingWithTrueAndFalseDataProvider")
+    public void testOptimizeProcedureColumnMappingMode(ColumnMappingMode mode, boolean partitioned)
+    {
+        String tableName = "test_optimize_column_mapping_mode_" + randomNameSuffix();
+
+        assertUpdate("" +
+                "CREATE TABLE " + tableName +
+                "(a_number INT, a_struct ROW(x INT), a_string VARCHAR) " +
+                "WITH (" +
+                (partitioned ? "partitioned_by=ARRAY['a_string']," : "") +
+                "location='s3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'," +
+                "column_mapping_mode='" + mode + "')");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, row(11), 'a')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, row(22), 'b')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, row(33), 'c')", 1);
+
+        Double stringColumnSize = partitioned ? null : 3.0;
+        String expectedStats = "VALUES" +
+                "('a_number', null, 3.0, 0.0, null, '1', '3')," +
+                "('a_struct', null, null, null, null, null, null)," +
+                "('a_string', " + stringColumnSize + ", 3.0, 0.0, null, null, null)," +
+                "(null, null, null, null, 3.0, null, null)";
+        assertQuery("SHOW STATS FOR " + tableName, expectedStats);
+
+        // Execute OPTIMIZE procedure and verify that the statistics is preserved and the table is still writable and readable
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+
+        assertQuery("SHOW STATS FOR " + tableName, expectedStats);
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (4, row(44), 'd')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (5, row(55), 'e')", 1);
+
+        assertQuery(
+                "SELECT a_number, a_struct.x, a_string FROM " + tableName,
+                "VALUES" +
+                        "(1, 11, 'a')," +
+                        "(2, 22, 'b')," +
+                        "(3, 33, 'c')," +
+                        "(4, 44, 'd')," +
+                        "(5, 55, 'e')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    /**
+     * @see deltalake.write_stats_as_json_column_mapping_id
+     */
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testSupportedNonPartitionedColumnMappingIdWrites(boolean statsAsJsonEnabled)
+            throws Exception
+    {
+        testSupportedNonPartitionedColumnMappingWrites("write_stats_as_json_column_mapping_id", statsAsJsonEnabled);
+    }
+
+    /**
+     * @see deltalake.write_stats_as_json_column_mapping_name
+     */
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testSupportedNonPartitionedColumnMappingNameWrites(boolean statsAsJsonEnabled)
+            throws Exception
+    {
+        testSupportedNonPartitionedColumnMappingWrites("write_stats_as_json_column_mapping_name", statsAsJsonEnabled);
+    }
+
+    /**
+     * @see deltalake.write_stats_as_json_column_mapping_none
+     */
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testSupportedNonPartitionedColumnMappingNoneWrites(boolean statsAsJsonEnabled)
+            throws Exception
+    {
+        testSupportedNonPartitionedColumnMappingWrites("write_stats_as_json_column_mapping_none", statsAsJsonEnabled);
+    }
+
+    private void testSupportedNonPartitionedColumnMappingWrites(String resourceName, boolean statsAsJsonEnabled)
+            throws Exception
+    {
+        String tableName = "test_column_mapping_mode_" + randomNameSuffix();
+
+        String entry = Resources.toString(Resources.getResource("deltalake/%s/_delta_log/00000000000000000000.json".formatted(resourceName)), UTF_8)
+                .replace("%WRITE_STATS_AS_JSON%", Boolean.toString(statsAsJsonEnabled))
+                .replace("%WRITE_STATS_AS_STRUCT%", Boolean.toString(!statsAsJsonEnabled));
+
+        String targetPath = "%s/%s/_delta_log/00000000000000000000.json".formatted(SCHEMA, tableName);
+        minioClient.putObject(bucketName, entry.getBytes(UTF_8), targetPath);
+        String tableLocation = "s3://%s/%s/%s".formatted(bucketName, SCHEMA, tableName);
+
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(SCHEMA, tableName, tableLocation));
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(1, 'first value', ARRAY[ROW('nested 1')], ROW('databricks 1'))," +
+                        "(2, 'two', ARRAY[ROW('nested 2')], ROW('databricks 2'))," +
+                        "(3, 'third value', ARRAY[ROW('nested 3')], ROW('databricks 3'))," +
+                        "(4, 'four', ARRAY[ROW('nested 4')], ROW('databricks 4'))",
+                4);
+
+        assertQuery(
+                "SELECT a_number, a_string, array_col[1].array_struct_element, nested.field1 FROM " + tableName,
+                "VALUES" +
+                        "(1, 'first value', 'nested 1', 'databricks 1')," +
+                        "(2, 'two', 'nested 2', 'databricks 2')," +
+                        "(3, 'third value', 'nested 3', 'databricks 3')," +
+                        "(4, 'four', 'nested 4', 'databricks 4')");
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES" +
+                        "('a_number', null, 4.0, 0.0, null, '1', '4')," +
+                        "('a_string', 29.0, 4.0, 0.0, null, null, null)," +
+                        "('array_col', null, null, null, null, null, null)," +
+                        "('nested', null, null, null, null, null, null)," +
+                        "(null, null, null, null, 4.0, null, null)");
+
+        assertUpdate("UPDATE " + tableName + " SET a_number = a_number + 10 WHERE a_number in (3, 4)", 2);
+        assertUpdate("UPDATE " + tableName + " SET a_number = a_number + 20 WHERE a_number in (1, 2)", 2);
+        assertQuery(
+                "SELECT a_number, a_string, array_col[1].array_struct_element, nested.field1 FROM " + tableName,
+                "VALUES" +
+                        "(21, 'first value', 'nested 1', 'databricks 1')," +
+                        "(22, 'two', 'nested 2', 'databricks 2')," +
+                        "(13, 'third value', 'nested 3', 'databricks 3')," +
+                        "(14, 'four', 'nested 4', 'databricks 4')");
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES" +
+                        "('a_number', null, 4.0, 0.0, null, '13', '22')," +
+                        "('a_string', 29.0, 4.0, 0.0, null, null, null)," +
+                        "('array_col', null, null, null, null, null, null)," +
+                        "('nested', null, null, null, null, null, null)," +
+                        "(null, null, null, null, 4.0, null, null)");
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE a_number = 22", 1);
+        assertUpdate("DELETE FROM " + tableName + " WHERE a_number = 13", 1);
+        assertUpdate("DELETE FROM " + tableName + " WHERE a_number = 21", 1);
+        assertQuery(
+                "SELECT a_number, a_string, array_col[1].array_struct_element, nested.field1 FROM " + tableName,
+                "VALUES (14, 'four', 'nested 4', 'databricks 4')");
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES" +
+                        "('a_number', null, 1.0, 0.0, null, '14', '14')," +
+                        "('a_string', 29.0, 1.0, 0.0, null, null, null)," +
+                        "('array_col', null, null, null, null, null, null)," +
+                        "('nested', null, null, null, null, null, null)," +
+                        "(null, null, null, null, 1.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    /**
+     * @see deltalake.write_stats_as_json_partition_column_mapping_id
+     */
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testSupportedPartitionedColumnMappingIdWrites(boolean statsAsJsonEnabled)
+            throws Exception
+    {
+        testSupportedPartitionedColumnMappingWrites("write_stats_as_json_partition_column_mapping_id", statsAsJsonEnabled);
+    }
+
+    /**
+     * @see deltalake.write_stats_as_json_partition_column_mapping_name
+     */
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testSupportedPartitionedColumnMappingNameWrites(boolean statsAsJsonEnabled)
+            throws Exception
+    {
+        testSupportedPartitionedColumnMappingWrites("write_stats_as_json_partition_column_mapping_name", statsAsJsonEnabled);
+    }
+
+    /**
+     * @see deltalake.write_stats_as_json_partition_column_mapping_none
+     */
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testSupportedPartitionedColumnMappingNoneWrites(boolean statsAsJsonEnabled)
+            throws Exception
+    {
+        testSupportedPartitionedColumnMappingWrites("write_stats_as_json_partition_column_mapping_none", statsAsJsonEnabled);
+    }
+
+    private void testSupportedPartitionedColumnMappingWrites(String resourceName, boolean statsAsJsonEnabled)
+            throws Exception
+    {
+        String tableName = "test_column_mapping_mode_" + randomNameSuffix();
+
+        String entry = Resources.toString(Resources.getResource("deltalake/%s/_delta_log/00000000000000000000.json".formatted(resourceName)), UTF_8)
+                .replace("%WRITE_STATS_AS_JSON%", Boolean.toString(statsAsJsonEnabled))
+                .replace("%WRITE_STATS_AS_STRUCT%", Boolean.toString(!statsAsJsonEnabled));
+
+        String targetPath = "%s/%s/_delta_log/00000000000000000000.json".formatted(SCHEMA, tableName);
+        minioClient.putObject(bucketName, entry.getBytes(UTF_8), targetPath);
+        String tableLocation = "s3://%s/%s/%s".formatted(bucketName, SCHEMA, tableName);
+
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(SCHEMA, tableName, tableLocation));
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES" +
+                        "(1, 'first value', ARRAY[ROW('nested 1')], ROW('databricks 1'))," +
+                        "(2, 'two', ARRAY[ROW('nested 2')], ROW('databricks 2'))," +
+                        "(3, 'third value', ARRAY[ROW('nested 3')], ROW('databricks 3'))," +
+                        "(4, 'four', ARRAY[ROW('nested 4')], ROW('databricks 4'))",
+                4);
+
+        assertQuery(
+                "SELECT a_number, a_string, array_col[1].array_struct_element, nested.field1 FROM " + tableName,
+                "VALUES" +
+                        "(1, 'first value', 'nested 1', 'databricks 1')," +
+                        "(2, 'two', 'nested 2', 'databricks 2')," +
+                        "(3, 'third value', 'nested 3', 'databricks 3')," +
+                        "(4, 'four', 'nested 4', 'databricks 4')");
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES" +
+                        "('a_number', null, 4.0, 0.0, null, '1', '4')," +
+                        "('a_string', null, 4.0, 0.0, null, null, null)," +
+                        "('array_col', null, null, null, null, null, null)," +
+                        "('nested', null, null, null, null, null, null)," +
+                        "(null, null, null, null, 4.0, null, null)");
+
+        assertUpdate("UPDATE " + tableName + " SET a_number = a_number + 10 WHERE a_number in (3, 4)", 2);
+        assertUpdate("UPDATE " + tableName + " SET a_number = a_number + 20 WHERE a_number in (1, 2)", 2);
+        assertQuery(
+                "SELECT a_number, a_string, array_col[1].array_struct_element, nested.field1 FROM " + tableName,
+                "VALUES" +
+                        "(21, 'first value', 'nested 1', 'databricks 1')," +
+                        "(22, 'two', 'nested 2', 'databricks 2')," +
+                        "(13, 'third value', 'nested 3', 'databricks 3')," +
+                        "(14, 'four', 'nested 4', 'databricks 4')");
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES" +
+                        "('a_number', null, 4.0, 0.0, null, '13', '22')," +
+                        "('a_string', null, 4.0, 0.0, null, null, null)," +
+                        "('array_col', null, null, null, null, null, null)," +
+                        "('nested', null, null, null, null, null, null)," +
+                        "(null, null, null, null, 4.0, null, null)");
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE a_number = 22", 1);
+        assertUpdate("DELETE FROM " + tableName + " WHERE a_number = 13", 1);
+        assertUpdate("DELETE FROM " + tableName + " WHERE a_number = 21", 1);
+        assertQuery(
+                "SELECT a_number, a_string, array_col[1].array_struct_element, nested.field1 FROM " + tableName,
+                "VALUES (14, 'four', 'nested 4', 'databricks 4')");
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES" +
+                        "('a_number', null, 1.0, 0.0, null, '14', '14')," +
+                        "('a_string', null, 1.0, 0.0, null, null, null)," +
+                        "('array_col', null, null, null, null, null, null)," +
+                        "('nested', null, null, null, null, null, null)," +
+                        "(null, null, null, null, 1.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @DataProvider
+    public Object[][] columnMappingWithTrueAndFalseDataProvider()
+    {
+        return cartesianProduct(columnMappingModeDataProvider(), trueFalse());
+    }
+
+    @DataProvider
+    public Object[][] columnMappingModeDataProvider()
+    {
+        return Arrays.stream(ColumnMappingMode.values())
+                .filter(mode -> mode != ColumnMappingMode.UNKNOWN)
+                .collect(toDataProvider());
+    }
+
+    @Test
+    public void testCreateTableUnsupportedColumnMappingMode()
+    {
+        String tableName = "test_unsupported_column_mapping_mode_" + randomNameSuffix();
+
+        assertQueryFails("CREATE TABLE " + tableName + "(a integer) WITH (column_mapping_mode = 'illegal')",
+                ".* \\QInvalid value [illegal]. Valid values: [ID, NAME, NONE]");
+        assertQueryFails("CREATE TABLE " + tableName + " WITH (column_mapping_mode = 'illegal') AS SELECT 1 a",
+                ".* \\QInvalid value [illegal]. Valid values: [ID, NAME, NONE]");
+
+        assertQueryFails("CREATE TABLE " + tableName + "(a integer) WITH (column_mapping_mode = 'unknown')",
+                ".* \\QInvalid value [unknown]. Valid values: [ID, NAME, NONE]");
+        assertQueryFails("CREATE TABLE " + tableName + " WITH (column_mapping_mode = 'unknown') AS SELECT 1 a",
+                ".* \\QInvalid value [unknown]. Valid values: [ID, NAME, NONE]");
+
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
     @Test
     public void testAlterTableWithUnsupportedProperties()
     {
@@ -916,6 +1568,8 @@ public class TestDeltaLakeConnectorTest
                 "The following properties cannot be updated: checkpoint_interval");
         assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES partitioned_by = ARRAY['a']",
                 "The following properties cannot be updated: partitioned_by");
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES column_mapping_mode = 'ID'",
+                "The following properties cannot be updated: column_mapping_mode");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1028,11 +1682,12 @@ public class TestDeltaLakeConnectorTest
                 "_row#child := _row#child:bigint:REGULAR");
     }
 
-    @Test
-    public void testReadCdfChanges()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testReadCdfChanges(ColumnMappingMode mode)
     {
         String tableName = "test_basic_operations_on_table_with_cdf_enabled_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
+                "WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1), ('url2', 'domain2', 2), ('url3', 'domain3', 3)", 3);
         assertUpdate("INSERT INTO " + tableName + " VALUES('url4', 'domain4', 4), ('url5', 'domain5', 2), ('url6', 'domain6', 6)", 3);
 
@@ -1078,11 +1733,12 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test
-    public void testReadCdfChangesOnPartitionedTable()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testReadCdfChangesOnPartitionedTable(ColumnMappingMode mode)
     {
         String tableName = "test_basic_operations_on_table_with_cdf_enabled_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true, partitioned_by = ARRAY['domain'])");
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
+                "WITH (change_data_feed_enabled = true, partitioned_by = ARRAY['domain'], column_mapping_mode = '" + mode + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1), ('url2', 'domain2', 2), ('url3', 'domain1', 3)", 3);
         assertUpdate("INSERT INTO " + tableName + " VALUES('url4', 'domain1', 400), ('url5', 'domain2', 500), ('url6', 'domain3', 2)", 3);
 
@@ -1131,10 +1787,49 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
-    public void testReadMergeChanges()
+    public void testCdfWithNameMappingModeOnTableWithColumnDropped()
+    {
+        testCdfWithMappingModeOnTableWithColumnDropped(ColumnMappingMode.NAME);
+    }
+
+    @Test
+    public void testCdfWithIdMappingModeOnTableWithColumnDropped()
+    {
+        testCdfWithMappingModeOnTableWithColumnDropped(ColumnMappingMode.ID);
+    }
+
+    private void testCdfWithMappingModeOnTableWithColumnDropped(ColumnMappingMode mode)
+    {
+        String tableName = "test_dropping_column_with_cdf_enabled_and_mapping_mode_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, page_views INTEGER, column_to_drop INTEGER) " +
+                "WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "')");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 1, 111)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url2', 2, 222)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url3', 3, 333)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url4', 4, 444)", 1);
+
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN column_to_drop");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url5', 5)", 1);
+
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 0))",
+                """
+                        VALUES
+                            ('url1', 1, 'insert', BIGINT '1'),
+                            ('url2', 2, 'insert', BIGINT '2'),
+                            ('url3', 3, 'insert', BIGINT '3'),
+                            ('url4', 4, 'insert', BIGINT '4'),
+                            ('url5', 5, 'insert', BIGINT '6')
+                        """);
+    }
+
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testReadMergeChanges(ColumnMappingMode mode)
     {
         String tableName1 = "test_basic_operations_on_table_with_cdf_enabled_merge_into_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName1 + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("CREATE TABLE " + tableName1 + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
+                "WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "')");
         assertUpdate("INSERT INTO " + tableName1 + " VALUES('url1', 'domain1', 1), ('url2', 'domain2', 2), ('url3', 'domain3', 3), ('url4', 'domain4', 4)", 4);
 
         String tableName2 = "test_basic_operations_on_table_with_cdf_enabled_merge_from_" + randomNameSuffix();
@@ -1175,11 +1870,12 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test
-    public void testReadMergeChangesOnPartitionedTable()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testReadMergeChangesOnPartitionedTable(ColumnMappingMode mode)
     {
         String targetTable = "test_basic_operations_on_partitioned_table_with_cdf_enabled_target_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + targetTable + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true, partitioned_by = ARRAY['domain'])");
+        assertUpdate("CREATE TABLE " + targetTable + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
+                "WITH (change_data_feed_enabled = true, partitioned_by = ARRAY['domain'], column_mapping_mode = '" + mode + "')");
         assertUpdate("INSERT INTO " + targetTable + " VALUES('url1', 'domain1', 1), ('url2', 'domain2', 2), ('url3', 'domain3', 3), ('url4', 'domain1', 4)", 4);
 
         String sourceTable1 = "test_basic_operations_on_partitioned_table_with_cdf_enabled_source_1_" + randomNameSuffix();
@@ -1252,22 +1948,24 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test
-    public void testCdfCommitTimestamp()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testCdfCommitTimestamp(ColumnMappingMode mode)
     {
         String tableName = "test_cdf_commit_timestamp_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
+                "WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1)", 1);
         ZonedDateTime historyCommitTimestamp = (ZonedDateTime) computeScalar("SELECT timestamp FROM \"" + tableName + "$history\" WHERE version = 1");
         ZonedDateTime tableChangesCommitTimestamp = (ZonedDateTime) computeScalar("SELECT _commit_timestamp FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 0)) WHERE _commit_Version = 1");
         assertThat(historyCommitTimestamp).isEqualTo(tableChangesCommitTimestamp);
     }
 
-    @Test
-    public void testReadDifferentChangeRanges()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testReadDifferentChangeRanges(ColumnMappingMode mode)
     {
         String tableName = "test_reading_ranges_of_changes_on_table_with_cdf_enabled_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
+                "WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "')");
         assertQueryReturnsEmptyResult("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "'))");
         assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES('url2', 'domain2', 2)", 1);
@@ -1328,11 +2026,12 @@ public class TestDeltaLakeConnectorTest
         assertQueryFails("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 10))", "since_version: 10 is higher then current table version: 6");
     }
 
-    @Test
-    public void testReadChangesOnTableWithColumnAdded()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testReadChangesOnTableWithColumnAdded(ColumnMappingMode mode)
     {
         String tableName = "test_reading_changes_on_table_with_columns_added_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
+                "WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1)", 1);
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN company VARCHAR");
         assertUpdate("INSERT INTO " + tableName + " VALUES('url2', 'domain2', 2, 'starburst')", 1);
@@ -1345,11 +2044,12 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test
-    public void testReadChangesOnTableWithRowColumn()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testReadChangesOnTableWithRowColumn(ColumnMappingMode mode)
     {
         String tableName = "test_reading_changes_on_table_with_columns_added_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, costs ROW(month VARCHAR, amount BIGINT)) WITH (change_data_feed_enabled = true)");
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, costs ROW(month VARCHAR, amount BIGINT)) " +
+                "WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES('url1', ROW('01', 11))", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES('url2', ROW('02', 19))", 1);
         assertUpdate("UPDATE " + tableName + " SET costs = ROW('02', 37) WHERE costs.month = '02'", 1);
@@ -1373,11 +2073,12 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test
-    public void testCdfOnTableWhichDoesntHaveItEnabledInitially()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testCdfOnTableWhichDoesntHaveItEnabledInitially(ColumnMappingMode mode)
     {
         String tableName = "test_cdf_on_table_without_it_initially_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER)");
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
+                "WITH (column_mapping_mode = '" + mode + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES('url2', 'domain2', 2)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES('url3', 'domain3', 3)", 1);
@@ -1414,11 +2115,12 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test
-    public void testReadChangesFromCtasTable()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testReadChangesFromCtasTable(ColumnMappingMode mode)
     {
         String tableName = "test_basic_operations_on_table_with_cdf_enabled_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (change_data_feed_enabled = true) AS SELECT * FROM (VALUES" +
+        assertUpdate("CREATE TABLE " + tableName + " WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "') " +
+                        "AS SELECT * FROM (VALUES" +
                         "('url1', 'domain1', 1), " +
                         "('url2', 'domain2', 2)) t(page_url, domain, views)",
                 2);
@@ -1431,12 +2133,13 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test
-    public void testVacuumDeletesCdfFiles()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testVacuumDeletesCdfFiles(ColumnMappingMode mode)
             throws InterruptedException
     {
         String tableName = "test_vacuum_correctly_deletes_cdf_files_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
+                "WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1), ('url3', 'domain3', 3), ('url2', 'domain2', 2)", 3);
         assertUpdate("UPDATE " + tableName + " SET views = views * 10 WHERE views = 1", 1);
         assertUpdate("UPDATE " + tableName + " SET views = views * 10 WHERE views = 2", 1);
@@ -1461,11 +2164,12 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test
-    public void testCdfWithOptimize()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testCdfWithOptimize(ColumnMappingMode mode)
     {
         String tableName = "test_cdf_with_optimize_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
+                "WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES('url2', 'domain2', 2)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES('url3', 'domain3', 3)", 1);
@@ -1529,6 +2233,94 @@ public class TestDeltaLakeConnectorTest
         assertQuery("SELECT * FROM " + tableName, "VALUES ('other', 1), ('str3', 3)");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "deleteFiltersForTable")
+    public void testDeleteWithFilter(String createTableSql, String deleteFilter, boolean pushDownDelete)
+    {
+        String table = "delete_with_filter_" + randomNameSuffix();
+        assertUpdate(format(createTableSql, table, bucketName, table));
+
+        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Antioch'), ('Mary', 10, 'Adelphi'), ('Aaron', 3, 'Dallas')", table), 4);
+
+        assertUpdate(
+                getSession(),
+                format("DELETE FROM %s WHERE %s", table, deleteFilter),
+                2,
+                plan -> {
+                    if (pushDownDelete) {
+                        boolean tableDelete = searchFrom(plan.getRoot()).where(node -> node instanceof TableDeleteNode).matches();
+                        assertTrue(tableDelete, "A TableDeleteNode should be present");
+                    }
+                    else {
+                        TableFinishNode finishNode = searchFrom(plan.getRoot())
+                                .where(TableFinishNode.class::isInstance)
+                                .findOnlyElement();
+                        assertTrue(finishNode.getTarget() instanceof TableWriterNode.MergeTarget, "Delete operation should be performed through MERGE mechanism");
+                    }
+                });
+        assertQuery("SELECT customer, purchases, address FROM " + table, "VALUES ('Mary', 10, 'Adelphi'), ('Aaron', 3, 'Dallas')");
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @DataProvider
+    public Object[][] deleteFiltersForTable()
+    {
+        return new Object[][]{
+                {
+                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')",
+                        "address = 'Antioch'",
+                        false
+                },
+                {
+                        // delete filter applied on function over non-partitioned field
+                        "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
+                        "starts_with(address, 'Antioch')",
+                        false
+                },
+                {
+                        // delete filter applied on partitioned field
+                        "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
+                        "address = 'Antioch'",
+                        true
+                },
+                {
+                        // delete filter applied on partitioned field and on synthesized field
+                        "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
+                        "address = 'Antioch' AND \"$file_size\" > 0",
+                        false
+                },
+                {
+                        // delete filter applied on function over partitioned field
+                        "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
+                        "starts_with(address, 'Antioch')",
+                        false
+                },
+                {
+                        // delete filter applied on non-partitioned field
+                        "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer'])",
+                        "address = 'Antioch'",
+                        false
+                },
+                {
+                        // delete filter fully applied on composed partition
+                        "CREATE TABLE %s (purchases INT, customer VARCHAR, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address', 'customer'])",
+                        "address = 'Antioch' AND (customer = 'Aaron' OR customer = 'Bill')",
+                        true
+                },
+                {
+                        // delete filter applied only partly on first partitioned field
+                        "CREATE TABLE %s (purchases INT, address VARCHAR, customer VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address', 'customer'])",
+                        "address = 'Antioch'",
+                        true
+                },
+                {
+                        // delete filter applied only partly on second partitioned field
+                        "CREATE TABLE %s (purchases INT, address VARCHAR, customer VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer', 'address'])",
+                        "address = 'Antioch'",
+                        true
+                },
+        };
     }
 
     @Override
@@ -1606,5 +2398,432 @@ public class TestDeltaLakeConnectorTest
         return getTableFiles(tableName).stream()
                 .filter(path -> path.contains("/" + CHANGE_DATA_FOLDER_NAME))
                 .collect(toImmutableSet());
+    }
+
+    @Test
+    public void testPartitionFilterQueryNotDemanded()
+    {
+        Map<String, String> catalogProperties = getSession().getCatalogProperties(getSession().getCatalog().orElseThrow());
+        assertThat(catalogProperties).doesNotContainKey("query_partition_filter_required");
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_filter_not_demanded",
+                "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
+                ImmutableList.of("'a', 'part_a'", "'b', 'part_b'"))) {
+            assertQuery("SELECT * FROM %s WHERE x='a'".formatted(table.getName()), "VALUES('a', 'part_a')");
+            assertQuery("SELECT * FROM %s WHERE part='part_a'".formatted(table.getName()), "VALUES('a', 'part_a')");
+        }
+    }
+
+    @Test
+    public void testQueryWithoutPartitionOnNonPartitionedTableNotDemanded()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_no_partition_table_",
+                "(x varchar, part varchar)",
+                ImmutableList.of("('a', 'part_a')", "('b', 'part_b')"))) {
+            assertQuery(session, "SELECT * FROM %s WHERE x='a'".formatted(table.getName()), "VALUES('a', 'part_a')");
+            assertQuery(session, "SELECT * FROM %s WHERE part='part_a'".formatted(table.getName()), "VALUES('a', 'part_a')");
+        }
+    }
+
+    @Test
+    public void testQueryWithoutPartitionFilterNotAllowed()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_no_partition_filter_",
+                "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
+                ImmutableList.of("('a', 'part_a')", "('b', 'part_b')"))) {
+            assertQueryFails(
+                    session,
+                    "SELECT * FROM %s WHERE x='a'".formatted(table.getName()),
+                    "Filter required on .*" + table.getName() + " for at least one partition column:.*");
+        }
+    }
+
+    @Test
+    public void testPartitionFilterRemovedByPlanner()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_filter_removed_",
+                "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
+                ImmutableList.of("('a', 'part_a')", "('b', 'part_b')"))) {
+            assertQueryFails(
+                    session,
+                    "SELECT x FROM " + table.getName() + " WHERE part IS NOT NULL OR TRUE",
+                    "Filter required on .*" + table.getName() + " for at least one partition column:.*");
+        }
+    }
+
+    @Test
+    public void testPartitionFilterIncluded()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_filter_included",
+                "(x varchar, part integer) WITH (partitioned_by = ARRAY['part'])",
+                ImmutableList.of("('a', 1)", "('a', 2)", "('a', 3)", "('a', 4)", "('b', 1)", "('b', 2)", "('b', 3)", "('b', 4)"))) {
+            assertQuery(session, "SELECT * FROM " + table.getName() + " WHERE part = 1", "VALUES ('a', 1), ('b', 1)");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part < 2", "VALUES 2");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE Part < 2", "VALUES 2");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE PART < 2", "VALUES 2");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE parT < 2", "VALUES 2");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part % 2 = 0", "VALUES 4");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part - 2 = 0", "VALUES 2");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part * 4 = 4", "VALUES 2");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part % 2 > 0", "VALUES 4");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part % 2 = 1 and part IS NOT NULL", "VALUES 4");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part IS NULL", "VALUES 0");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part = 1 OR x = 'a' ", "VALUES 5");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part = 1 AND  x = 'a' ", "VALUES 1");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part IS NOT NULL", "VALUES 8");
+            assertQuery(session, "SELECT x, count(*) AS COUNT FROM " + table.getName() + " WHERE part > 2 GROUP BY x ", "VALUES ('a', 2), ('b', 2)");
+            assertQueryFails(session, "SELECT count(*) FROM " + table.getName() + " WHERE x= 'a'", "Filter required on .*" + table.getName() + " for at least one partition column:.*");
+        }
+    }
+
+    @Test
+    public void testRequiredPartitionFilterOnJoin()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+
+        try (TestTable leftTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_left_",
+                "(x varchar, part varchar)",
+                ImmutableList.of("('a', 'part_a')"));
+                    TestTable rightTable = new TestTable(
+                            new TrinoSqlExecutor(getQueryRunner(), session),
+                           "test_partition_right_",
+                            "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
+                            ImmutableList.of("('a', 'part_a')"))) {
+            assertQueryFails(
+                    session,
+                    "SELECT a.x, b.x from %s a JOIN %s b on (a.x = b.x) where a.x = 'a'".formatted(leftTable.getName(), rightTable.getName()),
+                    "Filter required on .*" + rightTable.getName() + " for at least one partition column:.*");
+            assertQuery(
+                    session,
+                    "SELECT a.x, b.x from %s a JOIN %s b on (a.part = b.part) where a.part = 'part_a'".formatted(leftTable.getName(), rightTable.getName()),
+                    "VALUES ('a', 'a')");
+        }
+    }
+
+    @Test
+    public void testRequiredPartitionFilterOnJoinBothTablePartitioned()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+
+        try (TestTable leftTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_inferred_left_",
+                "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
+                ImmutableList.of("('a', 'part_a')"));
+                    TestTable rightTable = new TestTable(
+                            new TrinoSqlExecutor(getQueryRunner(), session),
+                            "test_partition_inferred_right_",
+                            "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
+                            ImmutableList.of("('a', 'part_a')"))) {
+            assertQueryFails(
+                    session,
+                    "SELECT a.x, b.x from %s a JOIN %s b on (a.x = b.x) where a.x = 'a'".formatted(leftTable.getName(), rightTable.getName()),
+                    "Filter required on .*" + leftTable.getName() + " for at least one partition column:.*");
+            assertQuery(
+                    session,
+                    "SELECT a.x, b.x from %s a JOIN %s b on (a.part = b.part) where a.part = 'part_a'".formatted(leftTable.getName(), rightTable.getName()),
+                    "VALUES ('a', 'a')");
+        }
+    }
+
+    @Test
+    public void testComplexPartitionPredicateWithCasting()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_predicate",
+                "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
+                ImmutableList.of("('a', '1')", "('b', '2')"))) {
+            assertQuery(session, "SELECT * FROM " + table.getName() + " WHERE CAST (part AS integer) = 1", "VALUES ('a', 1)");
+        }
+    }
+
+    @Test
+    public void testPartitionPredicateInOuterQuery()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_predicate",
+                "(x integer, part integer) WITH (partitioned_by = ARRAY['part'])",
+                ImmutableList.of("(1, 11)", "(2, 22)"))) {
+            assertQuery(session, "SELECT * FROM (SELECT * FROM " + table.getName() + " WHERE x = 1) WHERE part = 11", "VALUES (1, 11)");
+        }
+    }
+
+    @Test
+    public void testPartitionPredicateInInnerQuery()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_predicate",
+                "(x integer, part integer) WITH (partitioned_by = ARRAY['part'])",
+                ImmutableList.of("(1, 11)", "(2, 22)"))) {
+            assertQuery(session, "SELECT * FROM (SELECT * FROM " + table.getName() + " WHERE part = 11) WHERE x = 1", "VALUES (1, 11)");
+        }
+    }
+
+    @Test
+    public void testPartitionPredicateFilterAndAnalyzeOnPartitionedTable()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_predicate_analyze_",
+                "(x integer, part integer) WITH (partitioned_by = ARRAY['part'])",
+                ImmutableList.of("(1, 11)", "(2, 22)"))) {
+            String expectedMessageRegExp = "ANALYZE statement can not be performed on partitioned tables because filtering is required on at least one partition." +
+                                           " However, the partition filtering check can be disabled with the catalog session property 'query_partition_filter_required'.";
+            assertQueryFails(session, "ANALYZE " + table.getName(), expectedMessageRegExp);
+            assertQueryFails(session, "EXPLAIN ANALYZE " + table.getName(), expectedMessageRegExp);
+        }
+    }
+
+    @Test
+    public void testPartitionPredicateFilterAndAnalyzeOnNonPartitionedTable()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable nonPartitioned = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_predicate_analyze_nonpartitioned",
+                "(a integer, b integer) ",
+                ImmutableList.of("(1, 11)", "(2, 22)"))) {
+            assertUpdate(session, "ANALYZE " + nonPartitioned.getName());
+            computeActual(session, "EXPLAIN ANALYZE " + nonPartitioned.getName());
+        }
+    }
+
+    @Test
+    public void testPartitionFilterMultiplePartition()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_filter_multiple_partition_",
+                "(x varchar, part1 integer, part2 integer) WITH (partitioned_by = ARRAY['part1', 'part2'])",
+                ImmutableList.of("('a', 1, 1)", "('a', 1, 2)", "('a', 2, 1)", "('a', 2, 2)", "('b', 1, 1)", "('b', 1, 2)", "('b', 2, 1)", "('b', 2, 2)"))) {
+            assertQuery(session, "SELECT count(*) FROM %s WHERE part1 = 1".formatted(table.getName()), "VALUES 4");
+            assertQuery(session, "SELECT count(*) FROM %s WHERE part2 = 1".formatted(table.getName()), "VALUES 4");
+            assertQuery(session, "SELECT count(*) FROM %s WHERE part1 = 1 AND part2 = 2".formatted(table.getName()), "VALUES 2");
+            assertQuery(session, "SELECT count(*) FROM %s WHERE part2 IS NOT NULL".formatted(table.getName()), "VALUES 8");
+            assertQuery(session, "SELECT count(*) FROM %s WHERE part2 IS NULL".formatted(table.getName()), "VALUES 0");
+            assertQuery(session, "SELECT count(*) FROM %s WHERE part2 < 0".formatted(table.getName()), "VALUES 0");
+            assertQuery(session, "SELECT count(*) FROM %s WHERE part1 = 1 OR part2 > 1".formatted(table.getName()), "VALUES 6");
+            assertQuery(session, "SELECT count(*) FROM %s WHERE part1 = 1 AND part2 > 1".formatted(table.getName()), "VALUES 2");
+            assertQuery(session, "SELECT count(*) FROM %s WHERE part1 IS NOT NULL OR part2 > 1".formatted(table.getName()), "VALUES 8");
+            assertQuery(session, "SELECT count(*) FROM %s WHERE part1 IS NOT NULL AND part2 > 1".formatted(table.getName()), "VALUES 4");
+            assertQuery(session, "SELECT count(*) FROM %s WHERE x = 'a' AND part2 = 2".formatted(table.getName()), "VALUES 2");
+            assertQuery(session, "SELECT x, PART1 * 10 + PART2 AS Y FROM %s WHERE x = 'a' AND part2 = 2".formatted(table.getName()), "VALUES ('a', 12), ('a', 22)");
+            assertQuery(session, "SELECT x, CAST (PART1 AS varchar) || CAST (PART2 AS varchar) FROM %s WHERE x = 'a' AND part2 = 2".formatted(table.getName()), "VALUES ('a', '12'), ('a', '22')");
+            assertQuery(session, "SELECT x, MAX(PART1) FROM %s WHERE part2 = 2 GROUP BY X".formatted(table.getName()), "VALUES ('a', 2), ('b', 2)");
+            assertQuery(session, "SELECT x, reduce_agg(part1, 0, (a, b) -> a + b, (a, b) -> a + b) FROM " + table.getName() + " WHERE part2 > 1 GROUP BY X", "VALUES ('a', 3), ('b', 3)");
+            String expectedMessageRegExp = "Filter required on .*" + table.getName() + " for at least one partition column:.*";
+            assertQueryFails(session, "SELECT X, CAST (PART1 AS varchar) || CAST (PART2 AS varchar) FROM %s WHERE x = 'a'".formatted(table.getName()), expectedMessageRegExp);
+            assertQueryFails(session, "SELECT count(*) FROM %s WHERE x='a'".formatted(table.getName()), expectedMessageRegExp);
+        }
+    }
+
+    @Test
+    public void testPartitionFilterRequiredAndOptimize()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_filter_optimize",
+                "(part integer, name varchar(50)) WITH (partitioned_by = ARRAY['part'])",
+                ImmutableList.of("(1, 'Bob')", "(2, 'Alice')"))) {
+            assertUpdate(session, "ALTER TABLE " + table.getName() + " ADD COLUMN last_name varchar(50)");
+            assertUpdate(session, "INSERT INTO " + table.getName() + " SELECT 3, 'John', 'Doe'", 1);
+
+            assertQuery(session,
+                    "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
+                    "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe')");
+
+            Set<String> beforeActiveFiles = getActiveFiles(table.getName());
+            assertQueryFails(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE", "Filter required on .*" + table.getName() + " for at least one partition column:.*");
+            computeActual(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE part=1");
+
+            assertThat(beforeActiveFiles).isNotEqualTo(getActiveFiles(table.getName()));
+            assertQuery(session,
+                    "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
+                    "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe')");
+        }
+    }
+
+    @Test
+    public void testPartitionFilterEnabledAndOptimizeForNonPartitionedTable()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_filter_nonpartitioned_optimize",
+                "(part integer, name varchar(50))",
+                ImmutableList.of("(1, 'Bob')", "(2, 'Alice')"))) {
+            assertUpdate(session, "ALTER TABLE " + table.getName() + " ADD COLUMN last_name varchar(50)");
+            assertUpdate(session, "INSERT INTO " + table.getName() + " SELECT 3, 'John', 'Doe'", 1);
+
+            assertQuery(session,
+                    "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
+                    "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe')");
+
+            Set<String> beforeActiveFiles = getActiveFiles(table.getName());
+            computeActual(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE (file_size_threshold => '10kB')");
+
+            assertThat(beforeActiveFiles).isNotEqualTo(getActiveFiles(table.getName()));
+            assertQuery(session,
+                    "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
+                    "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe')");
+        }
+    }
+
+    @Test
+    public void testPartitionFilterRequiredAndWriteOperation()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_filter_table_changes",
+                "(x integer, part integer) WITH (partitioned_by = ARRAY['part'], change_data_feed_enabled = true)",
+                ImmutableList.of("(1, 11)", "(2, 22)", "(3, 33)"))) {
+            @Language("RegExp")
+            String expectedMessageRegExp = "Filter required on test_schema\\." + table.getName() + " for at least one partition column: part";
+
+            assertQueryFails(session, "UPDATE " + table.getName() + " SET x = 10 WHERE x = 1", expectedMessageRegExp);
+            assertUpdate(session, "UPDATE " + table.getName() + " SET x = 20 WHERE part = 22", 1);
+
+            assertQueryFails(session, "MERGE INTO " + table.getName() + " t " +
+                                      "USING (SELECT * FROM (VALUES (3, 99), (4,44))) AS s(x, part) " +
+                                      "ON t.x = s.x " +
+                                      "WHEN MATCHED THEN DELETE ", expectedMessageRegExp);
+            assertUpdate(session, "MERGE INTO " + table.getName() + " t " +
+                                  "USING (SELECT * FROM (VALUES (2, 22), (4 , 44))) AS s(x, part) " +
+                                  "ON (t.part = s.part) " +
+                                  "WHEN MATCHED THEN UPDATE " +
+                                  " SET x = t.x + s.x, part = t.part ", 1);
+
+            assertQueryFails(session, "MERGE INTO " + table.getName() + " t " +
+                                      "USING (SELECT * FROM (VALUES (4,44))) AS s(x, part) " +
+                                      "ON t.x = s.x " +
+                                      "WHEN NOT MATCHED THEN INSERT (x, part) VALUES(s.x, s.part) ", expectedMessageRegExp);
+            assertUpdate(session, "MERGE INTO " + table.getName() + " t " +
+                                  "USING (SELECT * FROM (VALUES (4, 44))) AS s(x, part) " +
+                                  "ON (t.part = s.part) " +
+                                  "WHEN NOT MATCHED THEN INSERT (x, part) VALUES(s.x, s.part) ", 1);
+
+            assertQueryFails(session, "DELETE FROM " + table.getName() + " WHERE x = 3", expectedMessageRegExp);
+            assertUpdate(session, "DELETE FROM " + table.getName() + " WHERE part = 33 and x = 3", 1);
+        }
+    }
+
+    @Test
+    public void testPartitionFilterRequiredAndTableChanges()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_filter_table_changes",
+                "(x integer, part integer) WITH (partitioned_by = ARRAY['part'], change_data_feed_enabled = true)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 11)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 22)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 33)", 1);
+
+            @Language("RegExp")
+            String expectedMessageRegExp = "Filter required on test_schema\\." + table.getName() + " for at least one partition column: part";
+
+            assertQueryFails(session, "UPDATE " + table.getName() + " SET x = 10 WHERE x = 1", expectedMessageRegExp);
+            assertUpdate(session, "UPDATE " + table.getName() + " SET x = 20 WHERE part = 22", 1);
+            // TODO (https://github.com/trinodb/trino/issues/18498) Check for partition filter for table_changes when the following issue will be completed https://github.com/trinodb/trino/pull/17928
+            assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + table.getName() + "'))",
+                    """
+                            VALUES
+                                (1,   11,  'insert',           BIGINT '1'),
+                                (2,   22,  'insert',           BIGINT '2'),
+                                (3,   33,  'insert',           BIGINT '3'),
+                                (2,   22,  'update_preimage',  BIGINT '4'),
+                                (20,  22,  'update_postimage', BIGINT '4')
+                            """);
+
+            assertQueryFails(session, "DELETE FROM " + table.getName() + " WHERE x = 3", expectedMessageRegExp);
+            assertUpdate(session, "DELETE FROM " + table.getName() + " WHERE part = 33 and x = 3", 1);
+            assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + table.getName() + "', 4))",
+                    """
+                            VALUES
+                                (3, 33, 'delete', BIGINT '5')
+                            """);
+
+            assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + table.getName() + "')) ORDER BY _commit_version, _change_type, part",
+                    """
+                            VALUES
+                                (1,   11,  'insert',           BIGINT '1'),
+                                (2,   22,  'insert',           BIGINT '2'),
+                                (3,   33,  'insert',           BIGINT '3'),
+                                (2,   22,  'update_preimage',  BIGINT '4'),
+                                (20,  22,  'update_postimage', BIGINT '4'),
+                                (3,   33,  'delete',           BIGINT '5')
+                            """);
+        }
+    }
+
+    @Test
+    public void testPartitionFilterRequiredAndHistoryTable()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_filter_table_changes",
+                "(x integer, part integer) WITH (partitioned_by = ARRAY['part'], change_data_feed_enabled = true)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 11)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 22)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 33)", 1);
+
+            @Language("RegExp")
+            String expectedMessageRegExp = "Filter required on test_schema\\." + table.getName() + " for at least one partition column: part";
+
+            assertQuery("SELECT version, operation, read_version FROM \"" + table.getName() + "$history\"",
+                    """
+                            VALUES
+                                (0, 'CREATE TABLE', 0),
+                                (1, 'WRITE', 0),
+                                (2, 'WRITE', 1),
+                                (3, 'WRITE', 2)
+                            """);
+
+            assertQueryFails(session, "UPDATE " + table.getName() + " SET x = 10 WHERE x = 1", expectedMessageRegExp);
+            assertUpdate(session, "UPDATE " + table.getName() + " SET x = 20 WHERE part = 22", 1);
+
+            assertQuery("SELECT version, operation, read_version FROM \"" + table.getName() + "$history\"",
+                    """
+                            VALUES
+                                (0, 'CREATE TABLE', 0),
+                                (1, 'WRITE', 0),
+                                (2, 'WRITE', 1),
+                                (3, 'WRITE', 2),
+                                (4, 'MERGE', 3)
+                            """);
+        }
+    }
+
+    private Session sessionWithPartitionFilterRequirement()
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "query_partition_filter_required", "true")
+                .build();
     }
 }

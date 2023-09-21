@@ -25,7 +25,7 @@ import io.airlift.compress.zstd.ZstdDecompressor;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
-import io.trino.collect.cache.NonEvictableLoadingCache;
+import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionId;
@@ -51,7 +51,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.BaseEncoding.base32Hex;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static java.lang.Math.toIntExact;
 import static java.nio.ByteBuffer.allocate;
 import static java.util.Locale.ENGLISH;

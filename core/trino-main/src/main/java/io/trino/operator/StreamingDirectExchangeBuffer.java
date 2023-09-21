@@ -15,13 +15,12 @@ package io.trino.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.TaskId;
 import io.trino.spi.TrinoException;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayDeque;
 import java.util.HashSet;

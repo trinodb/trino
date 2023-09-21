@@ -17,8 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
-
-import javax.validation.constraints.Min;
+import jakarta.validation.constraints.Min;
 
 @DefunctConfig("allow-drop-table")
 public class JdbcMetadataConfig

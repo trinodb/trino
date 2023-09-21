@@ -17,10 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.metadata.Split;
 import io.trino.sql.planner.plan.PlanNodeId;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.List;
 

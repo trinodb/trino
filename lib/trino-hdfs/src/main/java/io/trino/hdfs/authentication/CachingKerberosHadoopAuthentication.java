@@ -13,9 +13,9 @@
  */
 package io.trino.hdfs.authentication;
 
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import org.apache.hadoop.security.UserGroupInformation;
 
-import javax.annotation.concurrent.GuardedBy;
 import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosTicket;
 

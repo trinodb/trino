@@ -24,7 +24,7 @@ import io.trino.event.SplitMonitor;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.exchange.ExchangeManagerRegistry;
-import io.trino.execution.TestSqlTaskManager.MockDirectExchangeClientSupplier;
+import io.trino.execution.BaseTestSqlTaskManager.MockDirectExchangeClientSupplier;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
@@ -33,7 +33,6 @@ import io.trino.index.IndexManager;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.Split;
 import io.trino.operator.PagesIndex;
-import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spiller.GenericSpillerFactory;
@@ -143,7 +142,7 @@ public final class TaskTestUtils
                 new NodeTaskMap(finalizerService)));
         NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(
                 nodeScheduler,
-                blockTypeOperators,
+                PLANNER_CONTEXT.getTypeOperators(),
                 CatalogServiceProvider.fail());
 
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
@@ -172,10 +171,10 @@ public final class TaskTestUtils
                 },
                 new PagesIndex.TestingFactory(false),
                 new JoinCompiler(PLANNER_CONTEXT.getTypeOperators()),
-                new TrinoOperatorFactories(),
                 new OrderingCompiler(PLANNER_CONTEXT.getTypeOperators()),
                 new DynamicFilterConfig(),
                 blockTypeOperators,
+                PLANNER_CONTEXT.getTypeOperators(),
                 new TableExecuteContextManager(),
                 new ExchangeManagerRegistry(),
                 new NodeVersion("test"));

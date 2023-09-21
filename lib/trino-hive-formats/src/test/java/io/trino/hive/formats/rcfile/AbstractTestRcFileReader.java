@@ -173,7 +173,7 @@ public abstract class AbstractTestRcFileReader
                 TIMESTAMP_MILLIS,
                 intsBetween(123_406_789, 123_456_789).stream()
                         .filter(i -> i % 19 == 0)
-                        .map(timestamp -> sqlTimestampOf(timestamp))
+                        .map(timestamp -> sqlTimestampOf(3, timestamp))
                         .collect(toList()));
     }
 

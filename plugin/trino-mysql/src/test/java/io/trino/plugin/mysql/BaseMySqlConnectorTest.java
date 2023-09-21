@@ -13,25 +13,32 @@
  */
 package io.trino.plugin.mysql;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -48,50 +55,30 @@ public abstract class BaseMySqlConnectorTest
 {
     protected TestingMySqlServer mySqlServer;
 
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY:
-            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
-                return false;
-
-            case SUPPORTS_AGGREGATION_PUSHDOWN:
-                return true;
-            case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
-                return false;
-
-            case SUPPORTS_JOIN_PUSHDOWN:
-                return true;
-            case SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN:
-            case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
-                return false;
-
-            case SUPPORTS_RENAME_SCHEMA:
-                return false;
-
-            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
-                return false;
-
-            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
-            case SUPPORTS_SET_COLUMN_TYPE:
-                return false;
-
-            case SUPPORTS_COMMENT_ON_COLUMN:
-                return false;
-
-            case SUPPORTS_ARRAY:
-            case SUPPORTS_ROW_TYPE:
-            case SUPPORTS_NEGATIVE_DATE:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_AGGREGATION_PUSHDOWN,
+                    SUPPORTS_JOIN_PUSHDOWN -> true;
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
+                    SUPPORTS_ARRAY,
+                    SUPPORTS_COMMENT_ON_COLUMN,
+                    SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                    SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
+                    SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
+                    SUPPORTS_NEGATIVE_DATE,
+                    SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
+                    SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
+                    SUPPORTS_RENAME_SCHEMA,
+                    SUPPORTS_ROW_TYPE,
+                    SUPPORTS_SET_COLUMN_TYPE -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     @Override
@@ -284,8 +271,52 @@ public abstract class BaseMySqlConnectorTest
     }
 
     @Test
+    public void testLikePredicatePushdownWithCollation()
+    {
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "tpch.test_like_predicate_pushdown",
+                "(id integer, a_varchar varchar(1) CHARACTER SET utf8 COLLATE utf8_bin)",
+                List.of(
+                        "1, 'A'",
+                        "2, 'a'",
+                        "3, 'B'",
+                        "4, 'ą'",
+                        "5, 'Ą'"))) {
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%A%'"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%ą%'"))
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testLikeWithEscapePredicatePushdownWithCollation()
+    {
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "tpch.test_like_with_escape_predicate_pushdown",
+                "(id integer, a_varchar varchar(4) CHARACTER SET utf8 COLLATE utf8_bin)",
+                List.of(
+                        "1, 'A%b'",
+                        "2, 'Asth'",
+                        "3, 'ą%b'",
+                        "4, 'ąsth'"))) {
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%A\\%%' ESCAPE '\\'"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%ą\\%%' ESCAPE '\\'"))
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
     public void testPredicatePushdown()
     {
+        // varchar like
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name LIKE '%ROM%'"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
+                .isNotFullyPushedDown(FilterNode.class);
+
         // varchar equality
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'ROMANIA'"))
                 .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
@@ -335,6 +366,107 @@ public abstract class BaseMySqlConnectorTest
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey HAVING sum(nationkey) = 77"))
                 .matches("VALUES (BIGINT '3', BIGINT '77')")
                 .isFullyPushedDown();
+    }
+
+    @Test(dataProvider = "charsetAndCollation")
+    public void testPredicatePushdownWithCollationView(String charset, String collation)
+    {
+        onRemoteDatabase().execute(format("CREATE OR REPLACE VIEW tpch.test_view AS SELECT regionkey, nationkey, CONVERT(name USING %s) COLLATE %s AS name FROM tpch.nation;", charset, collation));
+        testNationCollationQueries("test_view");
+        onRemoteDatabase().execute("DROP VIEW tpch.test_view");
+    }
+
+    @Test(dataProvider = "charsetAndCollation")
+    public void testPredicatePushdownWithCollation(String charset, String collation)
+    {
+        try (TestTable testTable = new TestTable(
+                onRemoteDatabase(),
+                "tpch.nation_collate",
+                format("AS SELECT regionkey, nationkey, CONVERT(name USING %s) COLLATE %s AS name FROM tpch.nation", charset, collation))) {
+            testNationCollationQueries(testTable.getName());
+        }
+    }
+
+    private void testNationCollationQueries(String objectName)
+    {
+        // varchar like
+        assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name LIKE '%%ROM%%'", objectName)))
+                .isFullyPushedDown();
+
+        // varchar inequality
+        assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name != 'ROMANIA' AND name != 'ALGERIA'", objectName)))
+                .isFullyPushedDown();
+
+        // varchar equality
+        assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name = 'ROMANIA'", objectName)))
+                .isFullyPushedDown();
+
+        // varchar range
+        assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name BETWEEN 'POLAND' AND 'RPA'", objectName)))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
+                // We are not supporting range predicate pushdown for varchars
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // varchar NOT IN
+        assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name NOT IN ('POLAND', 'ROMANIA', 'VIETNAM')", objectName)))
+                .isFullyPushedDown();
+
+        // varchar NOT IN with small compaction threshold
+        assertThat(query(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty("mysql", "domain_compaction_threshold", "1")
+                        .build(),
+                format("SELECT regionkey, nationkey, name FROM %s WHERE name NOT IN ('POLAND', 'ROMANIA', 'VIETNAM')", objectName)))
+                // no pushdown because it was converted to range predicate
+                .isNotFullyPushedDown(
+                        node(
+                                FilterNode.class,
+                                // verify that no constraint is applied by the connector
+                                tableScan(
+                                        tableHandle -> ((JdbcTableHandle) tableHandle).getConstraint().isAll(),
+                                        TupleDomain.all(),
+                                        ImmutableMap.of())));
+
+        // varchar IN without domain compaction
+        assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name IN ('POLAND', 'ROMANIA', 'VIETNAM')", objectName)))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255))), " +
+                        "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(255)))")
+                .isFullyPushedDown();
+
+        // varchar IN with small compaction threshold
+        assertThat(query(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty("mysql", "domain_compaction_threshold", "1")
+                        .build(),
+                format("SELECT regionkey, nationkey, name FROM %s WHERE name IN ('POLAND', 'ROMANIA', 'VIETNAM')", objectName)))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255))), " +
+                        "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(255)))")
+                // no pushdown because it was converted to range predicate
+                .isNotFullyPushedDown(
+                        node(
+                                FilterNode.class,
+                                // verify that no constraint is applied by the connector
+                                tableScan(
+                                        tableHandle -> ((JdbcTableHandle) tableHandle).getConstraint().isAll(),
+                                        TupleDomain.all(),
+                                        ImmutableMap.of())));
+        // varchar different case
+        assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name = 'romania'", objectName)))
+                .returnsEmptyResult()
+                .isFullyPushedDown();
+
+        Session joinPushdownEnabled = joinPushdownEnabled(getSession());
+        // join on varchar columns
+        assertThat(query(joinPushdownEnabled, format("SELECT n.name, n2.regionkey FROM %1$s n JOIN %1$s n2 ON n.name = n2.name", objectName)))
+                .joinIsNotFullyPushedDown();
+    }
+
+    @DataProvider
+    public static Object[][] charsetAndCollation()
+    {
+        return new Object[][] {{"latin1", "latin1_general_cs"}, {"utf8", "utf8_bin"}};
     }
 
     /**

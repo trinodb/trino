@@ -43,6 +43,7 @@ import io.trino.execution.RenameMaterializedViewTask;
 import io.trino.execution.RenameSchemaTask;
 import io.trino.execution.RenameTableTask;
 import io.trino.execution.RenameViewTask;
+import io.trino.execution.ResetSessionAuthorizationTask;
 import io.trino.execution.ResetSessionTask;
 import io.trino.execution.RevokeRolesTask;
 import io.trino.execution.RevokeTask;
@@ -52,6 +53,7 @@ import io.trino.execution.SetPathTask;
 import io.trino.execution.SetPropertiesTask;
 import io.trino.execution.SetRoleTask;
 import io.trino.execution.SetSchemaAuthorizationTask;
+import io.trino.execution.SetSessionAuthorizationTask;
 import io.trino.execution.SetSessionTask;
 import io.trino.execution.SetTableAuthorizationTask;
 import io.trino.execution.SetTimeZoneTask;
@@ -99,6 +101,7 @@ import io.trino.sql.tree.RenameSchema;
 import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.RenameView;
 import io.trino.sql.tree.ResetSession;
+import io.trino.sql.tree.ResetSessionAuthorization;
 import io.trino.sql.tree.Revoke;
 import io.trino.sql.tree.RevokeRoles;
 import io.trino.sql.tree.Rollback;
@@ -108,6 +111,7 @@ import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSchemaAuthorization;
 import io.trino.sql.tree.SetSession;
+import io.trino.sql.tree.SetSessionAuthorization;
 import io.trino.sql.tree.SetTableAuthorization;
 import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.SetViewAuthorization;
@@ -216,6 +220,7 @@ public final class StatementUtils
             .add(dataDefinitionStatement(RenameTable.class, RenameTableTask.class))
             .add(dataDefinitionStatement(RenameView.class, RenameViewTask.class))
             .add(dataDefinitionStatement(ResetSession.class, ResetSessionTask.class))
+            .add(dataDefinitionStatement(ResetSessionAuthorization.class, ResetSessionAuthorizationTask.class))
             .add(dataDefinitionStatement(Revoke.class, RevokeTask.class))
             .add(dataDefinitionStatement(RevokeRoles.class, RevokeRolesTask.class))
             .add(dataDefinitionStatement(Rollback.class, RollbackTask.class))
@@ -224,6 +229,7 @@ public final class StatementUtils
             .add(dataDefinitionStatement(SetRole.class, SetRoleTask.class))
             .add(dataDefinitionStatement(SetSchemaAuthorization.class, SetSchemaAuthorizationTask.class))
             .add(dataDefinitionStatement(SetSession.class, SetSessionTask.class))
+            .add(dataDefinitionStatement(SetSessionAuthorization.class, SetSessionAuthorizationTask.class))
             .add(dataDefinitionStatement(SetProperties.class, SetPropertiesTask.class))
             .add(dataDefinitionStatement(SetTableAuthorization.class, SetTableAuthorizationTask.class))
             .add(dataDefinitionStatement(SetTimeZone.class, SetTimeZoneTask.class))

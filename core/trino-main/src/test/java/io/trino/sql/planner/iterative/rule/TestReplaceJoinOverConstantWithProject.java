@@ -21,7 +21,7 @@ import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 

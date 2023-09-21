@@ -13,7 +13,6 @@
  */
 package io.trino.operator.aggregation.minmaxbyn;
 
-import io.trino.operator.aggregation.NullablePosition;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
@@ -24,6 +23,7 @@ import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 
@@ -38,7 +38,7 @@ public final class MaxByNAggregationFunction
     @TypeParameter("V")
     public static void input(
             @AggregationState({"K", "V"}) MaxByNState state,
-            @NullablePosition @BlockPosition @SqlType("V") Block valueBlock,
+            @SqlNullable @BlockPosition @SqlType("V") Block valueBlock,
             @BlockPosition @SqlType("K") Block keyBlock,
             @SqlType("BIGINT") long n,
             @BlockIndex int blockIndex)

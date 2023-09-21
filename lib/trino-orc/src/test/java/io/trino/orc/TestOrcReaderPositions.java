@@ -224,7 +224,7 @@ public class TestOrcReaderPositions
                     rowCountsInCurrentRowGroup += page.getPositionCount();
 
                     Block block = page.getBlock(0);
-                    if (MAX_BATCH_SIZE * currentStringBytes <= READER_OPTIONS.getMaxBlockSize().toBytes()) {
+                    if (MAX_BATCH_SIZE * (long) currentStringBytes <= READER_OPTIONS.getMaxBlockSize().toBytes()) {
                         // Either we are bounded by 1024 rows per batch, or it is the last batch in the row group
                         // For the first 3 row groups, the strings are of length 300, 600, and 900 respectively
                         // So the loaded data is bounded by MAX_BATCH_SIZE
@@ -374,7 +374,7 @@ public class TestOrcReaderPositions
     {
         Block block = page.getBlock(0);
         for (int i = 0; i < batchSize; i++) {
-            assertEquals(BIGINT.getLong(block, i), (rowIndex + i) * 3);
+            assertEquals(BIGINT.getLong(block, i), (rowIndex + i) * 3L);
         }
     }
 

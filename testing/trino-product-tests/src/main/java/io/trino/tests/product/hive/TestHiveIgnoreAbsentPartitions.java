@@ -52,7 +52,6 @@ public class TestHiveIgnoreAbsentPartitions
 
     @Test
     public void testIgnoreAbsentPartitions()
-            throws Exception
     {
         String tableNameInDatabase = tablesState.get("test_table").getNameInDatabase();
         String tablePath = getTablePath(tableNameInDatabase, 1);
@@ -74,7 +73,6 @@ public class TestHiveIgnoreAbsentPartitions
 
     @Test
     public void testShouldThrowErrorOnUnpartitionedTableMissingData()
-            throws Exception
     {
         String tableName = "unpartitioned_absent_table_data";
 

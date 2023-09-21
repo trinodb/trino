@@ -43,6 +43,6 @@ public class TestingHudiConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return createConnector(catalogName, config, context, metastore);
+        return createConnector(catalogName, config, context, metastore, Optional.empty());
     }
 }

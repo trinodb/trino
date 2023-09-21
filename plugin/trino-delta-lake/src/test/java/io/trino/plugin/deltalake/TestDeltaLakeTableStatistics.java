@@ -38,7 +38,7 @@ public class TestDeltaLakeTableStatistics
     @BeforeClass
     public void registerTables()
     {
-        String dataPath = Resources.getResource("databricks/person").toExternalForm();
+        String dataPath = Resources.getResource("databricks73/person").toExternalForm();
         getQueryRunner().execute(
                 format("CALL system.register_table('%s', 'person', '%s')", getSession().getSchema().orElseThrow(), dataPath));
     }

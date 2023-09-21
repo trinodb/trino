@@ -326,19 +326,19 @@ public final class BlockAssertions
     private static Block createRandomVarbinariesBlock(int positionCount, float nullRate)
     {
         Random random = random();
-        return createSlicesBlock(VARBINARY, generateListWithNulls(positionCount, nullRate, () -> Slices.wrappedLongArray(random.nextLong(), random.nextLong())));
+        return createSlicesBlock(VARBINARY, generateListWithNulls(positionCount, nullRate, () -> Slices.random(16, random)));
     }
 
     private static Block createRandomUUIDsBlock(int positionCount, float nullRate)
     {
         Random random = random();
-        return createSlicesBlock(UUID, generateListWithNulls(positionCount, nullRate, () -> Slices.wrappedLongArray(random.nextLong(), random.nextLong())));
+        return createSlicesBlock(UUID, generateListWithNulls(positionCount, nullRate, () -> Slices.random(16, random)));
     }
 
     private static Block createRandomIpAddressesBlock(int positionCount, float nullRate)
     {
         Random random = random();
-        return createSlicesBlock(IPADDRESS, generateListWithNulls(positionCount, nullRate, () -> Slices.wrappedLongArray(random.nextLong(), random.nextLong())));
+        return createSlicesBlock(IPADDRESS, generateListWithNulls(positionCount, nullRate, () -> Slices.random(16, random)));
     }
 
     private static Block createRandomTinyintsBlock(int positionCount, float nullRate)
@@ -603,48 +603,48 @@ public final class BlockAssertions
 
     public static Block createRowBlock(List<Type> fieldTypes, Object[]... rows)
     {
-        BlockBuilder rowBlockBuilder = new RowBlockBuilder(fieldTypes, null, 1);
+        RowBlockBuilder rowBlockBuilder = new RowBlockBuilder(fieldTypes, null, 1);
         for (Object[] row : rows) {
             if (row == null) {
                 rowBlockBuilder.appendNull();
                 continue;
             }
             verify(row.length == fieldTypes.size());
-            BlockBuilder singleRowBlockWriter = rowBlockBuilder.beginBlockEntry();
-            for (int fieldIndex = 0; fieldIndex < fieldTypes.size(); fieldIndex++) {
-                Type fieldType = fieldTypes.get(fieldIndex);
-                Object fieldValue = row[fieldIndex];
-                if (fieldValue == null) {
-                    singleRowBlockWriter.appendNull();
-                    continue;
-                }
+            rowBlockBuilder.buildEntry(fieldBuilders -> {
+                for (int fieldIndex = 0; fieldIndex < fieldTypes.size(); fieldIndex++) {
+                    Type fieldType = fieldTypes.get(fieldIndex);
+                    Object fieldValue = row[fieldIndex];
+                    if (fieldValue == null) {
+                        fieldBuilders.get(fieldIndex).appendNull();
+                        continue;
+                    }
 
-                if (fieldValue instanceof String) {
-                    fieldType.writeSlice(singleRowBlockWriter, utf8Slice((String) fieldValue));
+                    if (fieldValue instanceof String) {
+                        fieldType.writeSlice(fieldBuilders.get(fieldIndex), utf8Slice((String) fieldValue));
+                    }
+                    else if (fieldValue instanceof Slice) {
+                        fieldType.writeSlice(fieldBuilders.get(fieldIndex), (Slice) fieldValue);
+                    }
+                    else if (fieldValue instanceof Double) {
+                        fieldType.writeDouble(fieldBuilders.get(fieldIndex), (Double) fieldValue);
+                    }
+                    else if (fieldValue instanceof Long) {
+                        fieldType.writeLong(fieldBuilders.get(fieldIndex), (Long) fieldValue);
+                    }
+                    else if (fieldValue instanceof Boolean) {
+                        fieldType.writeBoolean(fieldBuilders.get(fieldIndex), (Boolean) fieldValue);
+                    }
+                    else if (fieldValue instanceof Block) {
+                        fieldType.writeObject(fieldBuilders.get(fieldIndex), fieldValue);
+                    }
+                    else if (fieldValue instanceof Integer) {
+                        fieldType.writeLong(fieldBuilders.get(fieldIndex), (Integer) fieldValue);
+                    }
+                    else {
+                        throw new IllegalArgumentException();
+                    }
                 }
-                else if (fieldValue instanceof Slice) {
-                    fieldType.writeSlice(singleRowBlockWriter, (Slice) fieldValue);
-                }
-                else if (fieldValue instanceof Double) {
-                    fieldType.writeDouble(singleRowBlockWriter, (Double) fieldValue);
-                }
-                else if (fieldValue instanceof Long) {
-                    fieldType.writeLong(singleRowBlockWriter, (Long) fieldValue);
-                }
-                else if (fieldValue instanceof Boolean) {
-                    fieldType.writeBoolean(singleRowBlockWriter, (Boolean) fieldValue);
-                }
-                else if (fieldValue instanceof Block) {
-                    fieldType.writeObject(singleRowBlockWriter, fieldValue);
-                }
-                else if (fieldValue instanceof Integer) {
-                    fieldType.writeLong(singleRowBlockWriter, (Integer) fieldValue);
-                }
-                else {
-                    throw new IllegalArgumentException();
-                }
-            }
-            rowBlockBuilder.closeEntry();
+            });
         }
 
         return rowBlockBuilder.build();

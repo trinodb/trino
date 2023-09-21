@@ -117,22 +117,22 @@ class TreeNodes
 
     public static ColumnDefinition columnDefinition(NodeLocation location, String name, DataType type)
     {
-        return new ColumnDefinition(location, identifier(location, name), type, true, emptyList(), Optional.empty());
+        return new ColumnDefinition(location, qualifiedName(location, name), type, true, emptyList(), Optional.empty());
     }
 
     public static ColumnDefinition columnDefinition(NodeLocation location, String name, DataType type, boolean nullable)
     {
-        return new ColumnDefinition(location, identifier(location, name), type, nullable, emptyList(), Optional.empty());
+        return new ColumnDefinition(location, qualifiedName(location, name), type, nullable, emptyList(), Optional.empty());
     }
 
     public static ColumnDefinition columnDefinition(NodeLocation location, String name, DataType type, boolean nullable, String comment)
     {
-        return new ColumnDefinition(location, identifier(location, name), type, nullable, emptyList(), Optional.of(comment));
+        return new ColumnDefinition(location, qualifiedName(location, name), type, nullable, emptyList(), Optional.of(comment));
     }
 
     public static ColumnDefinition columnDefinition(NodeLocation location, String name, DataType type, boolean nullable, List<Property> properties)
     {
-        return new ColumnDefinition(location, identifier(location, name), type, nullable, properties, Optional.empty());
+        return new ColumnDefinition(location, qualifiedName(location, name), type, nullable, properties, Optional.empty());
     }
 
     public static Property property(NodeLocation location, String name, Expression value)

@@ -16,9 +16,11 @@ package io.trino.operator.aggregation.listagg;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.AbstractRowBlock;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarRow;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
@@ -54,20 +56,17 @@ public class ListaggAggregationStateSerializer
             out.appendNull();
         }
         else {
-            BlockBuilder rowBlockBuilder = out.beginBlockEntry();
-            VARCHAR.writeSlice(rowBlockBuilder, state.getSeparator());
-            BOOLEAN.writeBoolean(rowBlockBuilder, state.isOverflowError());
-            VARCHAR.writeSlice(rowBlockBuilder, state.getOverflowFiller());
-            BOOLEAN.writeBoolean(rowBlockBuilder, state.showOverflowEntryCount());
+            ((RowBlockBuilder) out).buildEntry(fieldBuilders -> {
+                VARCHAR.writeSlice(fieldBuilders.get(0), state.getSeparator());
+                BOOLEAN.writeBoolean(fieldBuilders.get(1), state.isOverflowError());
+                VARCHAR.writeSlice(fieldBuilders.get(2), state.getOverflowFiller());
+                BOOLEAN.writeBoolean(fieldBuilders.get(3), state.showOverflowEntryCount());
 
-            BlockBuilder stateElementsBlockBuilder = rowBlockBuilder.beginBlockEntry();
-            state.forEach((block, position) -> {
-                VARCHAR.appendTo(block, position, stateElementsBlockBuilder);
-                return true;
+                ((ArrayBlockBuilder) fieldBuilders.get(4)).buildEntry(elementBuilder -> state.forEach((block, position) -> {
+                    VARCHAR.appendTo(block, position, elementBuilder);
+                    return true;
+                }));
             });
-            rowBlockBuilder.closeEntry();
-
-            out.closeEntry();
         }
     }
 

@@ -17,7 +17,6 @@ import io.airlift.slice.Slice;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.LongArrayBlockBuilder;
-import io.trino.spi.block.VariableWidthBlockBuilder;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -49,9 +48,9 @@ public class TestLongArrayBlock
     public void testLazyBlockBuilderInitialization()
     {
         Slice[] expectedValues = createTestValue(100);
-        BlockBuilder emptyBlockBuilder = new VariableWidthBlockBuilder(null, 0, 0);
+        BlockBuilder emptyBlockBuilder = new LongArrayBlockBuilder(null, 0);
 
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, expectedValues.length, 32 * expectedValues.length);
+        LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(null, expectedValues.length);
         assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
         assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
 
@@ -59,7 +58,7 @@ public class TestLongArrayBlock
         assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
         assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
 
-        blockBuilder = blockBuilder.newBlockBuilderLike(null);
+        blockBuilder = (LongArrayBlockBuilder) blockBuilder.newBlockBuilderLike(null);
         assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
         assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
     }
@@ -96,14 +95,14 @@ public class TestLongArrayBlock
         return blockBuilder;
     }
 
-    private static void writeValues(Slice[] expectedValues, BlockBuilder blockBuilder)
+    private static void writeValues(Slice[] expectedValues, LongArrayBlockBuilder blockBuilder)
     {
         for (Slice expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
             }
             else {
-                blockBuilder.writeLong(expectedValue.getLong(0)).closeEntry();
+                blockBuilder.writeLong(expectedValue.getLong(0));
             }
         }
     }

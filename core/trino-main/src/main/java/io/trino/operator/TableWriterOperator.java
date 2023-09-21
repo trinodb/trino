@@ -258,6 +258,7 @@ public class TableWriterOperator
         blocked = asVoid(allAsList(blockedOnAggregation, blockedOnWrite));
         rowCount += page.getPositionCount();
         updateWrittenBytes();
+        operatorContext.recordWriterInputDataSize(page.getSizeInBytes());
     }
 
     @Override

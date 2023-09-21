@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
+import io.trino.Session;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.testing.AbstractTestQueryFramework;
 import org.intellij.lang.annotations.Language;
@@ -28,6 +29,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_MAX_WRITER_COUNT;
 import static java.util.Collections.synchronizedMap;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -61,7 +63,11 @@ public abstract class BaseJdbcConnectionCreationTest
             assertQueryFails(query, errorMessage.get());
         }
         else {
-            getQueryRunner().execute(query);
+            // Disabling writers scaling to make expected number of opened connections constant
+            Session querySession = Session.builder(getSession())
+                    .setSystemProperty(TASK_SCALE_WRITERS_MAX_WRITER_COUNT, "4")
+                    .build();
+            getQueryRunner().execute(querySession, query);
         }
         int after = connectionFactory.openConnections.get();
         assertThat(after - before).isEqualTo(expectedJdbcConnectionsCount);

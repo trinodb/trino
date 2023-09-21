@@ -14,6 +14,7 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.RuleStats;
@@ -24,8 +25,6 @@ import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.MBeanExport;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.ObjectNames;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.List;

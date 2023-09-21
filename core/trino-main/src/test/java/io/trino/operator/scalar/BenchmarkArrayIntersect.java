@@ -19,8 +19,8 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
@@ -129,28 +129,28 @@ public class BenchmarkArrayIntersect
         private static Block createChannel(int positionCount, int arraySize, Type elementType)
         {
             ArrayType arrayType = new ArrayType(elementType);
-            BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, positionCount);
+            ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
-                BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-                for (int i = 0; i < arraySize; i++) {
-                    if (elementType.getJavaType() == long.class) {
-                        elementType.writeLong(entryBuilder, ThreadLocalRandom.current().nextLong() % arraySize);
+                blockBuilder.buildEntry(elementBuilder -> {
+                    for (int i = 0; i < arraySize; i++) {
+                        if (elementType.getJavaType() == long.class) {
+                            elementType.writeLong(elementBuilder, ThreadLocalRandom.current().nextLong() % arraySize);
+                        }
+                        else if (elementType.getJavaType() == double.class) {
+                            elementType.writeDouble(elementBuilder, ThreadLocalRandom.current().nextDouble() % arraySize);
+                        }
+                        else if (elementType.getJavaType() == boolean.class) {
+                            elementType.writeBoolean(elementBuilder, ThreadLocalRandom.current().nextBoolean());
+                        }
+                        else if (elementType.equals(VARCHAR)) {
+                            // make sure the size of a varchar is rather small; otherwise the aggregated slice may overflow
+                            elementType.writeSlice(elementBuilder, Slices.utf8Slice(Long.toString(ThreadLocalRandom.current().nextLong() % arraySize)));
+                        }
+                        else {
+                            throw new UnsupportedOperationException();
+                        }
                     }
-                    else if (elementType.getJavaType() == double.class) {
-                        elementType.writeDouble(entryBuilder, ThreadLocalRandom.current().nextDouble() % arraySize);
-                    }
-                    else if (elementType.getJavaType() == boolean.class) {
-                        elementType.writeBoolean(entryBuilder, ThreadLocalRandom.current().nextBoolean());
-                    }
-                    else if (elementType.equals(VARCHAR)) {
-                        // make sure the size of a varchar is rather small; otherwise the aggregated slice may overflow
-                        elementType.writeSlice(entryBuilder, Slices.utf8Slice(Long.toString(ThreadLocalRandom.current().nextLong() % arraySize)));
-                    }
-                    else {
-                        throw new UnsupportedOperationException();
-                    }
-                }
-                blockBuilder.closeEntry();
+                });
             }
             return blockBuilder.build();
         }

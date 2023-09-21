@@ -56,6 +56,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 
@@ -142,6 +143,12 @@ public final class StatisticsAwareJdbcClient
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         return stats.getToWriteMapping().wrap(() -> delegate().toWriteMapping(session, type));
+    }
+
+    @Override
+    public Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    {
+        return delegate.getSupportedType(session, type);
     }
 
     @Override
@@ -399,9 +406,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
+    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
-        stats.getDropSchema().wrap(() -> delegate().dropSchema(session, schemaName));
+        stats.getDropSchema().wrap(() -> delegate().dropSchema(session, schemaName, cascade));
     }
 
     @Override
@@ -450,5 +457,11 @@ public final class StatisticsAwareJdbcClient
     public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
     {
         stats.getTruncateTable().wrap(() -> delegate().truncateTable(session, handle));
+    }
+
+    @Override
+    public OptionalInt getMaxWriteParallelism(ConnectorSession session)
+    {
+        return delegate().getMaxWriteParallelism(session);
     }
 }

@@ -21,7 +21,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
 import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.units.Duration;
-import io.trino.collect.cache.EvictableCacheBuilder;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.IdentityCacheMapping.IdentityCacheKey;
 import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
@@ -54,6 +54,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -64,7 +65,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.collect.cache.CacheUtils.invalidateAllIf;
+import static io.trino.cache.CacheUtils.invalidateAllIf;
 import static io.trino.plugin.jdbc.BaseJdbcConfig.CACHING_DISABLED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -212,6 +213,12 @@ public class CachingJdbcClient
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         return delegate.toWriteMapping(session, type);
+    }
+
+    @Override
+    public Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    {
+        return delegate.getSupportedType(session, type);
     }
 
     @Override
@@ -445,9 +452,9 @@ public class CachingJdbcClient
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
+    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
-        delegate.dropSchema(session, schemaName);
+        delegate.dropSchema(session, schemaName, cascade);
         invalidateSchemasCache();
     }
 
@@ -563,6 +570,12 @@ public class CachingJdbcClient
     public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         return delegate.getTableScanRedirection(session, tableHandle);
+    }
+
+    @Override
+    public OptionalInt getMaxWriteParallelism(ConnectorSession session)
+    {
+        return delegate.getMaxWriteParallelism(session);
     }
 
     public void onDataChanged(SchemaTableName table)

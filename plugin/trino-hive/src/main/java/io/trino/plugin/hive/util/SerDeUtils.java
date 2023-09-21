@@ -16,10 +16,16 @@ package io.trino.plugin.hive.util;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slices;
 import io.trino.plugin.base.type.DecodedTimestamp;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.hive.common.type.HiveChar;
@@ -53,9 +59,13 @@ import org.joda.time.DateTimeZone;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
+import static io.trino.spi.block.ArrayValueBuilder.buildArrayValue;
+import static io.trino.spi.block.MapValueBuilder.buildMapValue;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.round;
@@ -90,7 +100,7 @@ public final class SerDeUtils
             case LIST:
                 return serializeList(type, builder, object, (ListObjectInspector) inspector);
             case MAP:
-                return serializeMap(type, builder, object, (MapObjectInspector) inspector, filterNullMapKeys);
+                return serializeMap((MapType) type, (MapBlockBuilder) builder, object, (MapObjectInspector) inspector, filterNullMapKeys);
             case STRUCT:
                 return serializeStruct(type, builder, object, (StructObjectInspector) inspector);
             case UNION:
@@ -179,31 +189,23 @@ public final class SerDeUtils
             return null;
         }
 
-        List<Type> typeParameters = type.getTypeParameters();
-        checkArgument(typeParameters.size() == 1, "list must have exactly 1 type parameter");
-        Type elementType = typeParameters.get(0);
+        ArrayType arrayType = (ArrayType) type;
         ObjectInspector elementInspector = inspector.getListElementObjectInspector();
-        BlockBuilder currentBuilder;
-        if (builder != null) {
-            currentBuilder = builder.beginBlockEntry();
+        if (builder == null) {
+            return buildArrayValue(arrayType, list.size(), valuesBuilder -> buildList(list, arrayType.getElementType(), elementInspector, valuesBuilder));
         }
-        else {
-            currentBuilder = elementType.createBlockBuilder(null, list.size());
-        }
-
-        for (Object element : list) {
-            serializeObject(elementType, currentBuilder, element, elementInspector);
-        }
-
-        if (builder != null) {
-            builder.closeEntry();
-            return null;
-        }
-        Block resultBlock = currentBuilder.build();
-        return resultBlock;
+        ((ArrayBlockBuilder) builder).buildEntry(elementBuilder -> buildList(list, arrayType.getElementType(), elementInspector, elementBuilder));
+        return null;
     }
 
-    private static Block serializeMap(Type type, BlockBuilder builder, Object object, MapObjectInspector inspector, boolean filterNullMapKeys)
+    private static void buildList(List<?> list, Type elementType, ObjectInspector elementInspector, BlockBuilder valueBuilder)
+    {
+        for (Object element : list) {
+            serializeObject(elementType, valueBuilder, element, elementInspector);
+        }
+    }
+
+    private static Block serializeMap(MapType mapType, MapBlockBuilder builder, Object object, MapObjectInspector inspector, boolean filterNullMapKeys)
     {
         Map<?, ?> map = inspector.getMap(object);
         if (map == null) {
@@ -211,34 +213,31 @@ public final class SerDeUtils
             return null;
         }
 
-        List<Type> typeParameters = type.getTypeParameters();
-        checkArgument(typeParameters.size() == 2, "map must have exactly 2 type parameter");
-        Type keyType = typeParameters.get(0);
-        Type valueType = typeParameters.get(1);
+        if (builder == null) {
+            return buildMapValue(
+                    mapType,
+                    map.size(),
+                    (keyBuilder, valueBuilder) -> buildMap(mapType, keyBuilder, valueBuilder, map, inspector, filterNullMapKeys));
+        }
+
+        builder.buildEntry((keyBuilder, valueBuilder) -> buildMap(mapType, keyBuilder, valueBuilder, map, inspector, filterNullMapKeys));
+        return null;
+    }
+
+    private static void buildMap(MapType mapType, BlockBuilder keyBuilder, BlockBuilder valueBuilder, Map<?, ?> map, MapObjectInspector inspector, boolean filterNullMapKeys)
+    {
+        Type keyType = mapType.getKeyType();
+        Type valueType = mapType.getValueType();
         ObjectInspector keyInspector = inspector.getMapKeyObjectInspector();
         ObjectInspector valueInspector = inspector.getMapValueObjectInspector();
-        BlockBuilder currentBuilder;
 
-        boolean builderSynthesized = false;
-        if (builder == null) {
-            builderSynthesized = true;
-            builder = type.createBlockBuilder(null, 1);
-        }
-        currentBuilder = builder.beginBlockEntry();
-
-        for (Map.Entry<?, ?> entry : map.entrySet()) {
+        for (Entry<?, ?> entry : map.entrySet()) {
             // Hive skips map entries with null keys
             if (!filterNullMapKeys || entry.getKey() != null) {
-                serializeObject(keyType, currentBuilder, entry.getKey(), keyInspector);
-                serializeObject(valueType, currentBuilder, entry.getValue(), valueInspector);
+                serializeObject(keyType, keyBuilder, entry.getKey(), keyInspector);
+                serializeObject(valueType, valueBuilder, entry.getValue(), valueInspector);
             }
         }
-
-        builder.closeEntry();
-        if (builderSynthesized) {
-            return (Block) type.getObject(builder, 0);
-        }
-        return null;
     }
 
     private static Block serializeStruct(Type type, BlockBuilder builder, Object object, StructObjectInspector inspector)
@@ -248,28 +247,24 @@ public final class SerDeUtils
             return null;
         }
 
+        RowType rowType = (RowType) type;
+        if (builder == null) {
+            return buildRowValue(rowType, fieldBuilders -> buildStruct(rowType, object, inspector, fieldBuilders));
+        }
+
+        ((RowBlockBuilder) builder).buildEntry(fieldBuilders -> buildStruct(rowType, object, inspector, fieldBuilders));
+        return null;
+    }
+
+    private static void buildStruct(RowType type, Object object, StructObjectInspector inspector, List<BlockBuilder> fieldBuilders)
+    {
         List<Type> typeParameters = type.getTypeParameters();
         List<? extends StructField> allStructFieldRefs = inspector.getAllStructFieldRefs();
         checkArgument(typeParameters.size() == allStructFieldRefs.size());
-        BlockBuilder currentBuilder;
-
-        boolean builderSynthesized = false;
-        if (builder == null) {
-            builderSynthesized = true;
-            builder = type.createBlockBuilder(null, 1);
-        }
-        currentBuilder = builder.beginBlockEntry();
-
         for (int i = 0; i < typeParameters.size(); i++) {
             StructField field = allStructFieldRefs.get(i);
-            serializeObject(typeParameters.get(i), currentBuilder, inspector.getStructFieldData(object, field), field.getFieldObjectInspector());
+            serializeObject(typeParameters.get(i), fieldBuilders.get(i), inspector.getStructFieldData(object, field), field.getFieldObjectInspector());
         }
-
-        builder.closeEntry();
-        if (builderSynthesized) {
-            return (Block) type.getObject(builder, 0);
-        }
-        return null;
     }
 
     // Use row blocks to represent union objects when reading
@@ -280,32 +275,28 @@ public final class SerDeUtils
             return null;
         }
 
-        boolean builderSynthesized = false;
+        RowType rowType = (RowType) type;
         if (builder == null) {
-            builderSynthesized = true;
-            builder = type.createBlockBuilder(null, 1);
+            return buildRowValue(rowType, fieldBuilders -> buildUnion(rowType, object, inspector, fieldBuilders));
         }
+        ((RowBlockBuilder) builder).buildEntry(fieldBuilders -> buildUnion(rowType, object, inspector, fieldBuilders));
+        return null;
+    }
 
-        BlockBuilder currentBuilder = builder.beginBlockEntry();
-
+    private static void buildUnion(RowType rowType, Object object, UnionObjectInspector inspector, List<BlockBuilder> fieldBuilders)
+    {
         byte tag = inspector.getTag(object);
-        TINYINT.writeLong(currentBuilder, tag);
+        TINYINT.writeLong(fieldBuilders.get(0), tag);
 
-        List<Type> typeParameters = type.getTypeParameters();
+        List<Type> typeParameters = rowType.getTypeParameters();
         for (int i = 1; i < typeParameters.size(); i++) {
             if (i == tag + 1) {
-                serializeObject(typeParameters.get(i), currentBuilder, inspector.getField(object), inspector.getObjectInspectors().get(tag));
+                serializeObject(typeParameters.get(i), fieldBuilders.get(i), inspector.getField(object), inspector.getObjectInspectors().get(tag));
             }
             else {
-                currentBuilder.appendNull();
+                fieldBuilders.get(i).appendNull();
             }
         }
-
-        builder.closeEntry();
-        if (builderSynthesized) {
-            return (Block) type.getObject(builder, 0);
-        }
-        return null;
     }
 
     @SuppressWarnings("deprecation")

@@ -50,8 +50,8 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingTransactionHandle;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.Optional;
@@ -94,7 +94,7 @@ public class TestPushPredicateIntoTableScan
     private TableHandle ordersTableHandle;
     private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
 
-    @BeforeClass
+    @BeforeAll
     public void setUpBeforeClass()
     {
         pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), createTestingTypeAnalyzer(tester().getPlannerContext()), false);

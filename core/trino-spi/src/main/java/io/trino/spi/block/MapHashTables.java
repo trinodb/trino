@@ -13,12 +13,11 @@
  */
 package io.trino.spi.block;
 
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.MapType;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
+import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Optional;
@@ -166,6 +165,7 @@ public final class MapHashTables
         int hashTableSize = keyCount * HASH_MULTIPLIER;
 
         for (int i = 0; i < keyCount; i++) {
+            // this throws if the position is null
             int hash = getHashPosition(keyBlock, keyOffset + i, hashTableSize);
             while (true) {
                 if (hashTables[hashTableOffset + hash] == -1) {
@@ -175,7 +175,8 @@ public final class MapHashTables
 
                 Boolean isDuplicateKey;
                 try {
-                    // assuming maps with indeterminate keys are not supported
+                    // assuming maps with indeterminate keys are not supported,
+                    // the left and right values are never null because the above call check for null before the insertion
                     isDuplicateKey = (Boolean) mapType.getKeyBlockEqual().invokeExact(keyBlock, keyOffset + i, keyBlock, keyOffset + hashTables[hashTableOffset + hash]);
                 }
                 catch (RuntimeException e) {
@@ -187,6 +188,57 @@ public final class MapHashTables
 
                 if (isDuplicateKey == null) {
                     throw new TrinoException(NOT_SUPPORTED, "map key cannot be null or contain nulls");
+                }
+
+                if (isDuplicateKey) {
+                    throw new DuplicateMapKeyException(keyBlock, keyOffset + i);
+                }
+
+                hash++;
+                if (hash == hashTableSize) {
+                    hash = 0;
+                }
+            }
+        }
+        this.hashTables = hashTables;
+    }
+
+    /**
+     * This method checks whether {@code keyBlock} has duplicates based on type NOT DISTINCT FROM.
+     */
+    synchronized void buildDistinctHashTableStrict(Block keyBlock, int keyOffset, int keyCount)
+            throws DuplicateMapKeyException
+    {
+        int[] hashTables = this.hashTables;
+        if (hashTables == null) {
+            throw new IllegalStateException("hashTables not set");
+        }
+
+        int hashTableOffset = keyOffset * HASH_MULTIPLIER;
+        int hashTableSize = keyCount * HASH_MULTIPLIER;
+
+        for (int i = 0; i < keyCount; i++) {
+            int hash = getHashPosition(keyBlock, keyOffset + i, hashTableSize);
+            while (true) {
+                if (hashTables[hashTableOffset + hash] == -1) {
+                    hashTables[hashTableOffset + hash] = i;
+                    break;
+                }
+
+                if (keyBlock.isNull(keyOffset + i)) {
+                    throw new TrinoException(NOT_SUPPORTED, "map key cannot be null or contain nulls");
+                }
+
+                boolean isDuplicateKey;
+                try {
+                    // assuming maps with indeterminate keys are not supported
+                    isDuplicateKey = (boolean) mapType.getKeyBlockNotDistinctFrom().invokeExact(keyBlock, keyOffset + i, keyBlock, keyOffset + hashTables[hashTableOffset + hash]);
+                }
+                catch (RuntimeException e) {
+                    throw e;
+                }
+                catch (Throwable throwable) {
+                    throw new RuntimeException(throwable);
                 }
 
                 if (isDuplicateKey) {

@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog.hms;
 
 import io.airlift.log.Logger;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
@@ -27,8 +28,6 @@ import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.io.FileIO;
 
-import javax.annotation.concurrent.NotThreadSafe;
-
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -37,7 +36,6 @@ import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMeta
 import static io.trino.plugin.iceberg.IcebergUtil.fixBrokenMetadataLocation;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
-import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_LOCATION_PROP;
 
 @NotThreadSafe
 public class HiveMetastoreTableOperations
@@ -82,10 +80,7 @@ public class HiveMetastoreTableOperations
             }
 
             Table table = Table.builder(currentTable)
-                    .setDataColumns(toHiveColumns(metadata.schema().columns()))
-                    .withStorage(storage -> storage.setLocation(metadata.location()))
-                    .setParameter(METADATA_LOCATION_PROP, newMetadataLocation)
-                    .setParameter(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation)
+                    .apply(builder -> updateMetastoreTable(builder, metadata, newMetadataLocation, Optional.of(currentMetadataLocation)))
                     .build();
 
             // todo privileges should not be replaced for an alter

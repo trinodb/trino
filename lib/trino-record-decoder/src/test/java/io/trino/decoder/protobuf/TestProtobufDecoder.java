@@ -13,11 +13,13 @@
  */
 package io.trino.decoder.protobuf;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
+import com.google.protobuf.Any;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Timestamp;
@@ -29,6 +31,7 @@ import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.DecoderTestColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
+import io.trino.decoder.RowDecoderSpec;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
@@ -39,6 +42,8 @@ import io.trino.testing.TestingSession;
 import io.trino.type.JsonType;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +51,7 @@ import java.util.Set;
 
 import static com.google.common.io.Resources.getResource;
 import static io.trino.decoder.protobuf.ProtobufRowDecoderFactory.DEFAULT_MESSAGE;
+import static io.trino.decoder.util.DecoderTestUtil.TESTING_SESSION;
 import static io.trino.decoder.util.DecoderTestUtil.checkValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -69,10 +75,11 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 public class TestProtobufDecoder
 {
-    private static final ProtobufRowDecoderFactory DECODER_FACTORY = new ProtobufRowDecoderFactory(new FixedSchemaDynamicMessageProvider.Factory(), TESTING_TYPE_MANAGER);
+    private static final ProtobufRowDecoderFactory DECODER_FACTORY = new ProtobufRowDecoderFactory(new FixedSchemaDynamicMessageProvider.Factory(), TESTING_TYPE_MANAGER, new FileDescriptorProvider());
 
     @Test(dataProvider = "allTypesDataProvider", dataProviderClass = ProtobufDataProviders.class)
     public void testAllDataTypes(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
@@ -267,7 +274,7 @@ public class TestProtobufDecoder
         final var message = messageBuilder.setField(messageBuilder.getDescriptorForType().findFieldByName("column"), "value").build();
 
         final var descriptor = ProtobufSchemaUtils.getSchema(message).toDescriptor();
-        final var decoder = new ProtobufRowDecoder(new FixedSchemaDynamicMessageProvider(descriptor), ImmutableSet.of(testColumnHandle, testOneofColumn), TESTING_TYPE_MANAGER);
+        final var decoder = new ProtobufRowDecoder(new FixedSchemaDynamicMessageProvider(descriptor), ImmutableSet.of(testColumnHandle, testOneofColumn), TESTING_TYPE_MANAGER, new FileDescriptorProvider());
 
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = decoder
                 .decodeRow(message.toByteArray())
@@ -280,6 +287,87 @@ public class TestProtobufDecoder
 
         assertEquals(decodedRow.get(testColumnHandle).getSlice().toStringUtf8(), "value");
         assertEquals(decodedRow.get(testOneofColumn).getSlice().toStringUtf8(), expected);
+    }
+
+    @Test
+    public void testAnyTypeWithDummyDescriptor()
+            throws Exception
+    {
+        String stringData = "Trino";
+
+        Descriptor allDataTypesDescriptor = getDescriptor("all_datatypes.proto");
+        DynamicMessage.Builder messageBuilder = DynamicMessage.newBuilder(allDataTypesDescriptor);
+        messageBuilder.setField(allDataTypesDescriptor.findFieldByName("stringColumn"), stringData);
+
+        Descriptor anyTypeDescriptor = getDescriptor("test_any.proto");
+        DynamicMessage.Builder testAnyBuilder = DynamicMessage.newBuilder(anyTypeDescriptor);
+        testAnyBuilder.setField(anyTypeDescriptor.findFieldByName("id"), 1);
+        testAnyBuilder.setField(anyTypeDescriptor.findFieldByName("anyMessage"), Any.pack(messageBuilder.build()));
+        DynamicMessage testAny = testAnyBuilder.build();
+
+        DecoderTestColumnHandle testAnyColumn = new DecoderTestColumnHandle(0, "anyMessage", JsonType.JSON, "anyMessage", null, null, false, false, false);
+        ProtobufRowDecoder decoder = new ProtobufRowDecoder(new FixedSchemaDynamicMessageProvider(anyTypeDescriptor), ImmutableSet.of(testAnyColumn), TESTING_TYPE_MANAGER, new DummyDescriptorProvider());
+
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = decoder
+                .decodeRow(testAny.toByteArray())
+                .orElseThrow(AssertionError::new);
+
+        assertTrue(decodedRow.get(testAnyColumn).isNull());
+    }
+
+    @Test
+    public void testAnyTypeWithFileDescriptor()
+            throws Exception
+    {
+        String stringData = "Trino";
+        int integerData = 1;
+        long longData = 493857959588286460L;
+        double doubleData = PI;
+        float floatData = 3.14f;
+        boolean booleanData = true;
+        String enumData = "ONE";
+        SqlTimestamp sqlTimestamp = sqlTimestampOf(3, LocalDateTime.parse("2020-12-12T15:35:45.923"));
+        byte[] bytesData = "X'65683F'".getBytes(UTF_8);
+
+        Descriptor allDataTypesDescriptor = getDescriptor("all_datatypes.proto");
+        DynamicMessage.Builder messageBuilder = DynamicMessage.newBuilder(allDataTypesDescriptor);
+        messageBuilder.setField(allDataTypesDescriptor.findFieldByName("stringColumn"), stringData);
+        messageBuilder.setField(allDataTypesDescriptor.findFieldByName("integerColumn"), integerData);
+        messageBuilder.setField(allDataTypesDescriptor.findFieldByName("longColumn"), longData);
+        messageBuilder.setField(allDataTypesDescriptor.findFieldByName("doubleColumn"), doubleData);
+        messageBuilder.setField(allDataTypesDescriptor.findFieldByName("floatColumn"), floatData);
+        messageBuilder.setField(allDataTypesDescriptor.findFieldByName("booleanColumn"), booleanData);
+        messageBuilder.setField(allDataTypesDescriptor.findFieldByName("numberColumn"), allDataTypesDescriptor.findEnumTypeByName("Number").findValueByName(enumData));
+        messageBuilder.setField(allDataTypesDescriptor.findFieldByName("timestampColumn"), getTimestamp(sqlTimestamp));
+        messageBuilder.setField(allDataTypesDescriptor.findFieldByName("bytesColumn"), bytesData);
+
+        // Get URI of parent directory of the descriptor file
+        // Any.pack concatenates the message type's full name to the given prefix
+        URI anySchemaTypeUrl = new File(Resources.getResource("decoder/protobuf/any/all_datatypes/schema").getFile()).getParentFile().toURI();
+        Descriptor descriptor = getDescriptor("test_any.proto");
+        DynamicMessage.Builder testAnyBuilder = DynamicMessage.newBuilder(descriptor);
+        testAnyBuilder.setField(descriptor.findFieldByName("id"), 1);
+        testAnyBuilder.setField(descriptor.findFieldByName("anyMessage"), Any.pack(messageBuilder.build(), anySchemaTypeUrl.toString()));
+        DynamicMessage testAny = testAnyBuilder.build();
+
+        DecoderTestColumnHandle testOneOfColumn = new DecoderTestColumnHandle(0, "anyMessage", JsonType.JSON, "anyMessage", null, null, false, false, false);
+        ProtobufRowDecoder decoder = new ProtobufRowDecoder(new FixedSchemaDynamicMessageProvider(descriptor), ImmutableSet.of(testOneOfColumn), TESTING_TYPE_MANAGER, new FileDescriptorProvider());
+
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = decoder
+                .decodeRow(testAny.toByteArray())
+                .orElseThrow(AssertionError::new);
+
+        JsonNode actual = new ObjectMapper().readTree(decodedRow.get(testOneOfColumn).getSlice().toStringUtf8());
+        assertTrue(actual.get("@type").textValue().contains("schema"));
+        assertEquals(actual.get("stringColumn").textValue(), stringData);
+        assertEquals(actual.get("integerColumn").intValue(), integerData);
+        assertEquals(actual.get("longColumn").textValue(), Long.toString(longData));
+        assertEquals(actual.get("doubleColumn").doubleValue(), doubleData);
+        assertEquals(actual.get("floatColumn").floatValue(), floatData);
+        assertEquals(actual.get("booleanColumn").booleanValue(), booleanData);
+        assertEquals(actual.get("numberColumn").textValue(), enumData);
+        assertEquals(actual.get("timestampColumn").textValue(), "2020-12-12T15:35:45.923Z");
+        assertEquals(actual.get("bytesColumn").binaryValue(), bytesData);
     }
 
     @Test(dataProvider = "allTypesDataProvider", dataProviderClass = ProtobufDataProviders.class)
@@ -447,7 +535,7 @@ public class TestProtobufDecoder
     private RowDecoder createRowDecoder(String fileName, Set<DecoderColumnHandle> columns)
             throws Exception
     {
-        return DECODER_FACTORY.create(ImmutableMap.of("dataSchema", ProtobufUtils.getProtoFile("decoder/protobuf/" + fileName)), columns);
+        return DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(ProtobufRowDecoder.NAME, ImmutableMap.of("dataSchema", ProtobufUtils.getProtoFile("decoder/protobuf/" + fileName)), columns));
     }
 
     private Descriptor getDescriptor(String fileName)

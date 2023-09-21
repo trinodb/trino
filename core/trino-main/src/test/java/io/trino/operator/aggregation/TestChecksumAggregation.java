@@ -13,6 +13,7 @@
  */
 package io.trino.operator.aggregation;
 
+import com.google.common.primitives.Longs;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
@@ -22,9 +23,8 @@ import io.trino.spi.type.Type;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionXxHash64;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
-import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.trino.block.BlockAssertions.createArrayBigintBlock;
 import static io.trino.block.BlockAssertions.createBooleansBlock;
 import static io.trino.block.BlockAssertions.createDoublesBlock;
@@ -117,6 +117,6 @@ public class TestChecksumAggregation
                 result += xxHash64Operator.xxHash64(block, i) * PRIME64;
             }
         }
-        return new SqlVarbinary(wrappedLongArray(result).getBytes());
+        return new SqlVarbinary(Longs.toByteArray(Long.reverseBytes(result)));
     }
 }

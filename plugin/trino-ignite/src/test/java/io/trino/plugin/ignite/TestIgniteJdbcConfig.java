@@ -13,13 +13,12 @@
  */
 package io.trino.plugin.ignite;
 
+import jakarta.validation.constraints.AssertTrue;
 import org.testng.annotations.Test;
-
-import javax.validation.constraints.AssertTrue;
 
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.testing.ValidationAssertions.assertValidates;
-import static org.apache.ignite.IgniteJdbcDriver.URL_PREFIX;
+import static org.apache.ignite.internal.jdbc.thin.JdbcThinUtils.URL_PREFIX;
 
 public class TestIgniteJdbcConfig
 {

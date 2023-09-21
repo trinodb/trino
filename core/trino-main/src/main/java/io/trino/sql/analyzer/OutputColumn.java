@@ -16,10 +16,9 @@ package io.trino.sql.analyzer;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.execution.Column;
 import io.trino.sql.analyzer.Analysis.SourceColumn;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 import java.util.Set;

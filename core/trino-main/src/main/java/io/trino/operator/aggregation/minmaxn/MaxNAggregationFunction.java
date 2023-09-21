@@ -55,6 +55,6 @@ public final class MaxNAggregationFunction
     @OutputFunction("array(E)")
     public static void output(@AggregationState("E") MaxNState state, BlockBuilder out)
     {
-        state.writeAll(out);
+        state.writeAllSorted(out);
     }
 }

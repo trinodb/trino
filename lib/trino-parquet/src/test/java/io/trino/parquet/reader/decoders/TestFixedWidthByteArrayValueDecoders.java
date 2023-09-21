@@ -14,7 +14,6 @@
 package io.trino.parquet.reader.decoders;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slices;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.SimpleSliceInputStream;
@@ -36,7 +35,7 @@ import java.nio.ByteOrder;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.Random;
-import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiConsumer;
 import java.util.stream.IntStream;
 
@@ -259,13 +258,9 @@ public final class TestFixedWidthByteArrayValueDecoders
         @Override
         public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
         {
-            byte[][] bytes = new byte[dataSize][];
+            byte[][] bytes = new byte[dataSize][16];
             for (int i = 0; i < dataSize; i++) {
-                UUID uuid = UUID.randomUUID();
-                bytes[i] = Slices.wrappedLongArray(
-                                uuid.getMostSignificantBits(),
-                                uuid.getLeastSignificantBits())
-                        .getBytes();
+                ThreadLocalRandom.current().nextBytes(bytes[i]);
             }
             return writeBytes(valuesWriter, bytes);
         }

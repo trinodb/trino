@@ -12,7 +12,7 @@ current_version=$(${maven} help:evaluate -Dexpression=project.version -q -Dforce
 previous_released_version=$((${current_version%-SNAPSHOT}-1))
 first_tested_version=352
 # test n-th version only
-version_step=7
+version_step=$(( (previous_released_version - first_tested_version) / 7 ))
 
 echo "Current version: ${current_version}"
 

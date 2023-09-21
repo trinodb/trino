@@ -15,6 +15,7 @@ package io.trino.plugin.hive.type;
 
 import java.util.Objects;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.hive.util.SerdeConstants.MAP_TYPE_NAME;
 import static java.util.Objects.requireNonNull;
 
@@ -22,6 +23,8 @@ import static java.util.Objects.requireNonNull;
 public final class MapTypeInfo
         extends TypeInfo
 {
+    private static final int INSTANCE_SIZE = instanceSize(UnionTypeInfo.class);
+
     private final TypeInfo keyTypeInfo;
     private final TypeInfo valueTypeInfo;
 
@@ -65,5 +68,11 @@ public final class MapTypeInfo
     public int hashCode()
     {
         return Objects.hash(keyTypeInfo, valueTypeInfo);
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + keyTypeInfo.getRetainedSizeInBytes() + valueTypeInfo.getRetainedSizeInBytes();
     }
 }

@@ -50,7 +50,7 @@ public class TestIntArrayBlock
         Slice[] expectedValues = createTestValue(100);
         BlockBuilder emptyBlockBuilder = new IntArrayBlockBuilder(null, 0);
 
-        BlockBuilder blockBuilder = new IntArrayBlockBuilder(null, expectedValues.length);
+        IntArrayBlockBuilder blockBuilder = new IntArrayBlockBuilder(null, expectedValues.length);
         assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
         assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
 
@@ -58,7 +58,7 @@ public class TestIntArrayBlock
         assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
         assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
 
-        blockBuilder = blockBuilder.newBlockBuilderLike(null);
+        blockBuilder = (IntArrayBlockBuilder) blockBuilder.newBlockBuilderLike(null);
         assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
         assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
     }
@@ -95,14 +95,14 @@ public class TestIntArrayBlock
         return blockBuilder;
     }
 
-    private static void writeValues(Slice[] expectedValues, BlockBuilder blockBuilder)
+    private static void writeValues(Slice[] expectedValues, IntArrayBlockBuilder blockBuilder)
     {
         for (Slice expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
             }
             else {
-                blockBuilder.writeInt(expectedValue.getInt(0)).closeEntry();
+                blockBuilder.writeInt(expectedValue.getInt(0));
             }
         }
     }

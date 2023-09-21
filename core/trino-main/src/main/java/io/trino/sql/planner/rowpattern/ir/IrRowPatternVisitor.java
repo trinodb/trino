@@ -13,7 +13,7 @@
  */
 package io.trino.sql.planner.rowpattern.ir;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 public abstract class IrRowPatternVisitor<R, C>
 {

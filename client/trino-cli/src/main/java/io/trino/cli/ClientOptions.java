@@ -16,17 +16,24 @@ package io.trino.cli;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
+import io.trino.client.uri.PropertyName;
+import io.trino.client.uri.RestrictedPropertyException;
+import io.trino.client.uri.TrinoUri;
 import okhttp3.logging.HttpLoggingInterceptor;
 import org.jline.reader.LineReader;
+import org.jline.reader.LineReaderBuilder;
 
+import java.lang.annotation.Retention;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.sql.SQLException;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,103 +44,171 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
+import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
+import static io.trino.client.uri.PropertyName.ACCESS_TOKEN;
+import static io.trino.client.uri.PropertyName.CATALOG;
+import static io.trino.client.uri.PropertyName.CLIENT_INFO;
+import static io.trino.client.uri.PropertyName.CLIENT_TAGS;
+import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION;
+import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS;
+import static io.trino.client.uri.PropertyName.EXTRA_CREDENTIALS;
+import static io.trino.client.uri.PropertyName.HTTP_PROXY;
+import static io.trino.client.uri.PropertyName.KERBEROS_CONFIG_PATH;
+import static io.trino.client.uri.PropertyName.KERBEROS_CREDENTIAL_CACHE_PATH;
+import static io.trino.client.uri.PropertyName.KERBEROS_KEYTAB_PATH;
+import static io.trino.client.uri.PropertyName.KERBEROS_PRINCIPAL;
+import static io.trino.client.uri.PropertyName.KERBEROS_REMOTE_SERVICE_NAME;
+import static io.trino.client.uri.PropertyName.KERBEROS_SERVICE_PRINCIPAL_PATTERN;
+import static io.trino.client.uri.PropertyName.KERBEROS_USE_CANONICAL_HOSTNAME;
+import static io.trino.client.uri.PropertyName.PASSWORD;
+import static io.trino.client.uri.PropertyName.SCHEMA;
+import static io.trino.client.uri.PropertyName.SESSION_PROPERTIES;
+import static io.trino.client.uri.PropertyName.SESSION_USER;
+import static io.trino.client.uri.PropertyName.SOCKS_PROXY;
+import static io.trino.client.uri.PropertyName.SOURCE;
+import static io.trino.client.uri.PropertyName.SSL_KEY_STORE_PASSWORD;
+import static io.trino.client.uri.PropertyName.SSL_KEY_STORE_PATH;
+import static io.trino.client.uri.PropertyName.SSL_KEY_STORE_TYPE;
+import static io.trino.client.uri.PropertyName.SSL_TRUST_STORE_PASSWORD;
+import static io.trino.client.uri.PropertyName.SSL_TRUST_STORE_PATH;
+import static io.trino.client.uri.PropertyName.SSL_TRUST_STORE_TYPE;
+import static io.trino.client.uri.PropertyName.SSL_USE_SYSTEM_TRUST_STORE;
+import static io.trino.client.uri.PropertyName.SSL_VERIFICATION;
+import static io.trino.client.uri.PropertyName.TRACE_TOKEN;
+import static io.trino.client.uri.PropertyName.USER;
+import static java.lang.String.format;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.Option;
+import static picocli.CommandLine.Parameters;
 
 public class ClientOptions
 {
     private static final Splitter NAME_VALUE_SPLITTER = Splitter.on('=').limit(2);
     private static final CharMatcher PRINTABLE_ASCII = CharMatcher.inRange((char) 0x21, (char) 0x7E); // spaces are not allowed
     private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
+    private static final String SERVER_DEFAULT = "localhost:8080";
+    private static final String SOURCE_DEFAULT = "trino-cli";
+    static final String DEBUG_OPTION_NAME = "--debug";
 
-    @Option(names = "--server", paramLabel = "<server>", defaultValue = "localhost:8080", description = "Trino server location " + DEFAULT_VALUE)
-    public String server;
+    @Parameters(paramLabel = "URL", description = "Trino server URL", arity = "0..1")
+    public Optional<String> url;
 
+    @Option(names = "--server", paramLabel = "<server>", description = "Trino server location (default: " + SERVER_DEFAULT + ")")
+    public Optional<String> server;
+
+    @PropertyMapping(KERBEROS_SERVICE_PRINCIPAL_PATTERN)
     @Option(names = "--krb5-service-principal-pattern", paramLabel = "<pattern>", defaultValue = "$${SERVICE}@$${HOST}", description = "Remote kerberos service principal pattern " + DEFAULT_VALUE)
     public Optional<String> krb5ServicePrincipalPattern;
 
+    @PropertyMapping(KERBEROS_REMOTE_SERVICE_NAME)
     @Option(names = "--krb5-remote-service-name", paramLabel = "<name>", description = "Remote peer's kerberos service name")
     public Optional<String> krb5RemoteServiceName;
 
+    @PropertyMapping(KERBEROS_CONFIG_PATH)
     @Option(names = "--krb5-config-path", paramLabel = "<path>", defaultValue = "/etc/krb5.conf", description = "Kerberos config file path " + DEFAULT_VALUE)
     public Optional<String> krb5ConfigPath;
 
+    @PropertyMapping(KERBEROS_KEYTAB_PATH)
     @Option(names = "--krb5-keytab-path", paramLabel = "<path>", defaultValue = "/etc/krb5.keytab", description = "Kerberos key table path " + DEFAULT_VALUE)
     public Optional<String> krb5KeytabPath;
 
+    @PropertyMapping(KERBEROS_CREDENTIAL_CACHE_PATH)
     @Option(names = "--krb5-credential-cache-path", paramLabel = "<path>", description = "Kerberos credential cache path")
     public Optional<String> krb5CredentialCachePath = defaultCredentialCachePath();
 
+    @PropertyMapping(KERBEROS_PRINCIPAL)
     @Option(names = "--krb5-principal", paramLabel = "<principal>", description = "Kerberos principal to be used")
     public Optional<String> krb5Principal;
 
+    @PropertyMapping(KERBEROS_USE_CANONICAL_HOSTNAME)
     @Option(names = "--krb5-disable-remote-service-hostname-canonicalization", description = "Disable service hostname canonicalization using the DNS reverse lookup")
     public boolean krb5DisableRemoteServiceHostnameCanonicalization;
 
+    @PropertyMapping(SSL_KEY_STORE_PATH)
     @Option(names = "--keystore-path", paramLabel = "<path>", description = "Keystore path")
     public Optional<String> keystorePath;
 
+    @PropertyMapping(SSL_KEY_STORE_PASSWORD)
     @Option(names = "--keystore-password", paramLabel = "<password>", description = "Keystore password")
     public Optional<String> keystorePassword;
 
+    @PropertyMapping(SSL_KEY_STORE_TYPE)
     @Option(names = "--keystore-type", paramLabel = "<type>", description = "Keystore type")
     public Optional<String> keystoreType;
 
+    @PropertyMapping(SSL_TRUST_STORE_PATH)
     @Option(names = "--truststore-path", paramLabel = "<path>", description = "Truststore path")
     public Optional<String> truststorePath;
 
+    @PropertyMapping(SSL_TRUST_STORE_PASSWORD)
     @Option(names = "--truststore-password", paramLabel = "<password>", description = "Truststore password")
     public Optional<String> truststorePassword;
 
+    @PropertyMapping(SSL_TRUST_STORE_TYPE)
     @Option(names = "--truststore-type", paramLabel = "<type>", description = "Truststore type")
     public Optional<String> truststoreType;
 
+    @PropertyMapping(SSL_USE_SYSTEM_TRUST_STORE)
     @Option(names = "--use-system-truststore", description = "Use default system (OS) truststore")
     public boolean useSystemTruststore;
 
+    @PropertyMapping(SSL_VERIFICATION)
     @Option(names = "--insecure", description = "Skip validation of HTTP server certificates (should only be used for debugging)")
     public boolean insecure;
 
+    @PropertyMapping(ACCESS_TOKEN)
     @Option(names = "--access-token", paramLabel = "<token>", description = "Access token")
     public Optional<String> accessToken;
 
+    @PropertyMapping(USER)
     @Option(names = "--user", paramLabel = "<user>", defaultValue = "${sys:user.name}", description = "Username " + DEFAULT_VALUE)
     public Optional<String> user;
 
+    @PropertyMapping(PASSWORD)
     @Option(names = "--password", paramLabel = "<password>", description = "Prompt for password")
     public boolean password;
 
+    @PropertyMapping(EXTERNAL_AUTHENTICATION)
     @Option(names = "--external-authentication", paramLabel = "<externalAuthentication>", description = "Enable external authentication")
     public boolean externalAuthentication;
 
+    @PropertyMapping(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS)
     @Option(names = "--external-authentication-redirect-handler", paramLabel = "<externalAuthenticationRedirectHandler>", description = "External authentication redirect handlers: ${COMPLETION-CANDIDATES} " + DEFAULT_VALUE, defaultValue = "ALL")
     public List<ExternalRedirectStrategy> externalAuthenticationRedirectHandler = new ArrayList<>();
 
-    @Option(names = "--source", paramLabel = "<source>", defaultValue = "trino-cli", description = "Name of source making query " + DEFAULT_VALUE)
-    public String source;
+    @PropertyMapping(SOURCE)
+    @Option(names = "--source", paramLabel = "<source>", description = "Name of the client to use as source that submits the query (default: " + SOURCE_DEFAULT + ")")
+    public Optional<String> source;
 
+    @PropertyMapping(CLIENT_INFO)
     @Option(names = "--client-info", paramLabel = "<info>", description = "Extra information about client making query")
-    public String clientInfo;
+    public Optional<String> clientInfo;
 
+    @PropertyMapping(CLIENT_TAGS)
     @Option(names = "--client-tags", paramLabel = "<tags>", description = "Client tags")
-    public String clientTags;
+    public Optional<String> clientTags;
 
+    @PropertyMapping(TRACE_TOKEN)
     @Option(names = "--trace-token", paramLabel = "<token>", description = "Trace token")
-    public String traceToken;
+    public Optional<String> traceToken;
 
+    @PropertyMapping(CATALOG)
     @Option(names = "--catalog", paramLabel = "<catalog>", description = "Default catalog")
-    public String catalog;
+    public Optional<String> catalog;
 
+    @PropertyMapping(SCHEMA)
     @Option(names = "--schema", paramLabel = "<schema>", description = "Default schema")
-    public String schema;
+    public Optional<String> schema;
 
     @Option(names = {"-f", "--file"}, paramLabel = "<file>", description = "Execute statements from file and exit")
     public String file;
 
-    @Option(names = "--debug", paramLabel = "<debug>", description = "Enable debug information")
+    @Option(names = DEBUG_OPTION_NAME, paramLabel = "<debug>", description = "Enable debug information")
     public boolean debug;
 
     @Option(names = "--history-file", paramLabel = "<historyFile>", defaultValue = "${env:TRINO_HISTORY_FILE:-${sys:user.home}/.trino_history}", description = "Path to the history file " + DEFAULT_VALUE)
@@ -160,18 +235,23 @@ public class ClientOptions
     @Option(names = "--resource-estimate", paramLabel = "<estimate>", description = "Resource estimate (property can be used multiple times; format is key=value)")
     public final List<ClientResourceEstimate> resourceEstimates = new ArrayList<>();
 
+    @PropertyMapping(SESSION_PROPERTIES)
     @Option(names = "--session", paramLabel = "<session>", description = "Session property (property can be used multiple times; format is key=value; use 'SHOW SESSION' to see available properties)")
     public final List<ClientSessionProperty> sessionProperties = new ArrayList<>();
 
+    @PropertyMapping(SESSION_USER)
     @Option(names = "--session-user", paramLabel = "<user>", description = "Username to impersonate")
     public Optional<String> sessionUser;
 
+    @PropertyMapping(EXTRA_CREDENTIALS)
     @Option(names = "--extra-credential", paramLabel = "<credential>", description = "Extra credentials (property can be used multiple times; format is key=value)")
     public final List<ClientExtraCredential> extraCredentials = new ArrayList<>();
 
+    @PropertyMapping(SOCKS_PROXY)
     @Option(names = "--socks-proxy", paramLabel = "<proxy>", description = "SOCKS proxy to use for server connections")
     public Optional<HostAndPort> socksProxy;
 
+    @PropertyMapping(HTTP_PROXY)
     @Option(names = "--http-proxy", paramLabel = "<proxy>", description = "HTTP proxy to use for server connections")
     public Optional<HostAndPort> httpProxy;
 
@@ -205,7 +285,14 @@ public class ClientOptions
         CSV_UNQUOTED,
         CSV_HEADER_UNQUOTED,
         JSON,
+        MARKDOWN,
         NULL
+    }
+
+    @Retention(RUNTIME)
+    @interface PropertyMapping
+    {
+        PropertyName value();
     }
 
     public enum EditingMode
@@ -226,18 +313,18 @@ public class ClientOptions
         }
     }
 
-    public ClientSession toClientSession()
+    public ClientSession toClientSession(TrinoUri uri)
     {
         return ClientSession.builder()
-                .server(parseServer(server))
+                .server(uri.getHttpUri())
                 .principal(user)
                 .user(sessionUser)
-                .source(source)
-                .traceToken(Optional.ofNullable(traceToken))
-                .clientTags(parseClientTags(nullToEmpty(clientTags)))
-                .clientInfo(clientInfo)
-                .catalog(catalog)
-                .schema(schema)
+                .source(source.orElse("trino-cli"))
+                .traceToken(traceToken)
+                .clientTags(parseClientTags(clientTags.orElse("")))
+                .clientInfo(clientInfo.orElse(null))
+                .catalog(uri.getCatalog().orElse(catalog.orElse(null)))
+                .schema(uri.getSchema().orElse(schema.orElse(null)))
                 .timeZone(timeZone)
                 .locale(Locale.getDefault())
                 .resourceEstimates(toResourceEstimates(resourceEstimates))
@@ -249,10 +336,127 @@ public class ClientOptions
                 .build();
     }
 
+    public TrinoUri getTrinoUri()
+    {
+        return getTrinoUri(ImmutableMap.of());
+    }
+
+    public TrinoUri getTrinoUri(Map<PropertyName, String> restrictedProperties)
+    {
+        URI uri;
+        if (url.isPresent()) {
+            if (server.isPresent()) {
+                throw new IllegalArgumentException("Using both the URL parameter and the --server option is not allowed");
+            }
+            uri = parseServer(url.get());
+        }
+        else {
+            uri = parseServer(server.orElse(SERVER_DEFAULT));
+        }
+        List<PropertyName> bannedProperties = ImmutableList.<PropertyName>builder()
+                .addAll(restrictedProperties.keySet())
+                .add(PASSWORD)
+                .build();
+        TrinoUri.Builder builder = TrinoUri.builder()
+                .setUri(uri)
+                .setRestrictedProperties(bannedProperties);
+        catalog.ifPresent(builder::setCatalog);
+        schema.ifPresent(builder::setSchema);
+        user.ifPresent(builder::setUser);
+        sessionUser.ifPresent(builder::setSessionUser);
+        if (password) {
+            builder.setPassword(getPassword());
+        }
+        krb5RemoteServiceName.ifPresent(builder::setKerberosRemoveServiceName);
+        krb5ServicePrincipalPattern.ifPresent(builder::setKerberosServicePrincipalPattern);
+        if (krb5RemoteServiceName.isPresent()) {
+            krb5ConfigPath.ifPresent(builder::setKerberosConfigPath);
+            krb5KeytabPath.ifPresent(builder::setKerberosKeytabPath);
+        }
+        krb5CredentialCachePath.ifPresent(builder::setKerberosCredentialCachePath);
+        krb5Principal.ifPresent(builder::setKerberosPrincipal);
+        if (krb5DisableRemoteServiceHostnameCanonicalization) {
+            builder.setKerberosUseCanonicalHostname(false);
+        }
+        boolean useSecureConnection = uri.getScheme().equals("https") || (uri.getScheme().equals("trino") && uri.getPort() == 443);
+        if (useSecureConnection) {
+            builder.setSsl(true);
+        }
+        if (insecure) {
+            builder.setSslVerificationNone();
+        }
+        keystorePath.ifPresent(builder::setSslKeyStorePath);
+        keystorePassword.ifPresent(builder::setSslKeyStorePassword);
+        keystoreType.ifPresent(builder::setSslKeyStoreType);
+        truststorePath.ifPresent(builder::setSslTrustStorePath);
+        truststorePassword.ifPresent(builder::setSslTrustStorePassword);
+        truststoreType.ifPresent(builder::setSslTrustStoreType);
+        if (useSystemTruststore) {
+            builder.setSslUseSystemTrustStore(true);
+        }
+        accessToken.ifPresent(builder::setAccessToken);
+        if (!extraCredentials.isEmpty()) {
+            builder.setExtraCredentials(toExtraCredentials(extraCredentials));
+        }
+        if (!sessionProperties.isEmpty()) {
+            builder.setSessionProperties(toProperties(sessionProperties));
+        }
+        builder.setExternalAuthentication(externalAuthentication);
+        builder.setExternalRedirectStrategies(externalAuthenticationRedirectHandler);
+        source.ifPresent(builder::setSource);
+        clientInfo.ifPresent(builder::setClientInfo);
+        clientTags.ifPresent(builder::setClientTags);
+        traceToken.ifPresent(builder::setTraceToken);
+        socksProxy.ifPresent(builder::setSocksProxy);
+        httpProxy.ifPresent(builder::setHttpProxy);
+        builder.setDisableCompression(disableCompression);
+        TrinoUri trinoUri;
+
+        try {
+            trinoUri = builder.build();
+        }
+        catch (RestrictedPropertyException e) {
+            if (e.getPropertyName() == PropertyName.PASSWORD) {
+                throw new IllegalArgumentException(
+                        "Setting the password in the URL parameter is not allowed, " +
+                                "use the `--password` option or the `TRINO_PASSWORD` environment variable");
+            }
+            throw new IllegalArgumentException(format(
+                    "Connection property '%s' cannot be set in the URL when option '%s' is set",
+                    e.getPropertyName(),
+                    restrictedProperties.get(e.getPropertyName())), e);
+        }
+        catch (SQLException e) {
+            throw new IllegalArgumentException(e);
+        }
+        return trinoUri;
+    }
+
+    private String getPassword()
+    {
+        checkState(user.isPresent() && !user.get().isEmpty(), "Both username and password must be specified");
+        String defaultPassword = System.getenv("TRINO_PASSWORD");
+        if (defaultPassword != null) {
+            return defaultPassword;
+        }
+
+        java.io.Console console = System.console();
+        if (console != null) {
+            char[] password = console.readPassword("Password: ");
+            if (password != null) {
+                return new String(password);
+            }
+            return "";
+        }
+
+        LineReader reader = LineReaderBuilder.builder().terminal(getTerminal()).build();
+        return reader.readLine("Password: ", (char) 0);
+    }
+
     public static URI parseServer(String server)
     {
-        server = server.toLowerCase(ENGLISH);
-        if (server.startsWith("http://") || server.startsWith("https://")) {
+        String lowerServer = server.toLowerCase(ENGLISH);
+        if (lowerServer.startsWith("http://") || lowerServer.startsWith("https://") || lowerServer.startsWith("trino://")) {
             return URI.create(server);
         }
 

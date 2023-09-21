@@ -34,13 +34,16 @@ import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.PrimitiveType;
 import org.testng.annotations.Test;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.parquet.ParquetTestUtils.createParquetWriter;
 import static io.trino.parquet.ParquetTestUtils.generateInputPages;
 import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -142,5 +145,34 @@ public class TestParquetWriter
                     .collect(toImmutableList());
             assertThat(offsets).isSorted();
         }
+    }
+
+    @Test
+    public void testWriterMemoryAccounting()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("columnA", "columnB");
+        List<Type> types = ImmutableList.of(INTEGER, INTEGER);
+
+        ParquetWriter writer = createParquetWriter(
+                new ByteArrayOutputStream(),
+                ParquetWriterOptions.builder()
+                        .setMaxPageSize(DataSize.ofBytes(1024))
+                        .build(),
+                types,
+                columnNames);
+        List<io.trino.spi.Page> inputPages = generateInputPages(types, 1000, 100);
+
+        long previousRetainedBytes = 0;
+        for (io.trino.spi.Page inputPage : inputPages) {
+            checkArgument(types.size() == inputPage.getChannelCount());
+            writer.write(inputPage);
+            long currentRetainedBytes = writer.getRetainedBytes();
+            assertThat(currentRetainedBytes).isGreaterThanOrEqualTo(previousRetainedBytes);
+            previousRetainedBytes = currentRetainedBytes;
+        }
+        assertThat(previousRetainedBytes).isGreaterThanOrEqualTo(2 * Integer.BYTES * 1000 * 100);
+        writer.close();
+        assertThat(previousRetainedBytes - writer.getRetainedBytes()).isGreaterThanOrEqualTo(2 * Integer.BYTES * 1000 * 100);
     }
 }

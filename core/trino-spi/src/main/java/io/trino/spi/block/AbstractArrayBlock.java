@@ -13,7 +13,7 @@
  */
 package io.trino.spi.block;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.OptionalInt;

@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static io.trino.plugin.base.Versions.checkSpiVersion;
+import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 import static java.lang.Boolean.FALSE;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -76,7 +76,7 @@ public class TpchConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> properties, ConnectorContext context)
     {
-        checkSpiVersion(context, this);
+        checkStrictSpiVersionMatch(context, this);
 
         int splitsPerNode = getSplitsPerNode(properties);
         ColumnNaming columnNaming = ColumnNaming.valueOf(properties.getOrDefault(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.SIMPLIFIED.name()).toUpperCase(ENGLISH));

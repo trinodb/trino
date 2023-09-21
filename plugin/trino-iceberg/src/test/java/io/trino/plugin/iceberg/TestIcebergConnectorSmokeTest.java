@@ -57,6 +57,7 @@ public class TestIcebergConnectorSmokeTest
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .setMetastoreDirectory(metastoreDir)
                 .setIcebergProperties(ImmutableMap.of(
+                        "iceberg.file-format", format.name(),
                         "iceberg.register-table-procedure.enabled", "true",
                         "iceberg.writer-sort-buffer-size", "1MB"))
                 .build();

@@ -21,7 +21,7 @@ import io.trino.spi.connector.ConnectorFactory;
 
 import java.util.Map;
 
-import static io.trino.plugin.base.Versions.checkSpiVersion;
+import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 
 public class TpcdsConnectorFactory
         implements ConnectorFactory
@@ -35,7 +35,7 @@ public class TpcdsConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        checkSpiVersion(context, this);
+        checkStrictSpiVersionMatch(context, this);
 
         Bootstrap app = new Bootstrap(new TpcdsModule(context.getNodeManager()));
 

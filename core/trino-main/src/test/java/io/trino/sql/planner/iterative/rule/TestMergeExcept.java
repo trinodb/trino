@@ -21,7 +21,7 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.ExceptNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.except;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;

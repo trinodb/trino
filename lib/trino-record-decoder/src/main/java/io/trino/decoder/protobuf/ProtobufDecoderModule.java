@@ -27,6 +27,7 @@ public class ProtobufDecoderModule
     public void configure(Binder binder)
     {
         binder.bind(DynamicMessageProvider.Factory.class).to(FixedSchemaDynamicMessageProvider.Factory.class).in(SINGLETON);
+        binder.bind(DescriptorProvider.class).to(DummyDescriptorProvider.class).in(SINGLETON);
         newMapBinder(binder, String.class, RowDecoderFactory.class).addBinding(ProtobufRowDecoder.NAME).to(ProtobufRowDecoderFactory.class).in(SINGLETON);
     }
 }

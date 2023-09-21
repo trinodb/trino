@@ -18,9 +18,7 @@ import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.services.glue.model.Table;
 import com.google.inject.Binder;
 import com.google.inject.Key;
-import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.hive.HideDeltaLakeTables;
@@ -34,7 +32,9 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 
 import java.util.function.Predicate;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -62,18 +62,15 @@ public class TestingIcebergGlueCatalogModule
         newExporter(binder).export(TrinoCatalogFactory.class).withGeneratedName();
         binder.bind(AWSGlueAsyncAdapterProvider.class).toInstance(awsGlueAsyncAdapterProvider);
 
+        install(conditionalModule(
+                IcebergGlueCatalogConfig.class,
+                IcebergGlueCatalogConfig::isSkipArchive,
+                internalBinder -> newSetBinder(internalBinder, RequestHandler2.class, ForGlueHiveMetastore.class).addBinding().toInstance(new SkipArchiveRequestHandler())));
+
         // Required to inject HiveMetastoreFactory for migrate procedure
         binder.bind(Key.get(boolean.class, HideDeltaLakeTables.class)).toInstance(false);
         newOptionalBinder(binder, Key.get(new TypeLiteral<Predicate<Table>>() {}, ForGlueHiveMetastore.class))
                 .setBinding().toInstance(table -> true);
         install(new GlueMetastoreModule());
-    }
-
-    @Provides
-    @Singleton
-    @ForGlueHiveMetastore
-    public static RequestHandler2 createRequestHandler(IcebergGlueCatalogConfig config)
-    {
-        return new SkipArchiveRequestHandler(config.isSkipArchive());
     }
 }

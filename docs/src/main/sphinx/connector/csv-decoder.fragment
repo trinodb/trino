@@ -1,0 +1,34 @@
+#### CSV decoder
+
+The CSV decoder converts the bytes representing a message or key into a string
+using UTF-8 encoding, and interprets the result as a link of comma-separated
+values.
+
+For fields, the `type` and `mapping` attributes must be defined:
+
+- `type` - Trino data type. See the following table for a list of supported
+  data types.
+- `mapping` - The index of the field in the CSV record.
+
+The `dataFormat` and `formatHint` attributes are not supported and must be
+omitted.
+
+```{eval-rst}
+.. list-table::
+  :widths: 40, 60
+  :header-rows: 1
+
+  * - Trino data type
+    - Decoding rules
+  * - ``BIGINT``, ``INTEGER``, ``SMALLINT``, ``TINYINT``
+    - Decoded using Java ``Long.parseLong()``
+  * - ``DOUBLE``
+    - Decoded using Java ``Double.parseDouble()``
+  * - ``BOOLEAN``
+    - "true" character sequence maps to ``true``. Other character sequences map
+      to ``false``
+  * - ``VARCHAR`` / ``VARCHAR(x)``
+    - Used as is
+```
+
+No other types are supported.

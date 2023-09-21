@@ -13,14 +13,13 @@
  */
 package io.trino.plugin.raptor.legacy.storage;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.DistributionStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import static io.trino.plugin.raptor.legacy.storage.ShardRecoveryManager.dataRate;
 

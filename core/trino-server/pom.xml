@@ -5,12 +5,11 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>420</version>
+        <version>426</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-server</artifactId>
-    <name>trino-server</name>
     <packaging>provisio</packaging>
 
     <properties>
@@ -44,12 +43,20 @@
                 </configuration>
                 <executions>
                     <execution>
-                        <phase>verify</phase>
                         <goals>
                             <goal>enforce</goal>
                         </goals>
+                        <phase>verify</phase>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>io.takari.maven.plugins</groupId>
+                <artifactId>takari-lifecycle-plugin</artifactId>
+                <version>${dep.takari.version}</version>
+                <configuration>
+                    <proc>none</proc>
+                </configuration>
             </plugin>
         </plugins>
     </build>

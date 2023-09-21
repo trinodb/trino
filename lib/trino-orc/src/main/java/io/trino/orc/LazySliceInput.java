@@ -181,6 +181,36 @@ final class LazySliceInput
     }
 
     @Override
+    public void readShorts(short[] destination, int destinationIndex, int length)
+    {
+        getDelegate().readShorts(destination, destinationIndex, length);
+    }
+
+    @Override
+    public void readInts(int[] destination, int destinationIndex, int length)
+    {
+        getDelegate().readInts(destination, destinationIndex, length);
+    }
+
+    @Override
+    public void readLongs(long[] destination, int destinationIndex, int length)
+    {
+        getDelegate().readLongs(destination, destinationIndex, length);
+    }
+
+    @Override
+    public void readFloats(float[] destination, int destinationIndex, int length)
+    {
+        getDelegate().readFloats(destination, destinationIndex, length);
+    }
+
+    @Override
+    public void readDoubles(double[] destination, int destinationIndex, int length)
+    {
+        getDelegate().readDoubles(destination, destinationIndex, length);
+    }
+
+    @Override
     public void readBytes(Slice destination, int destinationIndex, int length)
     {
         getDelegate().readBytes(destination, destinationIndex, length);

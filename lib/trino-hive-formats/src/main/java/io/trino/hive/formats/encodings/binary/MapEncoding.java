@@ -20,6 +20,7 @@ import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.type.Type;
 
 import static java.lang.Math.toIntExact;
@@ -83,6 +84,11 @@ public class MapEncoding
     @Override
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
+        ((MapBlockBuilder) builder).buildEntry((keyBuilder, valueBuilder) -> decodeValueInto(keyBuilder, valueBuilder, slice, offset));
+    }
+
+    private void decodeValueInto(BlockBuilder keyBuilder, BlockBuilder valueBuilder, Slice slice, int offset)
+    {
         // entries in list
         int entries = toIntExact(ReadWriteUtils.readVInt(slice, offset));
         offset += ReadWriteUtils.decodeVIntSize(slice.getByte(offset));
@@ -93,7 +99,6 @@ public class MapEncoding
 
         // read elements starting after null bytes
         int elementOffset = nullByteEnd;
-        BlockBuilder mapBuilder = builder.beginBlockEntry();
         for (int i = 0; i < entries; i++) {
             // read key
             boolean nullKey;
@@ -101,7 +106,7 @@ public class MapEncoding
                 int keyOffset = keyReader.getValueOffset(slice, elementOffset);
                 int keyLength = keyReader.getValueLength(slice, elementOffset);
 
-                keyReader.decodeValueInto(mapBuilder, slice, elementOffset + keyOffset, keyLength);
+                keyReader.decodeValueInto(keyBuilder, slice, elementOffset + keyOffset, keyLength);
                 nullKey = false;
 
                 elementOffset = elementOffset + keyOffset + keyLength;
@@ -119,7 +124,7 @@ public class MapEncoding
 
                 // ignore entries with a null key
                 if (!nullKey) {
-                    valueReader.decodeValueInto(mapBuilder, slice, elementOffset + valueOffset, valueLength);
+                    valueReader.decodeValueInto(valueBuilder, slice, elementOffset + valueOffset, valueLength);
                 }
 
                 elementOffset = elementOffset + valueOffset + valueLength;
@@ -127,7 +132,7 @@ public class MapEncoding
             else {
                 // ignore entries with a null key
                 if (!nullKey) {
-                    mapBuilder.appendNull();
+                    valueBuilder.appendNull();
                 }
             }
 
@@ -136,6 +141,5 @@ public class MapEncoding
                 nullByteCur++;
             }
         }
-        builder.closeEntry();
     }
 }

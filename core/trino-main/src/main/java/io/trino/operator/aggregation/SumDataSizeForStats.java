@@ -23,6 +23,7 @@ import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.BigintType;
@@ -37,7 +38,7 @@ public final class SumDataSizeForStats
 
     @InputFunction
     @TypeParameter("T")
-    public static void input(@AggregationState LongState state, @NullablePosition @BlockPosition @SqlType("T") Block block, @BlockIndex int index)
+    public static void input(@AggregationState LongState state, @SqlNullable @BlockPosition @SqlType("T") Block block, @BlockIndex int index)
     {
         update(state, block.getEstimatedDataSizeForStats(index));
     }

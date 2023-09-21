@@ -13,60 +13,62 @@
  */
 package io.trino.operator;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import io.trino.operator.scalar.CombineHashFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.optimizations.HashGenerationOptimizer;
-import io.trino.type.BlockTypeOperators;
-import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
+import jakarta.annotation.Nullable;
 
-import javax.annotation.Nullable;
-
+import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.IntFunction;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
 import static java.util.Objects.requireNonNull;
 
+// TODO this class could be made more efficient by replacing the hashChannels array making the channel a constant in the
+//  method handle. Additionally, the method handles could be combined into a single method handle using method handle
+//  combinators. To do all of this, we would need to add a cache for instances of this class since the method handles
+//  would be modified for each instance.
 public class InterpretedHashGenerator
         implements HashGenerator
 {
     private final List<Type> hashChannelTypes;
     @Nullable
     private final int[] hashChannels; // null value indicates that the identity channel mapping is used
-    private final BlockPositionHashCode[] hashCodeOperators;
+    private final MethodHandle[] hashCodeOperators;
 
-    public static InterpretedHashGenerator createPositionalWithTypes(List<Type> hashChannelTypes, BlockTypeOperators blockTypeOperators)
+    public static InterpretedHashGenerator createPagePrefixHashGenerator(List<Type> hashChannelTypes, TypeOperators typeOperators)
     {
-        return new InterpretedHashGenerator(hashChannelTypes, null, blockTypeOperators, true);
+        return new InterpretedHashGenerator(hashChannelTypes, null, typeOperators);
     }
 
-    public InterpretedHashGenerator(List<Type> hashChannelTypes, List<Integer> hashChannels, BlockTypeOperators blockTypeOperators)
+    public static InterpretedHashGenerator createChannelsHashGenerator(List<Type> hashChannelTypes, int[] hashChannels, TypeOperators typeOperators)
     {
-        this(hashChannelTypes, Ints.toArray(requireNonNull(hashChannels, "hashChannels is null")), blockTypeOperators);
+        return new InterpretedHashGenerator(hashChannelTypes, hashChannels, typeOperators);
     }
 
-    public InterpretedHashGenerator(List<Type> hashChannelTypes, int[] hashChannels, BlockTypeOperators blockTypeOperators)
-    {
-        this(hashChannelTypes, requireNonNull(hashChannels, "hashChannels is null"), blockTypeOperators, false);
-    }
-
-    private InterpretedHashGenerator(List<Type> hashChannelTypes, @Nullable int[] hashChannels, BlockTypeOperators blockTypeOperators, boolean positional)
+    private InterpretedHashGenerator(List<Type> hashChannelTypes, @Nullable int[] hashChannels, TypeOperators blockTypeOperators)
     {
         this.hashChannelTypes = ImmutableList.copyOf(requireNonNull(hashChannelTypes, "hashChannelTypes is null"));
-        this.hashCodeOperators = createHashCodeOperators(hashChannelTypes, blockTypeOperators);
-        checkArgument(hashCodeOperators.length == hashChannelTypes.size());
-        if (positional) {
-            checkArgument(hashChannels == null, "hashChannels must be null");
+        this.hashCodeOperators = new MethodHandle[hashChannelTypes.size()];
+        for (int i = 0; i < hashCodeOperators.length; i++) {
+            hashCodeOperators[i] = blockTypeOperators.getHashCodeOperator(hashChannelTypes.get(i), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
+        }
+        if (hashChannels == null) {
             this.hashChannels = null;
         }
         else {
-            requireNonNull(hashChannels, "hashChannels is null");
             checkArgument(hashChannels.length == hashCodeOperators.length);
             // simple positional indices are converted to null
             this.hashChannels = isPositionalChannels(hashChannels) ? null : hashChannels;
@@ -80,7 +82,7 @@ public class InterpretedHashGenerator
         long result = HashGenerationOptimizer.INITIAL_HASH_VALUE;
         for (int i = 0; i < hashCodeOperators.length; i++) {
             Block block = page.getBlock(hashChannels == null ? i : hashChannels[i]);
-            result = CombineHashFunction.getHash(result, hashCodeOperators[i].hashCodeNullSafe(block, position));
+            result = CombineHashFunction.getHash(result, nullSafeHash(i, block, position));
         }
         return result;
     }
@@ -91,9 +93,20 @@ public class InterpretedHashGenerator
         long result = HashGenerationOptimizer.INITIAL_HASH_VALUE;
         for (int i = 0; i < hashCodeOperators.length; i++) {
             Block block = blockProvider.apply(hashChannels == null ? i : hashChannels[i]);
-            result = CombineHashFunction.getHash(result, hashCodeOperators[i].hashCodeNullSafe(block, position));
+            result = CombineHashFunction.getHash(result, nullSafeHash(i, block, position));
         }
         return result;
+    }
+
+    private long nullSafeHash(int operatorIndex, Block block, int position)
+    {
+        try {
+            return block.isNull(position) ? NULL_HASH_CODE : (long) hashCodeOperators[operatorIndex].invokeExact(block, position);
+        }
+        catch (Throwable e) {
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -113,16 +126,5 @@ public class InterpretedHashGenerator
             }
         }
         return true;
-    }
-
-    private static BlockPositionHashCode[] createHashCodeOperators(List<Type> hashChannelTypes, BlockTypeOperators blockTypeOperators)
-    {
-        requireNonNull(hashChannelTypes, "hashChannelTypes is null");
-        requireNonNull(blockTypeOperators, "blockTypeOperators is null");
-        BlockPositionHashCode[] hashCodeOperators = new BlockPositionHashCode[hashChannelTypes.size()];
-        for (int i = 0; i < hashCodeOperators.length; i++) {
-            hashCodeOperators[i] = blockTypeOperators.getHashCodeOperator(hashChannelTypes.get(i));
-        }
-        return hashCodeOperators;
     }
 }

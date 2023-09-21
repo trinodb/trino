@@ -27,7 +27,9 @@ import java.nio.file.Path;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -76,6 +78,60 @@ public class TestIcebergMigrateProcedure
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test(dataProvider = "fileFormats")
+    public void testMigrateTableWithTinyintType(IcebergFileFormat fileFormat)
+    {
+        String tableName = "test_migrate_tinyint" + randomNameSuffix();
+        String hiveTableName = "hive.tpch." + tableName;
+        String icebergTableName = "iceberg.tpch." + tableName;
+
+        String createTable = "CREATE TABLE " + hiveTableName + "(col TINYINT) WITH (format = '" + fileFormat + "')";
+        if (fileFormat == AVRO) {
+            assertQueryFails(createTable, "Column 'col' is tinyint, which is not supported by Avro. Use integer instead.");
+            return;
+        }
+
+        assertUpdate(createTable);
+        assertUpdate("INSERT INTO " + hiveTableName + " VALUES NULL, -128, 127", 3);
+
+        assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
+
+        assertThat(getColumnType(tableName, "col")).isEqualTo("integer");
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (NULL), (-128), (127)");
+
+        assertUpdate("INSERT INTO " + icebergTableName + " VALUES -2147483648, 2147483647", 2);
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (NULL), (-2147483648), (-128), (127), (2147483647)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "fileFormats")
+    public void testMigrateTableWithSmallintType(IcebergFileFormat fileFormat)
+    {
+        String tableName = "test_migrate_smallint" + randomNameSuffix();
+        String hiveTableName = "hive.tpch." + tableName;
+        String icebergTableName = "iceberg.tpch." + tableName;
+
+        String createTable = "CREATE TABLE " + hiveTableName + "(col SMALLINT) WITH (format = '" + fileFormat + "')";
+        if (fileFormat == AVRO) {
+            assertQueryFails(createTable, "Column 'col' is smallint, which is not supported by Avro. Use integer instead.");
+            return;
+        }
+
+        assertUpdate(createTable);
+        assertUpdate("INSERT INTO " + hiveTableName + " VALUES NULL, -32768, 32767", 3);
+
+        assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
+
+        assertThat(getColumnType(tableName, "col")).isEqualTo("integer");
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (NULL), (-32768), (32767)");
+
+        assertUpdate("INSERT INTO " + icebergTableName + " VALUES -2147483648, 2147483647", 2);
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (NULL), (-2147483648), (-32768), (32767), (2147483647)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @DataProvider
     public static Object[][] fileFormats()
     {
@@ -107,6 +163,30 @@ public class TestIcebergMigrateProcedure
         assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1, 'part1'), (2, 'part2')");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMigrateBucketedTable()
+    {
+        String tableName = "test_migrate_bucketed_table_" + randomNameSuffix();
+        String hiveTableName = "hive.tpch." + tableName;
+        String icebergTableName = "iceberg.tpch." + tableName;
+
+        assertUpdate("CREATE TABLE " + hiveTableName + " WITH (partitioned_by = ARRAY['part'], bucketed_by = ARRAY['bucket'], bucket_count = 10) AS SELECT 1 bucket, 'part1' part", 1);
+
+        assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
+
+        // Make sure partition column is preserved, but it's migrated as a non-bucketed table
+        assertThat(query("SELECT partition FROM iceberg.tpch.\"" + tableName + "$partitions\""))
+                .skippingTypesCheck()
+                .matches("SELECT CAST(row('part1') AS row(part_col varchar))");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + icebergTableName))
+                .contains("partitioning = ARRAY['part']");
+
+        assertUpdate("INSERT INTO " + icebergTableName + " VALUES (2, 'part2')", 1);
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1, 'part1'), (2, 'part2')");
+
+        assertUpdate("DROP TABLE " + icebergTableName);
     }
 
     @Test
@@ -277,24 +357,6 @@ public class TestIcebergMigrateProcedure
     }
 
     @Test
-    public void testMigrateUnsupportedBucketedTable()
-    {
-        String tableName = "test_migrate_unsupported_bucketed_table_" + randomNameSuffix();
-        String hiveTableName = "hive.tpch." + tableName;
-        String icebergTableName = "iceberg.tpch." + tableName;
-
-        assertUpdate("CREATE TABLE " + hiveTableName + " WITH (partitioned_by = ARRAY['part'], bucketed_by = ARRAY['bucket'], bucket_count = 10) AS SELECT 1 bucket, 'test' part", 1);
-
-        assertThatThrownBy(() -> query("CALL iceberg.system.migrate('tpch', '" + tableName + "')"))
-                .hasStackTraceContaining("Cannot migrate bucketed table: [bucket]");
-
-        assertQuery("SELECT * FROM " + hiveTableName, "VALUES (1, 'test')");
-        assertQueryFails("SELECT * FROM " + icebergTableName, "Not an Iceberg table: .*");
-
-        assertUpdate("DROP TABLE " + hiveTableName);
-    }
-
-    @Test
     public void testMigrateUnsupportedTableType()
     {
         String viewName = "test_migrate_unsupported_table_type_" + randomNameSuffix();
@@ -328,5 +390,12 @@ public class TestIcebergMigrateProcedure
         assertQueryReturnsEmptyResult("SELECT * FROM " + icebergTableName);
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private String getColumnType(String tableName, String columnName)
+    {
+        return (String) computeScalar(format("SELECT data_type FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = '%s' AND column_name = '%s'",
+                tableName,
+                columnName));
     }
 }

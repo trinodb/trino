@@ -36,6 +36,7 @@ public class Suite2
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinode.class)
                         .withGroups("configured_features", "hdfs_no_impersonation")
+                        .withExcludedTests("io.trino.tests.product.TestImpersonation.testExternalLocationTableCreationSuccess")
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHdfsNoImpersonation.class)
                         .withGroups("configured_features", "storage_formats", "hdfs_no_impersonation", "hive_kerberos")

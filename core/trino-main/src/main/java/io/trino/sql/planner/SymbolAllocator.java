@@ -23,8 +23,7 @@ import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GroupingOperation;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.SymbolReference;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;

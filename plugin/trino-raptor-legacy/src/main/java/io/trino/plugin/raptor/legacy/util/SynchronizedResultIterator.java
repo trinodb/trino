@@ -13,10 +13,9 @@
  */
 package io.trino.plugin.raptor.legacy.util;
 
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import org.jdbi.v3.core.result.ResultIterator;
 import org.jdbi.v3.core.statement.StatementContext;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;

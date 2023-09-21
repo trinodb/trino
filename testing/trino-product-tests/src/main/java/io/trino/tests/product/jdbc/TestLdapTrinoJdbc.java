@@ -116,7 +116,7 @@ public class TestLdapTrinoJdbc
     @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForEmptyUser()
     {
-        expectQueryToFail("", ldapUserPassword, "Connection property 'user' value is empty");
+        expectQueryToFail("", ldapUserPassword, "Connection property user value is empty");
     }
 
     @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -130,7 +130,7 @@ public class TestLdapTrinoJdbc
     {
         assertThatThrownBy(() -> DriverManager.getConnection("jdbc:trino://" + prestoServer(), ldapUserName, ldapUserPassword))
                 .isInstanceOf(SQLException.class)
-                .hasMessageContaining("Authentication using username/password requires SSL to be enabled");
+                .hasMessageContaining("TLS/SSL is required for authentication with username and password");
     }
 
     @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)

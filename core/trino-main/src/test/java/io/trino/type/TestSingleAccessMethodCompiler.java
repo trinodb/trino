@@ -13,7 +13,7 @@
  */
 package io.trino.type;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.lang.invoke.MethodType;
 import java.util.function.LongFunction;

@@ -21,6 +21,7 @@ import io.trino.client.StatementClient;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.QueryId;
 import io.trino.testing.DistributedQueryRunner;
+import okhttp3.Call;
 import okhttp3.OkHttpClient;
 import org.testng.annotations.Test;
 
@@ -73,7 +74,7 @@ public class TestFinalQueryInfo
                     .build();
 
             // start query
-            StatementClient client = newStatementClient(httpClient, clientSession, sql);
+            StatementClient client = newStatementClient((Call.Factory) httpClient, clientSession, sql);
 
             // wait for query to be fully scheduled
             while (client.isRunning() && !client.currentStatusInfo().getStats().isScheduled()) {

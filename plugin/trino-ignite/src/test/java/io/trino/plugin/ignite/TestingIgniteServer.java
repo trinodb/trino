@@ -13,10 +13,9 @@
  */
 package io.trino.plugin.ignite;
 
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.testing.ResourcePresence;
 import io.trino.testing.SharedResource;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.sql.Connection;
 import java.sql.DriverManager;

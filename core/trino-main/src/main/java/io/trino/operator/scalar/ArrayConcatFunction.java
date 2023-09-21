@@ -13,13 +13,11 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BufferedArrayValueBuilder;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
@@ -29,6 +27,7 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.VarArgsToArrayAdapterGenerator;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -36,7 +35,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.sql.gen.VarArgsToArrayAdapterGenerator.generateVarArgsToArrayAdapter;
-import static io.trino.util.Reflection.methodHandle;
+import static java.lang.invoke.MethodHandles.lookup;
+import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.nCopies;
 
 public final class ArrayConcatFunction
@@ -47,8 +47,19 @@ public final class ArrayConcatFunction
     private static final String FUNCTION_NAME = "concat";
     private static final String DESCRIPTION = "Concatenates given arrays";
 
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayConcatFunction.class, "concat", Type.class, Object.class, Block[].class);
-    private static final MethodHandle USER_STATE_FACTORY = methodHandle(ArrayConcatFunction.class, "createState", Type.class);
+    private static final MethodHandle METHOD_HANDLE;
+    private static final MethodHandle USER_STATE_FACTORY;
+
+    static {
+        try {
+            MethodHandles.Lookup lookup = lookup();
+            METHOD_HANDLE = lookup.findStatic(ArrayConcatFunction.class, "concat", methodType(Block.class, Type.class, Object.class, Block[].class));
+            USER_STATE_FACTORY = lookup.findStatic(ArrayConcatFunction.class, "createState", methodType(Object.class, ArrayType.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
 
     private ArrayConcatFunction()
     {
@@ -78,7 +89,7 @@ public final class ArrayConcatFunction
                 Block.class,
                 boundSignature.getArity(),
                 METHOD_HANDLE.bindTo(arrayType.getElementType()),
-                USER_STATE_FACTORY.bindTo(arrayType.getElementType()));
+                USER_STATE_FACTORY.bindTo(arrayType));
 
         return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
@@ -89,9 +100,9 @@ public final class ArrayConcatFunction
     }
 
     @UsedByGeneratedCode
-    public static Object createState(Type elementType)
+    public static Object createState(ArrayType arrayType)
     {
-        return new PageBuilder(ImmutableList.of(elementType));
+        return BufferedArrayValueBuilder.createBuffered(arrayType);
     }
 
     @UsedByGeneratedCode
@@ -99,12 +110,12 @@ public final class ArrayConcatFunction
     {
         int resultPositionCount = 0;
 
-        // fast path when there is at most one non empty block
+        // fast path when there is at most one non-empty block
         Block nonEmptyBlock = null;
-        for (int i = 0; i < blocks.length; i++) {
-            resultPositionCount += blocks[i].getPositionCount();
-            if (blocks[i].getPositionCount() > 0) {
-                nonEmptyBlock = blocks[i];
+        for (Block value : blocks) {
+            resultPositionCount += value.getPositionCount();
+            if (value.getPositionCount() > 0) {
+                nonEmptyBlock = value;
             }
         }
         if (nonEmptyBlock == null) {
@@ -114,19 +125,12 @@ public final class ArrayConcatFunction
             return nonEmptyBlock;
         }
 
-        PageBuilder pageBuilder = (PageBuilder) state;
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
-        for (int blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
-            Block block = blocks[blockIndex];
-            for (int i = 0; i < block.getPositionCount(); i++) {
-                elementType.appendTo(block, i, blockBuilder);
+        return ((BufferedArrayValueBuilder) state).build(resultPositionCount, elementBuilder -> {
+            for (Block block : blocks) {
+                for (int i = 0; i < block.getPositionCount(); i++) {
+                    elementType.appendTo(block, i, elementBuilder);
+                }
             }
-        }
-        pageBuilder.declarePositions(resultPositionCount);
-        return blockBuilder.getRegion(blockBuilder.getPositionCount() - resultPositionCount, resultPositionCount);
+        });
     }
 }

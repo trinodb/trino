@@ -18,7 +18,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.Fixed12Block;
 import io.trino.spi.block.Fixed12BlockBuilder;
-import io.trino.spi.block.VariableWidthBlockBuilder;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -50,9 +49,9 @@ public class TestFixed12Block
     public void testLazyBlockBuilderInitialization()
     {
         Slice[] expectedValues = createTestValue(100);
-        BlockBuilder emptyBlockBuilder = new VariableWidthBlockBuilder(null, 0, 0);
+        Fixed12BlockBuilder emptyBlockBuilder = new Fixed12BlockBuilder(null, 0);
 
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, expectedValues.length, 32 * expectedValues.length);
+        Fixed12BlockBuilder blockBuilder = new Fixed12BlockBuilder(null, expectedValues.length);
         assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
         assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
 
@@ -60,7 +59,7 @@ public class TestFixed12Block
         assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
         assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
 
-        blockBuilder = blockBuilder.newBlockBuilderLike(null);
+        blockBuilder = (Fixed12BlockBuilder) blockBuilder.newBlockBuilderLike(null);
         assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
         assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
     }
@@ -103,16 +102,16 @@ public class TestFixed12Block
         return blockBuilder;
     }
 
-    private static void writeValues(Slice[] expectedValues, BlockBuilder blockBuilder)
+    private static void writeValues(Slice[] expectedValues, Fixed12BlockBuilder blockBuilder)
     {
         for (Slice expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
             }
             else {
-                blockBuilder.writeLong(expectedValue.getLong(0));
-                blockBuilder.writeInt(expectedValue.getInt(8));
-                blockBuilder.closeEntry();
+                blockBuilder.writeFixed12(
+                        expectedValue.getLong(0),
+                        expectedValue.getInt(8));
             }
         }
     }

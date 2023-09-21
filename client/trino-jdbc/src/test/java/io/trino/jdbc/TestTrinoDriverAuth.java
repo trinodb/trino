@@ -105,14 +105,13 @@ public class TestTrinoDriverAuth
                 .signWith(defaultKey)
                 .compact();
 
-        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
-            try (Statement statement = connection.createStatement()) {
-                assertTrue(statement.execute("SELECT 123"));
-                ResultSet rs = statement.getResultSet();
-                assertTrue(rs.next());
-                assertEquals(rs.getLong(1), 123);
-                assertFalse(rs.next());
-            }
+        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));
+                Statement statement = connection.createStatement()) {
+            assertTrue(statement.execute("SELECT 123"));
+            ResultSet rs = statement.getResultSet();
+            assertTrue(rs.next());
+            assertEquals(rs.getLong(1), 123);
+            assertFalse(rs.next());
         }
     }
 
@@ -126,14 +125,13 @@ public class TestTrinoDriverAuth
                 .signWith(hmac222)
                 .compact();
 
-        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
-            try (Statement statement = connection.createStatement()) {
-                assertTrue(statement.execute("SELECT 123"));
-                ResultSet rs = statement.getResultSet();
-                assertTrue(rs.next());
-                assertEquals(rs.getLong(1), 123);
-                assertFalse(rs.next());
-            }
+        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));
+                Statement statement = connection.createStatement()) {
+            assertTrue(statement.execute("SELECT 123"));
+            ResultSet rs = statement.getResultSet();
+            assertTrue(rs.next());
+            assertEquals(rs.getLong(1), 123);
+            assertFalse(rs.next());
         }
     }
 
@@ -147,14 +145,13 @@ public class TestTrinoDriverAuth
                 .signWith(privateKey33)
                 .compact();
 
-        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
-            try (Statement statement = connection.createStatement()) {
-                assertTrue(statement.execute("SELECT 123"));
-                ResultSet rs = statement.getResultSet();
-                assertTrue(rs.next());
-                assertEquals(rs.getLong(1), 123);
-                assertFalse(rs.next());
-            }
+        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));
+                Statement statement = connection.createStatement()) {
+            assertTrue(statement.execute("SELECT 123"));
+            ResultSet rs = statement.getResultSet();
+            assertTrue(rs.next());
+            assertEquals(rs.getLong(1), 123);
+            assertFalse(rs.next());
         }
     }
 
@@ -162,10 +159,9 @@ public class TestTrinoDriverAuth
     public void testFailedNoToken()
             throws Exception
     {
-        try (Connection connection = createConnection(ImmutableMap.of())) {
-            try (Statement statement = connection.createStatement()) {
-                statement.execute("SELECT 123");
-            }
+        try (Connection connection = createConnection(ImmutableMap.of());
+                Statement statement = connection.createStatement()) {
+            statement.execute("SELECT 123");
         }
     }
 
@@ -177,10 +173,9 @@ public class TestTrinoDriverAuth
                 .setSubject("test")
                 .compact();
 
-        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
-            try (Statement statement = connection.createStatement()) {
-                statement.execute("SELECT 123");
-            }
+        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));
+                Statement statement = connection.createStatement()) {
+            statement.execute("SELECT 123");
         }
     }
 
@@ -194,10 +189,9 @@ public class TestTrinoDriverAuth
                 .signWith(badKey)
                 .compact();
 
-        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
-            try (Statement statement = connection.createStatement()) {
-                statement.execute("SELECT 123");
-            }
+        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));
+                Statement statement = connection.createStatement()) {
+            statement.execute("SELECT 123");
         }
     }
 
@@ -211,10 +205,9 @@ public class TestTrinoDriverAuth
                 .signWith(privateKey33)
                 .compact();
 
-        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
-            try (Statement statement = connection.createStatement()) {
-                statement.execute("SELECT 123");
-            }
+        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));
+                Statement statement = connection.createStatement()) {
+            statement.execute("SELECT 123");
         }
     }
 
@@ -228,10 +221,9 @@ public class TestTrinoDriverAuth
                 .signWith(privateKey33)
                 .compact();
 
-        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
-            try (Statement statement = connection.createStatement()) {
-                statement.execute("SELECT 123");
-            }
+        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));
+                Statement statement = connection.createStatement()) {
+            statement.execute("SELECT 123");
         }
     }
 
@@ -245,15 +237,110 @@ public class TestTrinoDriverAuth
                 .signWith(privateKey33)
                 .compact();
 
-        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken, "SSLVerification", "FULL"))) {
-            try (Statement statement = connection.createStatement()) {
-                assertTrue(statement.execute("SELECT 123"));
-                ResultSet rs = statement.getResultSet();
-                assertTrue(rs.next());
-                assertEquals(rs.getLong(1), 123);
-                assertFalse(rs.next());
-            }
+        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken, "SSLVerification", "FULL"));
+                Statement statement = connection.createStatement()) {
+            assertTrue(statement.execute("SELECT 123"));
+            ResultSet rs = statement.getResultSet();
+            assertTrue(rs.next());
+            assertEquals(rs.getLong(1), 123);
+            assertFalse(rs.next());
         }
+    }
+
+    @Test
+    public void testSuccessFullSslVerificationAlternateHostname()
+            throws Exception
+    {
+        String accessToken = newJwtBuilder()
+                .setSubject("test")
+                .setHeaderParam(KEY_ID, "33")
+                .signWith(privateKey33)
+                .compact();
+
+        String url = format("jdbc:trino://127.0.0.1:%s", server.getHttpsAddress().getPort());
+        Properties properties = new Properties();
+        properties.setProperty("SSL", "true");
+        properties.setProperty("SSLVerification", "FULL");
+        properties.setProperty("SSLTrustStorePath", new File(getResource("localhost.truststore").toURI()).getPath());
+        properties.setProperty("SSLTrustStorePassword", "changeit");
+        properties.setProperty("accessToken", accessToken);
+        properties.setProperty("hostnameInCertificate", "localhost");
+
+        try (Connection connection = DriverManager.getConnection(url, properties);
+                Statement statement = connection.createStatement()) {
+            assertTrue(statement.execute("SELECT 123"));
+            ResultSet rs = statement.getResultSet();
+            assertTrue(rs.next());
+            assertEquals(rs.getLong(1), 123);
+            assertFalse(rs.next());
+        }
+    }
+
+    @Test
+    public void testFailedFullSslVerificationAlternateHostnameNotProvided()
+            throws Exception
+    {
+        String accessToken = newJwtBuilder()
+                .setSubject("test")
+                .setHeaderParam(KEY_ID, "33")
+                .signWith(privateKey33)
+                .compact();
+
+        String url = format("jdbc:trino://127.0.0.1:%s", server.getHttpsAddress().getPort());
+        Properties properties = new Properties();
+        properties.setProperty("SSL", "true");
+        properties.setProperty("SSLVerification", "FULL");
+        properties.setProperty("SSLTrustStorePath", new File(getResource("localhost.truststore").toURI()).getPath());
+        properties.setProperty("SSLTrustStorePassword", "changeit");
+        properties.setProperty("accessToken", accessToken);
+
+        try (Connection connection = DriverManager.getConnection(url, properties);
+                Statement statement = connection.createStatement()) {
+            assertThatThrownBy(() -> statement.execute("SELECT 123"))
+                    .isInstanceOf(SQLException.class).hasMessageContaining("Error executing query: javax.net.ssl.SSLPeerUnverifiedException: Hostname 127.0.0.1 not verified");
+        }
+    }
+
+    @Test
+    public void testFailedCaSslVerificationAlternateHostname()
+    {
+        String accessToken = newJwtBuilder()
+                .setSubject("test")
+                .setHeaderParam(KEY_ID, "33")
+                .signWith(privateKey33)
+                .compact();
+
+        String url = format("jdbc:trino://127.0.0.1:%s", server.getHttpsAddress().getPort());
+        Properties properties = new Properties();
+        properties.setProperty("SSL", "true");
+        properties.setProperty("SSLVerification", "CA");
+        properties.setProperty("accessToken", accessToken);
+        properties.setProperty("hostnameInCertificate", "localhost");
+
+        assertThatThrownBy(() -> DriverManager.getConnection(url, properties))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property hostnameInCertificate requires SSLVerification to be set to FULL");
+    }
+
+    @Test
+    public void testFailedNoneSslVerificationAlternateHostname()
+    {
+        String accessToken = newJwtBuilder()
+                .setSubject("test")
+                .setHeaderParam(KEY_ID, "33")
+                .signWith(privateKey33)
+                .compact();
+
+        String url = format("jdbc:trino://127.0.0.1:%s", server.getHttpsAddress().getPort());
+        Properties properties = new Properties();
+        properties.setProperty("SSL", "true");
+        properties.setProperty("SSLVerification", "NONE");
+        properties.setProperty("accessToken", accessToken);
+        properties.setProperty("hostnameInCertificate", "localhost");
+
+        assertThatThrownBy(() -> DriverManager.getConnection(url, properties))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property hostnameInCertificate requires SSLVerification to be set to FULL");
     }
 
     @Test
@@ -266,14 +353,13 @@ public class TestTrinoDriverAuth
                 .signWith(privateKey33)
                 .compact();
 
-        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken, "SSLVerification", "CA"))) {
-            try (Statement statement = connection.createStatement()) {
-                assertTrue(statement.execute("SELECT 123"));
-                ResultSet rs = statement.getResultSet();
-                assertTrue(rs.next());
-                assertEquals(rs.getLong(1), 123);
-                assertFalse(rs.next());
-            }
+        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken, "SSLVerification", "CA"));
+                Statement statement = connection.createStatement()) {
+            assertTrue(statement.execute("SELECT 123"));
+            ResultSet rs = statement.getResultSet();
+            assertTrue(rs.next());
+            assertEquals(rs.getLong(1), 123);
+            assertFalse(rs.next());
         }
     }
 
@@ -288,7 +374,7 @@ public class TestTrinoDriverAuth
     {
         assertThatThrownBy(() -> createBasicConnection(ImmutableMap.of("SSLVerification", "FULL")))
                 .isInstanceOf(SQLException.class)
-                .hasMessage("Connection property 'SSLVerification' is not allowed");
+                .hasMessage("Connection property SSLVerification requires TLS/SSL to be enabled");
     }
 
     // TODO: testFailedFullSslVerificationMismatchedHostname()
@@ -300,7 +386,7 @@ public class TestTrinoDriverAuth
     {
         assertThatThrownBy(() -> createBasicConnection(ImmutableMap.of("SSLVerification", "CA")))
                 .isInstanceOf(SQLException.class)
-                .hasMessage("Connection property 'SSLVerification' is not allowed");
+                .hasMessage("Connection property SSLVerification requires TLS/SSL to be enabled");
     }
 
     // TODO: testFailedCaSslVerificationInvalidCA()
@@ -310,18 +396,19 @@ public class TestTrinoDriverAuth
     {
         assertThatThrownBy(() -> createConnection(ImmutableMap.of("SSLVerification", "NONE")))
                 .isInstanceOf(SQLException.class)
-                .hasMessage("Connection property 'SSLTrustStorePath' is not allowed");
+                .hasMessage("Connection property SSLTrustStorePath cannot be set if SSLVerification is set to NONE");
     }
 
     @Test
     public void testFailedNoneSslVerificationWithSSLUnsigned()
             throws Exception
     {
-        Connection connection = createBasicConnection(ImmutableMap.of("SSL", "true", "SSLVerification", "NONE"));
-        Statement statement = connection.createStatement();
-        assertThatThrownBy(() -> statement.execute("SELECT 123"))
-                .isInstanceOf(SQLException.class)
-                .hasMessage("Authentication failed: Unauthorized");
+        try (Connection connection = createBasicConnection(ImmutableMap.of("SSL", "true", "SSLVerification", "NONE"));
+                Statement statement = connection.createStatement()) {
+            assertThatThrownBy(() -> statement.execute("SELECT 123"))
+                    .isInstanceOf(SQLException.class)
+                    .hasMessage("Authentication failed: Unauthorized");
+        }
     }
 
     private Connection createConnection(Map<String, String> additionalProperties)

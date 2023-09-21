@@ -25,7 +25,6 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
-import io.trino.type.BlockTypeOperators;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -38,11 +37,8 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
-import static io.trino.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -50,7 +46,6 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestHashSemiJoinOperator
@@ -59,7 +54,6 @@ public class TestHashSemiJoinOperator
     private ScheduledExecutorService scheduledExecutor;
     private TaskContext taskContext;
     private TypeOperators typeOperators;
-    private BlockTypeOperators blockTypeOperators;
 
     @BeforeMethod
     public void setUp()
@@ -68,7 +62,6 @@ public class TestHashSemiJoinOperator
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
         taskContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION);
         typeOperators = new TypeOperators();
-        blockTypeOperators = new BlockTypeOperators(typeOperators);
     }
 
     @AfterMethod(alwaysRun = true)
@@ -115,7 +108,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(typeOperators),
-                blockTypeOperators);
+                typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
@@ -180,7 +173,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(typeOperators),
-                blockTypeOperators);
+                typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
@@ -220,36 +213,6 @@ public class TestHashSemiJoinOperator
         OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
-    @Test(dataProvider = "dataType")
-    public void testSemiJoinMemoryReservationYield(Type type)
-    {
-        // We only need the first column so we are creating the pages with hashEnabled false
-        List<Page> input = createPagesWithDistinctHashKeys(type, 5_000, 500);
-
-        // create the operator
-        SetBuilderOperatorFactory setBuilderOperatorFactory = new SetBuilderOperatorFactory(
-                1,
-                new PlanNodeId("test"),
-                type,
-                0,
-                Optional.of(1),
-                10,
-                new JoinCompiler(typeOperators),
-                blockTypeOperators);
-
-        // run test
-        GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(
-                input,
-                type,
-                setBuilderOperatorFactory,
-                operator -> ((SetBuilderOperator) operator).getCapacity(),
-                450_000);
-
-        assertGreaterThanOrEqual(result.getYieldCount(), 4);
-        assertGreaterThanOrEqual(result.getMaxReservedBytes(), 20L << 19);
-        assertEquals(result.getOutput().stream().mapToInt(Page::getPositionCount).sum(), 0);
-    }
-
     @Test(dataProvider = "hashEnabledValues")
     public void testBuildSideNulls(boolean hashEnabled)
     {
@@ -275,7 +238,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(typeOperators),
-                blockTypeOperators);
+                typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
@@ -331,7 +294,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(typeOperators),
-                blockTypeOperators);
+                typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
@@ -391,7 +354,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(typeOperators),
-                blockTypeOperators);
+                typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
@@ -449,7 +412,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(typeOperators),
-                blockTypeOperators);
+                typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);

@@ -17,21 +17,24 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestHiddenColumns
 {
     private LocalQueryRunner runner;
     private QueryAssertions assertions;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         runner = LocalQueryRunner.create(TEST_SESSION);
@@ -39,7 +42,7 @@ public class TestHiddenColumns
         assertions = new QueryAssertions(runner);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void destroy()
     {
         if (runner != null) {

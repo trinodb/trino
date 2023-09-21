@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -60,13 +59,6 @@ import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
-import org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat;
-import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
-import org.apache.hadoop.mapred.FileInputFormat;
-import org.apache.hadoop.mapred.InputSplit;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.RecordReader;
-import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.util.Progressable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -111,10 +103,9 @@ import static io.trino.plugin.hive.BackgroundHiveSplitLoader.hasAttemptId;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveColumnHandle.pathColumnHandle;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
-import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
-import static io.trino.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.CSV;
+import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
@@ -210,67 +201,6 @@ public class TestBackgroundHiveSplitLoader
         assertSplitCount(CSV, ImmutableMap.of("skip.header.line.count", "2"), fileSize, 1);
         assertSplitCount(CSV, ImmutableMap.of("skip.footer.line.count", "1"), fileSize, 1);
         assertSplitCount(CSV, ImmutableMap.of("skip.header.line.count", "1", "skip.footer.line.count", "1"), fileSize, 1);
-    }
-
-    @Test
-    public void testSplittableNotCheckedOnSmallFiles()
-            throws Exception
-    {
-        DataSize initialSplitSize = getMaxInitialSplitSize(SESSION);
-
-        Table table = table(
-                ImmutableList.of(),
-                Optional.empty(),
-                ImmutableMap.of(),
-                StorageFormat.create(LazySimpleSerDe.class.getName(), TestSplittableFailureInputFormat.class.getName(), TestSplittableFailureInputFormat.class.getName()));
-
-        //  Exactly minimum split size, no isSplittable check
-        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
-                ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), initialSplitSize.toBytes())),
-                TupleDomain.all(),
-                Optional.empty(),
-                table,
-                Optional.empty());
-
-        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
-        backgroundHiveSplitLoader.start(hiveSplitSource);
-
-        assertEquals(drainSplits(hiveSplitSource).size(), 1);
-
-        //  Large enough for isSplittable to be called
-        backgroundHiveSplitLoader = backgroundHiveSplitLoader(
-                ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), initialSplitSize.toBytes() + 1)),
-                TupleDomain.all(),
-                Optional.empty(),
-                table,
-                Optional.empty());
-
-        HiveSplitSource finalHiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
-        backgroundHiveSplitLoader.start(finalHiveSplitSource);
-        assertTrinoExceptionThrownBy(() -> drainSplits(finalHiveSplitSource))
-                .hasErrorCode(HIVE_UNKNOWN_ERROR)
-                .isInstanceOfSatisfying(TrinoException.class, e -> {
-                    Throwable cause = Throwables.getRootCause(e);
-                    assertTrue(cause instanceof IllegalStateException);
-                    assertEquals(cause.getMessage(), "isSplittable called");
-                });
-    }
-
-    public static final class TestSplittableFailureInputFormat
-            extends FileInputFormat<Void, Void>
-    {
-        @Override
-        protected boolean isSplitable(FileSystem fs, Path filename)
-        {
-            throw new IllegalStateException("isSplittable called");
-        }
-
-        @Override
-        public RecordReader<Void, Void> getRecordReader(InputSplit inputSplit, JobConf jobConf, Reporter reporter)
-                throws IOException
-        {
-            throw new UnsupportedOperationException();
-        }
     }
 
     private void assertSplitCount(HiveStorageFormat storageFormat, Map<String, String> tableProperties, DataSize fileSize, int expectedSplitCount)
@@ -884,7 +814,7 @@ public class TestBackgroundHiveSplitLoader
                 files,
                 directoryLister);
         Optional<Iterator<InternalHiveSplit>> splitIterator = backgroundHiveSplitLoader.buildManifestFileIterator(
-                new AvroContainerInputFormat(),
+                AVRO,
                 "partition",
                 schema,
                 ImmutableList.of(),
@@ -922,7 +852,7 @@ public class TestBackgroundHiveSplitLoader
                 files,
                 directoryLister);
         Optional<Iterator<InternalHiveSplit>> splitIterator = backgroundHiveSplitLoader.buildManifestFileIterator(
-                new AvroContainerInputFormat(),
+                AVRO,
                 "partition",
                 schema,
                 ImmutableList.of(),
@@ -1313,10 +1243,7 @@ public class TestBackgroundHiveSplitLoader
         return table(partitionColumns,
                 bucketProperty,
                 tableParameters,
-                StorageFormat.create(
-                        "com.facebook.hive.orc.OrcSerde",
-                        "org.apache.hadoop.hive.ql.io.RCFileInputFormat",
-                        "org.apache.hadoop.hive.ql.io.RCFileInputFormat"));
+                StorageFormat.create(ORC.getSerde(), ORC.getInputFormat(), ORC.getOutputFormat()));
     }
 
     private static Table table(
@@ -1329,10 +1256,7 @@ public class TestBackgroundHiveSplitLoader
                 partitionColumns,
                 bucketProperty,
                 tableParameters,
-                StorageFormat.create(
-                        "com.facebook.hive.orc.OrcSerde",
-                        "org.apache.hadoop.hive.ql.io.RCFileInputFormat",
-                        "org.apache.hadoop.hive.ql.io.RCFileInputFormat"));
+                StorageFormat.create(ORC.getSerde(), ORC.getInputFormat(), ORC.getOutputFormat()));
     }
 
     private static Table table(

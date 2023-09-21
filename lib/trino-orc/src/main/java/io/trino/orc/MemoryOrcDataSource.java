@@ -21,6 +21,7 @@ import io.trino.orc.stream.OrcDataReader;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -70,7 +71,8 @@ public class MemoryOrcDataSource
     @Override
     public Slice readTail(int length)
     {
-        return readFully(data.length() - length, length);
+        int readSize = min(data.length(), length);
+        return readFully(data.length() - readSize, readSize);
     }
 
     @Override

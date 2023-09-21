@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_MATERIALIZED_VIEW_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW;
@@ -59,7 +60,6 @@ public abstract class BaseConnectorSmokeTest
 
     /**
      * Make sure to group related behaviours together in the order and grouping they are declared in {@link TestingConnectorBehavior}.
-     * If required, annotate the method with {@code @SuppressWarnings("DuplicateBranchesInSwitch")}.
      */
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -657,6 +657,49 @@ public abstract class BaseConnectorSmokeTest
             // comment deleted
             assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS NULL");
             assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo(null);
+        }
+    }
+
+    @Test
+    public void testCommentMaterializedViewColumn()
+    {
+        if (!hasBehavior(SUPPORTS_COMMENT_ON_MATERIALIZED_VIEW_COLUMN)) {
+            if (hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW)) {
+                String viewName = "test_materialized_view_" + randomNameSuffix();
+                assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
+                assertQueryFails("COMMENT ON COLUMN " + viewName + ".regionkey IS 'new region key comment'", "This connector does not support setting materialized view column comments");
+                assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+                return;
+            }
+            throw new SkipException("Skipping as connector does not support MATERIALIZED VIEW COLUMN COMMENT");
+        }
+
+        String viewName = "test_materialized_view_" + randomNameSuffix();
+        try {
+            assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
+
+            // comment set
+            assertUpdate("COMMENT ON COLUMN " + viewName + ".regionkey IS 'new region key comment'");
+            assertThat(getColumnComment(viewName, "regionkey")).isEqualTo("new region key comment");
+
+            // comment updated
+            assertUpdate("COMMENT ON COLUMN " + viewName + ".regionkey IS 'updated region key comment'");
+            assertThat(getColumnComment(viewName, "regionkey")).isEqualTo("updated region key comment");
+
+            // refresh materialized view
+            assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 25);
+            assertThat(getColumnComment(viewName, "regionkey")).isEqualTo("updated region key comment");
+
+            // comment set to empty
+            assertUpdate("COMMENT ON COLUMN " + viewName + ".regionkey IS ''");
+            assertThat(getColumnComment(viewName, "regionkey")).isEqualTo("");
+
+            // comment deleted
+            assertUpdate("COMMENT ON COLUMN " + viewName + ".regionkey IS NULL");
+            assertThat(getColumnComment(viewName, "regionkey")).isEqualTo(null);
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW " + viewName);
         }
     }
 

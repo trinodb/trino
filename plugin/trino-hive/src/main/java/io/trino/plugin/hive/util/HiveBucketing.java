@@ -215,8 +215,7 @@ public final class HiveBucketing
         }
 
         HiveBucketProperty hiveBucketProperty = hiveTable.getBucketHandle().get().toTableBucketProperty();
-        List<Column> dataColumns = hiveTable.getDataColumns().stream()
-                .map(HiveColumnHandle::toMetastoreColumn)
+        List<HiveColumnHandle> dataColumns = hiveTable.getDataColumns().stream()
                 .collect(toImmutableList());
 
         Optional<Map<ColumnHandle, List<NullableValue>>> bindings = TupleDomain.extractDiscreteValues(effectivePredicate);
@@ -247,7 +246,7 @@ public final class HiveBucketing
         return Optional.of(new HiveBucketFilter(builder.build()));
     }
 
-    private static Optional<Set<Integer>> getHiveBuckets(HiveBucketProperty hiveBucketProperty, List<Column> dataColumns, Map<ColumnHandle, List<NullableValue>> bindings)
+    private static Optional<Set<Integer>> getHiveBuckets(HiveBucketProperty hiveBucketProperty, List<HiveColumnHandle> dataColumns, Map<ColumnHandle, List<NullableValue>> bindings)
     {
         if (bindings.isEmpty()) {
             return Optional.empty();
@@ -258,8 +257,8 @@ public final class HiveBucketing
 
         // Verify the bucket column types are supported
         Map<String, HiveType> hiveTypes = new HashMap<>();
-        for (Column column : dataColumns) {
-            hiveTypes.put(column.getName(), column.getType());
+        for (HiveColumnHandle column : dataColumns) {
+            hiveTypes.put(column.getName(), column.getHiveType());
         }
         for (String column : bucketColumns) {
             if (!isTypeSupportedForBucketing(hiveTypes.get(column).getTypeInfo())) {

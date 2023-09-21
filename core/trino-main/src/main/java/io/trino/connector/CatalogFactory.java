@@ -13,11 +13,10 @@
  */
 package io.trino.connector;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.function.Function;
 

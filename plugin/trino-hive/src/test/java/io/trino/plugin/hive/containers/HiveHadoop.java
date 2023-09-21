@@ -19,6 +19,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.log.Logger;
 import io.trino.testing.TestingProperties;
 import io.trino.testing.containers.BaseTestContainer;
+import io.trino.testing.containers.PrintingLogConsumer;
 import org.testcontainers.containers.Network;
 
 import java.util.Map;

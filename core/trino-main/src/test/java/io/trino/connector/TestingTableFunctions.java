@@ -682,7 +682,7 @@ public class TestingTableFunctions
                 BlockBuilder builder = BIGINT.createBlockBuilder(null, page.getPositionCount());
                 for (long index = processedPositions; index < processedPositions + page.getPositionCount(); index++) {
                     // TODO check for long overflow
-                    builder.writeLong(index);
+                    BIGINT.writeLong(builder, index);
                 }
                 processedPositions = processedPositions + page.getPositionCount();
                 return usedInputAndProduced(new Page(builder.build()));
@@ -789,7 +789,7 @@ public class TestingTableFunctions
                     BlockBuilder builder = BIGINT.createBlockBuilder(null, page.getPositionCount());
                     for (long index = processedPositions; index < processedPositions + page.getPositionCount(); index++) {
                         // TODO check for long overflow
-                        builder.writeLong(index);
+                        BIGINT.writeLong(builder, index);
                     }
                     processedPositions = processedPositions + page.getPositionCount();
                     indexes = builder.build();
@@ -1079,7 +1079,7 @@ public class TestingTableFunctions
                     // pass-through index for input_1
                     BlockBuilder input1PassThroughBuilder = BIGINT.createBlockBuilder(null, 1);
                     if (input1Present) {
-                        input1PassThroughBuilder.writeLong(input1EndIndex - 1);
+                        BIGINT.writeLong(input1PassThroughBuilder, input1EndIndex - 1);
                     }
                     else {
                         input1PassThroughBuilder.appendNull();
@@ -1088,7 +1088,7 @@ public class TestingTableFunctions
                     // pass-through index for input_2
                     BlockBuilder input2PassThroughBuilder = BIGINT.createBlockBuilder(null, 1);
                     if (input2Present) {
-                        input2PassThroughBuilder.writeLong(input2EndIndex - 1);
+                        BIGINT.writeLong(input2PassThroughBuilder, input2EndIndex - 1);
                     }
                     else {
                         input2PassThroughBuilder.appendNull();

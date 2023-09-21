@@ -69,6 +69,9 @@ public interface HiveMetastore
 
     List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue);
 
+    /**
+     * Lists views and materialized views from given database.
+     */
     List<String> getAllViews(String databaseName);
 
     /**

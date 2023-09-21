@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
@@ -39,9 +40,7 @@ public class IcebergSplit
     private final long start;
     private final long length;
     private final long fileSize;
-    private final long fileRecordCount;
     private final IcebergFileFormat fileFormat;
-    private final List<HostAddress> addresses;
     private final String partitionSpecJson;
     private final String partitionDataJson;
     private final List<DeleteFile> deletes;
@@ -53,9 +52,7 @@ public class IcebergSplit
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
             @JsonProperty("fileSize") long fileSize,
-            @JsonProperty("fileRecordCount") long fileRecordCount,
             @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
-            @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("partitionSpecJson") String partitionSpecJson,
             @JsonProperty("partitionDataJson") String partitionDataJson,
             @JsonProperty("deletes") List<DeleteFile> deletes,
@@ -65,9 +62,7 @@ public class IcebergSplit
         this.start = start;
         this.length = length;
         this.fileSize = fileSize;
-        this.fileRecordCount = fileRecordCount;
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
-        this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.partitionSpecJson = requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
         this.deletes = ImmutableList.copyOf(requireNonNull(deletes, "deletes is null"));
@@ -80,11 +75,11 @@ public class IcebergSplit
         return true;
     }
 
-    @JsonProperty
+    @JsonIgnore
     @Override
     public List<HostAddress> getAddresses()
     {
-        return addresses;
+        return ImmutableList.of();
     }
 
     @JsonProperty
@@ -109,12 +104,6 @@ public class IcebergSplit
     public long getFileSize()
     {
         return fileSize;
-    }
-
-    @JsonProperty
-    public long getFileRecordCount()
-    {
-        return fileRecordCount;
     }
 
     @JsonProperty
@@ -163,7 +152,6 @@ public class IcebergSplit
     {
         return INSTANCE_SIZE
                 + estimatedSizeOf(path)
-                + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
                 + estimatedSizeOf(partitionSpecJson)
                 + estimatedSizeOf(partitionDataJson)
                 + estimatedSizeOf(deletes, DeleteFile::getRetainedSizeInBytes)
@@ -176,8 +164,7 @@ public class IcebergSplit
         ToStringHelper helper = toStringHelper(this)
                 .addValue(path)
                 .add("start", start)
-                .add("length", length)
-                .add("records", fileRecordCount);
+                .add("length", length);
         if (!deletes.isEmpty()) {
             helper.add("deleteFiles", deletes.size());
             helper.add("deleteRecords", deletes.stream()

@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake.transactionlog;
 
 import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.failsafe.Failsafe;
@@ -30,10 +29,8 @@ import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
-import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -42,6 +39,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZonedDateTime;
 import java.time.chrono.IsoChronology;
 import java.time.format.DateTimeFormatter;
@@ -54,6 +52,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.math.LongMath.divide;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
@@ -67,7 +66,10 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Double.parseDouble;
@@ -76,6 +78,7 @@ import static java.lang.Float.parseFloat;
 import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static java.time.temporal.ChronoField.DAY_OF_MONTH;
@@ -88,7 +91,9 @@ public final class TransactionLogParser
 
     // Before 1900, Java Time and Joda Time are not consistent with java.sql.Date and java.util.Calendar
     // Since January 1, 1900 UTC is still December 31, 1899 in other zones, we are adding a 1 day margin.
-    public static final LocalDate START_OF_MODERN_ERA = LocalDate.of(1900, 1, 2);
+    private static final LocalDate START_OF_MODERN_ERA_DATE = LocalDate.of(1900, 1, 2);
+    public static final long START_OF_MODERN_ERA_EPOCH_DAY = START_OF_MODERN_ERA_DATE.toEpochDay();
+    public static final long START_OF_MODERN_ERA_EPOCH_MICROS = LocalDateTime.of(START_OF_MODERN_ERA_DATE, LocalTime.MIN).toEpochSecond(UTC) * MICROSECONDS_PER_SECOND;
 
     public static final String LAST_CHECKPOINT_FILENAME = "_last_checkpoint";
 
@@ -132,7 +137,6 @@ public final class TransactionLogParser
             .withResolverStyle(ResolverStyle.STRICT);
 
     public static DeltaLakeTransactionLogEntry parseJson(String json)
-            throws JsonProcessingException
     {
         // lines are json strings followed by 'x' in some Databricks versions of Delta
         if (json.endsWith("x")) {
@@ -153,16 +157,22 @@ public final class TransactionLogParser
     @Nullable
     public static Object deserializePartitionValue(DeltaLakeColumnHandle column, Optional<String> valueString)
     {
-        return valueString.map(value -> deserializeColumnValue(column, value, TransactionLogParser::readPartitionTimestamp)).orElse(null);
+        return valueString.map(value -> deserializeColumnValue(column, value, TransactionLogParser::readPartitionTimestamp, TransactionLogParser::readPartitionTimestampWithZone)).orElse(null);
     }
 
     private static Long readPartitionTimestamp(String timestamp)
+    {
+        LocalDateTime localDateTime = LocalDateTime.parse(timestamp, PARTITION_TIMESTAMP_FORMATTER);
+        return localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND + divide(localDateTime.getNano(), NANOSECONDS_PER_MICROSECOND, UNNECESSARY);
+    }
+
+    private static Long readPartitionTimestampWithZone(String timestamp)
     {
         ZonedDateTime zonedDateTime = LocalDateTime.parse(timestamp, PARTITION_TIMESTAMP_FORMATTER).atZone(UTC);
         return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), UTC_KEY);
     }
 
-    public static Object deserializeColumnValue(DeltaLakeColumnHandle column, String valueString, Function<String, Long> timestampReader)
+    public static Object deserializeColumnValue(DeltaLakeColumnHandle column, String valueString, Function<String, Long> timestampReader, Function<String, Long> timestampWithZoneReader)
     {
         verify(column.isBaseColumn(), "Unexpected dereference: %s", column);
         Type type = column.getBaseType();
@@ -187,8 +197,8 @@ public final class TransactionLogParser
             if (type.equals(BIGINT)) {
                 return parseLong(valueString);
             }
-            if (type.getBaseName().equals(StandardTypes.DECIMAL)) {
-                return parseDecimal((DecimalType) type, valueString);
+            if (type instanceof DecimalType decimalType) {
+                return parseDecimal(decimalType, valueString);
             }
             if (type.equals(REAL)) {
                 return (long) floatToRawIntBits(parseFloat(valueString));
@@ -200,8 +210,11 @@ public final class TransactionLogParser
                 // date values are represented as yyyy-MM-dd
                 return LocalDate.parse(valueString).toEpochDay();
             }
-            if (type.equals(createTimestampWithTimeZoneType(3))) {
+            if (type.equals(TIMESTAMP_MICROS)) {
                 return timestampReader.apply(valueString);
+            }
+            if (type.equals(TIMESTAMP_TZ_MILLIS)) {
+                return timestampWithZoneReader.apply(valueString);
             }
             if (VARCHAR.equals(type)) {
                 return utf8Slice(valueString);

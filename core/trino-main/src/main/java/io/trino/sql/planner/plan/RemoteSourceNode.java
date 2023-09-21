@@ -16,11 +16,10 @@ package io.trino.sql.planner.plan;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.operator.RetryPolicy;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Optional;
@@ -117,5 +116,16 @@ public class RemoteSourceNode
     {
         checkArgument(newChildren.isEmpty(), "newChildren is not empty");
         return this;
+    }
+
+    public RemoteSourceNode withSourceFragmentIds(List<PlanFragmentId> sourceFragmentIds)
+    {
+        return new RemoteSourceNode(
+                this.getId(),
+                sourceFragmentIds,
+                this.getOutputSymbols(),
+                this.getOrderingScheme(),
+                this.getExchangeType(),
+                this.getRetryPolicy());
     }
 }

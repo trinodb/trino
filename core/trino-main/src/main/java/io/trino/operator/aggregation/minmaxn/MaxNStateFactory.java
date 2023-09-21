@@ -13,8 +13,8 @@
  */
 package io.trino.operator.aggregation.minmaxn;
 
+import io.trino.operator.aggregation.minmaxn.MinMaxNStateFactory.GroupedMinMaxNState;
 import io.trino.operator.aggregation.minmaxn.MinMaxNStateFactory.SingleMinMaxNState;
-import io.trino.spi.block.Block;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.Convention;
@@ -24,12 +24,14 @@ import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
-import java.util.function.Function;
 import java.util.function.LongFunction;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 
@@ -38,14 +40,28 @@ public class MaxNStateFactory
 {
     private static final long MAX_NUMBER_OF_VALUES = 10_000;
     private final LongFunction<TypedHeap> heapFactory;
-    private final Function<Block, TypedHeap> deserializer;
 
     public MaxNStateFactory(
             @OperatorDependency(
+                    operator = OperatorType.READ_VALUE,
+                    argumentTypes = "T",
+                    convention = @Convention(arguments = FLAT, result = BLOCK_BUILDER))
+                    MethodHandle readFlat,
+            @OperatorDependency(
+                    operator = OperatorType.READ_VALUE,
+                    argumentTypes = "T",
+                    convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN))
+                    MethodHandle writeFlat,
+            @OperatorDependency(
                     operator = OperatorType.COMPARISON_UNORDERED_FIRST,
                     argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
-                    MethodHandle compare,
+                    convention = @Convention(arguments = {FLAT, FLAT}, result = FAIL_ON_NULL))
+                    MethodHandle compareFlatFlat,
+            @OperatorDependency(
+                    operator = OperatorType.COMPARISON_UNORDERED_FIRST,
+                    argumentTypes = {"T", "T"},
+                    convention = @Convention(arguments = {FLAT, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL))
+                    MethodHandle compareFlatBlock,
             @TypeParameter("T") Type elementType)
     {
         heapFactory = n -> {
@@ -56,30 +72,29 @@ public class MaxNStateFactory
                     "second argument of max_n must be less than or equal to %s; found %s",
                     MAX_NUMBER_OF_VALUES,
                     n);
-            return new TypedHeap(false, compare, elementType, toIntExact(n));
+            return new TypedHeap(false, readFlat, writeFlat, compareFlatFlat, compareFlatBlock, elementType, toIntExact(n));
         };
-        deserializer = rowBlock -> TypedHeap.deserialize(false, compare, elementType, rowBlock);
     }
 
     @Override
     public MaxNState createSingleState()
     {
-        return new SingleMaxNState(heapFactory, deserializer);
+        return new SingleMaxNState(heapFactory);
     }
 
     @Override
     public MaxNState createGroupedState()
     {
-        return new GroupedMaxNState(heapFactory, deserializer);
+        return new GroupedMaxNState(heapFactory);
     }
 
     private static class GroupedMaxNState
-            extends MinMaxNStateFactory.GroupedMinMaxNState
+            extends GroupedMinMaxNState
             implements MaxNState
     {
-        public GroupedMaxNState(LongFunction<TypedHeap> heapFactory, Function<Block, TypedHeap> deserializer)
+        public GroupedMaxNState(LongFunction<TypedHeap> heapFactory)
         {
-            super(heapFactory, deserializer);
+            super(heapFactory);
         }
     }
 
@@ -87,9 +102,9 @@ public class MaxNStateFactory
             extends SingleMinMaxNState
             implements MaxNState
     {
-        public SingleMaxNState(LongFunction<TypedHeap> heapFactory, Function<Block, TypedHeap> deserializer)
+        public SingleMaxNState(LongFunction<TypedHeap> heapFactory)
         {
-            super(heapFactory, deserializer);
+            super(heapFactory);
         }
 
         public SingleMaxNState(SingleMaxNState state)

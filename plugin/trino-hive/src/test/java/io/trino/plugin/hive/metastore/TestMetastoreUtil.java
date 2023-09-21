@@ -152,7 +152,6 @@ public class TestMetastoreUtil
             .put("partition_columns.types", "string:string")
             .put("sdk1", "sdv1")
             .put("sdk2", "sdv2")
-            .put("serialization.ddl", "struct table_name { i64 col1, binary col2, string col3}")
             .put("serialization.lib", "com.facebook.hive.orc.OrcSerde")
             .buildOrThrow();
 

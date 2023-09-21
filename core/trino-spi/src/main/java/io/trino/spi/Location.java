@@ -13,7 +13,7 @@
  */
 package io.trino.spi;
 
-import javax.annotation.concurrent.Immutable;
+import com.google.errorprone.annotations.Immutable;
 
 @Immutable
 public class Location

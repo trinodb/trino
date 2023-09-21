@@ -16,8 +16,7 @@ package io.trino.filesystem.azure;
 import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 public class AzureFileSystemConfig
 {

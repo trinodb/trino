@@ -20,8 +20,8 @@ import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.jdbc.mapping.MappingConfig.CASE_INSENSITIVE_NAME_MATCHING;
-import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
+import static io.trino.plugin.base.mapping.MappingConfig.CASE_INSENSITIVE_NAME_MATCHING;
+import static io.trino.plugin.base.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 
 public class TestJdbcPlugin
 {

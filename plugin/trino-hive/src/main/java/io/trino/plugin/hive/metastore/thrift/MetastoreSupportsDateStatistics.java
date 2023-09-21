@@ -13,9 +13,8 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.units.Duration;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.concurrent.atomic.AtomicReference;
 

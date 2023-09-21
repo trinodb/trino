@@ -16,7 +16,7 @@ package io.trino.plugin.iceberg.catalog.hadoop;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
-import io.trino.collect.cache.SafeCaches;
+import io.trino.cache.SafeCaches;
 import io.trino.hadoop.HadoopNative;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
@@ -26,9 +26,12 @@ import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.RelationColumnsMetadata;
+import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
@@ -39,6 +42,7 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.Namespace;
@@ -49,10 +53,14 @@ import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.util.PropertyUtil;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -223,6 +231,18 @@ public class TrinoHadoopCatalog
     }
 
     @Override
+    public Optional<Iterator<RelationColumnsMetadata>> streamRelationColumns(ConnectorSession session, Optional<String> namespace, UnaryOperator<Set<SchemaTableName>> relationFilter, Predicate<SchemaTableName> isRedirected)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<Iterator<RelationCommentMetadata>> streamRelationComments(ConnectorSession session, Optional<String> namespace, UnaryOperator<Set<SchemaTableName>> relationFilter, Predicate<SchemaTableName> isRedirected)
+    {
+        return Optional.empty();
+    }
+
+    @Override
     public Transaction newCreateTableTransaction(ConnectorSession session, SchemaTableName schemaTableName, Schema schema, PartitionSpec partitionSpec, SortOrder sortOrder, String location, Map<String, String> properties)
     {
         return newCreateTableTransaction(
@@ -237,16 +257,16 @@ public class TrinoHadoopCatalog
     }
 
     @Override
+    public void registerTable(ConnectorSession session, SchemaTableName tableName, TableMetadata tableMetadata)
+    {
+        getCatalog(session).registerTable(TableIdentifier.of(tableName.getSchemaName(), tableName.getTableName()), tableMetadata.metadataFileLocation());
+    }
+
+    @Override
     public Transaction newCreateTableTransaction(ConnectorSession session, SchemaTableName schemaTableName, Schema schema, PartitionSpec partitionSpec, SortOrder sortOrder, String location, Map<String, String> properties, Optional<String> owner)
     {
         // Location cannot be specified for hadoop tables.
         return getCatalog(session).newCreateTableTransaction(toTableId(schemaTableName), schema, partitionSpec, null, properties);
-    }
-
-    @Override
-    public void registerTable(ConnectorSession session, SchemaTableName tableName, String tableLocation, String metadataLocation)
-    {
-        getCatalog(session).registerTable(TableIdentifier.of(tableName.getSchemaName(), tableName.getTableName()), metadataLocation);
     }
 
     @Override
@@ -283,6 +303,12 @@ public class TrinoHadoopCatalog
             // Have to change exception types due to code relying on specific exception to be thrown.
             throw new TableNotFoundException(schemaTableName, e);
         }
+    }
+
+    @Override
+    public Map<SchemaTableName, List<ColumnMetadata>> tryGetColumnMetadata(ConnectorSession session, List<SchemaTableName> tables)
+    {
+        return null;
     }
 
     @Override
@@ -366,6 +392,12 @@ public class TrinoHadoopCatalog
     }
 
     @Override
+    public void updateMaterializedViewColumnComment(ConnectorSession session, SchemaTableName schemaViewName, String columnName, Optional<String> comment)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "updateMaterializedViewColumnComment is not supported by " + getCatalog(session).name());
+    }
+
+    @Override
     public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         throw new TrinoException(NOT_SUPPORTED, "dropMaterializedView is not supported by " + getCatalog(session).name());
@@ -378,7 +410,7 @@ public class TrinoHadoopCatalog
     }
 
     @Override
-    public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
+    public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName, String catalogName)
     {
         return Optional.empty();
     }

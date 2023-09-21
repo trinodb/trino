@@ -27,26 +27,26 @@ public class CreateTable
 {
     private final QualifiedName name;
     private final List<TableElement> elements;
-    private final boolean notExists;
+    private final SaveMode saveMode;
     private final List<Property> properties;
     private final Optional<String> comment;
 
-    public CreateTable(QualifiedName name, List<TableElement> elements, boolean notExists, List<Property> properties, Optional<String> comment)
+    public CreateTable(QualifiedName name, List<TableElement> elements, SaveMode saveMode, List<Property> properties, Optional<String> comment)
     {
-        this(Optional.empty(), name, elements, notExists, properties, comment);
+        this(Optional.empty(), name, elements, saveMode, properties, comment);
     }
 
-    public CreateTable(NodeLocation location, QualifiedName name, List<TableElement> elements, boolean notExists, List<Property> properties, Optional<String> comment)
+    public CreateTable(NodeLocation location, QualifiedName name, List<TableElement> elements, SaveMode saveMode, List<Property> properties, Optional<String> comment)
     {
-        this(Optional.of(location), name, elements, notExists, properties, comment);
+        this(Optional.of(location), name, elements, saveMode, properties, comment);
     }
 
-    private CreateTable(Optional<NodeLocation> location, QualifiedName name, List<TableElement> elements, boolean notExists, List<Property> properties, Optional<String> comment)
+    private CreateTable(Optional<NodeLocation> location, QualifiedName name, List<TableElement> elements, SaveMode saveMode, List<Property> properties, Optional<String> comment)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
         this.elements = ImmutableList.copyOf(requireNonNull(elements, "elements is null"));
-        this.notExists = notExists;
+        this.saveMode = requireNonNull(saveMode, "saveMode is null");
         this.properties = requireNonNull(properties, "properties is null");
         this.comment = requireNonNull(comment, "comment is null");
     }
@@ -61,9 +61,9 @@ public class CreateTable
         return elements;
     }
 
-    public boolean isNotExists()
+    public SaveMode getSaveMode()
     {
-        return notExists;
+        return saveMode;
     }
 
     public List<Property> getProperties()
@@ -94,7 +94,7 @@ public class CreateTable
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, elements, notExists, properties, comment);
+        return Objects.hash(name, elements, saveMode, properties, comment);
     }
 
     @Override
@@ -109,7 +109,7 @@ public class CreateTable
         CreateTable o = (CreateTable) obj;
         return Objects.equals(name, o.name) &&
                 Objects.equals(elements, o.elements) &&
-                Objects.equals(notExists, o.notExists) &&
+                Objects.equals(saveMode, o.saveMode) &&
                 Objects.equals(properties, o.properties) &&
                 Objects.equals(comment, o.comment);
     }
@@ -120,7 +120,7 @@ public class CreateTable
         return toStringHelper(this)
                 .add("name", name)
                 .add("elements", elements)
-                .add("notExists", notExists)
+                .add("saveMode", saveMode)
                 .add("properties", properties)
                 .add("comment", comment)
                 .toString();

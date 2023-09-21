@@ -24,6 +24,7 @@ import io.trino.plugin.raptor.legacy.metadata.MetadataDao;
 import io.trino.plugin.raptor.legacy.metadata.TableMetadataRow;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -198,11 +199,11 @@ public class TableMetadataSystemTable
             blockBuilder.appendNull();
         }
         else {
-            BlockBuilder array = blockBuilder.beginBlockEntry();
-            for (String value : values) {
-                VARCHAR.writeSlice(array, utf8Slice(value));
-            }
-            blockBuilder.closeEntry();
+            ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
+                for (String value : values) {
+                    VARCHAR.writeSlice(elementBuilder, utf8Slice(value));
+                }
+            });
         }
     }
 

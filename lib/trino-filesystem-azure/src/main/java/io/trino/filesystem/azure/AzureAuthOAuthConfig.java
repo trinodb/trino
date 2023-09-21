@@ -15,8 +15,7 @@ package io.trino.filesystem.azure;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigSecuritySensitive;
-
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 public class AzureAuthOAuthConfig
 {

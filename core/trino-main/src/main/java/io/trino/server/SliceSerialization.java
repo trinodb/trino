@@ -36,12 +36,7 @@ public final class SliceSerialization
         public void serialize(Slice slice, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
                 throws IOException
         {
-            if (slice.hasByteArray()) {
-                jsonGenerator.writeBinary(Base64Variants.MIME_NO_LINEFEEDS, slice.byteArray(), slice.byteArrayOffset(), slice.length());
-            }
-            else {
-                jsonGenerator.writeBinary(Base64Variants.MIME_NO_LINEFEEDS, slice.getInput(), slice.length());
-            }
+            jsonGenerator.writeBinary(Base64Variants.MIME_NO_LINEFEEDS, slice.byteArray(), slice.byteArrayOffset(), slice.length());
         }
     }
 

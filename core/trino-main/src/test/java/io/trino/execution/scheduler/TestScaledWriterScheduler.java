@@ -113,7 +113,7 @@ public class TestScaledWriterScheduler
     }
 
     @Test
-    public void testGetNewTaskCountWhenWrittenBytesIsGreaterThanMinWrittenBytesForScaleUp()
+    public void testGetNewTaskCountWhenWriterDataProcessedIsGreaterThanMinForScaleUp()
     {
         TaskStatus taskStatus1 = buildTaskStatus(1, DataSize.of(32, DataSize.Unit.MEGABYTE));
         TaskStatus taskStatus2 = buildTaskStatus(1, DataSize.of(32, DataSize.Unit.MEGABYTE));
@@ -125,7 +125,7 @@ public class TestScaledWriterScheduler
     }
 
     @Test
-    public void testGetNewTaskCountWhenWrittenBytesIsLessThanMinWrittenBytesForScaleUp()
+    public void testGetNewTaskCountWhenWriterDataProcessedIsLessThanMinForScaleUp()
     {
         TaskStatus taskStatus1 = buildTaskStatus(1, DataSize.of(32, DataSize.Unit.MEGABYTE));
         TaskStatus taskStatus2 = buildTaskStatus(1, DataSize.of(32, DataSize.Unit.MEGABYTE));
@@ -133,7 +133,7 @@ public class TestScaledWriterScheduler
 
         ScaledWriterScheduler scaledWriterScheduler = buildScaleWriterSchedulerWithInitialTasks(taskStatus1, taskStatus2, taskStatus3);
         // Scale up will not happen because for one of the task there are two local writers which makes the
-        // minWrittenBytes for scaling up to (2 * writerMinSizeBytes) that is greater than physicalWrittenBytes.
+        // minWrittenBytes for scaling up to (2 * writerScalingMinDataProcessed) that is greater than writerInputDataSize.
         assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 0);
     }
 
@@ -208,12 +208,12 @@ public class TestScaledWriterScheduler
         return buildTaskStatus(isOutputBufferOverUtilized, outputDataSize, Optional.of(1), DataSize.of(32, DataSize.Unit.MEGABYTE));
     }
 
-    private static TaskStatus buildTaskStatus(int maxWriterCount, DataSize physicalWrittenDataSize)
+    private static TaskStatus buildTaskStatus(int maxWriterCount, DataSize writerInputDataSize)
     {
-        return buildTaskStatus(true, 12345L, Optional.of(maxWriterCount), physicalWrittenDataSize);
+        return buildTaskStatus(true, 12345L, Optional.of(maxWriterCount), writerInputDataSize);
     }
 
-    private static TaskStatus buildTaskStatus(boolean isOutputBufferOverUtilized, long outputDataSize, Optional<Integer> maxWriterCount, DataSize physicalWrittenDataSize)
+    private static TaskStatus buildTaskStatus(boolean isOutputBufferOverUtilized, long outputDataSize, Optional<Integer> maxWriterCount, DataSize writerInputDataSize)
     {
         return new TaskStatus(
                 TaskId.valueOf("taskId"),
@@ -228,7 +228,8 @@ public class TestScaledWriterScheduler
                 0,
                 new OutputBufferStatus(OptionalLong.empty(), isOutputBufferOverUtilized, false),
                 DataSize.ofBytes(outputDataSize),
-                physicalWrittenDataSize,
+                writerInputDataSize,
+                DataSize.of(1, DataSize.Unit.MEGABYTE),
                 maxWriterCount,
                 DataSize.of(1, DataSize.Unit.MEGABYTE),
                 DataSize.of(1, DataSize.Unit.MEGABYTE),

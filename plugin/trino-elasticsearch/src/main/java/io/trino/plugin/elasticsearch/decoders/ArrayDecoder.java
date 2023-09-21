@@ -16,6 +16,7 @@ package io.trino.plugin.elasticsearch.decoders;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.elasticsearch.DecoderDescriptor;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
 
@@ -40,15 +41,11 @@ public class ArrayDecoder
         if (data == null) {
             output.appendNull();
         }
-        else if (data instanceof List) {
-            BlockBuilder array = output.beginBlockEntry();
-            ((List<?>) data).forEach(element -> elementDecoder.decode(hit, () -> element, array));
-            output.closeEntry();
+        else if (data instanceof List<?> list) {
+            ((ArrayBlockBuilder) output).buildEntry(elementBuilder -> list.forEach(element -> elementDecoder.decode(hit, () -> element, elementBuilder)));
         }
         else {
-            BlockBuilder array = output.beginBlockEntry();
-            elementDecoder.decode(hit, () -> data, array);
-            output.closeEntry();
+            ((ArrayBlockBuilder) output).buildEntry(elementBuilder -> elementDecoder.decode(hit, () -> data, elementBuilder));
         }
     }
 

@@ -13,8 +13,10 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
+import org.testng.annotations.Test;
+
+import static io.trino.testing.TestingNames.randomNameSuffix;
 
 public class TestHiveConnectorTest
         extends BaseHiveConnectorTest
@@ -23,6 +25,31 @@ public class TestHiveConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return BaseHiveConnectorTest.createHiveQueryRunner(ImmutableMap.of(), runner -> {});
+        return createHiveQueryRunner(HiveQueryRunner.builder());
+    }
+
+    @Test
+    public void testPredicatePushdownWithLambdaExpression()
+    {
+        String table = "test_predicate_pushdown_" + randomNameSuffix();
+
+        assertUpdate("""
+            CREATE TABLE %s (v, k)
+            WITH (partitioned_by = ARRAY['k'])
+            AS (VALUES ('value', 'key'))
+            """.formatted(table),
+                1);
+
+        try {
+            assertQuery("""
+                            SELECT *
+                            FROM %s
+                            WHERE k = 'key' AND regexp_replace(v, '(.*)', x -> x[1]) IS NOT NULL
+                            """.formatted(table),
+                    "VALUES ('value', 'key')");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + table);
+        }
     }
 }

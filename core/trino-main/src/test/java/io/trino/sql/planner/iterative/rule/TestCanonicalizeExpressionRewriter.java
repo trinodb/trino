@@ -24,7 +24,7 @@ import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.transaction.TransactionManager;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;

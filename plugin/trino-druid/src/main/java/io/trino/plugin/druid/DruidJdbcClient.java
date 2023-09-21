@@ -13,8 +13,10 @@
  */
 package io.trino.plugin.druid;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.trino.plugin.base.mapping.IdentifierMapping;
+import io.trino.plugin.base.mapping.RemoteIdentifiers;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -22,6 +24,7 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
+import io.trino.plugin.jdbc.JdbcRemoteIdentifiers;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
@@ -33,7 +36,6 @@ import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
-import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -160,7 +162,7 @@ public class DruidJdbcClient
     @Override
     public Collection<String> listSchemas(Connection connection)
     {
-        return ImmutableList.of(DRUID_SCHEMA);
+        return ImmutableSet.of(DRUID_SCHEMA);
     }
 
     //Overridden to filter out tables that don't match schemaTableName
@@ -171,8 +173,9 @@ public class DruidJdbcClient
         String jdbcTableName = schemaTableName.getTableName();
         try (Connection connection = connectionFactory.openConnection(session)) {
             ConnectorIdentity identity = session.getIdentity();
-            String remoteSchema = getIdentifierMapping().toRemoteSchemaName(identity, connection, jdbcSchemaName);
-            String remoteTable = getIdentifierMapping().toRemoteTableName(identity, connection, remoteSchema, jdbcTableName);
+            RemoteIdentifiers remoteIdentifiers = getRemoteIdentifiers(connection);
+            String remoteSchema = getIdentifierMapping().toRemoteSchemaName(remoteIdentifiers, identity, jdbcSchemaName);
+            String remoteTable = getIdentifierMapping().toRemoteTableName(remoteIdentifiers, identity, remoteSchema, jdbcTableName);
             try (ResultSet resultSet = getTables(connection, Optional.of(remoteSchema), Optional.of(remoteTable))) {
                 List<JdbcTableHandle> tableHandles = new ArrayList<>();
                 while (resultSet.next()) {
@@ -532,7 +535,7 @@ public class DruidJdbcClient
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
+    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
     }
@@ -595,5 +598,11 @@ public class DruidJdbcClient
             return WriteMapping.longMapping("date", dateWriteFunctionUsingSqlDate());
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+    }
+
+    @Override
+    public RemoteIdentifiers getRemoteIdentifiers(Connection connection)
+    {
+        return new JdbcRemoteIdentifiers(this, connection, false);
     }
 }

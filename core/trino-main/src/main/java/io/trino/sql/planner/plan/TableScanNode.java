@@ -19,15 +19,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Symbol;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Map;
@@ -52,6 +51,7 @@ public class TableScanNode
 
     @Nullable // null on workers
     private final TupleDomain<ColumnHandle> enforcedConstraint;
+    @SuppressWarnings("NullableOptional")
     @Nullable // null on workers
     private final Optional<PlanNodeStatsEstimate> statistics;
     private final boolean updateTarget;

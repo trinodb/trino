@@ -20,8 +20,6 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.testing.MaterializedResult;
@@ -44,6 +42,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.operator.PageAssertions.assertPageEquals;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.util.StructuralTestUtil.appendToBlockBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -199,14 +198,11 @@ public final class OperatorAssertion
     {
         checkArgument(parameterTypes.size() == values.length, "parameterTypes.size(" + parameterTypes.size() + ") does not equal to values.length(" + values.length + ")");
 
-        RowType rowType = RowType.anonymous(parameterTypes);
-        BlockBuilder blockBuilder = new RowBlockBuilder(parameterTypes, null, 1);
-        BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
-        for (int i = 0; i < values.length; i++) {
-            appendToBlockBuilder(parameterTypes.get(i), values[i], singleRowBlockWriter);
-        }
-        blockBuilder.closeEntry();
-        return rowType.getObject(blockBuilder, 0);
+        return buildRowValue(RowType.anonymous(parameterTypes), fields -> {
+            for (int i = 0; i < values.length; i++) {
+                appendToBlockBuilder(parameterTypes.get(i), values[i], fields.get(i));
+            }
+        });
     }
 
     public static void assertOperatorEquals(OperatorFactory operatorFactory, List<Type> types, DriverContext driverContext, List<Page> input, List<Page> expected)

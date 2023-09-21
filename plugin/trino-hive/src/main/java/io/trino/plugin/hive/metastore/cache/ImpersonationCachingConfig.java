@@ -15,9 +15,8 @@ package io.trino.plugin.hive.metastore.cache;
 
 import io.airlift.configuration.Config;
 import io.airlift.units.Duration;
-
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 

@@ -14,11 +14,10 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.operator.aggregation.TypedSet;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BufferedMapValueBuilder;
+import io.trino.spi.block.DuplicateMapKeyException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
@@ -33,25 +32,23 @@ import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 
-import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
-import static java.lang.String.format;
 
 @ScalarFunction("map_from_entries")
 @Description("Construct a map from an array of entries")
 public final class MapFromEntriesFunction
 {
-    private final PageBuilder pageBuilder;
+    private final BufferedMapValueBuilder mapValueBuilder;
 
     @TypeParameter("K")
     @TypeParameter("V")
     public MapFromEntriesFunction(@TypeParameter("map(K,V)") Type mapType)
     {
-        pageBuilder = new PageBuilder(ImmutableList.of(mapType));
+        mapValueBuilder = BufferedMapValueBuilder.createBufferedDistinctStrict((MapType) mapType);
     }
 
     @TypeParameter("K")
@@ -75,42 +72,27 @@ public final class MapFromEntriesFunction
         Type valueType = mapType.getValueType();
         RowType mapEntryType = RowType.anonymous(ImmutableList.of(keyType, valueType));
 
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
         int entryCount = mapEntries.getPositionCount();
 
-        BlockBuilder mapBlockBuilder = pageBuilder.getBlockBuilder(0);
-        BlockBuilder resultBuilder = mapBlockBuilder.beginBlockEntry();
-        TypedSet uniqueKeys = createDistinctTypedSet(keyType, keysDistinctOperator, keyHashCode, entryCount, "map_from_entries");
+        try {
+            return mapValueBuilder.build(entryCount, (keyBuilder, valueBuilder) -> {
+                for (int i = 0; i < entryCount; i++) {
+                    if (mapEntries.isNull(i)) {
+                        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map entry cannot be null");
+                    }
+                    Block mapEntryBlock = mapEntryType.getObject(mapEntries, i);
 
-        for (int i = 0; i < entryCount; i++) {
-            if (mapEntries.isNull(i)) {
-                mapBlockBuilder.closeEntry();
-                pageBuilder.declarePosition();
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map entry cannot be null");
-            }
-            Block mapEntryBlock = mapEntryType.getObject(mapEntries, i);
+                    if (mapEntryBlock.isNull(0)) {
+                        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
+                    }
 
-            if (mapEntryBlock.isNull(0)) {
-                mapBlockBuilder.closeEntry();
-                pageBuilder.declarePosition();
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
-            }
-
-            if (!uniqueKeys.add(mapEntryBlock, 0)) {
-                mapBlockBuilder.closeEntry();
-                pageBuilder.declarePosition();
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Duplicate keys (%s) are not allowed", keyType.getObjectValue(session, mapEntryBlock, 0)));
-            }
-
-            keyType.appendTo(mapEntryBlock, 0, resultBuilder);
-            valueType.appendTo(mapEntryBlock, 1, resultBuilder);
+                    keyType.appendTo(mapEntryBlock, 0, keyBuilder);
+                    valueType.appendTo(mapEntryBlock, 1, valueBuilder);
+                }
+            });
         }
-
-        mapBlockBuilder.closeEntry();
-        pageBuilder.declarePosition();
-        return mapType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
+        catch (DuplicateMapKeyException e) {
+            throw e.withDetailedMessage(mapType.getKeyType(), session);
+        }
     }
 }

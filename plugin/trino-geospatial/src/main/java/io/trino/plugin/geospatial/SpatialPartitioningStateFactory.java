@@ -115,7 +115,7 @@ public class SpatialPartitioningStateFactory
         @Override
         public long getEstimatedSize()
         {
-            return INSTANCE_SIZE + partitionCounts.sizeOf() + counts.sizeOf() + envelopes.sizeOf() + samples.sizeOf() + ENVELOPE_SIZE * (envelopeCount + samplesCount);
+            return INSTANCE_SIZE + partitionCounts.sizeOf() + counts.sizeOf() + envelopes.sizeOf() + samples.sizeOf() + (long) ENVELOPE_SIZE * (envelopeCount + samplesCount);
         }
 
         @Override

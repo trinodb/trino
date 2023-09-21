@@ -25,6 +25,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.TableProcedureMetadata;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.planner.SystemPartitioningHandle;
 import io.trino.sql.planner.TestTableScanNodePartitioning;
@@ -34,7 +35,7 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.testing.LocalQueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
@@ -99,6 +100,7 @@ public class TestLimitMaxWriterNodesCount
                     }
                     return null;
                 }))
+                .withWriterScalingOptions(WriterScalingOptions.ENABLED)
                 .withGetInsertLayout((session, tableMetadata) -> {
                     if (tableMetadata.getTableName().equals(partitionedTable)) {
                         return Optional.of(new ConnectorTableLayout(ImmutableList.of("column_a")));
@@ -129,7 +131,6 @@ public class TestLimitMaxWriterNodesCount
                         distributedWithFilteringAndRepartitioning(),
                         ImmutableList.of(PropertyMetadata.stringProperty("file_size_threshold", "file_size_threshold", "10GB", false)))))
                 .withPartitionProvider(new TestTableScanNodePartitioning.TestPartitioningProvider(new InMemoryNodeManager()))
-                .withSupportsReportingWrittenBytes(true)
                 .withMaxWriterTasks(maxWriterTasks)
                 .withGetColumns(schemaTableName -> ImmutableList.of(
                         new ColumnMetadata("column_a", VARCHAR),

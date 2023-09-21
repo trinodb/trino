@@ -25,6 +25,7 @@ import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.hdfs.HdfsModule;
 import io.trino.hdfs.authentication.HdfsAuthenticationModule;
@@ -86,7 +87,7 @@ public final class InternalHiveConnectorFactory
 
     public static Connector createConnector(String catalogName, Map<String, String> config, ConnectorContext context, Module module)
     {
-        return createConnector(catalogName, config, context, module, Optional.empty(), Optional.empty());
+        return createConnector(catalogName, config, context, module, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     public static Connector createConnector(
@@ -95,6 +96,8 @@ public final class InternalHiveConnectorFactory
             ConnectorContext context,
             Module module,
             Optional<HiveMetastore> metastore,
+            Optional<TrinoFileSystemFactory> fileSystemFactory,
+            Optional<OpenTelemetry> openTelemetry,
             Optional<DirectoryLister> directoryLister)
     {
         requireNonNull(config, "config is null");
@@ -119,11 +122,13 @@ public final class InternalHiveConnectorFactory
                     new HiveMetastoreModule(metastore),
                     new HiveSecurityModule(),
                     new HdfsAuthenticationModule(),
-                    new FileSystemModule(),
+                    fileSystemFactory
+                            .map(factory -> (Module) binder -> binder.bind(TrinoFileSystemFactory.class).toInstance(factory))
+                            .orElseGet(FileSystemModule::new),
                     new HiveProcedureModule(),
                     new MBeanServerModule(),
                     binder -> {
-                        binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
+                        binder.bind(OpenTelemetry.class).toInstance(openTelemetry.orElse(context.getOpenTelemetry()));
                         binder.bind(Tracer.class).toInstance(context.getTracer());
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
@@ -165,6 +170,7 @@ public final class InternalHiveConnectorFactory
                     .map(accessControl -> new ClassLoaderSafeConnectorAccessControl(accessControl, classLoader));
 
             return new HiveConnector(
+                    injector,
                     lifeCycleManager,
                     transactionManager,
                     new ClassLoaderSafeConnectorSplitManager(splitManager, classLoader),

@@ -108,8 +108,7 @@ import io.trino.tracing.ScopedSpan;
 import io.trino.tracing.TrinoAttributes;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
-
-import javax.annotation.Nonnull;
+import jakarta.annotation.Nonnull;
 
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
@@ -126,6 +125,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Streams.forEachPair;
 import static com.google.common.collect.Streams.zip;
 import static io.trino.SystemSessionProperties.getMaxWriterTaskCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
@@ -454,15 +454,42 @@ public class LogicalPlanner
 
         Optional<TableLayout> newTableLayout = create.getLayout();
 
-        List<String> columnNames = tableMetadata.getColumns().stream()
-                .filter(column -> !column.isHidden()) // todo this filter is redundant
-                .map(ColumnMetadata::getName)
-                .collect(toImmutableList());
+        List<Symbol> visibleFieldMappings = visibleFields(plan);
 
         String catalogName = destination.getCatalogName();
         CatalogHandle catalogHandle = metadata.getCatalogHandle(session, catalogName)
                 .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, query, "Destination catalog '%s' does not exist", catalogName));
+
+        Assignments.Builder assignmentsBuilder = Assignments.builder();
+        ImmutableList.Builder<ColumnMetadata> finalColumnsBuilder = ImmutableList.builder();
+
+        checkState(tableMetadata.getColumns().size() == visibleFieldMappings.size(), "Table and visible field count doesn't match");
+
+        forEachPair(tableMetadata.getColumns().stream(), visibleFieldMappings.stream(), (column, fieldMapping) -> {
+            assignmentsBuilder.put(
+                    symbolAllocator.newSymbol(column.getName(), column.getType()),
+                    coerceOrCastToTableType(fieldMapping, column.getType(), symbolAllocator.getTypes().get(fieldMapping)));
+            finalColumnsBuilder.add(column);
+        });
+
+        List<ColumnMetadata> finalColumns = finalColumnsBuilder.build();
+        Assignments assignments = assignmentsBuilder.build();
+
+        checkState(assignments.size() == finalColumns.size(), "Assignment and column count must match");
+        List<Field> fields = finalColumns.stream()
+                .map(column -> Field.newUnqualified(column.getName(), column.getType()))
+                .collect(toImmutableList());
+
+        ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments);
+        Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields)).build();
+        plan = new RelationPlan(projectNode, scope, projectNode.getOutputSymbols(), Optional.empty());
+
+        List<String> columnNames = finalColumns.stream()
+                .map(ColumnMetadata::getName)
+                .collect(toImmutableList());
+
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogHandle, tableMetadata);
+
         return createTableWriterPlan(
                 analysis,
                 plan.getRoot(),
@@ -488,13 +515,7 @@ public class LogicalPlanner
         RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, Optional.empty(), session, ImmutableMap.of());
         RelationPlan plan = planner.process(query, null);
 
-        ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
-        for (int i = 0; i < plan.getFieldMappings().size(); i++) {
-            if (!plan.getDescriptor().getFieldByIndex(i).isHidden()) {
-                builder.add(plan.getFieldMappings().get(i));
-            }
-        }
-        List<Symbol> visibleFieldMappings = builder.build();
+        List<Symbol> visibleFieldMappings = visibleFields(plan);
 
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, tableHandle);
         Assignments.Builder assignments = Assignments.builder();
@@ -519,12 +540,7 @@ public class LogicalPlanner
                 Symbol input = visibleFieldMappings.get(index);
                 Type queryType = symbolAllocator.getTypes().get(input);
 
-                if (queryType.equals(tableType) || typeCoercion.isTypeOnlyCoercion(queryType, tableType)) {
-                    expression = input.toSymbolReference();
-                }
-                else {
-                    expression = noTruncationCast(input.toSymbolReference(), queryType, tableType);
-                }
+                expression = coerceOrCastToTableType(input, tableType, queryType);
             }
             if (!column.isNullable()) {
                 expression = new CoalesceExpression(expression, createNullNotAllowedFailExpression(column.getName(), tableType));
@@ -597,6 +613,14 @@ public class LogicalPlanner
                 insertedTableColumnNames,
                 newTableLayout,
                 statisticsMetadata);
+    }
+
+    private Expression coerceOrCastToTableType(Symbol fieldMapping, Type tableType, Type queryType)
+    {
+        if (queryType.equals(tableType) || typeCoercion.isTypeOnlyCoercion(queryType, tableType)) {
+            return fieldMapping.toSymbolReference();
+        }
+        return noTruncationCast(fieldMapping.toSymbolReference(), queryType, tableType);
     }
 
     private Expression createNullNotAllowedFailExpression(String columnName, Type type)
@@ -945,8 +969,11 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        boolean supportsReportingWrittenBytes = metadata.supportsReportingWrittenBytes(session, tableHandle);
-        TableWriterNode.TableExecuteTarget tableExecuteTarget = new TableWriterNode.TableExecuteTarget(executeHandle, Optional.empty(), tableName.asSchemaTableName(), supportsReportingWrittenBytes);
+        TableWriterNode.TableExecuteTarget tableExecuteTarget = new TableWriterNode.TableExecuteTarget(
+                executeHandle,
+                Optional.empty(),
+                tableName.asSchemaTableName(),
+                metadata.getInsertWriterScalingOptions(session, tableHandle));
 
         Optional<TableLayout> layout = metadata.getLayoutForTableExecute(session, executeHandle);
 

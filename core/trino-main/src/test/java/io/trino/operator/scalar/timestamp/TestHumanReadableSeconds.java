@@ -103,11 +103,11 @@ public class TestHumanReadableSeconds
                 .isNull(VARCHAR);
 
         // check for NaN
-        assertTrinoExceptionThrownBy(() -> assertions.function("human_readable_seconds", "0.0E0 / 0.0E0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("human_readable_seconds", "0.0E0 / 0.0E0")::evaluate)
                 .hasMessage("Invalid argument found: NaN");
 
         // check for infinity
-        assertTrinoExceptionThrownBy(() -> assertions.function("human_readable_seconds", "1.0E0 / 0.0E0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("human_readable_seconds", "1.0E0 / 0.0E0")::evaluate)
                 .hasMessage("Invalid argument found: Infinity");
     }
 }

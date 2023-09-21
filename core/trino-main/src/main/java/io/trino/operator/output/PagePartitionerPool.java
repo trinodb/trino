@@ -15,8 +15,7 @@ package io.trino.operator.output;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
-
-import javax.annotation.concurrent.GuardedBy;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.io.IOException;
 import java.util.ArrayDeque;

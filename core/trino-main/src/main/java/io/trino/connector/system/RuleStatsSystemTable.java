@@ -18,6 +18,7 @@ import com.google.inject.Inject;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -98,12 +99,13 @@ public class RuleStatsSystemTable
             BIGINT.writeLong(blockBuilders.get("failures"), stats.getFailures());
             DOUBLE.writeDouble(blockBuilders.get("average_time"), stats.getTime().getAvg());
 
-            BlockBuilder mapWriter = blockBuilders.get("time_distribution_percentiles").beginBlockEntry();
-            for (Map.Entry<Double, Double> percentile : stats.getTime().getPercentiles().entrySet()) {
-                DOUBLE.writeDouble(mapWriter, percentile.getKey());
-                DOUBLE.writeDouble(mapWriter, percentile.getValue());
-            }
-            blockBuilders.get("time_distribution_percentiles").closeEntry();
+            MapBlockBuilder blockBuilder = (MapBlockBuilder) blockBuilders.get("time_distribution_percentiles");
+            blockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+                stats.getTime().getPercentiles().forEach((key, value) -> {
+                    DOUBLE.writeDouble(keyBuilder, key);
+                    DOUBLE.writeDouble(valueBuilder, value);
+                });
+            });
         }
 
         Block[] blocks = ruleStatsTable.getColumns().stream()

@@ -23,9 +23,8 @@ import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
 import io.trino.util.PowerOfTwo;
-
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 import java.util.concurrent.TimeUnit;
@@ -46,12 +45,13 @@ import static java.lang.Math.min;
         "task.level-absolute-priority"})
 public class TaskManagerConfig
 {
+    private boolean threadPerDriverSchedulerEnabled;
     private boolean perOperatorCpuTimerEnabled = true;
     private boolean taskCpuTimerEnabled = true;
     private boolean statisticsCpuTimerEnabled = true;
     private DataSize maxPartialAggregationMemoryUsage = DataSize.of(16, Unit.MEGABYTE);
     private DataSize maxPartialTopNMemory = DataSize.of(16, Unit.MEGABYTE);
-    private DataSize maxLocalExchangeBufferSize = DataSize.of(32, Unit.MEGABYTE);
+    private DataSize maxLocalExchangeBufferSize = DataSize.of(128, Unit.MEGABYTE);
     private DataSize maxIndexMemoryUsage = DataSize.of(64, Unit.MEGABYTE);
     private boolean shareIndexLoading;
     private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 2;
@@ -107,6 +107,18 @@ public class TaskManagerConfig
     private int taskYieldThreads = 3;
 
     private BigDecimal levelTimeMultiplier = new BigDecimal(2.0);
+
+    @Config("experimental.thread-per-driver-scheduler-enabled")
+    public TaskManagerConfig setThreadPerDriverSchedulerEnabled(boolean enabled)
+    {
+        this.threadPerDriverSchedulerEnabled = enabled;
+        return this;
+    }
+
+    public boolean isThreadPerDriverSchedulerEnabled()
+    {
+        return threadPerDriverSchedulerEnabled;
+    }
 
     @MinDuration("1ms")
     @MaxDuration("10s")

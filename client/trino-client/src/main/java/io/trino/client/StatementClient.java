@@ -13,7 +13,7 @@
  */
 package io.trino.client;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
 import java.time.ZoneId;
@@ -49,6 +49,10 @@ public interface StatementClient
     Optional<String> getSetSchema();
 
     Optional<String> getSetPath();
+
+    Optional<String> getSetAuthorizationUser();
+
+    boolean isResetAuthorizationUser();
 
     Map<String, String> getSetSessionProperties();
 

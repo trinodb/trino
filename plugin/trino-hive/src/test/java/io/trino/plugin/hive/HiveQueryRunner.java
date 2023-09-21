@@ -19,6 +19,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.hive.fs.DirectoryLister;
@@ -105,6 +106,7 @@ public final class HiveQueryRunner
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
             return createTestingFileHiveMetastore(baseDir);
         };
+        private Optional<OpenTelemetry> openTelemetry = Optional.empty();
         private Module module = EMPTY_MODULE;
         private Optional<DirectoryLister> directoryLister = Optional.empty();
         private boolean tpcdsCatalogEnabled;
@@ -170,6 +172,13 @@ public final class HiveQueryRunner
         public SELF setMetastore(Function<DistributedQueryRunner, HiveMetastore> metastore)
         {
             this.metastore = requireNonNull(metastore, "metastore is null");
+            return self();
+        }
+
+        @CanIgnoreReturnValue
+        public SELF setOpenTelemetry(OpenTelemetry openTelemetry)
+        {
+            this.openTelemetry = Optional.of(openTelemetry);
             return self();
         }
 
@@ -244,7 +253,7 @@ public final class HiveQueryRunner
                 }
 
                 HiveMetastore metastore = this.metastore.apply(queryRunner);
-                queryRunner.installPlugin(new TestingHivePlugin(Optional.of(metastore), module, directoryLister));
+                queryRunner.installPlugin(new TestingHivePlugin(Optional.of(metastore), openTelemetry, module, directoryLister));
 
                 Map<String, String> hiveProperties = new HashMap<>();
                 if (!skipTimezoneSetup) {
@@ -411,7 +420,6 @@ public final class HiveQueryRunner
                 .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .setHiveProperties(ImmutableMap.of("hive.security", ALLOW_ALL))
                 .setSkipTimezoneSetup(true)
-                .setHiveProperties(ImmutableMap.of())
                 .setInitialTables(TpchTable.getTables())
                 .setBaseDataDir(baseDataDir)
                 .setTpcdsCatalogEnabled(true)

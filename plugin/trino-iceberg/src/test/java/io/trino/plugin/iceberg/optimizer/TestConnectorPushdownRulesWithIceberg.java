@@ -49,8 +49,8 @@ import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -154,6 +154,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 Optional.empty());
 
         IcebergTableHandle icebergTable = new IcebergTableHandle(
+                CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                 SCHEMA_NAME,
                 tableName,
                 DATA,
@@ -235,6 +236,7 @@ public class TestConnectorPushdownRulesWithIceberg
         PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer(), false);
 
         IcebergTableHandle icebergTable = new IcebergTableHandle(
+                CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                 SCHEMA_NAME,
                 tableName,
                 DATA,
@@ -283,6 +285,7 @@ public class TestConnectorPushdownRulesWithIceberg
         PruneTableScanColumns pruneTableScanColumns = new PruneTableScanColumns(tester().getMetadata());
 
         IcebergTableHandle icebergTable = new IcebergTableHandle(
+                CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                 SCHEMA_NAME,
                 tableName,
                 DATA,
@@ -342,6 +345,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
 
         IcebergTableHandle icebergTable = new IcebergTableHandle(
+                CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                 SCHEMA_NAME,
                 tableName,
                 DATA,
@@ -419,7 +423,7 @@ public class TestConnectorPushdownRulesWithIceberg
         metastore.dropTable(SCHEMA_NAME, tableName, true);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
             throws IOException
     {

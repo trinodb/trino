@@ -13,6 +13,8 @@
  */
 package io.trino.connector;
 
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.node.NodeInfo;
 import io.opentelemetry.api.OpenTelemetry;
@@ -37,10 +39,8 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.type.TypeManager;
+import io.trino.sql.planner.OptimizerConfig;
 import io.trino.transaction.TransactionManager;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Map;
 import java.util.Optional;
@@ -73,6 +73,7 @@ public class DefaultCatalogFactory
     private final TypeManager typeManager;
 
     private final boolean schedulerIncludeCoordinator;
+    private final int maxPrefetchedInformationSchemaPrefixes;
 
     private final ConcurrentMap<ConnectorName, InternalConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
 
@@ -89,7 +90,8 @@ public class DefaultCatalogFactory
             OpenTelemetry openTelemetry,
             TransactionManager transactionManager,
             TypeManager typeManager,
-            NodeSchedulerConfig nodeSchedulerConfig)
+            NodeSchedulerConfig nodeSchedulerConfig,
+            OptimizerConfig optimizerConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -103,6 +105,7 @@ public class DefaultCatalogFactory
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
+        this.maxPrefetchedInformationSchemaPrefixes = optimizerConfig.getMaxPrefetchedInformationSchemaPrefixes();
     }
 
     @Override
@@ -165,7 +168,7 @@ public class DefaultCatalogFactory
         ConnectorServices informationSchemaConnector = new ConnectorServices(
                 tracer,
                 createInformationSchemaCatalogHandle(catalogHandle),
-                new InformationSchemaConnector(catalogHandle.getCatalogName(), nodeManager, metadata, accessControl),
+                new InformationSchemaConnector(catalogHandle.getCatalogName(), nodeManager, metadata, accessControl, maxPrefetchedInformationSchemaPrefixes),
                 () -> {});
 
         SystemTablesProvider systemTablesProvider;

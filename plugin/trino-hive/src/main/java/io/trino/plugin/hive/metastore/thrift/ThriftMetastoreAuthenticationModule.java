@@ -18,15 +18,14 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.hdfs.HdfsConfigurationInitializer;
-import io.trino.hdfs.authentication.HadoopAuthentication;
+import io.trino.plugin.base.authentication.CachingKerberosAuthentication;
+import io.trino.plugin.base.authentication.KerberosAuthentication;
 import io.trino.plugin.base.authentication.KerberosConfiguration;
 import io.trino.plugin.hive.ForHiveMetastore;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.hdfs.authentication.AuthenticationModules.createCachingKerberosHadoopAuthentication;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType.KERBEROS;
 
 public class ThriftMetastoreAuthenticationModule
@@ -61,14 +60,14 @@ public class ThriftMetastoreAuthenticationModule
         @Provides
         @Singleton
         @ForHiveMetastore
-        public HadoopAuthentication createHadoopAuthentication(MetastoreKerberosConfig config, HdfsConfigurationInitializer updater)
+        public CachingKerberosAuthentication createKerberosAuthentication(MetastoreKerberosConfig config)
         {
             String principal = config.getHiveMetastoreClientPrincipal();
             KerberosConfiguration.Builder builder = new KerberosConfiguration.Builder()
                     .withKerberosPrincipal(principal);
             config.getHiveMetastoreClientKeytab().ifPresent(builder::withKeytabLocation);
             config.getHiveMetastoreClientCredentialCacheLocation().ifPresent(builder::withCredentialCacheLocation);
-            return createCachingKerberosHadoopAuthentication(builder.build(), updater);
+            return new CachingKerberosAuthentication(new KerberosAuthentication(builder.build()));
         }
     }
 }

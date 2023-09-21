@@ -35,8 +35,7 @@ import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.RowBlockBuilder;
-import io.trino.spi.block.SingleRowBlockWriter;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -79,6 +78,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.net.InetAddresses.toAddrString;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.airlift.slice.Slices.wrappedHeapBuffer;
 import static io.trino.plugin.cassandra.CassandraType.Kind.DATE;
 import static io.trino.plugin.cassandra.CassandraType.Kind.TIME;
 import static io.trino.plugin.cassandra.CassandraType.Kind.TIMESTAMP;
@@ -89,6 +89,7 @@ import static io.trino.plugin.cassandra.util.CassandraCqlUtils.quoteStringLitera
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
@@ -273,7 +274,7 @@ public class CassandraTypeManager
                 return NullableValue.of(trinoType, utf8Slice(row.getBigInteger(position).toString()));
             case BLOB:
             case CUSTOM:
-                return NullableValue.of(trinoType, wrappedBuffer(row.getBytesUnsafe(position)));
+                return NullableValue.of(trinoType, wrappedHeapBuffer(row.getBytesUnsafe(position)));
             case SET:
                 return NullableValue.of(trinoType, utf8Slice(buildArrayValueFromSetType(row, position, dataTypeSupplier.get())));
             case LIST:
@@ -344,37 +345,37 @@ public class CassandraTypeManager
     {
         verify(type.getKind() == TUPLE, "Not a TUPLE type");
         TupleValue tupleValue = row.getTupleValue(position);
-        RowBlockBuilder blockBuilder = (RowBlockBuilder) type.getTrinoType().createBlockBuilder(null, 1);
-        SingleRowBlockWriter singleRowBlockWriter = blockBuilder.beginBlockEntry();
-        int tuplePosition = 0;
-        for (CassandraType argumentType : type.getArgumentTypes()) {
-            int finalTuplePosition = tuplePosition;
-            NullableValue value = getColumnValue(argumentType, tupleValue, tuplePosition, () -> tupleValue.getType().getComponentTypes().get(finalTuplePosition));
-            writeNativeValue(argumentType.getTrinoType(), singleRowBlockWriter, value.getValue());
-            tuplePosition++;
-        }
-        // can I just return singleRowBlockWriter here? It extends AbstractSingleRowBlock and tests pass.
-        blockBuilder.closeEntry();
-        return (Block) type.getTrinoType().getObject(blockBuilder, 0);
+        return buildRowValue((RowType) type.getTrinoType(), fieldBuilders -> {
+            int tuplePosition = 0;
+            List<CassandraType> argumentTypes = type.getArgumentTypes();
+            for (int i = 0; i < argumentTypes.size(); i++) {
+                CassandraType argumentType = argumentTypes.get(i);
+                BlockBuilder fieldBuilder = fieldBuilders.get(i);
+                int finalTuplePosition = tuplePosition;
+                NullableValue value = getColumnValue(argumentType, tupleValue, tuplePosition, () -> tupleValue.getType().getComponentTypes().get(finalTuplePosition));
+                writeNativeValue(argumentType.getTrinoType(), fieldBuilder, value.getValue());
+                tuplePosition++;
+            }
+        });
     }
 
     private Block buildUserTypeValue(CassandraType type, GettableByIndex row, int position)
     {
         verify(type.getKind() == UDT, "Not a user defined type: %s", type.getKind());
         UdtValue udtValue = row.getUdtValue(position);
-        RowBlockBuilder blockBuilder = (RowBlockBuilder) type.getTrinoType().createBlockBuilder(null, 1);
-        SingleRowBlockWriter singleRowBlockWriter = blockBuilder.beginBlockEntry();
-        int tuplePosition = 0;
-        List<DataType> udtTypeFieldTypes = udtValue.getType().getFieldTypes();
-        for (CassandraType argumentType : type.getArgumentTypes()) {
-            int finalTuplePosition = tuplePosition;
-            NullableValue value = getColumnValue(argumentType, udtValue, tuplePosition, () -> udtTypeFieldTypes.get(finalTuplePosition));
-            writeNativeValue(argumentType.getTrinoType(), singleRowBlockWriter, value.getValue());
-            tuplePosition++;
-        }
-
-        blockBuilder.closeEntry();
-        return (Block) type.getTrinoType().getObject(blockBuilder, 0);
+        return buildRowValue((RowType) type.getTrinoType(), fieldBuilders -> {
+            int tuplePosition = 0;
+            List<DataType> udtTypeFieldTypes = udtValue.getType().getFieldTypes();
+            List<CassandraType> argumentTypes = type.getArgumentTypes();
+            for (int i = 0; i < argumentTypes.size(); i++) {
+                CassandraType argumentType = argumentTypes.get(i);
+                BlockBuilder fieldBuilder = fieldBuilders.get(i);
+                int finalTuplePosition = tuplePosition;
+                NullableValue value = getColumnValue(argumentType, udtValue, tuplePosition, () -> udtTypeFieldTypes.get(finalTuplePosition));
+                writeNativeValue(argumentType.getTrinoType(), fieldBuilder, value.getValue());
+                tuplePosition++;
+            }
+        });
     }
 
     // TODO unify with toCqlLiteral

@@ -23,8 +23,8 @@ import org.testng.annotations.Test;
 import java.nio.file.Path;
 import java.util.Optional;
 
-import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.REFRESH_PERIOD_DURATION;
-import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
+import static io.trino.plugin.base.mapping.RuleBasedIdentifierMappingUtils.REFRESH_PERIOD_DURATION;
+import static io.trino.plugin.base.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 import static io.trino.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 import static java.lang.String.format;

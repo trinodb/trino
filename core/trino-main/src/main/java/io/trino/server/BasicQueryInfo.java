@@ -15,6 +15,7 @@ package io.trino.server;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.SessionRepresentation;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
@@ -24,9 +25,7 @@ import io.trino.spi.ErrorType;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
+import jakarta.annotation.Nullable;
 
 import java.net.URI;
 import java.util.Optional;

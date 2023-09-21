@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.metastore.util;
 
 import java.util.Objects;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
@@ -31,6 +32,13 @@ public final class Memoizers
     public static <I, O> Function<I, O> memoizeLast(Function<I, O> transform)
     {
         return new Transforming<>(transform);
+    }
+
+    public static <T, U, R> BiFunction<T, U, R> memoizeLast(BiFunction<T, U, R> transform)
+    {
+        requireNonNull(transform, "transform is null");
+        Function<Pair<T, U>, R> memoized = memoizeLast(pair -> transform.apply(pair.first, pair.second));
+        return (a, b) -> memoized.apply(new Pair<>(a, b));
     }
 
     private static final class Simple<T>
@@ -72,4 +80,6 @@ public final class Memoizers
             return lastOutput;
         }
     }
+
+    private record Pair<T, U>(T first, U second) {}
 }

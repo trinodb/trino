@@ -14,6 +14,7 @@
 
 package io.trino.cost;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.sql.planner.TypeProvider;
@@ -27,8 +28,6 @@ import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.UnionNode;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Objects;
 import java.util.Optional;

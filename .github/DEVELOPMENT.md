@@ -151,6 +151,16 @@ allows static code analysis tools (e.g. Error Prone's `MissingCasesInEnumSwitch`
 check) report a problem when the enum definition is updated but the code using
 it is not.
 
+## Keep pom.xml clean and sorted
+
+There are several plugins in place to keep pom.xml clean.
+Your build may fail if:
+ - dependencies or XML elements are not ordered correctly
+ - overall pom.xml structure is not correct
+
+Many such errors may be fixed automatically by running the following:
+`./mvnw sortpom:sort`
+
 ## Additional IDE configuration
 
 When using IntelliJ to develop Trino, we recommend starting with all of the

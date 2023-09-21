@@ -17,11 +17,12 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
-import io.jsonwebtoken.io.Decoders;
-import io.jsonwebtoken.security.Keys;
+import jakarta.validation.constraints.NotEmpty;
 
 import javax.crypto.SecretKey;
-import javax.validation.constraints.NotEmpty;
+import javax.crypto.spec.SecretKeySpec;
+
+import java.util.Base64;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -82,8 +83,7 @@ public class RefreshTokensConfig
         if (isNullOrEmpty(key)) {
             return this;
         }
-
-        secretKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(key));
+        secretKey = new SecretKeySpec(Base64.getDecoder().decode(key), "AES");
         return this;
     }
 

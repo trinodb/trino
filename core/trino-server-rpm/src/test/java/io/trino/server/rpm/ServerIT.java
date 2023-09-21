@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container.ExecResult;
 import org.testcontainers.containers.GenericContainer;
-import org.testng.annotations.Parameters;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -42,30 +42,63 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class ServerIT
 {
-    private static final String BASE_IMAGE = "ghcr.io/trinodb/testing/centos7-oj17";
+    private static final String BASE_IMAGE_PREFIX = "eclipse-temurin:";
+    private static final String BASE_IMAGE_SUFFIX = "-jre-centos7";
 
-    @Parameters("rpm")
-    @Test
-    public void testWithJava17(String rpm)
+    @Test(dataProvider = "rpmJavaTestDataProvider")
+    public void testInstall(String rpmHostPath, String javaVersion)
     {
-        testServer(rpm, "17");
+        String rpm = "/" + new File(rpmHostPath).getName();
+        String command = "" +
+                // install RPM
+                "yum localinstall -q -y " + rpm + "\n" +
+                // create Hive catalog file
+                "mkdir /etc/trino/catalog\n" +
+                "echo CONFIG_ENV[HMS_PORT]=9083 >> /etc/trino/env.sh\n" +
+                "echo CONFIG_ENV[NODE_ID]=test-node-id-injected-via-env >> /etc/trino/env.sh\n" +
+                "sed -i \"s/^node.id=.*/node.id=\\${ENV:NODE_ID}/g\" /etc/trino/node.properties\n" +
+                "cat > /etc/trino/catalog/hive.properties <<\"EOT\"\n" +
+                "connector.name=hive\n" +
+                "hive.metastore.uri=thrift://localhost:${ENV:HMS_PORT}\n" +
+                "EOT\n" +
+                // create JMX catalog file
+                "cat > /etc/trino/catalog/jmx.properties <<\"EOT\"\n" +
+                "connector.name=jmx\n" +
+                "EOT\n" +
+                // start server
+                "/etc/init.d/trino start\n" +
+                // allow tail to work with Docker's non-local file system
+                "tail ---disable-inotify -F /var/log/trino/server.log\n";
+
+        try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE_PREFIX + javaVersion + BASE_IMAGE_SUFFIX)) {
+            container.withExposedPorts(8080)
+                    // the RPM is hundreds MB and file system bind is much more efficient
+                    .withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
+                    .withCommand("sh", "-xeuc", command)
+                    .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))
+                    .start();
+            QueryRunner queryRunner = new QueryRunner(container.getHost(), container.getMappedPort(8080));
+            assertEquals(queryRunner.execute("SHOW CATALOGS"), ImmutableSet.of(asList("system"), asList("hive"), asList("jmx")));
+            assertEquals(queryRunner.execute("SELECT node_id FROM system.runtime.nodes"), ImmutableSet.of(asList("test-node-id-injected-via-env")));
+            // TODO remove usage of assertEventually once https://github.com/trinodb/trino/issues/2214 is fixed
+            assertEventually(
+                    new io.airlift.units.Duration(1, MINUTES),
+                    () -> assertEquals(queryRunner.execute("SELECT specversion FROM jmx.current.\"java.lang:type=runtime\""), ImmutableSet.of(asList(javaVersion))));
+        }
     }
 
-    @Parameters("rpm")
-    @Test
-    public void testUninstall(String rpmHostPath)
+    @Test(dataProvider = "rpmJavaTestDataProvider")
+    public void testUninstall(String rpmHostPath, String javaVersion)
             throws Exception
     {
         String rpm = "/" + new File(rpmHostPath).getName();
         String installAndStartTrino = "" +
+                // install RPM
                 "yum localinstall -q -y " + rpm + "\n" +
-                // update default JDK to 17
-                "alternatives --set java /usr/lib/jvm/zulu-17/bin/java\n" +
-                "alternatives --set javac /usr/lib/jvm/zulu-17/bin/javac\n" +
                 "/etc/init.d/trino start\n" +
                 // allow tail to work with Docker's non-local file system
                 "tail ---disable-inotify -F /var/log/trino/server.log\n";
-        try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE)) {
+        try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE_PREFIX + javaVersion + BASE_IMAGE_SUFFIX)) {
             container.withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
                     .withCommand("sh", "-xeuc", installAndStartTrino)
                     .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))
@@ -85,6 +118,15 @@ public class ServerIT
         }
     }
 
+    @DataProvider
+    public static Object[][] rpmJavaTestDataProvider()
+    {
+        String rpmHostPath = requireNonNull(System.getProperty("rpm"), "rpm is null");
+        return new Object[][]{
+                {rpmHostPath, "17"},
+                {rpmHostPath, "19"}};
+    }
+
     private static void assertPathDeleted(GenericContainer<?> container, String path)
             throws Exception
     {
@@ -94,51 +136,6 @@ public class ServerIT
                 format("test -d %s && echo -n 'path exists' || echo -n 'path deleted'", path));
         assertEquals(actualResult.getStdout(), "path deleted");
         assertEquals(actualResult.getExitCode(), 0);
-    }
-
-    private static void testServer(String rpmHostPath, String expectedJavaVersion)
-    {
-        String rpm = "/" + new File(rpmHostPath).getName();
-
-        String command = "" +
-                // install RPM
-                "yum localinstall -q -y " + rpm + "\n" +
-                // update default JDK to 17
-                "alternatives --set java /usr/lib/jvm/zulu-17/bin/java\n" +
-                "alternatives --set javac /usr/lib/jvm/zulu-17/bin/javac\n" +
-                // create Hive catalog file
-                "mkdir /etc/trino/catalog\n" +
-                "echo CONFIG_ENV[HMS_PORT]=9083 >> /etc/trino/env.sh\n" +
-                "echo CONFIG_ENV[NODE_ID]=test-node-id-injected-via-env >> /etc/trino/env.sh\n" +
-                "sed -i \"s/^node.id=.*/node.id=\\${ENV:NODE_ID}/g\" /etc/trino/node.properties\n" +
-                "cat > /etc/trino/catalog/hive.properties <<\"EOT\"\n" +
-                "connector.name=hive\n" +
-                "hive.metastore.uri=thrift://localhost:${ENV:HMS_PORT}\n" +
-                "EOT\n" +
-                // create JMX catalog file
-                "cat > /etc/trino/catalog/jmx.properties <<\"EOT\"\n" +
-                "connector.name=jmx\n" +
-                "EOT\n" +
-                // start server
-                "/etc/init.d/trino start\n" +
-                // allow tail to work with Docker's non-local file system
-                "tail ---disable-inotify -F /var/log/trino/server.log\n";
-
-        try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE)) {
-            container.withExposedPorts(8080)
-                    // the RPM is hundreds MB and file system bind is much more efficient
-                    .withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
-                    .withCommand("sh", "-xeuc", command)
-                    .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))
-                    .start();
-            QueryRunner queryRunner = new QueryRunner(container.getHost(), container.getMappedPort(8080));
-            assertEquals(queryRunner.execute("SHOW CATALOGS"), ImmutableSet.of(asList("system"), asList("hive"), asList("jmx")));
-            assertEquals(queryRunner.execute("SELECT node_id FROM system.runtime.nodes"), ImmutableSet.of(asList("test-node-id-injected-via-env")));
-            // TODO remove usage of assertEventually once https://github.com/trinodb/trino/issues/2214 is fixed
-            assertEventually(
-                    new io.airlift.units.Duration(1, MINUTES),
-                    () -> assertEquals(queryRunner.execute("SELECT specversion FROM jmx.current.\"java.lang:type=runtime\""), ImmutableSet.of(asList(expectedJavaVersion))));
-        }
     }
 
     private static class QueryRunner

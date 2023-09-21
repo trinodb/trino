@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.testing.MaterializedResult;
 import org.testng.annotations.Test;
@@ -82,8 +82,8 @@ public class TestPageSplitterUtil
         List<Type> types = ImmutableList.of(VARCHAR);
 
         Slice expectedValue = wrappedBuffer("test".getBytes(UTF_8));
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1, expectedValue.length());
-        blockBuilder.writeBytes(expectedValue, 0, expectedValue.length()).closeEntry();
+        VariableWidthBlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1, expectedValue.length());
+        blockBuilder.writeEntry(expectedValue);
         Block rleBlock = RunLengthEncodedBlock.create(blockBuilder.build(), positionCount);
         Page initialPage = new Page(rleBlock);
         List<Page> pages = splitPage(initialPage, maxPageSizeInBytes);

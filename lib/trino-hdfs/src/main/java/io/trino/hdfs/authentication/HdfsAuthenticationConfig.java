@@ -15,8 +15,7 @@ package io.trino.hdfs.authentication;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 public class HdfsAuthenticationConfig
 {

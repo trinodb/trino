@@ -13,35 +13,18 @@
  */
 package io.trino.plugin.hive.acid;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.hive.thrift.metastore.DataOperationType;
-import io.trino.orc.OrcWriter.OrcOperation;
-
-import java.util.Map;
-import java.util.Optional;
 
 public enum AcidOperation
 {
-    NONE,
-    CREATE_TABLE,
-    INSERT,
-    MERGE,
-    /**/;
+    NONE, CREATE_TABLE, INSERT, MERGE;
 
-    private static final Map<AcidOperation, DataOperationType> DATA_OPERATION_TYPES = ImmutableMap.of(
-            INSERT, DataOperationType.INSERT,
-            MERGE, DataOperationType.UPDATE);
-
-    private static final Map<AcidOperation, OrcOperation> ORC_OPERATIONS = ImmutableMap.of(
-            INSERT, OrcOperation.INSERT);
-
-    public Optional<DataOperationType> getMetastoreOperationType()
+    public DataOperationType getMetastoreOperationType()
     {
-        return Optional.ofNullable(DATA_OPERATION_TYPES.get(this));
-    }
-
-    public Optional<OrcOperation> getOrcOperation()
-    {
-        return Optional.ofNullable(ORC_OPERATIONS.get(this));
+        return switch (this) {
+            case INSERT -> DataOperationType.INSERT;
+            case MERGE -> DataOperationType.UPDATE;
+            default -> throw new IllegalStateException("No metastore operation for ACID operation " + this);
+        };
     }
 }

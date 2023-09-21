@@ -39,6 +39,7 @@ public class SessionContext
 
     private final Optional<Identity> authenticatedIdentity;
     private final Identity identity;
+    private final Identity originalIdentity;
     private final SelectedRole selectedRole;
 
     private final Optional<String> source;
@@ -67,6 +68,7 @@ public class SessionContext
             Optional<String> path,
             Optional<Identity> authenticatedIdentity,
             Identity identity,
+            Identity originalIdentity,
             SelectedRole selectedRole,
             Optional<String> source,
             Optional<String> traceToken,
@@ -90,6 +92,7 @@ public class SessionContext
         this.path = requireNonNull(path, "path is null");
         this.authenticatedIdentity = requireNonNull(authenticatedIdentity, "authenticatedIdentity is null");
         this.identity = requireNonNull(identity, "identity is null");
+        this.originalIdentity = requireNonNull(originalIdentity, "originalIdentity is null");
         this.selectedRole = requireNonNull(selectedRole, "selectedRole is null");
         this.source = requireNonNull(source, "source is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
@@ -123,6 +126,11 @@ public class SessionContext
     public Identity getIdentity()
     {
         return identity;
+    }
+
+    public Identity getOriginalIdentity()
+    {
+        return originalIdentity;
     }
 
     public SelectedRole getSelectedRole()

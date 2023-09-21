@@ -26,14 +26,13 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
+import jakarta.annotation.Nullable;
 import org.apache.datasketches.Family;
 import org.apache.datasketches.theta.SetOperation;
 import org.apache.datasketches.theta.Sketch;
 import org.apache.datasketches.theta.Union;
 import org.apache.datasketches.theta.UpdateSketch;
 import org.apache.iceberg.types.Conversions;
-
-import javax.annotation.Nullable;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicInteger;

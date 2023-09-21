@@ -15,6 +15,7 @@ package io.trino.execution.resourcegroups;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
@@ -34,8 +35,6 @@ import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.File;
 import java.util.HashMap;

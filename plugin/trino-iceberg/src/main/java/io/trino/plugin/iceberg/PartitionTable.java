@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -61,6 +60,7 @@ import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.util.Objects.requireNonNull;
@@ -257,24 +257,22 @@ public class PartitionTable
 
             // add data for partition columns
             partitionColumnType.ifPresent(partitionColumnType -> {
-                BlockBuilder partitionRowBlockBuilder = partitionColumnType.rowType.createBlockBuilder(null, 1);
-                BlockBuilder partitionBlockBuilder = partitionRowBlockBuilder.beginBlockEntry();
-                List<io.trino.spi.type.Type> partitionColumnTypes = partitionColumnType.rowType.getFields().stream()
-                        .map(RowType.Field::getType)
-                        .collect(toImmutableList());
-                for (int i = 0; i < partitionColumnTypes.size(); i++) {
-                    io.trino.spi.type.Type trinoType = partitionColumnType.rowType.getFields().get(i).getType();
-                    Object value = null;
-                    Integer fieldId = partitionColumnType.fieldIds.get(i);
-                    if (partitionStruct.fieldIdToIndex.containsKey(fieldId)) {
-                        value = convertIcebergValueToTrino(
-                                partitionTypes.get(i),
-                                partitionStruct.structLikeWrapper.get().get(partitionStruct.fieldIdToIndex.get(fieldId), partitionColumnClass.get(i)));
+                row.add(buildRowValue(partitionColumnType.rowType, fields -> {
+                    List<io.trino.spi.type.Type> partitionColumnTypes = partitionColumnType.rowType.getFields().stream()
+                            .map(RowType.Field::getType)
+                            .collect(toImmutableList());
+                    for (int i = 0; i < partitionColumnTypes.size(); i++) {
+                        io.trino.spi.type.Type trinoType = partitionColumnType.rowType.getFields().get(i).getType();
+                        Object value = null;
+                        Integer fieldId = partitionColumnType.fieldIds.get(i);
+                        if (partitionStruct.fieldIdToIndex.containsKey(fieldId)) {
+                            value = convertIcebergValueToTrino(
+                                    partitionTypes.get(i),
+                                    partitionStruct.structLikeWrapper.get().get(partitionStruct.fieldIdToIndex.get(fieldId), partitionColumnClass.get(i)));
+                        }
+                        writeNativeValue(trinoType, fields.get(i), value);
                     }
-                    writeNativeValue(trinoType, partitionBlockBuilder, value);
-                }
-                partitionRowBlockBuilder.closeEntry();
-                row.add(partitionColumnType.rowType.getObject(partitionRowBlockBuilder, 0));
+                }));
             });
 
             // add the top level metrics.
@@ -284,25 +282,26 @@ public class PartitionTable
 
             // add column level metrics
             dataColumnType.ifPresent(dataColumnType -> {
-                BlockBuilder dataRowBlockBuilder = dataColumnType.createBlockBuilder(null, 1);
-                BlockBuilder dataBlockBuilder = dataRowBlockBuilder.beginBlockEntry();
+                try {
+                    row.add(buildRowValue(dataColumnType, fields -> {
+                        for (int i = 0; i < columnMetricTypes.size(); i++) {
+                            Integer fieldId = nonPartitionPrimitiveColumns.get(i).fieldId();
+                            Object min = icebergStatistics.getMinValues().get(fieldId);
+                            Object max = icebergStatistics.getMaxValues().get(fieldId);
+                            Long nullCount = icebergStatistics.getNullCounts().get(fieldId);
+                            Long nanCount = icebergStatistics.getNanCounts().get(fieldId);
+                            if (min == null && max == null && nullCount == null) {
+                                throw new MissingColumnMetricsException();
+                            }
 
-                for (int i = 0; i < columnMetricTypes.size(); i++) {
-                    Integer fieldId = nonPartitionPrimitiveColumns.get(i).fieldId();
-                    Object min = icebergStatistics.getMinValues().get(fieldId);
-                    Object max = icebergStatistics.getMaxValues().get(fieldId);
-                    Long nullCount = icebergStatistics.getNullCounts().get(fieldId);
-                    Long nanCount = icebergStatistics.getNanCounts().get(fieldId);
-                    if (min == null && max == null && nullCount == null) {
-                        row.add(null);
-                        return;
-                    }
-
-                    RowType columnMetricType = columnMetricTypes.get(i);
-                    columnMetricType.writeObject(dataBlockBuilder, getColumnMetricBlock(columnMetricType, min, max, nullCount, nanCount));
+                            RowType columnMetricType = columnMetricTypes.get(i);
+                            columnMetricType.writeObject(fields.get(i), getColumnMetricBlock(columnMetricType, min, max, nullCount, nanCount));
+                        }
+                    }));
                 }
-                dataRowBlockBuilder.closeEntry();
-                row.add(dataColumnType.getObject(dataRowBlockBuilder, 0));
+                catch (MissingColumnMetricsException ignored) {
+                    row.add(null);
+                }
             });
 
             records.add(row);
@@ -310,6 +309,10 @@ public class PartitionTable
 
         return new InMemoryRecordSet(resultTypes, records.build()).cursor();
     }
+
+    private static class MissingColumnMetricsException
+            extends Exception
+    {}
 
     private List<Type> partitionTypes()
     {
@@ -324,16 +327,13 @@ public class PartitionTable
 
     private static Block getColumnMetricBlock(RowType columnMetricType, Object min, Object max, Long nullCount, Long nanCount)
     {
-        BlockBuilder rowBlockBuilder = columnMetricType.createBlockBuilder(null, 1);
-        BlockBuilder builder = rowBlockBuilder.beginBlockEntry();
-        List<RowType.Field> fields = columnMetricType.getFields();
-        writeNativeValue(fields.get(0).getType(), builder, min);
-        writeNativeValue(fields.get(1).getType(), builder, max);
-        writeNativeValue(fields.get(2).getType(), builder, nullCount);
-        writeNativeValue(fields.get(3).getType(), builder, nanCount);
-
-        rowBlockBuilder.closeEntry();
-        return columnMetricType.getObject(rowBlockBuilder, 0);
+        return buildRowValue(columnMetricType, fieldBuilders -> {
+            List<RowType.Field> fields = columnMetricType.getFields();
+            writeNativeValue(fields.get(0).getType(), fieldBuilders.get(0), min);
+            writeNativeValue(fields.get(1).getType(), fieldBuilders.get(1), max);
+            writeNativeValue(fields.get(2).getType(), fieldBuilders.get(2), nullCount);
+            writeNativeValue(fields.get(3).getType(), fieldBuilders.get(3), nanCount);
+        });
     }
 
     @VisibleForTesting

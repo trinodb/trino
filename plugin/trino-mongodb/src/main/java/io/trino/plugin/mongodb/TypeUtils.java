@@ -14,9 +14,8 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.MapType;
-import io.trino.spi.type.RowType;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -53,23 +52,12 @@ public final class TypeUtils
         return type.getBaseName().equals(JSON);
     }
 
-    public static boolean isArrayType(Type type)
-    {
-        return type instanceof ArrayType;
-    }
-
-    public static boolean isMapType(Type type)
-    {
-        return type instanceof MapType;
-    }
-
-    public static boolean isRowType(Type type)
-    {
-        return type instanceof RowType;
-    }
-
     public static boolean isPushdownSupportedType(Type type)
     {
-        return type instanceof VarcharType || type instanceof ObjectIdType || PUSHDOWN_SUPPORTED_PRIMITIVE_TYPES.contains(type);
+        return type instanceof CharType
+                || type instanceof VarcharType
+                || type instanceof DecimalType
+                || type instanceof ObjectIdType
+                || PUSHDOWN_SUPPORTED_PRIMITIVE_TYPES.contains(type);
     }
 }

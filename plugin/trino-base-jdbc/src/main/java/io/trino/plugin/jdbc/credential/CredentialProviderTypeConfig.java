@@ -14,8 +14,7 @@
 package io.trino.plugin.jdbc.credential;
 
 import io.airlift.configuration.Config;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import static io.trino.plugin.jdbc.credential.CredentialProviderType.INLINE;
 import static java.util.Objects.requireNonNull;

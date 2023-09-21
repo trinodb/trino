@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -24,6 +25,8 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.StructuralTestUtil.mapBlockOf;
 import static io.trino.util.StructuralTestUtil.mapType;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSmallintVarcharMapType
         extends AbstractTestType
@@ -38,6 +41,7 @@ public class TestSmallintVarcharMapType
         BlockBuilder blockBuilder = mapType.createBlockBuilder(null, 2);
         mapType.writeObject(blockBuilder, mapBlockOf(SMALLINT, VARCHAR, ImmutableMap.of(1, "hi")));
         mapType.writeObject(blockBuilder, mapBlockOf(SMALLINT, VARCHAR, ImmutableMap.of(1, "2", 2, "hello")));
+        mapType.writeObject(blockBuilder, mapBlockOf(SMALLINT, VARCHAR, ImmutableMap.of(1, "123456789012345", 2, "hello-world-hello-world-hello-world")));
         return blockBuilder.build();
     }
 
@@ -45,5 +49,28 @@ public class TestSmallintVarcharMapType
     protected Object getGreaterValue(Object value)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Test
+    public void testRange()
+    {
+        assertThat(type.getRange())
+                .isEmpty();
+    }
+
+    @Test
+    public void testPreviousValue()
+    {
+        assertThatThrownBy(() -> type.getPreviousValue(getSampleValue()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Type is not orderable: " + type);
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        assertThatThrownBy(() -> type.getNextValue(getSampleValue()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Type is not orderable: " + type);
     }
 }

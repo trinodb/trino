@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -40,9 +39,8 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -249,47 +247,45 @@ public final class MapToMapCast
             ConnectorSession session,
             Block fromMap)
     {
-        checkState(targetType.getTypeParameters().size() == 2, "Expect two type parameters for targetType");
-        Type toKeyType = targetType.getTypeParameters().get(0);
-        TypedSet resultKeys = createDistinctTypedSet(toKeyType, keyDistinctOperator, keyHashCode, fromMap.getPositionCount() / 2, "map-to-map cast");
+        MapType mapType = (MapType) targetType;
+        Type toKeyType = mapType.getKeyType();
 
         // Cast the keys into a new block
-        BlockBuilder keyBlockBuilder = toKeyType.createBlockBuilder(null, fromMap.getPositionCount() / 2);
+        BlockBuilder tempKeyBlockBuilder = toKeyType.createBlockBuilder(null, fromMap.getPositionCount() / 2);
         for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
             try {
-                keyProcessFunction.invokeExact(fromMap, i, session, keyBlockBuilder);
+                keyProcessFunction.invokeExact(fromMap, i, session, tempKeyBlockBuilder);
             }
             catch (Throwable t) {
                 throw internalError(t);
             }
         }
-        Block keyBlock = keyBlockBuilder.build();
+        Block keyBlock = tempKeyBlockBuilder.build();
 
-        BlockBuilder mapBlockBuilder = targetType.createBlockBuilder(null, 1);
-        BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
-        for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
-            if (resultKeys.add(keyBlock, i / 2)) {
-                toKeyType.appendTo(keyBlock, i / 2, blockBuilder);
-                if (fromMap.isNull(i + 1)) {
-                    blockBuilder.appendNull();
-                    continue;
-                }
+        // TODO this should build the value block directly and then construct a single map from the two blocks
+        return buildMapValue(mapType, fromMap.getPositionCount() / 2, (keyBuilder, valueBuilder) -> {
+            BlockSet resultKeys = new BlockSet(toKeyType, keyDistinctOperator, keyHashCode, fromMap.getPositionCount() / 2);
+            for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
+                if (resultKeys.add(keyBlock, i / 2)) {
+                    toKeyType.appendTo(keyBlock, i / 2, keyBuilder);
+                    if (fromMap.isNull(i + 1)) {
+                        valueBuilder.appendNull();
+                        continue;
+                    }
 
-                try {
-                    valueProcessFunction.invokeExact(fromMap, i + 1, session, blockBuilder);
+                    try {
+                        valueProcessFunction.invokeExact(fromMap, i + 1, session, valueBuilder);
+                    }
+                    catch (Throwable t) {
+                        throw internalError(t);
+                    }
                 }
-                catch (Throwable t) {
-                    throw internalError(t);
+                else {
+                    // if there are duplicated keys, fail it!
+                    throw new TrinoException(INVALID_CAST_ARGUMENT, "duplicate keys");
                 }
             }
-            else {
-                // if there are duplicated keys, fail it!
-                throw new TrinoException(INVALID_CAST_ARGUMENT, "duplicate keys");
-            }
-        }
-
-        mapBlockBuilder.closeEntry();
-        return (Block) targetType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
+        });
     }
 
     public static MethodHandle nativeValueWriter(Type type)

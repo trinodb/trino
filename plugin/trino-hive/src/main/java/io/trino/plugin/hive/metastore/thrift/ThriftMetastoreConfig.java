@@ -21,10 +21,9 @@ import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import io.trino.plugin.hive.util.RetryDriver;
-
-import javax.validation.constraints.AssertTrue;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
 import java.util.concurrent.TimeUnit;
@@ -52,6 +51,7 @@ public class ThriftMetastoreConfig
     private String trustStorePassword;
     private boolean assumeCanonicalPartitionKeys;
     private int writeStatisticsThreads = 20;
+    private boolean batchMetadataFetchEnabled = true;
 
     @NotNull
     public Duration getMetastoreTimeout()
@@ -324,6 +324,19 @@ public class ThriftMetastoreConfig
     public ThriftMetastoreConfig setWriteStatisticsThreads(int writeStatisticsThreads)
     {
         this.writeStatisticsThreads = writeStatisticsThreads;
+        return this;
+    }
+
+    public boolean isBatchMetadataFetchEnabled()
+    {
+        return batchMetadataFetchEnabled;
+    }
+
+    @Config("hive.metastore.thrift.batch-fetch.enabled")
+    @ConfigDescription("Enables fetching tables and views from all schemas in a single request")
+    public ThriftMetastoreConfig setBatchMetadataFetchEnabled(boolean batchMetadataFetchEnabled)
+    {
+        this.batchMetadataFetchEnabled = batchMetadataFetchEnabled;
         return this;
     }
 }

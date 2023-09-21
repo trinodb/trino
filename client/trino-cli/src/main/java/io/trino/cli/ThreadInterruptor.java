@@ -13,7 +13,7 @@
  */
 package io.trino.cli;
 
-import javax.annotation.concurrent.GuardedBy;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.io.Closeable;
 

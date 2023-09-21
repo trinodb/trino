@@ -90,4 +90,11 @@ public abstract class BaseDeltaLakeSharedMetastoreWithTableRedirectionsTest
                 showCreateDeltaLakeWithRedirectionsSchema,
                 getExpectedDeltaLakeCreateSchema("delta_with_redirections"));
     }
+
+    @Test
+    public void testPropertiesTable()
+    {
+        assertThat(query("SELECT * FROM delta_with_redirections." + schema + ".\"delta_table$properties\""))
+                .matches("SELECT * FROM hive_with_redirections." + schema + ".\"delta_table$properties\"");
+    }
 }

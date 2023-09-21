@@ -147,34 +147,33 @@ public class TestColumnarMap
 
     public static BlockBuilder createBlockBuilderWithValues(Slice[][][] expectedValues)
     {
-        BlockBuilder blockBuilder = createMapBuilder(100);
+        MapBlockBuilder blockBuilder = createMapBuilder(100);
         for (Slice[][] expectedMap : expectedValues) {
             if (expectedMap == null) {
                 blockBuilder.appendNull();
             }
             else {
-                BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-                VARCHAR.createBlockBuilder(null, expectedMap.length);
-                for (Slice[] entry : expectedMap) {
-                    Slice key = entry[0];
-                    assertNotNull(key);
-                    VARCHAR.writeSlice(entryBuilder, key);
+                blockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+                    for (Slice[] entry : expectedMap) {
+                        Slice key = entry[0];
+                        assertNotNull(key);
+                        VARCHAR.writeSlice(keyBuilder, key);
 
-                    Slice value = entry[1];
-                    if (value == null) {
-                        entryBuilder.appendNull();
+                        Slice value = entry[1];
+                        if (value == null) {
+                            valueBuilder.appendNull();
+                        }
+                        else {
+                            VARCHAR.writeSlice(valueBuilder, value);
+                        }
                     }
-                    else {
-                        VARCHAR.writeSlice(entryBuilder, value);
-                    }
-                }
-                blockBuilder.closeEntry();
+                });
             }
         }
         return blockBuilder;
     }
 
-    private static BlockBuilder createMapBuilder(int expectedEntries)
+    private static MapBlockBuilder createMapBuilder(int expectedEntries)
     {
         MapType mapType = (MapType) TESTING_TYPE_MANAGER.getType(new TypeSignature(MAP, TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature()), TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature())));
         return new MapBlockBuilder(mapType, null, expectedEntries);

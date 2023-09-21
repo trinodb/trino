@@ -16,8 +16,7 @@ package io.trino.operator.aggregation.state;
 import io.trino.array.LongBigArray;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.instanceSize;

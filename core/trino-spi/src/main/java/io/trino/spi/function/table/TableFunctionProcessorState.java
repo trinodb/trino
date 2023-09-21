@@ -15,8 +15,7 @@ package io.trino.spi.function.table;
 
 import io.trino.spi.Experimental;
 import io.trino.spi.Page;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.concurrent.CompletableFuture;
 

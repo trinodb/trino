@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.memory.context.AggregatedMemoryContext;
@@ -41,7 +42,7 @@ public class TestParquetDataSource
     public void testPlanReadOrdering(DataSize maxBufferSize)
             throws IOException
     {
-        Slice testingInput = Slices.wrappedIntArray(IntStream.range(0, 1000).toArray());
+        Slice testingInput = createTestingInput();
         TestingParquetDataSource dataSource = new TestingParquetDataSource(
                 testingInput,
                 new ParquetReaderOptions().withMaxBufferSize(maxBufferSize));
@@ -72,7 +73,7 @@ public class TestParquetDataSource
     public void testMemoryAccounting()
             throws IOException
     {
-        Slice testingInput = Slices.wrappedIntArray(IntStream.range(0, 1000).toArray());
+        Slice testingInput = createTestingInput();
         TestingParquetDataSource dataSource = new TestingParquetDataSource(
                 testingInput,
                 new ParquetReaderOptions().withMaxBufferSize(DataSize.ofBytes(500)));
@@ -112,7 +113,7 @@ public class TestParquetDataSource
     public void testChunkedInputStreamLazyLoading()
             throws IOException
     {
-        Slice testingInput = Slices.wrappedIntArray(IntStream.range(0, 1000).toArray());
+        Slice testingInput = createTestingInput();
         TestingParquetDataSource dataSource = new TestingParquetDataSource(
                 testingInput,
                 new ParquetReaderOptions()
@@ -137,5 +138,13 @@ public class TestParquetDataSource
 
         inputStreams.get("1").close();
         assertThat(memoryContext.getBytes()).isEqualTo(100);
+    }
+
+    private static Slice createTestingInput()
+    {
+        Slice testingInput = Slices.allocate(4000);
+        SliceOutput out = testingInput.getOutput();
+        IntStream.range(0, 1000).forEach(out::appendInt);
+        return testingInput;
     }
 }

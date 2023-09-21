@@ -5,12 +5,11 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>420</version>
+        <version>426</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-memory-context</artifactId>
-    <name>trino-memory-context</name>
     <description>Trino - Memory Tracking Framework</description>
 
     <properties>
@@ -19,8 +18,8 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
+            <groupId>com.google.errorprone</groupId>
+            <artifactId>error_prone_annotations</artifactId>
             <optional>true</optional>
         </dependency>
 
@@ -29,7 +28,6 @@
             <artifactId>guava</artifactId>
         </dependency>
 
-        <!-- for testing -->
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>

@@ -24,7 +24,6 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.TableFinishOperator.TableFinishOperatorFactory;
 import io.trino.operator.TableFinishOperator.TableFinisher;
 import io.trino.operator.aggregation.TestingAggregationFunction;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.LongArrayBlockBuilder;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
@@ -144,11 +143,10 @@ public class TestTableFinishOperator
         assertEquals(tableFinisher.getFragments(), ImmutableList.of(Slices.wrappedBuffer(new byte[] {1}), Slices.wrappedBuffer(new byte[] {2})));
         assertEquals(tableFinisher.getComputedStatistics().size(), 1);
         assertEquals(getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics().size(), 1);
-        Block expectedStatisticsBlock = new LongArrayBlockBuilder(null, 1)
-                .writeLong(7)
-                .closeEntry()
-                .build();
-        assertBlockEquals(BIGINT, getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics().get(statisticMetadata), expectedStatisticsBlock);
+
+        LongArrayBlockBuilder expectedStatistics = new LongArrayBlockBuilder(null, 1);
+        BIGINT.writeLong(expectedStatistics, 7);
+        assertBlockEquals(BIGINT, getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics().get(statisticMetadata), expectedStatistics.build());
 
         assertEquals(driverContext.getMemoryUsage(), 0, "memoryUsage");
     }

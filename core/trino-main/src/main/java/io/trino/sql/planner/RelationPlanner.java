@@ -975,13 +975,13 @@ class RelationPlanner
         for (int field : joinAnalysis.getOtherLeftFields()) {
             Symbol symbol = left.getFieldMappings().get(field);
             outputs.add(symbol);
-            assignments.put(symbol, symbol.toSymbolReference());
+            assignments.putIdentity(symbol);
         }
 
         for (int field : joinAnalysis.getOtherRightFields()) {
             Symbol symbol = right.getFieldMappings().get(field);
             outputs.add(symbol);
-            assignments.put(symbol, symbol.toSymbolReference());
+            assignments.putIdentity(symbol);
         }
 
         return new RelationPlan(

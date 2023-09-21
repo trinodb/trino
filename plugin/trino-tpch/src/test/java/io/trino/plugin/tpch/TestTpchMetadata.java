@@ -32,7 +32,7 @@ import io.trino.spi.statistics.TableStatistics;
 import io.trino.tpch.PartColumn;
 import io.trino.tpch.TpchColumn;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;

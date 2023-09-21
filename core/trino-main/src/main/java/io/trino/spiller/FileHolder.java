@@ -13,8 +13,8 @@
  */
 package io.trino.spiller;
 
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.io.Closeable;
 import java.io.IOException;

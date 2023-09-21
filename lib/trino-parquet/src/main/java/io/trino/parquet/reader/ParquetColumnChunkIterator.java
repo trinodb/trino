@@ -18,6 +18,7 @@ import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.Page;
 import io.trino.parquet.ParquetCorruptionException;
+import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.format.DataPageHeader;
@@ -27,8 +28,6 @@ import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.Util;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Iterator;

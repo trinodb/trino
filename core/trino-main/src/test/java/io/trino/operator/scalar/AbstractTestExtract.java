@@ -159,7 +159,7 @@ public abstract class AbstractTestExtract
     {
         types().forEach(type -> {
             String expression = format("EXTRACT(%s FROM CAST(NULL AS %s))", extractField, type);
-            assertThatThrownBy(() -> assertions.expression(expression).evaluate(), expression)
+            assertThatThrownBy(assertions.expression(expression)::evaluate, expression)
                     .as(expression)
                     .isInstanceOf(TrinoException.class)
                     .hasMessageMatching(format("line 1:\\d+:\\Q Cannot extract %s from %s", extractField, type));

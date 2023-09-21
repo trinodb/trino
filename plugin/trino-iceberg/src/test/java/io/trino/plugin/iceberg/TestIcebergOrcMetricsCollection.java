@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
@@ -83,7 +84,7 @@ public class TestIcebergOrcMetricsCollection
         HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
 
         queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore)), Optional.empty(), EMPTY_MODULE));
-        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg");
+        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.of("iceberg.file-format", "ORC"));
 
         TrinoFileSystemFactory fileSystemFactory = getFileSystemFactory(queryRunner);
         tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory);

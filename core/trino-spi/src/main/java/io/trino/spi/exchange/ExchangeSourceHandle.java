@@ -18,7 +18,7 @@ import io.trino.spi.Experimental;
 /*
  * Implementation is expected to be Jackson serializable
  */
-@Experimental(eta = "2023-01-01")
+@Experimental(eta = "2023-09-01")
 public interface ExchangeSourceHandle
 {
     int getPartitionId();

@@ -22,8 +22,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.time.ZonedDateTime;
 import java.util.List;

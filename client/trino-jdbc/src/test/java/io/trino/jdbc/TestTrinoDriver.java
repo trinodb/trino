@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
 import io.trino.client.ClientSelectedRole;
+import io.trino.client.DnsResolver;
 import io.trino.execution.QueryState;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -794,7 +795,7 @@ public class TestTrinoDriver
                         .put("KerberosPrincipal", "test")
                         .buildOrThrow())))
                 .isInstanceOf(SQLException.class)
-                .hasMessage("Connection property 'KerberosPrincipal' is not allowed");
+                .hasMessage("Connection property KerberosPrincipal requires KerberosRemoteServiceName to be set");
 
         assertThat(DriverManager.getConnection(jdbcUrl(),
                 toProperties(ImmutableMap.<String, String>builder()
@@ -811,7 +812,7 @@ public class TestTrinoDriver
                         .put("SSLVerification", "NONE")
                         .buildOrThrow())))
                 .isInstanceOf(SQLException.class)
-                .hasMessage("Connection property 'SSLVerification' is not allowed");
+                .hasMessage("Connection property SSLVerification requires TLS/SSL to be enabled");
 
         assertThat(DriverManager.getConnection(jdbcUrl(),
                 toProperties(ImmutableMap.<String, String>builder()
@@ -1104,6 +1105,47 @@ public class TestTrinoDriver
         }
     }
 
+    @Test(timeOut = 10000)
+    public void testResetSessionAuthorization()
+            throws Exception
+    {
+        try (TrinoConnection connection = createConnection("blackhole", "blackhole").unwrap(TrinoConnection.class);
+                Statement statement = connection.createStatement()) {
+            assertEquals(connection.getAuthorizationUser(), null);
+            assertEquals(getCurrentUser(connection), "test");
+            statement.execute("SET SESSION AUTHORIZATION john");
+            assertEquals(connection.getAuthorizationUser(), "john");
+            assertEquals(getCurrentUser(connection), "john");
+            statement.execute("SET SESSION AUTHORIZATION bob");
+            assertEquals(connection.getAuthorizationUser(), "bob");
+            assertEquals(getCurrentUser(connection), "bob");
+            statement.execute("RESET SESSION AUTHORIZATION");
+            assertEquals(connection.getAuthorizationUser(), null);
+            assertEquals(getCurrentUser(connection), "test");
+        }
+    }
+
+    @Test(timeOut = 10000)
+    public void testSetRoleAfterSetSessionAuthorization()
+            throws Exception
+    {
+        try (TrinoConnection connection = createConnection("blackhole", "blackhole").unwrap(TrinoConnection.class);
+                Statement statement = connection.createStatement()) {
+            statement.execute("SET SESSION AUTHORIZATION john");
+            assertEquals(connection.getAuthorizationUser(), "john");
+            statement.execute("SET ROLE ALL");
+            assertEquals(connection.getRoles(), ImmutableMap.of("system", new ClientSelectedRole(ClientSelectedRole.Type.ALL, Optional.empty())));
+            statement.execute("SET SESSION AUTHORIZATION bob");
+            assertEquals(connection.getAuthorizationUser(), "bob");
+            assertEquals(connection.getRoles(), ImmutableMap.of());
+            statement.execute("SET ROLE NONE");
+            assertEquals(connection.getRoles(), ImmutableMap.of("system", new ClientSelectedRole(ClientSelectedRole.Type.NONE, Optional.empty())));
+            statement.execute("RESET SESSION AUTHORIZATION");
+            assertEquals(connection.getAuthorizationUser(), null);
+            assertEquals(connection.getRoles(), ImmutableMap.of());
+        }
+    }
+
     private QueryState getQueryState(String queryId)
             throws SQLException
     {
@@ -1163,6 +1205,19 @@ public class TestTrinoDriver
         Properties properties = new Properties();
         map.forEach(properties::setProperty);
         return properties;
+    }
+
+    private static String getCurrentUser(Connection connection)
+            throws SQLException
+    {
+        try (Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery("SELECT current_user")) {
+            while (rs.next()) {
+                return rs.getString(1);
+            }
+        }
+
+        throw new RuntimeException("Failed to get CURRENT_USER");
     }
 
     public static class TestingDnsResolver

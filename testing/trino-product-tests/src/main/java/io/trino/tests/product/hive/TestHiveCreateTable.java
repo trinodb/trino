@@ -15,7 +15,6 @@ package io.trino.tests.product.hive;
 
 import io.trino.tempto.ProductTest;
 import io.trino.testng.services.Flaky;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.sql.ResultSet;
@@ -52,7 +51,7 @@ public class TestHiveCreateTable
                         row(null, null, null),
                         row(-42, "abc", -127),
                         row(9223372036854775807L, "abcdefghijklmnopqrstuvwxyz", 32767));
-        Assertions.assertThat(getTableProperty("test_create_table", "transactional"))
+        assertThat(getTableProperty("test_create_table", "transactional"))
                 // Hive 3 removes "transactional" table property when it has value "false"
                 .isIn(Optional.empty(), Optional.of("false"));
         onTrino().executeQuery("DROP TABLE test_create_table");
@@ -75,7 +74,7 @@ public class TestHiveCreateTable
                         row(null, null, null),
                         row(-42, "abc", -127),
                         row(9223372036854775807L, "abcdefghijklmnopqrstuvwxyz", 32767));
-        Assertions.assertThat(getTableProperty("test_create_table_as_select", "transactional"))
+        assertThat(getTableProperty("test_create_table_as_select", "transactional"))
                 // Hive 3 removes "transactional" table property when it has value "false"
                 .isIn(Optional.empty(), Optional.of("false"));
         onTrino().executeQuery("DROP TABLE test_create_table_as_select");
@@ -86,7 +85,7 @@ public class TestHiveCreateTable
             throws SQLException
     {
         onHive().executeQuery("CREATE TABLE test_hive_transactional_by_default(a bigint) STORED AS ORC");
-        Assertions.assertThat(getTableProperty("test_hive_transactional_by_default", "transactional"))
+        assertThat(getTableProperty("test_hive_transactional_by_default", "transactional"))
                 .contains("true");
         onHive().executeQuery("DROP TABLE test_hive_transactional_by_default");
     }

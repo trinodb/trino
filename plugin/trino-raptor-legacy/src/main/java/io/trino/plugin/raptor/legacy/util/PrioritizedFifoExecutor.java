@@ -16,9 +16,8 @@ package io.trino.plugin.raptor.legacy.util;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.util.concurrent.ExecutionList;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.log.Logger;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Comparator;
 import java.util.Objects;

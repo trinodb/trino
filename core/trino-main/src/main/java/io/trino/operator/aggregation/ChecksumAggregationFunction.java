@@ -14,6 +14,8 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.operator.aggregation.state.NullableLongState;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -28,13 +30,13 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.airlift.slice.Slices.wrappedLongArray;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 
@@ -53,10 +55,10 @@ public final class ChecksumAggregationFunction
             @OperatorDependency(
                     operator = OperatorType.XX_HASH_64,
                     argumentTypes = "T",
-                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL))
+                    convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL))
                     MethodHandle xxHash64Operator,
             @AggregationState NullableLongState state,
-            @NullablePosition @BlockPosition @SqlType("T") Block block,
+            @SqlNullable @BlockPosition @SqlType("T") Block block,
             @BlockIndex int position)
             throws Throwable
     {
@@ -88,7 +90,9 @@ public final class ChecksumAggregationFunction
             out.appendNull();
         }
         else {
-            VARBINARY.writeSlice(out, wrappedLongArray(state.getValue()));
+            Slice value = Slices.allocate(Long.BYTES);
+            value.setLong(0, state.getValue());
+            VARBINARY.writeSlice(out, value);
         }
     }
 }

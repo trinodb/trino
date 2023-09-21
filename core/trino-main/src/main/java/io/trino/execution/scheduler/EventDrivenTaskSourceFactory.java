@@ -52,8 +52,10 @@ import static io.trino.SystemSessionProperties.getFaultTolerantExecutionArbitrar
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionHashDistributionComputeTaskTargetSize;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionHashDistributionWriteTaskTargetSize;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxTaskSplitCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionStandardSplitSize;
 import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
@@ -64,6 +66,8 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
+import static java.lang.Math.round;
+import static java.lang.StrictMath.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class EventDrivenTaskSourceFactory
@@ -231,6 +235,7 @@ public class EventDrivenTaskSourceFactory
                     outputDataSizeEstimates,
                     fragment,
                     getFaultTolerantExecutionHashDistributionComputeTaskTargetSize(session).toBytes(),
+                    toIntExact(round(getFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio(session) * nodeManager.getAllNodes().getActiveNodes().size())),
                     Integer.MAX_VALUE); // compute tasks are bounded by the number of partitions anyways
         }
         if (partitioning.equals(SCALED_WRITER_HASH_DISTRIBUTION)) {
@@ -242,6 +247,7 @@ public class EventDrivenTaskSourceFactory
                     outputDataSizeEstimates,
                     fragment,
                     getFaultTolerantExecutionHashDistributionWriteTaskTargetSize(session).toBytes(),
+                    toIntExact(round(getFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio(session) * nodeManager.getAllNodes().getActiveNodes().size())),
                     getFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount(session));
         }
 

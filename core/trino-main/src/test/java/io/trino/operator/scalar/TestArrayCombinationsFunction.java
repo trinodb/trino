@@ -124,13 +124,13 @@ public class TestArrayCombinationsFunction
     @Test
     public void testLimits()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.function("combinations", "sequence(1, 40)", "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("combinations", "sequence(1, 40)", "-1")::evaluate)
                 .hasMessage("combination size must not be negative: -1");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("combinations", "sequence(1, 40)", "10").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("combinations", "sequence(1, 40)", "10")::evaluate)
                 .hasMessage("combination size must not exceed 5: 10");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("combinations", "sequence(1, 100)", "5").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("combinations", "sequence(1, 100)", "5")::evaluate)
                 .hasMessage("combinations exceed max size");
     }
 

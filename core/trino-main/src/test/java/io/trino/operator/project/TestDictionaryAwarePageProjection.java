@@ -435,7 +435,7 @@ public class TestDictionaryAwarePageProjection
                     int offset = selectedPositions.getOffset();
                     int[] positions = selectedPositions.getPositions();
                     for (int index = nextIndexOrPosition + offset; index < offset + selectedPositions.size(); index++) {
-                        blockBuilder.writeLong(verifyPositive(block.getLong(positions[index], 0)));
+                        BIGINT.writeLong(blockBuilder, verifyPositive(block.getLong(positions[index], 0)));
                         if (yieldSignal.isSet()) {
                             nextIndexOrPosition = index + 1 - offset;
                             return false;
@@ -445,7 +445,7 @@ public class TestDictionaryAwarePageProjection
                 else {
                     int offset = selectedPositions.getOffset();
                     for (int position = nextIndexOrPosition + offset; position < offset + selectedPositions.size(); position++) {
-                        blockBuilder.writeLong(verifyPositive(block.getLong(position, 0)));
+                        BIGINT.writeLong(blockBuilder, verifyPositive(block.getLong(position, 0)));
                         if (yieldSignal.isSet()) {
                             nextIndexOrPosition = position + 1 - offset;
                             return false;

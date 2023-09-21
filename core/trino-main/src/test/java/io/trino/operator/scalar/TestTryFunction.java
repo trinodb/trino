@@ -115,7 +115,7 @@ public class TestTryFunction
                 .isNull(BIGINT);
 
         // Exceptions that should not be suppressed
-        assertTrinoExceptionThrownBy(() -> assertions.expression("try(throw_error())").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("try(throw_error())")::evaluate)
                 .hasErrorCode(GENERIC_INTERNAL_ERROR);
     }
 }

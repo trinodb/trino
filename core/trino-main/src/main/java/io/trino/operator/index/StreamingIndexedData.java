@@ -14,6 +14,7 @@
 package io.trino.operator.index;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.operator.Driver;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -21,8 +22,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.List;
 

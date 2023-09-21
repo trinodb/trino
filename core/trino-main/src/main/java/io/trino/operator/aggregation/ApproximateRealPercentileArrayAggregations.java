@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import io.airlift.stats.TDigest;
 import io.trino.operator.aggregation.state.TDigestAndPercentileArrayState;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
@@ -66,13 +67,11 @@ public final class ApproximateRealPercentileArrayAggregations
             return;
         }
 
-        BlockBuilder blockBuilder = out.beginBlockEntry();
-
         List<Double> valuesAtPercentiles = valuesAtPercentiles(digest, percentiles);
-        for (double value : valuesAtPercentiles) {
-            REAL.writeLong(blockBuilder, floatToRawIntBits((float) value));
-        }
-
-        out.closeEntry();
+        ((ArrayBlockBuilder) out).buildEntry(elementBuilder -> {
+            for (double value : valuesAtPercentiles) {
+                REAL.writeLong(elementBuilder, floatToRawIntBits((float) value));
+            }
+        });
     }
 }

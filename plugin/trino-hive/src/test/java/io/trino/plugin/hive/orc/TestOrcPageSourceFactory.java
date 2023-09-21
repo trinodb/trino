@@ -31,8 +31,6 @@ import io.trino.spi.type.Type;
 import io.trino.tpch.Nation;
 import io.trino.tpch.NationColumn;
 import io.trino.tpch.NationGenerator;
-import org.apache.hadoop.mapred.JobConf;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -50,7 +48,6 @@ import java.util.function.LongPredicate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
@@ -71,6 +68,7 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.TABLE_IS_TRANSACTIONAL;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.deleteDeltaSubdir;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -151,7 +149,7 @@ public class TestOrcPageSourceFactory
                 .setOrcAcidVersionValidated(false)
                 .build();
 
-        Assertions.assertThatThrownBy(() -> readFile(Map.of(), OptionalLong.empty(), acidInfo, tableFile.getPath(), 730))
+        assertThatThrownBy(() -> readFile(Map.of(), OptionalLong.empty(), acidInfo, tableFile.getPath(), 730))
                 .hasMessageMatching("Hive transactional tables are supported since Hive 3.0. Expected `hive.acid.version` in ORC metadata" +
                         " in .*/acid_version_validation/no_orc_acid_version_in_metadata/00000_0 to be >=2 but was <empty>." +
                         " If you have upgraded from an older version of Hive, make sure a major compaction has been run at least once after the upgrade.");
@@ -232,7 +230,6 @@ public class TestOrcPageSourceFactory
                 .collect(toImmutableList());
 
         Optional<ReaderPageSource> pageSourceWithProjections = PAGE_SOURCE_FACTORY.createPageSource(
-                new JobConf(newEmptyConfiguration()),
                 SESSION,
                 Location.of(filePath),
                 0,

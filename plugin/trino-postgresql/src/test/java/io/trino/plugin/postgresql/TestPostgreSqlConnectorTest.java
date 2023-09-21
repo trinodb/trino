@@ -38,6 +38,7 @@ import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -73,6 +74,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestPostgreSqlConnectorTest
@@ -94,47 +96,30 @@ public class TestPostgreSqlConnectorTest
         onRemoteDatabase().execute("CREATE EXTENSION file_fdw");
     }
 
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
-                return false;
-            case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN:
+        return switch (connectorBehavior) {
+            case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN -> {
                 // TODO remove once super has this set to true
                 verify(!super.hasBehavior(connectorBehavior));
-                return true;
-
-            case SUPPORTS_TOPN_PUSHDOWN:
-            case SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR:
-                return true;
-
-            case SUPPORTS_JOIN_PUSHDOWN:
-            case SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY:
-                return true;
-            case SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN:
-                return false;
-
-            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
-            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
-                return false;
-
-            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
-                return false;
-
-            case SUPPORTS_ARRAY:
-                // Arrays are supported conditionally. Check the defaults.
-                return new PostgreSqlConfig().getArrayMapping() != PostgreSqlConfig.ArrayMapping.DISABLED;
-            case SUPPORTS_ROW_TYPE:
-                return false;
-
-            case SUPPORTS_CANCELLATION:
-                return true;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+                yield true;
+            }
+            // Arrays are supported conditionally. Check the defaults.
+            case SUPPORTS_ARRAY -> new PostgreSqlConfig().getArrayMapping() != PostgreSqlConfig.ArrayMapping.DISABLED;
+            case SUPPORTS_CANCELLATION,
+                    SUPPORTS_JOIN_PUSHDOWN,
+                    SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY,
+                    SUPPORTS_TOPN_PUSHDOWN,
+                    SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR -> true;
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+                    SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                    SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
+                    SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
+                    SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
+                    SUPPORTS_ROW_TYPE -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     @Override
@@ -157,6 +142,93 @@ public class TestPostgreSqlConnectorTest
                 onRemoteDatabase(),
                 "tpch.test_unsupported_column_present",
                 "(one bigint, two decimal(50,0), three varchar(10))");
+    }
+
+    @Test(dataProvider = "testTimestampPrecisionOnCreateTable")
+    public void testTimestampPrecisionOnCreateTable(String inputType, String expectedType)
+    {
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_coercion_show_create_table",
+                format("(a %s)", inputType))) {
+            assertEquals(getColumnType(testTable.getName(), "a"), expectedType);
+        }
+    }
+
+    @DataProvider(name = "testTimestampPrecisionOnCreateTable")
+    public static Object[][] timestampPrecisionOnCreateTableProvider()
+    {
+        return new Object[][]{
+                {"timestamp(0)", "timestamp(0)"},
+                {"timestamp(1)", "timestamp(1)"},
+                {"timestamp(2)", "timestamp(2)"},
+                {"timestamp(3)", "timestamp(3)"},
+                {"timestamp(4)", "timestamp(4)"},
+                {"timestamp(5)", "timestamp(5)"},
+                {"timestamp(6)", "timestamp(6)"},
+                {"timestamp(7)", "timestamp(6)"},
+                {"timestamp(8)", "timestamp(6)"},
+                {"timestamp(9)", "timestamp(6)"},
+                {"timestamp(10)", "timestamp(6)"},
+                {"timestamp(11)", "timestamp(6)"},
+                {"timestamp(12)", "timestamp(6)"}
+        };
+    }
+
+    @Test(dataProvider = "testTimestampPrecisionOnCreateTableAsSelect")
+    public void testTimestampPrecisionOnCreateTableAsSelect(String inputType, String tableType, String tableValue)
+    {
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_coercion_show_create_table",
+                format("AS SELECT %s a", inputType))) {
+            assertEquals(getColumnType(testTable.getName(), "a"), tableType);
+            assertQuery(
+                    format("SELECT * FROM %s", testTable.getName()),
+                    format("VALUES (%s)", tableValue));
+        }
+    }
+
+    @Test(dataProvider = "testTimestampPrecisionOnCreateTableAsSelect")
+    public void testTimestampPrecisionOnCreateTableAsSelectWithNoData(String inputType, String tableType, String ignored)
+    {
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_coercion_show_create_table",
+                format("AS SELECT %s a WITH NO DATA", inputType))) {
+            assertEquals(getColumnType(testTable.getName(), "a"), tableType);
+        }
+    }
+
+    @DataProvider(name = "testTimestampPrecisionOnCreateTableAsSelect")
+    public static Object[][] timestampPrecisionOnCreateTableAsSelectProvider()
+    {
+        return new Object[][] {
+                {"TIMESTAMP '1970-01-01 00:00:00'", "timestamp(0)", "TIMESTAMP '1970-01-01 00:00:00'"},
+                {"TIMESTAMP '1970-01-01 00:00:00.9'", "timestamp(1)", "TIMESTAMP '1970-01-01 00:00:00.9'"},
+                {"TIMESTAMP '1970-01-01 00:00:00.56'", "timestamp(2)", "TIMESTAMP '1970-01-01 00:00:00.56'"},
+                {"TIMESTAMP '1970-01-01 00:00:00.123'", "timestamp(3)", "TIMESTAMP '1970-01-01 00:00:00.123'"},
+                {"TIMESTAMP '1970-01-01 00:00:00.4896'", "timestamp(4)", "TIMESTAMP '1970-01-01 00:00:00.4896'"},
+                {"TIMESTAMP '1970-01-01 00:00:00.89356'", "timestamp(5)", "TIMESTAMP '1970-01-01 00:00:00.89356'"},
+                {"TIMESTAMP '1970-01-01 00:00:00.123000'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123000'"},
+                {"TIMESTAMP '1970-01-01 00:00:00.999'", "timestamp(3)", "TIMESTAMP '1970-01-01 00:00:00.999'"},
+                {"TIMESTAMP '1970-01-01 00:00:00.123456'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"},
+                {"TIMESTAMP '2020-09-27 12:34:56.1'", "timestamp(1)", "TIMESTAMP '2020-09-27 12:34:56.1'"},
+                {"TIMESTAMP '2020-09-27 12:34:56.9'", "timestamp(1)", "TIMESTAMP '2020-09-27 12:34:56.9'"},
+                {"TIMESTAMP '2020-09-27 12:34:56.123'", "timestamp(3)", "TIMESTAMP '2020-09-27 12:34:56.123'"},
+                {"TIMESTAMP '2020-09-27 12:34:56.123000'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.123000'"},
+                {"TIMESTAMP '2020-09-27 12:34:56.999'", "timestamp(3)", "TIMESTAMP '2020-09-27 12:34:56.999'"},
+                {"TIMESTAMP '2020-09-27 12:34:56.123456'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.123456'"},
+                {"TIMESTAMP '1970-01-01 00:00:00.1234561'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"},
+                {"TIMESTAMP '1970-01-01 00:00:00.123456499'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"},
+                {"TIMESTAMP '1970-01-01 00:00:00.123456499999'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"},
+                {"TIMESTAMP '1970-01-01 00:00:00.1234565'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123457'"},
+                {"TIMESTAMP '1970-01-01 00:00:00.111222333444'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.111222'"},
+                {"TIMESTAMP '1970-01-01 00:00:00.9999995'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:01.000000'"},
+                {"TIMESTAMP '1970-01-01 23:59:59.9999995'", "timestamp(6)", "TIMESTAMP '1970-01-02 00:00:00.000000'"},
+                {"TIMESTAMP '1969-12-31 23:59:59.9999995'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.000000'"},
+                {"TIMESTAMP '1969-12-31 23:59:59.999999499999'", "timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.999999'"},
+                {"TIMESTAMP '1969-12-31 23:59:59.9999994'", "timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.999999'"}};
     }
 
     @Override

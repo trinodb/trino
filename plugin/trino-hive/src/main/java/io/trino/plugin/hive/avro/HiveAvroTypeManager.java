@@ -13,14 +13,17 @@
  */
 package io.trino.plugin.hive.avro;
 
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.hive.formats.avro.AvroTypeException;
 import io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager;
 import io.trino.plugin.hive.HiveTimestampPrecision;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Chars;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Timestamps;
 import io.trino.spi.type.Type;
@@ -35,12 +38,14 @@ import java.util.Optional;
 import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 
 import static io.trino.plugin.hive.avro.AvroHiveConstants.CHAR_TYPE_LOGICAL_NAME;
 import static io.trino.plugin.hive.avro.AvroHiveConstants.VARCHAR_AND_CHAR_LOGICAL_TYPE_LENGTH_PROP;
 import static io.trino.plugin.hive.avro.AvroHiveConstants.VARCHAR_TYPE_LOGICAL_NAME;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
@@ -49,11 +54,11 @@ public class HiveAvroTypeManager
         extends NativeLogicalTypesAvroTypeManager
 {
     private final AtomicReference<ZoneId> convertToTimezone = new AtomicReference<>(UTC);
-    private final TimestampType upcastMillisToType;
+    private final TimestampType hiveSessionTimestamp;
 
     public HiveAvroTypeManager(HiveTimestampPrecision hiveTimestampPrecision)
     {
-        upcastMillisToType = createTimestampType(requireNonNull(hiveTimestampPrecision, "hiveTimestampPrecision is null").getPrecision());
+        hiveSessionTimestamp = createTimestampType(requireNonNull(hiveTimestampPrecision, "hiveTimestampPrecision is null").getPrecision());
     }
 
     @Override
@@ -100,7 +105,7 @@ public class HiveAvroTypeManager
         if (result instanceof NativeLogicalTypesAvroTypeManager.ValidNativeAvroLogicalType validNativeAvroLogicalType) {
             return switch (validNativeAvroLogicalType.getLogicalType().getName()) {
                 case DATE -> super.overrideTypeForSchema(schema);
-                case TIMESTAMP_MILLIS -> Optional.of(upcastMillisToType);
+                case TIMESTAMP_MILLIS -> Optional.of(hiveSessionTimestamp);
                 case DECIMAL -> {
                     if (schema.getType() == Schema.Type.FIXED) {
                         // for backwards compatibility
@@ -150,21 +155,77 @@ public class HiveAvroTypeManager
         if (result instanceof NativeLogicalTypesAvroTypeManager.ValidNativeAvroLogicalType validNativeAvroLogicalType) {
             return switch (validNativeAvroLogicalType.getLogicalType().getName()) {
                 case TIMESTAMP_MILLIS -> {
-                    if (upcastMillisToType.isShort()) {
+                    if (hiveSessionTimestamp.isShort()) {
                         yield Optional.of((blockBuilder, obj) -> {
                             Long millisSinceEpochUTC = (Long) obj;
-                            upcastMillisToType.writeLong(blockBuilder, DateTimeZone.forTimeZone(TimeZone.getTimeZone(convertToTimezone.get())).convertUTCToLocal(millisSinceEpochUTC) * Timestamps.MICROSECONDS_PER_MILLISECOND);
+                            hiveSessionTimestamp.writeLong(blockBuilder, DateTimeZone.forTimeZone(TimeZone.getTimeZone(convertToTimezone.get())).convertUTCToLocal(millisSinceEpochUTC) * Timestamps.MICROSECONDS_PER_MILLISECOND);
                         });
                     }
                     else {
                         yield Optional.of((blockBuilder, obj) -> {
                             Long millisSinceEpochUTC = (Long) obj;
                             LongTimestamp longTimestamp = new LongTimestamp(DateTimeZone.forTimeZone(TimeZone.getTimeZone(convertToTimezone.get())).convertUTCToLocal(millisSinceEpochUTC) * Timestamps.MICROSECONDS_PER_MILLISECOND, 0);
-                            upcastMillisToType.writeObject(blockBuilder, longTimestamp);
+                            hiveSessionTimestamp.writeObject(blockBuilder, longTimestamp);
                         });
                     }
                 }
                 case DATE, DECIMAL -> super.overrideBuildingFunctionForSchema(schema);
+                default -> Optional.empty(); // Other logical types ignored by hive/don't map to hive types
+            };
+        }
+        throw new IllegalStateException("Unhandled validate logical type result");
+    }
+
+    @Override
+    public Optional<BiFunction<Block, Integer, Object>> overrideBlockToAvroObject(Schema schema, Type type)
+            throws AvroTypeException
+    {
+        ValidateLogicalTypeResult result = validateLogicalType(schema);
+        // TODO replace with sealed class case match syntax when stable
+        if (result instanceof NativeLogicalTypesAvroTypeManager.NoLogicalType ignored) {
+            return Optional.empty();
+        }
+        if (result instanceof NonNativeAvroLogicalType nonNativeAvroLogicalType) {
+            return switch (nonNativeAvroLogicalType.getLogicalTypeName()) {
+                case VARCHAR_TYPE_LOGICAL_NAME, CHAR_TYPE_LOGICAL_NAME -> {
+                    Type expectedType = getHiveLogicalVarCharOrCharType(schema, nonNativeAvroLogicalType);
+                    if (!expectedType.equals(type)) {
+                        throw new AvroTypeException("Type provided for column [%s] is incompatible with type for schema: %s".formatted(type, expectedType));
+                    }
+                    yield Optional.of((block, pos) -> ((Slice) expectedType.getObject(block, pos)).toStringUtf8());
+                }
+                default -> Optional.empty();
+            };
+        }
+        if (result instanceof NativeLogicalTypesAvroTypeManager.InvalidNativeAvroLogicalType invalidNativeAvroLogicalType) {
+            return switch (invalidNativeAvroLogicalType.getLogicalTypeName()) {
+                case TIMESTAMP_MILLIS, DATE, DECIMAL -> throw invalidNativeAvroLogicalType.getCause();
+                default -> Optional.empty(); // Other logical types ignored by hive/don't map to hive types
+            };
+        }
+        if (result instanceof NativeLogicalTypesAvroTypeManager.ValidNativeAvroLogicalType validNativeAvroLogicalType) {
+            return switch (validNativeAvroLogicalType.getLogicalType().getName()) {
+                case TIMESTAMP_MILLIS -> {
+                    if (!(type instanceof TimestampType timestampType)) {
+                        throw new AvroTypeException("Can't represent avro logical type %s with Trino Type %s".formatted(validNativeAvroLogicalType.getLogicalType().getName(), type));
+                    }
+                    if (timestampType.isShort()) {
+                        yield Optional.of((block, pos) -> {
+                            long millis = roundDiv(timestampType.getLong(block, pos), Timestamps.MICROSECONDS_PER_MILLISECOND);
+                            // see org.apache.hadoop.hive.serde2.avro.AvroSerializer.serializePrimitive
+                            return DateTimeZone.forTimeZone(TimeZone.getDefault()).convertLocalToUTC(millis, false);
+                        });
+                    }
+                    else {
+                        yield Optional.of((block, pos) ->
+                        {
+                            SqlTimestamp timestamp = (SqlTimestamp) timestampType.getObject(block, pos);
+                            // see org.apache.hadoop.hive.serde2.avro.AvroSerializer.serializePrimitive
+                            return DateTimeZone.forTimeZone(TimeZone.getDefault()).convertLocalToUTC(timestamp.getMillis(), false);
+                        });
+                    }
+                }
+                case DATE, DECIMAL -> super.overrideBlockToAvroObject(schema, type);
                 default -> Optional.empty(); // Other logical types ignored by hive/don't map to hive types
             };
         }

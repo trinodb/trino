@@ -58,9 +58,11 @@ import java.util.stream.Stream;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.parquet.ParquetTestUtils.toTrinoDictionaryPage;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static io.trino.parquet.reader.FilteredRowRanges.RowRange;
-import static io.trino.parquet.reader.TestingColumnReader.toTrinoDictionaryPage;
+import static io.trino.parquet.reader.TestingRowRanges.toRowRange;
+import static io.trino.parquet.reader.TestingRowRanges.toRowRanges;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.concat;
 import static io.trino.testing.DataProviders.toDataProvider;
@@ -68,8 +70,6 @@ import static java.lang.Math.toIntExact;
 import static org.apache.parquet.bytes.BytesUtils.getWidthFromMaxInt;
 import static org.apache.parquet.column.Encoding.RLE_DICTIONARY;
 import static org.apache.parquet.format.CompressionCodec.UNCOMPRESSED;
-import static org.apache.parquet.internal.filter2.columnindex.TestingRowRanges.toRowRange;
-import static org.apache.parquet.internal.filter2.columnindex.TestingRowRanges.toRowRanges;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractColumnReaderRowRangesTest

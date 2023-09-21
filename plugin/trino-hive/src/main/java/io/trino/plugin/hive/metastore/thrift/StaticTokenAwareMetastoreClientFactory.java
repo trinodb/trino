@@ -20,9 +20,8 @@ import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.metastore.thrift.FailureAwareThriftMetastoreClient.Callback;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType;
+import jakarta.annotation.Nullable;
 import org.apache.thrift.TException;
-
-import javax.annotation.Nullable;
 
 import java.net.URI;
 import java.util.Comparator;

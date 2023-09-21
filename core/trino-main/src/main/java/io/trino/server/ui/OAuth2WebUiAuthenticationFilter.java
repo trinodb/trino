@@ -135,17 +135,17 @@ public class OAuth2WebUiAuthenticationFilter
 
     private boolean tokenNotExpired(TokenPair tokenPair)
     {
-        return tokenPair.getExpiration().after(Date.from(Instant.now()));
+        return tokenPair.expiration().after(Date.from(Instant.now()));
     }
 
     private Optional<Map<String, Object>> getAccessTokenClaims(TokenPair tokenPair)
     {
-        return client.getClaims(tokenPair.getAccessToken());
+        return client.getClaims(tokenPair.accessToken());
     }
 
     private void needAuthentication(ContainerRequestContext request, Optional<TokenPair> tokenPair)
     {
-        Optional<String> refreshToken = tokenPair.flatMap(TokenPair::getRefreshToken);
+        Optional<String> refreshToken = tokenPair.flatMap(TokenPair::refreshToken);
         if (refreshToken.isPresent()) {
             try {
                 redirectForNewToken(request, refreshToken.get());

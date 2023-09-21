@@ -21,7 +21,7 @@ import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;

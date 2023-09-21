@@ -28,7 +28,7 @@ import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Constructor;
 import java.util.List;

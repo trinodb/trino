@@ -430,13 +430,6 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
-    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context)
-    {
-        checkArgument(context == null, "context must be null");
-        accessControl.checkCanShowRoleAuthorizationDescriptors(securityContext, Optional.of(catalogName));
-    }
-
-    @Override
     public void checkCanShowRoles(ConnectorSecurityContext context)
     {
         checkArgument(context == null, "context must be null");
@@ -499,12 +492,6 @@ public class InjectedConnectorAccessControl
             return Optional.empty();
         }
         throw new TrinoException(NOT_SUPPORTED, "Column masking not supported");
-    }
-
-    @Override
-    public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
-    {
-        throw new UnsupportedOperationException();
     }
 
     private QualifiedObjectName getQualifiedObjectName(SchemaTableName schemaTableName)

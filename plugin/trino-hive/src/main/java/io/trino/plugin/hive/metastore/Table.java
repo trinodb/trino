@@ -19,9 +19,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.spi.connector.SchemaTableName;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -32,6 +31,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -328,6 +328,17 @@ public class Table
             return this;
         }
 
+        public Builder setParameter(String key, Optional<String> value)
+        {
+            if (value.isEmpty()) {
+                this.parameters.remove(key);
+            }
+            else {
+                this.parameters.put(key, value.get());
+            }
+            return this;
+        }
+
         public Builder setViewOriginalText(Optional<String> viewOriginalText)
         {
             this.viewOriginalText = viewOriginalText;
@@ -350,6 +361,11 @@ public class Table
         {
             consumer.accept(storageBuilder);
             return this;
+        }
+
+        public Builder apply(Function<Builder, Builder> function)
+        {
+            return function.apply(this);
         }
 
         public Table build()

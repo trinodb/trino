@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import io.trino.operator.aggregation.state.DoubleHistogramStateSerializer;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateMetadata;
 import io.trino.spi.function.AggregationFunction;
@@ -92,13 +93,12 @@ public final class DoubleHistogramAggregation
         }
         else {
             Map<Double, Double> value = state.get().getBuckets();
-
-            BlockBuilder entryBuilder = out.beginBlockEntry();
-            for (Map.Entry<Double, Double> entry : value.entrySet()) {
-                DoubleType.DOUBLE.writeDouble(entryBuilder, entry.getKey());
-                DoubleType.DOUBLE.writeDouble(entryBuilder, entry.getValue());
-            }
-            out.closeEntry();
+            ((MapBlockBuilder) out).buildEntry((keyBuilder, valueBuilder) -> {
+                for (Map.Entry<Double, Double> entry : value.entrySet()) {
+                    DoubleType.DOUBLE.writeDouble(keyBuilder, entry.getKey());
+                    DoubleType.DOUBLE.writeDouble(valueBuilder, entry.getValue());
+                }
+            });
         }
     }
 }

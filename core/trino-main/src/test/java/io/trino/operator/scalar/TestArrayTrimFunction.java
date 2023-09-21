@@ -75,9 +75,9 @@ public class TestArrayTrimFunction
                 .hasType(new ArrayType(new ArrayType(INTEGER)))
                 .isEqualTo(ImmutableList.of(ImmutableList.of(1, 2, 3)));
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("trim_array", "ARRAY[1, 2, 3, 4]", "5").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("trim_array", "ARRAY[1, 2, 3, 4]", "5")::evaluate)
                 .hasMessage("size must not exceed array cardinality 4: 5");
-        assertTrinoExceptionThrownBy(() -> assertions.function("trim_array", "ARRAY[1, 2, 3, 4]", "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("trim_array", "ARRAY[1, 2, 3, 4]", "-1")::evaluate)
                 .hasMessage("size must not be negative: -1");
     }
 }

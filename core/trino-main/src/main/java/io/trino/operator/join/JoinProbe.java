@@ -16,8 +16,7 @@ package io.trino.operator.join;
 import com.google.common.primitives.Ints;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.OptionalInt;

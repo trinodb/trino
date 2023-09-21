@@ -21,6 +21,7 @@ import io.airlift.drift.client.address.SimpleAddressSelector;
 import io.airlift.drift.client.address.SimpleAddressSelectorConfig;
 import io.airlift.drift.client.guice.AbstractAnnotatedProvider;
 import io.airlift.drift.client.guice.AddressSelectorBinder;
+import io.airlift.drift.transport.client.Address;
 
 import java.lang.annotation.Annotation;
 
@@ -45,7 +46,7 @@ public class ExtendedSimpleAddressSelectorBinder
     }
 
     private static class ExtendedSimpleAddressSelectorProvider
-            extends AbstractAnnotatedProvider<AddressSelector<?>>
+            extends AbstractAnnotatedProvider<AddressSelector<? extends Address>>
     {
         public ExtendedSimpleAddressSelectorProvider(Annotation annotation)
         {
@@ -53,7 +54,7 @@ public class ExtendedSimpleAddressSelectorBinder
         }
 
         @Override
-        protected AddressSelector<?> get(Injector injector, Annotation annotation)
+        protected AddressSelector<? extends Address> get(Injector injector, Annotation annotation)
         {
             return new ExtendedSimpleAddressSelector(new SimpleAddressSelector(
                     injector.getInstance(Key.get(SimpleAddressSelectorConfig.class, annotation))));

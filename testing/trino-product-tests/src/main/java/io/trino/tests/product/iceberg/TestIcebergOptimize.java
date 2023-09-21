@@ -14,7 +14,6 @@
 package io.trino.tests.product.iceberg;
 
 import io.trino.tempto.ProductTest;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -76,10 +75,12 @@ public class TestIcebergOptimize
         // TODO Drop Spark dependency once that the setting 'read.split.target-size' can be set through Trino
         onSpark().executeQuery("ALTER TABLE " + sparkTableName + " SET TBLPROPERTIES ('read.split.target-size'='100')");
 
+        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        onTrino().executeQuery("SET SESSION task_writer_count = 1");
         onTrino().executeQuery("ALTER TABLE " + trinoTableName + " EXECUTE OPTIMIZE");
 
         List<String> updatedFiles = getActiveFiles(TRINO_CATALOG, TEST_SCHEMA_NAME, baseTableName);
-        Assertions.assertThat(updatedFiles)
+        assertThat(updatedFiles)
                 .hasSize(1)
                 .isNotEqualTo(initialFiles);
 

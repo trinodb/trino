@@ -20,8 +20,6 @@ import io.trino.testing.sql.SqlExecutor;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_SCHEMA;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
@@ -54,7 +52,7 @@ public class TestOracleConnectorTest
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
-            throws IOException
+            throws Exception
     {
         Closeables.closeAll(oracleServer);
         oracleServer = null;
@@ -83,6 +81,18 @@ public class TestOracleConnectorTest
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return oracleServer::execute;
+        return new SqlExecutor() {
+            @Override
+            public boolean supportsMultiRowInsert()
+            {
+                return false;
+            }
+
+            @Override
+            public void execute(String sql)
+            {
+                oracleServer.execute(sql);
+            }
+        };
     }
 }

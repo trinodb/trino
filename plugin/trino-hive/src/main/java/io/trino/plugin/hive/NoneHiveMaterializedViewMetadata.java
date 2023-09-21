@@ -91,4 +91,10 @@ public class NoneHiveMaterializedViewMetadata
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting materialized view properties");
     }
+
+    @Override
+    public void setMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting materialized view column comment");
+    }
 }

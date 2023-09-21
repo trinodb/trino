@@ -182,11 +182,19 @@ public class ConnectorMaterializedViewDefinition
     {
         private final String name;
         private final TypeId type;
+        private final Optional<String> comment;
 
+        @Deprecated
         public Column(String name, TypeId type)
+        {
+            this(name, type, Optional.empty());
+        }
+
+        public Column(String name, TypeId type, Optional<String> comment)
         {
             this.name = requireNonNull(name, "name is null");
             this.type = requireNonNull(type, "type is null");
+            this.comment = requireNonNull(comment, "comment is null");
         }
 
         public String getName()
@@ -197,6 +205,11 @@ public class ConnectorMaterializedViewDefinition
         public TypeId getType()
         {
             return type;
+        }
+
+        public Optional<String> getComment()
+        {
+            return comment;
         }
 
         @Override
@@ -216,13 +229,14 @@ public class ConnectorMaterializedViewDefinition
             }
             Column column = (Column) o;
             return Objects.equals(name, column.name) &&
-                    Objects.equals(type, column.type);
+                    Objects.equals(type, column.type) &&
+                    Objects.equals(comment, column.comment);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(name, type);
+            return Objects.hash(name, type, comment);
         }
     }
 }

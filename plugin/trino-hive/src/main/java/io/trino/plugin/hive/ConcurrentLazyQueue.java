@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive;
 
-import javax.annotation.concurrent.GuardedBy;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.Iterator;
 

@@ -16,12 +16,10 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.block.DuplicateMapKeyException;
-import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
@@ -119,59 +117,43 @@ public final class MapConstructor
             Block valueBlock)
     {
         checkCondition(keyBlock.getPositionCount() == valueBlock.getPositionCount(), INVALID_FUNCTION_ARGUMENT, "Key and value arrays must be the same length");
-        PageBuilder pageBuilder = state.getPageBuilder();
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
-        MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) pageBuilder.getBlockBuilder(0);
-        mapBlockBuilder.strict();
-        BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
-        for (int i = 0; i < keyBlock.getPositionCount(); i++) {
-            if (keyBlock.isNull(i)) {
-                // close block builder before throwing as we may be in a TRY() call
-                // so that subsequent calls do not find it in an inconsistent state
-                mapBlockBuilder.closeEntry();
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
-            }
-            Object keyObject = readNativeValue(mapType.getKeyType(), keyBlock, i);
-            try {
-                if ((boolean) keyIndeterminate.invoke(keyObject)) {
-                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be indeterminate: " + mapType.getKeyType().getObjectValue(session, keyBlock, i));
-                }
-            }
-            catch (Throwable t) {
-                mapBlockBuilder.closeEntry();
-                throw internalError(t);
-            }
-            mapType.getKeyType().appendTo(keyBlock, i, blockBuilder);
-            mapType.getValueType().appendTo(valueBlock, i, blockBuilder);
-        }
         try {
-            mapBlockBuilder.closeEntry();
+            return state.getMapValueBuilder().build(keyBlock.getPositionCount(), (keyBuilder, valueBuilder) -> {
+                for (int i = 0; i < keyBlock.getPositionCount(); i++) {
+                    if (keyBlock.isNull(i)) {
+                        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
+                    }
+                    Object keyObject = readNativeValue(mapType.getKeyType(), keyBlock, i);
+                    try {
+                        if ((boolean) keyIndeterminate.invoke(keyObject)) {
+                            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be indeterminate: " + mapType.getKeyType().getObjectValue(session, keyBlock, i));
+                        }
+                    }
+                    catch (Throwable t) {
+                        throw internalError(t);
+                    }
+                    mapType.getKeyType().appendTo(keyBlock, i, keyBuilder);
+                    mapType.getValueType().appendTo(valueBlock, i, valueBuilder);
+                }
+            });
         }
         catch (DuplicateMapKeyException e) {
             throw e.withDetailedMessage(mapType.getKeyType(), session);
         }
-        finally {
-            pageBuilder.declarePosition();
-        }
-
-        return mapType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
     }
 
     public static final class State
     {
-        private final PageBuilder pageBuilder;
+        private final BufferedMapValueBuilder mapValueBuilder;
 
         public State(MapType mapType)
         {
-            pageBuilder = new PageBuilder(ImmutableList.of(mapType));
+            mapValueBuilder = BufferedMapValueBuilder.createBufferedStrict(mapType);
         }
 
-        public PageBuilder getPageBuilder()
+        public BufferedMapValueBuilder getMapValueBuilder()
         {
-            return pageBuilder;
+            return mapValueBuilder;
         }
     }
 }

@@ -15,153 +15,44 @@ package io.trino.hive.formats.avro;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
-import com.google.common.primitives.Bytes;
-import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.local.LocalFileSystem;
 import io.trino.spi.Page;
-import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.MapBlock;
-import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.VariableWidthBlock;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.BooleanType;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.MapType;
-import io.trino.spi.type.RealType;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
-import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.avro.util.RandomData;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.google.common.base.Verify.verify;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
-import static io.trino.block.BlockAssertions.createIntsBlock;
-import static io.trino.block.BlockAssertions.createRowBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.within;
 
 public class TestAvroPageDataReaderWithoutTypeManager
+        extends TestAvroBase
 {
-    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
-    private static final ArrayType ARRAY_INTEGER = new ArrayType(INTEGER);
-    private static final MapType MAP_VARCHAR_VARCHAR = new MapType(VARCHAR, VARCHAR, TYPE_OPERATORS);
-    private static final MapType MAP_VARCHAR_INTEGER = new MapType(VARCHAR, INTEGER, TYPE_OPERATORS);
-    private static final TrinoFileSystem TRINO_LOCAL_FILESYSTEM = new LocalFileSystem(Path.of("/"));
-
-    private static final Schema SIMPLE_RECORD_SCHEMA = SchemaBuilder.record("simpleRecord")
-            .fields()
-            .name("a")
-            .type().intType().noDefault()
-            .name("b")
-            .type().doubleType().noDefault()
-            .name("c")
-            .type().stringType().noDefault()
-            .endRecord();
-
     private static final Schema SIMPLE_ENUM_SCHEMA = SchemaBuilder.enumeration("myEnumType").symbols("A", "B", "C");
-
     private static final Schema SIMPLE_ENUM_SUPER_SCHEMA = SchemaBuilder.enumeration("myEnumType").symbols("A", "B", "C", "D");
-
     private static final Schema SIMPLE_ENUM_REORDERED = SchemaBuilder.enumeration("myEnumType").symbols("C", "D", "B", "A");
-
-    private static final Schema ALL_TYPES_RECORD_SCHEMA = SchemaBuilder.builder()
-            .record("all")
-            .fields()
-            .name("aBoolean")
-            .type().booleanType().noDefault()
-            .name("aInt")
-            .type().intType().noDefault()
-            .name("aLong")
-            .type().longType().noDefault()
-            .name("aFloat")
-            .type().floatType().noDefault()
-            .name("aDouble")
-            .type().doubleType().noDefault()
-            .name("aString")
-            .type().stringType().noDefault()
-            .name("aBytes")
-            .type().bytesType().noDefault()
-            .name("aFixed")
-            .type().fixed("myFixedType").size(16).noDefault()
-            .name("anArray")
-            .type().array().items().intType().noDefault()
-            .name("aMap")
-            .type().map().values().intType().noDefault()
-            .name("anEnum")
-            .type(SIMPLE_ENUM_SCHEMA).noDefault()
-            .name("aRecord")
-            .type(SIMPLE_RECORD_SCHEMA).noDefault()
-            .name("aUnion")
-            .type().optional().stringType()
-            .endRecord();
-
-    private static final GenericRecord ALL_TYPES_GENERIC_RECORD;
-    private static final GenericRecord SIMPLE_GENERIC_RECORD;
-    private static final String A_STRING_VALUE = "a test string";
-    private static final ByteBuffer A_BYTES_VALUE = ByteBuffer.wrap("a test byte array".getBytes(StandardCharsets.UTF_8));
-    private static final GenericData.Fixed A_FIXED_VALUE;
-
-    static {
-        SIMPLE_GENERIC_RECORD = new GenericData.Record(SIMPLE_RECORD_SCHEMA);
-        SIMPLE_GENERIC_RECORD.put("a", 5);
-        SIMPLE_GENERIC_RECORD.put("b", 3.14159265358979);
-        SIMPLE_GENERIC_RECORD.put("c", "Simple Record String Field");
-
-        UUID fixed = UUID.nameUUIDFromBytes("a test fixed".getBytes(StandardCharsets.UTF_8));
-        A_FIXED_VALUE = new GenericData.Fixed(SchemaBuilder.builder().fixed("myFixedType").size(16), Bytes.concat(Longs.toByteArray(fixed.getMostSignificantBits()), Longs.toByteArray(fixed.getLeastSignificantBits())));
-
-        ALL_TYPES_GENERIC_RECORD = new GenericData.Record(ALL_TYPES_RECORD_SCHEMA);
-        ALL_TYPES_GENERIC_RECORD.put("aBoolean", true);
-        ALL_TYPES_GENERIC_RECORD.put("aInt", 42);
-        ALL_TYPES_GENERIC_RECORD.put("aLong", 3400L);
-        ALL_TYPES_GENERIC_RECORD.put("aFloat", 3.14f);
-        ALL_TYPES_GENERIC_RECORD.put("aDouble", 9.81);
-        ALL_TYPES_GENERIC_RECORD.put("aString", A_STRING_VALUE);
-        ALL_TYPES_GENERIC_RECORD.put("aBytes", A_BYTES_VALUE);
-        ALL_TYPES_GENERIC_RECORD.put("aFixed", A_FIXED_VALUE);
-        ALL_TYPES_GENERIC_RECORD.put("anArray", ImmutableList.of(1, 2, 3, 4));
-        ALL_TYPES_GENERIC_RECORD.put("aMap", ImmutableMap.of("key1", 1, "key2", 2));
-        ALL_TYPES_GENERIC_RECORD.put("anEnum", new GenericData.EnumSymbol(SIMPLE_ENUM_SCHEMA, "A"));
-        ALL_TYPES_GENERIC_RECORD.put("aRecord", SIMPLE_GENERIC_RECORD);
-        ALL_TYPES_GENERIC_RECORD.put("aUnion", null);
-    }
 
     @Test
     public void testAllTypesSimple()
@@ -172,7 +63,7 @@ public class TestAvroPageDataReaderWithoutTypeManager
             int totalRecords = 0;
             while (avroFileReader.hasNext()) {
                 Page p = avroFileReader.next();
-                assertIsAllTypesGenericRecord(p);
+                assertIsAllTypesPage(p);
                 totalRecords += p.getPositionCount();
             }
             assertThat(totalRecords).isEqualTo(1);
@@ -240,13 +131,13 @@ public class TestAvroPageDataReaderWithoutTypeManager
     public void testSchemaWithReorders()
             throws IOException, AvroTypeException
     {
-        Schema writerSchema = reverseSchema(ALL_TYPES_RECORD_SCHEMA);
-        TrinoInputFile input = createWrittenFileWithData(writerSchema, ImmutableList.of(reverseGenericRecord(ALL_TYPES_GENERIC_RECORD)));
+        Schema writerSchema = reorderSchema(ALL_TYPES_RECORD_SCHEMA);
+        TrinoInputFile input = createWrittenFileWithData(writerSchema, ImmutableList.of(reorderGenericRecord(writerSchema, ALL_TYPES_GENERIC_RECORD)));
         try (AvroFileReader avroFileReader = new AvroFileReader(input, ALL_TYPES_RECORD_SCHEMA, NoOpAvroTypeManager.INSTANCE)) {
             int totalRecords = 0;
             while (avroFileReader.hasNext()) {
                 Page p = avroFileReader.next();
-                assertIsAllTypesGenericRecord(p);
+                assertIsAllTypesPage(p);
                 totalRecords += p.getPositionCount();
             }
             assertThat(totalRecords).isEqualTo(1);
@@ -443,121 +334,5 @@ public class TestAvroPageDataReaderWithoutTypeManager
             }
             assertThat(totalRecords).isEqualTo(3);
         }
-    }
-
-    protected static TrinoInputFile createWrittenFileWithData(Schema schema, List<GenericRecord> records)
-            throws IOException
-    {
-        File tempFile = File.createTempFile("testingAvroReading", null);
-        try (DataFileWriter<GenericRecord> fileWriter = new DataFileWriter<>(new GenericDatumWriter<>())) {
-            fileWriter.create(schema, tempFile);
-            for (GenericRecord genericRecord : records) {
-                fileWriter.append(genericRecord);
-            }
-        }
-        tempFile.deleteOnExit();
-        return TRINO_LOCAL_FILESYSTEM.newInputFile(Location.of("local://" + tempFile.getAbsolutePath()));
-    }
-
-    protected static TrinoInputFile createWrittenFileWithSchema(int count, Schema schema)
-            throws IOException
-    {
-        Iterator<Object> randomData = new RandomData(schema, count).iterator();
-        File tempFile = File.createTempFile("testingAvroReading", null);
-        try (DataFileWriter<GenericRecord> fileWriter = new DataFileWriter<>(new GenericDatumWriter<>())) {
-            fileWriter.create(schema, tempFile);
-            while (randomData.hasNext()) {
-                fileWriter.append((GenericRecord) randomData.next());
-            }
-        }
-        tempFile.deleteOnExit();
-        return TRINO_LOCAL_FILESYSTEM.newInputFile(Location.of("local://" + tempFile.getAbsolutePath()));
-    }
-
-    private static GenericRecord reverseGenericRecord(GenericRecord record)
-    {
-        Schema reversedSchema = reverseSchema(record.getSchema());
-        GenericRecordBuilder recordBuilder = new GenericRecordBuilder(reversedSchema);
-        for (Schema.Field field : reversedSchema.getFields()) {
-            if (field.schema().getType() == Schema.Type.RECORD) {
-                recordBuilder.set(field, reverseGenericRecord((GenericRecord) record.get(field.name())));
-            }
-            else {
-                recordBuilder.set(field, record.get(field.name()));
-            }
-        }
-        return recordBuilder.build();
-    }
-
-    private static Schema reverseSchema(Schema schema)
-    {
-        verify(schema.getType() == Schema.Type.RECORD);
-        SchemaBuilder.FieldAssembler<Schema> fieldAssembler = SchemaBuilder.builder().record(schema.getName()).fields();
-        for (Schema.Field field : Lists.reverse(schema.getFields())) {
-            if (field.schema().getType() == Schema.Type.ENUM) {
-                fieldAssembler = fieldAssembler.name(field.name())
-                        .type(Schema.createEnum(field.schema().getName(), field.schema().getDoc(), field.schema().getNamespace(), Lists.reverse(field.schema().getEnumSymbols())))
-                        .noDefault();
-            }
-            else if (field.schema().getType() == Schema.Type.UNION) {
-                fieldAssembler = fieldAssembler.name(field.name())
-                        .type(Schema.createUnion(Lists.reverse(field.schema().getTypes())))
-                        .noDefault();
-            }
-            else if (field.schema().getType() == Schema.Type.RECORD) {
-                fieldAssembler = fieldAssembler.name(field.name())
-                        .type(reverseSchema(field.schema()))
-                        .noDefault();
-            }
-            else {
-                fieldAssembler = fieldAssembler.name(field.name()).type(field.schema()).noDefault();
-            }
-        }
-        return fieldAssembler.endRecord();
-    }
-
-    private static void assertIsAllTypesGenericRecord(Page p)
-    {
-        // test boolean
-        assertThat(p.getBlock(0)).isInstanceOf(ByteArrayBlock.class);
-        assertThat(BooleanType.BOOLEAN.getBoolean(p.getBlock(0), 0)).isTrue();
-        // test int
-        assertThat(p.getBlock(1)).isInstanceOf(IntArrayBlock.class);
-        assertThat(INTEGER.getInt(p.getBlock(1), 0)).isEqualTo(42);
-        // test long
-        assertThat(p.getBlock(2)).isInstanceOf(LongArrayBlock.class);
-        assertThat(BigintType.BIGINT.getLong(p.getBlock(2), 0)).isEqualTo(3400L);
-        // test float
-        assertThat(p.getBlock(3)).isInstanceOf(IntArrayBlock.class);
-        assertThat(RealType.REAL.getFloat(p.getBlock(3), 0)).isCloseTo(3.14f, within(0.001f));
-        // test double
-        assertThat(p.getBlock(4)).isInstanceOf(LongArrayBlock.class);
-        assertThat(DoubleType.DOUBLE.getDouble(p.getBlock(4), 0)).isCloseTo(9.81, within(0.001));
-        // test string
-        assertThat(p.getBlock(5)).isInstanceOf(VariableWidthBlock.class);
-        assertThat(VARCHAR.getObject(p.getBlock(5), 0)).isEqualTo(Slices.utf8Slice(A_STRING_VALUE));
-        // test bytes
-        assertThat(p.getBlock(6)).isInstanceOf(VariableWidthBlock.class);
-        assertThat(VarbinaryType.VARBINARY.getObject(p.getBlock(6), 0)).isEqualTo(Slices.wrappedBuffer(A_BYTES_VALUE));
-        // test fixed
-        assertThat(p.getBlock(7)).isInstanceOf(VariableWidthBlock.class);
-        assertThat(VarbinaryType.VARBINARY.getObject(p.getBlock(7), 0)).isEqualTo(Slices.wrappedBuffer(A_FIXED_VALUE.bytes()));
-        //test array
-        assertThat(p.getBlock(8)).isInstanceOf(ArrayBlock.class);
-        assertThat(ARRAY_INTEGER.getObject(p.getBlock(8), 0)).isInstanceOf(IntArrayBlock.class);
-        assertBlockEquals(INTEGER, ARRAY_INTEGER.getObject(p.getBlock(8), 0), createIntsBlock(1, 2, 3, 4));
-        // test map
-        assertThat(p.getBlock(9)).isInstanceOf(MapBlock.class);
-        assertThat(MAP_VARCHAR_INTEGER.getObjectValue(null, p.getBlock(9), 0)).isEqualTo(ImmutableMap.of("key1", 1, "key2", 2));
-        // test enum
-        assertThat(p.getBlock(10)).isInstanceOf(VariableWidthBlock.class);
-        assertThat(VARCHAR.getObject(p.getBlock(10), 0)).isEqualTo(Slices.utf8Slice("A"));
-        // test record
-        assertThat(p.getBlock(11)).isInstanceOf(RowBlock.class);
-        Block expected = createRowBlock(ImmutableList.of(INTEGER, DoubleType.DOUBLE, VARCHAR), new Object[] {5, 3.14159265358979, "Simple Record String Field"});
-        assertBlockEquals(RowType.anonymousRow(INTEGER, DoubleType.DOUBLE, VARCHAR), p.getBlock(11), expected);
-        // test nullable union
-        assertThat(p.getBlock(12)).isInstanceOf(VariableWidthBlock.class);
-        assertThat(p.getBlock(12).isNull(0)).isTrue();
     }
 }

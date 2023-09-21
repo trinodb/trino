@@ -22,7 +22,6 @@ import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
-import java.net.URISyntaxException;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -55,7 +54,6 @@ public class TestHivePartitionProcedures
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnregisterPartition()
-            throws URISyntaxException
     {
         createPartitionedTable(FIRST_TABLE);
 
@@ -202,7 +200,6 @@ public class TestHivePartitionProcedures
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartition()
-            throws URISyntaxException
     {
         createPartitionedTable(FIRST_TABLE);
         createPartitionedTable(SECOND_TABLE);

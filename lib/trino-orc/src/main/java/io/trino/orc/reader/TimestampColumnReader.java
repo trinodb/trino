@@ -30,9 +30,8 @@ import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
+import jakarta.annotation.Nullable;
 import org.joda.time.DateTimeZone;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.time.LocalDateTime;

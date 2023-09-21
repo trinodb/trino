@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog.glue;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import com.amazonaws.services.glue.model.DeleteTableRequest;
+import com.amazonaws.services.glue.model.EntityNotFoundException;
 import com.amazonaws.services.glue.model.GetTableRequest;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
@@ -90,6 +91,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(
                         ImmutableMap.of(
+                                "iceberg.file-format", format.name(),
                                 "iceberg.catalog.type", "glue",
                                 "hive.metastore.glue.default-warehouse-dir", schemaPath(),
                                 "iceberg.register-table-procedure.enabled", "true",
@@ -125,7 +127,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                                 "   comment varchar\n" +
                                 ")\n" +
                                 "WITH (\n" +
-                                "   format = 'ORC',\n" +
+                                "   format = 'PARQUET',\n" +
                                 "   format_version = 2,\n" +
                                 "   location = '%2$s/%1$s.db/region-\\E.*\\Q'\n" +
                                 ")\\E",
@@ -152,8 +154,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                 .withDatabaseName(schemaName)
                 .withName(tableName);
         assertThatThrownBy(() -> glueClient.getTable(getTableRequest))
-                .as("Table in metastore should not exist")
-                .hasMessageMatching(".*Table (.*) not found.*");
+                .isInstanceOf(EntityNotFoundException.class);
     }
 
     @Override

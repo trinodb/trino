@@ -28,6 +28,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.execution.QueryManagerConfig.AVAILABLE_HEAP_MEMORY;
+import static io.trino.execution.QueryManagerConfig.FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -80,15 +81,17 @@ public class TestQueryManagerConfig
                 .setRemoteTaskRequestSizeHeadroom(DataSize.of(2, DataSize.Unit.MEGABYTE))
                 .setRemoteTaskGuaranteedSplitPerTask(3)
                 .setFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod(64)
-                .setFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor(1.2)
+                .setFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor(1.26)
                 .setFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin(DataSize.of(512, MEGABYTE))
                 .setFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMax(DataSize.of(50, GIGABYTE))
                 .setFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod(64)
-                .setFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor(1.2)
+                .setFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor(1.26)
                 .setFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin(DataSize.of(4, GIGABYTE))
                 .setFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax(DataSize.of(50, GIGABYTE))
                 .setFaultTolerantExecutionHashDistributionComputeTaskTargetSize(DataSize.of(512, MEGABYTE))
+                .setFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio(2.0)
                 .setFaultTolerantExecutionHashDistributionWriteTaskTargetSize(DataSize.of(4, GIGABYTE))
+                .setFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio(2.0)
                 .setFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount(2000)
                 .setFaultTolerantExecutionStandardSplitSize(DataSize.of(64, MEGABYTE))
                 .setFaultTolerantExecutionMaxTaskSplitCount(256)
@@ -96,7 +99,14 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionMaxPartitionCount(50)
                 .setFaultTolerantExecutionMinPartitionCount(4)
                 .setFaultTolerantExecutionMinPartitionCountForWrite(50)
-                .setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(true)
+                .setFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled(false)
+                .setFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize(DataSize.of(12, GIGABYTE))
+                .setFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT)
+                .setFaultTolerantExecutionMinSourceStageProgress(0.2)
+                .setFaultTolerantExecutionSmallStageEstimationEnabled(true)
+                .setFaultTolerantExecutionSmallStageEstimationThreshold(DataSize.of(20, GIGABYTE))
+                .setFaultTolerantExecutionSmallStageSourceSizeMultiplier(1.2)
+                .setFaultTolerantExecutionSmallStageRequireNoMorePartitions(false)
                 .setMaxWriterTasksCount(100));
     }
 
@@ -153,7 +163,9 @@ public class TestQueryManagerConfig
                 .put("fault-tolerant-execution-arbitrary-distribution-write-task-target-size-min", "6GB")
                 .put("fault-tolerant-execution-arbitrary-distribution-write-task-target-size-max", "10GB")
                 .put("fault-tolerant-execution-hash-distribution-compute-task-target-size", "1GB")
+                .put("fault-tolerant-execution-hash-distribution-compute-task-to-node-min-ratio", "1.1")
                 .put("fault-tolerant-execution-hash-distribution-write-task-target-size", "7GB")
+                .put("fault-tolerant-execution-hash-distribution-write-task-to-node-min-ratio", "1.2")
                 .put("fault-tolerant-execution-hash-distribution-write-task-target-max-count", "5000")
                 .put("fault-tolerant-execution-standard-split-size", "33MB")
                 .put("fault-tolerant-execution-max-task-split-count", "22")
@@ -161,8 +173,15 @@ public class TestQueryManagerConfig
                 .put("fault-tolerant-execution-max-partition-count", "123")
                 .put("fault-tolerant-execution-min-partition-count", "12")
                 .put("fault-tolerant-execution-min-partition-count-for-write", "99")
-                .put("experimental.fault-tolerant-execution-force-preferred-write-partitioning-enabled", "false")
+                .put("fault-tolerant-execution-runtime-adaptive-partitioning-enabled", "true")
+                .put("fault-tolerant-execution-runtime-adaptive-partitioning-partition-count", "888")
+                .put("fault-tolerant-execution-runtime-adaptive-partitioning-max-task-size", "18GB")
+                .put("fault-tolerant-execution-min-source-stage-progress", "0.3")
                 .put("query.max-writer-task-count", "101")
+                .put("fault-tolerant-execution-small-stage-estimation-enabled", "false")
+                .put("fault-tolerant-execution-small-stage-estimation-threshold", "6GB")
+                .put("fault-tolerant-execution-small-stage-source-size-multiplier", "1.6")
+                .put("fault-tolerant-execution-small-stage-require-no-more-partitions", "true")
                 .buildOrThrow();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -215,7 +234,9 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin(DataSize.of(6, GIGABYTE))
                 .setFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax(DataSize.of(10, GIGABYTE))
                 .setFaultTolerantExecutionHashDistributionComputeTaskTargetSize(DataSize.of(1, GIGABYTE))
+                .setFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio(1.1)
                 .setFaultTolerantExecutionHashDistributionWriteTaskTargetSize(DataSize.of(7, GIGABYTE))
+                .setFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio(1.2)
                 .setFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount(5000)
                 .setFaultTolerantExecutionStandardSplitSize(DataSize.of(33, MEGABYTE))
                 .setFaultTolerantExecutionMaxTaskSplitCount(22)
@@ -223,7 +244,14 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionMaxPartitionCount(123)
                 .setFaultTolerantExecutionMinPartitionCount(12)
                 .setFaultTolerantExecutionMinPartitionCountForWrite(99)
-                .setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(false)
+                .setFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled(true)
+                .setFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount(888)
+                .setFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize(DataSize.of(18, GIGABYTE))
+                .setFaultTolerantExecutionMinSourceStageProgress(0.3)
+                .setFaultTolerantExecutionSmallStageEstimationEnabled(false)
+                .setFaultTolerantExecutionSmallStageEstimationThreshold(DataSize.of(6, GIGABYTE))
+                .setFaultTolerantExecutionSmallStageSourceSizeMultiplier(1.6)
+                .setFaultTolerantExecutionSmallStageRequireNoMorePartitions(true)
                 .setMaxWriterTasksCount(101);
 
         assertFullMapping(properties, expected);

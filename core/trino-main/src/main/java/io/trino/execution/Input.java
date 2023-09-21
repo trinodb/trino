@@ -16,11 +16,10 @@ package io.trino.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;

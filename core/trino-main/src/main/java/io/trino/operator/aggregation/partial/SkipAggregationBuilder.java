@@ -24,8 +24,7 @@ import io.trino.operator.aggregation.builder.HashAggregationBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -164,14 +163,5 @@ public class SkipAggregationBuilder
             outputBlocks[hashChannels.length + i] = outputBuilders[i].build();
         }
         return new Page(page.getPositionCount(), outputBlocks);
-    }
-
-    private static long[] consecutive(int positionCount)
-    {
-        long[] longs = new long[positionCount];
-        for (int i = 0; i < positionCount; i++) {
-            longs[i] = i;
-        }
-        return longs;
     }
 }

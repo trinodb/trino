@@ -15,8 +15,7 @@ package io.trino.operator.join;
 
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Optional;
 

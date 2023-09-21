@@ -23,8 +23,7 @@ import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 

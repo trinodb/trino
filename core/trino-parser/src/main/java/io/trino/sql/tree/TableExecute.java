@@ -106,7 +106,7 @@ public class TableExecute
     {
         return toStringHelper(this)
                 .add("table", table)
-                .add("procedureNaem", procedureName)
+                .add("procedureName", procedureName)
                 .add("arguments", arguments)
                 .add("where", where)
                 .toString();

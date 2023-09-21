@@ -105,7 +105,7 @@ public class TestTypeOfFunction
     @Test
     public void testLambda()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.expression("typeof(x -> x)").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("typeof(x -> x)")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
                 .hasMessage("line 1:12: Unexpected parameters (<function>) for function typeof. Expected: typeof(t) T");
     }

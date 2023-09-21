@@ -22,8 +22,8 @@ import java.util.List;
 
 import static com.google.common.base.Strings.repeat;
 import static io.trino.cli.AlignedTablePrinter.consoleWidth;
-import static io.trino.cli.AlignedTablePrinter.formatValue;
 import static io.trino.cli.AlignedTablePrinter.maxLineLength;
+import static io.trino.cli.FormatUtils.formatValue;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 

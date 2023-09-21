@@ -171,7 +171,8 @@ public abstract class AbstractTestAzureFileSystem
     }
 
     @Test
-    void testPaths()
+    @Override
+    public void testPaths()
             throws IOException
     {
         // Azure file paths are always hierarchical

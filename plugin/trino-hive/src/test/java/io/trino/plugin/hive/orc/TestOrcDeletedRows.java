@@ -50,12 +50,14 @@ public class TestOrcDeletedRows
     public void setUp()
     {
         partitionDirectory = Location.of(getResource("fullacid_delete_delta_test").toString());
-        rowIdBlock = BIGINT.createFixedSizeBlockBuilder(1)
-                .writeLong(0)
-                .build();
-        bucketBlock = INTEGER.createFixedSizeBlockBuilder(1)
-                .writeInt(536870912)
-                .build();
+
+        BlockBuilder rowIdBlockBuilder = BIGINT.createFixedSizeBlockBuilder(1);
+        BIGINT.writeLong(rowIdBlockBuilder, 0);
+        rowIdBlock = rowIdBlockBuilder.build();
+
+        BlockBuilder bucketBlockBuilder = INTEGER.createFixedSizeBlockBuilder(1);
+        INTEGER.writeInt(bucketBlockBuilder, 536870912);
+        bucketBlock = bucketBlockBuilder.build();
     }
 
     @Test
@@ -175,7 +177,7 @@ public class TestOrcDeletedRows
         int size = originalTransactionEnd - originalTransactionStart;
         BlockBuilder originalTransaction = BIGINT.createFixedSizeBlockBuilder(size);
         for (long i = originalTransactionStart; i < originalTransactionEnd; i++) {
-            originalTransaction.writeLong(i);
+            BIGINT.writeLong(originalTransaction, i);
         }
 
         return new Page(

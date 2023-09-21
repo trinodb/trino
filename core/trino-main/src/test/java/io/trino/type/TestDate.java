@@ -82,11 +82,11 @@ public class TestDate
                 .isEqualTo(toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
 
         // three digit for month or day
-        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '2013-02-002'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("DATE '2013-02-002'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL)
                 .hasMessage("line 1:12: '2013-02-002' is not a valid DATE literal");
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '2013-002-02'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("DATE '2013-002-02'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL)
                 .hasMessage("line 1:12: '2013-002-02' is not a valid DATE literal");
 
@@ -100,7 +100,7 @@ public class TestDate
                 .isEqualTo(toDate(new DateTime(13, 2, 2, 0, 0, 0, 0, UTC)));
 
         // invalid date
-        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '2013-02-29'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("DATE '2013-02-29'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL)
                 .hasMessage("line 1:12: '2013-02-29' is not a valid DATE literal");
 
@@ -114,20 +114,20 @@ public class TestDate
                 .isEqualTo(toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
 
         // intra whitespace
-        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '2013 -02-02'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("DATE '2013 -02-02'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL)
                 .hasMessage("line 1:12: '2013 -02-02' is not a valid DATE literal");
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '2013- 2-02'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("DATE '2013- 2-02'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL)
                 .hasMessage("line 1:12: '2013- 2-02' is not a valid DATE literal");
 
         // large year
-        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '5881580-07-12'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("DATE '5881580-07-12'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL)
                 .hasMessage("line 1:12: '5881580-07-12' is not a valid DATE literal");
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '392251590-07-12'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("DATE '392251590-07-12'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL)
                 .hasMessage("line 1:12: '392251590-07-12' is not a valid DATE literal");
 
@@ -145,11 +145,11 @@ public class TestDate
                 .hasType(DATE)
                 .isEqualTo(toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '+ 2013-02-02'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("DATE '+ 2013-02-02'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL)
                 .hasMessage("line 1:12: '+ 2013-02-02' is not a valid DATE literal");
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE ' + 2013-02-02'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("DATE ' + 2013-02-02'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL)
                 .hasMessage("line 1:12: ' + 2013-02-02' is not a valid DATE literal");
 
@@ -157,11 +157,11 @@ public class TestDate
                 .hasType(DATE)
                 .isEqualTo(toDate(new DateTime(-2013, 2, 2, 0, 0, 0, 0, UTC)));
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '- 2013-02-02'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("DATE '- 2013-02-02'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL)
                 .hasMessage("line 1:12: '- 2013-02-02' is not a valid DATE literal");
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE ' - 2013-02-02'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("DATE ' - 2013-02-02'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL)
                 .hasMessage("line 1:12: ' - 2013-02-02' is not a valid DATE literal");
     }
@@ -581,7 +581,7 @@ public class TestDate
         assertThat(assertions.operator(SUBTRACT, "DATE '2001-1-22'", "INTERVAL '3' day"))
                 .matches("DATE '2001-01-19'");
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(SUBTRACT, "DATE '2001-1-22'", "INTERVAL '3' hour").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(SUBTRACT, "DATE '2001-1-22'", "INTERVAL '3' hour")::evaluate)
                 .hasMessage("Cannot subtract hour, minutes or seconds from a date");
     }
 
@@ -606,10 +606,10 @@ public class TestDate
         assertThat(assertions.operator(ADD, "INTERVAL '3' year", "DATE '2001-1-22'"))
                 .matches("DATE '2004-01-22'");
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(ADD, "DATE '2001-1-22'", "INTERVAL '3' hour").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "DATE '2001-1-22'", "INTERVAL '3' hour")::evaluate)
                 .hasMessage("Cannot add hour, minutes or seconds to a date");
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(ADD, "INTERVAL '3' hour", "DATE '2001-1-22'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, "INTERVAL '3' hour", "DATE '2001-1-22'")::evaluate)
                 .hasMessage("Cannot add hour, minutes or seconds to a date");
     }
 

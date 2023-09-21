@@ -59,6 +59,6 @@ public class FloatInputStream
     public void next(int[] values, int items)
             throws IOException
     {
-        input.readFully(Slices.wrappedIntArray(values), 0, items * SIZE_OF_FLOAT);
+        input.readFully(values, 0, items);
     }
 }

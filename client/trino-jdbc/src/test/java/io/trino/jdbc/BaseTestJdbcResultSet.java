@@ -247,7 +247,7 @@ public abstract class BaseTestJdbcResultSet
 
                 assertEquals(rs.getObject(column), sqlDate);
                 assertEquals(rs.getObject(column, Date.class), sqlDate);
-                // TODO assertEquals(rs.getObject(column, LocalDate.class), localDate);
+                assertEquals(rs.getObject(column, LocalDate.class), localDate);
 
                 assertEquals(rs.getDate(column), sqlDate);
                 assertThatThrownBy(() -> rs.getTime(column))
@@ -267,7 +267,7 @@ public abstract class BaseTestJdbcResultSet
 
                 assertEquals(rs.getObject(column), sqlDate);
                 assertEquals(rs.getObject(column, Date.class), sqlDate);
-                // TODO assertEquals(rs.getObject(column, LocalDate.class), localDate);
+                assertEquals(rs.getObject(column, LocalDate.class), localDate);
 
                 assertEquals(rs.getDate(column), sqlDate);
                 assertThatThrownBy(() -> rs.getTime(column))
@@ -283,24 +283,12 @@ public abstract class BaseTestJdbcResultSet
             // date which midnight does not exist in test JVM zone
             checkRepresentation(connectedStatement.getStatement(), "DATE '1970-01-01'", Types.DATE, (rs, column) -> {
                 LocalDate localDate = LocalDate.of(1970, 1, 1);
+                Date sqlDate = Date.valueOf(localDate);
 
-                // TODO (https://github.com/trinodb/trino/issues/6242) this should not fail
-                assertThatThrownBy(() -> rs.getObject(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 1970-01-01")
-                        .hasStackTraceContaining("Cannot parse \"1970-01-01\": Illegal instant due to time zone offset transition (America/Bahia_Banderas)");
-                // TODO (https://github.com/trinodb/trino/issues/6242) this should not fail
-                assertThatThrownBy(() -> rs.getObject(column, Date.class))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 1970-01-01")
-                        .hasStackTraceContaining("Cannot parse \"1970-01-01\": Illegal instant due to time zone offset transition (America/Bahia_Banderas)");
-                // TODO assertEquals(rs.getObject(column, LocalDate.class), localDate);
-
-                // TODO (https://github.com/trinodb/trino/issues/6242) this should not fail
-                assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Expected value to be a date but is: 1970-01-01")
-                        .hasStackTraceContaining("Cannot parse \"1970-01-01\": Illegal instant due to time zone offset transition (America/Bahia_Banderas)");
+                assertEquals(rs.getObject(column), sqlDate);
+                assertEquals(rs.getObject(column, Date.class), sqlDate);
+                assertEquals(rs.getObject(column, LocalDate.class), localDate);
+                assertEquals(rs.getDate(column), sqlDate);
                 assertThatThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class)
                         .hasMessage("Expected column to be a time type but is date");
@@ -318,7 +306,7 @@ public abstract class BaseTestJdbcResultSet
 
                 assertEquals(rs.getObject(column), sqlDate);
                 assertEquals(rs.getObject(column, Date.class), sqlDate);
-                // TODO assertEquals(rs.getObject(column, LocalDate.class), localDate);
+                assertEquals(rs.getObject(column, LocalDate.class), localDate);
 
                 assertEquals(rs.getDate(column), sqlDate);
                 assertThatThrownBy(() -> rs.getTime(column))
@@ -338,7 +326,9 @@ public abstract class BaseTestJdbcResultSet
 
                 assertEquals(rs.getObject(column), sqlDate);
                 assertEquals(rs.getObject(column, Date.class), sqlDate);
-                // TODO assertEquals(rs.getObject(column, LocalDate.class), localDate);
+
+                // There are no days between 1582-10-05 and 1582-10-14
+                assertEquals(rs.getObject(column, LocalDate.class), LocalDate.of(1582, 10, 20));
 
                 assertEquals(rs.getDate(column), sqlDate);
                 assertThatThrownBy(() -> rs.getTime(column))
@@ -358,7 +348,7 @@ public abstract class BaseTestJdbcResultSet
 
                 assertEquals(rs.getObject(column), sqlDate);
                 assertEquals(rs.getObject(column, Date.class), sqlDate);
-                // TODO assertEquals(rs.getObject(column, LocalDate.class), localDate);
+                assertEquals(rs.getObject(column, LocalDate.class), localDate);
 
                 assertEquals(rs.getDate(column), sqlDate);
                 assertThatThrownBy(() -> rs.getTime(column))

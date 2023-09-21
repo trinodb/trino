@@ -608,8 +608,20 @@ public class TestFilterStatsCalculator
                                 .highValue(100.0)
                                 .nullsFraction(0.0));
 
+        // Expression as value. CAST from DOUBLE to DECIMAL(7,2)
+        // Produces row count estimate without updating symbol stats
+        assertExpression("CAST(x AS DECIMAL(7,2)) BETWEEN CAST(DECIMAL '-2.50' AS DECIMAL(7, 2)) AND CAST(DECIMAL '2.50' AS DECIMAL(7, 2))")
+                .outputRowsCount(219.726563)
+                .symbolStats("x", symbolStats ->
+                        symbolStats.distinctValuesCount(xStats.getDistinctValuesCount())
+                                .lowValue(xStats.getLowValue())
+                                .highValue(xStats.getHighValue())
+                                .nullsFraction(xStats.getNullsFraction()));
+
         assertExpression("'a' IN ('a', 'b')").equalTo(standardInputStatistics);
+        assertExpression("'a' IN ('a', 'b', NULL)").equalTo(standardInputStatistics);
         assertExpression("'a' IN ('b', 'c')").outputRowsCount(0);
+        assertExpression("'a' IN ('b', 'c', NULL)").outputRowsCount(0);
         assertExpression("CAST('b' AS VARCHAR(3)) IN (CAST('a' AS VARCHAR(3)), CAST('b' AS VARCHAR(3)))").equalTo(standardInputStatistics);
         assertExpression("CAST('c' AS VARCHAR(3)) IN (CAST('a' AS VARCHAR(3)), CAST('b' AS VARCHAR(3)))").outputRowsCount(0);
     }
@@ -678,6 +690,15 @@ public class TestFilterStatsCalculator
 
         // Multiple values some in some out of range
         assertExpression("x IN (DOUBLE '-42', 1.5e0, 2.5e0, 7.5e0, 314e0)")
+                .outputRowsCount(56.25)
+                .symbolStats("x", symbolStats ->
+                        symbolStats.distinctValuesCount(3.0)
+                                .lowValue(1.5)
+                                .highValue(7.5)
+                                .nullsFraction(0.0));
+
+        // Multiple values some including NULL
+        assertExpression("x IN (DOUBLE '-42', 1.5e0, 2.5e0, 7.5e0, 314e0, CAST(NULL AS double))")
                 .outputRowsCount(56.25)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(3.0)

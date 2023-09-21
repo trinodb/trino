@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Injector;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
@@ -46,6 +47,7 @@ import static java.util.Objects.requireNonNull;
 public class HiveConnector
         implements Connector
 {
+    private final Injector injector;
     private final LifeCycleManager lifeCycleManager;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
@@ -68,6 +70,7 @@ public class HiveConnector
     private final boolean singleStatementWritesOnly;
 
     public HiveConnector(
+            Injector injector,
             LifeCycleManager lifeCycleManager,
             HiveTransactionManager transactionManager,
             ConnectorSplitManager splitManager,
@@ -87,6 +90,7 @@ public class HiveConnector
             boolean singleStatementWritesOnly,
             ClassLoader classLoader)
     {
+        this.injector = requireNonNull(injector, "injector is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
@@ -232,5 +236,10 @@ public class HiveConnector
     public Set<TableProcedureMetadata> getTableProcedures()
     {
         return tableProcedures;
+    }
+
+    public Injector getInjector()
+    {
+        return injector;
     }
 }

@@ -76,7 +76,6 @@ import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyShowCurrentRoles;
-import static io.trino.spi.security.AccessDeniedException.denyShowRoleAuthorizationDescriptors;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoles;
 import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
@@ -587,16 +586,6 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to show role authorization descriptors (i.e. RoleGrants).
-     *
-     * @throws io.trino.spi.security.AccessDeniedException if not allowed
-     */
-    default void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context)
-    {
-        denyShowRoleAuthorizationDescriptors();
-    }
-
-    /**
      * Check if identity is allowed to show roles.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
@@ -668,17 +657,6 @@ public interface ConnectorAccessControl
      */
     default Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
-        List<ViewExpression> masks = getColumnMasks(context, tableName, columnName, type);
-        if (masks.size() > 1) {
-            throw new UnsupportedOperationException("Multiple masks on a single column are no longer supported");
-        }
-
-        return masks.stream().findFirst();
-    }
-
-    @Deprecated
-    default List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
-    {
-        return emptyList();
+        return Optional.empty();
     }
 }

@@ -22,6 +22,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.ColumnarRow;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -85,22 +86,23 @@ public final class TestingUnnesterUtil
             }
             else {
                 Slice[][] expectedValues = elements[i];
-                BlockBuilder elementBlockBuilder = rowType.createBlockBuilder(null, elements[i].length);
+                RowBlockBuilder elementBlockBuilder = rowType.createBlockBuilder(null, elements[i].length);
                 for (Slice[] expectedValue : expectedValues) {
                     if (expectedValue == null) {
                         elementBlockBuilder.appendNull();
                     }
                     else {
-                        BlockBuilder entryBuilder = elementBlockBuilder.beginBlockEntry();
-                        for (Slice v : expectedValue) {
-                            if (v == null) {
-                                entryBuilder.appendNull();
+                        elementBlockBuilder.buildEntry(fieldBuilders -> {
+                            for (int fieldId = 0; fieldId < expectedValue.length; fieldId++) {
+                                Slice v = expectedValue[fieldId];
+                                if (v == null) {
+                                    fieldBuilders.get(fieldId).appendNull();
+                                }
+                                else {
+                                    VARCHAR.writeSlice(fieldBuilders.get(fieldId), v);
+                                }
                             }
-                            else {
-                                VARCHAR.writeSlice(entryBuilder, v);
-                            }
-                        }
-                        elementBlockBuilder.closeEntry();
+                        });
                     }
                 }
                 arrayType.writeObject(arrayBlockBuilder, elementBlockBuilder.build());

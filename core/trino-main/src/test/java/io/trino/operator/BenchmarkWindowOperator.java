@@ -193,8 +193,8 @@ public class BenchmarkWindowOperator
                         currentGroupIdentifier = groupIdentifier++;
                     }
 
-                    firstColumnBlockBuilder.writeLong(currentGroupIdentifier);
-                    secondColumnBlockBuilder.writeLong(currentPartitionIdentifier);
+                    BIGINT.writeLong(firstColumnBlockBuilder, currentGroupIdentifier);
+                    BIGINT.writeLong(secondColumnBlockBuilder, currentPartitionIdentifier);
                     ++currentNumberOfRowsInPartition;
                 }
 

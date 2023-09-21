@@ -22,7 +22,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.connector.CatalogServiceProvider;
-import io.trino.likematcher.LikeMatcher;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
@@ -70,10 +69,10 @@ import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.transaction.NoOpTransactionManager;
 import io.trino.type.LikeFunctions;
+import io.trino.type.LikePattern;
 import io.trino.type.LikePatternType;
 import io.trino.type.TypeCoercion;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 import java.time.LocalDate;
@@ -1087,7 +1086,7 @@ public final class DomainTranslator
                 return Optional.empty();
             }
 
-            LikeMatcher matcher = (LikeMatcher) evaluateConstantExpression(
+            LikePattern matcher = (LikePattern) evaluateConstantExpression(
                     patternArgument,
                     typeAnalyzer.getType(session, types, patternArgument),
                     plannerContext,
@@ -1195,7 +1194,7 @@ public final class DomainTranslator
             }
 
             Slice lowerBound = constantPrefix;
-            Slice upperBound = Slices.copyOf(constantPrefix.slice(0, lastIncrementable + lengthOfCodePoint(constantPrefix, lastIncrementable)));
+            Slice upperBound = constantPrefix.slice(0, lastIncrementable + lengthOfCodePoint(constantPrefix, lastIncrementable)).copy();
             setCodePointAt(getCodePointAt(constantPrefix, lastIncrementable) + 1, upperBound, lastIncrementable);
 
             Domain domain = Domain.create(ValueSet.ofRanges(Range.range(type, lowerBound, true, upperBound, false)), false);

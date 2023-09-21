@@ -26,11 +26,11 @@ public class SetColumnType
         extends Statement
 {
     private final QualifiedName tableName;
-    private final Identifier columnName;
+    private final QualifiedName columnName;
     private final DataType type;
     private final boolean tableExists;
 
-    public SetColumnType(NodeLocation location, QualifiedName tableName, Identifier columnName, DataType type, boolean tableExists)
+    public SetColumnType(NodeLocation location, QualifiedName tableName, QualifiedName columnName, DataType type, boolean tableExists)
     {
         super(Optional.of(location));
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -44,7 +44,7 @@ public class SetColumnType
         return tableName;
     }
 
-    public Identifier getColumnName()
+    public QualifiedName getColumnName()
     {
         return columnName;
     }
@@ -68,7 +68,7 @@ public class SetColumnType
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.of(columnName, type);
+        return ImmutableList.of(type);
     }
 
     @Override

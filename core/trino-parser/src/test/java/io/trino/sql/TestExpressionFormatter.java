@@ -13,8 +13,11 @@
  */
 package io.trino.sql;
 
+import io.trino.sql.tree.CharLiteral;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.IntervalLiteral;
+import io.trino.sql.tree.StringLiteral;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -28,6 +31,48 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExpressionFormatter
 {
+    @Test
+    public void testStringLiteral()
+    {
+        assertFormattedExpression(
+                new StringLiteral("test"),
+                "'test'");
+        assertFormattedExpression(
+                new StringLiteral("攻殻機動隊"),
+                "'攻殻機動隊'");
+        assertFormattedExpression(
+                new StringLiteral("😂"),
+                "'😂'");
+    }
+
+    @Test
+    public void testCharLiteral()
+    {
+        assertFormattedExpression(
+                new CharLiteral("test"),
+                "CHAR 'test'");
+        assertFormattedExpression(
+                new CharLiteral("攻殻機動隊"),
+                "CHAR '攻殻機動隊'");
+        assertFormattedExpression(
+                new CharLiteral("😂"),
+                "CHAR '😂'");
+    }
+
+    @Test
+    public void testGenericLiteral()
+    {
+        assertFormattedExpression(
+                new GenericLiteral("VARCHAR", "test"),
+                "VARCHAR 'test'");
+        assertFormattedExpression(
+                new GenericLiteral("VARCHAR", "攻殻機動隊"),
+                "VARCHAR '攻殻機動隊'");
+        assertFormattedExpression(
+                new GenericLiteral("VARCHAR", "😂"),
+                "VARCHAR '😂'");
+    }
+
     @Test
     public void testIntervalLiteral()
     {

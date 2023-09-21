@@ -379,131 +379,131 @@ public class TestIpAddressFunctions
                 .isNull(BOOLEAN);
 
         // Invalid argument
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'64:ff9b::10.0.0.0/64'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'64:ff9b::10.0.0.0/64'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("IP address version should be the same");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'0.0.0.0/0'", "IPADDRESS '64:ff9b::10.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'0.0.0.0/0'", "IPADDRESS '64:ff9b::10.0.0.0'")::evaluate)
                 .hasMessage("IP address version should be the same");
 
         // Invalid prefix length
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'0.0.0.0/-1'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'0.0.0.0/-1'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid prefix length");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'64:ff9b::10.0.0.0/-1'", "IPADDRESS '64:ff9b::10.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'64:ff9b::10.0.0.0/-1'", "IPADDRESS '64:ff9b::10.0.0.0'")::evaluate)
                 .hasMessage("Invalid prefix length");
 
         // Invalid CIDR format
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'0.0.0.1/0'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'0.0.0.1/0'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'1.0.0.0/1'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'1.0.0.0/1'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'128.1.1.1/1'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'128.1.1.1/1'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'129.0.0.0/1'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'129.0.0.0/1'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'192.1.1.1/2'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'192.1.1.1/2'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'193.0.0.0/2'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'193.0.0.0/2'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'224.1.1.1/3'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'224.1.1.1/3'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'225.0.0.0/3'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'225.0.0.0/3'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'240.1.1.1/4'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'240.1.1.1/4'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'241.0.0.0/4'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'241.0.0.0/4'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'248.1.1.1/5'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'248.1.1.1/5'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'249.0.0.0/5'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'249.0.0.0/5'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'252.1.1.1/6'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'252.1.1.1/6'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'253.0.0.0/6'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'253.0.0.0/6'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'254.1.1.1/7'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'254.1.1.1/7'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.0.0.0/7'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.0.0.0/7'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.1.1.1/8'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.1.1.1/8'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.0.1.1/9'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.0.1.1/9'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.129.0.0/9'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.129.0.0/9'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.0.1.1/10'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.0.1.1/10'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.193.0.0/10'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.193.0.0/10'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.0.1.1/11'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.0.1.1/11'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.225.0.0/11'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.225.0.0/11'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.240.1.1/12'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.240.1.1/12'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.241.0.0/12'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.241.0.0/12'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.248.1.1/13'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.248.1.1/13'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.249.1.1/13'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.249.1.1/13'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.252.1.1/14'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.252.1.1/14'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.253.0.0/14'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.253.0.0/14'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.254.1.1/15'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.254.1.1/15'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.255.1.1/15'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.255.1.1/15'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.255.0.1/16'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.255.0.1/16'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.255.1.0/16'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.255.1.0/16'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.255.0.1/17'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.255.0.1/17'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.255.129.0/17'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.255.129.0/17'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.255.0.1/18'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.255.0.1/18'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.255.193.0/18'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.255.193.0/18'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.255.0.1/19'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.255.0.1/19'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.255.225.0/19'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.255.225.0/19'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.255.240.1/20'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.255.240.1/20'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.255.241.0/20'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.255.241.0/20'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.255.248.1/21'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.255.248.1/21'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.255.249.1/21'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.255.249.1/21'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.255.252.1/22'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.255.252.1/22'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.255.253.0/22'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.255.253.0/22'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.255.254.1/23'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.255.254.1/23'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.255.255.1/23'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.255.255.1/23'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'255.255.255.1/24'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'255.255.255.1/24'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'10.0.0.1/33'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'10.0.0.1/33'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Prefix length exceeds address length");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'64:ff9b::10.0.0.0/129'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'64:ff9b::10.0.0.0/129'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Prefix length exceeds address length");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'2620:109:c006:104::/250'", "IPADDRESS '2620:109:c006:104::'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'2620:109:c006:104::/250'", "IPADDRESS '2620:109:c006:104::'")::evaluate)
                 .hasMessage("Prefix length exceeds address length");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'x.x.x.x'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'x.x.x.x'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'x:x:x:10.0.0.0'", "IPADDRESS '64:ff9b::10.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'x:x:x:10.0.0.0'", "IPADDRESS '64:ff9b::10.0.0.0'")::evaluate)
                 .hasMessage("Invalid CIDR");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'x.x.x.x/1'", "IPADDRESS '0.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'x.x.x.x/1'", "IPADDRESS '0.0.0.0'")::evaluate)
                 .hasMessage("Invalid network IP address");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'x:x:x:10.0.0.0/1'", "IPADDRESS '64:ff9b::10.0.0.0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'x:x:x:10.0.0.0/1'", "IPADDRESS '64:ff9b::10.0.0.0'")::evaluate)
                 .hasMessage("Invalid network IP address");
-        assertTrinoExceptionThrownBy(() -> assertions.function("contains", "'2001:0DB8:0:CD3/60'", "IPADDRESS '2001:0DB8::CD30:0:0:0:0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("contains", "'2001:0DB8:0:CD3/60'", "IPADDRESS '2001:0DB8::CD30:0:0:0:0'")::evaluate)
                 .hasMessage("Invalid network IP address");
     }
 }

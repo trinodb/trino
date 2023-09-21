@@ -17,14 +17,15 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.ParquetEncoding;
+import io.trino.parquet.ParquetTestUtils;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.dictionary.Dictionary;
 import io.trino.parquet.reader.SimpleSliceInputStream;
-import io.trino.parquet.reader.TestingColumnReader;
 import io.trino.parquet.reader.flat.ColumnAdapter;
 import io.trino.parquet.reader.flat.DictionaryDecoder;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
+import jakarta.annotation.Nullable;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -45,8 +46,6 @@ import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -135,7 +134,7 @@ public abstract class AbstractValueDecodersTest
         DataBuffer dataBuffer = inputDataProvider.write(valuesWriter, dataSize);
 
         Optional<io.trino.parquet.DictionaryPage> dictionaryPage = Optional.ofNullable(dataBuffer.dictionaryPage())
-                .map(TestingColumnReader::toTrinoDictionaryPage);
+                .map(ParquetTestUtils::toTrinoDictionaryPage);
         Optional<Dictionary> dictionary = dictionaryPage.map(page -> {
             try {
                 return encoding.initDictionary(field.getDescriptor(), page);
@@ -242,7 +241,7 @@ public abstract class AbstractValueDecodersTest
     static ValuesReader getApacheParquetReader(ParquetEncoding encoding, PrimitiveField field, Optional<Dictionary> dictionary)
     {
         if (encoding == RLE_DICTIONARY || encoding == PLAIN_DICTIONARY) {
-            return encoding.getDictionaryBasedValuesReader(field.getDescriptor(), VALUES, dictionary.orElseThrow());
+            return new DictionaryReader(dictionary.orElseThrow());
         }
         checkArgument(dictionary.isEmpty(), "dictionary should be empty");
         return encoding.getValuesReader(field.getDescriptor(), VALUES);

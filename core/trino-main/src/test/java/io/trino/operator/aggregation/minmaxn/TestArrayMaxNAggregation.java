@@ -16,11 +16,11 @@ package io.trino.operator.aggregation.minmaxn;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import io.trino.operator.aggregation.AbstractTestAggregationFunction;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
@@ -37,15 +37,13 @@ public class TestArrayMaxNAggregation
     public static Block createLongArraysBlock(Long[] values)
     {
         ArrayType arrayType = new ArrayType(BIGINT);
-        BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, values.length);
+        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(null, values.length);
         for (Long value : values) {
             if (value == null) {
                 blockBuilder.appendNull();
             }
             else {
-                BlockBuilder elementBlockBuilder = blockBuilder.beginBlockEntry();
-                BIGINT.writeLong(elementBlockBuilder, value);
-                blockBuilder.closeEntry();
+                blockBuilder.buildEntry(elementBuilder -> BIGINT.writeLong(elementBuilder, value));
             }
         }
         return blockBuilder.build();

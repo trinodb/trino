@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.collect.cache.EvictableCacheBuilder;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.hive.HiveConfig;
@@ -42,7 +42,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

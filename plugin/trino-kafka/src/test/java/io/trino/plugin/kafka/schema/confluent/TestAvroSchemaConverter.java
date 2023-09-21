@@ -32,9 +32,9 @@ import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.DUMMY_FIELD_NAME;
-import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.ADD_DUMMY;
 import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.FAIL;
 import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.IGNORE;
+import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.MARK;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -293,7 +293,7 @@ public class TestAvroSchemaConverter
                 .add(createType(RowType.from(ImmutableList.of(new RowType.Field(Optional.of(DUMMY_FIELD_NAME), BOOLEAN)))))
                 .build();
 
-        assertEquals(new AvroSchemaConverter(new TestingTypeManager(), ADD_DUMMY).convertAvroSchema(schema), typesForAddDummyStrategy);
+        assertEquals(new AvroSchemaConverter(new TestingTypeManager(), MARK).convertAvroSchema(schema), typesForAddDummyStrategy);
     }
 
     @Test
@@ -323,7 +323,7 @@ public class TestAvroSchemaConverter
                 .add(createType(RowType.from(ImmutableList.of(new RowType.Field(Optional.of(DUMMY_FIELD_NAME), BOOLEAN)))))
                 .build();
 
-        assertEquals(new AvroSchemaConverter(new TestingTypeManager(), ADD_DUMMY).convertAvroSchema(schema), typesForAddDummyStrategy);
+        assertEquals(new AvroSchemaConverter(new TestingTypeManager(), MARK).convertAvroSchema(schema), typesForAddDummyStrategy);
     }
 
     private static Type createType(Type valueType)

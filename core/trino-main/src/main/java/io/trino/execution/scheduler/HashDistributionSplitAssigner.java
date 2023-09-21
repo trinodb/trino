@@ -72,6 +72,7 @@ class HashDistributionSplitAssigner
             Map<PlanNodeId, OutputDataSizeEstimate> sourceDataSizeEstimates,
             PlanFragment fragment,
             long targetPartitionSizeInBytes,
+            int targetMinTaskCount,
             int targetMaxTaskCount)
     {
         if (fragment.getPartitioning().equals(SCALED_WRITER_HASH_DISTRIBUTION)) {
@@ -88,6 +89,7 @@ class HashDistributionSplitAssigner
                         partitionedSources,
                         sourceDataSizeEstimates,
                         targetPartitionSizeInBytes,
+                        targetMinTaskCount,
                         targetMaxTaskCount,
                         sourceId -> fragment.getPartitioning().equals(SCALED_WRITER_HASH_DISTRIBUTION),
                         // never merge partitions for table write to avoid running into the maximum writers limit per task
@@ -199,6 +201,7 @@ class HashDistributionSplitAssigner
             Set<PlanNodeId> partitionedSources,
             Map<PlanNodeId, OutputDataSizeEstimate> sourceDataSizeEstimates,
             long targetPartitionSizeInBytes,
+            int targetMinTaskCount,
             int targetMaxTaskCount,
             Predicate<PlanNodeId> canSplit,
             boolean canMerge)
@@ -220,15 +223,17 @@ class HashDistributionSplitAssigner
         OutputDataSizeEstimate mergedEstimate = OutputDataSizeEstimate.merge(partitionedSourcesEstimates);
 
         // adjust targetPartitionSizeInBytes based on total input bytes
-        if (targetMaxTaskCount != Integer.MAX_VALUE) {
-            long totalBytes = 0;
-            for (int partitionId = 0; partitionId < partitionCount; partitionId++) {
-                totalBytes += mergedEstimate.getPartitionSizeInBytes(partitionId);
-            }
+        if (targetMaxTaskCount != Integer.MAX_VALUE || targetMinTaskCount != 0) {
+            long totalBytes = mergedEstimate.getTotalSizeInBytes();
+
             if (totalBytes / targetPartitionSizeInBytes > targetMaxTaskCount) {
                 // targetMaxTaskCount is only used to adjust targetPartitionSizeInBytes to avoid excessive number
                 // of tasks; actual number of tasks depend on the data size distribution and may exceed its value
                 targetPartitionSizeInBytes = (totalBytes + targetMaxTaskCount - 1) / targetMaxTaskCount;
+            }
+
+            if (totalBytes / targetPartitionSizeInBytes < targetMinTaskCount) {
+                targetPartitionSizeInBytes = Math.max(totalBytes / targetMinTaskCount, 1);
             }
         }
 

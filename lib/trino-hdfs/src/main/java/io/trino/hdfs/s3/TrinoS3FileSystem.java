@@ -533,6 +533,7 @@ public class TrinoS3FileSystem
             return MediaType.parse(contentType).is(DIRECTORY_MEDIA_TYPE);
         }
         catch (IllegalArgumentException e) {
+            log.debug(e, "isDirectoryMediaType: failed to inspect contentType [%s], assuming not a directory", contentType);
             return false;
         }
     }
@@ -579,7 +580,7 @@ public class TrinoS3FileSystem
     }
 
     @Override
-    public OutputStream create(Path path, AggregatedMemoryContext aggregatedMemoryContext)
+    public FSDataOutputStream create(Path path, AggregatedMemoryContext aggregatedMemoryContext)
             throws IOException
     {
         return new FSDataOutputStream(createOutputStream(path, aggregatedMemoryContext), statistics);
@@ -652,6 +653,7 @@ public class TrinoS3FileSystem
             delete(src, true);
         }
 
+        // TODO should we return true also when deleteObject() returned false?
         return true;
     }
 
@@ -695,6 +697,7 @@ public class TrinoS3FileSystem
             }
             deleteObject(key + DIRECTORY_SUFFIX);
         }
+        // TODO should we return true also when deleteObject() returned false? (currently deleteObject's return value is never used)
         return true;
     }
 
@@ -744,8 +747,9 @@ public class TrinoS3FileSystem
 
     private boolean deleteObject(String key)
     {
+        String bucketName = getBucketName(uri);
         try {
-            DeleteObjectRequest deleteObjectRequest = new DeleteObjectRequest(getBucketName(uri), key);
+            DeleteObjectRequest deleteObjectRequest = new DeleteObjectRequest(bucketName, key);
             if (requesterPaysEnabled) {
                 // TODO use deleteObjectRequest.setRequesterPays() when https://github.com/aws/aws-sdk-java/issues/1219 is fixed
                 // currently the method exists, but is ineffective (doesn't set the required HTTP header)
@@ -756,6 +760,8 @@ public class TrinoS3FileSystem
             return true;
         }
         catch (AmazonClientException e) {
+            // TODO should we propagate this?
+            log.debug(e, "Failed to delete object from the bucket %s: %s", bucketName, key);
             return false;
         }
     }

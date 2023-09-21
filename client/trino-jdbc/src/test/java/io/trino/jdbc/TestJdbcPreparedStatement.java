@@ -920,17 +920,12 @@ public class TestJdbcPreparedStatement
         LocalDate jvmGapDate = LocalDate.of(1970, 1, 1);
         checkIsGap(ZoneId.systemDefault(), jvmGapDate.atTime(LocalTime.MIDNIGHT));
 
-        BindAssertion assertion = assertBind((ps, i) -> ps.setObject(i, jvmGapDate))
-                .resultsIn("date", "DATE '1970-01-01'");
-        assertThatThrownBy(() -> assertion.roundTripsAs(Types.DATE, Date.valueOf(jvmGapDate)))
-                // TODO (https://github.com/trinodb/trino/issues/6242) this currently fails
-                .isInstanceOf(SQLException.class)
-                .hasStackTraceContaining("io.trino.jdbc.TrinoResultSet.getObject")
-                .hasMessage("Expected value to be a date but is: 1970-01-01");
+        assertBind((ps, i) -> ps.setObject(i, jvmGapDate))
+                .resultsIn("date", "DATE '1970-01-01'")
+                .roundTripsAs(Types.DATE, Date.valueOf(jvmGapDate));
 
         assertBind((ps, i) -> ps.setObject(i, jvmGapDate, Types.DATE))
-                .resultsIn("date", "DATE '1970-01-01'");
-//                .roundTripsAs(Types.DATE, Date.valueOf(jvmGapDate)); // TODO (https://github.com/trinodb/trino/issues/6242) this currently fails
+                .roundTripsAs(Types.DATE, Date.valueOf(jvmGapDate));
     }
 
     @Test

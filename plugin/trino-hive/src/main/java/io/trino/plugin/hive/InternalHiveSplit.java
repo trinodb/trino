@@ -14,11 +14,10 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.spi.HostAddress;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.List;
 import java.util.Optional;

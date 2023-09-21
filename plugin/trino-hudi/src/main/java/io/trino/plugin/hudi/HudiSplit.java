@@ -14,6 +14,7 @@
 package io.trino.plugin.hudi;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -43,7 +44,6 @@ public class HudiSplit
     private final long length;
     private final long fileSize;
     private final long fileModifiedTime;
-    private final List<HostAddress> addresses;
     private final TupleDomain<HiveColumnHandle> predicate;
     private final List<HivePartitionKey> partitionKeys;
     private final SplitWeight splitWeight;
@@ -55,7 +55,6 @@ public class HudiSplit
             @JsonProperty("length") long length,
             @JsonProperty("fileSize") long fileSize,
             @JsonProperty("fileModifiedTime") long fileModifiedTime,
-            @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("predicate") TupleDomain<HiveColumnHandle> predicate,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
             @JsonProperty("splitWeight") SplitWeight splitWeight)
@@ -69,7 +68,6 @@ public class HudiSplit
         this.length = length;
         this.fileSize = fileSize;
         this.fileModifiedTime = fileModifiedTime;
-        this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.predicate = requireNonNull(predicate, "predicate is null");
         this.partitionKeys = ImmutableList.copyOf(requireNonNull(partitionKeys, "partitionKeys is null"));
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
@@ -81,11 +79,11 @@ public class HudiSplit
         return true;
     }
 
-    @JsonProperty
+    @JsonIgnore
     @Override
     public List<HostAddress> getAddresses()
     {
-        return addresses;
+        return ImmutableList.of();
     }
 
     @Override
@@ -154,7 +152,6 @@ public class HudiSplit
     {
         return INSTANCE_SIZE
                 + estimatedSizeOf(location)
-                + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
                 + splitWeight.getRetainedSizeInBytes()
                 + predicate.getRetainedSizeInBytes(HiveColumnHandle::getRetainedSizeInBytes)
                 + estimatedSizeOf(partitionKeys, HivePartitionKey::getEstimatedSizeInBytes);

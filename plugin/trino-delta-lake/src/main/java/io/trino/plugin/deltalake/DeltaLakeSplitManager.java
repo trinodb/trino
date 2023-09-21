@@ -67,7 +67,6 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ex
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
 import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -172,11 +171,11 @@ public class DeltaLakeSplitManager
                 nonPartitionConstraint.getDomains().orElseThrow().keySet().stream(),
                 columnsCoveredByDynamicFilter.stream()
                         .map(DeltaLakeColumnHandle.class::cast))
-                .map(column -> column.getBaseColumnName().toLowerCase(ENGLISH)) // TODO is DeltaLakeColumnHandle.name normalized?
+                .map(DeltaLakeColumnHandle::getBaseColumnName)
                 .collect(toImmutableSet());
         List<DeltaLakeColumnMetadata> schema = extractSchema(tableHandle.getMetadataEntry(), typeManager);
         List<DeltaLakeColumnMetadata> predicatedColumns = schema.stream()
-                .filter(column -> predicatedColumnNames.contains(column.getName())) // DeltaLakeColumnMetadata.name is lowercase
+                .filter(column -> predicatedColumnNames.contains(column.getName()))
                 .collect(toImmutableList());
         return validDataFiles.stream()
                 .flatMap(addAction -> {
@@ -207,7 +206,7 @@ public class DeltaLakeSplitManager
                     TupleDomain<DeltaLakeColumnHandle> statisticsPredicate = createStatisticsPredicate(
                             addAction,
                             predicatedColumns,
-                            tableHandle.getMetadataEntry().getCanonicalPartitionColumns());
+                            tableHandle.getMetadataEntry().getLowercasePartitionColumns());
                     if (!nonPartitionConstraint.overlaps(statisticsPredicate)) {
                         return Stream.empty();
                     }
@@ -291,7 +290,6 @@ public class DeltaLakeSplitManager
                     fileSize,
                     addFileEntry.getStats().flatMap(DeltaLakeFileStatistics::getNumRecords),
                     addFileEntry.getModificationTime(),
-                    ImmutableList.of(),
                     SplitWeight.standard(),
                     statisticsPredicate,
                     partitionKeys));
@@ -316,7 +314,6 @@ public class DeltaLakeSplitManager
                     fileSize,
                     Optional.empty(),
                     addFileEntry.getModificationTime(),
-                    ImmutableList.of(),
                     SplitWeight.fromProportion(Math.min(Math.max((double) splitSize / maxSplitSize, minimumAssignedSplitWeight), 1.0)),
                     statisticsPredicate,
                     partitionKeys));
@@ -327,7 +324,7 @@ public class DeltaLakeSplitManager
         return splits.build();
     }
 
-    private static Location buildSplitPath(Location tableLocation, AddFileEntry addAction)
+    public static Location buildSplitPath(Location tableLocation, AddFileEntry addAction)
     {
         // paths are relative to the table location and are RFC 2396 URIs
         // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#add-file-and-remove-file

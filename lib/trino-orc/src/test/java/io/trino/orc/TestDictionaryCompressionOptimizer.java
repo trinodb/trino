@@ -153,7 +153,7 @@ public class TestDictionaryCompressionOptimizer
         // construct a simulator that will hit the dictionary (low) memory limit by estimating the number of rows at the memory limit, and then setting large limits around this value
         int stripeMaxBytes = megabytes(100);
         int dictionaryMaxMemoryBytesLow = dictionaryMaxMemoryBytes - (int) DICTIONARY_MEMORY_MAX_RANGE.toBytes();
-        int expectedMaxRowCount = (int) (dictionaryMaxMemoryBytesLow / bytesPerEntry / uniquePercentage);
+        int expectedMaxRowCount = (int) (1.0 * dictionaryMaxMemoryBytesLow / bytesPerEntry / uniquePercentage);
         DataSimulator simulator = new DataSimulator(0, stripeMaxBytes, expectedMaxRowCount * 2, dictionaryMaxMemoryBytes, 0, column);
 
         for (int loop = 0; loop < 3; loop++) {
@@ -191,7 +191,7 @@ public class TestDictionaryCompressionOptimizer
 
         // construct a simulator that will flip the column to direct and then hit the bytes limit
         int stripeMaxBytes = megabytes(100);
-        int expectedRowCountAtFlip = (int) (dictionaryMaxMemoryBytes / bytesPerEntry / uniquePercentage);
+        int expectedRowCountAtFlip = (int) (1.0 * dictionaryMaxMemoryBytes / bytesPerEntry / uniquePercentage);
         int expectedMaxRowCountAtFull = stripeMaxBytes / bytesPerEntry;
         DataSimulator simulator = new DataSimulator(stripeMaxBytes / 2, stripeMaxBytes, expectedMaxRowCountAtFull * 2, dictionaryMaxMemoryBytes, 0, column);
 
@@ -239,7 +239,7 @@ public class TestDictionaryCompressionOptimizer
         // construct a simulator that will be full because of dictionary memory limit;
         // the column cannot not be converted to direct encoding because of stripe size limit
         int stripeMaxBytes = megabytes(100);
-        int expectedMaxRowCount = (int) (dictionaryMaxMemoryBytes / bytesPerEntry / uniquePercentage);
+        int expectedMaxRowCount = (int) (1.0 * dictionaryMaxMemoryBytes / bytesPerEntry / uniquePercentage);
         DataSimulator simulator = new DataSimulator(stripeMaxBytes / 2, stripeMaxBytes, expectedMaxRowCount * 2, dictionaryMaxMemoryBytes, 0, column);
 
         for (int loop = 0; loop < 3; loop++) {
@@ -573,7 +573,7 @@ public class TestDictionaryCompressionOptimizer
             }
             int dictionaryEntries = getDictionaryEntries();
             int bytesPerValue = estimateIndexBytesPerValue(dictionaryEntries);
-            return (dictionaryEntries * bytesPerEntry) + (getNonNullValueCount() * bytesPerValue);
+            return ((long) dictionaryEntries * bytesPerEntry) + (getNonNullValueCount() * bytesPerValue);
         }
 
         @Override

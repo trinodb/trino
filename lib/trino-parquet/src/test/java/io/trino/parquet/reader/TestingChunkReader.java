@@ -15,8 +15,7 @@ package io.trino.parquet.reader;
 
 import io.airlift.slice.Slice;
 import io.trino.parquet.ChunkReader;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import static java.util.Objects.requireNonNull;
 

@@ -50,6 +50,7 @@ import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.spi.function.FunctionKind.SCALAR;
+import static io.trino.spi.function.FunctionKind.WINDOW;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
@@ -75,6 +76,20 @@ public class FunctionResolver
                         .map(CatalogFunctionMetadata::getFunctionMetadata)
                         .map(FunctionMetadata::getKind)
                         .anyMatch(AGGREGATE::equals);
+            }
+        }
+        return false;
+    }
+
+    boolean isWindowFunction(Session session, QualifiedFunctionName name, Function<CatalogSchemaFunctionName, Collection<CatalogFunctionMetadata>> candidateLoader)
+    {
+        for (CatalogSchemaFunctionName catalogSchemaFunctionName : toPath(session, name)) {
+            Collection<CatalogFunctionMetadata> candidates = candidateLoader.apply(catalogSchemaFunctionName);
+            if (!candidates.isEmpty()) {
+                return candidates.stream()
+                        .map(CatalogFunctionMetadata::getFunctionMetadata)
+                        .map(FunctionMetadata::getKind)
+                        .anyMatch(WINDOW::equals);
             }
         }
         return false;

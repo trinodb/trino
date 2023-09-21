@@ -31,7 +31,7 @@ public class TestByteArrayBlockEncoding
     @Override
     protected void write(BlockBuilder blockBuilder, Byte value)
     {
-        blockBuilder.writeByte(value);
+        TINYINT.writeByte(blockBuilder, value);
     }
 
     @Override

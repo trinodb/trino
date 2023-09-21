@@ -27,7 +27,6 @@ import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.hive.util.TemporaryHiveTable;
-import org.assertj.core.api.Assertions;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -573,7 +572,7 @@ public class TestHiveTransactionalTable
 
             // ensure that we treat ACID tables as implicitly bucketed on INSERT
             String explainOutput = (String) onTrino().executeQuery("EXPLAIN " + insertQuery).getOnlyValue();
-            Assertions.assertThat(explainOutput).contains("Output partitioning: hive:HivePartitioningHandle{buckets=1");
+            assertThat(explainOutput).contains("Output partitioning: hive:HivePartitioningHandle{buckets=1");
 
             onTrino().executeQuery(insertQuery);
 
@@ -733,6 +732,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testNonTransactionalMetadataDelete()
     {
         withTemporaryTable("non_transactional_metadata_delete", false, true, NONE, tableName -> {
@@ -1902,7 +1902,7 @@ public class TestHiveTransactionalTable
         withTemporaryTable("test_delete_with_original_files", true, false, NONE, tableName -> {
             // these 3 properties are necessary to make sure there is more than 1 original file created
             onTrino().executeQuery("SET SESSION scale_writers = true");
-            onTrino().executeQuery("SET SESSION writer_min_size = '4kB'");
+            onTrino().executeQuery("SET SESSION writer_scaling_min_data_processed = '4kB'");
             onTrino().executeQuery("SET SESSION task_scale_writers_enabled = false");
             onTrino().executeQuery("SET SESSION task_writer_count = 2");
             onTrino().executeQuery(format(
@@ -1923,7 +1923,7 @@ public class TestHiveTransactionalTable
         withTemporaryTable("test_delete_with_original_files_with_where_clause", true, false, NONE, tableName -> {
             // these 3 properties are necessary to make sure there is more than 1 original file created
             onTrino().executeQuery("SET SESSION scale_writers = true");
-            onTrino().executeQuery("SET SESSION writer_min_size = '4kB'");
+            onTrino().executeQuery("SET SESSION writer_scaling_min_data_processed = '4kB'");
             onTrino().executeQuery("SET SESSION task_scale_writers_enabled = false");
             onTrino().executeQuery("SET SESSION task_writer_count = 2");
             onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true) AS SELECT * FROM tpch.sf1000.orders LIMIT 100000", tableName));
@@ -1989,7 +1989,7 @@ public class TestHiveTransactionalTable
                             ") AS SELECT orderkey, orderstatus, totalprice, orderdate, clerk, shippriority, \"comment\", custkey, orderpriority " +
                             "FROM tpch.sf1000.orders LIMIT 0", tableName, isPartitioned ? ", partitioned_by = ARRAY['orderpriority']" : ""));
             onTrino().executeQuery("SET SESSION scale_writers = true");
-            onTrino().executeQuery("SET SESSION writer_min_size = '4kB'");
+            onTrino().executeQuery("SET SESSION writer_scaling_min_data_processed = '4kB'");
             onTrino().executeQuery("SET SESSION task_scale_writers_enabled = false");
             onTrino().executeQuery("SET SESSION task_writer_count = 4");
             onTrino().executeQuery("SET SESSION task_partitioned_writer_count = 4");

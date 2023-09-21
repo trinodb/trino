@@ -36,10 +36,9 @@ public class TestFeaturesConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(FeaturesConfig.class)
-                .setLegacyCatalogRoles(false)
                 .setRedistributeWrites(true)
                 .setScaleWriters(true)
-                .setWriterMinSize(DataSize.of(32, MEGABYTE))
+                .setWriterScalingMinDataProcessed(DataSize.of(120, MEGABYTE))
                 .setRegexLibrary(JONI)
                 .setRe2JDfaStatesLimit(Integer.MAX_VALUE)
                 .setRe2JDfaRetries(5)
@@ -65,7 +64,8 @@ public class TestFeaturesConfig
                 .setLegacyMaterializedViewGracePeriod(false)
                 .setHideInaccessibleColumns(false)
                 .setForceSpillingJoin(false)
-                .setFaultTolerantExecutionExchangeEncryptionEnabled(true));
+                .setFaultTolerantExecutionExchangeEncryptionEnabled(true)
+                .setFlatGroupByHash(true));
     }
 
     @Test
@@ -74,7 +74,7 @@ public class TestFeaturesConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("redistribute-writes", "false")
                 .put("scale-writers", "false")
-                .put("writer-min-size", "42GB")
+                .put("writer-scaling-min-data-processed", "4GB")
                 .put("regex-library", "RE2J")
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
@@ -101,12 +101,13 @@ public class TestFeaturesConfig
                 .put("hide-inaccessible-columns", "true")
                 .put("force-spilling-join-operator", "true")
                 .put("fault-tolerant-execution.exchange-encryption-enabled", "false")
+                .put("legacy.flat-group-by-hash", "false")
                 .buildOrThrow();
 
         FeaturesConfig expected = new FeaturesConfig()
                 .setRedistributeWrites(false)
                 .setScaleWriters(false)
-                .setWriterMinSize(DataSize.of(42, GIGABYTE))
+                .setWriterScalingMinDataProcessed(DataSize.of(4, GIGABYTE))
                 .setRegexLibrary(RE2J)
                 .setRe2JDfaStatesLimit(42)
                 .setRe2JDfaRetries(42)
@@ -132,7 +133,8 @@ public class TestFeaturesConfig
                 .setLegacyMaterializedViewGracePeriod(true)
                 .setHideInaccessibleColumns(true)
                 .setForceSpillingJoin(true)
-                .setFaultTolerantExecutionExchangeEncryptionEnabled(false);
+                .setFaultTolerantExecutionExchangeEncryptionEnabled(false)
+                .setFlatGroupByHash(false);
         assertFullMapping(properties, expected);
     }
 }

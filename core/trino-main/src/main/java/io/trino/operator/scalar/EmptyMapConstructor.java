@@ -14,13 +14,14 @@
 package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
+
+import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 
 @Description("Creates an empty map")
 @ScalarFunction("map")
@@ -30,10 +31,7 @@ public final class EmptyMapConstructor
 
     public EmptyMapConstructor(@TypeParameter("map(unknown,unknown)") Type mapType)
     {
-        BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
-        mapBlockBuilder.beginBlockEntry();
-        mapBlockBuilder.closeEntry();
-        emptyMap = ((MapType) mapType).getObject(mapBlockBuilder.build(), 0);
+        emptyMap = buildMapValue(((MapType) mapType), 0, (keyBuilder, valueBuilder) -> {});
     }
 
     @SqlType("map(unknown,unknown)")

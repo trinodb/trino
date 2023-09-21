@@ -17,6 +17,8 @@ import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+
 public final class HiveCompressionCodecs
 {
     private HiveCompressionCodecs() {}
@@ -26,7 +28,7 @@ public final class HiveCompressionCodecs
         HiveCompressionOption compressionOption = HiveSessionProperties.getCompressionCodec(session);
         return HiveStorageFormat.getHiveStorageFormat(storageFormat)
                 .map(format -> selectCompressionCodec(compressionOption, format))
-                .orElseGet(() -> selectCompressionCodecForUnknownStorageFormat(compressionOption));
+                .orElseGet(() -> selectCompressionCodec(compressionOption));
     }
 
     public static HiveCompressionCodec selectCompressionCodec(ConnectorSession session, HiveStorageFormat storageFormat)
@@ -39,25 +41,14 @@ public final class HiveCompressionCodecs
         HiveCompressionCodec selectedCodec = selectCompressionCodec(compressionOption);
 
         // perform codec vs format validation
-        if (storageFormat == HiveStorageFormat.AVRO && selectedCodec.getAvroCompressionCodec().isEmpty()) {
-            throw new TrinoException(HiveErrorCode.HIVE_UNSUPPORTED_FORMAT, "Compression codec " + selectedCodec + " not supported for " + storageFormat);
+        if (storageFormat == HiveStorageFormat.AVRO && selectedCodec.getAvroCompressionKind().isEmpty()) {
+            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Compression codec %s not supported for AVRO".formatted(selectedCodec));
         }
 
         return selectedCodec;
     }
 
     private static HiveCompressionCodec selectCompressionCodec(HiveCompressionOption compressionOption)
-    {
-        return switch (compressionOption) {
-            case NONE -> HiveCompressionCodec.NONE;
-            case SNAPPY -> HiveCompressionCodec.SNAPPY;
-            case LZ4 -> HiveCompressionCodec.LZ4;
-            case ZSTD -> HiveCompressionCodec.ZSTD;
-            case GZIP -> HiveCompressionCodec.GZIP;
-        };
-    }
-
-    private static HiveCompressionCodec selectCompressionCodecForUnknownStorageFormat(HiveCompressionOption compressionOption)
     {
         return switch (compressionOption) {
             case NONE -> HiveCompressionCodec.NONE;

@@ -22,10 +22,10 @@ import io.airlift.units.Duration;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 import io.trino.operator.RetryPolicy;
-
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -40,6 +40,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "query.max-pending-splits-per-node",
         "query.queue-config-file",
         "experimental.big-query-initial-hash-partitions",
+        "experimental.fault-tolerant-execution-force-preferred-write-partitioning-enabled",
         "experimental.max-concurrent-big-queries",
         "experimental.max-queued-big-queries",
         "query-manager.initialization-required-workers",
@@ -110,17 +111,19 @@ public class QueryManagerConfig
     private int remoteTaskGuaranteedSplitPerTask = 3;
 
     private int faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod = 64;
-    private double faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor = 1.2;
+    private double faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor = 1.26;
     private DataSize faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin = DataSize.of(512, MEGABYTE);
     private DataSize faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMax = DataSize.of(50, GIGABYTE);
 
     private int faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod = 64;
-    private double faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor = 1.2;
+    private double faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor = 1.26;
     private DataSize faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin = DataSize.of(4, GIGABYTE);
     private DataSize faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax = DataSize.of(50, GIGABYTE);
 
     private DataSize faultTolerantExecutionHashDistributionComputeTaskTargetSize = DataSize.of(512, MEGABYTE);
+    private double faultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio = 2.0;
     private DataSize faultTolerantExecutionHashDistributionWriteTaskTargetSize = DataSize.of(4, GIGABYTE);
+    private double faultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio = 2.0;
     private int faultTolerantExecutionHashDistributionWriteTaskTargetMaxCount = 2000;
 
     private DataSize faultTolerantExecutionStandardSplitSize = DataSize.of(64, MEGABYTE);
@@ -129,7 +132,18 @@ public class QueryManagerConfig
     private int faultTolerantExecutionMaxPartitionCount = 50;
     private int faultTolerantExecutionMinPartitionCount = 4;
     private int faultTolerantExecutionMinPartitionCountForWrite = 50;
+    private boolean faultTolerantExecutionRuntimeAdaptivePartitioningEnabled;
+    private int faultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount = FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT;
+    // Currently, initial setup is 5GB of task memory processing 4GB data. Given that we triple the memory in case of
+    // task OOM, max task size is set to 12GB such that tasks of stages below threshold will succeed within one retry.
+    private DataSize faultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize = DataSize.of(12, GIGABYTE);
     private boolean faultTolerantExecutionForcePreferredWritePartitioningEnabled = true;
+    private double faultTolerantExecutionMinSourceStageProgress = 0.2;
+
+    private boolean faultTolerantExecutionSmallStageEstimationEnabled = true;
+    private DataSize faultTolerantExecutionSmallStageEstimationThreshold = DataSize.of(20, GIGABYTE);
+    private double faultTolerantExecutionSmallStageSourceSizeMultiplier = 1.2;
+    private boolean faultTolerantExecutionSmallStageRequireNoMorePartitions;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -813,6 +827,20 @@ public class QueryManagerConfig
         return this;
     }
 
+    @DecimalMin(value = "0.0", inclusive = true)
+    public double getFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio()
+    {
+        return faultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio;
+    }
+
+    @Config("fault-tolerant-execution-hash-distribution-compute-task-to-node-min-ratio")
+    @ConfigDescription("Minimal ratio of tasks count vs cluster nodes count for hash distributed compute stage in fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio(double faultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio)
+    {
+        this.faultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio = faultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio;
+        return this;
+    }
+
     @NotNull
     public DataSize getFaultTolerantExecutionHashDistributionWriteTaskTargetSize()
     {
@@ -824,6 +852,20 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionHashDistributionWriteTaskTargetSize(DataSize faultTolerantExecutionHashDistributionWriteTaskTargetSize)
     {
         this.faultTolerantExecutionHashDistributionWriteTaskTargetSize = faultTolerantExecutionHashDistributionWriteTaskTargetSize;
+        return this;
+    }
+
+    @DecimalMin(value = "0.0", inclusive = true)
+    public double getFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio()
+    {
+        return faultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio;
+    }
+
+    @Config("fault-tolerant-execution-hash-distribution-write-task-to-node-min-ratio")
+    @ConfigDescription("Minimal ratio of tasks count vs cluster nodes count for hash distributed writer stage in fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio(double faultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio)
+    {
+        this.faultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio = faultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio;
         return this;
     }
 
@@ -929,15 +971,109 @@ public class QueryManagerConfig
         return this;
     }
 
-    public boolean isFaultTolerantExecutionForcePreferredWritePartitioningEnabled()
+    public boolean isFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled()
     {
-        return faultTolerantExecutionForcePreferredWritePartitioningEnabled;
+        return faultTolerantExecutionRuntimeAdaptivePartitioningEnabled;
     }
 
-    @Config("experimental.fault-tolerant-execution-force-preferred-write-partitioning-enabled")
-    public QueryManagerConfig setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(boolean faultTolerantExecutionForcePreferredWritePartitioningEnabled)
+    @Config("fault-tolerant-execution-runtime-adaptive-partitioning-enabled")
+    public QueryManagerConfig setFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled(boolean faultTolerantExecutionRuntimeAdaptivePartitioningEnabled)
     {
-        this.faultTolerantExecutionForcePreferredWritePartitioningEnabled = faultTolerantExecutionForcePreferredWritePartitioningEnabled;
+        this.faultTolerantExecutionRuntimeAdaptivePartitioningEnabled = faultTolerantExecutionRuntimeAdaptivePartitioningEnabled;
+        return this;
+    }
+
+    @Min(1)
+    @Max(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT)
+    public int getFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount()
+    {
+        return faultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount;
+    }
+
+    @Config("fault-tolerant-execution-runtime-adaptive-partitioning-partition-count")
+    @ConfigDescription("The partition count to use for runtime adaptive partitioning when enabled")
+    public QueryManagerConfig setFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount(int faultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount)
+    {
+        this.faultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount = faultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount;
+        return this;
+    }
+
+    public DataSize getFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize()
+    {
+        return faultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize;
+    }
+
+    @Config("fault-tolerant-execution-runtime-adaptive-partitioning-max-task-size")
+    @ConfigDescription("Max average task input size when deciding runtime adaptive partitioning")
+    public QueryManagerConfig setFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize(DataSize faultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize)
+    {
+        this.faultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize = faultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize;
+        return this;
+    }
+
+    public double getFaultTolerantExecutionMinSourceStageProgress()
+    {
+        return faultTolerantExecutionMinSourceStageProgress;
+    }
+
+    @Config("fault-tolerant-execution-min-source-stage-progress")
+    @ConfigDescription("Minimal progress of source stage to consider scheduling of parent stage")
+    public QueryManagerConfig setFaultTolerantExecutionMinSourceStageProgress(double faultTolerantExecutionMinSourceStageProgress)
+    {
+        this.faultTolerantExecutionMinSourceStageProgress = faultTolerantExecutionMinSourceStageProgress;
+        return this;
+    }
+
+    public boolean isFaultTolerantExecutionSmallStageEstimationEnabled()
+    {
+        return faultTolerantExecutionSmallStageEstimationEnabled;
+    }
+
+    @Config("fault-tolerant-execution-small-stage-estimation-enabled")
+    @ConfigDescription("Enable small stage estimation heuristic, used for more aggresive speculative stage scheduling")
+    public QueryManagerConfig setFaultTolerantExecutionSmallStageEstimationEnabled(boolean faultTolerantExecutionSmallStageEstimationEnabled)
+    {
+        this.faultTolerantExecutionSmallStageEstimationEnabled = faultTolerantExecutionSmallStageEstimationEnabled;
+        return this;
+    }
+
+    public DataSize getFaultTolerantExecutionSmallStageEstimationThreshold()
+    {
+        return faultTolerantExecutionSmallStageEstimationThreshold;
+    }
+
+    @Config("fault-tolerant-execution-small-stage-estimation-threshold")
+    @ConfigDescription("Threshold until which stage is considered small")
+    public QueryManagerConfig setFaultTolerantExecutionSmallStageEstimationThreshold(DataSize faultTolerantExecutionSmallStageEstimationThreshold)
+    {
+        this.faultTolerantExecutionSmallStageEstimationThreshold = faultTolerantExecutionSmallStageEstimationThreshold;
+        return this;
+    }
+
+    @DecimalMin("1.0")
+    public double getFaultTolerantExecutionSmallStageSourceSizeMultiplier()
+    {
+        return faultTolerantExecutionSmallStageSourceSizeMultiplier;
+    }
+
+    @Config("fault-tolerant-execution-small-stage-source-size-multiplier")
+    @ConfigDescription("Multiplier used for heuristic estimation is stage is small; the bigger the more conservative estimation is")
+    public QueryManagerConfig setFaultTolerantExecutionSmallStageSourceSizeMultiplier(double faultTolerantExecutionSmallStageSourceSizeMultiplier)
+    {
+        this.faultTolerantExecutionSmallStageSourceSizeMultiplier = faultTolerantExecutionSmallStageSourceSizeMultiplier;
+        return this;
+    }
+
+    public boolean isFaultTolerantExecutionSmallStageRequireNoMorePartitions()
+    {
+        return faultTolerantExecutionSmallStageRequireNoMorePartitions;
+    }
+
+    @Config("fault-tolerant-execution-small-stage-require-no-more-partitions")
+    @ConfigDescription("Is it required for all stage partitions (tasks) to be enumerated for stage to be used in heuristic to determine if parent stage is small")
+    public QueryManagerConfig setFaultTolerantExecutionSmallStageRequireNoMorePartitions(boolean faultTolerantExecutionSmallStageRequireNoMorePartitions)
+    {
+        this.faultTolerantExecutionSmallStageRequireNoMorePartitions = faultTolerantExecutionSmallStageRequireNoMorePartitions;
         return this;
     }
 

@@ -14,9 +14,8 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.sql.planner.plan.PlanNodeId;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -131,6 +130,7 @@ public class DriverFactory
                     }
                 }
             }
+            driverContext.failed(failure);
             throw failure;
         }
     }

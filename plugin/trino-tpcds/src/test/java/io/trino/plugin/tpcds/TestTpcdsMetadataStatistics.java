@@ -25,7 +25,7 @@ import io.trino.spi.statistics.TableStatistics;
 import io.trino.tpcds.Table;
 import io.trino.tpcds.column.CallCenterColumn;
 import io.trino.tpcds.column.WebSiteColumn;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.stream.Stream;

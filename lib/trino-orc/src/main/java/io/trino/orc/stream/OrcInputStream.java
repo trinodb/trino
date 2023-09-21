@@ -13,12 +13,13 @@
  */
 package io.trino.orc.stream;
 
+import com.google.common.primitives.Ints;
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcDataSourceId;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,6 +37,9 @@ public final class OrcInputStream
         extends InputStream
 {
     private final OrcChunkLoader chunkLoader;
+
+    // 8 byte temp buffer for reading multibyte values that straddle a buffer boundary
+    private final Slice tempBuffer8 = Slices.allocate(8);
 
     @Nullable
     private FixedLengthSliceInput current = EMPTY_SLICE.getInput();
@@ -126,19 +130,77 @@ public final class OrcInputStream
         }
     }
 
-    public void readFully(Slice buffer, int offset, int length)
+    public void readFully(int[] values, int offset, int length)
             throws IOException
     {
+        if (current == null) {
+            throw new OrcCorruptionException(chunkLoader.getOrcDataSourceId(), "Unexpected end of stream");
+        }
+
         while (length > 0) {
-            if (current != null && current.remaining() == 0) {
+            int remaining = Ints.saturatedCast(current.remaining());
+            if (remaining < Integer.BYTES) {
+                // there might be a value split across the buffers
+                Slice slice = null;
+                if (remaining != 0) {
+                    slice = tempBuffer8;
+                    current.readBytes(slice, 0, remaining);
+                }
+
                 advance();
-            }
-            if (current == null) {
-                throw new OrcCorruptionException(chunkLoader.getOrcDataSourceId(), "Unexpected end of stream");
+                if (current == null) {
+                    throw new OrcCorruptionException(chunkLoader.getOrcDataSourceId(), "Unexpected end of stream");
+                }
+
+                if (remaining != 0) {
+                    current.readBytes(slice, remaining, Integer.BYTES - remaining);
+                    values[offset] = slice.getInt(0);
+                    length--;
+                    offset++;
+                }
+                remaining = Ints.saturatedCast(current.remaining());
             }
 
-            int chunkSize = min(length, (int) current.remaining());
-            current.readBytes(buffer, offset, chunkSize);
+            int chunkSize = min(length, remaining / Integer.BYTES);
+            current.readInts(values, offset, chunkSize);
+            length -= chunkSize;
+            offset += chunkSize;
+        }
+    }
+
+    public void readFully(long[] values, int offset, int length)
+            throws IOException
+    {
+        if (current == null) {
+            throw new OrcCorruptionException(chunkLoader.getOrcDataSourceId(), "Unexpected end of stream");
+        }
+
+        while (length > 0) {
+            int remaining = Ints.saturatedCast(current.remaining());
+            if (remaining < Long.BYTES) {
+                // there might be a value split across the buffers
+                Slice slice = null;
+                if (remaining != 0) {
+                    slice = tempBuffer8;
+                    current.readBytes(slice, 0, remaining);
+                }
+
+                advance();
+                if (current == null) {
+                    throw new OrcCorruptionException(chunkLoader.getOrcDataSourceId(), "Unexpected end of stream");
+                }
+
+                if (remaining != 0) {
+                    current.readBytes(slice, remaining, Long.BYTES - remaining);
+                    values[offset] = slice.getLong(0);
+                    length--;
+                    offset++;
+                }
+                remaining = Ints.saturatedCast(current.remaining());
+            }
+
+            int chunkSize = min(length, remaining / Long.BYTES);
+            current.readLongs(values, offset, chunkSize);
             length -= chunkSize;
             offset += chunkSize;
         }

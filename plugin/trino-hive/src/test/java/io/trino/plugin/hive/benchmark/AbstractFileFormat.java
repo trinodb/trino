@@ -212,7 +212,6 @@ public abstract class AbstractFileFormat
         Properties schema = createSchema(format, columnNames, columnTypes);
         Optional<ReaderPageSource> readerPageSourceWithProjections = pageSourceFactory
                 .createPageSource(
-                        conf,
                         session,
                         Location.of(targetFile.getAbsolutePath()),
                         0,

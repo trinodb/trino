@@ -24,9 +24,8 @@ import io.trino.operator.OperatorStats;
 import io.trino.operator.TableWriterOperator;
 import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
 import io.trino.spi.eventlistener.StageGcStatistics;
+import jakarta.annotation.Nullable;
 import org.joda.time.DateTime;
-
-import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.OptionalDouble;

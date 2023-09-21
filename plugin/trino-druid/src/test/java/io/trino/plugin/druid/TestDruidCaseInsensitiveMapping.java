@@ -15,8 +15,8 @@ package io.trino.plugin.druid;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.base.mapping.TableMappingRule;
 import io.trino.plugin.jdbc.BaseCaseInsensitiveMappingTest;
-import io.trino.plugin.jdbc.mapping.TableMappingRule;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -29,12 +29,12 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.plugin.base.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
+import static io.trino.plugin.base.mapping.RuleBasedIdentifierMappingUtils.updateRuleBasedIdentifierMappingFile;
 import static io.trino.plugin.druid.DruidQueryRunner.copyAndIngestTpchDataFromSourceToTarget;
 import static io.trino.plugin.druid.DruidQueryRunner.createDruidQueryRunnerTpch;
 import static io.trino.plugin.druid.DruidTpchTables.SELECT_FROM_ORDERS;
 import static io.trino.plugin.druid.DruidTpchTables.SELECT_FROM_REGION;
-import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
-import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.updateRuleBasedIdentifierMappingFile;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.REGION;

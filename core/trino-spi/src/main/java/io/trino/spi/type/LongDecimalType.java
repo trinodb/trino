@@ -22,13 +22,21 @@ import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
+import io.trino.spi.function.FlatFixed;
+import io.trino.spi.function.FlatFixedOffset;
+import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.math.BigInteger;
+import java.nio.ByteOrder;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.trino.spi.block.Int128ArrayBlock.INT128_BYTES;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -37,6 +45,7 @@ final class LongDecimalType
         extends DecimalType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(LongDecimalType.class, lookup(), Int128.class);
+    private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
 
     LongDecimalType(int precision, int scale)
     {
@@ -102,9 +111,9 @@ final class LongDecimalType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(block.getLong(position, 0));
-            blockBuilder.writeLong(block.getLong(position, SIZE_OF_LONG));
-            blockBuilder.closeEntry();
+            ((Int128ArrayBlockBuilder) blockBuilder).writeInt128(
+                    block.getLong(position, 0),
+                    block.getLong(position, SIZE_OF_LONG));
         }
     }
 
@@ -112,9 +121,7 @@ final class LongDecimalType
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
         Int128 decimal = (Int128) value;
-        blockBuilder.writeLong(decimal.getHigh());
-        blockBuilder.writeLong(decimal.getLow());
-        blockBuilder.closeEntry();
+        ((Int128ArrayBlockBuilder) blockBuilder).writeInt128(decimal.getHigh(), decimal.getLow());
     }
 
     @Override
@@ -123,6 +130,60 @@ final class LongDecimalType
         return Int128.valueOf(
                 block.getLong(position, 0),
                 block.getLong(position, SIZE_OF_LONG));
+    }
+
+    @Override
+    public int getFlatFixedSize()
+    {
+        return INT128_BYTES;
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static Int128 readFlat(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice)
+    {
+        return Int128.valueOf(
+                (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset),
+                (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG));
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static void readFlatToBlock(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            BlockBuilder blockBuilder)
+    {
+        ((Int128ArrayBlockBuilder) blockBuilder).writeInt128(
+                (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset),
+                (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG));
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static void writeFlat(
+            Int128 value,
+            byte[] fixedSizeSlice,
+            int fixedSizeOffset,
+            byte[] unusedVariableSizeSlice,
+            int unusedVariableSizeOffset)
+    {
+        LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset, value.getHigh());
+        LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG, value.getLow());
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static void writeBlockToFlat(
+            @BlockPosition Block block,
+            @BlockIndex int position,
+            byte[] fixedSizeSlice,
+            int fixedSizeOffset,
+            byte[] unusedVariableSizeSlice,
+            int unusedVariableSizeOffset)
+    {
+        LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset, block.getLong(position, 0));
+        LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG, block.getLong(position, SIZE_OF_LONG));
     }
 
     @ScalarOperator(EQUAL)

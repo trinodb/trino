@@ -86,7 +86,7 @@ public class TestDeltaLakeFileStatistics
     public void testParseParquetStatistics()
             throws Exception
     {
-        File statsFile = new File(getClass().getResource("/databricks/pruning/parquet_struct_statistics/_delta_log/00000000000000000010.checkpoint.parquet").toURI());
+        File statsFile = new File(getClass().getResource("/databricks73/pruning/parquet_struct_statistics/_delta_log/00000000000000000010.checkpoint.parquet").toURI());
 
         TypeManager typeManager = TESTING_TYPE_MANAGER;
         CheckpointSchemaManager checkpointSchemaManager = new CheckpointSchemaManager(typeManager);

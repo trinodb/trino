@@ -14,6 +14,7 @@
 package io.trino.plugin.raptor.legacy.metadata;
 
 import com.google.common.base.Ticker;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -22,8 +23,6 @@ import io.trino.spi.Node;
 import io.trino.spi.TrinoException;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.HashMap;
 import java.util.HashSet;

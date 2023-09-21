@@ -16,8 +16,7 @@ package io.trino.execution;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
 

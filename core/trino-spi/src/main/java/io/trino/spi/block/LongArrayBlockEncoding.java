@@ -13,10 +13,8 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
 
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
@@ -43,7 +41,15 @@ public class LongArrayBlockEncoding
         encodeNullsAsBits(sliceOutput, block);
 
         if (!block.mayHaveNull()) {
-            sliceOutput.writeBytes(getValuesSlice(block));
+            if (block instanceof LongArrayBlock valueBlock) {
+                sliceOutput.writeLongs(valueBlock.getRawValues(), valueBlock.getRawValuesOffset(), valueBlock.getPositionCount());
+            }
+            else if (block instanceof LongArrayBlockBuilder blockBuilder) {
+                sliceOutput.writeLongs(blockBuilder.getRawValues(), 0, blockBuilder.getPositionCount());
+            }
+            else {
+                throw new IllegalArgumentException("Unexpected block type " + block.getClass().getSimpleName());
+            }
         }
         else {
             long[] valuesWithoutNull = new long[positionCount];
@@ -56,7 +62,7 @@ public class LongArrayBlockEncoding
             }
 
             sliceOutput.writeInt(nonNullPositionCount);
-            sliceOutput.writeBytes(Slices.wrappedLongArray(valuesWithoutNull, 0, nonNullPositionCount));
+            sliceOutput.writeLongs(valuesWithoutNull, 0, nonNullPositionCount);
         }
     }
 
@@ -69,13 +75,13 @@ public class LongArrayBlockEncoding
         long[] values = new long[positionCount];
 
         if (valueIsNullPacked == null) {
-            sliceInput.readBytes(Slices.wrappedLongArray(values));
+            sliceInput.readLongs(values);
             return new LongArrayBlock(0, positionCount, null, values);
         }
         boolean[] valueIsNull = decodeNullBits(valueIsNullPacked, positionCount);
 
         int nonNullPositionCount = sliceInput.readInt();
-        sliceInput.readBytes(Slices.wrappedLongArray(values, 0, nonNullPositionCount));
+        sliceInput.readLongs(values, 0, nonNullPositionCount);
         int position = nonNullPositionCount - 1;
 
         // Handle Last (positionCount % 8) values
@@ -104,17 +110,5 @@ public class LongArrayBlockEncoding
             // Do nothing if there are only nulls
         }
         return new LongArrayBlock(0, positionCount, valueIsNull, values);
-    }
-
-    private Slice getValuesSlice(Block block)
-    {
-        if (block instanceof LongArrayBlock) {
-            return ((LongArrayBlock) block).getValuesSlice();
-        }
-        if (block instanceof LongArrayBlockBuilder) {
-            return ((LongArrayBlockBuilder) block).getValuesSlice();
-        }
-
-        throw new IllegalArgumentException("Unexpected block type " + block.getClass().getSimpleName());
     }
 }

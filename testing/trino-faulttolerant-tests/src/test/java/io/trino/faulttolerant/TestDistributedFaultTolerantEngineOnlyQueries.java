@@ -26,6 +26,7 @@ import io.trino.tpch.TpchTable;
 import org.testng.annotations.Test;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 
 public class TestDistributedFaultTolerantEngineOnlyQueries
         extends AbstractDistributedEngineOnlyQueries
@@ -72,5 +73,28 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
     public void testSelectiveLimit()
     {
         // FTE mode does not terminate query when limit is reached
+    }
+
+    @Test
+    public void testIssue18383()
+    {
+        String tableName = "test_issue_18383_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id VARCHAR)");
+
+        assertQueryReturnsEmptyResult(
+                """
+                        WITH
+                        t1 AS (
+                            SELECT NULL AS address_id FROM %s i1
+                                INNER JOIN %s i2 ON i1.id = i2.id),
+                        t2 AS (
+                            SELECT id AS address_id FROM %s
+                            UNION
+                            SELECT * FROM t1)
+                        SELECT * FROM t2
+                            INNER JOIN %s i ON i.id = t2.address_id
+                        """.formatted(tableName, tableName, tableName, tableName));
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 }

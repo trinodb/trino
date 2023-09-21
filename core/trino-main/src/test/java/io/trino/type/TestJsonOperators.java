@@ -399,19 +399,19 @@ public class TestJsonOperators
                 .hasType(JSON)
                 .isEqualTo("{\"x\":null}");
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("JSON '{}{'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("JSON '{}{'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL);
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("JSON '{} \"a\"'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("JSON '{} \"a\"'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL);
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("JSON '{}{abc'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("JSON '{}{abc'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL);
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("JSON '{}abc'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("JSON '{}abc'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL);
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("JSON ''").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("JSON ''")::evaluate)
                 .hasErrorCode(INVALID_LITERAL);
     }
 

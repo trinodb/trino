@@ -121,4 +121,10 @@ public class FileSystemExchangeManager
                 exchangeSourceConcurrentReaders,
                 exchangeSourceMaxFilesPerReader);
     }
+
+    @Override
+    public boolean supportsConcurrentReadAndWrite()
+    {
+        return false;
+    }
 }

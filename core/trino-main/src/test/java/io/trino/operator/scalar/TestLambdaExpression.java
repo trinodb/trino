@@ -296,22 +296,22 @@ public class TestLambdaExpression
     @Test
     public void testFunctionParameter()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.expression("count(x -> x)").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("count(x -> x)")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
                 .hasMessage("line 1:12: Unexpected parameters (<function>) for function count. Expected: count(), count(t) T");
-        assertTrinoExceptionThrownBy(() -> assertions.expression("max(x -> x)").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("max(x -> x)")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
                 .hasMessage("line 1:12: Unexpected parameters (<function>) for function max. Expected: max(t) T:orderable, max(e, bigint) E:orderable");
-        assertTrinoExceptionThrownBy(() -> assertions.expression("sqrt(x -> x)").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("sqrt(x -> x)")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
                 .hasMessage("line 1:12: Unexpected parameters (<function>) for function sqrt. Expected: sqrt(double)");
-        assertTrinoExceptionThrownBy(() -> assertions.expression("sqrt(x -> x, 123, x -> x)").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("sqrt(x -> x, 123, x -> x)")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
                 .hasMessage("line 1:12: Unexpected parameters (<function>, integer, <function>) for function sqrt. Expected: sqrt(double)");
-        assertTrinoExceptionThrownBy(() -> assertions.expression("pow(x -> x, 123)").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("pow(x -> x, 123)")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
                 .hasMessage("line 1:12: Unexpected parameters (<function>, integer) for function pow. Expected: pow(double, double)");
-        assertTrinoExceptionThrownBy(() -> assertions.expression("pow(123, x -> x)").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("pow(123, x -> x)")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND)
                 .hasMessage("line 1:12: Unexpected parameters (integer, <function>) for function pow. Expected: pow(double, double)");
     }

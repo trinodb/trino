@@ -13,62 +13,11 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
-
 import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
 
 public interface BlockBuilder
         extends Block
 {
-    /**
-     * Write a byte to the current entry;
-     */
-    default BlockBuilder writeByte(int value)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Write a short to the current entry;
-     */
-    default BlockBuilder writeShort(int value)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Write a int to the current entry;
-     */
-    default BlockBuilder writeInt(int value)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Write a long to the current entry;
-     */
-    default BlockBuilder writeLong(long value)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Write a byte sequences to the current entry;
-     */
-    default BlockBuilder writeBytes(Slice source, int sourceIndex, int length)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Return a writer to the current entry. The caller can operate on the returned caller to incrementally build the object. This is generally more efficient than
-     * building the object elsewhere and call writeObject afterwards because a large chunk of memory could potentially be unnecessarily copied in this process.
-     */
-    default BlockBuilder beginBlockEntry()
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
     /**
      * Create a new block from the current materialized block by keeping the same elements
      * only with respect to {@code visiblePositions}.
@@ -78,11 +27,6 @@ public interface BlockBuilder
     {
         return build().getPositions(visiblePositions, offset, length);
     }
-
-    /**
-     * Close the current entry.
-     */
-    BlockBuilder closeEntry();
 
     /**
      * Appends a null value to the block.

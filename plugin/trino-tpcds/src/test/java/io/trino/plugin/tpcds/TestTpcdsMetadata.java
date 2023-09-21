@@ -14,7 +14,7 @@
 package io.trino.plugin.tpcds;
 
 import io.trino.spi.connector.ConnectorSession;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

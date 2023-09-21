@@ -15,8 +15,10 @@ package io.trino.type;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIntervalDayTimeType
         extends AbstractTestType
@@ -47,5 +49,26 @@ public class TestIntervalDayTimeType
     protected Object getGreaterValue(Object value)
     {
         return ((Long) value) + 1;
+    }
+
+    @Test
+    public void testRange()
+    {
+        assertThat(type.getRange())
+                .isEmpty();
+    }
+
+    @Test
+    public void testPreviousValue()
+    {
+        assertThat(type.getPreviousValue(getSampleValue()))
+                .isEmpty();
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        assertThat(type.getNextValue(getSampleValue()))
+                .isEmpty();
     }
 }

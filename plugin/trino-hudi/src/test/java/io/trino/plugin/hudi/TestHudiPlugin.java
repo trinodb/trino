@@ -95,25 +95,6 @@ public class TestHudiPlugin
     }
 
     @Test
-    public void testAlluxioMetastore()
-    {
-        ConnectorFactory factory = getConnectorFactory();
-        assertThatThrownBy(() -> factory.create(
-                "test",
-                Map.of("hive.metastore", "alluxio"),
-                new TestingConnectorContext()))
-                .hasMessageMatching("(?s)Unable to create injector, see the following errors:.*" +
-                        "Explicit bindings are required and HiveMetastoreFactory .* is not explicitly bound.*");
-
-        assertThatThrownBy(() -> factory.create(
-                "test",
-                Map.of("hive.metastore", "alluxio-deprecated"),
-                new TestingConnectorContext()))
-                // TODO: this should fail cleanly. We do not plan to support Alluxio metastore with Hudi
-                .hasStackTraceContaining("Cannot invoke \"String.split(String, int)\" because \"addr\" is null");
-    }
-
-    @Test
     public void testHiveConfigIsNotBound()
     {
         ConnectorFactory factory = getConnectorFactory();

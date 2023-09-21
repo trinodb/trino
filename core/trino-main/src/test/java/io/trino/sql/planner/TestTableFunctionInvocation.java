@@ -32,8 +32,8 @@ import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
 import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -63,7 +63,7 @@ public class TestTableFunctionInvocation
 {
     private static final String TESTING_CATALOG = "mock";
 
-    @BeforeClass
+    @BeforeAll
     public final void setup()
     {
         getQueryRunner().installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()

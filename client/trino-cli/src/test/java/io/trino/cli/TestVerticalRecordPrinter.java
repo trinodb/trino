@@ -24,7 +24,6 @@ import static io.trino.cli.TestAlignedTablePrinter.row;
 import static io.trino.cli.TestAlignedTablePrinter.rows;
 import static org.testng.Assert.assertEquals;
 
-@SuppressWarnings("Duplicates")
 public class TestVerticalRecordPrinter
 {
     @Test

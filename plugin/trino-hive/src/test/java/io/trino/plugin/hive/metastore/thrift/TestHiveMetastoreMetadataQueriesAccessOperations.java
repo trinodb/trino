@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
-import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
@@ -22,7 +21,6 @@ import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
-import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastoreUtil;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.UnimplementedHiveMetastore;
@@ -40,7 +38,6 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.connector.informationschema.InformationSchemaMetadata.MAX_PREFIXES_COUNT;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_DATABASES;
@@ -51,12 +48,12 @@ import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_TABLE;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true) // metastore invocation counters shares mutable state so can't be run from many threads simultaneously
 public class TestHiveMetastoreMetadataQueriesAccessOperations
         extends AbstractTestQueryFramework
 {
+    private static final int MAX_PREFIXES_COUNT = 20;
     private static final int TEST_SCHEMAS_COUNT = MAX_PREFIXES_COUNT + 1;
     private static final int TEST_TABLES_IN_SCHEMA_COUNT = MAX_PREFIXES_COUNT + 3;
     private static final int TEST_ALL_TABLES_COUNT = TEST_SCHEMAS_COUNT * TEST_TABLES_IN_SCHEMA_COUNT;
@@ -75,6 +72,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
                                 .build())
                 // metadata queries do not use workers
                 .setNodeCount(1)
+                .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
                 .build();
 
         mockMetastore = new MockHiveMetastore();
@@ -492,29 +490,24 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
     public void testSelectColumnsFilterByTableName(boolean allTablesViewsImplemented)
     {
         mockMetastore.setAllTablesViewsImplemented(allTablesViewsImplemented);
-        metastore.resetCounters();
-        computeActual("SELECT * FROM information_schema.columns WHERE table_name = 'test_table_0'");
-        Multiset<Method> invocations = metastore.getMethodInvocations();
 
-        assertThat(invocations.count(GET_TABLE)).as("GET_TABLE invocations")
-                // some lengthy explanatory comment why variable count
-                // TODO switch to assertMetastoreInvocations when GET_TABLE invocation count becomes deterministic
-                // TODO this is horribly lot, why, o why we do those redirect-related calls in ... even if redirects not enabled?????????!!?!1
-                .isBetween(TEST_ALL_TABLES_COUNT + 85, TEST_ALL_TABLES_COUNT + 95);
-        invocations = HashMultiset.create(invocations);
-        invocations.elementSet().remove(GET_TABLE);
-
-        assertThat(invocations).as("invocations except of GET_TABLE")
-                .isEqualTo(allTablesViewsImplemented
+        assertMetastoreInvocations("SELECT * FROM information_schema.columns WHERE table_name = 'test_table_0'",
+                allTablesViewsImplemented
                         ? ImmutableMultiset.builder()
                         .add(GET_ALL_DATABASES)
                         .add(GET_ALL_TABLES)
                         .add(GET_ALL_VIEWS)
+                        // TODO When there are many schemas, there are no "prefixes" and we end up calling ConnectorMetadata without any filter whatsoever.
+                        //  If such queries are common enough, we could iterate over schemas and for each schema try getting a table by given name.
+                        .addCopies(GET_TABLE, TEST_ALL_TABLES_COUNT)
                         .build()
                         : ImmutableMultiset.builder()
                         .add(GET_ALL_DATABASES)
                         .addCopies(GET_ALL_TABLES_FROM_DATABASE, TEST_SCHEMAS_COUNT)
                         .addCopies(GET_ALL_VIEWS_FROM_DATABASE, TEST_SCHEMAS_COUNT)
+                        // TODO When there are many schemas, there are no "prefixes" and we end up calling ConnectorMetadata without any filter whatsoever.
+                        //  If such queries are common enough, we could iterate over schemas and for each schema try getting a table by given name.
+                        .addCopies(GET_TABLE, TEST_ALL_TABLES_COUNT)
                         .build());
 
         assertMetastoreInvocations("SELECT * FROM system.jdbc.columns WHERE table_name = 'test_table_0'",

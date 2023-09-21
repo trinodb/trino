@@ -24,7 +24,7 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.tree.BooleanLiteral;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.SessionTestUtils.TEST_SESSION;

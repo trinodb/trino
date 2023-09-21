@@ -35,6 +35,7 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.type.Type;
 import io.trino.split.PageSinkManager;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -298,8 +299,8 @@ public class TestTableWriterOperator
                                 new ConnectorOutputTableHandle() {}),
                         schemaTableName,
                         false,
-                        false,
-                        OptionalInt.empty()),
+                        OptionalInt.empty(),
+                        WriterScalingOptions.DISABLED),
                 ImmutableList.of(0),
                 session,
                 statisticsAggregation,

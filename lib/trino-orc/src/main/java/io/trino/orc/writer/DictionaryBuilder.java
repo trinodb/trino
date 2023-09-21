@@ -15,7 +15,6 @@ package io.trino.orc.writer;
 
 import io.trino.array.IntBigArray;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -39,7 +38,7 @@ public class DictionaryBuilder
     private static final int EXPECTED_BYTES_PER_ENTRY = 32;
 
     private final IntBigArray blockPositionByHash = new IntBigArray();
-    private BlockBuilder elementBlock;
+    private VariableWidthBlockBuilder elementBlock;
 
     private int maxFill;
     private int hashMask;
@@ -90,7 +89,7 @@ public class DictionaryBuilder
     {
         containsNullElement = false;
         blockPositionByHash.fill(EMPTY_SLOT);
-        elementBlock = elementBlock.newBlockBuilderLike(null);
+        elementBlock = (VariableWidthBlockBuilder) elementBlock.newBlockBuilderLike(null);
         // first position is always null
         elementBlock.appendNull();
     }
@@ -158,8 +157,7 @@ public class DictionaryBuilder
     private int addNewElement(long hashPosition, Block block, int position)
     {
         checkArgument(!block.isNull(position), "position is null");
-        block.writeBytesTo(position, 0, block.getSliceLength(position), elementBlock);
-        elementBlock.closeEntry();
+        elementBlock.buildEntry(valueBuilder -> block.writeSliceTo(position, 0, block.getSliceLength(position), valueBuilder));
 
         int newElementPositionInBlock = elementBlock.getPositionCount() - 1;
         blockPositionByHash.set(hashPosition, newElementPositionInBlock);

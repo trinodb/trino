@@ -14,10 +14,9 @@
 package io.trino.operator.index;
 
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.concurrent.MoreFutures;
 import io.trino.spi.Page;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;

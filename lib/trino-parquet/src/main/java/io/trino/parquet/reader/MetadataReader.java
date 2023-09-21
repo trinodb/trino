@@ -64,7 +64,6 @@ import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
-import static org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriteSupport.WRITER_TIMEZONE;
 import static org.apache.parquet.format.Util.readFileMetaData;
 import static org.apache.parquet.format.converter.ParquetMetadataConverterUtil.getLogicalTypeAnnotation;
 
@@ -401,7 +400,7 @@ public final class MetadataReader
         ParquetWriteValidation writeValidation = parquetWriteValidation.get();
         writeValidation.validateTimeZone(
                 dataSourceId,
-                Optional.ofNullable(fileMetaData.getKeyValueMetaData().get(WRITER_TIMEZONE)));
+                Optional.ofNullable(fileMetaData.getKeyValueMetaData().get("writer.time.zone")));
         writeValidation.validateColumns(dataSourceId, fileMetaData.getSchema());
     }
 }

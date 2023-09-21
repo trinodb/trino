@@ -15,8 +15,7 @@ package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Longs;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.math.BigDecimal;
 import java.time.DateTimeException;

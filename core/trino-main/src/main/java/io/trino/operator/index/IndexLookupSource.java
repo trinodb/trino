@@ -13,11 +13,10 @@
  */
 package io.trino.operator.index;
 
+import io.trino.annotation.NotThreadSafe;
 import io.trino.operator.join.LookupSource;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;

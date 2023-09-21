@@ -5,12 +5,11 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>420</version>
+        <version>426</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-spi</artifactId>
-    <name>trino-spi</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -21,24 +20,30 @@
     <!-- the SPI should have only minimal dependencies -->
     <dependencies>
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>slice</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
+            <groupId>com.google.errorprone</groupId>
+            <artifactId>error_prone_annotations</artifactId>
             <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>slice</artifactId>
         </dependency>
 
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>
@@ -51,25 +56,6 @@
             <groupId>org.openjdk.jol</groupId>
             <artifactId>jol-core</artifactId>
             <scope>runtime</scope>
-        </dependency>
-
-        <!-- for testing -->
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-testing-services</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>json</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>testing</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -87,6 +73,30 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>json</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing-services</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -136,16 +146,16 @@
     <build>
         <resources>
             <resource>
-                <directory>src/main/resources</directory>
                 <filtering>true</filtering>
+                <directory>src/main/resources</directory>
                 <includes>
                     <include>io/trino/spi/trino-spi-version.txt</include>
                 </includes>
             </resource>
 
             <resource>
-                <directory>src/main/resources</directory>
                 <filtering>false</filtering>
+                <directory>src/main/resources</directory>
                 <excludes>
                     <exclude>io/trino/spi/trino-spi-version.txt</exclude>
                 </excludes>
@@ -174,20 +184,6 @@
                 <groupId>org.revapi</groupId>
                 <artifactId>revapi-maven-plugin</artifactId>
                 <version>0.15.0</version>
-                <dependencies>
-                    <dependency>
-                        <groupId>org.revapi</groupId>
-                        <artifactId>revapi-java</artifactId>
-                        <version>0.28.1</version>
-                    </dependency>
-                </dependencies>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
                 <configuration>
                     <skip>${trino.check.skip-revapi}</skip>
                     <ignoreSuggestionsFormat>xml</ignoreSuggestionsFormat>
@@ -235,29 +231,34 @@
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
                                     <ignore>true</ignore>
-                                    <code>java.method.returnTypeTypeParametersChanged</code>
-                                    <old>method java.util.Set&lt;io.trino.spi.ptf.ConnectorTableFunction&gt; io.trino.spi.connector.Connector::getTableFunctions()</old>
-                                    <new>method java.util.Set&lt;io.trino.spi.function.table.ConnectorTableFunction&gt; io.trino.spi.connector.Connector::getTableFunctions()</new>
-                                    <justification>Relocate table function infrastructure</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.parameterTypeChanged</code>
-                                    <old>parameter java.util.Optional&lt;io.trino.spi.connector.TableFunctionApplicationResult&lt;io.trino.spi.connector.ConnectorTableHandle&gt;&gt; io.trino.spi.connector.ConnectorMetadata::applyTableFunction(io.trino.spi.connector.ConnectorSession, ===io.trino.spi.ptf.ConnectorTableFunctionHandle===)</old>
-                                    <new>parameter java.util.Optional&lt;io.trino.spi.connector.TableFunctionApplicationResult&lt;io.trino.spi.connector.ConnectorTableHandle&gt;&gt; io.trino.spi.connector.ConnectorMetadata::applyTableFunction(io.trino.spi.connector.ConnectorSession, ===io.trino.spi.function.table.ConnectorTableFunctionHandle===)</new>
-                                    <parameterIndex>1</parameterIndex>
-                                    <justification>Relocate table function infrastructure</justification>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.connector.RelationColumnsMetadata</old>
+                                    <justification>False positive: the class is not removed, it's just marked @Experimental</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
                                     <code>java.class.removed</code>
-                                    <old>interface io.trino.spi.ptf.TableFunctionDataProcessor</old>
-                                    <justification>Relocate table function infrastructure</justification>
+                                    <old>class io.trino.spi.connector.RelationCommentMetadata</old>
+                                    <justification>False positive: the class is not removed, it's just marked @Experimental</justification>
                                 </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
                 </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.revapi</groupId>
+                        <artifactId>revapi-java</artifactId>
+                        <version>0.28.1</version>
+                    </dependency>
+                </dependencies>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

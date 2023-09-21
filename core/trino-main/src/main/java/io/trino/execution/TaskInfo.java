@@ -16,14 +16,13 @@ package io.trino.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.Immutable;
 import io.airlift.units.DataSize;
 import io.trino.execution.buffer.OutputBufferInfo;
 import io.trino.execution.buffer.PipelinedBufferInfo;
 import io.trino.operator.TaskStats;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 import java.util.List;

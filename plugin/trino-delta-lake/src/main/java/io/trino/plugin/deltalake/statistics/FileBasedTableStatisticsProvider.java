@@ -84,7 +84,7 @@ public class FileBasedTableStatisticsProvider
                         columnMeta.getFieldId(),
                         columnMeta.getPhysicalName(),
                         columnMeta.getPhysicalColumnType(),
-                        metadata.getCanonicalPartitionColumns().contains(columnMeta.getName()) ? PARTITION_KEY : REGULAR,
+                        metadata.getOriginalPartitionColumns().contains(columnMeta.getName()) ? PARTITION_KEY : REGULAR,
                         Optional.empty()))
                 .collect(toImmutableList());
 
@@ -124,7 +124,7 @@ public class FileBasedTableStatisticsProvider
             TupleDomain<DeltaLakeColumnHandle> statisticsPredicate = createStatisticsPredicate(
                     addEntry,
                     predicatedColumns,
-                    tableHandle.getMetadataEntry().getCanonicalPartitionColumns());
+                    tableHandle.getMetadataEntry().getLowercasePartitionColumns());
             if (!tableHandle.getNonPartitionConstraint().overlaps(statisticsPredicate)) {
                 continue;
             }

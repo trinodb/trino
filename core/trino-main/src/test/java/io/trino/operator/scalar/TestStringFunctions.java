@@ -109,13 +109,13 @@ public class TestStringFunctions
                 .hasType(createVarcharType(1))
                 .isEqualTo("\0");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("chr", "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("chr", "-1")::evaluate)
                 .hasMessage("Not a valid Unicode code point: -1");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("chr", "1234567").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("chr", "1234567")::evaluate)
                 .hasMessage("Not a valid Unicode code point: 1234567");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("chr", "8589934592").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("chr", "8589934592")::evaluate)
                 .hasMessage("Not a valid Unicode code point: 8589934592");
     }
 
@@ -138,20 +138,20 @@ public class TestStringFunctions
                 .hasType(INTEGER)
                 .isEqualTo(33804);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("codepoint", "'hello'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("codepoint", "'hello'")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("codepoint", "'\u666E\u5217\u65AF\u6258'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("codepoint", "'\u666E\u5217\u65AF\u6258'")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("codepoint", "''").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("codepoint", "''")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
     public void testConcat()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.function("concat", "''").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("concat", "''")::evaluate)
                 .hasMessage("There must be two or more concatenation arguments");
 
         assertThat(assertions.function("concat", "'hello'", "' world'"))
@@ -200,7 +200,7 @@ public class TestStringFunctions
                 .hasType(VARCHAR)
                 .isEqualTo(Joiner.on("").join(nCopies(127, "x")));
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("CONCAT(" + Joiner.on(", ").join(nCopies(128, "'x'")) + ")").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("CONCAT(" + Joiner.on(", ").join(nCopies(128, "'x'")) + ")")::evaluate)
                 .hasErrorCode(TOO_MANY_ARGUMENTS)
                 .hasMessage("line 1:12: Too many arguments for function call concat()");
     }
@@ -316,10 +316,10 @@ public class TestStringFunctions
                 .isEqualTo(4L);
 
         // Test for invalid utf-8 characters
-        assertTrinoExceptionThrownBy(() -> assertions.function("levenshtein_distance", "'hello world'", "utf8(from_hex('81'))").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("levenshtein_distance", "'hello world'", "utf8(from_hex('81'))")::evaluate)
                 .hasMessage("Invalid UTF-8 encoding in characters: �");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("levenshtein_distance", "'hello wolrd'", "utf8(from_hex('3281'))").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("levenshtein_distance", "'hello wolrd'", "utf8(from_hex('3281'))")::evaluate)
                 .hasMessage("Invalid UTF-8 encoding in characters: 2�");
 
         // Test for maximum length
@@ -329,13 +329,13 @@ public class TestStringFunctions
         assertThat(assertions.function("levenshtein_distance", "'%s'".formatted("l".repeat(100_000)), "'hello'"))
                 .isEqualTo(99998L);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("levenshtein_distance", "'%s'".formatted("x".repeat(1001)), "'%s'".formatted("x".repeat(1001))).evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("levenshtein_distance", "'%s'".formatted("x".repeat(1001)), "'%s'".formatted("x".repeat(1001)))::evaluate)
                 .hasMessage("The combined inputs for Levenshtein distance are too large");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("levenshtein_distance", "'hello'", "'%s'".formatted("x".repeat(500_000))).evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("levenshtein_distance", "'hello'", "'%s'".formatted("x".repeat(500_000)))::evaluate)
                 .hasMessage("The combined inputs for Levenshtein distance are too large");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("levenshtein_distance", "'%s'".formatted("x".repeat(500_000)), "'hello'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("levenshtein_distance", "'%s'".formatted("x".repeat(500_000)), "'hello'")::evaluate)
                 .hasMessage("The combined inputs for Levenshtein distance are too large");
     }
 
@@ -377,22 +377,22 @@ public class TestStringFunctions
                 .isEqualTo(1L);
 
         // Test for invalid arguments
-        assertTrinoExceptionThrownBy(() -> assertions.function("hamming_distance", "'hello'", "''").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("hamming_distance", "'hello'", "''")::evaluate)
                 .hasMessage("The input strings to hamming_distance function must have the same length");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("hamming_distance", "''", "'hello'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("hamming_distance", "''", "'hello'")::evaluate)
                 .hasMessage("The input strings to hamming_distance function must have the same length");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("hamming_distance", "'hello'", "'o'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("hamming_distance", "'hello'", "'o'")::evaluate)
                 .hasMessage("The input strings to hamming_distance function must have the same length");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("hamming_distance", "'h'", "'hello'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("hamming_distance", "'h'", "'hello'")::evaluate)
                 .hasMessage("The input strings to hamming_distance function must have the same length");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("hamming_distance", "'hello na\u00EFve world'", "'hello na:ive world'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("hamming_distance", "'hello na\u00EFve world'", "'hello na:ive world'")::evaluate)
                 .hasMessage("The input strings to hamming_distance function must have the same length");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("hamming_distance", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "'\u4FE1\u5FF5\u5E0C\u671B'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("hamming_distance", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "'\u4FE1\u5FF5\u5E0C\u671B'")::evaluate)
                 .hasMessage("The input strings to hamming_distance function must have the same length");
     }
 
@@ -664,10 +664,10 @@ public class TestStringFunctions
         assertThat(assertions.function("strpos", "NULL", "NULL"))
                 .isNull(BIGINT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("strpos", "'abc/xyz/foo/bar'", "'/'", "0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("strpos", "'abc/xyz/foo/bar'", "'/'", "0")::evaluate)
                 .hasMessage("'instance' must be a positive or negative number.");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("strpos", "''", "''", "0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("strpos", "''", "''", "0")::evaluate)
                 .hasMessage("'instance' must be a positive or negative number.");
 
         assertThat(assertions.function("strpos", "'abc/xyz/foo/bar'", "'/'"))
@@ -1170,16 +1170,16 @@ public class TestStringFunctions
                 .hasType(new ArrayType(createVarcharType(5)))
                 .isEqualTo(ImmutableList.of("a", "b", "."));
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("split", "'a.b.c'", "''", "1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("split", "'a.b.c'", "''", "1")::evaluate)
                 .hasMessage("The delimiter may not be the empty string");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("split", "'a.b.c'", "'.'", "0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("split", "'a.b.c'", "'.'", "0")::evaluate)
                 .hasMessage("Limit must be positive");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("split", "'a.b.c'", "'.'", "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("split", "'a.b.c'", "'.'", "-1")::evaluate)
                 .hasMessage("Limit must be positive");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("split", "'a.b.c'", "'.'", "2147483648").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("split", "'a.b.c'", "'.'", "2147483648")::evaluate)
                 .hasMessage("Limit is too large");
     }
 
@@ -1222,27 +1222,27 @@ public class TestStringFunctions
                 .isEqualTo(ImmutableMap.of("", "\u4EC1"));
 
         // Entry delimiter and key-value delimiter must not be the same.
-        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_map", "''", "'\u4EFF'", "'\u4EFF'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("split_to_map", "''", "'\u4EFF'", "'\u4EFF'")::evaluate)
                 .hasMessage("entryDelimiter and keyValueDelimiter must not be the same");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_map", "'a=123,b=.4,c='", "'='", "'='").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("split_to_map", "'a=123,b=.4,c='", "'='", "'='")::evaluate)
                 .hasMessage("entryDelimiter and keyValueDelimiter must not be the same");
 
         // Duplicate keys are not allowed to exist.
-        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_map", "'a=123,a=.4'", "','", "'='").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("split_to_map", "'a=123,a=.4'", "','", "'='")::evaluate)
                 .hasMessage("Duplicate keys (a) are not allowed");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_map", "'\u4EA0\u4EFF\u4EA1\u4E00\u4EA0\u4EFF\u4EB1'", "'\u4E00'", "'\u4EFF'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("split_to_map", "'\u4EA0\u4EFF\u4EA1\u4E00\u4EA0\u4EFF\u4EB1'", "'\u4E00'", "'\u4EFF'")::evaluate)
                 .hasMessage("Duplicate keys (\u4EA0) are not allowed");
 
         // Key-value delimiter must appear exactly once in each entry.
-        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_map", "'key'", "','", "'='").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("split_to_map", "'key'", "','", "'='")::evaluate)
                 .hasMessage("Key-value delimiter must appear exactly once in each entry. Bad input: 'key'");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_map", "'key==value'", "','", "'='").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("split_to_map", "'key==value'", "','", "'='")::evaluate)
                 .hasMessage("Key-value delimiter must appear exactly once in each entry. Bad input: 'key==value'");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_map", "'key=va=lue'", "','", "'='").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("split_to_map", "'key=va=lue'", "','", "'='")::evaluate)
                 .hasMessage("Key-value delimiter must appear exactly once in each entry. Bad input: 'key=va=lue'");
     }
 
@@ -1296,20 +1296,20 @@ public class TestStringFunctions
                 .isEqualTo(ImmutableMap.of("\u4EA0", ImmutableList.of("\u4EA1", "\u4EB1")));
 
         // Entry delimiter and key-value delimiter must not be the same.
-        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_multimap", "''", "'\u4EFF'", "'\u4EFF'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("split_to_multimap", "''", "'\u4EFF'", "'\u4EFF'")::evaluate)
                 .hasMessage("entryDelimiter and keyValueDelimiter must not be the same");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_multimap", "'a=123,b=.4,c='", "'='", "'='").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("split_to_multimap", "'a=123,b=.4,c='", "'='", "'='")::evaluate)
                 .hasMessage("entryDelimiter and keyValueDelimiter must not be the same");
 
         // Key-value delimiter must appear exactly once in each entry.
-        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_multimap", "'key'", "','", "'='").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("split_to_multimap", "'key'", "','", "'='")::evaluate)
                 .hasMessage("Key-value delimiter must appear exactly once in each entry. Bad input: key");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_multimap", "'key==value'", "','", "'='").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("split_to_multimap", "'key==value'", "','", "'='")::evaluate)
                 .hasMessage("Key-value delimiter must appear exactly once in each entry. Bad input: key==value");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_multimap", "'key=va=lue'", "','", "'='").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("split_to_multimap", "'key=va=lue'", "','", "'='")::evaluate)
                 .hasMessage("Key-value delimiter must appear exactly once in each entry. Bad input: key=va=lue");
     }
 
@@ -1454,20 +1454,20 @@ public class TestStringFunctions
         assertThat(assertions.function("split_part", "'\u8B49\u8BC1\u8A3C'", "'\u8BC1'", "3"))
                 .isNull(createVarcharType(3));
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("split_part", "'abc'", "''", "0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("split_part", "'abc'", "''", "0")::evaluate)
                 .hasMessage("Index must be greater than zero");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("split_part", "'abc'", "''", "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("split_part", "'abc'", "''", "-1")::evaluate)
                 .hasMessage("Index must be greater than zero");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("split_part", "utf8(from_hex('CE'))", "''", "1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("split_part", "utf8(from_hex('CE'))", "''", "1")::evaluate)
                 .hasMessage("Invalid UTF-8 encoding");
     }
 
     @Test
     public void testSplitPartInvalid()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.function("split_part", "'abc-@-def-@-ghi'", "'-@-'", "0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("split_part", "'abc-@-def-@-ghi'", "'-@-'", "0")::evaluate)
                 .hasMessage("Index must be greater than zero");
     }
 
@@ -1712,10 +1712,10 @@ public class TestStringFunctions
         assertThat(assertions.expression("CAST(LTRIM(CONCAT(' ', utf8(from_hex('81')), ' '), ' ') AS VARBINARY)"))
                 .isEqualTo(varbinary(0x81, ' '));
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ltrim", "'hello world'", "utf8(from_hex('81'))").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ltrim", "'hello world'", "utf8(from_hex('81'))")::evaluate)
                 .hasMessage("Invalid UTF-8 encoding in characters: �");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ltrim", "'hello wolrd'", "utf8(from_hex('3281'))").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ltrim", "'hello wolrd'", "utf8(from_hex('3281'))")::evaluate)
                 .hasMessage("Invalid UTF-8 encoding in characters: 2�");
     }
 
@@ -1858,10 +1858,10 @@ public class TestStringFunctions
         assertThat(assertions.expression("CAST(RTRIM(CONCAT(' ', utf8(from_hex('81')), ' '), ' ') AS VARBINARY)"))
                 .isEqualTo(varbinary(' ', 0x81));
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("rtrim", "'hello world'", "utf8(from_hex('81'))").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("rtrim", "'hello world'", "utf8(from_hex('81'))")::evaluate)
                 .hasMessage("Invalid UTF-8 encoding in characters: �");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("rtrim", "'hello world'", "utf8(from_hex('3281'))").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("rtrim", "'hello world'", "utf8(from_hex('3281'))")::evaluate)
                 .hasMessage("Invalid UTF-8 encoding in characters: 2�");
     }
 
@@ -2083,15 +2083,15 @@ public class TestStringFunctions
                 .isEqualTo("\u4FE1\u5FF5 \u7231 ");
 
         // failure modes
-        assertTrinoExceptionThrownBy(() -> assertions.function("lpad", "'abc'", "3", "''").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("lpad", "'abc'", "3", "''")::evaluate)
                 .hasMessage("Padding string must not be empty");
 
         // invalid target lengths
         long maxSize = Integer.MAX_VALUE;
-        assertTrinoExceptionThrownBy(() -> assertions.function("lpad", "'abc'", "-1", "'foo'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("lpad", "'abc'", "-1", "'foo'")::evaluate)
                 .hasMessage("Target length must be in the range [0.." + maxSize + "]");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("lpad", "'abc'", Long.toString(maxSize + 1), "''").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("lpad", "'abc'", Long.toString(maxSize + 1), "''")::evaluate)
                 .hasMessage("Target length must be in the range [0.." + maxSize + "]");
     }
 
@@ -2152,15 +2152,15 @@ public class TestStringFunctions
                 .isEqualTo("\u4FE1\u5FF5 \u7231 ");
 
         // failure modes
-        assertTrinoExceptionThrownBy(() -> assertions.function("rpad", "'abc'", "3", "''").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("rpad", "'abc'", "3", "''")::evaluate)
                 .hasMessage("Padding string must not be empty");
 
         // invalid target lengths
         long maxSize = Integer.MAX_VALUE;
-        assertTrinoExceptionThrownBy(() -> assertions.function("rpad", "'abc'", "-1", "'foo'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("rpad", "'abc'", "-1", "'foo'")::evaluate)
                 .hasMessage("Target length must be in the range [0.." + maxSize + "]");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("rpad", "'abc'", Long.toString(maxSize + 1), "''").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("rpad", "'abc'", Long.toString(maxSize + 1), "''")::evaluate)
                 .hasMessage("Target length must be in the range [0.." + maxSize + "]");
     }
 
@@ -2261,10 +2261,10 @@ public class TestStringFunctions
                 .hasType(VARCHAR)
                 .isEqualTo("X");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("from_utf8", "to_utf8('hello')", "'foo'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("from_utf8", "to_utf8('hello')", "'foo'")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("from_utf8", "to_utf8('hello')", "1114112").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("from_utf8", "to_utf8('hello')", "1114112")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 
@@ -2299,7 +2299,7 @@ public class TestStringFunctions
                 .hasType(createCharType(17))
                 .isEqualTo("hello na\u00EFve world");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("concat", "cast('ab ' as char(40000))", "cast('' as char(40000))").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("concat", "cast('ab ' as char(40000))", "cast('' as char(40000))")::evaluate)
                 .hasErrorCode(TYPE_NOT_FOUND)
                 .hasMessage("line 1:8: Unknown type: char(80000)");
 
@@ -2425,7 +2425,7 @@ public class TestStringFunctions
                 .hasType(createVarcharType(4))
                 .isEqualTo("J500");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("soundex", "'jąmes'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("soundex", "'jąmes'")::evaluate)
                 .hasMessage("The character is not mapped: Ą (index=195)");
 
         assertThat(assertions.function("soundex", "'x123'"))

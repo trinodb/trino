@@ -66,7 +66,6 @@ public class IcebergParquetFileWriter
                 fileInputColumnIndexes,
                 compressionCodec,
                 trinoVersion,
-                false,
                 Optional.empty(),
                 Optional.empty());
         this.metricsConfig = requireNonNull(metricsConfig, "metricsConfig is null");

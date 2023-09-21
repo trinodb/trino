@@ -13,17 +13,18 @@
  */
 package io.trino.operator.aggregation.listagg;
 
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.trino.block.BlockAssertions;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -68,13 +69,12 @@ public class TestListaggAggregationFunction
         assertEquals(state.getOverflowFiller(), overflowFiller);
         assertTrue(state.showOverflowEntryCount());
 
-        BlockBuilder out = new VariableWidthBlockBuilder(null, 16, 128);
+        DynamicSliceOutput out = new DynamicSliceOutput(state.getEntryCount() * 128);
         state.forEach((block, position) -> {
-            block.writeBytesTo(position, 0, block.getSliceLength(position), out);
+            out.writeBytes(block.getSlice(position, 0, block.getSliceLength(position)));
             return true;
         });
-        out.closeEntry();
-        String result = (String) BlockAssertions.getOnlyValue(VARCHAR, out);
+        String result = out.toString(StandardCharsets.UTF_8);
         assertEquals(result, s);
     }
 
@@ -111,7 +111,7 @@ public class TestListaggAggregationFunction
         SingleListaggAggregationState state = createListaggAggregationState("", true, "...", false,
                 "overflowvalue1", "overflowvalue2");
 
-        BlockBuilder out = new VariableWidthBlockBuilder(null, 16, 128);
+        VariableWidthBlockBuilder out = new VariableWidthBlockBuilder(null, 16, 128);
         assertThatThrownBy(() -> ListaggAggregationFunction.outputState(state, out, 20))
                 .isInstanceOf(TrinoException.class)
                 .matches(throwable -> ((TrinoException) throwable).getErrorCode() == EXCEEDED_FUNCTION_MEMORY_LIMIT.toErrorCode());
@@ -244,7 +244,7 @@ public class TestListaggAggregationFunction
 
     private static String getOutputStateOnlyValue(SingleListaggAggregationState state, int maxOutputLengthInBytes)
     {
-        BlockBuilder out = new VariableWidthBlockBuilder(null, 32, 256);
+        VariableWidthBlockBuilder out = new VariableWidthBlockBuilder(null, 32, 256);
         ListaggAggregationFunction.outputState(state, out, maxOutputLengthInBytes);
         return (String) BlockAssertions.getOnlyValue(VARCHAR, out);
     }

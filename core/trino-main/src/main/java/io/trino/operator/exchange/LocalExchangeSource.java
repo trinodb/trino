@@ -15,13 +15,12 @@ package io.trino.operator.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessor.ProcessState;
 import io.trino.spi.Page;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
+import jakarta.annotation.Nullable;
 
 import java.util.ArrayDeque;
 import java.util.Queue;

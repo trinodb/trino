@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 
@@ -37,7 +38,7 @@ public class VarbinaryDecoder
         }
         else if (value instanceof String) {
             Slice slice = Slices.wrappedBuffer(toBytes((String) value));
-            output.writeBytes(slice, 0, slice.length()).closeEntry();
+            ((VariableWidthBlockBuilder) output).writeEntry(slice);
         }
         else {
             throw new TrinoException(TYPE_MISMATCH, format("Expected a string value of type VARBINARY: %s [%s]", value, value.getClass().getSimpleName()));

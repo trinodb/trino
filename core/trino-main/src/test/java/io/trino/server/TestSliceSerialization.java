@@ -72,39 +72,7 @@ public class TestSliceSerialization
         slice.setBytes(0, bytes);
         testRoundTrip(slice);
 
-        slice = Slices.wrappedShortArray(new short[bytes.length / Short.BYTES + bytes.length % Short.BYTES]);
-        slice.setBytes(bytes.length % Short.BYTES, bytes);
-        testRoundTrip(slice.slice(bytes.length % Short.BYTES, bytes.length));
-
-        slice = Slices.wrappedIntArray(new int[bytes.length / Integer.BYTES + bytes.length % Integer.BYTES]);
-        slice.setBytes(bytes.length % Integer.BYTES, bytes);
-        testRoundTrip(slice.slice(bytes.length % Integer.BYTES, bytes.length));
-
-        slice = Slices.wrappedLongArray(new long[bytes.length / Long.BYTES + bytes.length % Long.BYTES]);
-        slice.setBytes(bytes.length % Long.BYTES, bytes);
-        testRoundTrip(slice.slice(bytes.length % Long.BYTES, bytes.length));
-
-        slice = Slices.wrappedDoubleArray(new double[bytes.length / Double.BYTES + bytes.length % Double.BYTES]);
-        slice.setBytes(bytes.length % Double.BYTES, bytes);
-        testRoundTrip(slice.slice(bytes.length % Double.BYTES, bytes.length));
-
-        slice = Slices.wrappedFloatArray(new float[bytes.length / Float.BYTES + bytes.length % Float.BYTES]);
-        slice.setBytes(bytes.length % Float.BYTES, bytes);
-        testRoundTrip(slice.slice(bytes.length % Float.BYTES, bytes.length));
-
-        slice = Slices.wrappedBooleanArray(new boolean[bytes.length]);
-        slice.setBytes(0, bytes);
-        testRoundTrip(slice);
-
-        slice = Slices.wrappedBooleanArray(new boolean[bytes.length + 3], 2, bytes.length);
-        slice.setBytes(0, bytes);
-        testRoundTrip(slice);
-
         slice = Slices.allocate(bytes.length);
-        slice.setBytes(0, bytes);
-        testRoundTrip(slice);
-
-        slice = Slices.allocateDirect(bytes.length);
         slice.setBytes(0, bytes);
         testRoundTrip(slice);
     }

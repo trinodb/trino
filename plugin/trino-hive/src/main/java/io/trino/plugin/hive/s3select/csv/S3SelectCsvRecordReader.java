@@ -20,9 +20,11 @@ import com.amazonaws.services.s3.model.InputSerialization;
 import com.amazonaws.services.s3.model.OutputSerialization;
 import io.trino.plugin.hive.s3select.S3SelectLineRecordReader;
 import io.trino.plugin.hive.s3select.TrinoS3ClientFactory;
+import io.trino.plugin.hive.util.SerdeConstants;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
+import java.util.Optional;
 import java.util.Properties;
 
 import static io.trino.plugin.hive.util.SerdeConstants.ESCAPE_CHAR;
@@ -103,5 +105,10 @@ public class S3SelectCsvRecordReader
         boolean isQuotedRecordDelimiterAllowed = Boolean.TRUE.equals(
                 buildInputSerialization().getCsv().getAllowQuotedRecordDelimiter());
         return CompressionType.NONE.equals(getCompressionType()) && !isQuotedRecordDelimiterAllowed;
+    }
+
+    public static Optional<String> nullCharacterEncoding(Properties schema)
+    {
+        return Optional.ofNullable(schema.getProperty(SerdeConstants.SERIALIZATION_NULL_FORMAT));
     }
 }

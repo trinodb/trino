@@ -1,0 +1,75 @@
+#### JSON decoder
+
+The JSON decoder converts the bytes representing a message or key into
+Javascript Object Notaion (JSON) according to {rfc}`4627`. The message or key
+must convert into a JSON object, not an array or simple type.
+
+For fields, the following attributes are supported:
+
+- `type` - Trino data type of column.
+- `dataFormat` - Field decoder to be used for column.
+- `mapping` - Slash-separated list of field names to select a field from the
+  JSON object.
+- `formatHint` - Only for `custom-date-time`.
+
+The JSON decoder supports multiple field decoders with `_default` being used
+for standard table columns and a number of decoders for date and time-based
+types.
+
+The following table lists Trino data types, which can be used in `type` and
+matching field decoders, and specified via `dataFormat` attribute:
+
+```{eval-rst}
+.. list-table::
+  :widths: 40, 60
+  :header-rows: 1
+
+  * - Trino data type
+    - Allowed ``dataFormat`` values
+  * - ``BIGINT``, ``INTEGER``, ``SMALLINT``, ``TINYINT``, ``DOUBLE``,
+      ``BOOLEAN``, ``VARCHAR``, ``VARCHAR(x)``
+    - Default field decoder (omitted ``dataFormat`` attribute)
+  * - ``DATE``
+    - ``custom-date-time``, ``iso8601``
+  * - ``TIME``
+    - ``custom-date-time``, ``iso8601``, ``milliseconds-since-epoch``,
+      ``seconds-since-epoch``
+  * - ``TIME WITH TIME ZONE``
+    - ``custom-date-time``, ``iso8601``
+  * - ``TIMESTAMP``
+    - ``custom-date-time``, ``iso8601``, ``rfc2822``,
+      ``milliseconds-since-epoch``, ``seconds-since-epoch``
+  * - ``TIMESTAMP WITH TIME ZONE``
+    - ``custom-date-time``, ``iso8601``, ``rfc2822``,
+      ``milliseconds-since-epoch``, ``seconds-since-epoch``
+```
+
+No other types are supported.
+
+##### Default field decoder
+
+This is the standard field decoder. It supports all the Trino physical data
+types. A field value is transformed under JSON conversion rules into boolean,
+long, double, or string values. This decoder should be used for columns that are
+not date or time based.
+
+##### Date and time decoders
+
+To convert values from JSON objects to Trino `DATE`, `TIME`, `TIME WITH
+TIME ZONE`, `TIMESTAMP` or `TIMESTAMP WITH TIME ZONE` columns, select
+special decoders using the `dataFormat` attribute of a field definition.
+
+- `iso8601` - Text based, parses a text field as an ISO 8601 timestamp.
+- `rfc2822` - Text based, parses a text field as an {rfc}`2822` timestamp.
+- `custom-date-time` - Text based, parses a text field according to Joda
+  format pattern specified via `formatHint` attribute. The format pattern
+  should conform to
+  <https://www.joda.org/joda-time/apidocs/org/joda/time/format/DateTimeFormat.html>.
+- `milliseconds-since-epoch` - Number-based, interprets a text or number as
+  number of milliseconds since the epoch.
+- `seconds-since-epoch` - Number-based, interprets a text or number as number
+  of milliseconds since the epoch.
+
+For `TIMESTAMP WITH TIME ZONE` and `TIME WITH TIME ZONE` data types, if
+timezone information is present in decoded value, it is used as a Trino value.
+Otherwise, the result time zone is set to `UTC`.

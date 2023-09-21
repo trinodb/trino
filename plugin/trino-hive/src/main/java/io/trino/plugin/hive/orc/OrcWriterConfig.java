@@ -21,10 +21,9 @@ import io.airlift.units.DataSize;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.trino.orc.OrcWriterOptions;
 import io.trino.orc.OrcWriterOptions.WriterIdentification;
-
-import javax.validation.constraints.DecimalMax;
-import javax.validation.constraints.DecimalMin;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotNull;
 
 @DefunctConfig("hive.orc.optimized-writer.enabled")
 @SuppressWarnings("unused")

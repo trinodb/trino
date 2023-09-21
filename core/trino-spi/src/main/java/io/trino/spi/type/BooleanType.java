@@ -21,6 +21,9 @@ import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.ByteArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.FlatFixed;
+import io.trino.spi.function.FlatFixedOffset;
+import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 
 import java.util.Optional;
@@ -29,6 +32,7 @@ import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -134,7 +138,7 @@ public final class BooleanType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeByte(block.getByte(position, 0)).closeEntry();
+            ((ByteArrayBlockBuilder) blockBuilder).writeByte(block.getByte(position, 0));
         }
     }
 
@@ -147,7 +151,13 @@ public final class BooleanType
     @Override
     public void writeBoolean(BlockBuilder blockBuilder, boolean value)
     {
-        blockBuilder.writeByte(value ? 1 : 0).closeEntry();
+        ((ByteArrayBlockBuilder) blockBuilder).writeByte((byte) (value ? 1 : 0));
+    }
+
+    @Override
+    public int getFlatFixedSize()
+    {
+        return 1;
     }
 
     @Override
@@ -160,6 +170,26 @@ public final class BooleanType
     public int hashCode()
     {
         return getClass().hashCode();
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static boolean readFlat(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice)
+    {
+        return fixedSizeSlice[fixedSizeOffset] != 0;
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static void writeFlat(
+            boolean value,
+            byte[] fixedSizeSlice,
+            int fixedSizeOffset,
+            byte[] unusedVariableSizeSlice,
+            int unusedVariableSizeOffset)
+    {
+        fixedSizeSlice[fixedSizeOffset] = (byte) (value ? 1 : 0);
     }
 
     @ScalarOperator(EQUAL)

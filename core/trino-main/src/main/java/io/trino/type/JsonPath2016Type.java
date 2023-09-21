@@ -23,6 +23,7 @@ import io.trino.json.ir.IrJsonPath;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.Type;
@@ -71,7 +72,7 @@ public class JsonPath2016Type
     {
         String json = jsonPathCodec.toJson((IrJsonPath) value);
         Slice bytes = utf8Slice(json);
-        blockBuilder.writeBytes(bytes, 0, bytes.length()).closeEntry();
+        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(bytes);
     }
 
     private static JsonCodec<IrJsonPath> getCodec(TypeDeserializer typeDeserializer, BlockEncodingSerde blockEncodingSerde)

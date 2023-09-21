@@ -329,17 +329,20 @@ public class TestStatementBuilder
                 "when matched and c.action = 'del' then delete\n" +
                 "when not matched and c.action = 'new' then\n" +
                 "insert (part, qty) values (c.part, c.qty)");
+
+        printStatement("set session authorization user");
+        printStatement("reset session authorization");
     }
 
     @Test
     public void testStringFormatter()
     {
         assertSqlFormatter("U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801'",
-                "U&'hello\\6D4B\\8BD5\\+10FFFFworld\\7F16\\7801'");
+                "'hello测试\uDBFF\uDFFFworld编码'");
         assertSqlFormatter("'hello world'", "'hello world'");
-        assertSqlFormatter("U&'!+10FFFF!6d4B!8Bd5ABC!6d4B!8Bd5' UESCAPE '!'", "U&'\\+10FFFF\\6D4B\\8BD5ABC\\6D4B\\8BD5'");
-        assertSqlFormatter("U&'\\+10FFFF\\6D4B\\8BD5\\0041\\0042\\0043\\6D4B\\8BD5'", "U&'\\+10FFFF\\6D4B\\8BD5ABC\\6D4B\\8BD5'");
-        assertSqlFormatter("U&'\\\\abc\\6D4B'''", "U&'\\\\abc\\6D4B'''");
+        assertSqlFormatter("U&'!+10FFFF!6d4B!8Bd5ABC!6d4B!8Bd5' UESCAPE '!'", "'\uDBFF\uDFFF测试ABC测试'");
+        assertSqlFormatter("U&'\\+10FFFF\\6D4B\\8BD5\\0041\\0042\\0043\\6D4B\\8BD5'", "'\uDBFF\uDFFF测试ABC测试'");
+        assertSqlFormatter("U&'\\\\abc\\6D4B'''", "'\\abc测'''");
     }
 
     @Test

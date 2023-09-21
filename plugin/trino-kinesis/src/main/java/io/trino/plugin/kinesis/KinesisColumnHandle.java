@@ -18,8 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Objects;
 

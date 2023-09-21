@@ -15,15 +15,15 @@ package io.trino.type;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.trino.collect.cache.NonKeyEvictableCache;
+import io.trino.cache.NonKeyEvictableCache;
 import org.weakref.jmx.Managed;
 
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 
 public class TypeOperatorsCache
         implements BiFunction<Object, Supplier<Object>, Object>

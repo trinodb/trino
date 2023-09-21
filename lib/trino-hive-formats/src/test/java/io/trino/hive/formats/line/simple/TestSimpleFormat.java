@@ -444,6 +444,9 @@ public class TestSimpleFormat
         assertString(type, "tab " + escape + "\t tab", "tab \t tab", options);
         assertString(type, "new " + escape + "\n line", "new \n line", options);
         assertString(type, "carriage " + escape + "\r return", "carriage \r return", options);
+        assertString(type, "escape " + escape + escape + " char", "escape " + escape + " char", options);
+        assertString(type, "double " + escape + escape + escape + escape + " escape", "double " + escape + escape + " escape", options);
+        assertString(type, "simple " + escape + "X char", "simple X char", options);
 
         String allControlCharacters = IntStream.range(0, 32)
                 .mapToObj(i -> i + " " + ((char) i))
@@ -1347,7 +1350,7 @@ public class TestSimpleFormat
         LineSerializer serializer = new SimpleSerializerFactory().create(columns, options.toSchema());
         SliceOutput sliceOutput = new DynamicSliceOutput(1024);
         serializer.write(page, 0, sliceOutput);
-        return Slices.copyOf(sliceOutput.slice());
+        return sliceOutput.slice().copy();
     }
 
     private static void assertValueHive(Type type, String value, Object expectedValue, TextEncodingOptions textEncodingOptions)

@@ -23,7 +23,7 @@ import io.trino.spi.connector.ConnectorFactory;
 
 import java.util.Map;
 
-import static io.trino.plugin.base.Versions.checkSpiVersion;
+import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 import static java.util.Objects.requireNonNull;
 
 public class AccumuloConnectorFactory
@@ -43,7 +43,7 @@ public class AccumuloConnectorFactory
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
         requireNonNull(context, "context is null");
-        checkSpiVersion(context, this);
+        checkStrictSpiVersionMatch(context, this);
 
         Bootstrap app = new Bootstrap(
                 new JsonModule(),

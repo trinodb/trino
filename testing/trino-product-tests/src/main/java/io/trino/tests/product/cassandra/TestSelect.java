@@ -21,7 +21,6 @@ import io.trino.tempto.RequirementsProvider;
 import io.trino.tempto.configuration.Configuration;
 import io.trino.tempto.internal.query.CassandraQueryExecutor;
 import io.trino.tempto.query.QueryResult;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
@@ -391,8 +390,8 @@ public class TestSelect
         QueryResult queryResult = onTrino().executeQuery(
                  format("SELECT * FROM %s.%s.%s", CONNECTOR_NAME, KEY_SPACE, tableName));
         assertThat(queryResult).hasRowsCount(1);
-        Assertions.assertThat(queryResult.row(0).get(0)).isEqualTo(1);
-        Assertions.assertThat(queryResult.row(0).get(1)).isEqualTo(Row.builder()
+        assertThat(queryResult.row(0).get(0)).isEqualTo(1);
+        assertThat(queryResult.row(0).get(1)).isEqualTo(Row.builder()
                 .addUnnamedField(1)
                 .addUnnamedField("text-1")
                 .addUnnamedField(1.11f)
@@ -414,8 +413,8 @@ public class TestSelect
 
         Consumer<QueryResult> assertion = queryResult -> {
             assertThat(queryResult).hasRowsCount(1);
-            Assertions.assertThat(queryResult.row(0).get(0)).isEqualTo(1);
-            Assertions.assertThat(queryResult.row(0).get(1)).isEqualTo(Row.builder()
+            assertThat(queryResult.row(0).get(0)).isEqualTo(1);
+            assertThat(queryResult.row(0).get(1)).isEqualTo(Row.builder()
                     .addUnnamedField(1)
                     .addUnnamedField("text-1")
                     .addUnnamedField(1.11f)
@@ -550,8 +549,8 @@ public class TestSelect
 
         Consumer<QueryResult> assertion = queryResult -> {
             assertThat(queryResult).hasRowsCount(1);
-            Assertions.assertThat(queryResult.row(0).get(0)).isEqualTo(1);
-            Assertions.assertThat(queryResult.row(0).get(1)).isEqualTo(Row.builder()
+            assertThat(queryResult.row(0).get(0)).isEqualTo(1);
+            assertThat(queryResult.row(0).get(1)).isEqualTo(Row.builder()
                     .addField("field1", "udt-1")
                     .build());
         };

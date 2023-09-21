@@ -149,6 +149,7 @@ import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.CreateView.Security.DEFINER;
 import static io.trino.sql.tree.CreateView.Security.INVOKER;
 import static io.trino.sql.tree.LogicalExpression.and;
+import static io.trino.sql.tree.SaveMode.FAIL;
 import static io.trino.sql.tree.ShowCreate.Type.MATERIALIZED_VIEW;
 import static io.trino.sql.tree.ShowCreate.Type.SCHEMA;
 import static io.trino.sql.tree.ShowCreate.Type.TABLE;
@@ -306,11 +307,11 @@ public final class ShowQueriesRewrite
                 QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
                 if (!metadata.isView(session, qualifiedTableName)) {
                     RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, qualifiedTableName);
-                    if (redirection.getTableHandle().isEmpty()) {
+                    if (redirection.tableHandle().isEmpty()) {
                         throw semanticException(TABLE_NOT_FOUND, showGrants, "Table '%s' does not exist", tableName);
                     }
-                    if (redirection.getRedirectedTableName().isPresent()) {
-                        throw semanticException(NOT_SUPPORTED, showGrants, "Table %s is redirected to %s and SHOW GRANTS is not supported with table redirections", tableName.get(), redirection.getRedirectedTableName().get());
+                    if (redirection.redirectedTableName().isPresent()) {
+                        throw semanticException(NOT_SUPPORTED, showGrants, "Table %s is redirected to %s and SHOW GRANTS is not supported with table redirections", tableName.get(), redirection.redirectedTableName().get());
                     }
                 }
 
@@ -482,11 +483,11 @@ public final class ShowQueriesRewrite
                 // Check for table if view is not present
                 if (!isView) {
                     RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
-                    tableHandle = redirection.getTableHandle();
+                    tableHandle = redirection.tableHandle();
                     if (tableHandle.isEmpty()) {
                         throw semanticException(TABLE_NOT_FOUND, showColumns, "Table '%s' does not exist", tableName);
                     }
-                    targetTableName = redirection.getRedirectedTableName().orElse(tableName);
+                    targetTableName = redirection.redirectedTableName().orElse(tableName);
                 }
             }
 
@@ -657,10 +658,10 @@ public final class ShowQueriesRewrite
                 }
 
                 RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, objectName);
-                TableHandle tableHandle = redirection.getTableHandle()
+                TableHandle tableHandle = redirection.tableHandle()
                         .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", objectName));
 
-                QualifiedObjectName targetTableName = redirection.getRedirectedTableName().orElse(objectName);
+                QualifiedObjectName targetTableName = redirection.redirectedTableName().orElse(objectName);
                 accessControl.checkCanShowCreateTable(session.toSecurityContext(), targetTableName);
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle).getMetadata();
 
@@ -671,7 +672,7 @@ public final class ShowQueriesRewrite
                         .map(column -> {
                             List<Property> propertyNodes = buildProperties(targetTableName, Optional.of(column.getName()), INVALID_COLUMN_PROPERTY, column.getProperties(), allColumnProperties);
                             return new ColumnDefinition(
-                                    new Identifier(column.getName()),
+                                    QualifiedName.of(column.getName()),
                                     toSqlType(column.getType()),
                                     column.isNullable(),
                                     propertyNodes,
@@ -686,7 +687,7 @@ public final class ShowQueriesRewrite
                 CreateTable createTable = new CreateTable(
                         QualifiedName.of(targetTableName.getCatalogName(), targetTableName.getSchemaName(), targetTableName.getObjectName()),
                         columns,
-                        false,
+                        FAIL,
                         propertyNodes,
                         connectorTableMetadata.getComment());
                 return singleValueQuery("Create Table", formatSql(createTable).trim());

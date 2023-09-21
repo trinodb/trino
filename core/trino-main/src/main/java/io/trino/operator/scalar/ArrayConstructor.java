@@ -37,7 +37,6 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.CallSiteBinder;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.reflect.Method;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -59,7 +58,7 @@ import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Failures.checkCondition;
-import static java.lang.invoke.MethodHandles.lookup;
+import static io.trino.util.Reflection.methodHandle;
 import static java.util.Collections.nCopies;
 
 public final class ArrayConstructor
@@ -102,14 +101,7 @@ public final class ArrayConstructor
         }
         ImmutableList<Class<?>> stackTypes = builder.build();
         Class<?> clazz = generateArrayConstructor(stackTypes, type);
-        MethodHandle methodHandle;
-        try {
-            Method method = clazz.getMethod("arrayConstructor", stackTypes.toArray(new Class<?>[stackTypes.size()]));
-            methodHandle = lookup().unreflect(method);
-        }
-        catch (ReflectiveOperationException e) {
-            throw new RuntimeException(e);
-        }
+        MethodHandle methodHandle = methodHandle(clazz, "arrayConstructor", stackTypes.toArray(new Class<?>[stackTypes.size()]));
         return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,

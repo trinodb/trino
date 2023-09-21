@@ -15,8 +15,7 @@ package io.trino.operator;
 
 import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
 import io.trino.spi.Page;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.operator.WorkProcessor.ProcessState.finished;

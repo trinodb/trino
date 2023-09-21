@@ -16,7 +16,7 @@ package io.trino.type;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;

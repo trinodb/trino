@@ -23,7 +23,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.ProtocolHeaders;
-import io.trino.client.QueryResults;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.QueryManager;
 import io.trino.operator.DirectExchangeClientSupplier;
@@ -220,52 +219,56 @@ public class ExecutingStatementResource
         else {
             targetResultSize = Ordering.natural().min(targetResultSize, MAX_TARGET_RESULT_SIZE);
         }
-        ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, wait, targetResultSize);
+        ListenableFuture<QueryResultsResponse> queryResultsFuture = query.waitForResults(token, uriInfo, wait, targetResultSize);
 
-        ListenableFuture<Response> response = Futures.transform(queryResultsFuture, queryResults -> toResponse(query, queryResults), directExecutor());
+        ListenableFuture<Response> response = Futures.transform(queryResultsFuture, this::toResponse, directExecutor());
 
         bindAsyncResponse(asyncResponse, response, responseExecutor);
     }
 
-    private Response toResponse(Query query, QueryResults queryResults)
+    private Response toResponse(QueryResultsResponse resultsResponse)
     {
-        ResponseBuilder response = Response.ok(queryResults);
+        ResponseBuilder response = Response.ok(resultsResponse.queryResults());
 
-        ProtocolHeaders protocolHeaders = query.getProtocolHeaders();
-        query.getSetCatalog().ifPresent(catalog -> response.header(protocolHeaders.responseSetCatalog(), catalog));
-        query.getSetSchema().ifPresent(schema -> response.header(protocolHeaders.responseSetSchema(), schema));
-        query.getSetPath().ifPresent(path -> response.header(protocolHeaders.responseSetPath(), path));
+        ProtocolHeaders protocolHeaders = resultsResponse.protocolHeaders();
+        resultsResponse.setCatalog().ifPresent(catalog -> response.header(protocolHeaders.responseSetCatalog(), catalog));
+        resultsResponse.setSchema().ifPresent(schema -> response.header(protocolHeaders.responseSetSchema(), schema));
+        resultsResponse.setPath().ifPresent(path -> response.header(protocolHeaders.responseSetPath(), path));
+        resultsResponse.setAuthorizationUser().ifPresent(authorizationUser -> response.header(protocolHeaders.responseSetAuthorizationUser(), authorizationUser));
+        if (resultsResponse.resetAuthorizationUser()) {
+            response.header(protocolHeaders.responseResetAuthorizationUser(), true);
+        }
 
         // add set session properties
-        query.getSetSessionProperties()
+        resultsResponse.setSessionProperties()
                 .forEach((key, value) -> response.header(protocolHeaders.responseSetSession(), key + '=' + urlEncode(value)));
 
         // add clear session properties
-        query.getResetSessionProperties()
+        resultsResponse.resetSessionProperties()
                 .forEach(name -> response.header(protocolHeaders.responseClearSession(), name));
 
         // add set roles
-        query.getSetRoles()
+        resultsResponse.setRoles()
                 .forEach((key, value) -> response.header(protocolHeaders.responseSetRole(), key + '=' + urlEncode(value.toString())));
 
         // add added prepare statements
-        for (Entry<String, String> entry : query.getAddedPreparedStatements().entrySet()) {
+        for (Entry<String, String> entry : resultsResponse.addedPreparedStatements().entrySet()) {
             String encodedKey = urlEncode(entry.getKey());
             String encodedValue = urlEncode(preparedStatementEncoder.encodePreparedStatementForHeader(entry.getValue()));
             response.header(protocolHeaders.responseAddedPrepare(), encodedKey + '=' + encodedValue);
         }
 
         // add deallocated prepare statements
-        for (String name : query.getDeallocatedPreparedStatements()) {
+        for (String name : resultsResponse.deallocatedPreparedStatements()) {
             response.header(protocolHeaders.responseDeallocatedPrepare(), urlEncode(name));
         }
 
         // add new transaction ID
-        query.getStartedTransactionId()
+        resultsResponse.startedTransactionId()
                 .ifPresent(transactionId -> response.header(protocolHeaders.responseStartedTransactionId(), transactionId));
 
         // add clear transaction ID directive
-        if (query.isClearTransactionId()) {
+        if (resultsResponse.clearTransactionId()) {
             response.header(protocolHeaders.responseClearTransactionId(), true);
         }
 

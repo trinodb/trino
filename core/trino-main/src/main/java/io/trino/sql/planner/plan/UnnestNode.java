@@ -18,12 +18,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.plan.JoinNode.Type;
 import io.trino.sql.tree.Expression;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.Collection;
 import java.util.List;

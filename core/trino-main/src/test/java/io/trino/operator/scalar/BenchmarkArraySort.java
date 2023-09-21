@@ -21,6 +21,7 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.ScalarFunction;
@@ -123,21 +124,21 @@ public class BenchmarkArraySort
 
         private static Block createChannel(int positionCount, int arraySize, ArrayType arrayType)
         {
-            BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, positionCount);
+            ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
-                BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-                for (int i = 0; i < arraySize; i++) {
-                    if (arrayType.getElementType().getJavaType() == long.class) {
-                        arrayType.getElementType().writeLong(entryBuilder, ThreadLocalRandom.current().nextLong());
+                blockBuilder.buildEntry(elementBuilder -> {
+                    for (int i = 0; i < arraySize; i++) {
+                        if (arrayType.getElementType().getJavaType() == long.class) {
+                            arrayType.getElementType().writeLong(elementBuilder, ThreadLocalRandom.current().nextLong());
+                        }
+                        else if (arrayType.getElementType().equals(VARCHAR)) {
+                            arrayType.getElementType().writeSlice(elementBuilder, Slices.utf8Slice("test_string"));
+                        }
+                        else {
+                            throw new UnsupportedOperationException();
+                        }
                     }
-                    else if (arrayType.getElementType().equals(VARCHAR)) {
-                        arrayType.getElementType().writeSlice(entryBuilder, Slices.utf8Slice("test_string"));
-                    }
-                    else {
-                        throw new UnsupportedOperationException();
-                    }
-                }
-                blockBuilder.closeEntry();
+                });
             }
             return blockBuilder.build();
         }

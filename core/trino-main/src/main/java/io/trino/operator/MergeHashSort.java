@@ -17,7 +17,7 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
-import io.trino.type.BlockTypeOperators;
+import io.trino.spi.type.TypeOperators;
 import io.trino.util.MergeSortedPages.PageWithPosition;
 
 import java.io.Closeable;
@@ -26,6 +26,7 @@ import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.operator.InterpretedHashGenerator.createPagePrefixHashGenerator;
 import static io.trino.util.MergeSortedPages.mergeSortedPages;
 
 /**
@@ -39,12 +40,12 @@ public class MergeHashSort
         implements Closeable
 {
     private final AggregatedMemoryContext memoryContext;
-    private final BlockTypeOperators blockTypeOperators;
+    private final TypeOperators typeOperators;
 
-    public MergeHashSort(AggregatedMemoryContext memoryContext, BlockTypeOperators blockTypeOperators)
+    public MergeHashSort(AggregatedMemoryContext memoryContext, TypeOperators typeOperators)
     {
         this.memoryContext = memoryContext;
-        this.blockTypeOperators = blockTypeOperators;
+        this.typeOperators = typeOperators;
     }
 
     /**
@@ -52,7 +53,7 @@ public class MergeHashSort
      */
     public WorkProcessor<Page> merge(List<Type> keyTypes, List<Type> allTypes, List<WorkProcessor<Page>> channels, DriverYieldSignal driverYieldSignal)
     {
-        InterpretedHashGenerator hashGenerator = InterpretedHashGenerator.createPositionalWithTypes(keyTypes, blockTypeOperators);
+        InterpretedHashGenerator hashGenerator = createPagePrefixHashGenerator(keyTypes, typeOperators);
         return mergeSortedPages(
                 channels,
                 createHashPageWithPositionComparator(hashGenerator),

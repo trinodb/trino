@@ -25,14 +25,13 @@ import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import org.joda.time.DateTimeZone;
-
-import javax.annotation.Nullable;
-import javax.validation.constraints.AssertTrue;
-import javax.validation.constraints.DecimalMax;
-import javax.validation.constraints.DecimalMin;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
 
 import java.util.List;
 import java.util.Optional;
@@ -81,7 +80,7 @@ public class HiveConfig
     private int splitLoaderConcurrency = 64;
     private Integer maxSplitsPerSecond;
     private DataSize maxInitialSplitSize;
-    private int domainCompactionThreshold = 100;
+    private int domainCompactionThreshold = 1000;
     private boolean forceLocalScheduling;
     private boolean recursiveDirWalkerEnabled;
     private boolean ignoreAbsentPartitions;
@@ -135,6 +134,7 @@ public class HiveConfig
     private boolean collectColumnStatisticsOnWrite = true;
 
     private boolean s3SelectPushdownEnabled;
+    private boolean s3SelectExperimentalPushdownEnabled;
     private int s3SelectPushdownMaxConnections = 500;
 
     private boolean isTemporaryStagingDirectoryEnabled = true;
@@ -1007,10 +1007,23 @@ public class HiveConfig
     }
 
     @Config("hive.s3select-pushdown.enabled")
-    @ConfigDescription("Enable query pushdown to AWS S3 Select service")
+    @ConfigDescription("Enable query pushdown to JSON files using the AWS S3 Select service")
     public HiveConfig setS3SelectPushdownEnabled(boolean s3SelectPushdownEnabled)
     {
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
+        return this;
+    }
+
+    public boolean isS3SelectExperimentalPushdownEnabled()
+    {
+        return s3SelectExperimentalPushdownEnabled;
+    }
+
+    @Config("hive.s3select-pushdown.experimental-textfile-pushdown-enabled")
+    @ConfigDescription("Enable query pushdown to TEXTFILE tables using the AWS S3 Select service")
+    public HiveConfig setS3SelectExperimentalPushdownEnabled(boolean s3SelectExperimentalPushdownEnabled)
+    {
+        this.s3SelectExperimentalPushdownEnabled = s3SelectExperimentalPushdownEnabled;
         return this;
     }
 

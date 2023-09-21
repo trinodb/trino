@@ -15,22 +15,19 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
-
-import java.util.Collection;
-import java.util.Map;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -40,11 +37,11 @@ import static io.trino.util.Failures.checkCondition;
 @ScalarFunction("split_to_multimap")
 public class SplitToMultimapFunction
 {
-    private final PageBuilder pageBuilder;
+    private final BufferedMapValueBuilder mapValueBuilder;
 
     public SplitToMultimapFunction(@TypeParameter("map(varchar,array(varchar))") Type mapType)
     {
-        pageBuilder = new PageBuilder(ImmutableList.of(mapType));
+        mapValueBuilder = BufferedMapValueBuilder.createBuffered((MapType) mapType);
     }
 
     @SqlType("map(varchar,array(varchar))")
@@ -95,24 +92,15 @@ public class SplitToMultimapFunction
             entryStart = entryEnd + entryDelimiter.length();
         }
 
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
-        pageBuilder.declarePosition();
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
-        BlockBuilder singleMapBlockBuilder = blockBuilder.beginBlockEntry();
-        for (Map.Entry<Slice, Collection<Slice>> entry : multimap.asMap().entrySet()) {
-            VARCHAR.writeSlice(singleMapBlockBuilder, entry.getKey());
-            Collection<Slice> values = entry.getValue();
-            BlockBuilder valueBlockBuilder = singleMapBlockBuilder.beginBlockEntry();
-            for (Slice value : values) {
-                VARCHAR.writeSlice(valueBlockBuilder, value);
-            }
-            singleMapBlockBuilder.closeEntry();
-        }
-        blockBuilder.closeEntry();
-
-        return (Block) mapType.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
+        return mapValueBuilder.build(multimap.size(), (keyBuilder, valueBuilder) -> {
+            multimap.asMap().forEach((key, values) -> {
+                VARCHAR.writeSlice(keyBuilder, key);
+                ((ArrayBlockBuilder) valueBuilder).buildEntry(elementBuilder -> {
+                    for (Slice value : values) {
+                        VARCHAR.writeSlice(elementBuilder, value);
+                    }
+                });
+            });
+        });
     }
 }

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -56,7 +55,7 @@ public class TestHudiSparkCompatibility
         createNonPartitionedTable(tableName, COW_TABLE_TYPE);
 
         try {
-            Assertions.assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE hudi.default." + tableName).getOnlyValue())
+            assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE hudi.default." + tableName).getOnlyValue())
                     .isEqualTo(format(
                             "CREATE TABLE hudi.default.%s (\n" +
                                     "   _hoodie_commit_time varchar,\n" +
@@ -76,7 +75,7 @@ public class TestHudiSparkCompatibility
                             bucketName,
                             tableName));
             String lastCommitTimeSync = (String) onHudi().executeQuery("show TBLPROPERTIES " + tableName + " ('last_commit_time_sync')").project(2).getOnlyValue();
-            Assertions.assertThat((String) onHudi().executeQuery("SHOW CREATE TABLE default." + tableName).getOnlyValue())
+            assertThat((String) onHudi().executeQuery("SHOW CREATE TABLE default." + tableName).getOnlyValue())
                     .isEqualTo(format("""
                                     CREATE TABLE default.%s (
                                       _hoodie_commit_time STRING,

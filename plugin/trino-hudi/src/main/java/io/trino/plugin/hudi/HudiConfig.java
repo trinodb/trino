@@ -19,11 +19,10 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
-
-import javax.validation.constraints.DecimalMax;
-import javax.validation.constraints.DecimalMin;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 
@@ -35,13 +34,13 @@ import static java.util.Locale.ENGLISH;
 @DefunctConfig({
         "hudi.min-partition-batch-size",
         "hudi.max-partition-batch-size",
+        "hudi.metadata-enabled",
 })
 public class HudiConfig
 {
     private static final Splitter COMMA_SPLITTER = Splitter.on(",").omitEmptyStrings().trimResults();
 
     private List<String> columnsToHide = ImmutableList.of();
-    private boolean metadataEnabled;
     private boolean shouldUseParquetColumnNames = true;
     private boolean sizeBasedSplitWeightsEnabled = true;
     private DataSize standardSplitWeightSize = DataSize.of(128, MEGABYTE);
@@ -66,19 +65,6 @@ public class HudiConfig
                 .map(s -> s.toLowerCase(ENGLISH))
                 .collect(toImmutableList());
         return this;
-    }
-
-    @Config("hudi.metadata-enabled")
-    @ConfigDescription("Fetch the list of file names and sizes from metadata rather than storage.")
-    public HudiConfig setMetadataEnabled(boolean metadataEnabled)
-    {
-        this.metadataEnabled = metadataEnabled;
-        return this;
-    }
-
-    public boolean isMetadataEnabled()
-    {
-        return this.metadataEnabled;
     }
 
     @Config("hudi.parquet.use-column-names")

@@ -21,7 +21,6 @@ import io.trino.RowPagesBuilder;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
-import io.trino.operator.OperatorFactories;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PipelineContext;
@@ -42,7 +41,6 @@ import io.trino.spiller.SingleStreamSpillerFactory;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.type.BlockTypeOperators;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -63,7 +61,8 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
-import static io.trino.operator.OperatorFactories.JoinOperatorType.innerJoin;
+import static io.trino.operator.JoinOperatorType.innerJoin;
+import static io.trino.operator.OperatorFactories.spillingJoin;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
@@ -71,29 +70,27 @@ import static java.util.Objects.requireNonNull;
 public final class JoinTestUtils
 {
     private static final int PARTITION_COUNT = 4;
-    private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
+    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
 
     private JoinTestUtils() {}
 
     public static OperatorFactory innerJoinOperatorFactory(
-            OperatorFactories operatorFactories,
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager,
             RowPagesBuilder probePages,
             PartitioningSpillerFactory partitioningSpillerFactory,
             boolean hasFilter)
     {
-        return innerJoinOperatorFactory(operatorFactories, lookupSourceFactoryManager, probePages, partitioningSpillerFactory, false, hasFilter);
+        return innerJoinOperatorFactory(lookupSourceFactoryManager, probePages, partitioningSpillerFactory, false, hasFilter);
     }
 
     public static OperatorFactory innerJoinOperatorFactory(
-            OperatorFactories operatorFactories,
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager,
             RowPagesBuilder probePages,
             PartitioningSpillerFactory partitioningSpillerFactory,
             boolean outputSingleMatch,
             boolean hasFilter)
     {
-        return operatorFactories.spillingJoin(
+        return spillingJoin(
                 innerJoin(outputSingleMatch, false),
                 0,
                 new PlanNodeId("test"),
@@ -105,7 +102,7 @@ public final class JoinTestUtils
                 Optional.empty(),
                 OptionalInt.of(1),
                 partitioningSpillerFactory,
-                TYPE_OPERATOR_FACTORY);
+                TYPE_OPERATORS);
     }
 
     public static void instantiateBuildDrivers(BuildSideSetup buildSideSetup, TaskContext taskContext)
@@ -154,7 +151,7 @@ public final class JoinTestUtils
                 hashChannelTypes,
                 buildPages.getHashChannel(),
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 DataSize.of(32, DataSize.Unit.MEGABYTE));
 
         // collect input data into the partitioned exchange
@@ -184,7 +181,7 @@ public final class JoinTestUtils
                         .collect(toImmutableList()),
                 partitionCount,
                 false,
-                TYPE_OPERATOR_FACTORY));
+                TYPE_OPERATORS));
 
         HashBuilderOperatorFactory buildOperatorFactory = new HashBuilderOperatorFactory(
                 1,

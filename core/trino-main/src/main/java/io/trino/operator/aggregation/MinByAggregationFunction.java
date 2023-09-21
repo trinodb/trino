@@ -27,12 +27,13 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.IN_OUT;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 
@@ -49,11 +50,11 @@ public final class MinByAggregationFunction
             @OperatorDependency(
                     operator = OperatorType.COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"K", "K"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, IN_OUT}, result = FAIL_ON_NULL))
+                    convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, IN_OUT}, result = FAIL_ON_NULL))
                     MethodHandle compare,
             @AggregationState("K") InOut keyState,
             @AggregationState("V") InOut valueState,
-            @NullablePosition @BlockPosition @SqlType("V") Block valueBlock,
+            @SqlNullable @BlockPosition @SqlType("V") Block valueBlock,
             @BlockPosition @SqlType("K") Block keyBlock,
             @BlockIndex int position)
             throws Throwable

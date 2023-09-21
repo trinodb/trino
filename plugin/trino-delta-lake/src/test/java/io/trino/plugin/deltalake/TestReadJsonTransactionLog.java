@@ -46,7 +46,7 @@ public class TestReadJsonTransactionLog
     public Object[][] dataSource()
     {
         return new Object[][] {
-                {"databricks"},
+                {"databricks73"},
                 {"deltalake"},
         };
     }

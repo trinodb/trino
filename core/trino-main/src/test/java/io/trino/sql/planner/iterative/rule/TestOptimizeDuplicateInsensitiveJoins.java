@@ -21,8 +21,8 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -40,7 +40,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
 {
     private String rand;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         rand = "\"" + tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("rand"), ImmutableList.of()).toQualifiedName() + "\"()";

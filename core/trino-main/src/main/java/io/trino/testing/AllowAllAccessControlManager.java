@@ -241,9 +241,6 @@ public class AllowAllAccessControlManager
     public void checkCanSetCatalogRole(SecurityContext context, String role, String catalogName) {}
 
     @Override
-    public void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, Optional<String> catalogName) {}
-
-    @Override
     public void checkCanShowRoles(SecurityContext context, Optional<String> catalogName) {}
 
     @Override

@@ -39,7 +39,7 @@ public class TokenRefresher
     {
         requireNonNull(tokenPair, "tokenPair is null");
 
-        Optional<String> refreshToken = tokenPair.getRefreshToken();
+        Optional<String> refreshToken = tokenPair.refreshToken();
         if (refreshToken.isPresent()) {
             UUID refreshingId = UUID.randomUUID();
             try {

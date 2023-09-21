@@ -16,10 +16,9 @@ package io.trino.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.plan.DynamicFilterId;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.HashMap;
 import java.util.Map;

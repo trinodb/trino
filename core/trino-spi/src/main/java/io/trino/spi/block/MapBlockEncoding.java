@@ -20,7 +20,6 @@ import io.trino.spi.type.MapType;
 
 import java.util.Optional;
 
-import static io.airlift.slice.Slices.wrappedIntArray;
 import static io.trino.spi.block.MapBlock.createMapBlockInternal;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static java.lang.String.format;
@@ -58,7 +57,7 @@ public class MapBlockEncoding
         if (hashTable.isPresent()) {
             int hashTableLength = (entriesEndOffset - entriesStartOffset) * HASH_MULTIPLIER;
             sliceOutput.appendInt(hashTableLength); // hashtable length
-            sliceOutput.writeBytes(wrappedIntArray(hashTable.get(), entriesStartOffset * HASH_MULTIPLIER, hashTableLength));
+            sliceOutput.writeInts(hashTable.get(), entriesStartOffset * HASH_MULTIPLIER, hashTableLength);
         }
         else {
             // if the hashTable is null, we write the length -1
@@ -84,7 +83,7 @@ public class MapBlockEncoding
         int[] hashTable = null;
         if (hashTableLength >= 0) {
             hashTable = new int[hashTableLength];
-            sliceInput.readBytes(wrappedIntArray(hashTable));
+            sliceInput.readInts(hashTable);
         }
 
         if (keyBlock.getPositionCount() != valueBlock.getPositionCount()) {
@@ -103,7 +102,7 @@ public class MapBlockEncoding
 
         int positionCount = sliceInput.readInt();
         int[] offsets = new int[positionCount + 1];
-        sliceInput.readBytes(wrappedIntArray(offsets));
+        sliceInput.readInts(offsets);
         Optional<boolean[]> mapIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
         MapHashTables hashTables = new MapHashTables(mapType, Optional.ofNullable(hashTable));
         return createMapBlockInternal(mapType, 0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTables);

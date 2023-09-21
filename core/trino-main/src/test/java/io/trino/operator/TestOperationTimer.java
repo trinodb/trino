@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import io.trino.operator.OperationTimer.OperationTiming;
 import org.testng.annotations.Test;
@@ -21,7 +22,6 @@ import java.util.Random;
 import java.util.function.Consumer;
 
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
-import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -104,9 +104,7 @@ public class TestOperationTimer
 
     private static void doSomething()
     {
-        byte[] data = new byte[10_000];
-        new Random(blackHole).nextBytes(data);
-        blackHole = XxHash64.hash(wrappedBuffer(data));
+        blackHole = XxHash64.hash(Slices.random(10_000, new Random(blackHole)));
         sleepUninterruptibly(50, MILLISECONDS);
     }
 

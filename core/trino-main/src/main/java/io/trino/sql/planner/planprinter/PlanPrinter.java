@@ -1057,12 +1057,12 @@ public class PlanPrinter
         {
             StringBuilder builder = new StringBuilder(frame.getType().toString());
 
-            frame.getOriginalStartValue()
+            frame.getStartValue()
                     .map(anonymizer::anonymize)
                     .ifPresent(value -> builder.append(" ").append(value));
             builder.append(" ").append(frame.getStartType());
 
-            frame.getOriginalEndValue()
+            frame.getEndValue()
                     .map(anonymizer::anonymize)
                     .ifPresent(value -> builder.append(" ").append(value));
             builder.append(" ").append(frame.getEndType());

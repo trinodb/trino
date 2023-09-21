@@ -16,13 +16,12 @@ package io.trino.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.client.ErrorLocation;
 import io.trino.client.FailureInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.HostAddress;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.regex.Matcher;

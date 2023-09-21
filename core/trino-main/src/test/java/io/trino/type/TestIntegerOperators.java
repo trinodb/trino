@@ -68,7 +68,7 @@ public class TestIntegerOperators
         assertThat(assertions.expression("INTEGER '17'"))
                 .isEqualTo(17);
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("INTEGER '" + ((long) Integer.MAX_VALUE + 1L) + "'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("INTEGER '" + ((long) Integer.MAX_VALUE + 1L) + "'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL);
     }
 
@@ -91,7 +91,7 @@ public class TestIntegerOperators
         assertThat(assertions.expression("INTEGER '-17'"))
                 .isEqualTo(-17);
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("INTEGER '-" + Integer.MIN_VALUE + "'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("INTEGER '-" + Integer.MIN_VALUE + "'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL);
     }
 
@@ -110,7 +110,7 @@ public class TestIntegerOperators
         assertThat(assertions.operator(ADD, "INTEGER '17'", "INTEGER '17'"))
                 .isEqualTo(17 + 17);
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression(format("INTEGER '%s' + INTEGER '1'", Integer.MAX_VALUE)).evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression(format("INTEGER '%s' + INTEGER '1'", Integer.MAX_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("integer addition overflow: 2147483647 + 1");
     }
@@ -130,7 +130,7 @@ public class TestIntegerOperators
         assertThat(assertions.operator(SUBTRACT, "INTEGER '17'", "INTEGER '17'"))
                 .isEqualTo(0);
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression(format("INTEGER '%s' - INTEGER '1'", Integer.MIN_VALUE)).evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression(format("INTEGER '%s' - INTEGER '1'", Integer.MIN_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("integer subtraction overflow: -2147483648 - 1");
     }
@@ -150,7 +150,7 @@ public class TestIntegerOperators
         assertThat(assertions.operator(MULTIPLY, "INTEGER '17'", "INTEGER '17'"))
                 .isEqualTo(17 * 17);
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression(format("INTEGER '%s' * INTEGER '2'", Integer.MAX_VALUE)).evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression(format("INTEGER '%s' * INTEGER '2'", Integer.MAX_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("integer multiplication overflow: 2147483647 * 2");
     }
@@ -170,7 +170,7 @@ public class TestIntegerOperators
         assertThat(assertions.operator(DIVIDE, "INTEGER '17'", "INTEGER '17'"))
                 .isEqualTo(1);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "INTEGER '17'", "INTEGER '0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "INTEGER '17'", "INTEGER '0'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
     }
 
@@ -189,7 +189,7 @@ public class TestIntegerOperators
         assertThat(assertions.operator(MODULUS, "INTEGER '17'", "INTEGER '17'"))
                 .isEqualTo(0);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MODULUS, "INTEGER '17'", "INTEGER '0'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "INTEGER '17'", "INTEGER '0'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
     }
 
@@ -205,7 +205,7 @@ public class TestIntegerOperators
         assertThat(assertions.expression("-(INTEGER '" + Integer.MAX_VALUE + "')"))
                 .isEqualTo(Integer.MIN_VALUE + 1);
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression(format("-(INTEGER '%s')", Integer.MIN_VALUE)).evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression(format("-(INTEGER '%s')", Integer.MIN_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("integer negation overflow: -2147483648");
     }

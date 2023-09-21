@@ -31,6 +31,9 @@ import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.testing.LocalQueryRunner;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
@@ -48,7 +51,9 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class BasePlanTest
 {
     private final Map<String, String> sessionProperties;
@@ -82,12 +87,14 @@ public class BasePlanTest
         return queryRunner;
     }
 
+    @BeforeAll
     @BeforeClass
     public final void initPlanTest()
     {
         this.queryRunner = createLocalQueryRunner();
     }
 
+    @AfterAll
     @AfterClass(alwaysRun = true)
     public final void destroyPlanTest()
     {

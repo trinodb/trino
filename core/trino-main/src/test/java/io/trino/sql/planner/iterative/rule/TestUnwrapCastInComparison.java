@@ -13,7 +13,7 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.ZoneId;

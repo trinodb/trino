@@ -14,8 +14,7 @@
 package io.trino.plugin.singlestore;
 
 import io.trino.plugin.jdbc.BaseJdbcConfig;
-
-import javax.validation.constraints.AssertFalse;
+import jakarta.validation.constraints.AssertFalse;
 
 public class SingleStoreJdbcConfig
         extends BaseJdbcConfig

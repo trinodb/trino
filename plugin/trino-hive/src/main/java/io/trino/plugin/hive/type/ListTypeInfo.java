@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.type;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_TYPE_NAME;
 import static java.util.Objects.requireNonNull;
 
@@ -20,6 +21,8 @@ import static java.util.Objects.requireNonNull;
 public final class ListTypeInfo
         extends TypeInfo
 {
+    private static final int INSTANCE_SIZE = instanceSize(UnionTypeInfo.class);
+
     private final TypeInfo elementTypeInfo;
 
     ListTypeInfo(TypeInfo elementTypeInfo)
@@ -55,5 +58,11 @@ public final class ListTypeInfo
     public int hashCode()
     {
         return elementTypeInfo.hashCode();
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + elementTypeInfo.getRetainedSizeInBytes();
     }
 }

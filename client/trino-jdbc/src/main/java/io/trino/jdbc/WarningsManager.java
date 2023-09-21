@@ -13,10 +13,9 @@
  */
 package io.trino.jdbc;
 
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.client.Warning;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.sql.SQLWarning;
 import java.util.HashSet;

@@ -13,7 +13,7 @@
  */
 package io.trino.sql.tree;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 public abstract class AstVisitor<R, C>
 {
@@ -183,6 +183,16 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitResetSession(ResetSession node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitSetSessionAuthorization(SetSessionAuthorization node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitResetSessionAuthorization(ResetSessionAuthorization node, C context)
     {
         return visitStatement(node, context);
     }

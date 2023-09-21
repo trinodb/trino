@@ -14,7 +14,6 @@
 package io.trino.block;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
@@ -121,8 +120,8 @@ public class TestVariableWidthBlock
     @Test
     public void testCompactBlock()
     {
-        Slice compactSlice = Slices.copyOf(createExpectedValue(16));
-        Slice incompactSlice = Slices.copyOf(createExpectedValue(20)).slice(0, 16);
+        Slice compactSlice = createExpectedValue(16).copy();
+        Slice incompactSlice = createExpectedValue(20).copy().slice(0, 16);
         int[] offsets = {0, 1, 1, 2, 4, 8, 16};
         boolean[] valueIsNull = {false, true, false, false, false, false};
 
@@ -154,7 +153,7 @@ public class TestVariableWidthBlock
                 blockBuilder.appendNull();
             }
             else {
-                blockBuilder.writeBytes(expectedValue, 0, expectedValue.length()).closeEntry();
+                ((VariableWidthBlockBuilder) blockBuilder).writeEntry(expectedValue);
             }
         }
         return blockBuilder;

@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import io.trino.Session;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
@@ -30,13 +31,15 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
@@ -68,20 +71,14 @@ public abstract class BaseIcebergConnectorSmokeTest
         fileSystem = getFileSystemFactory(getDistributedQueryRunner()).create(SESSION);
     }
 
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_TRUNCATE:
-                return false;
-
-            case SUPPORTS_TOPN_PUSHDOWN:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_TOPN_PUSHDOWN,
+                    SUPPORTS_TRUNCATE -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     @Test
@@ -124,33 +121,38 @@ public abstract class BaseIcebergConnectorSmokeTest
         int threads = 4;
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
+        List<String> rows = ImmutableList.of("(1, 0, 0, 0)", "(0, 1, 0, 0)", "(0, 0, 1, 0)", "(0, 0, 0, 1)");
+
+        String[] expectedErrors = new String[]{"Failed to commit Iceberg update to table:", "Failed to replace table due to concurrent updates:"};
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
                 "test_concurrent_delete",
                 "(col0 INTEGER, col1 INTEGER, col2 INTEGER, col3 INTEGER)")) {
             String tableName = table.getName();
-            assertUpdate("INSERT INTO " + tableName + " VALUES (0, 0, 0, 0)", 1);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 0, 0, 0)", 1);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (0, 1, 0, 0)", 1);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (0, 0, 1, 0)", 1);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (0, 0, 0, 1)", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES " + String.join(", ", rows), 4);
 
             List<Future<Boolean>> futures = IntStream.range(0, threads)
                     .mapToObj(threadNumber -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
+                        String columnName = "col" + threadNumber;
                         try {
-                            String columnName = "col" + threadNumber;
                             getQueryRunner().execute(format("DELETE FROM %s WHERE %s = 1", tableName, columnName));
                             return true;
                         }
                         catch (Exception e) {
+                            assertThat(e.getMessage()).containsAnyOf(expectedErrors);
                             return false;
                         }
                     }))
                     .collect(toImmutableList());
 
-            futures.forEach(future -> assertTrue(getFutureValue(future)));
-            assertThat(query("SELECT max(col0), max(col1), max(col2), max(col3) FROM " + tableName)).matches("VALUES (0, 0, 0, 0)");
+            Stream<Optional<String>> expectedRows = Streams.mapWithIndex(futures.stream(), (future, index) -> {
+                boolean deleteSuccessful = tryGetFutureValue(future, 10, SECONDS).orElseThrow();
+                return deleteSuccessful ? Optional.empty() : Optional.of(rows.get((int) index));
+            });
+            List<String> expectedValues = expectedRows.filter(Optional::isPresent).map(Optional::get).collect(toImmutableList());
+            assertThat(expectedValues).as("Expected at least one delete operation to pass").hasSizeLessThan(rows.size());
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES " + String.join(", ", expectedValues));
         }
         finally {
             executor.shutdownNow();
@@ -609,8 +611,11 @@ public abstract class BaseIcebergConnectorSmokeTest
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
                 "test_metadata_tables",
-                "(id int, part varchar) WITH (partitioning = ARRAY['part'])",
-                ImmutableList.of("1, 'p1'", "2, 'p1'", "3, 'p2'"))) {
+                "(id int, part varchar) WITH (partitioning = ARRAY['part'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'p1')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 'p1')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 'p2')", 1);
+
             List<Long> snapshotIds = computeActual("SELECT snapshot_id FROM \"" + table.getName() + "$snapshots\" ORDER BY committed_at DESC")
                     .getOnlyColumn()
                     .map(Long.class::cast)

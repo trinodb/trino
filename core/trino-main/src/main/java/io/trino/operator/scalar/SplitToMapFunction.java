@@ -14,16 +14,15 @@
 
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 
@@ -39,11 +38,11 @@ import static java.lang.String.format;
 @ScalarFunction("split_to_map")
 public class SplitToMapFunction
 {
-    private final PageBuilder pageBuilder;
+    private final BufferedMapValueBuilder mapValueBuilder;
 
     public SplitToMapFunction(@TypeParameter("map(varchar,varchar)") Type mapType)
     {
-        pageBuilder = new PageBuilder(ImmutableList.of(mapType));
+        mapValueBuilder = BufferedMapValueBuilder.createBuffered((MapType) mapType);
     }
 
     @SqlType("map(varchar,varchar)")
@@ -95,18 +94,11 @@ public class SplitToMapFunction
             entryStart = entryEnd + entryDelimiter.length();
         }
 
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
-        BlockBuilder singleMapBlockBuilder = blockBuilder.beginBlockEntry();
-        for (Map.Entry<Slice, Slice> entry : map.entrySet()) {
-            VARCHAR.writeSlice(singleMapBlockBuilder, entry.getKey());
-            VARCHAR.writeSlice(singleMapBlockBuilder, entry.getValue());
-        }
-        blockBuilder.closeEntry();
-        pageBuilder.declarePosition();
-
-        return (Block) mapType.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
+        return mapValueBuilder.build(map.size(), (keyBuilder, valueBuilder) -> {
+            map.forEach((key, value) -> {
+                VARCHAR.writeSlice(keyBuilder, key);
+                VARCHAR.writeSlice(valueBuilder, value);
+            });
+        });
     }
 }

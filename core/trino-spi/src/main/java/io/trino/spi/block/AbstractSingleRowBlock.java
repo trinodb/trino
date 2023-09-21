@@ -15,6 +15,7 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 import java.util.List;
 
@@ -83,6 +84,13 @@ public abstract class AbstractSingleRowBlock
     }
 
     @Override
+    public void writeSliceTo(int position, int offset, int length, SliceOutput output)
+    {
+        checkFieldIndex(position);
+        getRawFieldBlock(position).writeSliceTo(getRowIndex(), offset, length, output);
+    }
+
+    @Override
     public int getSliceLength(int position)
     {
         checkFieldIndex(position);
@@ -108,13 +116,6 @@ public abstract class AbstractSingleRowBlock
     {
         checkFieldIndex(position);
         return getRawFieldBlock(position).bytesCompare(getRowIndex(), offset, length, otherSlice, otherOffset, otherLength);
-    }
-
-    @Override
-    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
-    {
-        checkFieldIndex(position);
-        getRawFieldBlock(position).writeBytesTo(getRowIndex(), offset, length, blockBuilder);
     }
 
     @Override

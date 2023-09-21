@@ -16,7 +16,7 @@ package io.trino.plugin.atop;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.plugin.atop.AtopConnectorConfig.AtopSecurity;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;

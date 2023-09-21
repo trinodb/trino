@@ -14,7 +14,6 @@
 package io.trino.block;
 
 import io.trino.spi.block.RowBlockBuilder;
-import io.trino.spi.block.SingleRowBlockWriter;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -53,12 +52,11 @@ public class BenchmarkRowBlockBuilder
     public void benchmarkBeginBlockEntry(BenchmarkData data, Blackhole blackhole)
     {
         for (int i = 0; i < data.rows; i++) {
-            SingleRowBlockWriter singleRowBlockWriter = data.getBlockBuilder().beginBlockEntry();
-            for (int fieldIndex = 0; fieldIndex < data.getTypes().size(); fieldIndex++) {
-                singleRowBlockWriter.writeLong(data.getRandom().nextLong()).closeEntry();
-            }
-            blackhole.consume(singleRowBlockWriter);
-            data.getBlockBuilder().closeEntry();
+            data.getBlockBuilder().buildEntry(fieldBuilders -> {
+                for (int fieldIndex = 0; fieldIndex < data.getTypes().size(); fieldIndex++) {
+                    BIGINT.writeLong(fieldBuilders.get(fieldIndex), data.getRandom().nextLong());
+                }
+            });
         }
         blackhole.consume(data.getBlockBuilder());
     }

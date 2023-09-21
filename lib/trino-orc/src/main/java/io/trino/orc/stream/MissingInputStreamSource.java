@@ -13,7 +13,7 @@
  */
 package io.trino.orc.stream;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 public class MissingInputStreamSource<S extends ValueInputStream<?>>
         implements InputStreamSource<S>

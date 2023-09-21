@@ -33,8 +33,9 @@ import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionProfiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.relational.CallExpression;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -50,7 +51,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
-import static io.trino.execution.executor.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
+import static io.trino.execution.executor.timesharing.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.operator.project.PageProcessor.MAX_BATCH_SIZE;
@@ -70,17 +71,19 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public class TestPageProcessor
 {
     private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         executor.shutdownNow();
@@ -274,7 +277,7 @@ public class TestPageProcessor
 
         // process large page which will reduce batch size
         Slice[] slices = new Slice[(int) (MAX_BATCH_SIZE * 2.5)];
-        Arrays.fill(slices, Slices.allocate(1024));
+        Arrays.fill(slices, Slices.allocate(4096));
         Page inputPage = new Page(createSlicesBlock(slices));
 
         Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, new DriverYieldSignal(), inputPage);
@@ -316,7 +319,7 @@ public class TestPageProcessor
 
         // process large page which will reduce batch size
         Slice[] slices = new Slice[(int) (MAX_BATCH_SIZE * 2.5)];
-        Arrays.fill(slices, Slices.allocate(1024));
+        Arrays.fill(slices, Slices.allocate(4096));
         Page inputPage = new Page(createSlicesBlock(slices));
 
         Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, inputPage);
@@ -356,9 +359,9 @@ public class TestPageProcessor
                 ImmutableList.of(new InputPageProjection(0, VARCHAR), new InputPageProjection(1, VARCHAR)),
                 OptionalInt.of(MAX_BATCH_SIZE));
 
-        // create 2 columns X 800 rows of strings with each string's size = 10KB
-        // this can force previouslyComputedResults to be saved given the page is 16MB in size
-        String value = join("", nCopies(10_000, "a"));
+        // create 2 columns X 800 rows of strings with each string's size = 30KB
+        // this can force previouslyComputedResults to be saved given the page is 48MB in size
+        String value = join("", nCopies(30_000, "a"));
         List<String> values = nCopies(800, value);
         Page inputPage = new Page(createStringsBlock(values), createStringsBlock(values));
 

@@ -16,6 +16,7 @@ package io.trino.plugin.kafka.protobuf;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import com.google.protobuf.Any;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.DynamicMessage;
@@ -35,6 +36,8 @@ import io.trino.testing.kafka.TestingKafka;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.net.URI;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -263,6 +266,60 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
                 .matches("""
                         VALUES (JSON '{"stringColumn":"%s"}')
                         """.formatted(stringData));
+    }
+
+    @Test
+    public void testAny()
+            throws Exception
+    {
+        String topic = "topic-schema-with-any";
+        assertNotExists(topic);
+
+        Descriptor structuralDataTypesDescriptor = getDescriptor("structural_datatypes.proto");
+
+        Timestamp timestamp = getTimestamp(sqlTimestampOf(3, LocalDateTime.parse("2020-12-12T15:35:45.923")));
+        DynamicMessage structuralDataTypeMessage = buildDynamicMessage(
+                structuralDataTypesDescriptor,
+                ImmutableMap.<String, Object>builder()
+                        .put("list", ImmutableList.of("Search"))
+                        .put("map", ImmutableList.of(buildDynamicMessage(
+                                structuralDataTypesDescriptor.findFieldByName("map").getMessageType(),
+                                ImmutableMap.of("key", "Key1", "value", "Value1"))))
+                        .put("row", ImmutableMap.<String, Object>builder()
+                                .put("string_column", "Trino")
+                                .put("integer_column", 1)
+                                .put("long_column", 493857959588286460L)
+                                .put("double_column", 3.14159265358979323846)
+                                .put("float_column", 3.14f)
+                                .put("boolean_column", true)
+                                .put("number_column", structuralDataTypesDescriptor.findEnumTypeByName("Number").findValueByName("ONE"))
+                                .put("timestamp_column", timestamp)
+                                .put("bytes_column", "Trino".getBytes(UTF_8))
+                                .buildOrThrow())
+                        .buildOrThrow());
+
+        ProtobufSchema schema = (ProtobufSchema) new ProtobufSchemaProvider().parseSchema(Resources.toString(getResource("protobuf/test_any.proto"), UTF_8), List.of(), true).get();
+
+        // Get URI of parent directory of the descriptor file
+        // Any.pack concatenates the message type's full name to the given prefix
+        URI anySchemaTypeUrl = new File(Resources.getResource("protobuf/any/structural_datatypes/schema").getFile()).getParentFile().toURI();
+        Descriptor descriptor = schema.toDescriptor();
+        DynamicMessage message = DynamicMessage.newBuilder(descriptor)
+                .setField(descriptor.findFieldByName("id"), 1)
+                .setField(descriptor.findFieldByName("anyMessage"), Any.pack(structuralDataTypeMessage, anySchemaTypeUrl.toString()))
+                .build();
+
+        ImmutableList.Builder<ProducerRecord<DynamicMessage, DynamicMessage>> producerRecordBuilder = ImmutableList.builder();
+        producerRecordBuilder.add(new ProducerRecord<>(topic, createKeySchema(0, getKeySchema()), message));
+        List<ProducerRecord<DynamicMessage, DynamicMessage>> messages = producerRecordBuilder.build();
+        testingKafka.sendMessages(messages.stream(), producerProperties());
+        waitUntilTableExists(topic);
+
+        URI anySchemaFile = new File(Resources.getResource("protobuf/any/structural_datatypes/schema").getFile()).toURI();
+        assertThat(query(format("SELECT id, anyMessage FROM %s", toDoubleQuoted(topic))))
+                .matches("""
+                        VALUES (1, JSON '{"@type":"%s","list":["Search"],"map":{"Key1":"Value1"},"row":{"booleanColumn":true,"bytesColumn":"VHJpbm8=","doubleColumn":3.141592653589793,"floatColumn":3.14,"integerColumn":1,"longColumn":"493857959588286460","numberColumn":"ONE","stringColumn":"Trino","timestampColumn":"2020-12-12T15:35:45.923Z"}}')
+                        """.formatted(anySchemaFile));
     }
 
     private DynamicMessage buildDynamicMessage(Descriptor descriptor, Map<String, Object> data)

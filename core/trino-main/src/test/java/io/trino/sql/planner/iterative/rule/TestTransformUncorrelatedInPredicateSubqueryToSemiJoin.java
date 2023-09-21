@@ -20,7 +20,7 @@ import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.SymbolReference;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;

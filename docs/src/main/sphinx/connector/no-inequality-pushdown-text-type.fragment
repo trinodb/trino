@@ -1,22 +1,21 @@
-Predicate pushdown support
-""""""""""""""""""""""""""
+# Predicate pushdown support
 
 The connector does not support pushdown of inequality predicates, such as
-``!=``, and range predicates such as ``>``, or ``BETWEEN``, on columns with
-:ref:`character string types <string-data-types>` like ``CHAR`` or ``VARCHAR``.
-Equality predicates, such as ``IN`` or ``=``, on columns with character string
+`!=`, and range predicates such as `>`, or `BETWEEN`, on columns with
+{ref}`character string types <string-data-types>` like `CHAR` or `VARCHAR`.
+Equality predicates, such as `IN` or `=`, on columns with character string
 types are pushed down. This ensures correctness of results since the remote data
 source may sort strings differently than Trino.
 
 In the following example, the predicate of the first and second query is not
-pushed down since ``name`` is a column of type ``VARCHAR`` and ``>`` and ``!=``
+pushed down since `name` is a column of type `VARCHAR` and `>` and `!=`
 are range and inequality predicates respectively. The last query is pushed
 down.
 
-.. code-block:: sql
-
-    -- Not pushed down
-    SELECT * FROM nation WHERE name > 'CANADA';
-    SELECT * FROM nation WHERE name != 'CANADA';
-    -- Pushed down
-    SELECT * FROM nation WHERE name = 'CANADA';
+```sql
+-- Not pushed down
+SELECT * FROM nation WHERE name > 'CANADA';
+SELECT * FROM nation WHERE name != 'CANADA';
+-- Pushed down
+SELECT * FROM nation WHERE name = 'CANADA';
+```

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
@@ -29,8 +30,6 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.type.FunctionType;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.HashSet;
 import java.util.List;

@@ -482,7 +482,7 @@ public class TestBigintOperators
     @Test
     public void testOverflowAdd()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.operator(ADD, Long.toString(Long.MAX_VALUE), "BIGINT '1'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(ADD, Long.toString(Long.MAX_VALUE), "BIGINT '1'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("bigint addition overflow: 9223372036854775807 + 1");
     }
@@ -490,7 +490,7 @@ public class TestBigintOperators
     @Test
     public void testUnderflowSubtract()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.operator(SUBTRACT, Long.toString(Long.MIN_VALUE), "BIGINT '1'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(SUBTRACT, Long.toString(Long.MIN_VALUE), "BIGINT '1'")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("bigint subtraction overflow: -9223372036854775808 - 1");
     }
@@ -498,11 +498,11 @@ public class TestBigintOperators
     @Test
     public void testOverflowMultiply()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MULTIPLY, Long.toString(Long.MAX_VALUE), "2").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, Long.toString(Long.MAX_VALUE), "2")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("bigint multiplication overflow: 9223372036854775807 * 2");
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MULTIPLY, Long.toString(Long.MIN_VALUE), "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, Long.toString(Long.MIN_VALUE), "-1")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("bigint multiplication overflow: -9223372036854775808 * -1");
     }
@@ -510,7 +510,7 @@ public class TestBigintOperators
     @Test
     public void testOverflowDivide()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, Long.toString(Long.MIN_VALUE), "-1").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, Long.toString(Long.MIN_VALUE), "-1")::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("bigint division overflow: -9223372036854775808 / -1");
     }
@@ -534,7 +534,7 @@ public class TestBigintOperators
     @Test
     public void testNegateOverflow()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.operator(NEGATION, Long.toString(Long.MIN_VALUE)).evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(NEGATION, Long.toString(Long.MIN_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("bigint negation overflow: -9223372036854775808");
     }

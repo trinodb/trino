@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.trino.plugin.iceberg.util.PageListBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -135,27 +137,27 @@ public class ManifestsTable
 
     private static void writePartitionSummaries(BlockBuilder arrayBlockBuilder, List<PartitionFieldSummary> summaries, PartitionSpec partitionSpec)
     {
-        BlockBuilder singleArrayWriter = arrayBlockBuilder.beginBlockEntry();
-        for (int i = 0; i < summaries.size(); i++) {
-            PartitionFieldSummary summary = summaries.get(i);
-            PartitionField field = partitionSpec.fields().get(i);
-            Type nestedType = partitionSpec.partitionType().fields().get(i).type();
+        ((ArrayBlockBuilder) arrayBlockBuilder).buildEntry(elementBuilder -> {
+            for (int i = 0; i < summaries.size(); i++) {
+                PartitionFieldSummary summary = summaries.get(i);
+                PartitionField field = partitionSpec.fields().get(i);
+                Type nestedType = partitionSpec.partitionType().fields().get(i).type();
 
-            BlockBuilder rowBuilder = singleArrayWriter.beginBlockEntry();
-            BOOLEAN.writeBoolean(rowBuilder, summary.containsNull());
-            Boolean containsNan = summary.containsNaN();
-            if (containsNan == null) {
-                rowBuilder.appendNull();
+                ((RowBlockBuilder) elementBuilder).buildEntry(fieldBuilders -> {
+                    BOOLEAN.writeBoolean(fieldBuilders.get(0), summary.containsNull());
+                    Boolean containsNan = summary.containsNaN();
+                    if (containsNan == null) {
+                        fieldBuilders.get(1).appendNull();
+                    }
+                    else {
+                        BOOLEAN.writeBoolean(fieldBuilders.get(1), containsNan);
+                    }
+                    VARCHAR.writeString(fieldBuilders.get(2), field.transform().toHumanString(
+                            nestedType, Conversions.fromByteBuffer(nestedType, summary.lowerBound())));
+                    VARCHAR.writeString(fieldBuilders.get(3), field.transform().toHumanString(
+                            nestedType, Conversions.fromByteBuffer(nestedType, summary.upperBound())));
+                });
             }
-            else {
-                BOOLEAN.writeBoolean(rowBuilder, containsNan);
-            }
-            VARCHAR.writeString(rowBuilder, field.transform().toHumanString(
-                    nestedType, Conversions.fromByteBuffer(nestedType, summary.lowerBound())));
-            VARCHAR.writeString(rowBuilder, field.transform().toHumanString(
-                    nestedType, Conversions.fromByteBuffer(nestedType, summary.upperBound())));
-            singleArrayWriter.closeEntry();
-        }
-        arrayBlockBuilder.closeEntry();
+        });
     }
 }

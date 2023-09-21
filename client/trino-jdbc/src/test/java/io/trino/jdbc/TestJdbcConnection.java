@@ -431,6 +431,21 @@ public class TestJdbcConnection
         }
     }
 
+    @Test
+    public void testSessionUser()
+            throws SQLException
+    {
+        try (Connection connection = createConnection()) {
+            assertThat(getSingleStringColumn(connection, "select current_user")).isEqualTo("admin");
+            TrinoConnection trinoConnection = connection.unwrap(TrinoConnection.class);
+            String impersonatedUser = "alice";
+            trinoConnection.setSessionUser(impersonatedUser);
+            assertThat(getSingleStringColumn(connection, "select current_user")).isEqualTo(impersonatedUser);
+            trinoConnection.clearSessionUser();
+            assertThat(getSingleStringColumn(connection, "select current_user")).isEqualTo("admin");
+        }
+    }
+
     /**
      * @see TestJdbcStatement#testCancellationOnStatementClose()
      * @see TestJdbcStatement#testConcurrentCancellationOnStatementClose()
@@ -568,6 +583,18 @@ public class TestJdbcConnection
             throw new RuntimeException(e);
         }
         return statuses.build();
+    }
+
+    private String getSingleStringColumn(Connection connection, String sql)
+            throws SQLException
+    {
+        try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery(sql)) {
+            assertThat(resultSet.getMetaData().getColumnCount()).isOne();
+            assertThat(resultSet.next()).isTrue();
+            String result = resultSet.getString(1);
+            assertThat(resultSet.next()).isFalse();
+            return result;
+        }
     }
 
     private static void assertConnectionSource(Connection connection, String expectedSource)
