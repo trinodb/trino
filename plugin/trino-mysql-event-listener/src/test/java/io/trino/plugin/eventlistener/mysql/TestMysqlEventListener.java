@@ -55,6 +55,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
 import static java.time.Duration.ofMillis;
@@ -144,6 +145,7 @@ public class TestMysqlEventListener
             // not stored
             Set.of(),
             Optional.of("source"),
+            UTC_KEY.getId(),
             Optional.of("catalog"),
             Optional.of("schema"),
             Optional.of(new ResourceGroupId("resourceGroup")),
@@ -298,6 +300,7 @@ public class TestMysqlEventListener
             // not stored
             Set.of(),
             Optional.empty(),
+            UTC_KEY.getId(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),

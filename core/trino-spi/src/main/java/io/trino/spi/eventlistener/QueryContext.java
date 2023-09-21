@@ -43,6 +43,7 @@ public class QueryContext
     private final Set<String> clientTags;
     private final Set<String> clientCapabilities;
     private final Optional<String> source;
+    private final String timezone;
 
     private final Optional<String> catalog;
     private final Optional<String> schema;
@@ -75,6 +76,7 @@ public class QueryContext
             Set<String> clientTags,
             Set<String> clientCapabilities,
             Optional<String> source,
+            String timezone,
             Optional<String> catalog,
             Optional<String> schema,
             Optional<ResourceGroupId> resourceGroupId,
@@ -98,6 +100,7 @@ public class QueryContext
         this.clientTags = requireNonNull(clientTags, "clientTags is null");
         this.clientCapabilities = requireNonNull(clientCapabilities, "clientCapabilities is null");
         this.source = requireNonNull(source, "source is null");
+        this.timezone = requireNonNull(timezone, "timezone is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
@@ -180,6 +183,12 @@ public class QueryContext
     public Optional<String> getSource()
     {
         return source;
+    }
+
+    @JsonProperty
+    public String getTimezone()
+    {
+        return timezone;
     }
 
     @JsonProperty
