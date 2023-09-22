@@ -160,6 +160,7 @@ public class TestTransactionLogAccess
                 0);
 
         tableSnapshot = transactionLogAccess.getSnapshot(SESSION, tableHandle.getSchemaTableName(), tableLocation, Optional.empty());
+        transactionLogAccess.cleanupQuery(SESSION);
     }
 
     @Test
@@ -489,6 +490,7 @@ public class TestTransactionLogAccess
         setupTransactionLogAccess(tableName, tableDir.toURI().toString());
 
         List<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
+        transactionLogAccess.cleanupQuery(SESSION);
 
         Set<String> dataFiles = ImmutableSet.of(
                 "age=21/part-00000-3d546786-bedc-407f-b9f7-e97aa12cce0f.c000.snappy.parquet",
@@ -596,6 +598,7 @@ public class TestTransactionLogAccess
 
         setupTransactionLogAccess(tableName, tableDir.toURI().toString());
         List<AddFileEntry> expectedDataFiles = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
+        transactionLogAccess.cleanupQuery(SESSION);
 
         copyTransactionLogEntry(12, 14, resourceDir, transactionLogDir);
         Set<String> newDataFiles = ImmutableSet.of(
@@ -659,6 +662,7 @@ public class TestTransactionLogAccess
         copyTransactionLogEntry(1, 2, resourceDir, transactionLogDir);
         TableSnapshot firstUpdate = transactionLogAccess.getSnapshot(SESSION, schemaTableName, tableLocation, Optional.empty());
         assertEquals(firstUpdate.getVersion(), 1L);
+        transactionLogAccess.cleanupQuery(SESSION);
 
         copyTransactionLogEntry(2, 3, resourceDir, transactionLogDir);
         TableSnapshot secondUpdate = transactionLogAccess.getSnapshot(SESSION, schemaTableName, tableLocation, Optional.empty());
