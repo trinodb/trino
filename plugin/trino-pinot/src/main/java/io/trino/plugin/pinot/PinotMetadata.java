@@ -138,7 +138,7 @@ public class PinotMetadata
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.pinotTableColumnCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
-                        .refreshAfterWrite(metadataCacheExpiryMillis, TimeUnit.MILLISECONDS),
+                        .expireAfterWrite(metadataCacheExpiryMillis, TimeUnit.MILLISECONDS),
                 asyncReloading(new CacheLoader<>()
                 {
                     @Override
