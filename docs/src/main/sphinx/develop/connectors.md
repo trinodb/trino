@@ -670,7 +670,7 @@ The built-in SQL data types use different Java types as carrier types.
 * - `BIGINT`
   - `long`
 * - `REAL`
-  - `double`
+  - `long`
 * - `DOUBLE`
   - `double`
 * - `DECIMAL`
@@ -731,6 +731,10 @@ the carrier type:
 - `getDouble(int field)`
 - `getSlice(int field)`
 - `getObject(int field)`
+
+Values for the `real` type are encoded into `long` using the IEEE 754
+floating-point "single format" bit layout, with NaN preservation. This can be
+accomplished using the `java.lang.Float.floatToRawIntBits` static method.
 
 Values for the `timestamp(p) with time zone` and `time(p) with time zone`
 types of regular precision can be converted into `long` using static methods
