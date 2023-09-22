@@ -18,15 +18,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoInputFile;
-import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.deltalake.DataFileInfo.DataFileType;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.FileWriter;
-import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
+import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
@@ -43,6 +39,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.format.FileMetaData;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
@@ -77,8 +74,7 @@ import static java.util.function.UnaryOperator.identity;
 public class DeltaLakeWriter
         implements FileWriter
 {
-    private final TrinoFileSystem fileSystem;
-    private final FileWriter fileWriter;
+    private final ParquetFileWriter fileWriter;
     private final Location rootTableLocation;
     private final String relativeFilePath;
     private final List<String> partitionValues;
@@ -92,8 +88,7 @@ public class DeltaLakeWriter
     private long inputSizeInBytes;
 
     public DeltaLakeWriter(
-            TrinoFileSystem fileSystem,
-            FileWriter fileWriter,
+            ParquetFileWriter fileWriter,
             Location rootTableLocation,
             String relativeFilePath,
             List<String> partitionValues,
@@ -101,7 +96,6 @@ public class DeltaLakeWriter
             List<DeltaLakeColumnHandle> columnHandles,
             DataFileType dataFileType)
     {
-        this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.fileWriter = requireNonNull(fileWriter, "fileWriter is null");
         this.rootTableLocation = requireNonNull(rootTableLocation, "rootTableLocation is null");
         this.relativeFilePath = requireNonNull(relativeFilePath, "relativeFilePath is null");
@@ -186,7 +180,6 @@ public class DeltaLakeWriter
     public DataFileInfo getDataFileInfo()
             throws IOException
     {
-        TrinoInputFile inputFile = fileSystem.newInputFile(rootTableLocation.appendPath(relativeFilePath));
         Map</* lowercase */ String, Type> dataColumnTypes = columnHandles.stream()
                 // Lowercase because the subsequent logic expects lowercase
                 .collect(toImmutableMap(column -> column.getBasePhysicalColumnName().toLowerCase(ENGLISH), DeltaLakeColumnHandle::getBasePhysicalType));
@@ -196,31 +189,26 @@ public class DeltaLakeWriter
                 creationTime,
                 dataFileType,
                 partitionValues,
-                readStatistics(inputFile, dataColumnTypes, rowCount));
+                readStatistics(fileWriter.getFileMetadata(), rootTableLocation.appendPath(relativeFilePath), dataColumnTypes, rowCount));
     }
 
-    private static DeltaLakeJsonFileStatistics readStatistics(TrinoInputFile inputFile, Map</* lowercase */ String, Type> typeForColumn, long rowCount)
+    private static DeltaLakeJsonFileStatistics readStatistics(FileMetaData fileMetaData, Location path, Map</* lowercase */ String, Type> typeForColumn, long rowCount)
             throws IOException
     {
-        try (TrinoParquetDataSource trinoParquetDataSource = new TrinoParquetDataSource(
-                inputFile,
-                new ParquetReaderOptions(),
-                new FileFormatDataSourceStats())) {
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(trinoParquetDataSource, Optional.empty());
+        ParquetMetadata parquetMetadata = MetadataReader.createParquetMetadata(fileMetaData, path.fileName());
 
-            ImmutableMultimap.Builder<String, ColumnChunkMetaData> metadataForColumn = ImmutableMultimap.builder();
-            for (BlockMetaData blockMetaData : parquetMetadata.getBlocks()) {
-                for (ColumnChunkMetaData columnChunkMetaData : blockMetaData.getColumns()) {
-                    if (columnChunkMetaData.getPath().size() != 1) {
-                        continue; // Only base column stats are supported
-                    }
-                    String columnName = getOnlyElement(columnChunkMetaData.getPath());
-                    metadataForColumn.put(columnName, columnChunkMetaData);
+        ImmutableMultimap.Builder<String, ColumnChunkMetaData> metadataForColumn = ImmutableMultimap.builder();
+        for (BlockMetaData blockMetaData : parquetMetadata.getBlocks()) {
+            for (ColumnChunkMetaData columnChunkMetaData : blockMetaData.getColumns()) {
+                if (columnChunkMetaData.getPath().size() != 1) {
+                    continue; // Only base column stats are supported
                 }
+                String columnName = getOnlyElement(columnChunkMetaData.getPath());
+                metadataForColumn.put(columnName, columnChunkMetaData);
             }
-
-            return mergeStats(metadataForColumn.build(), typeForColumn, rowCount);
         }
+
+        return mergeStats(metadataForColumn.build(), typeForColumn, rowCount);
     }
 
     @VisibleForTesting
