@@ -4018,7 +4018,7 @@ class StatementAnalyzer
                 List<Type> argumentTypes = mappedCopy(windowFunction.getArguments(), analysis::getType);
 
                 ResolvedFunction resolvedFunction = metadata.resolveFunction(session, windowFunction.getName(), fromTypes(argumentTypes));
-                FunctionKind kind = metadata.getFunctionMetadata(session, resolvedFunction).getKind();
+                FunctionKind kind = resolvedFunction.getFunctionKind();
                 if (kind != AGGREGATE && kind != WINDOW) {
                     throw semanticException(FUNCTION_NOT_WINDOW, node, "Not a window function: %s", windowFunction.getName());
                 }

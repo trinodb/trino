@@ -24,9 +24,9 @@ import io.trino.Session;
 import io.trino.cost.TableStatsProvider;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.ResolvedIndex;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
@@ -385,8 +385,7 @@ public class IndexJoinOptimizer
         {
             if (!node.getWindowFunctions().values().stream()
                     .map(Function::getResolvedFunction)
-                    .map(function -> plannerContext.getMetadata().getFunctionMetadata(session, function))
-                    .map(FunctionMetadata::getKind)
+                    .map(ResolvedFunction::getFunctionKind)
                     .allMatch(AGGREGATE::equals)) {
                 return node;
             }
