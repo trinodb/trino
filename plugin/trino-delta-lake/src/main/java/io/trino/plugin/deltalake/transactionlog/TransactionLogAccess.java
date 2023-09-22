@@ -102,6 +102,7 @@ public class TransactionLogAccess
     private final Cache<TableVersion, DeltaLakeDataFileCacheEntry> activeDataFileCache;
 
     // TODO move to query-level state
+    private final Map<QueriedLocation, Long> queriedLocations = new ConcurrentHashMap<>();
     private final Map<QueriedTable, TableSnapshot> queriedTables = new ConcurrentHashMap<>();
 
     @Inject
@@ -154,22 +155,29 @@ public class TransactionLogAccess
             throws IOException
     {
         String queryId = session.getQueryId();
+        QueriedLocation queriedLocation = new QueriedLocation(session.getQueryId(), tableLocation);
+        if (atVersion.isEmpty()) {
+            atVersion = Optional.ofNullable(queriedLocations.get(queriedLocation));
+        }
         if (atVersion.isPresent()) {
             long version = atVersion.get();
-            TableSnapshot snapshot = queriedTables.get(new QueriedTable(queryId, tableLocation, version));
+            TableSnapshot snapshot = queriedTables.get(new QueriedTable(queriedLocation, version));
             checkState(snapshot != null, "No previously loaded snapshot found for query %s, table %s [%s] at version %s", queryId, table, tableLocation, version);
             return snapshot;
         }
 
         TableSnapshot snapshot = loadSnapshot(session, table, tableLocation);
-        queriedTables.put(new QueriedTable(queryId, tableLocation, snapshot.getVersion()), snapshot);
+        // Lack of concurrency for given query is currently guaranteed by DeltaLakeMetadata
+        checkState(queriedLocations.put(queriedLocation, snapshot.getVersion()) == null, "queriedLocations changed concurrently for %s", queriedLocation);
+        queriedTables.put(new QueriedTable(queriedLocation, snapshot.getVersion()), snapshot);
         return snapshot;
     }
 
     public void cleanupQuery(ConnectorSession session)
     {
         String queryId = session.getQueryId();
-        queriedTables.keySet().removeIf(queriedTable -> queriedTable.queryId().equals(queryId));
+        queriedLocations.keySet().removeIf(queriedLocation -> queriedLocation.queryId().equals(queryId));
+        queriedTables.keySet().removeIf(queriedTable -> queriedTable.queriedLocation().queryId().equals(queryId));
     }
 
     @VisibleForTesting
@@ -579,12 +587,20 @@ public class TransactionLogAccess
         }
     }
 
-    private record QueriedTable(String queryId, String tableLocation, long version)
+    private record QueriedLocation(String queryId, String tableLocation)
     {
-        QueriedTable
+        QueriedLocation
         {
             requireNonNull(queryId, "queryId is null");
             requireNonNull(tableLocation, "tableLocation is null");
+        }
+    }
+
+    private record QueriedTable(QueriedLocation queriedLocation, long version)
+    {
+        QueriedTable
+        {
+            requireNonNull(queriedLocation, "queriedLocation is null");
         }
     }
 }
