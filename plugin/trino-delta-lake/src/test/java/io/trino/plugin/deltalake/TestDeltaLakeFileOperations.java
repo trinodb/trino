@@ -113,8 +113,6 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", OUTPUT_FILE_CREATE_OR_OVERWRITE))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", OUTPUT_FILE_CREATE))
                         .add(new FileOperation(DATA, "no partition", OUTPUT_FILE_CREATE))
-                        .add(new FileOperation(DATA, "no partition", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation(DATA, "no partition", INPUT_FILE_GET_LENGTH))
                         .build());
         assertUpdate("DROP TABLE test_create_as_select");
 
@@ -128,10 +126,6 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", OUTPUT_FILE_CREATE))
                         .add(new FileOperation(DATA, "key=1/", OUTPUT_FILE_CREATE))
                         .add(new FileOperation(DATA, "key=2/", OUTPUT_FILE_CREATE))
-                        .add(new FileOperation(DATA, "key=1/", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation(DATA, "key=1/", INPUT_FILE_GET_LENGTH))
-                        .add(new FileOperation(DATA, "key=2/", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation(DATA, "key=2/", INPUT_FILE_GET_LENGTH))
                         .build());
         assertUpdate("DROP TABLE test_create_partitioned_as_select");
     }
