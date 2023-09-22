@@ -25,7 +25,6 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
@@ -332,10 +331,9 @@ public class DeltaLakeMergeSink
 
             Location targetLocation = sourceLocation.sibling(session.getQueryId() + "_" + randomUUID());
             String targetRelativePath = relativePath(tablePath, targetLocation.toString());
-            FileWriter fileWriter = createParquetFileWriter(targetLocation, dataColumns);
+            ParquetFileWriter fileWriter = createParquetFileWriter(targetLocation, dataColumns);
 
             DeltaLakeWriter writer = new DeltaLakeWriter(
-                    fileSystem,
                     fileWriter,
                     rootTableLocation,
                     targetRelativePath,
@@ -354,7 +352,7 @@ public class DeltaLakeMergeSink
         }
     }
 
-    private FileWriter createParquetFileWriter(Location path, List<DeltaLakeColumnHandle> dataColumns)
+    private ParquetFileWriter createParquetFileWriter(Location path, List<DeltaLakeColumnHandle> dataColumns)
     {
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                 .setMaxBlockSize(getParquetWriterBlockSize(session))

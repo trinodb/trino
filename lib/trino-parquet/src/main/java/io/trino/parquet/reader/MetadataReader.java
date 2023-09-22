@@ -116,8 +116,16 @@ public final class MetadataReader
         InputStream metadataStream = buffer.slice(buffer.length() - completeFooterSize, metadataLength).getInput();
 
         FileMetaData fileMetaData = readFileMetaData(metadataStream);
+        ParquetMetadata parquetMetadata = createParquetMetadata(fileMetaData, dataSource.getId().toString());
+        validateFileMetadata(dataSource.getId(), parquetMetadata.getFileMetaData(), parquetWriteValidation);
+        return parquetMetadata;
+    }
+
+    public static ParquetMetadata createParquetMetadata(FileMetaData fileMetaData, String filename)
+            throws ParquetCorruptionException
+    {
         List<SchemaElement> schema = fileMetaData.getSchema();
-        validateParquet(!schema.isEmpty(), "Empty Parquet schema in file: %s", dataSource.getId());
+        validateParquet(!schema.isEmpty(), "Empty Parquet schema in file: %s", filename);
 
         MessageType messageType = readParquetSchema(schema);
         List<BlockMetaData> blocks = new ArrayList<>();
@@ -174,7 +182,6 @@ public final class MetadataReader
                 messageType,
                 keyValueMetaData,
                 fileMetaData.getCreated_by());
-        validateFileMetadata(dataSource.getId(), parquetFileMetadata, parquetWriteValidation);
         return new ParquetMetadata(parquetFileMetadata, blocks);
     }
 
