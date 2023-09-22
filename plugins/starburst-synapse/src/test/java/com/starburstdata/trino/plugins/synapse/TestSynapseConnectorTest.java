@@ -21,11 +21,8 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
-import io.trino.sql.planner.plan.JoinNode;
-import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.testing.DataProviders;
 import io.trino.testing.QueryRunner;
@@ -46,23 +43,12 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.starburstdata.trino.plugins.synapse.SynapseQueryRunner.createSynapseQueryRunner;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.NON_TRANSACTIONAL_INSERT;
-import static io.trino.plugin.jdbc.JoinOperator.FULL_JOIN;
 import static io.trino.plugin.sqlserver.SqlServerSessionProperties.BULK_COPY_FOR_WRITE;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.trueFalse;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_LIMIT_PUSHDOWN;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -306,8 +292,6 @@ public class TestSynapseConnectorTest
     public void testDelete()
     {
         // TODO: Remove override once superclass uses smaller tables to test (because INSERTs to Synapse are slow)
-        skipTestUnless(hasBehavior(SUPPORTS_DELETE) && hasBehavior(SUPPORTS_CREATE_TABLE));
-
         String tableName = "test_delete_" + randomNameSuffix();
 
         // delete successive parts of the table
@@ -350,10 +334,6 @@ public class TestSynapseConnectorTest
     @Test
     public void testAggregationPushdown()
     {
-        if (!hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN)) {
-            assertThat(query("SELECT count(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-            return;
-        }
         // TODO refactor BaseJdbcConnectorTest.testAggregationPushdown to be executed on copy of tpch table with case sensitive collation
         String caseSensitiveNation = "cs_nation" + randomNameSuffix();
         try {
@@ -398,38 +378,23 @@ public class TestSynapseConnectorTest
 
             // GROUP BY and WHERE on varchar column
             // GROUP BY and WHERE on "other" (not aggregation key, not aggregation input)
-            assertConditionallyPushedDown(
-                    getSession(),
-                    "SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey",
-                    hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY),
-                    node(FilterNode.class, node(TableScanNode.class)));
+            assertThat(query(getSession(), "SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey"))
+                    .isNotFullyPushedDown(node(FilterNode.class, node(TableScanNode.class)));
             // GROUP BY above WHERE and LIMIT
-            assertConditionallyPushedDown(
-                    getSession(),
-                    "SELECT regionkey, sum(nationkey) FROM (SELECT * FROM nation WHERE regionkey < 2 LIMIT 11) GROUP BY regionkey",
-                    hasBehavior(SUPPORTS_LIMIT_PUSHDOWN),
-                    node(LimitNode.class, anyTree(node(TableScanNode.class))));
+            assertThat(query(getSession(), "SELECT regionkey, sum(nationkey) FROM (SELECT * FROM nation WHERE regionkey < 2 LIMIT 11) GROUP BY regionkey"))
+                    .isFullyPushedDown();
             // GROUP BY above TopN
-            assertConditionallyPushedDown(
-                    getSession(),
-                    "SELECT custkey, sum(totalprice) FROM (SELECT custkey, totalprice FROM orders ORDER BY orderdate ASC, totalprice ASC LIMIT 10) GROUP BY custkey",
-                    hasBehavior(SUPPORTS_TOPN_PUSHDOWN),
-                    node(TopNNode.class, anyTree(node(TableScanNode.class))));
+            assertThat(query(getSession(), "SELECT custkey, sum(totalprice) FROM (SELECT custkey, totalprice FROM orders ORDER BY orderdate ASC, totalprice ASC LIMIT 10) GROUP BY custkey"))
+                    .isFullyPushedDown();
             // GROUP BY with JOIN
-            assertConditionallyPushedDown(
-                    joinPushdownEnabled(getSession()),
-                    "SELECT n.regionkey, sum(c.acctbal) acctbals FROM nation n LEFT JOIN customer c USING (nationkey) GROUP BY 1",
-                    hasBehavior(SUPPORTS_JOIN_PUSHDOWN),
-                    node(JoinNode.class, anyTree(node(TableScanNode.class)), anyTree(node(TableScanNode.class))));
+            assertThat(query(getSession(), "SELECT n.regionkey, sum(c.acctbal) acctbals FROM nation n LEFT JOIN customer c USING (nationkey) GROUP BY 1"))
+                    .isFullyPushedDown();
             // GROUP BY with WHERE on neither grouping nor aggregation column
             assertThat(query(getSession(), format("SELECT nationkey, min(regionkey) FROM %s WHERE name = 'ARGENTINA' GROUP BY nationkey", caseSensitiveNation)))
                     .isFullyPushedDown();
             // GROUP BY with WHERE complex predicate
-            assertConditionallyPushedDown(
-                    getSession(),
-                    "SELECT regionkey, sum(nationkey) FROM nation WHERE name LIKE '%N%' GROUP BY regionkey",
-                    hasBehavior(SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE),
-                    node(FilterNode.class, node(TableScanNode.class)));
+            assertThat(query(getSession(), "SELECT regionkey, sum(nationkey) FROM nation WHERE name LIKE '%N%' GROUP BY regionkey"))
+                    .isNotFullyPushedDown(node(FilterNode.class, node(TableScanNode.class)));
             // aggregation on varchar column
             assertThat(query("SELECT count(name) FROM nation")).isFullyPushedDown();
             // aggregation on varchar column with GROUPING
@@ -496,17 +461,6 @@ public class TestSynapseConnectorTest
                     "NVARCHAR(40)",
                     "Latin1_General_CS_AS");
             Session session = joinPushdownEnabled(getSession());
-
-            if (!hasBehavior(SUPPORTS_JOIN_PUSHDOWN)) {
-                assertThat(query(session, "SELECT r.name, n.name FROM nation n JOIN region r ON n.regionkey = r.regionkey"))
-                        .joinIsNotFullyPushedDown();
-                return;
-            }
-
-            if (joinOperator == FULL_JOIN && !hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN)) {
-                // Covered by verifySupportsJoinPushdownWithFullJoinDeclaration
-                return;
-            }
 
             // Disable DF here for the sake of negative test cases' expected plan. With DF enabled, some operators return in DF's FilterNode and some do not.
             Session withoutDynamicFiltering = Session.builder(session)
@@ -590,32 +544,24 @@ public class TestSynapseConnectorTest
                         .isFullyPushedDown();
 
                 // Join over a varchar inequality predicate
-                assertJoinConditionallyPushedDown(
-                        session,
-                        format("SELECT c.name, n.name FROM (SELECT * FROM %s WHERE address < 'TcGe5gaZNgVePxU5kRrvXBfkasDTea') c " +
-                                "%s nation n ON c.custkey = n.nationkey", caseSensitiveCustomer, joinOperator),
-                        hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY));
+                assertThat(query(session, format("SELECT c.name, n.name FROM (SELECT * FROM %s WHERE address < 'TcGe5gaZNgVePxU5kRrvXBfkasDTea') c " +
+                        "%s nation n ON c.custkey = n.nationkey", caseSensitiveCustomer, joinOperator)))
+                        .joinIsNotFullyPushedDown();
 
                 // join over aggregation
-                assertJoinConditionallyPushedDown(
-                        session,
-                        format("SELECT * FROM (SELECT regionkey rk, count(nationkey) c FROM nation GROUP BY regionkey) n " +
-                                "%s region r ON n.rk = r.regionkey", joinOperator),
-                        hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN));
+                assertThat(query(session, format("SELECT * FROM (SELECT regionkey rk, count(nationkey) c FROM nation GROUP BY regionkey) n " +
+                        "%s region r ON n.rk = r.regionkey", joinOperator)))
+                        .isFullyPushedDown();
 
                 // join over LIMIT
-                assertJoinConditionallyPushedDown(
-                        session,
-                        format("SELECT * FROM (SELECT nationkey FROM nation LIMIT 30) n " +
-                                "%s region r ON n.nationkey = r.regionkey", joinOperator),
-                        hasBehavior(SUPPORTS_LIMIT_PUSHDOWN));
+                assertThat(query(session, format("SELECT * FROM (SELECT nationkey FROM nation LIMIT 30) n " +
+                        "%s region r ON n.nationkey = r.regionkey", joinOperator)))
+                        .isFullyPushedDown();
 
                 // join over TopN
-                assertJoinConditionallyPushedDown(
-                        session,
-                        format("SELECT * FROM (SELECT nationkey FROM nation ORDER BY regionkey LIMIT 5) n " +
-                                "%s region r ON n.nationkey = r.regionkey", joinOperator),
-                        hasBehavior(SUPPORTS_TOPN_PUSHDOWN));
+                assertThat(query(session, format("SELECT * FROM (SELECT nationkey FROM nation ORDER BY regionkey LIMIT 5) n " +
+                        "%s region r ON n.nationkey = r.regionkey", joinOperator)))
+                        .isFullyPushedDown();
 
                 // join over join
                 assertThat(query(session, "SELECT * FROM nation n, region r, customer c WHERE n.regionkey = r.regionkey AND r.regionkey = c.custkey"))
