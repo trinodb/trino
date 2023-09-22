@@ -30,8 +30,7 @@ import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.cache.NonEvictableCache;
 import io.trino.connector.system.GlobalSystemConnector;
-import io.trino.metadata.FunctionResolver.CatalogFunctionBinding;
-import io.trino.metadata.FunctionResolver.CatalogFunctionMetadata;
+import io.trino.metadata.FunctionBinder.CatalogFunctionBinding;
 import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
@@ -2565,7 +2564,6 @@ public final class MetadataManager
 
     private Collection<CatalogFunctionMetadata> getBuiltinFunctions(String functionName)
     {
-        CatalogSchemaFunctionName name = builtinFunctionName(functionName);
         return functions.getBuiltInFunctions(functionName).stream()
                 .map(function -> new CatalogFunctionMetadata(GlobalSystemConnector.CATALOG_HANDLE, BUILTIN_SCHEMA, function))
                 .collect(toImmutableList());
