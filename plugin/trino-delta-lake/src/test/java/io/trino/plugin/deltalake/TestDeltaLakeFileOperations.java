@@ -274,6 +274,24 @@ public class TestDeltaLakeFileOperations
     }
 
     @Test
+    public void testSelfJoin()
+    {
+        assertUpdate("CREATE TABLE test_self_join_table AS SELECT 2 as age, 0 parent, 3 AS id", 1);
+
+        assertFileSystemAccesses(
+                "SELECT child.age, parent.age FROM test_self_join_table child JOIN test_self_join_table parent ON child.parent = parent.id",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM), 6)
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM))
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM), 6)
+                        .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", INPUT_FILE_NEW_STREAM))
+                        .addCopies(new FileOperation(DATA, "no partition", INPUT_FILE_NEW_STREAM), 2)
+                        .build());
+
+        assertUpdate("DROP TABLE test_self_join_table");
+    }
+
+    @Test
     public void testDeleteWholePartition()
     {
         assertUpdate("DROP TABLE IF EXISTS test_delete_part_key");
