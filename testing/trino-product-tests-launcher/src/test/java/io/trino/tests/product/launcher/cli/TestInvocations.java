@@ -107,6 +107,5 @@ public class TestInvocations
         return new InvocationResult(exitCode, Splitter.on("\n").splitToList(out.toString(UTF_8)));
     }
 
-    @SuppressWarnings("UnusedVariable")
     private record InvocationResult(int exitCode, List<String> lines) {}
 }
