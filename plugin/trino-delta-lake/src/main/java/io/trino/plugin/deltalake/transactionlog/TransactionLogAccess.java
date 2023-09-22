@@ -95,8 +95,8 @@ public class TransactionLogAccess
     private final boolean checkpointRowStatisticsWritingEnabled;
     private final int domainCompactionThreshold;
 
-    private final Cache<CacheKey, TableSnapshot> tableSnapshots;
-    private final Cache<CacheKey, DeltaLakeDataFileCacheEntry> activeDataFileCache;
+    private final Cache<TableLocation, TableSnapshot> tableSnapshots;
+    private final Cache<TableLocation, DeltaLakeDataFileCacheEntry> activeDataFileCache;
 
     @Inject
     public TransactionLogAccess(
@@ -122,7 +122,7 @@ public class TransactionLogAccess
                 .recordStats()
                 .build();
         activeDataFileCache = EvictableCacheBuilder.newBuilder()
-                .weigher((Weigher<CacheKey, DeltaLakeDataFileCacheEntry>) (key, value) -> Ints.saturatedCast(key.getRetainedSizeInBytes() + value.getRetainedSizeInBytes()))
+                .weigher((Weigher<TableLocation, DeltaLakeDataFileCacheEntry>) (key, value) -> Ints.saturatedCast(key.getRetainedSizeInBytes() + value.getRetainedSizeInBytes()))
                 .maximumWeight(deltaLakeConfig.getDataFileCacheSize().toBytes())
                 .expireAfterWrite(deltaLakeConfig.getDataFileCacheTtl().toMillis(), TimeUnit.MILLISECONDS)
                 .shareNothingWhenDisabled()
@@ -147,7 +147,7 @@ public class TransactionLogAccess
     public TableSnapshot loadSnapshot(SchemaTableName table, String tableLocation, ConnectorSession session)
             throws IOException
     {
-        CacheKey cacheKey = new CacheKey(table, tableLocation);
+        TableLocation cacheKey = new TableLocation(table, tableLocation);
         TableSnapshot cachedSnapshot = tableSnapshots.getIfPresent(cacheKey);
         TableSnapshot snapshot;
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
@@ -219,8 +219,8 @@ public class TransactionLogAccess
     public List<AddFileEntry> getActiveFiles(TableSnapshot tableSnapshot, ConnectorSession session)
     {
         try {
-            CacheKey cacheKey = new CacheKey(tableSnapshot.getTable(), tableSnapshot.getTableLocation());
-            DeltaLakeDataFileCacheEntry cachedTable = activeDataFileCache.get(cacheKey, () -> {
+            TableLocation tableLocation = new TableLocation(tableSnapshot.getTable(), tableSnapshot.getTableLocation());
+            DeltaLakeDataFileCacheEntry cachedTable = activeDataFileCache.get(tableLocation, () -> {
                 List<AddFileEntry> activeFiles = loadActiveFiles(tableSnapshot, session);
                 return new DeltaLakeDataFileCacheEntry(tableSnapshot.getVersion(), activeFiles);
             });
@@ -245,7 +245,7 @@ public class TransactionLogAccess
                     updatedCacheEntry = new DeltaLakeDataFileCacheEntry(tableSnapshot.getVersion(), activeFiles);
                 }
 
-                activeDataFileCache.asMap().replace(cacheKey, cachedTable, updatedCacheEntry);
+                activeDataFileCache.asMap().replace(tableLocation, cachedTable, updatedCacheEntry);
                 cachedTable = updatedCacheEntry;
             }
             return cachedTable.getActiveFiles();
@@ -513,11 +513,11 @@ public class TransactionLogAccess
                         Map.Entry::getValue));
     }
 
-    private record CacheKey(SchemaTableName tableName, String location)
+    private record TableLocation(SchemaTableName tableName, String location)
     {
-        private static final int INSTANCE_SIZE = instanceSize(CacheKey.class);
+        private static final int INSTANCE_SIZE = instanceSize(TableLocation.class);
 
-        CacheKey
+        TableLocation
         {
             requireNonNull(tableName, "tableName is null");
             requireNonNull(location, "location is null");
