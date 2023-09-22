@@ -169,7 +169,7 @@
         <dep.tempto.version>200</dep.tempto.version>
         <dep.gcs.version>2.2.8</dep.gcs.version>
 
-        <dep.errorprone.version>2.21.1</dep.errorprone.version>
+        <dep.errorprone.version>2.22.0</dep.errorprone.version>
         <dep.testcontainers.version>1.19.0</dep.testcontainers.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
         <dep.confluent.version>7.3.1</dep.confluent.version>
