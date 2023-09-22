@@ -126,6 +126,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -156,6 +157,7 @@ import static io.trino.SystemSessionProperties.isFaultTolerantExecutionSmallStag
 import static io.trino.SystemSessionProperties.isFaultTolerantExecutionStageEstimationForEagerParentEnabled;
 import static io.trino.execution.BasicStageStats.aggregateBasicStageStats;
 import static io.trino.execution.StageState.ABORTED;
+import static io.trino.execution.StageState.FINISHED;
 import static io.trino.execution.StageState.PLANNED;
 import static io.trino.execution.resourcegroups.IndexedPriorityQueue.PriorityOrdering.LOW_TO_HIGH;
 import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
@@ -2131,15 +2133,30 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         public Optional<OutputDataSizeEstimateResult> getOutputDataSize(Function<StageId, StageExecution> stageExecutionLookup, boolean parentEager)
         {
-            if (stage.getState() == StageState.FINISHED) {
-                return Optional.of(new OutputDataSizeEstimateResult(
-                        new OutputDataSizeEstimate(ImmutableLongArray.copyOf(outputDataSize)), OutputDataSizeEstimateStatus.FINISHED));
+            // estimators are ordered by expected estimation quality from best to worst
+            List<Supplier<Optional<OutputDataSizeEstimateResult>>> estimators = ImmutableList.of(
+                    () -> {
+                        if (stage.getState() != FINISHED) {
+                            return Optional.empty();
+                        }
+                        return Optional.of(new OutputDataSizeEstimateResult(new OutputDataSizeEstimate(ImmutableLongArray.copyOf(outputDataSize)), OutputDataSizeEstimateStatus.FINISHED));
+                    },
+                    this::getEstimatedOutputDataSize,
+                    () -> getEstimatedSmallStageOutputDataSize(stageExecutionLookup),
+                    () -> {
+                        if (!parentEager) {
+                            return Optional.empty();
+                        }
+                        return getEstimatedStageOutputSizeForEagerParent();
+                    });
+
+            for (Supplier<Optional<OutputDataSizeEstimateResult>> estimator : estimators) {
+                Optional<OutputDataSizeEstimateResult> estimateResult = estimator.get();
+                if (estimateResult.isPresent()) {
+                    return estimateResult;
+                }
             }
-            Optional<OutputDataSizeEstimateResult> result = getEstimatedOutputDataSize().or(() -> getEstimatedSmallStageOutputDataSize(stageExecutionLookup));
-            if (result.isEmpty() && parentEager) {
-                result = getEstimatedStageOutputSizeForEagerParent();
-            }
-            return result;
+            return Optional.empty();
         }
 
         public boolean isSomeProgressMade()
