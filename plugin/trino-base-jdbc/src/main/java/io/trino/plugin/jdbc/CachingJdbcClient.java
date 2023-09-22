@@ -708,7 +708,6 @@ public class CachingJdbcClient
 
     private record ColumnsCacheKey(IdentityCacheKey identity, Map<String, Object> sessionProperties, SchemaTableName table)
     {
-        @SuppressWarnings("UnusedVariable") // TODO: Remove once https://github.com/google/error-prone/issues/2713 is fixed
         private ColumnsCacheKey
         {
             requireNonNull(identity, "identity is null");
