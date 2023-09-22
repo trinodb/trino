@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.LongMath;
@@ -58,10 +59,8 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayDeque;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -101,7 +100,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class CheckpointEntryIterator
-        implements Iterator<DeltaLakeTransactionLogEntry>
+        extends AbstractIterator<DeltaLakeTransactionLogEntry>
 {
     public enum EntryType
     {
@@ -630,21 +629,21 @@ public class CheckpointEntryIterator
     }
 
     @Override
-    public boolean hasNext()
+    protected DeltaLakeTransactionLogEntry computeNext()
     {
         if (nextEntries.isEmpty()) {
             fillNextEntries();
         }
-        return !nextEntries.isEmpty();
-    }
-
-    @Override
-    public DeltaLakeTransactionLogEntry next()
-    {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
+        if (!nextEntries.isEmpty()) {
+            return nextEntries.remove();
         }
-        return nextEntries.remove();
+        try {
+            pageSource.close();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return endOfData();
     }
 
     private boolean tryAdvancePage()
