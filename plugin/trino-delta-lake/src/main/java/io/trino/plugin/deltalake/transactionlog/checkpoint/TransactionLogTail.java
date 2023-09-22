@@ -100,31 +100,16 @@ public class TransactionLogTail
     public Optional<TransactionLogTail> getUpdatedTail(TrinoFileSystem fileSystem, String tableLocation)
             throws IOException
     {
-        ImmutableList.Builder<Transaction> entriesBuilder = ImmutableList.builder();
-
-        long newVersion = version;
-
-        Optional<List<DeltaLakeTransactionLogEntry>> results;
-        boolean endOfTail = false;
-        while (!endOfTail) {
-            results = getEntriesFromJson(newVersion + 1, getTransactionLogDir(tableLocation), fileSystem);
-            if (results.isPresent()) {
-                if (version == newVersion) {
-                    // initialize entriesBuilder with entries we have already read
-                    entriesBuilder.addAll(entries);
-                }
-                entriesBuilder.add(new Transaction(newVersion + 1, results.get()));
-                newVersion++;
-            }
-            else {
-                endOfTail = true;
-            }
-        }
-
-        if (newVersion == version) {
+        TransactionLogTail newTail = loadNewTail(fileSystem, tableLocation, Optional.of(version), Optional.empty());
+        if (newTail.version == version) {
             return Optional.empty();
         }
-        return Optional.of(new TransactionLogTail(entriesBuilder.build(), newVersion));
+        return Optional.of(new TransactionLogTail(
+                ImmutableList.<Transaction>builder()
+                        .addAll(entries)
+                        .addAll(newTail.entries)
+                        .build(),
+                newTail.version));
     }
 
     public static Optional<List<DeltaLakeTransactionLogEntry>> getEntriesFromJson(long entryNumber, String transactionLogDir, TrinoFileSystem fileSystem)
