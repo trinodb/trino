@@ -178,7 +178,6 @@ public class SignatureBinder
         TypeSignature boundReturnTypeSignature = applyBoundVariables(signature.getReturnType(), typeVariables);
 
         return Signature.builder()
-                .name(signature.getName())
                 .returnType(boundReturnTypeSignature)
                 .argumentTypes(boundArgumentSignatures)
                 .build();

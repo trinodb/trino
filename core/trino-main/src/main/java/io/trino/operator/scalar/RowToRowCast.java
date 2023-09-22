@@ -112,9 +112,8 @@ public class RowToRowCast
 
     private RowToRowCast()
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
-                        .operatorType(CAST)
                         .typeVariableConstraint(
                                 // this is technically a recursive constraint for cast, but SignatureBinder has explicit handling for row-to-row cast
                                 TypeVariableConstraint.builder("F")

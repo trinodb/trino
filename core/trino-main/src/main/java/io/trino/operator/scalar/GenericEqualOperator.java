@@ -35,9 +35,8 @@ public class GenericEqualOperator
 
     public GenericEqualOperator(TypeOperators typeOperators)
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.operatorBuilder(EQUAL)
                 .signature(Signature.builder()
-                        .operatorType(EQUAL)
                         .comparableTypeParameter("T")
                         .returnType(BOOLEAN)
                         .argumentType(new TypeSignature("T"))

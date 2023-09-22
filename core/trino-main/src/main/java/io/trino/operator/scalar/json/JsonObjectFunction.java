@@ -64,9 +64,8 @@ public class JsonObjectFunction
 
     private JsonObjectFunction()
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.scalarBuilder(JSON_OBJECT_FUNCTION_NAME)
                 .signature(Signature.builder()
-                        .name(JSON_OBJECT_FUNCTION_NAME)
                         .typeVariable("K")
                         .typeVariable("V")
                         .returnType(new TypeSignature(JSON_2016))
