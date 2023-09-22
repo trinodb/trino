@@ -337,7 +337,7 @@ public class TestUnwrapYearInComparison
                     sql,
                     getQueryRunner().getDefaultSession(),
                     output(
-                            filter(expectedPredicate + " OR rand() = 42e0",
+                            filter(expectedPredicate + " OR random() = 42e0",
                                     values("a"))));
         }
         catch (Throwable e) {

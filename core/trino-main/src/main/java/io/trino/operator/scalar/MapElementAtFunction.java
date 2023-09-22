@@ -49,9 +49,8 @@ public class MapElementAtFunction
 
     protected MapElementAtFunction()
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.scalarBuilder("element_at")
                 .signature(Signature.builder()
-                        .name("element_at")
                         .typeVariable("K")
                         .typeVariable("V")
                         .returnType(new TypeSignature("V"))

@@ -2349,14 +2349,12 @@ public final class MetadataManager
         checkArgument(operatorType == OperatorType.CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST);
         try {
             return uncheckedCacheGet(coercionCache, new CoercionCacheKey(operatorType, fromType, toType), () -> {
-                String functionName = mangleOperatorName(operatorType);
                 CatalogFunctionBinding functionBinding = functionResolver.resolveCoercion(
                         Signature.builder()
-                                .name(functionName)
                                 .returnType(toType)
                                 .argumentType(fromType)
                                 .build(),
-                        getBuiltinFunctions(functionName));
+                        getBuiltinFunctions(mangleOperatorName(operatorType)));
                 return resolveBuiltin(functionBinding.functionBinding());
             });
         }
@@ -2380,7 +2378,6 @@ public final class MetadataManager
         }
         CatalogFunctionBinding catalogFunctionBinding = functionResolver.resolveCoercion(
                 Signature.builder()
-                        .name(name.getFunctionName())
                         .returnType(toType)
                         .argumentType(fromType)
                         .build(),
@@ -2570,14 +2567,14 @@ public final class MetadataManager
     {
         CatalogSchemaFunctionName name = builtinFunctionName(functionName);
         return functions.getBuiltInFunctions(functionName).stream()
-                .map(function -> new CatalogFunctionMetadata(name, GlobalSystemConnector.CATALOG_HANDLE, function))
+                .map(function -> new CatalogFunctionMetadata(GlobalSystemConnector.CATALOG_HANDLE, BUILTIN_SCHEMA, function))
                 .collect(toImmutableList());
     }
 
     private static List<CatalogFunctionMetadata> getFunctions(Session session, ConnectorMetadata metadata, CatalogHandle catalogHandle, SchemaFunctionName name)
     {
         return metadata.getFunctions(session.toConnectorSession(catalogHandle), name).stream()
-                .map(function -> new CatalogFunctionMetadata(new CatalogSchemaFunctionName(catalogHandle.getCatalogName(), name), catalogHandle, function))
+                .map(function -> new CatalogFunctionMetadata(catalogHandle, name.getSchemaName(), function))
                 .collect(toImmutableList());
     }
 
@@ -2601,10 +2598,11 @@ public final class MetadataManager
 
     private static FunctionMetadata bindFunctionMetadata(BoundSignature signature, FunctionMetadata functionMetadata)
     {
-        FunctionMetadata.Builder newMetadata = FunctionMetadata.builder(functionMetadata.getKind())
+        FunctionMetadata.Builder newMetadata = FunctionMetadata.builder(functionMetadata.getCanonicalName(), functionMetadata.getKind())
                 .functionId(functionMetadata.getFunctionId())
-                .signature(signature.toSignature())
-                .canonicalName(functionMetadata.getCanonicalName());
+                .signature(signature.toSignature());
+
+        functionMetadata.getNames().forEach(newMetadata::alias);
 
         if (functionMetadata.getDescription().isEmpty()) {
             newMetadata.noDescription();

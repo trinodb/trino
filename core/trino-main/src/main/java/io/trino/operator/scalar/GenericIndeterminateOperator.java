@@ -35,9 +35,8 @@ public class GenericIndeterminateOperator
 
     public GenericIndeterminateOperator(TypeOperators typeOperators)
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.operatorBuilder(INDETERMINATE)
                 .signature(Signature.builder()
-                        .operatorType(INDETERMINATE)
                         .comparableTypeParameter("T")
                         .returnType(BOOLEAN)
                         .argumentType(new TypeSignature("T"))

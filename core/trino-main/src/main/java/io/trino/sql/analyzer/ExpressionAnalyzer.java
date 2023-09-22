@@ -1327,7 +1327,7 @@ public class ExpressionAnalyzer
                             DEPRECATED_FUNCTION,
                             format(
                                     "Use of deprecated function: %s: %s",
-                                    functionMetadata.getSignature().getName(),
+                                    function.getSignature().getName(),
                                     functionMetadata.getDescription())));
                 }
             }

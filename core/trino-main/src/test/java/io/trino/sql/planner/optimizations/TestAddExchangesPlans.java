@@ -828,7 +828,7 @@ public class TestAddExchangesPlans
                                 anyTree(
                                         aggregation(
                                                 singleGroupingSet("orderkey"),
-                                                ImmutableMap.of(Optional.of("arbitrary"), PlanMatchPattern.functionCall("arbitrary", false, ImmutableList.of(anySymbol()))),
+                                                ImmutableMap.of(Optional.of("any_value"), PlanMatchPattern.functionCall("any_value", false, ImmutableList.of(anySymbol()))),
                                                 ImmutableList.of("orderkey"),
                                                 ImmutableList.of(),
                                                 Optional.empty(),

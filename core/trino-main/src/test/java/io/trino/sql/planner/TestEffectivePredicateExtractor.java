@@ -1218,7 +1218,7 @@ public class TestEffectivePredicateExtractor
         return new ResolvedFunction(
                 boundSignature,
                 GlobalSystemConnector.CATALOG_HANDLE,
-                toFunctionId(boundSignature.toSignature()),
+                toFunctionId(name, boundSignature.toSignature()),
                 SCALAR,
                 true,
                 new FunctionNullability(false, ImmutableList.of()),

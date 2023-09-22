@@ -35,9 +35,8 @@ public class GenericComparisonUnorderedLastOperator
 
     public GenericComparisonUnorderedLastOperator(TypeOperators typeOperators)
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.operatorBuilder(COMPARISON_UNORDERED_LAST)
                 .signature(Signature.builder()
-                        .operatorType(COMPARISON_UNORDERED_LAST)
                         .orderableTypeParameter("T")
                         .returnType(INTEGER)
                         .argumentType(new TypeSignature("T"))

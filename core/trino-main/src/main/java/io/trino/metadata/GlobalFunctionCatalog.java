@@ -69,12 +69,16 @@ public class GlobalFunctionCatalog
     public final synchronized void addFunctions(FunctionBundle functionBundle)
     {
         for (FunctionMetadata functionMetadata : functionBundle.getFunctions()) {
-            checkArgument(!functionMetadata.getSignature().getName().contains("|"), "Function name cannot contain '|' character: %s", functionMetadata.getSignature());
-            checkArgument(!functionMetadata.getSignature().getName().contains("@"), "Function name cannot contain '@' character: %s", functionMetadata.getSignature());
-            checkNotSpecializedTypeOperator(functionMetadata.getSignature());
-            for (FunctionMetadata existingFunction : this.functions.list()) {
-                checkArgument(!functionMetadata.getFunctionId().equals(existingFunction.getFunctionId()), "Function already registered: %s", functionMetadata.getFunctionId());
-                checkArgument(!functionMetadata.getSignature().equals(existingFunction.getSignature()), "Function already registered: %s", functionMetadata.getSignature());
+            checkArgument(!functions.getFunctionsById().containsKey(functionMetadata.getFunctionId()), "Function already registered: %s", functionMetadata.getFunctionId());
+
+            for (String alias : functionMetadata.getNames()) {
+                checkArgument(!alias.contains("|"), "Function name cannot contain '|' character: %s(%s)", alias, functionMetadata.getSignature());
+                checkArgument(!alias.contains("@"), "Function name cannot contain '@' character: %s(%s)", alias, functionMetadata.getSignature());
+                checkNotSpecializedTypeOperator(alias, functionMetadata.getSignature());
+
+                for (FunctionMetadata existingFunction : this.functions.get(alias)) {
+                    checkArgument(!functionMetadata.getSignature().equals(existingFunction.getSignature()), "Function already registered: %s(%s)", alias, functionMetadata.getSignature());
+                }
             }
         }
         this.functions = new FunctionMap(this.functions, functionBundle);
@@ -84,20 +88,18 @@ public class GlobalFunctionCatalog
      * Type operators are handled automatically by the engine, so custom operator implementations
      * cannot be registered for these.
      */
-    private static void checkNotSpecializedTypeOperator(Signature signature)
+    private static void checkNotSpecializedTypeOperator(String alias, Signature signature)
     {
-        String name = signature.getName();
-        if (!isOperatorName(name)) {
+        if (!isOperatorName(alias)) {
             return;
         }
 
-        OperatorType operatorType = unmangleOperator(name);
+        OperatorType operatorType = unmangleOperator(alias);
 
         // The trick here is the Generic*Operator implementations implement these exact signatures,
         // so we only these exact signatures to be registered.  Since, only a single function with
         // a specific signature can be registered, it prevents others from being registered.
         Signature.Builder expectedSignature = Signature.builder()
-                .name(signature.getName())
                 .argumentTypes(Collections.nCopies(operatorType.getArgumentCount(), new TypeSignature("T")));
 
         switch (operatorType) {
@@ -229,8 +231,11 @@ public class GlobalFunctionCatalog
 
             ImmutableListMultimap.Builder<String, FunctionMetadata> functionsByName = ImmutableListMultimap.<String, FunctionMetadata>builder()
                     .putAll(map.functionsByLowerCaseName);
-            functionBundle.getFunctions()
-                    .forEach(functionMetadata -> functionsByName.put(functionMetadata.getSignature().getName().toLowerCase(ENGLISH), functionMetadata));
+            for (FunctionMetadata function : functionBundle.getFunctions()) {
+                for (String alias : function.getNames()) {
+                    functionsByName.put(alias.toLowerCase(ENGLISH), function);
+                }
+            }
             this.functionsByLowerCaseName = functionsByName.build();
 
             // Make sure all functions with the same name are aggregations or none of them are
@@ -247,6 +252,11 @@ public class GlobalFunctionCatalog
         public List<FunctionMetadata> list()
         {
             return ImmutableList.copyOf(functionsByLowerCaseName.values());
+        }
+
+        public Map<FunctionId, FunctionMetadata> getFunctionsById()
+        {
+            return functionsById;
         }
 
         public Collection<FunctionMetadata> get(String functionName)

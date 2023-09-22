@@ -80,9 +80,8 @@ public final class MapFilterFunction
 
     private MapFilterFunction()
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.scalarBuilder("map_filter")
                 .signature(Signature.builder()
-                        .name("map_filter")
                         .typeVariable("K")
                         .typeVariable("V")
                         .returnType(mapType(new TypeSignature("K"), new TypeSignature("V")))

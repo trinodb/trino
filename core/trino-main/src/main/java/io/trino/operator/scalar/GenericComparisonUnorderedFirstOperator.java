@@ -35,9 +35,8 @@ public class GenericComparisonUnorderedFirstOperator
 
     public GenericComparisonUnorderedFirstOperator(TypeOperators typeOperators)
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.operatorBuilder(COMPARISON_UNORDERED_FIRST)
                 .signature(Signature.builder()
-                        .operatorType(COMPARISON_UNORDERED_FIRST)
                         .orderableTypeParameter("T")
                         .returnType(INTEGER)
                         .argumentType(new TypeSignature("T"))

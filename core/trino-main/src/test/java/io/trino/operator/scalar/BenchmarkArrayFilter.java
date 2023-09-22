@@ -281,9 +281,8 @@ public class BenchmarkArrayFilter
 
         private ExactArrayFilterFunction()
         {
-            super(FunctionMetadata.scalarBuilder()
+            super(FunctionMetadata.scalarBuilder("exact_filter")
                     .signature(Signature.builder()
-                            .name("exact_filter")
                             .typeVariable("T")
                             .returnType(arrayType(new TypeSignature("T")))
                             .argumentType(arrayType(new TypeSignature("T")))
@@ -336,9 +335,8 @@ public class BenchmarkArrayFilter
 
         private ExactArrayFilterObjectFunction()
         {
-            super(FunctionMetadata.scalarBuilder()
+            super(FunctionMetadata.scalarBuilder("exact_filter")
                     .signature(Signature.builder()
-                            .name("exact_filter")
                             .typeVariable("T")
                             .returnType(arrayType(new TypeSignature("T")))
                             .argumentType(arrayType(new TypeSignature("T")))
