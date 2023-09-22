@@ -22,7 +22,6 @@ import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
 import io.airlift.jmx.CacheStatsMBean;
-import io.airlift.log.Logger;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -54,6 +53,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -90,8 +90,6 @@ import static java.util.Objects.requireNonNull;
 
 public class TransactionLogAccess
 {
-    private static final Logger log = Logger.get(TransactionLogAccess.class);
-
     private final TypeManager typeManager;
     private final CheckpointSchemaManager checkpointSchemaManager;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
@@ -101,7 +99,7 @@ public class TransactionLogAccess
     private final int domainCompactionThreshold;
 
     private final Cache<TableLocation, TableSnapshot> tableSnapshots;
-    private final Cache<TableLocation, DeltaLakeDataFileCacheEntry> activeDataFileCache;
+    private final Cache<TableVersion, DeltaLakeDataFileCacheEntry> activeDataFileCache;
 
     // TODO move to query-level state
     private final Map<QueriedTable, TableSnapshot> queriedTables = new ConcurrentHashMap<>();
@@ -130,7 +128,7 @@ public class TransactionLogAccess
                 .recordStats()
                 .build();
         activeDataFileCache = EvictableCacheBuilder.newBuilder()
-                .weigher((Weigher<TableLocation, DeltaLakeDataFileCacheEntry>) (key, value) -> Ints.saturatedCast(key.getRetainedSizeInBytes() + value.getRetainedSizeInBytes()))
+                .weigher((Weigher<TableVersion, DeltaLakeDataFileCacheEntry>) (key, value) -> Ints.saturatedCast(key.getRetainedSizeInBytes() + value.getRetainedSizeInBytes()))
                 .maximumWeight(deltaLakeConfig.getDataFileCacheSize().toBytes())
                 .expireAfterWrite(deltaLakeConfig.getDataFileCacheTtl().toMillis(), TimeUnit.MILLISECONDS)
                 .shareNothingWhenDisabled()
@@ -225,10 +223,10 @@ public class TransactionLogAccess
         // Invalidate by location in case one table (location) unregistered and re-register under different name
         tableLocation.ifPresent(location -> {
             invalidateAllIf(tableSnapshots, cacheKey -> cacheKey.location().equals(location));
-            invalidateAllIf(activeDataFileCache, cacheKey -> cacheKey.location().equals(location));
+            invalidateAllIf(activeDataFileCache, cacheKey -> cacheKey.tableLocation().location().equals(location));
         });
         invalidateAllIf(tableSnapshots, cacheKey -> cacheKey.tableName().equals(schemaTableName));
-        invalidateAllIf(activeDataFileCache, cacheKey -> cacheKey.tableName().equals(schemaTableName));
+        invalidateAllIf(activeDataFileCache, cacheKey -> cacheKey.tableLocation().tableName().equals(schemaTableName));
     }
 
     public MetadataEntry getMetadataEntry(TableSnapshot tableSnapshot, ConnectorSession session)
@@ -252,38 +250,39 @@ public class TransactionLogAccess
     public List<AddFileEntry> getActiveFiles(TableSnapshot tableSnapshot, ConnectorSession session)
     {
         try {
-            TableLocation tableLocation = new TableLocation(tableSnapshot.getTable(), tableSnapshot.getTableLocation());
-            DeltaLakeDataFileCacheEntry cachedTable = activeDataFileCache.get(tableLocation, () -> {
+            TableVersion tableVersion = new TableVersion(new TableLocation(tableSnapshot.getTable(), tableSnapshot.getTableLocation()), tableSnapshot.getVersion());
+
+            DeltaLakeDataFileCacheEntry cacheEntry = activeDataFileCache.get(tableVersion, () -> {
+                DeltaLakeDataFileCacheEntry oldCached = activeDataFileCache.asMap().keySet().stream()
+                        .filter(key -> key.tableLocation().equals(tableVersion.tableLocation()) &&
+                                key.version() < tableVersion.version())
+                        .flatMap(key -> Optional.ofNullable(activeDataFileCache.getIfPresent(key))
+                                .map(value -> Map.entry(key, value))
+                                .stream())
+                        .max(Comparator.comparing(entry -> entry.getKey().version()))
+                        .map(Map.Entry::getValue)
+                        .orElse(null);
+                if (oldCached != null) {
+                    try {
+                        List<DeltaLakeTransactionLogEntry> newEntries = getJsonEntries(
+                                oldCached.getVersion(),
+                                tableSnapshot.getVersion(),
+                                tableSnapshot,
+                                fileSystemFactory.create(session));
+                        return oldCached.withUpdatesApplied(newEntries, tableSnapshot.getVersion());
+                    }
+                    catch (MissingTransactionLogException e) {
+                        // The cached state cannot be used to calculate current state, as some
+                        // intermediate transaction files are expired.
+                    }
+                }
+
                 List<AddFileEntry> activeFiles = loadActiveFiles(tableSnapshot, session);
                 return new DeltaLakeDataFileCacheEntry(tableSnapshot.getVersion(), activeFiles);
             });
-            if (cachedTable.getVersion() > tableSnapshot.getVersion()) {
-                log.warn("Query run with outdated Transaction Log Snapshot, retrieved stale table entries for table: %s and query %s", tableSnapshot.getTable(), session.getQueryId());
-                return loadActiveFiles(tableSnapshot, session);
-            }
-            if (cachedTable.getVersion() < tableSnapshot.getVersion()) {
-                DeltaLakeDataFileCacheEntry updatedCacheEntry;
-                try {
-                    List<DeltaLakeTransactionLogEntry> newEntries = getJsonEntries(
-                            cachedTable.getVersion(),
-                            tableSnapshot.getVersion(),
-                            tableSnapshot,
-                            fileSystemFactory.create(session));
-                    updatedCacheEntry = cachedTable.withUpdatesApplied(newEntries, tableSnapshot.getVersion());
-                }
-                catch (MissingTransactionLogException e) {
-                    // Reset the cached table when there are transaction files which are newer than
-                    // the cached table version which are already garbage collected.
-                    List<AddFileEntry> activeFiles = loadActiveFiles(tableSnapshot, session);
-                    updatedCacheEntry = new DeltaLakeDataFileCacheEntry(tableSnapshot.getVersion(), activeFiles);
-                }
-
-                activeDataFileCache.asMap().replace(tableLocation, cachedTable, updatedCacheEntry);
-                cachedTable = updatedCacheEntry;
-            }
-            return cachedTable.getActiveFiles();
+            return cacheEntry.getActiveFiles();
         }
-        catch (IOException | ExecutionException | UncheckedExecutionException e) {
+        catch (ExecutionException | UncheckedExecutionException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Failed accessing transaction log for table: " + tableSnapshot.getTable(), e);
         }
     }
@@ -561,6 +560,22 @@ public class TransactionLogAccess
             return INSTANCE_SIZE +
                     tableName.getRetainedSizeInBytes() +
                     estimatedSizeOf(location);
+        }
+    }
+
+    private record TableVersion(TableLocation tableLocation, long version)
+    {
+        private static final int INSTANCE_SIZE = instanceSize(TableVersion.class);
+
+        TableVersion
+        {
+            requireNonNull(tableLocation, "tableLocation is null");
+        }
+
+        long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE +
+                    tableLocation.getRetainedSizeInBytes();
         }
     }
 
