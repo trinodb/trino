@@ -115,7 +115,7 @@ public class DeltaLakeHistoryTable
         try {
             // Verify the transaction log is readable
             SchemaTableName baseTableName = new SchemaTableName(tableName.getSchemaName(), DeltaLakeTableName.tableNameFrom(tableName.getTableName()));
-            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(baseTableName, tableLocation, session);
+            TableSnapshot tableSnapshot = transactionLogAccess.getSnapshot(session, baseTableName, tableLocation, Optional.empty());
             snapshotVersion = tableSnapshot.getVersion();
             transactionLogAccess.getMetadataEntry(tableSnapshot, session);
         }
