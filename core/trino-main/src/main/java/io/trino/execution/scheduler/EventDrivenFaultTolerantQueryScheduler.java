@@ -90,10 +90,14 @@ import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.TableScanNode;
@@ -102,6 +106,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import jakarta.annotation.Nullable;
+import org.eclipse.jetty.util.PatternMatcher;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -151,6 +156,7 @@ import static io.trino.SystemSessionProperties.getRetryInitialDelay;
 import static io.trino.SystemSessionProperties.getRetryMaxDelay;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.getTaskRetryAttemptsPerTask;
+import static io.trino.SystemSessionProperties.isFaultTolerantExecutionMarkDistinctChainEstimationEnabled;
 import static io.trino.SystemSessionProperties.isFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled;
 import static io.trino.SystemSessionProperties.isFaultTolerantExecutionSmallStageEstimationEnabled;
 import static io.trino.SystemSessionProperties.isFaultTolerantExecutionSmallStageRequireNoMorePartitions;
@@ -189,6 +195,7 @@ import static java.lang.Math.min;
 import static java.lang.Math.round;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -224,6 +231,7 @@ public class EventDrivenFaultTolerantQueryScheduler
     private final DataSize smallSizePartitionSizeEstimate;
     private final boolean smallStageRequireNoMorePartitions;
     private final boolean stageEstimationForEagerParentEnabled;
+    private final boolean markDistinctChainEstimationEnabled;
 
     private final StageRegistry stageRegistry;
 
@@ -281,6 +289,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         this.smallSizePartitionSizeEstimate = getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin(queryStateMachine.getSession());
         this.smallStageRequireNoMorePartitions = isFaultTolerantExecutionSmallStageRequireNoMorePartitions(queryStateMachine.getSession());
         this.stageEstimationForEagerParentEnabled = isFaultTolerantExecutionStageEstimationForEagerParentEnabled(queryStateMachine.getSession());
+        this.markDistinctChainEstimationEnabled = isFaultTolerantExecutionMarkDistinctChainEstimationEnabled(queryStateMachine.getSession());
 
         stageRegistry = new StageRegistry(queryStateMachine, originalPlan);
     }
@@ -366,7 +375,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                     smallStageSourceSizeMultiplier,
                     smallSizePartitionSizeEstimate,
                     smallStageRequireNoMorePartitions,
-                    stageEstimationForEagerParentEnabled);
+                    stageEstimationForEagerParentEnabled,
+                    markDistinctChainEstimationEnabled);
             queryExecutor.submit(scheduler::run);
         }
         catch (Throwable t) {
@@ -553,6 +563,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final DataSize smallSizePartitionSizeEstimate;
         private final boolean smallStageRequireNoMorePartitions;
         private final boolean stageEstimationForEagerParentEnabled;
+        private final boolean markDistinctChainEstimationEnabled;
 
         private final BlockingQueue<Event> eventQueue = new LinkedBlockingQueue<>();
         private final List<Event> eventBuffer = new ArrayList<>(EVENT_BUFFER_CAPACITY);
@@ -610,7 +621,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                 double smallStageSourceSizeMultiplier,
                 DataSize smallSizePartitionSizeEstimate,
                 boolean smallStageRequireNoMorePartitions,
-                boolean stageEstimationForEagerParentEnabled)
+                boolean stageEstimationForEagerParentEnabled,
+                boolean markDistinctChainEstimationEnabled)
         {
             this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
@@ -648,6 +660,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.smallSizePartitionSizeEstimate = requireNonNull(smallSizePartitionSizeEstimate, "smallSizePartitionSizeEstimate is null");
             this.smallStageRequireNoMorePartitions = smallStageRequireNoMorePartitions;
             this.stageEstimationForEagerParentEnabled = stageEstimationForEagerParentEnabled;
+            this.markDistinctChainEstimationEnabled = markDistinctChainEstimationEnabled;
 
             planInTopologicalOrder = sortPlanInTopologicalOrder(plan);
         }
@@ -986,6 +999,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             boolean speculative = false;
             int finishedSourcesCount = 0;
             int estimatedByProgressSourcesCount = 0;
+            int estimatedByMarkDistinct = 0;
             int estimatedBySmallInputSourcesCount = 0;
             int estimatedForEagerParent = 0;
 
@@ -1047,6 +1061,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
                 switch (result.orElseThrow().getStatus()) {
                     case ESTIMATED_BY_PROGRESS -> estimatedByProgressSourcesCount++;
+                    case ESTIMATED_BY_MARK_DISTINCT -> estimatedByMarkDistinct++;
                     case ESTIMATED_BY_SMALL_INPUT -> estimatedBySmallInputSourcesCount++;
                     case ESTIMATED_FOR_EAGER_PARENT -> estimatedForEagerParent++;
                     default -> throw new IllegalStateException(format("unexpected status %s", result.orElseThrow().getStatus())); // FINISHED handled above
@@ -1061,11 +1076,12 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
 
             if (speculative) {
-                log.debug("scheduling speculative %s/%s; sources: finished=%s; estimatedByProgress=%s; estimatedSmall=%s; estimatedForEagerParent=%s",
+                log.debug("scheduling speculative %s/%s; sources: finished=%s; estimatedByProgress=%s; estimatedByMarkDistinct=%s; estimatedSmall=%s; estimatedForEagerParent=%s",
                         queryStateMachine.getQueryId(),
                         subPlan.getFragment().getId(),
                         finishedSourcesCount,
                         estimatedByProgressSourcesCount,
+                        estimatedByMarkDistinct,
                         estimatedBySmallInputSourcesCount,
                         estimatedForEagerParent);
             }
@@ -1220,7 +1236,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                         smallStageEstimationThreshold,
                         smallStageSourceSizeMultiplier,
                         smallSizePartitionSizeEstimate,
-                        smallStageRequireNoMorePartitions);
+                        smallStageRequireNoMorePartitions,
+                        markDistinctChainEstimationEnabled);
 
                 stageExecutions.put(execution.getStageId(), execution);
 
@@ -1636,6 +1653,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final double smallStageSourceSizeMultiplier;
         private final DataSize smallSizePartitionSizeEstimate;
         private final boolean smallStageRequireNoMorePartitions;
+        private final boolean markDistinctChainEstimationEnabled;
 
         private StageExecution(
                 QueryStateMachine queryStateMachine,
@@ -1655,7 +1673,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                 DataSize smallStageEstimationThreshold,
                 double smallStageSourceSizeMultiplier,
                 DataSize smallSizePartitionSizeEstimate,
-                boolean smallStageRequireNoMorePartitions)
+                boolean smallStageRequireNoMorePartitions,
+                boolean markDistinctChainEstimationEnabled)
         {
             this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
             this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
@@ -1685,6 +1704,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.smallStageSourceSizeMultiplier = smallStageSourceSizeMultiplier;
             this.smallSizePartitionSizeEstimate = requireNonNull(smallSizePartitionSizeEstimate, "smallSizePartitionSizeEstimate is null");
             this.smallStageRequireNoMorePartitions = smallStageRequireNoMorePartitions;
+            this.markDistinctChainEstimationEnabled = markDistinctChainEstimationEnabled;
         }
 
         public StageId getStageId()
@@ -2142,6 +2162,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         return Optional.of(new OutputDataSizeEstimateResult(new OutputDataSizeEstimate(ImmutableLongArray.copyOf(outputDataSize)), OutputDataSizeEstimateStatus.FINISHED));
                     },
                     this::getEstimatedOutputDataSize,
+                    () -> getEstimatedMarkDistinctStageOutputDataSize(stageExecutionLookup),
                     () -> getEstimatedSmallStageOutputDataSize(stageExecutionLookup),
                     () -> {
                         if (!parentEager) {
@@ -2189,6 +2210,77 @@ public class EventDrivenFaultTolerantQueryScheduler
                 estimateBuilder.add((long) (partitionSize / progress));
             }
             return Optional.of(new OutputDataSizeEstimateResult(new OutputDataSizeEstimate(estimateBuilder.build()), OutputDataSizeEstimateStatus.ESTIMATED_BY_PROGRESS));
+        }
+
+        private Optional<OutputDataSizeEstimateResult> getEstimatedMarkDistinctStageOutputDataSize(Function<StageId, StageExecution> stageExecutionLookup)
+        {
+            if (!markDistinctChainEstimationEnabled) {
+                return Optional.empty();
+            }
+
+            PlanFragment planFragment = this.getStageInfo().getPlan();
+            if (!isSingleMarkDistinctStage(planFragment)) {
+                return Optional.empty();
+            }
+
+            List<RemoteSourceNode> remoteSourceNodes = planFragment.getRemoteSourceNodes();
+            long inputSizeEstimate = 0;
+            for (RemoteSourceNode remoteSourceNode : remoteSourceNodes) {
+                for (PlanFragmentId sourceFragmentId : remoteSourceNode.getSourceFragmentIds()) {
+                    StageId sourceStageId = StageId.create(queryStateMachine.getQueryId(), sourceFragmentId);
+
+                    StageExecution sourceStage = stageExecutionLookup.apply(sourceStageId);
+                    Optional<OutputDataSizeEstimateResult> sourceStageOutputDataSize = sourceStage.getOutputDataSize(stageExecutionLookup, false);
+
+                    if (sourceStageOutputDataSize.isEmpty()) {
+                        // We need estimate from all sources
+                        return Optional.empty();
+                    }
+
+                    inputSizeEstimate += sourceStageOutputDataSize.orElseThrow().getOutputDataSizeEstimate().getTotalSizeInBytes();
+                }
+            }
+
+            inputSizeEstimate = (long) (inputSizeEstimate * 1.1); // conservatively assume some data growth
+
+            int outputPartitionsCount = sinkPartitioningScheme.getPartitionCount();
+
+            // assume uniform distribution
+            // TODO; should we use distribution as in this.outputDataSize if we have some data there already?
+            return Optional.of(new OutputDataSizeEstimateResult(
+                    ImmutableLongArray.copyOf(nCopies(outputPartitionsCount, inputSizeEstimate / outputPartitionsCount)),
+                    OutputDataSizeEstimateStatus.ESTIMATED_BY_MARK_DISTINCT));
+        }
+
+        private static boolean isSingleMarkDistinctStage(PlanFragment planFragment)
+        {
+            // check if we have single MarkDistinctNode
+            List<PlanNode> markDistinctNodes = PlanNodeSearcher.searchFrom(planFragment.getRoot())
+                    .whereIsInstanceOfAny(MarkDistinctNode.class)
+                    .findAll();
+
+            if (markDistinctNodes.size() != 1) {
+                return false;
+            }
+
+            // check if we have are reading from remote source as MarkDistinct is supposed to be hash distributed
+            if (!PlanNodeSearcher.searchFrom(planFragment.getRoot())
+                    .whereIsInstanceOfAny(RemoteSourceNode.class)
+                    .matches()) {
+                return false;
+            }
+
+            // check if only have allowed plan nodes in the stage
+            if (PlanNodeSearcher.searchFrom(planFragment.getRoot())
+                    .where(planNode -> !(
+                            planNode instanceof MarkDistinctNode // obvious
+                                    || planNode instanceof ProjectNode // output projection; e.g. to add extra hashing column
+                                    || planNode instanceof ExchangeNode // local exchange
+                                    || planNode instanceof RemoteSourceNode)) // reading from source stage
+                    .matches()) {
+                return false;
+            }
+            return true;
         }
 
         private Optional<OutputDataSizeEstimateResult> getEstimatedSmallStageOutputDataSize(Function<StageId, StageExecution> stageExecutionLookup)
@@ -2347,6 +2439,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         FINISHED,
         ESTIMATED_BY_PROGRESS,
         ESTIMATED_BY_SMALL_INPUT,
+        ESTIMATED_BY_MARK_DISTINCT,
         ESTIMATED_FOR_EAGER_PARENT
     }
 

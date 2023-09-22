@@ -145,6 +145,7 @@ public class QueryManagerConfig
     private double faultTolerantExecutionSmallStageSourceSizeMultiplier = 1.2;
     private boolean faultTolerantExecutionSmallStageRequireNoMorePartitions;
     private boolean faultTolerantExecutionStageEstimationForEagerParentEnabled = true;
+    private boolean faultTolerantExecutionMarkDistinctChainEstimationEnabled = true;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -1088,6 +1089,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionStageEstimationForEagerParentEnabled(boolean faultTolerantExecutionStageEstimationForEagerParentEnabled)
     {
         this.faultTolerantExecutionStageEstimationForEagerParentEnabled = faultTolerantExecutionStageEstimationForEagerParentEnabled;
+        return this;
+    }
+
+    public boolean isFaultTolerantExecutionMarkDistinctChainEstimationEnabled()
+    {
+        return faultTolerantExecutionMarkDistinctChainEstimationEnabled;
+    }
+
+    @Config("fault-tolerant-execution-mark-distinct-chain-estimation-enabled")
+    @ConfigDescription("Enable heuristic output size estimation for chain of stages with single mark distinct operator")
+    public QueryManagerConfig setFaultTolerantExecutionMarkDistinctChainEstimationEnabled(boolean faultTolerantExecutionMarkDistinctChainEstimationEnabled)
+    {
+        this.faultTolerantExecutionMarkDistinctChainEstimationEnabled = faultTolerantExecutionMarkDistinctChainEstimationEnabled;
         return this;
     }
 
