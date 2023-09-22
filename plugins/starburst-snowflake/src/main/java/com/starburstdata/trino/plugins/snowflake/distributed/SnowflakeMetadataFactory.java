@@ -20,6 +20,7 @@ import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.plugin.jdbc.JdbcTransactionHandle;
 import io.trino.plugin.jdbc.SingletonIdentityCacheMapping;
+import io.trino.plugin.jdbc.SyntheticColumnHandleBuilder;
 
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -31,16 +32,19 @@ public class SnowflakeMetadataFactory
 {
     private final JdbcClient jdbcClient;
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
+    private final SyntheticColumnHandleBuilder syntheticColumnBuilder;
 
     @Inject
     public SnowflakeMetadataFactory(
             JdbcClient jdbcClient,
             IdentityCacheMapping identityMapping,
             BaseJdbcConfig cachingConfig,
-            Set<JdbcQueryEventListener> jdbcQueryEventListeners)
+            Set<JdbcQueryEventListener> jdbcQueryEventListeners,
+            SyntheticColumnHandleBuilder syntheticColumnBuilder)
     {
         this.jdbcClient = new CachingJdbcClient(requireNonNull(jdbcClient, "jdbcClient is null"), Set.of(), identityMapping, cachingConfig);
         this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "jdbcQueryEventListeners is null"));
+        this.syntheticColumnBuilder = requireNonNull(syntheticColumnBuilder, "syntheticColumnBuilder is null");
     }
 
     @Override
@@ -48,6 +52,7 @@ public class SnowflakeMetadataFactory
     {
         return new SnowflakeMetadata(
                 new CachingJdbcClient(jdbcClient, Set.of(), new SingletonIdentityCacheMapping(), new Duration(1, TimeUnit.DAYS), true, Integer.MAX_VALUE),
-                jdbcQueryEventListeners);
+                jdbcQueryEventListeners,
+                syntheticColumnBuilder);
     }
 }

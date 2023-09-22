@@ -19,6 +19,7 @@ import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.jdbc.BaseJdbcFailureRecoveryTest;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 
 import java.io.IOException;
@@ -29,6 +30,7 @@ import java.util.Optional;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.jdbcBuilder;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseSnowflakeFailureRecoveryTest
         extends BaseJdbcFailureRecoveryTest
@@ -79,5 +81,27 @@ public abstract class BaseSnowflakeFailureRecoveryTest
     protected SnowflakeQueryRunner.Builder getBuilder()
     {
         return jdbcBuilder();
+    }
+
+    @Override
+    protected void testUpdateWithSubquery()
+    {
+        assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("Unexpected Join over for-update table scan");
+        throw new SkipException("skipped");
+    }
+
+    @Override
+    protected void testUpdate()
+    {
+        // This simple update on JDBC ends up as a very simple, single-fragment, coordinator-only plan,
+        // which has no ability to recover from errors. This test simply verifies that's still the case.
+        Optional<String> setupQuery = Optional.of("CREATE TABLE <table> AS SELECT * FROM orders");
+        String testQuery = "UPDATE <table> SET shippriority = 101 WHERE custkey = 1";
+        Optional<String> cleanupQuery = Optional.of("DROP TABLE <table>");
+
+        assertThatQuery(testQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .isCoordinatorOnly();
     }
 }

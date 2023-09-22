@@ -27,6 +27,7 @@ import java.util.Optional;
 
 import static com.starburstdata.trino.plugins.synapse.SynapseQueryRunner.DEFAULT_CATALOG_NAME;
 import static com.starburstdata.trino.plugins.synapse.SynapseQueryRunner.createSynapseQueryRunner;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseSynapseFailureRecoveryTest
         extends BaseJdbcFailureRecoveryTest
@@ -119,16 +120,22 @@ public abstract class BaseSynapseFailureRecoveryTest
     @Override
     protected void testUpdate()
     {
-        Assertions.assertThatThrownBy(() -> {
-            this.testTableModification(Optional.of("CREATE TABLE <table> AS SELECT * FROM nation"), "UPDATE <table> SET name = 'BRASIL' WHERE nationkey = 2", Optional.of("DROP TABLE <table>"));
-        }).hasMessageContaining("This connector does not support modifying table rows");
-        throw new SkipException("skipped");
+        // This simple update on JDBC ends up as a very simple, single-fragment, coordinator-only plan,
+        // which has no ability to recover from errors. This test simply verifies that's still the case.
+        Optional<String> setupQuery = Optional.of("CREATE TABLE <table> AS SELECT * FROM nation");
+        String testQuery = "UPDATE <table> SET name = 'BRASIL' WHERE nationkey = 2";
+        Optional<String> cleanupQuery = Optional.of("DROP TABLE <table>");
+
+        assertThatQuery(testQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .isCoordinatorOnly();
     }
 
     @Override
     protected void testUpdateWithSubquery()
     {
-        Assertions.assertThatThrownBy(() -> {
+        assertThatThrownBy(() -> {
             this.testTableModification(Optional.of("CREATE TABLE <table> AS SELECT * FROM nation"), "UPDATE <table> SET name = 'Brasil' WHERE nationkey = (SELECT min(custkey) + 1 FROM customer)", Optional.of("DROP TABLE <table>"));
         }).hasMessageContaining("This connector does not support modifying table rows");
         throw new SkipException("skipped");

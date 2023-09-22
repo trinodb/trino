@@ -51,6 +51,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
             case SUPPORTS_ADD_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
             case SUPPORTS_SET_COLUMN_TYPE:
+            case SUPPORTS_UPDATE:
                 // not supported in memory connector
                 return false;
 
@@ -175,7 +176,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
     {
         // Overridden because we get an error message with "Query failed (<query_id>):" prefixed instead of one expected by superclass
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
-            // TODO Investigate whey the message is different from SEP's ."*This connector does not support modifying table rows"
+            // TODO [SEP-12237] Investigate why the message is different from SEP's ."*This connector does not support modifying table rows"
             assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", "Failed fetching statistics for table: .*");
         }
     }
@@ -218,6 +219,15 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
     }
 
+    @Test
+    @Override
+    public void testUpdateNotNullColumn()
+    {
+        // Required because Stargate connector adds additional `Query failed (...):` prefix to the error message and uses remote catalog name
+        assertThatThrownBy(() -> query("CREATE TABLE not_null_constraint (not_null_col INTEGER NOT NULL)"))
+                .hasMessageContaining(format("Catalog '%s' does not support non-null column for column name '\"not_null_col\"'", getRemoteCatalogName()));
+    }
+
     @Override
     public void testNativeQueryInsertStatementTableExists()
     {
@@ -225,6 +235,14 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
             assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
                     .hasMessageContaining("mismatched input 'INSERT'");
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
+        }
+    }
+
+    @Override
+    public void verifySupportsUpdateDeclaration()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_update", "AS SELECT * FROM nation")) {
+            assertQueryFails("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", "Failed fetching statistics for table: .*");
         }
     }
 }

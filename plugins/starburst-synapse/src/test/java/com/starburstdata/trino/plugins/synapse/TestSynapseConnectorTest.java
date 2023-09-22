@@ -48,6 +48,7 @@ import static com.starburstdata.trino.plugins.synapse.SynapseQueryRunner.createS
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.NON_TRANSACTIONAL_INSERT;
 import static io.trino.plugin.jdbc.JoinOperator.FULL_JOIN;
 import static io.trino.plugin.sqlserver.SqlServerSessionProperties.BULK_COPY_FOR_WRITE;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -63,6 +64,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_LIMIT_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_UPDATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -1106,5 +1108,23 @@ public class TestSynapseConnectorTest
     public void testWriteTaskParallelismSessionProperty(int parallelism, int numberOfRows)
     {
         throw new SkipException("This test writes a table on sf100 scale. Will be re-nabled once we modify the base test to not use INSERT query. Re-enable this once https://github.com/starburstdata/starburst-trino-plugins/issues/253 is addressed");
+    }
+
+    @Test
+    @Override
+    public void testConstantUpdateWithVarcharInequalityPredicates()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"))) {
+            assertQueryFails("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 != 'A'", MODIFYING_ROWS_MESSAGE);
+        }
+    }
+
+    @Test
+    @Override
+    public void testConstantUpdateWithVarcharEqualityPredicates()
+    {
+        // overriding, super method should use SUPPORTS_ROW_LEVEL_UPDATE
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE));
+        super.testConstantUpdateWithVarcharEqualityPredicates();
     }
 }

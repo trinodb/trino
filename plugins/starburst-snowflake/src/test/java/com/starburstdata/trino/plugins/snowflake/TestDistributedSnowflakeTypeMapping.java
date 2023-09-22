@@ -52,7 +52,7 @@ public class TestDistributedSnowflakeTypeMapping
     {
         // Override because the max varchar length is different from JDBC client
         assertThatThrownBy(super::varcharMapping)
-                .hasMessageContaining("expected:<varchar([16777216])> but was:<varchar([65535])");
+                .hasMessageContaining("expected: varchar(16777216)\n but was: varchar(65535)");
 
         SqlDataTypeTest.create()
                 .addRoundTrip("varchar(10)", "'string 010'", createVarcharType(10), "'string 010'")
@@ -70,7 +70,7 @@ public class TestDistributedSnowflakeTypeMapping
     {
         // Override because the max varchar length is different from JDBC client
         assertThatThrownBy(super::varcharReadMapping)
-                .hasMessageContaining("expected:<varchar([16777216])> but was:<varchar([65535])");
+                .hasMessageContaining("expected: varchar(16777216)\n but was: varchar(65535)");
 
         SqlDataTypeTest.create()
                 .addRoundTrip("varchar(10)", "'string 010'", createVarcharType(10), "'string 010'")

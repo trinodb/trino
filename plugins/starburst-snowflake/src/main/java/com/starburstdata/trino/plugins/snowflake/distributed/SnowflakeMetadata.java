@@ -13,6 +13,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcQueryEventListener;
+import io.trino.plugin.jdbc.SyntheticColumnHandleBuilder;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -29,9 +30,9 @@ import static com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeClient.che
 public class SnowflakeMetadata
         extends DefaultJdbcMetadata
 {
-    public SnowflakeMetadata(JdbcClient jdbcClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
+    public SnowflakeMetadata(JdbcClient jdbcClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners, SyntheticColumnHandleBuilder syntheticColumnBuilder)
     {
-        super(jdbcClient, true, jdbcQueryEventListeners);
+        super(jdbcClient, true, jdbcQueryEventListeners, syntheticColumnBuilder);
     }
 
     @Override
