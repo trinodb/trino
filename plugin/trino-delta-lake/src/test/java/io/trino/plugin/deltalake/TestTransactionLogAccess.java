@@ -159,7 +159,7 @@ public class TestTransactionLogAccess
                 Optional.empty(),
                 0);
 
-        tableSnapshot = transactionLogAccess.loadSnapshot(tableHandle.getSchemaTableName(), tableLocation, SESSION);
+        tableSnapshot = transactionLogAccess.getSnapshot(SESSION, tableHandle.getSchemaTableName(), tableLocation, Optional.empty());
     }
 
     @Test
@@ -426,8 +426,9 @@ public class TestTransactionLogAccess
 
         String lastTransactionName = format("%020d.json", 12);
         Files.copy(resourceDir.resolve(lastTransactionName), new File(transactionLogDir, lastTransactionName).toPath());
-        TableSnapshot updatedSnapshot = transactionLogAccess.loadSnapshot(new SchemaTableName("schema", tableName), tableDir.toURI().toString(), SESSION);
+        TableSnapshot updatedSnapshot = transactionLogAccess.getSnapshot(SESSION, new SchemaTableName("schema", tableName), tableDir.toURI().toString(), Optional.empty());
         assertEquals(updatedSnapshot.getVersion(), 12);
+        transactionLogAccess.cleanupQuery(SESSION);
     }
 
     @Test
@@ -457,8 +458,9 @@ public class TestTransactionLogAccess
         assertEqualsIgnoreOrder(activeDataFiles.stream().map(AddFileEntry::getPath).collect(Collectors.toSet()), dataFiles);
 
         copyTransactionLogEntry(7, 9, resourceDir, transactionLogDir);
-        TableSnapshot updatedSnapshot = transactionLogAccess.loadSnapshot(new SchemaTableName("schema", tableName), tableDir.toURI().toString(), SESSION);
+        TableSnapshot updatedSnapshot = transactionLogAccess.getSnapshot(SESSION, new SchemaTableName("schema", tableName), tableDir.toURI().toString(), Optional.empty());
         activeDataFiles = transactionLogAccess.getActiveFiles(updatedSnapshot, SESSION);
+        transactionLogAccess.cleanupQuery(SESSION);
 
         dataFiles = ImmutableSet.of(
                 "age=21/part-00000-3d546786-bedc-407f-b9f7-e97aa12cce0f.c000.snappy.parquet",
@@ -500,8 +502,9 @@ public class TestTransactionLogAccess
 
         copyTransactionLogEntry(8, 12, resourceDir, transactionLogDir);
         Files.copy(new File(resourceDir, LAST_CHECKPOINT_FILENAME).toPath(), new File(transactionLogDir, LAST_CHECKPOINT_FILENAME).toPath());
-        TableSnapshot updatedSnapshot = transactionLogAccess.loadSnapshot(new SchemaTableName("schema", tableName), tableDir.toURI().toString(), SESSION);
+        TableSnapshot updatedSnapshot = transactionLogAccess.getSnapshot(SESSION, new SchemaTableName("schema", tableName), tableDir.toURI().toString(), Optional.empty());
         activeDataFiles = transactionLogAccess.getActiveFiles(updatedSnapshot, SESSION);
+        transactionLogAccess.cleanupQuery(SESSION);
 
         dataFiles = ImmutableSet.of(
                 "age=21/part-00000-3d546786-bedc-407f-b9f7-e97aa12cce0f.c000.snappy.parquet",
@@ -564,8 +567,9 @@ public class TestTransactionLogAccess
                 "age=29/part-00000-3794c463-cb0c-4beb-8d07-7cc1e3b5920f.c000.snappy.parquet");
         assertFileSystemAccesses(
                 () -> {
-                    TableSnapshot updatedTableSnapshot = transactionLogAccess.loadSnapshot(new SchemaTableName("schema", tableName), tableDir.toURI().toString(), SESSION);
+                    TableSnapshot updatedTableSnapshot = transactionLogAccess.getSnapshot(SESSION, new SchemaTableName("schema", tableName), tableDir.toURI().toString(), Optional.empty());
                     List<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(updatedTableSnapshot, SESSION);
+                    transactionLogAccess.cleanupQuery(SESSION);
                     assertEqualsIgnoreOrder(activeDataFiles.stream().map(AddFileEntry::getPath).collect(Collectors.toSet()), union(originalDataFiles, newDataFiles));
                 },
                 ImmutableMultiset.<FileOperation>builder()
@@ -597,7 +601,7 @@ public class TestTransactionLogAccess
         Set<String> newDataFiles = ImmutableSet.of(
                 "age=28/part-00000-40dd1707-1d42-4328-a59a-21f5c945fe60.c000.snappy.parquet",
                 "age=29/part-00000-3794c463-cb0c-4beb-8d07-7cc1e3b5920f.c000.snappy.parquet");
-        TableSnapshot updatedTableSnapshot = transactionLogAccess.loadSnapshot(new SchemaTableName("schema", tableName), tableDir.toURI().toString(), SESSION);
+        TableSnapshot updatedTableSnapshot = transactionLogAccess.getSnapshot(SESSION, new SchemaTableName("schema", tableName), tableDir.toURI().toString(), Optional.empty());
         List<AddFileEntry> allDataFiles = transactionLogAccess.getActiveFiles(updatedTableSnapshot, SESSION);
         List<AddFileEntry> dataFilesWithFixedVersion = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
         for (String newFilePath : newDataFiles) {
@@ -629,6 +633,8 @@ public class TestTransactionLogAccess
                 assertEquals(expected.getStats().get().getNumRecords(), actual.getStats().get().getNumRecords());
             }
         }
+
+        transactionLogAccess.cleanupQuery(SESSION);
     }
 
     @Test
@@ -651,12 +657,14 @@ public class TestTransactionLogAccess
         assertEquals(tableSnapshot.getVersion(), 0L);
 
         copyTransactionLogEntry(1, 2, resourceDir, transactionLogDir);
-        TableSnapshot firstUpdate = transactionLogAccess.loadSnapshot(schemaTableName, tableLocation, SESSION);
+        TableSnapshot firstUpdate = transactionLogAccess.getSnapshot(SESSION, schemaTableName, tableLocation, Optional.empty());
         assertEquals(firstUpdate.getVersion(), 1L);
 
         copyTransactionLogEntry(2, 3, resourceDir, transactionLogDir);
-        TableSnapshot secondUpdate = transactionLogAccess.loadSnapshot(schemaTableName, tableLocation, SESSION);
+        TableSnapshot secondUpdate = transactionLogAccess.getSnapshot(SESSION, schemaTableName, tableLocation, Optional.empty());
         assertEquals(secondUpdate.getVersion(), 2L);
+
+        transactionLogAccess.cleanupQuery(SESSION);
     }
 
     @Test
@@ -728,7 +736,7 @@ public class TestTransactionLogAccess
         // With the transaction log cache disabled, when loading the snapshot again, all the needed files will be opened again
         assertFileSystemAccesses(
                 () -> {
-                    transactionLogAccess.loadSnapshot(new SchemaTableName("schema", tableName), tableDir, SESSION);
+                    transactionLogAccess.getSnapshot(SESSION, new SchemaTableName("schema", tableName), tableDir, Optional.empty());
                 },
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM), 1)
@@ -802,7 +810,7 @@ public class TestTransactionLogAccess
         transactionLogAccess.flushCache();
         assertFileSystemAccesses(
                 () -> {
-                    transactionLogAccess.loadSnapshot(new SchemaTableName("schema", tableName), tableDir, SESSION);
+                    transactionLogAccess.getSnapshot(SESSION, new SchemaTableName("schema", tableName), tableDir, Optional.empty());
                     List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
                     assertEquals(addFileEntries.size(), 12);
                 },
@@ -871,9 +879,11 @@ public class TestTransactionLogAccess
     private void assertFileSystemAccesses(ThrowingRunnable callback, Multiset<FileOperation> expectedAccesses)
             throws Exception
     {
+        transactionLogAccess.cleanupQuery(SESSION);
         trackingFileSystemFactory.reset();
         callback.run();
         assertMultisetsEqual(getOperations(), expectedAccesses);
+        transactionLogAccess.cleanupQuery(SESSION);
     }
 
     private Multiset<FileOperation> getOperations()
