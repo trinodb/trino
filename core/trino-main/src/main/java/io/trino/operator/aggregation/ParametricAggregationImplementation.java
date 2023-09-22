@@ -232,24 +232,6 @@ public class ParametricAggregationImplementation
         return true;
     }
 
-    @Override
-    public ParametricImplementation withAlias(String alias)
-    {
-        return new ParametricAggregationImplementation(
-                signature.withName(alias),
-                definitionClass,
-                inputFunction,
-                removeInputFunction,
-                outputFunction,
-                combineFunction,
-                argumentNativeContainerTypes,
-                inputDependencies,
-                removeInputDependencies,
-                combineDependencies,
-                outputDependencies,
-                inputParameterKinds);
-    }
-
     public static final class Parser
     {
         private final Class<?> aggregationDefinition;
@@ -271,7 +253,6 @@ public class ParametricAggregationImplementation
 
         private Parser(
                 Class<?> aggregationDefinition,
-                String name,
                 List<AccumulatorStateDetails<?>> stateDetails,
                 Method inputFunction,
                 Optional<Method> removeInputFunction,
@@ -280,7 +261,6 @@ public class ParametricAggregationImplementation
         {
             // rewrite data passed directly
             this.aggregationDefinition = aggregationDefinition;
-            signatureBuilder.name(name);
 
             // parse declared literal and type parameters
             // it is required to declare all literal and type parameters in input function
@@ -343,14 +323,13 @@ public class ParametricAggregationImplementation
 
         public static ParametricAggregationImplementation parseImplementation(
                 Class<?> aggregationDefinition,
-                String name,
                 List<AccumulatorStateDetails<?>> stateDetails,
                 Method inputFunction,
                 Optional<Method> removeInputFunction,
                 Method outputFunction,
                 Optional<Method> combineFunction)
         {
-            return new Parser(aggregationDefinition, name, stateDetails, inputFunction, removeInputFunction, outputFunction, combineFunction).get();
+            return new Parser(aggregationDefinition, stateDetails, inputFunction, removeInputFunction, outputFunction, combineFunction).get();
         }
 
         private static List<AggregationParameterKind> parseInputParameterKinds(Method method)

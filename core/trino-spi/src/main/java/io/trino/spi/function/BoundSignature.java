@@ -43,6 +43,9 @@ public class BoundSignature
         this.argumentTypes = List.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
     }
 
+    /**
+     * The absolute canonical name of the function.
+     */
     @JsonProperty
     public CatalogSchemaFunctionName getName()
     {
@@ -74,7 +77,6 @@ public class BoundSignature
     public Signature toSignature()
     {
         return Signature.builder()
-                .name(name.getFunctionName())
                 .returnType(returnType)
                 .argumentTypes(argumentTypes.stream()
                         .map(Type::getTypeSignature)

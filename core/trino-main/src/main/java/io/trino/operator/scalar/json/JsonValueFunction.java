@@ -80,9 +80,8 @@ public class JsonValueFunction
 
     public JsonValueFunction(FunctionManager functionManager, Metadata metadata, TypeManager typeManager)
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.scalarBuilder(JSON_VALUE_FUNCTION_NAME)
                 .signature(Signature.builder()
-                        .name(JSON_VALUE_FUNCTION_NAME)
                         .typeVariable("R")
                         .typeVariable("T")
                         .returnType(new TypeSignature("R"))

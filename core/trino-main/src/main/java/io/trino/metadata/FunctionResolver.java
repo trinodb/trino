@@ -129,7 +129,10 @@ public class FunctionResolver
     private CatalogFunctionBinding toFunctionBinding(CatalogFunctionMetadata functionMetadata, Signature signature)
     {
         BoundSignature boundSignature = new BoundSignature(
-                functionMetadata.name(),
+                new CatalogSchemaFunctionName(
+                        functionMetadata.catalogHandle().getCatalogName(),
+                        functionMetadata.schemaName(),
+                        functionMetadata.functionMetadata().getCanonicalName()),
                 typeManager.getType(signature.getReturnType()),
                 signature.getArgumentTypes().stream()
                         .map(typeManager::getType)
@@ -487,12 +490,12 @@ public class FunctionResolver
         }
     }
 
-    record CatalogFunctionMetadata(CatalogSchemaFunctionName name, CatalogHandle catalogHandle, FunctionMetadata functionMetadata)
+    record CatalogFunctionMetadata(CatalogHandle catalogHandle, String schemaName, FunctionMetadata functionMetadata)
     {
         CatalogFunctionMetadata
         {
-            requireNonNull(name, "name is null");
             requireNonNull(catalogHandle, "catalogHandle is null");
+            requireNonNull(schemaName, "schemaName is null");
             requireNonNull(functionMetadata, "functionMetadata is null");
         }
     }

@@ -55,9 +55,8 @@ public class MapSubscriptOperator
 
     public MapSubscriptOperator()
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.operatorBuilder(SUBSCRIPT)
                 .signature(Signature.builder()
-                        .operatorType(SUBSCRIPT)
                         .typeVariable("K")
                         .typeVariable("V")
                         .returnType(new TypeSignature("V"))
