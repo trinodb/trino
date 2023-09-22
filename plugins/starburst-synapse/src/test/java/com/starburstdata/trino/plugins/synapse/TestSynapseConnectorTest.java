@@ -59,12 +59,9 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_LIMIT_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_UPDATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -99,6 +96,7 @@ public class TestSynapseConnectorTest
         switch (connectorBehavior) {
             // Overriden because Synapse disables connector expression pushdown due to correctness issues with varchar pushdown because of default case-insensitive collation
             case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN:
+            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY:
                 return false;
             default:
                 return super.hasBehavior(connectorBehavior);
@@ -424,11 +422,8 @@ public class TestSynapseConnectorTest
                     hasBehavior(SUPPORTS_JOIN_PUSHDOWN),
                     node(JoinNode.class, anyTree(node(TableScanNode.class)), anyTree(node(TableScanNode.class))));
             // GROUP BY with WHERE on neither grouping nor aggregation column
-            assertConditionallyPushedDown(
-                    getSession(),
-                    format("SELECT nationkey, min(regionkey) FROM %s WHERE name = 'ARGENTINA' GROUP BY nationkey", caseSensitiveNation),
-                    hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY),
-                    node(FilterNode.class, node(TableScanNode.class)));
+            assertThat(query(getSession(), format("SELECT nationkey, min(regionkey) FROM %s WHERE name = 'ARGENTINA' GROUP BY nationkey", caseSensitiveNation)))
+                    .isFullyPushedDown();
             // GROUP BY with WHERE complex predicate
             assertConditionallyPushedDown(
                     getSession(),
@@ -440,11 +435,8 @@ public class TestSynapseConnectorTest
             // aggregation on varchar column with GROUPING
             assertThat(query("SELECT nationkey, count(name) FROM nation GROUP BY nationkey")).isFullyPushedDown();
             // aggregation on varchar column with WHERE
-            assertConditionallyPushedDown(
-                    getSession(),
-                    format("SELECT count(name) FROM %s WHERE name = 'ARGENTINA'", caseSensitiveNation),
-                    hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY),
-                    node(FilterNode.class, node(TableScanNode.class)));
+            assertThat(query(getSession(), format("SELECT count(name) FROM %s WHERE name = 'ARGENTINA'", caseSensitiveNation)))
+                    .isFullyPushedDown();
 
             // pruned away aggregation
             assertThat(query("SELECT -13 FROM (SELECT count(*) FROM nation)"))
@@ -545,14 +537,10 @@ public class TestSynapseConnectorTest
                 assertThat(query(session, format("SELECT r.name, n.name FROM nation n %s region r USING(regionkey)", joinOperator))).isFullyPushedDown();
 
                 // varchar equality predicate
-                assertJoinConditionallyPushedDown(
-                        session,
-                        format("SELECT n.name, n2.regionkey FROM %1$s n %2$s %1$s n2 ON n.name = n2.name", caseSensitiveNation, joinOperator),
-                        hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY));
-                assertJoinConditionallyPushedDown(
-                        session,
-                        format("SELECT n.name, nl.regionkey FROM %s n %s %s nl ON n.name = nl.name", caseSensitiveNation, joinOperator, nationLowercaseTable.getName()),
-                        hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY));
+                assertThat(query(session, format("SELECT n.name, n2.regionkey FROM %1$s n %2$s %1$s n2 ON n.name = n2.name", caseSensitiveNation, joinOperator)))
+                        .isFullyPushedDown();
+                assertThat(query(session, format("SELECT n.name, nl.regionkey FROM %s n %s %s nl ON n.name = nl.name", caseSensitiveNation, joinOperator, nationLowercaseTable.getName())))
+                        .isFullyPushedDown();
 
                 // multiple bigint predicates
                 assertThat(query(session, format("SELECT n.name, c.name FROM nation n %s customer c ON n.nationkey = c.nationkey and n.regionkey = c.custkey", joinOperator)))
@@ -597,11 +585,9 @@ public class TestSynapseConnectorTest
                         .isFullyPushedDown();
 
                 // Join over a varchar equality predicate
-                assertJoinConditionallyPushedDown(
-                        session,
-                        format("SELECT c.name, n.name FROM (SELECT * FROM %s WHERE address = 'TcGe5gaZNgVePxU5kRrvXBfkasDTea') c " +
-                                "%s nation n ON c.custkey = n.nationkey", caseSensitiveCustomer, joinOperator),
-                        hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY));
+                assertThat(query(session, format("SELECT c.name, n.name FROM (SELECT * FROM %s WHERE address = 'TcGe5gaZNgVePxU5kRrvXBfkasDTea') c " +
+                        "%s nation n ON c.custkey = n.nationkey", caseSensitiveCustomer, joinOperator)))
+                        .isFullyPushedDown();
 
                 // Join over a varchar inequality predicate
                 assertJoinConditionallyPushedDown(
@@ -1117,14 +1103,5 @@ public class TestSynapseConnectorTest
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"))) {
             assertQueryFails("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 != 'A'", MODIFYING_ROWS_MESSAGE);
         }
-    }
-
-    @Test
-    @Override
-    public void testConstantUpdateWithVarcharEqualityPredicates()
-    {
-        // overriding, super method should use SUPPORTS_ROW_LEVEL_UPDATE
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE));
-        super.testConstantUpdateWithVarcharEqualityPredicates();
     }
 }
