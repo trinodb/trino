@@ -40,11 +40,13 @@ import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_GET_LENGTH;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_CREATE;
+import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_CREATE_OR_OVERWRITE;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.CDF_DATA;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.CHECKPOINT;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.DATA;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.LAST_CHECKPOINT;
+import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.STARBURST_EXTENDED_STATS_JSON;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.TRANSACTION_LOG_JSON;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.TRINO_EXTENDED_STATS_JSON;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
@@ -97,6 +99,41 @@ public class TestDeltaLakeFileOperations
             closeAllSuppress(e, queryRunner);
             throw e;
         }
+    }
+
+    @Test
+    public void testCreateTableAsSelect()
+    {
+        assertFileSystemAccesses(
+                "CREATE TABLE test_create_as_select AS SELECT 1 col_name",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(STARBURST_EXTENDED_STATS_JSON, "extendeded_stats.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(STARBURST_EXTENDED_STATS_JSON, "extendeded_stats.json", INPUT_FILE_EXISTS))
+                        .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", OUTPUT_FILE_CREATE_OR_OVERWRITE))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", OUTPUT_FILE_CREATE))
+                        .add(new FileOperation(DATA, "no partition", OUTPUT_FILE_CREATE))
+                        .add(new FileOperation(DATA, "no partition", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(DATA, "no partition", INPUT_FILE_GET_LENGTH))
+                        .build());
+        assertUpdate("DROP TABLE test_create_as_select");
+
+        assertFileSystemAccesses(
+                "CREATE TABLE test_create_partitioned_as_select WITH (partitioned_by=ARRAY['key']) AS SELECT * FROM (VALUES (1, 'a'), (2, 'b')) t(key, col)",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(STARBURST_EXTENDED_STATS_JSON, "extendeded_stats.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(STARBURST_EXTENDED_STATS_JSON, "extendeded_stats.json", INPUT_FILE_EXISTS))
+                        .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", OUTPUT_FILE_CREATE_OR_OVERWRITE))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", OUTPUT_FILE_CREATE))
+                        .add(new FileOperation(DATA, "key=1/", OUTPUT_FILE_CREATE))
+                        .add(new FileOperation(DATA, "key=2/", OUTPUT_FILE_CREATE))
+                        .add(new FileOperation(DATA, "key=1/", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(DATA, "key=1/", INPUT_FILE_GET_LENGTH))
+                        .add(new FileOperation(DATA, "key=2/", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(DATA, "key=2/", INPUT_FILE_GET_LENGTH))
+                        .build());
+        assertUpdate("DROP TABLE test_create_partitioned_as_select");
     }
 
     @Test
@@ -597,7 +634,10 @@ public class TestDeltaLakeFileOperations
     {
         return trackingFileSystemFactory.getOperationCounts()
                 .entrySet().stream()
-                .filter(entry -> !entry.getKey().location().path().endsWith(".trinoSchema"))
+                .filter(entry -> {
+                    String path = entry.getKey().location().path();
+                    return !path.endsWith(".trinoSchema") && !path.contains(".trinoPermissions");
+                })
                 .flatMap(entry -> nCopies(entry.getValue(), FileOperation.create(
                         entry.getKey().location().path(),
                         entry.getKey().operationType())).stream())
@@ -621,6 +661,9 @@ public class TestDeltaLakeFileOperations
             }
             if (path.matches(".*/_delta_log/_trino_meta/extended_stats.json")) {
                 return new FileOperation(TRINO_EXTENDED_STATS_JSON, fileName, operationType);
+            }
+            if (path.matches(".*/_delta_log/_starburst_meta/extendeded_stats.json")) {
+                return new FileOperation(STARBURST_EXTENDED_STATS_JSON, fileName, operationType);
             }
             if (path.matches(".*/_change_data/.*")) {
                 Matcher matcher = dataFilePattern.matcher(path);
@@ -651,6 +694,7 @@ public class TestDeltaLakeFileOperations
         CHECKPOINT,
         TRANSACTION_LOG_JSON,
         TRINO_EXTENDED_STATS_JSON,
+        STARBURST_EXTENDED_STATS_JSON,
         DATA,
         CDF_DATA,
         /**/;
