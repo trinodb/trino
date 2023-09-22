@@ -489,7 +489,7 @@ public class DeltaLakeMetadata
         boolean managed = table.get().managed();
 
         String tableLocation = table.get().location();
-        TableSnapshot tableSnapshot = getSnapshot(tableName, tableLocation, session);
+        TableSnapshot tableSnapshot = getSnapshot(session, tableName, tableLocation, Optional.empty());
         Map<Class<?>, Object> logEntries;
         try {
             logEntries = transactionLogAccess.getTransactionLogEntries(
@@ -718,7 +718,7 @@ public class DeltaLakeMetadata
                             return Stream.of();
                         }
                         String tableLocation = metastoreTable.get().location();
-                        TableSnapshot snapshot = getSnapshot(table, tableLocation, session);
+                        TableSnapshot snapshot = getSnapshot(session, table, tableLocation, Optional.empty());
                         MetadataEntry metadata = transactionLogAccess.getMetadataEntry(snapshot, session);
                         ProtocolEntry protocol = transactionLogAccess.getProtocolEntry(session, snapshot);
                         Map<String, String> columnComments = getColumnComments(metadata);
@@ -761,7 +761,7 @@ public class DeltaLakeMetadata
         if (!isTableStatisticsEnabled(session)) {
             return TableStatistics.empty();
         }
-        return tableStatisticsProvider.getTableStatistics(session, handle, getSnapshot(handle.getSchemaTableName(), handle.getLocation(), session));
+        return tableStatisticsProvider.getTableStatistics(session, handle, getSnapshot(session, handle));
     }
 
     @Override
@@ -1407,7 +1407,7 @@ public class DeltaLakeMetadata
         }
         checkUnsupportedWriterFeatures(protocolEntry);
 
-        if (!newColumnMetadata.isNullable() && !transactionLogAccess.getActiveFiles(getSnapshot(handle.getSchemaTableName(), handle.getLocation(), session), session).isEmpty()) {
+        if (!newColumnMetadata.isNullable() && !transactionLogAccess.getActiveFiles(getSnapshot(session, handle), session).isEmpty()) {
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to add NOT NULL column '%s' for non-empty table: %s.%s", newColumnMetadata.getName(), handle.getSchemaName(), handle.getTableName()));
         }
 
@@ -1822,7 +1822,7 @@ public class DeltaLakeMetadata
 
             transactionLogWriter.flush();
             writeCommitted = true;
-            writeCheckpointIfNeeded(session, handle.getTableName(), handle.getLocation(), checkpointInterval, commitVersion);
+            writeCheckpointIfNeeded(session, handle.getTableName(), handle.getLocation(), handle.getReadVersion(), checkpointInterval, commitVersion);
 
             if (isCollectExtendedStatisticsColumnStatisticsOnWrite(session) && !computedStatistics.isEmpty() && !dataFileInfos.isEmpty()) {
                 // TODO (https://github.com/trinodb/trino/issues/16088) Add synchronization when version conflict for INSERT is resolved.
@@ -1986,7 +1986,7 @@ public class DeltaLakeMetadata
             transactionLogWriter.flush();
             writeCommitted = true;
 
-            writeCheckpointIfNeeded(session, new SchemaTableName(handle.getSchemaName(), handle.getTableName()), handle.getLocation(), checkpointInterval, commitVersion);
+            writeCheckpointIfNeeded(session, handle.getSchemaTableName(), handle.getLocation(), handle.getReadVersion(), checkpointInterval, commitVersion);
         }
         catch (IOException | RuntimeException e) {
             if (!writeCommitted) {
@@ -2182,7 +2182,13 @@ public class DeltaLakeMetadata
             transactionLogWriter.flush();
             writeCommitted = true;
             Optional<Long> checkpointInterval = Optional.of(1L); // force checkpoint
-            writeCheckpointIfNeeded(session, executeHandle.getSchemaTableName(), executeHandle.getTableLocation(), checkpointInterval, commitVersion);
+            writeCheckpointIfNeeded(
+                    session,
+                    executeHandle.getSchemaTableName(),
+                    executeHandle.getTableLocation(),
+                    optimizeHandle.getCurrentVersion().orElseThrow(),
+                    checkpointInterval,
+                    commitVersion);
         }
         catch (Exception e) {
             if (!writeCommitted) {
@@ -2259,10 +2265,15 @@ public class DeltaLakeMetadata
         }
     }
 
-    private TableSnapshot getSnapshot(SchemaTableName schemaTableName, String tableLocation, ConnectorSession session)
+    private TableSnapshot getSnapshot(ConnectorSession session, DeltaLakeTableHandle table)
+    {
+        return getSnapshot(session, table.getSchemaTableName(), table.getLocation(), Optional.of(table.getReadVersion()));
+    }
+
+    private TableSnapshot getSnapshot(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, Optional<Long> atVersion)
     {
         try {
-            return transactionLogAccess.loadSnapshot(schemaTableName, tableLocation, session);
+            return transactionLogAccess.getSnapshot(session, schemaTableName, tableLocation, atVersion);
         }
         catch (IOException | RuntimeException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting snapshot for " + schemaTableName, e);
@@ -2299,12 +2310,18 @@ public class DeltaLakeMetadata
                 writerFeatures.isEmpty() ? Optional.empty() : Optional.of(writerFeatures));
     }
 
-    private void writeCheckpointIfNeeded(ConnectorSession session, SchemaTableName table, String tableLocation, Optional<Long> checkpointInterval, long newVersion)
+    private void writeCheckpointIfNeeded(
+            ConnectorSession session,
+            SchemaTableName table,
+            String tableLocation,
+            long readVersion,
+            Optional<Long> checkpointInterval,
+            long newVersion)
     {
         try {
             // We are writing checkpoint synchronously. It should not be long lasting operation for tables where transaction log is not humongous.
             // Tables with really huge transaction logs would behave poorly in read flow already.
-            TableSnapshot snapshot = getSnapshot(table, tableLocation, session);
+            TableSnapshot snapshot = getSnapshot(session, table, tableLocation, Optional.of(readVersion));
             long lastCheckpointVersion = snapshot.getLastCheckpointVersion().orElse(0L);
             if (newVersion - lastCheckpointVersion < checkpointInterval.orElse(defaultCheckpointInterval)) {
                 return;
@@ -2319,7 +2336,8 @@ public class DeltaLakeMetadata
                 LOG.info("Snapshot for table %s already at version %s when checkpoint requested for version %s", table, snapshot.getVersion(), newVersion);
             }
 
-            checkpointWriterManager.writeCheckpoint(session, snapshot);
+            TableSnapshot updatedSnapshot = snapshot.getUpdatedSnapshot(fileSystemFactory.create(session), Optional.of(newVersion)).orElseThrow();
+            checkpointWriterManager.writeCheckpoint(session, updatedSnapshot);
         }
         catch (Exception e) {
             // We can't fail here as transaction was already committed, in case of INSERT this could result
@@ -3086,7 +3104,7 @@ public class DeltaLakeMetadata
         }
         Optional<Instant> maxFileModificationTime = getMaxFileModificationTime(computedStatistics);
         Map<String, String> physicalColumnNameMapping = extractSchema(tableHandle.getMetadataEntry(), tableHandle.getProtocolEntry(), typeManager).stream()
-                        .collect(toImmutableMap(DeltaLakeColumnMetadata::getName, DeltaLakeColumnMetadata::getPhysicalName));
+                .collect(toImmutableMap(DeltaLakeColumnMetadata::getName, DeltaLakeColumnMetadata::getPhysicalName));
         updateTableStatistics(
                 session,
                 Optional.of(analyzeHandle),
@@ -3101,7 +3119,7 @@ public class DeltaLakeMetadata
     private void generateMissingFileStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
     {
         Map<String, AddFileEntry> addFileEntriesWithNoStats = transactionLogAccess.getActiveFiles(
-                        getSnapshot(tableHandle.getSchemaTableName(), tableHandle.getLocation(), session), session)
+                        getSnapshot(session, tableHandle), session)
                 .stream()
                 .filter(addFileEntry -> addFileEntry.getStats().isEmpty()
                         || addFileEntry.getStats().get().getNumRecords().isEmpty()
@@ -3434,7 +3452,13 @@ public class DeltaLakeMetadata
             }
 
             transactionLogWriter.flush();
-            writeCheckpointIfNeeded(session, tableHandle.getSchemaTableName(), tableHandle.location(), tableHandle.getMetadataEntry().getCheckpointInterval(), commitVersion);
+            writeCheckpointIfNeeded(
+                    session,
+                    tableHandle.getSchemaTableName(),
+                    tableHandle.location(),
+                    tableHandle.getReadVersion(),
+                    tableHandle.getMetadataEntry().getCheckpointInterval(),
+                    commitVersion);
             return allDeletedFilesStatsPresent ? OptionalLong.of(deletedRecords) : OptionalLong.empty();
         }
         catch (Exception e) {
@@ -3444,7 +3468,7 @@ public class DeltaLakeMetadata
 
     private List<AddFileEntry> getAddFileEntriesMatchingEnforcedPartitionConstraint(ConnectorSession session, DeltaLakeTableHandle tableHandle)
     {
-        TableSnapshot tableSnapshot = getSnapshot(tableHandle.getSchemaTableName(), tableHandle.getLocation(), session);
+        TableSnapshot tableSnapshot = getSnapshot(session, tableHandle);
         List<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(tableSnapshot, session);
         TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint = tableHandle.getEnforcedPartitionConstraint();
         if (enforcedPartitionConstraint.isAll()) {
@@ -3454,6 +3478,12 @@ public class DeltaLakeMetadata
         return validDataFiles.stream()
                 .filter(addAction -> partitionMatchesPredicate(addAction.getCanonicalPartitionValues(), enforcedDomains))
                 .collect(toImmutableList());
+    }
+
+    @Override
+    public void cleanupQuery(ConnectorSession session)
+    {
+        transactionLogAccess.cleanupQuery(session);
     }
 
     private static Map<String, DeltaLakeColumnStatistics> toDeltaLakeColumnStatistics(Collection<ComputedStatistics> computedStatistics)

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake.transactionlog;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.Weigher;
 import com.google.common.collect.ImmutableList;
@@ -32,6 +33,7 @@ import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
+import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -60,12 +62,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -73,6 +77,7 @@ import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.cache.CacheUtils.invalidateAllIf;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readLastCheckpoint;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.COMMIT;
@@ -97,6 +102,9 @@ public class TransactionLogAccess
 
     private final Cache<TableLocation, TableSnapshot> tableSnapshots;
     private final Cache<TableLocation, DeltaLakeDataFileCacheEntry> activeDataFileCache;
+
+    // TODO move to query-level state
+    private final Map<QueriedTable, TableSnapshot> queriedTables = new ConcurrentHashMap<>();
 
     @Inject
     public TransactionLogAccess(
@@ -144,7 +152,30 @@ public class TransactionLogAccess
         return new CacheStatsMBean(tableSnapshots);
     }
 
-    public TableSnapshot loadSnapshot(SchemaTableName table, String tableLocation, ConnectorSession session)
+    public TableSnapshot getSnapshot(ConnectorSession session, SchemaTableName table, String tableLocation, Optional<Long> atVersion)
+            throws IOException
+    {
+        String queryId = session.getQueryId();
+        if (atVersion.isPresent()) {
+            long version = atVersion.get();
+            TableSnapshot snapshot = queriedTables.get(new QueriedTable(queryId, tableLocation, version));
+            checkState(snapshot != null, "No previously loaded snapshot found for query %s, table %s [%s] at version %s", queryId, table, tableLocation, version);
+            return snapshot;
+        }
+
+        TableSnapshot snapshot = loadSnapshot(session, table, tableLocation);
+        queriedTables.put(new QueriedTable(queryId, tableLocation, snapshot.getVersion()), snapshot);
+        return snapshot;
+    }
+
+    public void cleanupQuery(ConnectorSession session)
+    {
+        String queryId = session.getQueryId();
+        queriedTables.keySet().removeIf(queriedTable -> queriedTable.queryId().equals(queryId));
+    }
+
+    @VisibleForTesting
+    protected TableSnapshot loadSnapshot(ConnectorSession session, SchemaTableName table, String tableLocation)
             throws IOException
     {
         TableLocation cacheKey = new TableLocation(table, tableLocation);
@@ -153,9 +184,11 @@ public class TransactionLogAccess
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         if (cachedSnapshot == null) {
             try {
+                Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(fileSystem, tableLocation);
                 snapshot = tableSnapshots.get(cacheKey, () ->
                         TableSnapshot.load(
                                 table,
+                                lastCheckpoint,
                                 fileSystem,
                                 tableLocation,
                                 parquetReaderOptions,
@@ -168,7 +201,7 @@ public class TransactionLogAccess
             }
         }
         else {
-            Optional<TableSnapshot> updatedSnapshot = cachedSnapshot.getUpdatedSnapshot(fileSystem);
+            Optional<TableSnapshot> updatedSnapshot = cachedSnapshot.getUpdatedSnapshot(fileSystem, Optional.empty());
             if (updatedSnapshot.isPresent()) {
                 snapshot = updatedSnapshot.get();
                 tableSnapshots.asMap().replace(cacheKey, cachedSnapshot, snapshot);
@@ -528,6 +561,15 @@ public class TransactionLogAccess
             return INSTANCE_SIZE +
                     tableName.getRetainedSizeInBytes() +
                     estimatedSizeOf(location);
+        }
+    }
+
+    private record QueriedTable(String queryId, String tableLocation, long version)
+    {
+        QueriedTable
+        {
+            requireNonNull(queryId, "queryId is null");
+            requireNonNull(tableLocation, "tableLocation is null");
         }
     }
 }

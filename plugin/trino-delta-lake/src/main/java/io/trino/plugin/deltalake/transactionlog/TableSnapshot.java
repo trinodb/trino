@@ -84,6 +84,7 @@ public class TableSnapshot
 
     public static TableSnapshot load(
             SchemaTableName table,
+            Optional<LastCheckpoint> lastCheckpoint,
             TrinoFileSystem fileSystem,
             String tableLocation,
             ParquetReaderOptions parquetReaderOptions,
@@ -91,7 +92,6 @@ public class TableSnapshot
             int domainCompactionThreshold)
             throws IOException
     {
-        Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(fileSystem, tableLocation);
         Optional<Long> lastCheckpointVersion = lastCheckpoint.map(LastCheckpoint::getVersion);
         TransactionLogTail transactionLogTail = TransactionLogTail.loadNewTail(fileSystem, tableLocation, lastCheckpointVersion);
 
@@ -105,21 +105,30 @@ public class TableSnapshot
                 domainCompactionThreshold);
     }
 
-    public Optional<TableSnapshot> getUpdatedSnapshot(TrinoFileSystem fileSystem)
+    public Optional<TableSnapshot> getUpdatedSnapshot(TrinoFileSystem fileSystem, Optional<Long> toVersion)
             throws IOException
     {
-        Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(fileSystem, tableLocation);
-        long lastCheckpointVersion = lastCheckpoint.map(LastCheckpoint::getVersion).orElse(0L);
-        long cachedLastCheckpointVersion = getLastCheckpointVersion().orElse(0L);
+        if (toVersion.isEmpty()) {
+            // Load any newer table snapshot
 
-        Optional<TransactionLogTail> updatedLogTail;
-        if (cachedLastCheckpointVersion == lastCheckpointVersion) {
-            updatedLogTail = logTail.getUpdatedTail(fileSystem, tableLocation);
-        }
-        else {
-            updatedLogTail = Optional.of(TransactionLogTail.loadNewTail(fileSystem, tableLocation, Optional.of(lastCheckpointVersion)));
+            Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(fileSystem, tableLocation);
+            if (lastCheckpoint.isPresent()) {
+                long ourCheckpointVersion = getLastCheckpointVersion().orElse(0L);
+                if (ourCheckpointVersion != lastCheckpoint.get().getVersion()) {
+                    // There is a new checkpoint in the table, load anew
+                    return Optional.of(TableSnapshot.load(
+                            table,
+                            lastCheckpoint,
+                            fileSystem,
+                            tableLocation,
+                            parquetReaderOptions,
+                            checkpointRowStatisticsWritingEnabled,
+                            domainCompactionThreshold));
+                }
+            }
         }
 
+        Optional<TransactionLogTail> updatedLogTail = logTail.getUpdatedTail(fileSystem, tableLocation, toVersion);
         return updatedLogTail.map(transactionLogTail -> new TableSnapshot(
                 table,
                 lastCheckpoint,
