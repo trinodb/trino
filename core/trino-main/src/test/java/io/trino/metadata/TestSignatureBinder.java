@@ -1155,7 +1155,7 @@ public class TestSignatureBinder
 
     private static Signature.Builder functionSignature()
     {
-        return Signature.builder().name("function");
+        return Signature.builder();
     }
 
     private Type type(TypeSignature signature)

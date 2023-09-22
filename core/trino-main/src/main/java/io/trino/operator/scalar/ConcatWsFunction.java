@@ -87,9 +87,8 @@ public final class ConcatWsFunction
 
     public ConcatWsFunction()
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.scalarBuilder("concat_ws")
                 .signature(Signature.builder()
-                        .name("concat_ws")
                         .returnType(VARCHAR)
                         .argumentType(VARCHAR)
                         .argumentType(VARCHAR)

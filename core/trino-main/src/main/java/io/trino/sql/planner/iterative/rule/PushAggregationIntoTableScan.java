@@ -19,7 +19,6 @@ import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -151,7 +150,7 @@ public class PushAggregationIntoTableScan
 
         List<AggregateFunction> aggregateFunctions = aggregationsList.stream()
                 .map(Entry::getValue)
-                .map(aggregation -> toAggregateFunction(plannerContext.getMetadata(), context, aggregation))
+                .map(aggregation -> toAggregateFunction(context, aggregation))
                 .collect(toImmutableList());
 
         List<Symbol> aggregationOutputSymbols = aggregationsList.stream()
@@ -240,9 +239,8 @@ public class PushAggregationIntoTableScan
                         assignmentBuilder.build()));
     }
 
-    private static AggregateFunction toAggregateFunction(Metadata metadata, Context context, AggregationNode.Aggregation aggregation)
+    private static AggregateFunction toAggregateFunction(Context context, AggregationNode.Aggregation aggregation)
     {
-        String canonicalName = metadata.getFunctionMetadata(context.getSession(), aggregation.getResolvedFunction()).getCanonicalName();
         BoundSignature signature = aggregation.getResolvedFunction().getSignature();
 
         ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builder();
@@ -258,7 +256,7 @@ public class PushAggregationIntoTableScan
                 .map(symbol -> new Variable(symbol.getName(), context.getSymbolAllocator().getTypes().get(symbol)));
 
         return new AggregateFunction(
-                canonicalName,
+                signature.getName().getFunctionName(),
                 signature.getReturnType(),
                 arguments.build(),
                 sortBy.orElse(ImmutableList.of()),

@@ -58,9 +58,8 @@ public class Re2JCastToRegexpFunction
 
     private Re2JCastToRegexpFunction(String sourceType, int dfaStatesLimit, int dfaRetries, boolean padSpaces)
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
-                        .operatorType(CAST)
                         .returnType(RE2J_REGEXP_SIGNATURE)
                         .argumentType(parseTypeSignature(sourceType, ImmutableSet.of("x")))
                         .build())

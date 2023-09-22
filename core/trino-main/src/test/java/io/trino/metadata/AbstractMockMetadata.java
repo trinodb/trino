@@ -807,7 +807,7 @@ public abstract class AbstractMockMetadata
             return new ResolvedFunction(
                     boundSignature,
                     GlobalSystemConnector.CATALOG_HANDLE,
-                    toFunctionId(boundSignature.toSignature()),
+                    toFunctionId(name, boundSignature.toSignature()),
                     SCALAR,
                     true,
                     new FunctionNullability(false, ImmutableList.of()),
@@ -853,7 +853,7 @@ public abstract class AbstractMockMetadata
     {
         BoundSignature signature = resolvedFunction.getSignature();
         if (signature.getName().equals(RAND_NAME) && signature.getArgumentTypes().isEmpty()) {
-            return FunctionMetadata.scalarBuilder()
+            return FunctionMetadata.scalarBuilder("random")
                     .signature(signature.toSignature())
                     .nondeterministic()
                     .noDescription()

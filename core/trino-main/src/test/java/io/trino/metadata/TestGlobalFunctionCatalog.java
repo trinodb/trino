@@ -77,7 +77,7 @@ public class TestGlobalFunctionCatalog
         Metadata metadata = functionResolution.getMetadata();
         boolean foundOperator = false;
         for (FunctionMetadata function : listOperators(metadata)) {
-            OperatorType operatorType = unmangleOperator(function.getSignature().getName());
+            OperatorType operatorType = unmangleOperator(function.getCanonicalName());
             if (operatorType == CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST) {
                 continue;
             }
@@ -273,7 +273,7 @@ public class TestGlobalFunctionCatalog
                 .collect(toImmutableSet());
 
         return metadata.listFunctions(TEST_SESSION).stream()
-                .filter(function -> operatorNames.contains(function.getSignature().getName()))
+                .filter(function -> operatorNames.contains(function.getCanonicalName()))
                 .collect(toImmutableList());
     }
 
@@ -325,7 +325,7 @@ public class TestGlobalFunctionCatalog
 
         public ResolveFunctionAssertion returns(Signature.Builder functionSignature)
         {
-            Signature expectedSignature = functionSignature.name(TEST_FUNCTION_NAME).build();
+            Signature expectedSignature = functionSignature.build();
             Signature actualSignature = resolveSignature().toSignature();
             assertEquals(actualSignature, expectedSignature);
             return this;
@@ -350,9 +350,8 @@ public class TestGlobalFunctionCatalog
         {
             ImmutableList.Builder<SqlFunction> functions = ImmutableList.builder();
             for (Signature.Builder functionSignature : functionSignatures) {
-                Signature signature = functionSignature.name(TEST_FUNCTION_NAME).build();
-                FunctionMetadata functionMetadata = FunctionMetadata.scalarBuilder()
-                        .signature(signature)
+                FunctionMetadata functionMetadata = FunctionMetadata.scalarBuilder(TEST_FUNCTION_NAME)
+                        .signature(functionSignature.build())
                         .nondeterministic()
                         .description("testing function that does nothing")
                         .build();

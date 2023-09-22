@@ -43,7 +43,6 @@ public class TestSignature
         JsonCodec<Signature> codec = new JsonCodecFactory(objectMapperProvider, true).jsonCodec(Signature.class);
 
         Signature expected = Signature.builder()
-                .name("function")
                 .returnType(BIGINT)
                 .argumentType(BOOLEAN)
                 .argumentType(DOUBLE)
@@ -53,7 +52,6 @@ public class TestSignature
         String json = codec.toJson(expected);
         Signature actual = codec.fromJson(json);
 
-        assertEquals(actual.getName(), expected.getName());
         assertEquals(actual.getReturnType(), expected.getReturnType());
         assertEquals(actual.getArgumentTypes(), expected.getArgumentTypes());
     }

@@ -1063,6 +1063,9 @@ public class TestMathFunctions
     @Test
     public void testMod()
     {
+        assertThat(assertions.function("mod", "DECIMAL '0.0'", "DECIMAL '2.0'"))
+                .isEqualTo(decimal("0", createDecimalType(1, 1)));
+
         for (int left : intLefts) {
             for (int right : intRights) {
                 assertThat(assertions.function("mod", Integer.toString(left), Integer.toString(right)))
