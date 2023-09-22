@@ -89,7 +89,6 @@ import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.SystemSessionProperties.LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD;
-import static io.trino.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.trino.server.testing.TestingSystemSessionProperties.TESTING_SESSION_TIME;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
@@ -6160,10 +6159,6 @@ public abstract class BaseConnectorTest
         assertUpdate(format("INSERT INTO %s VALUES ('ALGERIA', 'AFRICA'), ('FRANCE', 'EUROPE'), ('EGYPT', 'MIDDLE EAST'), ('RUSSIA', 'EUROPE')", sourceTable), 4);
 
         assertUpdate(
-                // TODO: MERGE is broken when pre-computed hashes are turned off. See https://github.com/trinodb/trino/issues/19112
-                Session.builder(getSession())
-                        .setSystemProperty(OPTIMIZE_HASH_GENERATION, "true")
-                        .build(),
                 format("MERGE INTO %s t USING %s s", targetTable, sourceTable) +
                         "    ON (t.nation_name = s.nation_name)" +
                         "    WHEN MATCHED AND t.nation_name > (SELECT name FROM tpch.tiny.region WHERE name = t.region_name AND name LIKE ('A%'))" +
