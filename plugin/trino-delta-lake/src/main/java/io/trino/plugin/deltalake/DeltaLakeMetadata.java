@@ -2273,7 +2273,11 @@ public class DeltaLakeMetadata
     private TableSnapshot getSnapshot(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, Optional<Long> atVersion)
     {
         try {
-            return transactionLogAccess.getSnapshot(session, schemaTableName, tableLocation, atVersion);
+            synchronized (this) {
+                // This method is not really called concurrently. If it were, synchronize to ensure we load table state
+                // once in TransactionLogAccess. TODO move query-level (transaction-level) state out of TransactionLogAccess singleton
+                return transactionLogAccess.getSnapshot(session, schemaTableName, tableLocation, atVersion);
+            }
         }
         catch (IOException | RuntimeException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting snapshot for " + schemaTableName, e);
