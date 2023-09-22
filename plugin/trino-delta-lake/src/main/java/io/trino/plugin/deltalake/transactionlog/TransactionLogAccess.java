@@ -92,10 +92,11 @@ public class TransactionLogAccess
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final ParquetReaderOptions parquetReaderOptions;
-    private final Cache<CacheKey, TableSnapshot> tableSnapshots;
-    private final Cache<CacheKey, DeltaLakeDataFileCacheEntry> activeDataFileCache;
     private final boolean checkpointRowStatisticsWritingEnabled;
     private final int domainCompactionThreshold;
+
+    private final Cache<CacheKey, TableSnapshot> tableSnapshots;
+    private final Cache<CacheKey, DeltaLakeDataFileCacheEntry> activeDataFileCache;
 
     @Inject
     public TransactionLogAccess(
