@@ -303,9 +303,8 @@ import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageS
 import static io.trino.SystemSessionProperties.getPagePartitioningBufferPoolSize;
 import static io.trino.SystemSessionProperties.getSkewedPartitionMinDataProcessedRebalanceThreshold;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
-import static io.trino.SystemSessionProperties.getTaskPartitionedWriterCount;
-import static io.trino.SystemSessionProperties.getTaskScaleWritersMaxWriterCount;
-import static io.trino.SystemSessionProperties.getTaskWriterCount;
+import static io.trino.SystemSessionProperties.getTaskMaxWriterCount;
+import static io.trino.SystemSessionProperties.getTaskMinWriterCount;
 import static io.trino.SystemSessionProperties.getWriterScalingMinDataProcessed;
 import static io.trino.SystemSessionProperties.isAdaptivePartialAggregationEnabled;
 import static io.trino.SystemSessionProperties.isEnableCoordinatorDynamicFiltersDistribution;
@@ -3496,7 +3495,7 @@ public class LocalExecutionPlanner
         {
             // This check is required because we don't know which writer count to use when exchange is
             // single distribution. It could be possible that when scaling is enabled, a single distribution is
-            // selected for partitioned write using "task_partitioned_writer_count". However, we can't say for sure
+            // selected for partitioned write using "task_max_writer_count". However, we can't say for sure
             // whether this single distribution comes from unpartitioned or partitioned writer count.
             if (isSingleGatheringExchange(source)) {
                 return 1;
@@ -3507,20 +3506,20 @@ public class LocalExecutionPlanner
                 // enough to use it for cases with or without scaling enabled. Additionally, it doesn't lead
                 // to too many small files when scaling is disabled because single partition will be written by
                 // a single writer only.
-                int partitionedWriterCount = getTaskPartitionedWriterCount(session);
+                int partitionedWriterCount = getTaskMaxWriterCount(session);
                 if (isLocalScaledWriterExchange(source)) {
                     partitionedWriterCount = connectorScalingOptions.perTaskMaxScaledWriterCount()
-                            .map(writerCount -> min(writerCount, getTaskPartitionedWriterCount(session)))
-                            .orElse(getTaskPartitionedWriterCount(session));
+                            .map(writerCount -> min(writerCount, getTaskMaxWriterCount(session)))
+                            .orElse(getTaskMaxWriterCount(session));
                 }
                 return getPartitionedWriterCountBasedOnMemory(partitionedWriterCount, session);
             }
 
-            int unpartitionedWriterCount = getTaskWriterCount(session);
+            int unpartitionedWriterCount = getTaskMinWriterCount(session);
             if (isLocalScaledWriterExchange(source)) {
                 unpartitionedWriterCount = connectorScalingOptions.perTaskMaxScaledWriterCount()
-                        .map(writerCount -> min(writerCount, getTaskScaleWritersMaxWriterCount(session)))
-                        .orElse(getTaskScaleWritersMaxWriterCount(session));
+                        .map(writerCount -> min(writerCount, getTaskMaxWriterCount(session)))
+                        .orElse(getTaskMaxWriterCount(session));
             }
             // Consider memory while calculating writer count.
             return min(unpartitionedWriterCount, getMaxWritersBasedOnMemory(session));
@@ -3542,8 +3541,8 @@ public class LocalExecutionPlanner
         {
             // Todo: Implement writer scaling for merge. https://github.com/trinodb/trino/issues/14622
             int writerCount = node.getPartitioningScheme()
-                    .map(scheme -> getTaskPartitionedWriterCount(session))
-                    .orElseGet(() -> getTaskWriterCount(session));
+                    .map(scheme -> getTaskMaxWriterCount(session))
+                    .orElseGet(() -> getTaskMinWriterCount(session));
             context.setDriverInstanceCount(writerCount);
 
             PhysicalOperation source = node.getSource().accept(this, context);
@@ -4109,7 +4108,7 @@ public class LocalExecutionPlanner
 
     private int getPartitionedWriterCountBasedOnMemory(Session session)
     {
-        return getPartitionedWriterCountBasedOnMemory(getTaskPartitionedWriterCount(session), session);
+        return getPartitionedWriterCountBasedOnMemory(getTaskMaxWriterCount(session), session);
     }
 
     private int getPartitionedWriterCountBasedOnMemory(int partitionedWriterCount, Session session)

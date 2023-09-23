@@ -34,18 +34,9 @@ writers are added only when the average amount of uncompressed data processed pe
 is above the minimum threshold of `writer-scaling-min-data-processed` and query is bottlenecked on
 writing.
 
-(prop-task-scale-writers-max-writer-count)=
-
 ## `task.scale-writers.max-writer-count`
 
-- **Type:** {ref}`prop-type-integer`
-- **Default value:** The number of physical CPUs of the node with a maximum of 64
-
-Maximum number of concurrent writers per task up to which the task can be scaled
-when `task.scale-writers.enabled` is set. Increasing this value may improve the
-performance of writes when the query is bottlenecked on writing. Setting this
-too high may cause the cluster to become overloaded due to excessive resource
-utilization.
+Deprecated and replaced by {ref}`prop-task-max-writer-count`.
 
 ## `writer-min-size`
 

@@ -66,8 +66,8 @@ public final class SystemSessionProperties
     public static final String MIN_HASH_PARTITION_COUNT = "min_hash_partition_count";
     public static final String MIN_HASH_PARTITION_COUNT_FOR_WRITE = "min_hash_partition_count_for_write";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
-    public static final String TASK_WRITER_COUNT = "task_writer_count";
-    public static final String TASK_PARTITIONED_WRITER_COUNT = "task_partitioned_writer_count";
+    public static final String TASK_MIN_WRITER_COUNT = "task_min_writer_count";
+    public static final String TASK_MAX_WRITER_COUNT = "task_max_writer_count";
     public static final String TASK_CONCURRENCY = "task_concurrency";
     public static final String TASK_SHARE_INDEX_LOADING = "task_share_index_loading";
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
@@ -84,7 +84,6 @@ public final class SystemSessionProperties
     public static final String SCALE_WRITERS = "scale_writers";
     public static final String TASK_SCALE_WRITERS_ENABLED = "task_scale_writers_enabled";
     public static final String MAX_WRITER_TASKS_COUNT = "max_writer_tasks_count";
-    public static final String TASK_SCALE_WRITERS_MAX_WRITER_COUNT = "task_scale_writers_max_writer_count";
     public static final String WRITER_SCALING_MIN_DATA_PROCESSED = "writer_scaling_min_data_processed";
     public static final String SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD = "skewed_partition_min_data_processed_rebalance_threshold";
     public static final String MAX_MEMORY_PER_PARTITION_WRITER = "max_memory_per_partition_writer";
@@ -297,15 +296,15 @@ public final class SystemSessionProperties
                         false,
                         false),
                 integerProperty(
-                        TASK_WRITER_COUNT,
-                        "Number of local parallel table writers per task when prefer partitioning and task writer scaling are not used",
-                        taskManagerConfig.getWriterCount(),
+                        TASK_MIN_WRITER_COUNT,
+                        "Minimum number of local parallel table writers per task when preferred partitioning and task writer scaling are not used",
+                        taskManagerConfig.getMinWriterCount(),
                         false),
                 integerProperty(
-                        TASK_PARTITIONED_WRITER_COUNT,
-                        "Number of local parallel table writers per task when prefer partitioning is used",
-                        taskManagerConfig.getPartitionedWriterCount(),
-                        value -> validateValueIsPowerOfTwo(value, TASK_PARTITIONED_WRITER_COUNT),
+                        TASK_MAX_WRITER_COUNT,
+                        "Maximum number of local parallel table writers per task when either task writer scaling or preferred partitioning is used",
+                        taskManagerConfig.getMaxWriterCount(),
+                        value -> validateValueIsPowerOfTwo(value, TASK_MAX_WRITER_COUNT),
                         false),
                 booleanProperty(
                         REDISTRIBUTE_WRITES,
@@ -333,11 +332,6 @@ public final class SystemSessionProperties
                         "Scale the number of concurrent table writers per task based on throughput",
                         taskManagerConfig.isScaleWritersEnabled(),
                         false),
-                integerProperty(
-                        TASK_SCALE_WRITERS_MAX_WRITER_COUNT,
-                        "Maximum number of writers per task up to which scaling will happen if task.scale-writers.enabled is set",
-                        taskManagerConfig.getScaleWritersMaxWriterCount(),
-                        true),
                 dataSizeProperty(
                         WRITER_SCALING_MIN_DATA_PROCESSED,
                         "Minimum amount of uncompressed output data processed by writers before writer scaling can happen",
@@ -1135,14 +1129,14 @@ public final class SystemSessionProperties
         return session.getSystemProperty(PREFER_STREAMING_OPERATORS, Boolean.class);
     }
 
-    public static int getTaskWriterCount(Session session)
+    public static int getTaskMinWriterCount(Session session)
     {
-        return session.getSystemProperty(TASK_WRITER_COUNT, Integer.class);
+        return session.getSystemProperty(TASK_MIN_WRITER_COUNT, Integer.class);
     }
 
-    public static int getTaskPartitionedWriterCount(Session session)
+    public static int getTaskMaxWriterCount(Session session)
     {
-        return session.getSystemProperty(TASK_PARTITIONED_WRITER_COUNT, Integer.class);
+        return session.getSystemProperty(TASK_MAX_WRITER_COUNT, Integer.class);
     }
 
     public static boolean isRedistributeWrites(Session session)
@@ -1163,11 +1157,6 @@ public final class SystemSessionProperties
     public static boolean isTaskScaleWritersEnabled(Session session)
     {
         return session.getSystemProperty(TASK_SCALE_WRITERS_ENABLED, Boolean.class);
-    }
-
-    public static int getTaskScaleWritersMaxWriterCount(Session session)
-    {
-        return session.getSystemProperty(TASK_SCALE_WRITERS_MAX_WRITER_COUNT, Integer.class);
     }
 
     public static int getMaxWriterTaskCount(Session session)
