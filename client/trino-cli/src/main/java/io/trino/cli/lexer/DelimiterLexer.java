@@ -21,6 +21,7 @@ import org.antlr.v4.runtime.IntStream;
 import org.antlr.v4.runtime.LexerNoViableAltException;
 import org.antlr.v4.runtime.Token;
 
+import java.util.HashSet;
 import java.util.Set;
 
 /**
@@ -30,15 +31,24 @@ import java.util.Set;
  * The code in nextToken() is a copy of the implementation in org.antlr.v4.runtime.Lexer, with a
  * bit added to match the token before the default behavior is invoked.
  */
-class DelimiterLexer
+public class DelimiterLexer
         extends SqlBaseLexer
 {
     private final Set<String> delimiters;
+    private final boolean useSemicolon;
 
     public DelimiterLexer(CharStream input, Set<String> delimiters)
     {
         super(input);
+        delimiters = new HashSet<>(delimiters);
+        this.useSemicolon = delimiters.remove(";");
         this.delimiters = ImmutableSet.copyOf(delimiters);
+    }
+
+    public boolean isDelimiter(Token token)
+    {
+        return (token.getType() == SqlBaseParser.DELIMITER) ||
+                (useSemicolon && (token.getType() == SEMICOLON));
     }
 
     @Override
