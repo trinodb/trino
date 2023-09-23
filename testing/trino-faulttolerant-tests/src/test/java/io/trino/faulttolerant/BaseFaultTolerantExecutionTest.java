@@ -101,8 +101,8 @@ public abstract class BaseFaultTolerantExecutionTest
     {
         return Session.builder(session)
                 // one writer per partition per task
-                .setSystemProperty("task_writer_count", "1")
-                .setSystemProperty("task_partitioned_writer_count", "1")
+                .setSystemProperty("task_min_writer_count", "1")
+                .setSystemProperty("task_max_writer_count", "1")
                 .setSystemProperty("task_scale_writers_enabled", "false")
                 .build();
     }

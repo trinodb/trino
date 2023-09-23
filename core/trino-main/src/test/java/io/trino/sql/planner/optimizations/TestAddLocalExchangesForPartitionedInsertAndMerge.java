@@ -35,9 +35,9 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
-import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.TASK_MIN_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
-import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -121,8 +121,8 @@ public class TestAddLocalExchangesForPartitionedInsertAndMerge
         assertDistributedPlan(
                 query,
                 Session.builder(getQueryRunner().getDefaultSession())
-                        .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "1")
-                        .setSystemProperty(TASK_WRITER_COUNT, "8")
+                        .setSystemProperty(TASK_MAX_WRITER_COUNT, "1")
+                        .setSystemProperty(TASK_MIN_WRITER_COUNT, "8")
                         .build(),
                 anyTree(
                         mergeWriter(
@@ -134,8 +134,8 @@ public class TestAddLocalExchangesForPartitionedInsertAndMerge
         assertDistributedPlan(
                 query,
                 Session.builder(getQueryRunner().getDefaultSession())
-                        .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "4")
-                        .setSystemProperty(TASK_WRITER_COUNT, "1")
+                        .setSystemProperty(TASK_MAX_WRITER_COUNT, "4")
+                        .setSystemProperty(TASK_MIN_WRITER_COUNT, "1")
                         .build(),
                 anyTree(
                         mergeWriter(
@@ -153,8 +153,8 @@ public class TestAddLocalExchangesForPartitionedInsertAndMerge
         assertDistributedPlan(
                 query,
                 Session.builder(getQueryRunner().getDefaultSession())
-                        .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "1")
-                        .setSystemProperty(TASK_WRITER_COUNT, "8")
+                        .setSystemProperty(TASK_MAX_WRITER_COUNT, "1")
+                        .setSystemProperty(TASK_MIN_WRITER_COUNT, "8")
                         .build(),
                 anyTree(
                         tableWriter(
@@ -167,8 +167,8 @@ public class TestAddLocalExchangesForPartitionedInsertAndMerge
         assertDistributedPlan(
                 query,
                 Session.builder(getQueryRunner().getDefaultSession())
-                        .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "4")
-                        .setSystemProperty(TASK_WRITER_COUNT, "1")
+                        .setSystemProperty(TASK_MAX_WRITER_COUNT, "4")
+                        .setSystemProperty(TASK_MIN_WRITER_COUNT, "1")
                         .build(),
                 anyTree(
                         tableWriter(

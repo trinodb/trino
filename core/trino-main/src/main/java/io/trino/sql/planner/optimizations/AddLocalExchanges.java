@@ -82,8 +82,8 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
-import static io.trino.SystemSessionProperties.getTaskPartitionedWriterCount;
-import static io.trino.SystemSessionProperties.getTaskWriterCount;
+import static io.trino.SystemSessionProperties.getTaskMaxWriterCount;
+import static io.trino.SystemSessionProperties.getTaskMinWriterCount;
 import static io.trino.SystemSessionProperties.isDistributedSortEnabled;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
 import static io.trino.SystemSessionProperties.isTaskScaleWritersEnabled;
@@ -746,7 +746,7 @@ public class AddLocalExchanges
                 return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
             }
 
-            if (getTaskWriterCount(session) == 1) {
+            if (getTaskMinWriterCount(session) == 1) {
                 return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
 
@@ -755,7 +755,7 @@ public class AddLocalExchanges
 
         private PlanWithProperties visitPartitionedWriter(PlanNode node, PartitioningScheme partitioningScheme, PlanNode source, StreamPreferredProperties parentPreferences)
         {
-            if (getTaskPartitionedWriterCount(session) == 1) {
+            if (getTaskMaxWriterCount(session) == 1) {
                 return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
 
@@ -784,7 +784,7 @@ public class AddLocalExchanges
 
         private PlanWithProperties visitScalePartitionedWriter(PlanNode node, PartitioningScheme partitioningScheme, PlanNode source)
         {
-            if (getTaskPartitionedWriterCount(session) == 1) {
+            if (getTaskMaxWriterCount(session) == 1) {
                 return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
 

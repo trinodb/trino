@@ -734,7 +734,7 @@ public class TestDeltaLakeConnectorTest
         @Language("SQL") String createTableSql = format("CREATE TABLE %s AS SELECT * FROM tpch.sf1.lineitem LIMIT 100000", tableName);
 
         Session session = Session.builder(getSession())
-                .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("task_min_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
                 .build();
@@ -745,7 +745,7 @@ public class TestDeltaLakeConnectorTest
 
         DataSize maxSize = DataSize.of(40, DataSize.Unit.KILOBYTE);
         session = Session.builder(getSession())
-                .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("task_min_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
                 .setCatalogSessionProperty("delta", "target_max_file_size", maxSize.toString())

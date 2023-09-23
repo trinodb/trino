@@ -104,15 +104,24 @@ the task has remaining splits to process.
 
 - **Description:** see details at {ref}`prop-task-scale-writers`
 
+## `task.writer-count`
+
+Deprecated and replaced by {ref}`prop-task-min-writer-count`.
+
+## `task.partitioned-writer-count`
+
+Deprecated and replaced by {ref}`prop-task-max-writer-count`.
+
 ## `task.scale-writers.max-writer-count`
 
-- **Description:** see details at {ref}`prop-task-scale-writers-max-writer-count`
+Deprecated and replaced by {ref}`prop-task-max-writer-count`.
 
-## `task.writer-count`
+(prop-task-min-writer-count)=
+## `task.min-writer-count`
 
 - **Type:** {ref}`prop-type-integer`
 - **Default value:** `1`
-- **Session property:** `task_writer_count`
+- **Session property:** `task_min_writer_count`
 
 The number of concurrent writer threads per worker per query when
 {ref}`preferred partitioning <preferred-write-partitioning>` and
@@ -127,14 +136,16 @@ utilization. Especially when the engine is inserting into a partitioned table wi
 could write to all partitions. This can lead to out of memory error since writing to a partition
 allocates a certain amount of memory for buffering.
 
-## `task.partitioned-writer-count`
+(prop-task-max-writer-count)=
+## `task.max-writer-count`
 
 - **Type:** {ref}`prop-type-integer`
 - **Restrictions:** Must be a power of two
 - **Default value:** The number of physical CPUs of the node, with a minimum value of 2 and a maximum of 64
-- **Session property:** `task_partitioned_writer_count`
+- **Session property:** `task_max_writer_count`
 
-The number of concurrent writer threads per worker per query when
+The number of concurrent writer threads per worker per query when either
+{ref}`task writer scaling <prop-task-scale-writers>` or
 {ref}`preferred partitioning <preferred-write-partitioning>` is used. Increasing this value may
 increase write speed, especially when a query is not I/O bound and can take advantage of additional
 CPU for parallel writes. Some connectors can be bottlenecked on CPU when writing due to compression
