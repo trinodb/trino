@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.operator.output.SkewedPartitionRebalancer.createSkewedPartitionRebalancer;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -38,7 +37,7 @@ public class TestSkewedPartitionRebalancer
     public void testRebalanceWithSkewness()
     {
         int partitionCount = 3;
-        SkewedPartitionRebalancer rebalancer = createSkewedPartitionRebalancer(partitionCount, 3, 6, MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD, MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+        SkewedPartitionRebalancer rebalancer = new SkewedPartitionRebalancer(partitionCount, 3, 3, MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD, MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
         SkewedPartitionFunction function = new SkewedPartitionFunction(new TestPartitionFunction(partitionCount), rebalancer);
 
         rebalancer.addPartitionRowCount(0, 1000);
@@ -93,7 +92,7 @@ public class TestSkewedPartitionRebalancer
     public void testRebalanceWithoutSkewness()
     {
         int partitionCount = 6;
-        SkewedPartitionRebalancer rebalancer = createSkewedPartitionRebalancer(partitionCount, 3, 4, MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD, MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+        SkewedPartitionRebalancer rebalancer = new SkewedPartitionRebalancer(partitionCount, 3, 2, MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD, MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
         SkewedPartitionFunction function = new SkewedPartitionFunction(new TestPartitionFunction(partitionCount), rebalancer);
 
         rebalancer.addPartitionRowCount(0, 1000);
@@ -119,7 +118,7 @@ public class TestSkewedPartitionRebalancer
     public void testNoRebalanceWhenDataWrittenIsLessThanTheRebalanceLimit()
     {
         int partitionCount = 3;
-        SkewedPartitionRebalancer rebalancer = createSkewedPartitionRebalancer(partitionCount, 3, 6, MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD, MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+        SkewedPartitionRebalancer rebalancer = new SkewedPartitionRebalancer(partitionCount, 3, 3, MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD, MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
         SkewedPartitionFunction function = new SkewedPartitionFunction(new TestPartitionFunction(partitionCount), rebalancer);
 
         rebalancer.addPartitionRowCount(0, 1000);
@@ -143,7 +142,7 @@ public class TestSkewedPartitionRebalancer
     {
         int partitionCount = 3;
         long minPartitionDataProcessedRebalanceThreshold = DataSize.of(50, MEGABYTE).toBytes();
-        SkewedPartitionRebalancer rebalancer = createSkewedPartitionRebalancer(partitionCount, 3, 6, minPartitionDataProcessedRebalanceThreshold, MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+        SkewedPartitionRebalancer rebalancer = new SkewedPartitionRebalancer(partitionCount, 3, 3, minPartitionDataProcessedRebalanceThreshold, MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
         SkewedPartitionFunction function = new SkewedPartitionFunction(new TestPartitionFunction(partitionCount), rebalancer);
 
         rebalancer.addPartitionRowCount(0, 1000);
@@ -166,7 +165,7 @@ public class TestSkewedPartitionRebalancer
     public void testRebalancePartitionToSingleTaskInARebalancingLoop()
     {
         int partitionCount = 3;
-        SkewedPartitionRebalancer rebalancer = createSkewedPartitionRebalancer(partitionCount, 3, 6, MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD, MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+        SkewedPartitionRebalancer rebalancer = new SkewedPartitionRebalancer(partitionCount, 3, 3, MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD, MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
         SkewedPartitionFunction function = new SkewedPartitionFunction(new TestPartitionFunction(partitionCount), rebalancer);
 
         rebalancer.addPartitionRowCount(0, 1000);
