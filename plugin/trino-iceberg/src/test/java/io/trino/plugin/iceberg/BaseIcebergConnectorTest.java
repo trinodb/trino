@@ -103,8 +103,8 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
-import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
-import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.TASK_MIN_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
@@ -1345,7 +1345,7 @@ public abstract class BaseIcebergConnectorTest
             assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation WHERE nationkey >= 10 AND nationkey < 20", 10);
             assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation WHERE nationkey >= 20", 5);
             assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES sorted_by = ARRAY['comment']");
-            // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+            // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
             assertUpdate(withSingleWriterPerTask(withSmallRowGroups), "ALTER TABLE " + table.getName() + " EXECUTE optimize");
 
             for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
@@ -4950,7 +4950,7 @@ public abstract class BaseIcebergConnectorTest
                 // Verify we have sufficiently many test rows with respect to worker count.
                 .hasSizeGreaterThan(workerCount);
 
-        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
         computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
         assertThat(query("SELECT sum(key), listagg(value, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
                 .matches("VALUES (BIGINT '65', VARCHAR 'eleven zwölf trzynaście quatorze пʼятнадцять')");
@@ -4963,7 +4963,7 @@ public abstract class BaseIcebergConnectorTest
                 .containsExactlyInAnyOrderElementsOf(concat(initialFiles, updatedFiles));
 
         // optimize with low retention threshold, nothing should change
-        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
         computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE (file_size_threshold => '33B')");
         assertThat(query("SELECT sum(key), listagg(value, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
                 .matches("VALUES (BIGINT '65', VARCHAR 'eleven zwölf trzynaście quatorze пʼятнадцять')");
@@ -5010,7 +5010,7 @@ public abstract class BaseIcebergConnectorTest
         List<String> initialFiles = getActiveFiles(tableName);
         assertThat(initialFiles).hasSize(10);
 
-        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
         computeActual(withSingleWriterPerTask(session), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
 
         assertThat(query(session, "SELECT sum(value), listagg(key, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
@@ -5070,7 +5070,7 @@ public abstract class BaseIcebergConnectorTest
                 .isGreaterThanOrEqualTo(5);
 
         assertUpdate(
-                // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+                // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
                 // Use UTC zone so that DATE and TIMESTAMP WITH TIME ZONE comparisons align with partition boundaries.
                 withSingleWriterPerTask(Session.builder(getSession())
                         .setTimeZoneKey(UTC_KEY)
@@ -5086,7 +5086,7 @@ public abstract class BaseIcebergConnectorTest
 
         // Verify that WHERE CAST(p AS date) ... form works in non-UTC zone
         assertUpdate(
-                // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+                // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
                 withSingleWriterPerTask(Session.builder(getSession())
                         .setTimeZoneKey(getTimeZoneKey("Asia/Kathmandu"))
                         .build()),
@@ -5132,7 +5132,7 @@ public abstract class BaseIcebergConnectorTest
                 "SELECT summary['total-delete-files'] FROM \"" + tableName + "$snapshots\" WHERE snapshot_id = " + getCurrentSnapshotId(tableName),
                 "VALUES '1'");
 
-        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
         computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
 
         List<String> updatedFiles = getActiveFiles(tableName);
@@ -5166,7 +5166,7 @@ public abstract class BaseIcebergConnectorTest
         List<String> allDataFilesAfterDelete = getAllDataFilesFromTableDirectory(tableName);
         assertThat(allDataFilesAfterDelete).hasSize(6);
 
-        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
         computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey = 4");
         computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
         computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
@@ -5183,7 +5183,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("SELECT * FROM nation WHERE nationkey != 7");
 
-        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
         computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
         computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
         computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
@@ -5273,7 +5273,7 @@ public abstract class BaseIcebergConnectorTest
         @Language("SQL") String createTableSql = format("CREATE TABLE %s AS SELECT * FROM tpch.sf1.lineitem LIMIT 100000", tableName);
 
         Session session = Session.builder(getSession())
-                .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("task_min_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
                 .build();
@@ -5284,7 +5284,7 @@ public abstract class BaseIcebergConnectorTest
 
         DataSize maxSize = DataSize.of(40, DataSize.Unit.KILOBYTE);
         session = Session.builder(getSession())
-                .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("task_min_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
                 .setCatalogSessionProperty("iceberg", "target_max_file_size", maxSize.toString())
@@ -5309,7 +5309,7 @@ public abstract class BaseIcebergConnectorTest
         @Language("SQL") String createTableSql = format("CREATE TABLE %s WITH (sorted_by = ARRAY['shipdate']) AS SELECT * FROM tpch.sf1.lineitem LIMIT 100000", tableName);
 
         Session session = Session.builder(getSession())
-                .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("task_min_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
                 .build();
@@ -5320,7 +5320,7 @@ public abstract class BaseIcebergConnectorTest
 
         DataSize maxSize = DataSize.of(40, DataSize.Unit.KILOBYTE);
         session = Session.builder(getSession())
-                .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("task_min_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
                 .setCatalogSessionProperty("iceberg", "target_max_file_size", maxSize.toString())
@@ -5433,7 +5433,7 @@ public abstract class BaseIcebergConnectorTest
         List<String> initialFiles = getActiveFiles(tableName);
         assertThat(initialFiles).hasSize(4);
 
-        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
         assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE \"$path\" = '" + firstPath + "' OR \"$path\" = '" + secondPath + "'");
         assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE \"$path\" = '" + thirdPath + "' OR \"$path\" = '" + fourthPath + "'");
 
@@ -5532,7 +5532,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(initialFiles).hasSize(4);
 
         storageTimePrecision.sleep(1);
-        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
         assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
                 "\"$file_modified_time\" = from_iso8601_timestamp('" + firstFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "') OR " +
                 "\"$file_modified_time\" = from_iso8601_timestamp('" + secondFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
@@ -6069,8 +6069,8 @@ public abstract class BaseIcebergConnectorTest
         int taskWriterCount = 4;
         assertThat(taskWriterCount).isGreaterThan(getQueryRunner().getNodeCount());
         Session session = Session.builder(getSession())
-                .setSystemProperty(TASK_WRITER_COUNT, String.valueOf(taskWriterCount))
-                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, String.valueOf(taskWriterCount))
+                .setSystemProperty(TASK_MIN_WRITER_COUNT, String.valueOf(taskWriterCount))
+                .setSystemProperty(TASK_MAX_WRITER_COUNT, String.valueOf(taskWriterCount))
                 .build();
 
         String tableName = "test_inserting_into_bucketed_column_task_writer_count_" + randomNameSuffix();
@@ -6304,7 +6304,7 @@ public abstract class BaseIcebergConnectorTest
     public void testMergeUpdateWithVariousLayouts(int writers, String partitioning)
     {
         Session session = Session.builder(getSession())
-                .setSystemProperty(TASK_WRITER_COUNT, String.valueOf(writers))
+                .setSystemProperty(TASK_MIN_WRITER_COUNT, String.valueOf(writers))
                 .build();
 
         String targetTable = "merge_formats_target_" + randomNameSuffix();
@@ -6355,8 +6355,8 @@ public abstract class BaseIcebergConnectorTest
     public void testMergeMultipleOperations(int writers, String partitioning)
     {
         Session session = Session.builder(getSession())
-                .setSystemProperty(TASK_WRITER_COUNT, String.valueOf(writers))
-                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, String.valueOf(writers))
+                .setSystemProperty(TASK_MIN_WRITER_COUNT, String.valueOf(writers))
+                .setSystemProperty(TASK_MAX_WRITER_COUNT, String.valueOf(writers))
                 .build();
 
         int targetCustomerCount = 32;
@@ -7075,7 +7075,7 @@ public abstract class BaseIcebergConnectorTest
     private Session withSingleWriterPerTask(Session session)
     {
         return Session.builder(session)
-                .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("task_min_writer_count", "1")
                 .build();
     }
 

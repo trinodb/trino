@@ -46,8 +46,8 @@ import java.util.Optional;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.SystemSessionProperties.MAX_DRIVERS_PER_TASK;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
-import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
-import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.TASK_MIN_WRITER_COUNT;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.DataFileRecord.toDataFileRecord;
@@ -71,8 +71,8 @@ public class TestIcebergOrcMetricsCollection
                 .setCatalog("iceberg")
                 .setSchema("test_schema")
                 .setSystemProperty(TASK_CONCURRENCY, "1")
-                .setSystemProperty(TASK_WRITER_COUNT, "1")
-                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "1")
+                .setSystemProperty(TASK_MIN_WRITER_COUNT, "1")
+                .setSystemProperty(TASK_MAX_WRITER_COUNT, "1")
                 .setSystemProperty(MAX_DRIVERS_PER_TASK, "1")
                 .setCatalogSessionProperty("iceberg", "orc_string_statistics_limit", Integer.MAX_VALUE + "B")
                 .build();
