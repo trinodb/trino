@@ -50,7 +50,6 @@ import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.ReusableConnectionFactoryModule;
 import io.trino.plugin.jdbc.StatsCollecting;
-import io.trino.plugin.jdbc.SyntheticColumnHandleBuilderModule;
 import io.trino.plugin.jdbc.TypeHandlingJdbcConfig;
 import io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties;
 import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
@@ -151,7 +150,6 @@ public class PhoenixClientModule
         install(new JdbcDiagnosticModule());
         install(new IdentifierMappingModule());
         install(new DecimalModule());
-        install(new SyntheticColumnHandleBuilderModule());
     }
 
     private void checkConfiguration(String connectionUrl)

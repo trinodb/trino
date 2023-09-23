@@ -50,7 +50,6 @@ public class JdbcModule
         install(new JdbcDiagnosticModule());
         install(new IdentifierMappingModule());
         install(new RemoteQueryModifierModule());
-        install(new SyntheticColumnHandleBuilderModule());
 
         newOptionalBinder(binder, ConnectorAccessControl.class);
         newOptionalBinder(binder, QueryBuilder.class).setDefault().to(DefaultQueryBuilder.class).in(Scopes.SINGLETON);

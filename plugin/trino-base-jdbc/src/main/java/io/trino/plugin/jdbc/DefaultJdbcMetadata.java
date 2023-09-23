@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -82,6 +83,7 @@ import java.util.function.Consumer;
 import static com.google.common.base.Functions.identity;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Splitter.fixedLength;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -105,6 +107,8 @@ import static java.util.Objects.requireNonNull;
 public class DefaultJdbcMetadata
         implements JdbcMetadata
 {
+    public static final int DEFAULT_COLUMN_ALIAS_LENGTH = 30;
+
     private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_pfgnrtd_";
     private static final String DELETE_ROW_ID = "_trino_artificial_column_handle_for_delete_row_id_";
     private static final String MERGE_ROW_ID = "$merge_row_id";
@@ -115,17 +119,11 @@ public class DefaultJdbcMetadata
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
-    private final SyntheticColumnHandleBuilder syntheticColumnBuilder;
-
-    public DefaultJdbcMetadata(JdbcClient jdbcClient,
-            boolean precalculateStatisticsForPushdown,
-            Set<JdbcQueryEventListener> jdbcQueryEventListeners,
-            SyntheticColumnHandleBuilder syntheticColumnBuilder)
+    public DefaultJdbcMetadata(JdbcClient jdbcClient, boolean precalculateStatisticsForPushdown, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.precalculateStatisticsForPushdown = precalculateStatisticsForPushdown;
         this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "queryEventListeners is null"));
-        this.syntheticColumnBuilder = requireNonNull(syntheticColumnBuilder, "syntheticColumnBuilder is null");
     }
 
     @Override
@@ -465,14 +463,14 @@ public class DefaultJdbcMetadata
 
         ImmutableMap.Builder<JdbcColumnHandle, JdbcColumnHandle> newLeftColumnsBuilder = ImmutableMap.builder();
         for (JdbcColumnHandle column : jdbcClient.getColumns(session, leftHandle)) {
-            newLeftColumnsBuilder.put(column, syntheticColumnBuilder.get(column, nextSyntheticColumnId));
+            newLeftColumnsBuilder.put(column, createSyntheticColumn(column, nextSyntheticColumnId));
             nextSyntheticColumnId++;
         }
         Map<JdbcColumnHandle, JdbcColumnHandle> newLeftColumns = newLeftColumnsBuilder.buildOrThrow();
 
         ImmutableMap.Builder<JdbcColumnHandle, JdbcColumnHandle> newRightColumnsBuilder = ImmutableMap.builder();
         for (JdbcColumnHandle column : jdbcClient.getColumns(session, rightHandle)) {
-            newRightColumnsBuilder.put(column, syntheticColumnBuilder.get(column, nextSyntheticColumnId));
+            newRightColumnsBuilder.put(column, createSyntheticColumn(column, nextSyntheticColumnId));
             nextSyntheticColumnId++;
         }
         Map<JdbcColumnHandle, JdbcColumnHandle> newRightColumns = newRightColumnsBuilder.buildOrThrow();
@@ -527,6 +525,24 @@ public class DefaultJdbcMetadata
                 ImmutableMap.copyOf(newLeftColumns),
                 ImmutableMap.copyOf(newRightColumns),
                 precalculateStatisticsForPushdown));
+    }
+
+    @VisibleForTesting
+    static JdbcColumnHandle createSyntheticColumn(JdbcColumnHandle column, int nextSyntheticColumnId)
+    {
+        verify(nextSyntheticColumnId >= 0, "nextSyntheticColumnId rolled over and is not monotonically increasing any more");
+
+        int sequentialNumberLength = String.valueOf(nextSyntheticColumnId).length();
+        int originalColumnNameLength = DEFAULT_COLUMN_ALIAS_LENGTH - sequentialNumberLength - "_".length();
+
+        String columnNameTruncated = fixedLength(originalColumnNameLength)
+                .split(column.getColumnName())
+                .iterator()
+                .next();
+        String columnName = columnNameTruncated + "_" + nextSyntheticColumnId;
+        return JdbcColumnHandle.builderFrom(column)
+                .setColumnName(columnName)
+                .build();
     }
 
     private static Optional<JdbcColumnHandle> getVariableColumnHandle(Map<String, ColumnHandle> assignments, ConnectorExpression expression)

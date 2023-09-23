@@ -21,7 +21,7 @@ import io.trino.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static io.trino.plugin.jdbc.SyntheticColumnHandleBuilder.DEFAULT_COLUMN_ALIAS_LENGTH;
+import static io.trino.plugin.jdbc.DefaultJdbcMetadata.DEFAULT_COLUMN_ALIAS_LENGTH;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_SCHEMA;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
