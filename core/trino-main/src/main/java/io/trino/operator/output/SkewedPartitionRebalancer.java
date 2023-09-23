@@ -39,7 +39,6 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.planner.PartitioningHandle.isScaledWriterHashDistribution;
 import static java.lang.Double.isNaN;
-import static java.lang.Math.ceil;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
 
@@ -146,18 +145,6 @@ public class SkewedPartitionRebalancer
                 scheme,
                 partitionChannelTypes,
                 IntStream.range(0, bucketCount).toArray());
-    }
-
-    public static SkewedPartitionRebalancer createSkewedPartitionRebalancer(
-            int partitionCount,
-            int taskCount,
-            int taskPartitionedWriterCount,
-            long minPartitionDataProcessedRebalanceThreshold,
-            long maxDataProcessedRebalanceThreshold)
-    {
-        // Keep the task bucket count to 50% of total local writers
-        int taskBucketCount = (int) ceil(0.5 * taskPartitionedWriterCount);
-        return new SkewedPartitionRebalancer(partitionCount, taskCount, taskBucketCount, minPartitionDataProcessedRebalanceThreshold, maxDataProcessedRebalanceThreshold);
     }
 
     public static int getTaskCount(PartitioningScheme partitioningScheme)
@@ -422,7 +409,7 @@ public class SkewedPartitionRebalancer
             minTasks.addOrUpdate(taskBucket, Long.MAX_VALUE - estimatedTaskBucketDataSizeSinceLastRebalance[taskBucket.id]);
         }
 
-        log.warn("Rebalanced partition %s to task %s with taskCount %s", partitionId, toTaskBucket.taskId, assignments.size());
+        log.debug("Rebalanced partition %s to task %s with taskCount %s", partitionId, toTaskBucket.taskId, assignments.size());
         return true;
     }
 
@@ -441,7 +428,7 @@ public class SkewedPartitionRebalancer
         @Override
         public int hashCode()
         {
-            return Objects.hash(id, id);
+            return Objects.hash(taskId, id);
         }
 
         @Override
