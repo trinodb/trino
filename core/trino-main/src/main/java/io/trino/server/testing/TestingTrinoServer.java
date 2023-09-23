@@ -243,8 +243,8 @@ public class TestingTrinoServer
                 .put("catalog.management", "dynamic")
                 .put("task.concurrency", "4")
                 .put("task.max-worker-threads", "4")
-                // Use task.writer-count > 1, as this allows to expose writer-concurrency related bugs.
-                .put("task.writer-count", "2")
+                // Use task.min-writer-count > 1, as this allows to expose writer-concurrency related bugs.
+                .put("task.min-writer-count", "2")
                 .put("exchange.client-threads", "4")
                 // Reduce memory footprint in tests
                 .put("exchange.max-buffer-size", "4MB")

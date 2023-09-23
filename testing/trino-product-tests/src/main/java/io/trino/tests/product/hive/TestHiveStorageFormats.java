@@ -781,7 +781,7 @@ public class TestHiveStorageFormats
                 ImmutableMap.of(
                         "hive.parquet_writer_page_size", reducedRowGroupSize.toBytesValueString(),
                         "task_scale_writers_enabled", "false",
-                        "task_writer_count", "1")));
+                        "task_min_writer_count", "1")));
     }
 
     @Test(groups = STORAGE_FORMATS_DETAILED)
@@ -1005,7 +1005,7 @@ public class TestHiveStorageFormats
     {
         try {
             // create more than one split
-            setSessionProperty(connection, "task_writer_count", "4");
+            setSessionProperty(connection, "task_min_writer_count", "4");
             setSessionProperty(connection, "task_scale_writers_enabled", "false");
             setSessionProperty(connection, "redistribute_writes", "false");
             for (Map.Entry<String, String> sessionProperty : sessionProperties.entrySet()) {

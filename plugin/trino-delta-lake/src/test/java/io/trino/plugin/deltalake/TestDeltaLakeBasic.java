@@ -270,9 +270,9 @@ public class TestDeltaLakeBasic
         assertUpdate("INSERT INTO " + tableName + " VALUES 10", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES 20", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES NULL", 1);
-        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
         assertUpdate(Session.builder(getQueryRunner().getDefaultSession())
-                        .setSystemProperty("task_writer_count", "1")
+                        .setSystemProperty("task_min_writer_count", "1")
                         .build(),
                 "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
 
