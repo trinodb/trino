@@ -152,15 +152,15 @@ public class TestPinotConnectorTest
                 .isEqualTo("""
                         CREATE TABLE pinot.default.orders (
                            clerk varchar,
-                           orderkey bigint,
-                           orderstatus varchar,
-                           updated_at_seconds bigint,
-                           custkey bigint,
-                           totalprice double,
                            comment varchar,
+                           custkey bigint,
                            orderdate date,
+                           orderkey bigint,
                            orderpriority varchar,
-                           shippriority integer
+                           orderstatus varchar,
+                           shippriority integer,
+                           totalprice double,
+                           updated_at_seconds bigint
                         )""");
     }
 
