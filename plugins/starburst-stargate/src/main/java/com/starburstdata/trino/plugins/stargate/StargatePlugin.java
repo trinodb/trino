@@ -12,6 +12,7 @@ package com.starburstdata.trino.plugins.stargate;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.starburstdata.trino.plugins.license.LicenseManager;
+import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMappingModule;
 import io.trino.plugin.jdbc.JdbcConnectorFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
@@ -43,6 +44,7 @@ public class StargatePlugin
                 combine(
                         binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
                         binder -> binder.bind(Boolean.class).annotatedWith(EnableWrites.class).toInstance(enableWrites),
+                        binder -> binder.install(new ExtraCredentialsBasedIdentityCacheMappingModule()),
                         new StargateModule()));
     }
 }
