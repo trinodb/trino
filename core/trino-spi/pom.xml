@@ -879,6 +879,12 @@
                                     <new>class io.trino.spi.block.VariableWidthBlockBuilder</new>
                                     <interface>io.trino.spi.block.Block</interface>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.security.SystemSecurityContext::&lt;init&gt;(io.trino.spi.security.Identity, java.util.Optional&lt;io.trino.spi.QueryId&gt;)</old>
+                                    <new>method void io.trino.spi.security.SystemSecurityContext::&lt;init&gt;(io.trino.spi.security.Identity, io.trino.spi.QueryId, java.time.Instant)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
