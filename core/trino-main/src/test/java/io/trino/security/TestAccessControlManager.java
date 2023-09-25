@@ -51,6 +51,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.Principal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -77,6 +78,7 @@ public class TestAccessControlManager
     private static final Principal PRINCIPAL = new BasicPrincipal("principal");
     private static final String USER_NAME = "user_name";
     private static final QueryId queryId = new QueryId("query_id");
+    private static final Instant queryStart = Instant.now();
 
     @Test
     public void testInitializing()
@@ -109,7 +111,7 @@ public class TestAccessControlManager
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    SecurityContext context = new SecurityContext(transactionId, identity, queryId);
+                    SecurityContext context = new SecurityContext(transactionId, identity, queryId, queryStart);
                     accessControlManager.checkCanSetCatalogSessionProperty(context, TEST_CATALOG_NAME, "property");
                     accessControlManager.checkCanShowSchemas(context, TEST_CATALOG_NAME);
                     accessControlManager.checkCanShowTables(context, new CatalogSchemaName(TEST_CATALOG_NAME, "schema"));
@@ -127,7 +129,7 @@ public class TestAccessControlManager
 
         assertThatThrownBy(() -> transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    accessControlManager.checkCanInsertIntoTable(new SecurityContext(transactionId, identity, queryId), tableName);
+                    accessControlManager.checkCanInsertIntoTable(new SecurityContext(transactionId, identity, queryId, queryStart), tableName);
                 }))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessage("Access Denied: Cannot insert into table test-catalog.schema.table");
@@ -264,7 +266,7 @@ public class TestAccessControlManager
     private static SecurityContext context(TransactionId transactionId)
     {
         Identity identity = Identity.forUser(USER_NAME).withPrincipal(PRINCIPAL).build();
-        return new SecurityContext(transactionId, identity, queryId);
+        return new SecurityContext(transactionId, identity, queryId, queryStart);
     }
 
     @Test
