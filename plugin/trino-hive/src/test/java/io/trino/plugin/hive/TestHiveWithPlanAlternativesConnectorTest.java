@@ -123,6 +123,20 @@ public class TestHiveWithPlanAlternativesConnectorTest
 
     @Override
     @Test
+    public void testTargetMaxFileSize()
+    {
+        // Not applicable with plan alternatives
+    }
+
+    @Override
+    @Test
+    public void testTargetMaxFileSizePartitioned()
+    {
+        // Not applicable with plan alternatives
+    }
+
+    @Override
+    @Test
     public void testTimestampWithTimeZone()
     {
         // There's no clean way to access HiveMetastoreFactory and this test doesn't exercise plan alternatives anyway
