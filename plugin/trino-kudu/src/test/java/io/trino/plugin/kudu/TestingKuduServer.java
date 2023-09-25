@@ -22,11 +22,8 @@ import org.testcontainers.containers.ToxiproxyContainer;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.net.Inet4Address;
-import java.net.InterfaceAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
-import java.util.Enumeration;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 
 import static java.lang.String.format;
 
@@ -126,22 +123,11 @@ public class TestingKuduServer
 
     private static String getHostIPAddress()
     {
-        // Binding kudu's `rpc_advertised_addresses` to 127.0.0.1 inside the container will not bind to the host's loopback address
-        // As a workaround, use a site local ipv4 address from the host
-        // This is roughly equivalent to setting the KUDU_QUICKSTART_IP defined here: https://kudu.apache.org/docs/quickstart.html#_set_kudu_quickstart_ip
         try {
-            Enumeration<NetworkInterface> networkInterfaceEnumeration = NetworkInterface.getNetworkInterfaces();
-            while (networkInterfaceEnumeration.hasMoreElements()) {
-                for (InterfaceAddress interfaceAddress : networkInterfaceEnumeration.nextElement().getInterfaceAddresses()) {
-                    if (interfaceAddress.getAddress().isSiteLocalAddress() && interfaceAddress.getAddress() instanceof Inet4Address) {
-                        return interfaceAddress.getAddress().getHostAddress();
-                    }
-                }
-            }
+            return InetAddress.getLocalHost().getHostAddress();
         }
-        catch (SocketException e) {
+        catch (UnknownHostException e) {
             throw new RuntimeException(e);
         }
-        throw new IllegalStateException("Could not find site local ipv4 address, failed to launch kudu");
     }
 }
