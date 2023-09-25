@@ -3507,9 +3507,10 @@ public class LocalExecutionPlanner
 
             int maxWritersBasedOnMemory = getMaxWritersBasedOnMemory(session);
             if (partitioningScheme.isPresent()) {
-                // The default value of partitioned writer count is 32 which is high enough to use it
-                // for both cases when scaling is enabled or not. Additionally, it doesn't lead to too many
-                // small files since when scaling is disabled only single writer will handle a single partition.
+                // The default value of partitioned writer count is 2 * number_of_cores (capped to 64) which is high
+                // enough to use it for cases with or without scaling enabled. Additionally, it doesn't lead
+                // to too many small files when scaling is disabled because single partition will be written by
+                // a single writer only.
                 int partitionedWriterCount = getTaskPartitionedWriterCount(session);
                 if (isLocalScaledWriterExchange(source)) {
                     partitionedWriterCount = connectorScalingOptions.perTaskMaxScaledWriterCount()
