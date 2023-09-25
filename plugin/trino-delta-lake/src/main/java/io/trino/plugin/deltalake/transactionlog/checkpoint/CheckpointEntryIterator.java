@@ -72,6 +72,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_DATA;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
@@ -182,9 +183,20 @@ public class CheckpointEntryIterator
                 .map(field -> buildColumnHandle(field, checkpointSchemaManager, this.metadataEntry, this.protocolEntry).toHiveColumnHandle())
                 .collect(toImmutableList());
 
-        TupleDomain<HiveColumnHandle> tupleDomain = columns.size() > 1 ?
-                TupleDomain.all() :
-                buildTupleDomainColumnHandle(getOnlyElement(fields), getOnlyElement(columns));
+        TupleDomain<HiveColumnHandle> tupleDomain;
+        if (columns.size() == 1) {
+            tupleDomain = buildTupleDomainColumnHandle(getOnlyElement(fields), getOnlyElement(columns));
+        }
+        else if (columns.size() == 2 && fields.contains(METADATA) && fields.contains(PROTOCOL)) {
+            // TODO https://github.com/trinodb/trino/issues/19156 Add support for predicate pushdown for both metadata and protocol in CheckpointEntryIterator
+            HiveColumnHandle metadata = columns.stream()
+                    .filter(column -> column.getBaseColumnName().equals("metadata"))
+                    .collect(onlyElement());
+            tupleDomain = buildTupleDomainColumnHandle(METADATA, metadata);
+        }
+        else {
+            tupleDomain = TupleDomain.all();
+        }
 
         ReaderPageSource pageSource = ParquetPageSourceFactory.createPageSource(
                 checkpoint,
