@@ -36,6 +36,7 @@ import org.testng.annotations.Test;
 import javax.security.auth.kerberos.KerberosPrincipal;
 
 import java.io.File;
+import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -76,6 +77,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
     private static final Identity nonAsciiUser = Identity.ofUser("\u0194\u0194\u0194");
     private static final CatalogSchemaTableName aliceView = new CatalogSchemaTableName("alice-catalog", "schema", "view");
     private static final QueryId queryId = new QueryId("test_query");
+    private static final Instant queryStart = Instant.now();
 
     private static final Identity charlie = Identity.forUser("charlie").withGroups(ImmutableSet.of("guests")).build();
     private static final Identity dave = Identity.forUser("dave").withGroups(ImmutableSet.of("contractors")).build();
@@ -83,12 +85,12 @@ public abstract class BaseFileBasedSystemAccessControlTest
     private static final Identity any = Identity.ofUser("any");
     private static final Identity anyone = Identity.ofUser("anyone");
     private static final Identity unknown = Identity.ofUser("some-unknown-user-id");
-    private static final SystemSecurityContext ADMIN = new SystemSecurityContext(admin, queryId);
-    private static final SystemSecurityContext BOB = new SystemSecurityContext(bob, queryId);
-    private static final SystemSecurityContext CHARLIE = new SystemSecurityContext(charlie, queryId);
-    private static final SystemSecurityContext ALICE = new SystemSecurityContext(alice, queryId);
-    private static final SystemSecurityContext JOE = new SystemSecurityContext(joe, queryId);
-    private static final SystemSecurityContext UNKNOWN = new SystemSecurityContext(unknown, queryId);
+    private static final SystemSecurityContext ADMIN = new SystemSecurityContext(admin, queryId, queryStart);
+    private static final SystemSecurityContext BOB = new SystemSecurityContext(bob, queryId, queryStart);
+    private static final SystemSecurityContext CHARLIE = new SystemSecurityContext(charlie, queryId, queryStart);
+    private static final SystemSecurityContext ALICE = new SystemSecurityContext(alice, queryId, queryStart);
+    private static final SystemSecurityContext JOE = new SystemSecurityContext(joe, queryId, queryStart);
+    private static final SystemSecurityContext UNKNOWN = new SystemSecurityContext(unknown, queryId, queryStart);
 
     private static final String SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE = "Cannot show schemas";
     private static final String CREATE_SCHEMA_ACCESS_DENIED_MESSAGE = "Cannot create schema .*";
@@ -146,7 +148,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
         SystemAccessControl accessControl = newFileBasedSystemAccessControl(configFile, ImmutableMap.of(
                 "security.refresh-period", "1ms"));
 
-        SystemSecurityContext alice = new SystemSecurityContext(BaseFileBasedSystemAccessControlTest.alice, queryId);
+        SystemSecurityContext alice = new SystemSecurityContext(BaseFileBasedSystemAccessControlTest.alice, queryId, queryStart);
         accessControl.checkCanCreateView(alice, aliceView);
         accessControl.checkCanCreateView(alice, aliceView);
         accessControl.checkCanCreateView(alice, aliceView);
@@ -774,9 +776,9 @@ public abstract class BaseFileBasedSystemAccessControlTest
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table-mixed-groups.json");
 
         SystemSecurityContext userGroup1Group2 = new SystemSecurityContext(Identity.forUser("user_1_2")
-                .withGroups(ImmutableSet.of("group1", "group2")).build(), queryId);
+                .withGroups(ImmutableSet.of("group1", "group2")).build(), queryId, queryStart);
         SystemSecurityContext userGroup2 = new SystemSecurityContext(Identity.forUser("user_2")
-                .withGroups(ImmutableSet.of("group2")).build(), queryId);
+                .withGroups(ImmutableSet.of("group2")).build(), queryId, queryStart);
 
         assertEquals(
                 accessControl.getColumnMask(
@@ -795,9 +797,9 @@ public abstract class BaseFileBasedSystemAccessControlTest
                 new ViewExpression(Optional.empty(), Optional.of("some-catalog"), Optional.of("my_schema"), "'mask_a'"));
 
         SystemSecurityContext userGroup1Group3 = new SystemSecurityContext(Identity.forUser("user_1_3")
-                .withGroups(ImmutableSet.of("group1", "group3")).build(), queryId);
+                .withGroups(ImmutableSet.of("group1", "group3")).build(), queryId, queryStart);
         SystemSecurityContext userGroup3 = new SystemSecurityContext(Identity.forUser("user_3")
-                .withGroups(ImmutableSet.of("group3")).build(), queryId);
+                .withGroups(ImmutableSet.of("group3")).build(), queryId, queryStart);
 
         assertEquals(
                 accessControl.getRowFilters(
@@ -1101,7 +1103,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
         File rulesFile = new File("../../docs/src/main/sphinx/security/session-property-access.json");
         SystemAccessControl accessControl = newFileBasedSystemAccessControl(rulesFile, ImmutableMap.of());
         Identity bannedUser = Identity.ofUser("banned_user");
-        SystemSecurityContext bannedUserContext = new SystemSecurityContext(Identity.ofUser("banned_user"), queryId);
+        SystemSecurityContext bannedUserContext = new SystemSecurityContext(Identity.ofUser("banned_user"), queryId, queryStart);
 
         accessControl.checkCanSetSystemSessionProperty(admin, "any");
         assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(alice, "any"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
@@ -1619,7 +1621,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
                 .withGroups(ImmutableSet.of(group))
                 .withEnabledRoles(ImmutableSet.of(role))
                 .build();
-        return new SystemSecurityContext(identity, queryId);
+        return new SystemSecurityContext(identity, queryId, queryStart);
     }
 
     @Test
