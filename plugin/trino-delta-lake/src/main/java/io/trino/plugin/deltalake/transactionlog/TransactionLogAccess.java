@@ -13,11 +13,14 @@
  */
 package io.trino.plugin.deltalake.transactionlog;
 
+import com.amazonaws.services.glue.model.TableVersion;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.Weigher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
+import com.google.common.collect.SortedSetMultimap;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
@@ -53,7 +56,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.util.Collection;
-import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -62,6 +65,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -73,6 +77,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Multimaps.newSortedSetMultimap;
+import static com.google.common.collect.Multimaps.synchronizedSortedSetMultimap;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.cache.CacheUtils.invalidateAllIf;
@@ -85,7 +91,6 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class TransactionLogAccess
@@ -99,7 +104,10 @@ public class TransactionLogAccess
     private final int domainCompactionThreshold;
 
     private final Cache<TableLocation, TableSnapshot> tableSnapshots;
+
     private final Cache<TableVersion, DeltaLakeDataFileCacheEntry> activeDataFileCache;
+    // Eventually consistent information about keys visible in activeDataFileCache
+    private final SortedSetMultimap<TableLocation, Long> activeDataFileCacheIndex = synchronizedSortedSetMultimap(newSortedSetMultimap(new HashMap<>(), TreeSet::new));
 
     // TODO move to query-level state
     private final Map<QueriedLocation, Long> queriedLocations = new ConcurrentHashMap<>();
@@ -132,6 +140,7 @@ public class TransactionLogAccess
                 .weigher((Weigher<TableVersion, DeltaLakeDataFileCacheEntry>) (key, value) -> Ints.saturatedCast(key.getRetainedSizeInBytes() + value.getRetainedSizeInBytes()))
                 .maximumWeight(deltaLakeConfig.getDataFileCacheSize().toBytes())
                 .expireAfterWrite(deltaLakeConfig.getDataFileCacheTtl().toMillis(), TimeUnit.MILLISECONDS)
+                .keyRemovalListener(key -> activeDataFileCacheIndex.remove(key.tableLocation(), key.version()))
                 .shareNothingWhenDisabled()
                 .recordStats()
                 .build();
@@ -258,36 +267,45 @@ public class TransactionLogAccess
     public List<AddFileEntry> getActiveFiles(TableSnapshot tableSnapshot, ConnectorSession session)
     {
         try {
-            TableVersion tableVersion = new TableVersion(new TableLocation(tableSnapshot.getTable(), tableSnapshot.getTableLocation()), tableSnapshot.getVersion());
-
-            DeltaLakeDataFileCacheEntry cacheEntry = activeDataFileCache.get(tableVersion, () -> {
-                DeltaLakeDataFileCacheEntry oldCached = activeDataFileCache.asMap().keySet().stream()
-                        .filter(key -> key.tableLocation().equals(tableVersion.tableLocation()) &&
-                                key.version() < tableVersion.version())
-                        .flatMap(key -> Optional.ofNullable(activeDataFileCache.getIfPresent(key))
-                                .map(value -> Map.entry(key, value))
-                                .stream())
-                        .max(Comparator.comparing(entry -> entry.getKey().version()))
-                        .map(Map.Entry::getValue)
-                        .orElse(null);
-                if (oldCached != null) {
-                    try {
-                        List<DeltaLakeTransactionLogEntry> newEntries = getJsonEntries(
-                                oldCached.getVersion(),
-                                tableSnapshot.getVersion(),
-                                tableSnapshot,
-                                fileSystemFactory.create(session));
-                        return oldCached.withUpdatesApplied(newEntries, tableSnapshot.getVersion());
+            TableLocation tableLocation = new TableLocation(tableSnapshot.getTable(), tableSnapshot.getTableLocation());
+            long requiredVersion = tableSnapshot.getVersion();
+            TableVersion tableVersion = new TableVersion(tableLocation, requiredVersion);
+            DeltaLakeDataFileCacheEntry cacheEntry;
+            activeDataFileCacheIndex.put(tableLocation, requiredVersion);
+            try {
+                cacheEntry = activeDataFileCache.get(tableVersion, () -> {
+                    List<Long> olderVersions = ImmutableList.copyOf(activeDataFileCacheIndex.get(tableLocation).headSet(tableVersion.version()));
+                    DeltaLakeDataFileCacheEntry oldCached = null;
+                    for (Long olderVersion : Lists.reverse(olderVersions)) {
+                        TableVersion olderVersionKey = new TableVersion(tableLocation, olderVersion);
+                        oldCached = activeDataFileCache.getIfPresent(olderVersionKey);
+                        if (oldCached != null) {
+                            break;
+                        }
                     }
-                    catch (MissingTransactionLogException e) {
-                        // The cached state cannot be used to calculate current state, as some
-                        // intermediate transaction files are expired.
+                    if (oldCached != null) {
+                        try {
+                            List<DeltaLakeTransactionLogEntry> newEntries = getJsonEntries(
+                                    oldCached.getVersion(),
+                                    requiredVersion,
+                                    tableSnapshot,
+                                    fileSystemFactory.create(session));
+                            return oldCached.withUpdatesApplied(newEntries, requiredVersion);
+                        }
+                        catch (MissingTransactionLogException e) {
+                            // The cached state cannot be used to calculate current state, as some
+                            // intermediate transaction files are expired.
+                        }
                     }
-                }
 
-                List<AddFileEntry> activeFiles = loadActiveFiles(tableSnapshot, session);
-                return new DeltaLakeDataFileCacheEntry(tableSnapshot.getVersion(), activeFiles);
-            });
+                    List<AddFileEntry> activeFiles = loadActiveFiles(tableSnapshot, session);
+                    return new DeltaLakeDataFileCacheEntry(requiredVersion, activeFiles);
+                });
+            }
+            catch (Throwable e) {
+                activeDataFileCacheIndex.remove(tableLocation, requiredVersion);
+                throw e;
+            }
             return cacheEntry.getActiveFiles();
         }
         catch (ExecutionException | UncheckedExecutionException e) {
