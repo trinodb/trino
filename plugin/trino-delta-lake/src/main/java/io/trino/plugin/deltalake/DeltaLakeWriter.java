@@ -86,10 +86,10 @@ public class DeltaLakeWriter
     private final long creationTime;
     private final Map<Integer, Function<Block, Block>> coercers;
     private final List<DeltaLakeColumnHandle> columnHandles;
+    private final DataFileType dataFileType;
 
     private long rowCount;
     private long inputSizeInBytes;
-    private DataFileType dataFileType;
 
     public DeltaLakeWriter(
             TrinoFileSystem fileSystem,
@@ -118,7 +118,7 @@ public class DeltaLakeWriter
             }
         }
         this.coercers = coercers.buildOrThrow();
-        this.dataFileType = dataFileType;
+        this.dataFileType = requireNonNull(dataFileType, "dataFileType is null");
     }
 
     @Override
@@ -137,7 +137,7 @@ public class DeltaLakeWriter
     public void appendRows(Page originalPage)
     {
         Page page = originalPage;
-        if (coercers.size() > 0) {
+        if (!coercers.isEmpty()) {
             Block[] translatedBlocks = new Block[originalPage.getChannelCount()];
             for (int index = 0; index < translatedBlocks.length; index++) {
                 Block originalBlock = originalPage.getBlock(index);
