@@ -240,14 +240,12 @@ public final class EvictableCacheBuilder<K, V>
     }
 
     @ElementTypesAreNonnullByDefault
-    private static final class TokenWeigher<K, V>
+    private record TokenWeigher<K, V>(Weigher<? super K, ? super V> delegate)
             implements Weigher<Token<K>, V>
     {
-        private final Weigher<? super K, ? super V> delegate;
-
-        public TokenWeigher(Weigher<? super K, ? super V> delegate)
+        private TokenWeigher
         {
-            this.delegate = requireNonNull(delegate, "delegate is null");
+            requireNonNull(delegate, "delegate is null");
         }
 
         @Override
