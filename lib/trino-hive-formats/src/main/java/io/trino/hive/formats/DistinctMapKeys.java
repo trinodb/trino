@@ -66,7 +66,7 @@ public class DistinctMapKeys
             if (keyBlock.isNull(i)) {
                 continue;
             }
-            int hash = getHashPosition(keyBlock, i, hashTableSize);
+            int hash = getHashPosition(keyBlock, i, hashTable.length);
             while (true) {
                 if (hashTable[hashTableOffset + hash] == -1) {
                     hashTable[hashTableOffset + hash] = i;
@@ -104,7 +104,7 @@ public class DistinctMapKeys
                 }
 
                 hash++;
-                if (hash == hashTableSize) {
+                if (hash == hashTable.length) {
                     hash = 0;
                 }
             }
