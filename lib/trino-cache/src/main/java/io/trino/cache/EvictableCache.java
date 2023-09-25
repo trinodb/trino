@@ -40,6 +40,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
@@ -70,7 +71,7 @@ class EvictableCache<K, V>
 
     private final AtomicInteger invalidations = new AtomicInteger();
 
-    EvictableCache(CacheBuilder<? super Token<K>, ? super V> cacheBuilder, CacheLoader<? super K, V> cacheLoader)
+    EvictableCache(CacheBuilder<? super Token<K>, ? super V> cacheBuilder, CacheLoader<? super K, V> cacheLoader, Consumer<? super K> userRemovalListener)
     {
         dataCache = buildUnsafeCache(
                 cacheBuilder
@@ -79,6 +80,7 @@ class EvictableCache<K, V>
                             verify(token != null, "token is null");
                             if (removal.getCause() != RemovalCause.REPLACED) {
                                 tokens.remove(token.getKey(), token);
+                                userRemovalListener.accept(token.getKey());
                             }
                         }),
                 new TokenCacheLoader<>(cacheLoader));

@@ -24,10 +24,12 @@ import jakarta.annotation.Nullable;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -36,11 +38,13 @@ class EmptyCache<K, V>
         extends AbstractLoadingCache<K, V>
 {
     private final CacheLoader<? super K, V> loader;
+    private final Optional<? extends Consumer<? super K>> keyRemovalListener;
     private final StatsCounter statsCounter;
 
-    EmptyCache(CacheLoader<? super K, V> loader, boolean recordStats)
+    EmptyCache(CacheLoader<? super K, V> loader, Optional<? extends Consumer<? super K>> keyRemovalListener, boolean recordStats)
     {
         this.loader = requireNonNull(loader, "loader is null");
+        this.keyRemovalListener = requireNonNull(keyRemovalListener, "keyRemovalListener is null");
         this.statsCounter = recordStats ? new SimpleStatsCounter() : new NoopStatsCounter();
     }
 
@@ -67,6 +71,7 @@ class EmptyCache<K, V>
             statsCounter.recordMisses(keySet.size());
             @SuppressWarnings("unchecked") // safe since all keys extend K
             ImmutableMap<K, V> result = (ImmutableMap<K, V>) loader.loadAll(keySet);
+            keyRemovalListener.ifPresent(keySet::forEach);
             for (K key : keySet) {
                 if (!result.containsKey(key)) {
                     throw new InvalidCacheLoadException("loadAll failed to return a value for " + key);
@@ -92,6 +97,7 @@ class EmptyCache<K, V>
         statsCounter.recordMisses(1);
         try {
             V value = valueLoader.call();
+            keyRemovalListener.ifPresent(keyRemovalListener -> keyRemovalListener.accept(key));
             statsCounter.recordLoadSuccess(1);
             return value;
         }
@@ -145,6 +151,7 @@ class EmptyCache<K, V>
             {
                 // Cache, even if configured to evict everything immediately, should allow writes.
                 // putIfAbsent returns the previous value
+                keyRemovalListener.ifPresent(keyRemovalListener -> keyRemovalListener.accept(key));
                 return null;
             }
 
@@ -157,12 +164,14 @@ class EmptyCache<K, V>
             @Override
             public boolean replace(K key, V oldValue, V newValue)
             {
+                keyRemovalListener.ifPresent(keyRemovalListener -> keyRemovalListener.accept(key));
                 return false;
             }
 
             @Override
             public V replace(K key, V value)
             {
+                keyRemovalListener.ifPresent(keyRemovalListener -> keyRemovalListener.accept(key));
                 return null;
             }
 
@@ -202,6 +211,7 @@ class EmptyCache<K, V>
             public V put(K key, V value)
             {
                 // Cache, even if configured to evict everything immediately, should allow writes.
+                keyRemovalListener.ifPresent(keyRemovalListener -> keyRemovalListener.accept(key));
                 return null;
             }
 
@@ -216,6 +226,7 @@ class EmptyCache<K, V>
             public void putAll(Map<? extends K, ? extends V> m)
             {
                 // Cache, even if configured to evict everything immediately, should allow writes.
+                keyRemovalListener.ifPresent(m.keySet()::forEach);
             }
 
             @Override

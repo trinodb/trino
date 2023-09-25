@@ -29,6 +29,7 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -55,6 +56,7 @@ public final class EvictableCacheBuilder<K, V>
     private Optional<Long> maximumWeight = Optional.empty();
     private Optional<Integer> concurrencyLevel = Optional.empty();
     private Optional<Weigher<? super Token<K>, ? super V>> weigher = Optional.empty();
+    private Optional<Consumer<K>> keyRemovalListener = Optional.empty();
     private boolean recordStats;
     private Optional<DisabledCacheImplementation> disabledCacheImplementation = Optional.empty();
 
@@ -133,6 +135,15 @@ public final class EvictableCacheBuilder<K, V>
         return cast;
     }
 
+    public <K1 extends K> EvictableCacheBuilder<K1, V> keyRemovalListener(Consumer<K1> keyRemovalListener)
+    {
+        checkState(this.keyRemovalListener.isEmpty(), "keyRemovalListener already set");
+        @SuppressWarnings("unchecked") // see com.google.common.cache.CacheBuilder.removalListener
+        EvictableCacheBuilder<K1, V> cast = (EvictableCacheBuilder<K1, V>) this;
+        cast.keyRemovalListener = Optional.of(keyRemovalListener);
+        return cast;
+    }
+
     @CanIgnoreReturnValue
     public EvictableCacheBuilder<K, V> recordStats()
     {
@@ -183,13 +194,16 @@ public final class EvictableCacheBuilder<K, V>
                             "This is rarely desired, thus builder caller is expected to either opt-in into this behavior with shareResultsAndFailuresEvenIfDisabled(), " +
                             "or choose not to share results (and failures) between concurrent invocations with shareNothingWhenDisabled()."));
             return switch (disabledCacheImplementation) {
-                case NOOP -> new EmptyCache<>(loader, recordStats);
+                case NOOP -> new EmptyCache<>(loader, keyRemovalListener, recordStats);
                 case GUAVA -> {
                     // Disabled cache is always empty, so doesn't exhibit invalidation problems.
                     // Avoid overhead of EvictableCache wrapper.
                     CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
                             .maximumSize(0)
                             .expireAfterWrite(0, SECONDS);
+                    keyRemovalListener.ifPresent(keyRemovalListener -> cacheBuilder.<K1,V1>removalListener((notification) -> {
+                        keyRemovalListener.accept(notification.getKey());
+                    }));
                     if (recordStats) {
                         cacheBuilder.recordStats();
                     }
@@ -206,7 +220,7 @@ public final class EvictableCacheBuilder<K, V>
         }
 
         // CacheBuilder is further modified in EvictableCache::new, so cannot be shared between build() calls.
-        CacheBuilder<Object, ? super V> cacheBuilder = CacheBuilder.newBuilder();
+        CacheBuilder<? super Token<K1>, ? super V1> cacheBuilder = CacheBuilder.newBuilder();
         ticker.ifPresent(cacheBuilder::ticker);
         expireAfterWrite.ifPresent(cacheBuilder::expireAfterWrite);
         refreshAfterWrite.ifPresent(cacheBuilder::refreshAfterWrite);
@@ -217,7 +231,7 @@ public final class EvictableCacheBuilder<K, V>
         if (recordStats) {
             cacheBuilder.recordStats();
         }
-        return new EvictableCache<>(cacheBuilder, loader);
+        return new EvictableCache<>(cacheBuilder, loader, keyRemovalListener.orElse(key -> {}));
     }
 
     private boolean cacheDisabled()
