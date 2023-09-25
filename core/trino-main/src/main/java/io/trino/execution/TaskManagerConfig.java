@@ -82,14 +82,14 @@ public class TaskManagerConfig
     // Set the value of default max writer count to the number of processors * 2 and cap it to 64. We can set this value
     // higher because preferred write partitioning is always enabled for local exchange thus partitioned inserts will never
     // use this property. Additionally, we have a mechanism to stop scaling if local memory utilization is high.
-    private int scaleWritersMaxWriterCount = min(getAvailablePhysicalProcessorCount(), 32) * 2;
+    private int scaleWritersMaxWriterCount = min(getAvailablePhysicalProcessorCount() * 2, 64);
     private int writerCount = 1;
     // Default value of partitioned task writer count should be above 1, otherwise it can create a plan
     // with a single gather exchange node on the coordinator due to a single available processor. Whereas,
     // on the worker nodes due to more available processors, the default value could be above 1. Therefore,
     // it can cause error due to config mismatch during execution. Additionally, cap it to 64 in order to
     // avoid small pages produced by local partitioning exchanges.
-    private int partitionedWriterCount = min(max(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 2), 32) * 2;
+    private int partitionedWriterCount = min(max(nextPowerOfTwo(getAvailablePhysicalProcessorCount() * 2), 2), 64);
     // Default value of task concurrency should be above 1, otherwise it can create a plan with a single gather
     // exchange node on the coordinator due to a single available processor. Whereas, on the worker nodes due to
     // more available processors, the default value could be above 1. Therefore, it can cause error due to config

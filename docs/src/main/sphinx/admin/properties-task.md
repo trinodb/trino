@@ -131,7 +131,7 @@ allocates a certain amount of memory for buffering.
 
 - **Type:** {ref}`prop-type-integer`
 - **Restrictions:** Must be a power of two
-- **Default value:** The number of physical CPUs of the node, with a minimum value of 2 and a maximum of 32
+- **Default value:** The number of physical CPUs of the node, with a minimum value of 2 and a maximum of 64
 - **Session property:** `task_partitioned_writer_count`
 
 The number of concurrent writer threads per worker per query when
