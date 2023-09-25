@@ -153,7 +153,7 @@ public class SkewedPartitionRebalancer
                 IntStream.range(0, bucketCount).toArray());
     }
 
-    public static int getMaxPartitionWritersBasedOnMemory(Session session)
+    public static int getMaxWritersBasedOnMemory(Session session)
     {
         return (int) ceil((double) getQueryMaxMemoryPerNode(session).toBytes() / getMaxMemoryPerPartitionWriter(session).toBytes());
     }
@@ -161,7 +161,7 @@ public class SkewedPartitionRebalancer
     public static int getScaleWritersMaxSkewedPartitions(Session session)
     {
         // Set the value of maxSkewedPartitions to scale to 60% of maximum number of writers possible per node.
-        return (int) (getMaxPartitionWritersBasedOnMemory(session) * 0.60);
+        return (int) (getMaxWritersBasedOnMemory(session) * 0.60);
     }
 
     public static int getTaskCount(PartitioningScheme partitioningScheme)
