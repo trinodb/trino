@@ -196,6 +196,7 @@ public final class SystemSessionProperties
     private static final String FAULT_TOLERANT_EXECUTION_SMALL_STAGE_REQUIRE_NO_MORE_PARTITIONS = "fault_tolerant_execution_small_stage_require_no_more_partitions";
     private static final String FAULT_TOLERANT_EXECUTION_STAGE_ESTIMATION_FOR_EAGER_PARENT_ENABLED = "fault_tolerant_execution_stage_estimation_for_eager_parent_enabled";
     private static final String FAULT_TOLERANT_EXECUTION_MARK_DISTINCT_CHAIN_ESTIMATION_ENABLED = "fault_tolerant_execution_mark_distinct_chain_estimation_enabled";
+    private static final String FAULT_TOLERANT_EXECUTION_MARK_DISTINCT_CHAIN_ESTIMATION_MAX_DEPTH = "fault_tolerant_execution_mark_distinct_chain_estimation_max_depth";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
     public static final String REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED = "remote_task_adaptive_update_request_size_enabled";
@@ -1004,6 +1005,11 @@ public final class SystemSessionProperties
                         FAULT_TOLERANT_EXECUTION_MARK_DISTINCT_CHAIN_ESTIMATION_ENABLED,
                         "Enable heuristic output size estimation for chain of stages with single mark distinct operator",
                         queryManagerConfig.isFaultTolerantExecutionMarkDistinctChainEstimationEnabled(),
+                        true),
+                integerProperty(
+                        FAULT_TOLERANT_EXECUTION_MARK_DISTINCT_CHAIN_ESTIMATION_MAX_DEPTH,
+                        "Max chain depth for heuristic output size estimation for chain of stages with single mark distinct operator",
+                        queryManagerConfig.getFaultTolerantExecutionMarkDistinctChainEstimationMaxDepth(),
                         true),
                 booleanProperty(
                         ADAPTIVE_PARTIAL_AGGREGATION_ENABLED,
@@ -1852,6 +1858,11 @@ public final class SystemSessionProperties
     public static boolean isFaultTolerantExecutionMarkDistinctChainEstimationEnabled(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MARK_DISTINCT_CHAIN_ESTIMATION_ENABLED, Boolean.class);
+    }
+
+    public static int getFaultTolerantMarkDistinctChainEstimationMaxDepth(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MARK_DISTINCT_CHAIN_ESTIMATION_MAX_DEPTH, Integer.class);
     }
 
     public static boolean isAdaptivePartialAggregationEnabled(Session session)

@@ -109,6 +109,7 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionSmallStageRequireNoMorePartitions(false)
                 .setFaultTolerantExecutionStageEstimationForEagerParentEnabled(true)
                 .setFaultTolerantExecutionMarkDistinctChainEstimationEnabled(true)
+                .setFaultTolerantExecutionMarkDistinctChainEstimationMaxDepth(5)
                 .setMaxWriterTasksCount(100));
     }
 
@@ -186,6 +187,7 @@ public class TestQueryManagerConfig
                 .put("fault-tolerant-execution-small-stage-require-no-more-partitions", "true")
                 .put("fault-tolerant-execution-stage-estimation-for-eager-parent-enabled", "false")
                 .put("fault-tolerant-execution-mark-distinct-chain-estimation-enabled", "false")
+                .put("fault-tolerant-execution-mark-distinct-chain-estimation-max-depth", "7")
                 .buildOrThrow();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -258,6 +260,7 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionSmallStageRequireNoMorePartitions(true)
                 .setFaultTolerantExecutionStageEstimationForEagerParentEnabled(false)
                 .setFaultTolerantExecutionMarkDistinctChainEstimationEnabled(false)
+                .setFaultTolerantExecutionMarkDistinctChainEstimationMaxDepth(7)
                 .setMaxWriterTasksCount(101);
 
         assertFullMapping(properties, expected);

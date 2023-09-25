@@ -146,6 +146,9 @@ public class QueryManagerConfig
     private boolean faultTolerantExecutionSmallStageRequireNoMorePartitions;
     private boolean faultTolerantExecutionStageEstimationForEagerParentEnabled = true;
     private boolean faultTolerantExecutionMarkDistinctChainEstimationEnabled = true;
+    // limit speculative execution of mark distinct chain length to arbitrary depth to avoid
+    // excessive entropy in estimation result
+    private int faultTolerantExecutionMarkDistinctChainEstimationMaxDepth = 5;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -1102,6 +1105,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionMarkDistinctChainEstimationEnabled(boolean faultTolerantExecutionMarkDistinctChainEstimationEnabled)
     {
         this.faultTolerantExecutionMarkDistinctChainEstimationEnabled = faultTolerantExecutionMarkDistinctChainEstimationEnabled;
+        return this;
+    }
+
+    public int getFaultTolerantExecutionMarkDistinctChainEstimationMaxDepth()
+    {
+        return faultTolerantExecutionMarkDistinctChainEstimationMaxDepth;
+    }
+
+    @Config("fault-tolerant-execution-mark-distinct-chain-estimation-max-depth")
+    @ConfigDescription("Max chain depth for heuristic output size estimation for chain of stages with single mark distinct operator")
+    public QueryManagerConfig setFaultTolerantExecutionMarkDistinctChainEstimationMaxDepth(int faultTolerantExecutionMarkDistinctChainEstimationMaxDepth)
+    {
+        this.faultTolerantExecutionMarkDistinctChainEstimationMaxDepth = faultTolerantExecutionMarkDistinctChainEstimationMaxDepth;
         return this;
     }
 

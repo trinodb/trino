@@ -93,7 +93,6 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
-import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -106,7 +105,6 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import jakarta.annotation.Nullable;
-import org.eclipse.jetty.util.PatternMatcher;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -149,6 +147,7 @@ import static io.trino.SystemSessionProperties.getFaultTolerantExecutionRuntimeA
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionSmallStageEstimationThreshold;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionSmallStageSourceSizeMultiplier;
+import static io.trino.SystemSessionProperties.getFaultTolerantMarkDistinctChainEstimationMaxDepth;
 import static io.trino.SystemSessionProperties.getMaxTasksWaitingForExecutionPerQuery;
 import static io.trino.SystemSessionProperties.getMaxTasksWaitingForNodePerStage;
 import static io.trino.SystemSessionProperties.getRetryDelayScaleFactor;
@@ -232,6 +231,7 @@ public class EventDrivenFaultTolerantQueryScheduler
     private final boolean smallStageRequireNoMorePartitions;
     private final boolean stageEstimationForEagerParentEnabled;
     private final boolean markDistinctChainEstimationEnabled;
+    private final int markDistinctChainEstimationMaxDepth;
 
     private final StageRegistry stageRegistry;
 
@@ -290,6 +290,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         this.smallStageRequireNoMorePartitions = isFaultTolerantExecutionSmallStageRequireNoMorePartitions(queryStateMachine.getSession());
         this.stageEstimationForEagerParentEnabled = isFaultTolerantExecutionStageEstimationForEagerParentEnabled(queryStateMachine.getSession());
         this.markDistinctChainEstimationEnabled = isFaultTolerantExecutionMarkDistinctChainEstimationEnabled(queryStateMachine.getSession());
+        this.markDistinctChainEstimationMaxDepth = getFaultTolerantMarkDistinctChainEstimationMaxDepth(queryStateMachine.getSession());
 
         stageRegistry = new StageRegistry(queryStateMachine, originalPlan);
     }
@@ -376,7 +377,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                     smallSizePartitionSizeEstimate,
                     smallStageRequireNoMorePartitions,
                     stageEstimationForEagerParentEnabled,
-                    markDistinctChainEstimationEnabled);
+                    markDistinctChainEstimationEnabled,
+                    markDistinctChainEstimationMaxDepth);
             queryExecutor.submit(scheduler::run);
         }
         catch (Throwable t) {
@@ -564,6 +566,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final boolean smallStageRequireNoMorePartitions;
         private final boolean stageEstimationForEagerParentEnabled;
         private final boolean markDistinctChainEstimationEnabled;
+        private final int markDistinctChainEstimationMaxDepth;
 
         private final BlockingQueue<Event> eventQueue = new LinkedBlockingQueue<>();
         private final List<Event> eventBuffer = new ArrayList<>(EVENT_BUFFER_CAPACITY);
@@ -622,7 +625,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                 DataSize smallSizePartitionSizeEstimate,
                 boolean smallStageRequireNoMorePartitions,
                 boolean stageEstimationForEagerParentEnabled,
-                boolean markDistinctChainEstimationEnabled)
+                boolean markDistinctChainEstimationEnabled,
+                int markDistinctChainEstimationMaxDepth)
         {
             this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
@@ -661,6 +665,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.smallStageRequireNoMorePartitions = smallStageRequireNoMorePartitions;
             this.stageEstimationForEagerParentEnabled = stageEstimationForEagerParentEnabled;
             this.markDistinctChainEstimationEnabled = markDistinctChainEstimationEnabled;
+            this.markDistinctChainEstimationMaxDepth = markDistinctChainEstimationMaxDepth;
 
             planInTopologicalOrder = sortPlanInTopologicalOrder(plan);
         }
@@ -1036,7 +1041,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 }
                 else {
                     // source stage finished; no more checks needed
-                    OutputDataSizeEstimateResult result = sourceStageExecution.getOutputDataSize(stageExecutions::get, eager).orElseThrow();
+                    OutputDataSizeEstimateResult result = sourceStageExecution.getOutputDataSize(stageExecutions::get, eager, 0).orElseThrow();
                     verify(result.getStatus() == OutputDataSizeEstimateStatus.FINISHED, "expected FINISHED status but got %s", result.getStatus());
                     finishedSourcesCount++;
                     sourceOutputSizeEstimates.put(sourceStageExecution.getStageId(), result.getOutputDataSizeEstimate());
@@ -1054,7 +1059,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     return IsReadyForExecutionResult.notReady();
                 }
 
-                Optional<OutputDataSizeEstimateResult> result = sourceStageExecution.getOutputDataSize(stageExecutions::get, eager);
+                Optional<OutputDataSizeEstimateResult> result = sourceStageExecution.getOutputDataSize(stageExecutions::get, eager, 0);
                 if (result.isEmpty()) {
                     return IsReadyForExecutionResult.notReady();
                 }
@@ -1237,7 +1242,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                         smallStageSourceSizeMultiplier,
                         smallSizePartitionSizeEstimate,
                         smallStageRequireNoMorePartitions,
-                        markDistinctChainEstimationEnabled);
+                        markDistinctChainEstimationEnabled,
+                        markDistinctChainEstimationMaxDepth);
 
                 stageExecutions.put(execution.getStageId(), execution);
 
@@ -1654,6 +1660,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final DataSize smallSizePartitionSizeEstimate;
         private final boolean smallStageRequireNoMorePartitions;
         private final boolean markDistinctChainEstimationEnabled;
+        private final int markDistinctChainEstimationMaxDepth;
 
         private StageExecution(
                 QueryStateMachine queryStateMachine,
@@ -1674,7 +1681,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                 double smallStageSourceSizeMultiplier,
                 DataSize smallSizePartitionSizeEstimate,
                 boolean smallStageRequireNoMorePartitions,
-                boolean markDistinctChainEstimationEnabled)
+                boolean markDistinctChainEstimationEnabled,
+                int markDistinctChainEstimationMaxDepth)
         {
             this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
             this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
@@ -1705,6 +1713,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.smallSizePartitionSizeEstimate = requireNonNull(smallSizePartitionSizeEstimate, "smallSizePartitionSizeEstimate is null");
             this.smallStageRequireNoMorePartitions = smallStageRequireNoMorePartitions;
             this.markDistinctChainEstimationEnabled = markDistinctChainEstimationEnabled;
+            this.markDistinctChainEstimationMaxDepth = markDistinctChainEstimationMaxDepth;
         }
 
         public StageId getStageId()
@@ -2151,7 +2160,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             return getStagePartition(partitionId).getNodeRequirements();
         }
 
-        public Optional<OutputDataSizeEstimateResult> getOutputDataSize(Function<StageId, StageExecution> stageExecutionLookup, boolean parentEager)
+        public Optional<OutputDataSizeEstimateResult> getOutputDataSize(Function<StageId, StageExecution> stageExecutionLookup, boolean parentEager, int depth)
         {
             // estimators are ordered by expected estimation quality from best to worst
             List<Supplier<Optional<OutputDataSizeEstimateResult>>> estimators = ImmutableList.of(
@@ -2162,8 +2171,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                         return Optional.of(new OutputDataSizeEstimateResult(new OutputDataSizeEstimate(ImmutableLongArray.copyOf(outputDataSize)), OutputDataSizeEstimateStatus.FINISHED));
                     },
                     this::getEstimatedOutputDataSize,
-                    () -> getEstimatedMarkDistinctStageOutputDataSize(stageExecutionLookup),
-                    () -> getEstimatedSmallStageOutputDataSize(stageExecutionLookup),
+                    () -> getEstimatedMarkDistinctStageOutputDataSize(stageExecutionLookup, depth),
+                    () -> getEstimatedSmallStageOutputDataSize(stageExecutionLookup, depth),
                     () -> {
                         if (!parentEager) {
                             return Optional.empty();
@@ -2212,9 +2221,13 @@ public class EventDrivenFaultTolerantQueryScheduler
             return Optional.of(new OutputDataSizeEstimateResult(new OutputDataSizeEstimate(estimateBuilder.build()), OutputDataSizeEstimateStatus.ESTIMATED_BY_PROGRESS));
         }
 
-        private Optional<OutputDataSizeEstimateResult> getEstimatedMarkDistinctStageOutputDataSize(Function<StageId, StageExecution> stageExecutionLookup)
+        private Optional<OutputDataSizeEstimateResult> getEstimatedMarkDistinctStageOutputDataSize(Function<StageId, StageExecution> stageExecutionLookup, int depth)
         {
             if (!markDistinctChainEstimationEnabled) {
+                return Optional.empty();
+            }
+
+            if (depth >= markDistinctChainEstimationMaxDepth) {
                 return Optional.empty();
             }
 
@@ -2230,7 +2243,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     StageId sourceStageId = StageId.create(queryStateMachine.getQueryId(), sourceFragmentId);
 
                     StageExecution sourceStage = stageExecutionLookup.apply(sourceStageId);
-                    Optional<OutputDataSizeEstimateResult> sourceStageOutputDataSize = sourceStage.getOutputDataSize(stageExecutionLookup, false);
+                    Optional<OutputDataSizeEstimateResult> sourceStageOutputDataSize = sourceStage.getOutputDataSize(stageExecutionLookup, false, depth + 1);
 
                     if (sourceStageOutputDataSize.isEmpty()) {
                         // We need estimate from all sources
@@ -2283,7 +2296,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             return true;
         }
 
-        private Optional<OutputDataSizeEstimateResult> getEstimatedSmallStageOutputDataSize(Function<StageId, StageExecution> stageExecutionLookup)
+        private Optional<OutputDataSizeEstimateResult> getEstimatedSmallStageOutputDataSize(Function<StageId, StageExecution> stageExecutionLookup, int depth)
         {
             if (!smallStageEstimationEnabled) {
                 return Optional.empty();
@@ -2324,7 +2337,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
                     StageExecution sourceStage = stageExecutionLookup.apply(sourceStageId);
                     requireNonNull(sourceStage, "sourceStage is null");
-                    Optional<OutputDataSizeEstimateResult> sourceStageOutputDataSize = sourceStage.getOutputDataSize(stageExecutionLookup, false);
+                    Optional<OutputDataSizeEstimateResult> sourceStageOutputDataSize = sourceStage.getOutputDataSize(stageExecutionLookup, false, depth + 1);
 
                     if (sourceStageOutputDataSize.isEmpty()) {
                         // cant estimate size of one of sources; should not happen in practice
