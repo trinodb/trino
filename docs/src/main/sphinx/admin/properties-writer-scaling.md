@@ -39,7 +39,7 @@ writing.
 ## `task.scale-writers.max-writer-count`
 
 - **Type:** {ref}`prop-type-integer`
-- **Default value:** The number of physical CPUs of the node with a maximum of 32
+- **Default value:** The number of physical CPUs of the node with a maximum of 64
 
 Maximum number of concurrent writers per task up to which the task can be scaled
 when `task.scale-writers.enabled` is set. Increasing this value may improve the
