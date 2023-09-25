@@ -3510,7 +3510,7 @@ public class LocalExecutionPlanner
                 // The default value of partitioned writer count is 32 which is high enough to use it
                 // for both cases when scaling is enabled or not. Additionally, it doesn't lead to too many
                 // small files since when scaling is disabled only single writer will handle a single partition.
-                int partitionedWriterCount = getTaskWriterCount(session);
+                int partitionedWriterCount = getTaskPartitionedWriterCount(session);
                 if (isLocalScaledWriterExchange(source)) {
                     partitionedWriterCount = connectorScalingOptions.perTaskMaxScaledWriterCount()
                             .map(writerCount -> min(writerCount, getTaskPartitionedWriterCount(session)))
