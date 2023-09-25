@@ -585,10 +585,7 @@ public class LocalExecutionPlanner
         int taskCount = getTaskCount(partitioningScheme);
         if (checkCanScalePartitionsRemotely(taskContext.getSession(), taskCount, partitioningScheme.getPartitioning().getHandle(), nodePartitioningManager)) {
             partitionFunction = createPartitionFunction(taskContext.getSession(), nodePartitioningManager, partitioningScheme, partitionChannelTypes);
-            // Consider memory while calculating the number of writers. This is to avoid creating too many task buckets.
-            int partitionedWriterCount = min(
-                    getTaskPartitionedWriterCount(taskContext.getSession()),
-                    previousPowerOfTwo(getMaxWritersBasedOnMemory(taskContext.getSession())));
+            int partitionedWriterCount = getPartitionedWriterCountBasedOnMemory(taskContext.getSession());
             // Keep the task bucket count to 50% of total local writers
             int taskBucketCount = (int) ceil(0.5 * partitionedWriterCount);
             skewedPartitionRebalancer = Optional.of(new SkewedPartitionRebalancer(
@@ -3505,7 +3502,6 @@ public class LocalExecutionPlanner
                 return 1;
             }
 
-            int maxWritersBasedOnMemory = getMaxWritersBasedOnMemory(session);
             if (partitioningScheme.isPresent()) {
                 // The default value of partitioned writer count is 2 * number_of_cores (capped to 64) which is high
                 // enough to use it for cases with or without scaling enabled. Additionally, it doesn't lead
@@ -3517,8 +3513,7 @@ public class LocalExecutionPlanner
                             .map(writerCount -> min(writerCount, getTaskPartitionedWriterCount(session)))
                             .orElse(getTaskPartitionedWriterCount(session));
                 }
-                // Consider memory while calculating writer count.
-                return min(partitionedWriterCount, previousPowerOfTwo(maxWritersBasedOnMemory));
+                return getPartitionedWriterCountBasedOnMemory(partitionedWriterCount, session);
             }
 
             int unpartitionedWriterCount = getTaskWriterCount(session);
@@ -3528,7 +3523,7 @@ public class LocalExecutionPlanner
                         .orElse(getTaskScaleWritersMaxWriterCount(session));
             }
             // Consider memory while calculating writer count.
-            return min(unpartitionedWriterCount, maxWritersBasedOnMemory);
+            return min(unpartitionedWriterCount, getMaxWritersBasedOnMemory(session));
         }
 
         private boolean isSingleGatheringExchange(PlanNode node)
@@ -4110,6 +4105,16 @@ public class LocalExecutionPlanner
                     typeOperators,
                     createPartialAggregationController(maxPartialAggregationMemorySize, step, session));
         }
+    }
+
+    private int getPartitionedWriterCountBasedOnMemory(Session session)
+    {
+        return getPartitionedWriterCountBasedOnMemory(getTaskPartitionedWriterCount(session), session);
+    }
+
+    private int getPartitionedWriterCountBasedOnMemory(int partitionedWriterCount, Session session)
+    {
+        return min(partitionedWriterCount, previousPowerOfTwo(getMaxWritersBasedOnMemory(session)));
     }
 
     private static Optional<PartialAggregationController> createPartialAggregationController(Optional<DataSize> maxPartialAggregationMemorySize, AggregationNode.Step step, Session session)
