@@ -182,10 +182,9 @@ public final class EvictableCacheBuilder<K, V>
                     "Even when cache is disabled, the loads are synchronized and both load results and failures are shared between threads. " +
                             "This is rarely desired, thus builder caller is expected to either opt-in into this behavior with shareResultsAndFailuresEvenIfDisabled(), " +
                             "or choose not to share results (and failures) between concurrent invocations with shareNothingWhenDisabled()."));
-            switch (disabledCacheImplementation) {
-                case NOOP:
-                    return new EmptyCache<>(loader, recordStats);
-                case GUAVA:
+            return switch (disabledCacheImplementation) {
+                case NOOP -> new EmptyCache<>(loader, recordStats);
+                case GUAVA -> {
                     // Disabled cache is always empty, so doesn't exhibit invalidation problems.
                     // Avoid overhead of EvictableCache wrapper.
                     CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
@@ -194,9 +193,9 @@ public final class EvictableCacheBuilder<K, V>
                     if (recordStats) {
                         cacheBuilder.recordStats();
                     }
-                    return buildUnsafeCache(cacheBuilder, loader);
-            }
-            throw new UnsupportedOperationException("Unsupported option: " + disabledCacheImplementation);
+                    yield buildUnsafeCache(cacheBuilder, loader);
+                }
+            };
         }
 
         if (!(maximumSize.isPresent() || maximumWeight.isPresent() || expireAfterWrite.isPresent())) {
