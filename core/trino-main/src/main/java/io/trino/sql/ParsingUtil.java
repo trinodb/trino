@@ -16,15 +16,11 @@ package io.trino.sql;
 import io.trino.Session;
 import io.trino.sql.parser.ParsingOptions;
 
-import static io.trino.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
-
 public final class ParsingUtil
 {
     public static ParsingOptions createParsingOptions(Session session)
     {
-        return new ParsingOptions(isParseDecimalLiteralsAsDouble(session) ? AS_DOUBLE : AS_DECIMAL);
+        return new ParsingOptions();
     }
 
     private ParsingUtil() {}

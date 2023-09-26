@@ -26,7 +26,6 @@ import jakarta.annotation.Nullable;
 import java.util.List;
 
 import static io.trino.sql.SqlFormatter.formatSql;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static java.lang.String.format;
 
 public final class TreeAssertions
@@ -35,7 +34,7 @@ public final class TreeAssertions
 
     public static void assertFormattedSql(SqlParser sqlParser, Node expected)
     {
-        ParsingOptions parsingOptions = new ParsingOptions(AS_DOUBLE /* anything */);
+        ParsingOptions parsingOptions = new ParsingOptions();
         assertFormattedSql(sqlParser, parsingOptions, expected);
     }
 

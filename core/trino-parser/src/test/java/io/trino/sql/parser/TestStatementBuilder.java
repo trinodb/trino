@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 
 import static com.google.common.base.Strings.repeat;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static io.trino.sql.testing.TreeAssertions.assertFormattedSql;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -384,7 +383,7 @@ public class TestStatementBuilder
         println(sql.trim());
         println("");
 
-        ParsingOptions parsingOptions = new ParsingOptions(AS_DOUBLE /* anything */);
+        ParsingOptions parsingOptions = new ParsingOptions();
         Statement statement = SQL_PARSER.createStatement(sql, parsingOptions);
         println(statement.toString());
         println("");
