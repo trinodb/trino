@@ -27,6 +27,7 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 import io.trino.transaction.TransactionManager;
@@ -64,7 +65,6 @@ import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedVi
 import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
-import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteQuery;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
@@ -632,18 +632,7 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
-    {
-        if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName, GRANT_EXECUTE_FUNCTION)) {
-            denyGrantExecuteFunctionPrivilege(functionName, context.getIdentity(), grantee);
-        }
-        if (denyPrivileges.isEmpty()) {
-            super.checkCanGrantExecuteFunctionPrivilege(context, functionName, grantee, grantOption);
-        }
-    }
-
-    @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, Identity grantee, boolean grantOption)
+    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, TrinoPrincipal grantee, boolean grantOption)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName.toString(), GRANT_EXECUTE_FUNCTION)) {
             denyGrantExecuteFunctionPrivilege(functionName.toString(), context.getIdentity(), grantee);
@@ -723,25 +712,27 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanExecuteFunction(SecurityContext context, String functionName)
+    public boolean canExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
     {
-        if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName, EXECUTE_FUNCTION)) {
-            denyExecuteFunction(functionName);
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName.toString(), EXECUTE_FUNCTION)) {
+            return false;
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanExecuteFunction(context, functionName);
+            return super.canExecuteFunction(context, functionKind, functionName);
         }
+        return true;
     }
 
     @Override
-    public void checkCanExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
+    public boolean canCreateViewWithExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
     {
-        if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName.toString(), EXECUTE_FUNCTION)) {
-            denyExecuteFunction(functionName.toString());
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName.toString(), GRANT_EXECUTE_FUNCTION)) {
+            return false;
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanExecuteFunction(context, functionKind, functionName);
+            return super.canCreateViewWithExecuteFunction(context, functionKind, functionName);
         }
+        return true;
     }
 
     @Override

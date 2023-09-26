@@ -217,6 +217,7 @@ import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.SUBSCRIPT;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
+import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -1313,7 +1314,7 @@ public class ExpressionAnalyzer
                     coerceType(expression, actualType, expectedType, format("Function %s argument %d", function, i));
                 }
             }
-            accessControl.checkCanExecuteFunction(SecurityContext.of(session), node.getName().toString());
+            checkCanExecuteFunction(function);
 
             resolvedFunctions.put(NodeRef.of(node), function);
 
@@ -2024,7 +2025,7 @@ public class ExpressionAnalyzer
                 coerceType(node.getTrimCharacter().get(), actualTrimCharType, expectedTrimCharType, "trim character argument of trim function");
             }
 
-            accessControl.checkCanExecuteFunction(SecurityContext.of(session), functionName);
+            checkCanExecuteFunction(function);
 
             resolvedFunctions.put(NodeRef.of(node), function);
 
@@ -2527,7 +2528,7 @@ public class ExpressionAnalyzer
                 }
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
-            accessControl.checkCanExecuteFunction(SecurityContext.of(session), JSON_EXISTS_FUNCTION_NAME);
+            checkCanExecuteFunction(function);
             resolvedFunctions.put(NodeRef.of(node), function);
             Type type = function.getSignature().getReturnType();
 
@@ -2612,7 +2613,7 @@ public class ExpressionAnalyzer
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
 
-            accessControl.checkCanExecuteFunction(SecurityContext.of(session), JSON_VALUE_FUNCTION_NAME);
+            checkCanExecuteFunction(function);
             resolvedFunctions.put(NodeRef.of(node), function);
             Type type = function.getSignature().getReturnType();
 
@@ -2649,7 +2650,7 @@ public class ExpressionAnalyzer
                 }
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
-            accessControl.checkCanExecuteFunction(SecurityContext.of(session), JSON_QUERY_FUNCTION_NAME);
+            checkCanExecuteFunction(function);
             resolvedFunctions.put(NodeRef.of(node), function);
 
             // analyze returned type and format
@@ -2955,7 +2956,7 @@ public class ExpressionAnalyzer
                 }
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
-            accessControl.checkCanExecuteFunction(SecurityContext.of(session), JSON_OBJECT_FUNCTION_NAME);
+            checkCanExecuteFunction(function);
             resolvedFunctions.put(NodeRef.of(node), function);
 
             // analyze returned type and format
@@ -3066,7 +3067,7 @@ public class ExpressionAnalyzer
                 }
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
-            accessControl.checkCanExecuteFunction(SecurityContext.of(session), JSON_ARRAY_FUNCTION_NAME);
+            checkCanExecuteFunction(function);
             resolvedFunctions.put(NodeRef.of(node), function);
 
             // analyze returned type and format
@@ -3230,6 +3231,17 @@ public class ExpressionAnalyzer
             }
             else {
                 typeOnlyCoercions.removeAll(expressions);
+            }
+        }
+
+        private void checkCanExecuteFunction(ResolvedFunction function)
+        {
+            CatalogSchemaFunctionName name = function.getSignature().getName();
+            if (!accessControl.canExecuteFunction(
+                    SecurityContext.of(session),
+                    function.getFunctionKind(),
+                    new QualifiedObjectName(name.getCatalogName(), name.getSchemaName(), name.getFunctionName()))) {
+                denyExecuteFunction(name.getFunctionName());
             }
         }
     }

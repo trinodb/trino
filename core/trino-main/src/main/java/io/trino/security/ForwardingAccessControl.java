@@ -354,13 +354,7 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
-    {
-        delegate().checkCanGrantExecuteFunctionPrivilege(context, functionName, grantee, grantOption);
-    }
-
-    @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, Identity grantee, boolean grantOption)
+    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, TrinoPrincipal grantee, boolean grantOption)
     {
         delegate().checkCanGrantExecuteFunctionPrivilege(context, functionKind, functionName, grantee, grantOption);
     }
@@ -474,15 +468,15 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public void checkCanExecuteFunction(SecurityContext context, String functionName)
+    public boolean canExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
     {
-        delegate().checkCanExecuteFunction(context, functionName);
+        return delegate().canExecuteFunction(context, functionKind, functionName);
     }
 
     @Override
-    public void checkCanExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
+    public boolean canCreateViewWithExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
     {
-        delegate().checkCanExecuteFunction(context, functionKind, functionName);
+        return delegate().canCreateViewWithExecuteFunction(context, functionKind, functionName);
     }
 
     @Override

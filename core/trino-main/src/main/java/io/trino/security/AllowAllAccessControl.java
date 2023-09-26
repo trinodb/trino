@@ -288,12 +288,19 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
+    public boolean canExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
     {
+        return true;
     }
 
     @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, Identity grantee, boolean grantOption)
+    public boolean canCreateViewWithExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
+    {
+        return true;
+    }
+
+    @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, TrinoPrincipal grantee, boolean grantOption)
     {
     }
 
@@ -384,16 +391,6 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanExecuteProcedure(SecurityContext context, QualifiedObjectName procedureName)
-    {
-    }
-
-    @Override
-    public void checkCanExecuteFunction(SecurityContext context, String functionName)
-    {
-    }
-
-    @Override
-    public void checkCanExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
     {
     }
 
