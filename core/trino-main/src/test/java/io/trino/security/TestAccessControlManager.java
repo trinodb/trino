@@ -28,11 +28,13 @@ import io.trino.plugin.base.security.ReadOnlySystemAccessControl;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
@@ -483,6 +485,49 @@ public class TestAccessControlManager
                     assertThat(accessControlManager.canCreateViewWithExecuteFunction(context(transactionId), functionName)).isTrue();
                     accessControlManager.checkCanGrantExecuteFunctionPrivilege(context(transactionId), TABLE, functionName, new TrinoPrincipal(USER, "bob"), true);
                 });
+    }
+
+    @Test
+    public void testRemovedMethodsCannotBeDeclared()
+    {
+        try (LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION)) {
+            TransactionManager transactionManager = queryRunner.getTransactionManager();
+            AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
+
+            assertThatThrownBy(() ->
+                    accessControlManager.setSystemAccessControls(ImmutableList.of(new AllowAllSystemAccessControl()
+                    {
+                        public void checkCanAccessCatalog(SystemSecurityContext context, String catalogName) {}
+                    })))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageMatching("Access control .* must not implement removed method checkCanAccessCatalog\\(.*\\)");
+
+            assertThatThrownBy(() ->
+                    accessControlManager.setSystemAccessControls(ImmutableList.of(new AllowAllSystemAccessControl()
+                    {
+                        public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, TrinoPrincipal grantee, boolean grantOption) {}
+                    })))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageMatching("Access control .* must not implement removed method checkCanGrantExecuteFunctionPrivilege\\(.*\\)");
+
+            assertThatThrownBy(() ->
+                    accessControlManager.setSystemAccessControls(ImmutableList.of(new AllowAllSystemAccessControl()
+                    {
+                        public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, String functionName) {}
+                    })))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageMatching("Access control .* must not implement removed method checkCanExecuteFunction\\(.*\\)");
+
+            assertThatThrownBy(() ->
+                    accessControlManager.setSystemAccessControls(ImmutableList.of(new AllowAllSystemAccessControl()
+                    {
+                        public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName) {}
+                    })))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageMatching("Access control .* must not implement removed method checkCanExecuteFunction\\(.*\\)");
+
+            accessControlManager.setSystemAccessControls(ImmutableList.of(new AllowAllSystemAccessControl()));
+        }
     }
 
     private AccessControlManager createAccessControlManager(TestingEventListenerManager eventListenerManager, List<String> systemAccessControlProperties)
