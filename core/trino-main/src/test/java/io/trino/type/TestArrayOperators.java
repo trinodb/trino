@@ -952,7 +952,7 @@ public class TestArrayOperators
                 .binding("a", "ARRAY[ARRAY[1]]")
                 .binding("b", "ARRAY[ARRAY['x']]")
                 .evaluate())
-                .hasMessage("line 1:10: Unexpected parameters (array(array(integer)), array(array(varchar(1)))) for function concat. Expected: concat(char(x), char(y)), concat(array(E), E) E, concat(E, array(E)) E, concat(array(E)) E, concat(varchar), concat(varbinary)");
+                .hasMessage("line 1:10: Unexpected parameters (array(array(integer)), array(array(varchar(1)))) for function concat. Expected: concat(E, array(E)) E, concat(array(E)) E, concat(array(E), E) E, concat(char(x), char(y)), concat(varbinary), concat(varchar)");
     }
 
     @Test
@@ -1061,7 +1061,7 @@ public class TestArrayOperators
                 .binding("a", "ARRAY[ARRAY[1]]")
                 .binding("b", "ARRAY['x']")
                 .evaluate())
-                .hasMessage("line 1:10: Unexpected parameters (array(array(integer)), array(varchar(1))) for function concat. Expected: concat(char(x), char(y)), concat(array(E), E) E, concat(E, array(E)) E, concat(array(E)) E, concat(varchar), concat(varbinary)");
+                .hasMessage("line 1:10: Unexpected parameters (array(array(integer)), array(varchar(1))) for function concat. Expected: concat(E, array(E)) E, concat(array(E)) E, concat(array(E), E) E, concat(char(x), char(y)), concat(varbinary), concat(varchar)");
     }
 
     @Test

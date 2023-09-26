@@ -20,7 +20,6 @@ import io.trino.cache.NonEvictableCache;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.FunctionBinder.CatalogFunctionBinding;
 import io.trino.spi.TrinoException;
-import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.Signature;
@@ -37,6 +36,7 @@ import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.metadata.FunctionResolver.resolveFunctionBinding;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
+import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
@@ -144,7 +144,7 @@ class BuiltinFunctionResolver
                 dependencies,
                 catalogSchemaFunctionName -> {
                     // builtin functions can only depend on other builtin functions
-                    if (!isBuiltinFunction(catalogSchemaFunctionName)) {
+                    if (!isBuiltinFunctionName(catalogSchemaFunctionName)) {
                         throw new TrinoException(
                                 FUNCTION_IMPLEMENTATION_ERROR,
                                 format("Builtin function %s cannot depend on a non-builtin function: %s", functionBinding.functionBinding().getBoundSignature().getName(), catalogSchemaFunctionName));
@@ -159,11 +159,6 @@ class BuiltinFunctionResolver
         return globalFunctionCatalog.getBuiltInFunctions(functionName).stream()
                 .map(function -> new CatalogFunctionMetadata(GlobalSystemConnector.CATALOG_HANDLE, BUILTIN_SCHEMA, function))
                 .collect(toImmutableList());
-    }
-
-    private static boolean isBuiltinFunction(CatalogSchemaFunctionName name)
-    {
-        return name.getCatalogName().equals(GlobalSystemConnector.NAME) && name.getSchemaFunctionName().getSchemaName().equals(BUILTIN_SCHEMA);
     }
 
     private record OperatorCacheKey(OperatorType operatorType, List<? extends Type> argumentTypes)

@@ -29,6 +29,7 @@ import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableFunctionHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.RetryPolicy;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SchemaTableName;
@@ -438,7 +439,7 @@ public class PlanBuilder
         {
             checkArgument(expression instanceof FunctionCall);
             FunctionCall aggregation = (FunctionCall) expression;
-            ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, aggregation.getName(), TypeSignatureProvider.fromTypes(inputTypes));
+            ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, aggregation.getName(), TypeSignatureProvider.fromTypes(inputTypes), new AllowAllAccessControl());
             return addAggregation(output, new Aggregation(
                     resolvedFunction,
                     aggregation.getArguments(),
@@ -1286,7 +1287,7 @@ public class PlanBuilder
     {
         checkArgument(expression instanceof FunctionCall);
         FunctionCall aggregation = (FunctionCall) expression;
-        ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, aggregation.getName(), TypeSignatureProvider.fromTypes(inputTypes));
+        ResolvedFunction resolvedFunction = functionResolver.resolveFunction(session, aggregation.getName(), TypeSignatureProvider.fromTypes(inputTypes), new AllowAllAccessControl());
         return new Aggregation(
                 resolvedFunction,
                 aggregation.getArguments(),
