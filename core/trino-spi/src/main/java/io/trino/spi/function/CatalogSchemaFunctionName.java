@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
 public final class CatalogSchemaFunctionName
@@ -25,11 +26,9 @@ public final class CatalogSchemaFunctionName
     private final String catalogName;
     private final SchemaFunctionName schemaFunctionName;
 
-    public CatalogSchemaFunctionName(
-            String catalogName,
-            SchemaFunctionName schemaFunctionName)
+    public CatalogSchemaFunctionName(String catalogName, SchemaFunctionName schemaFunctionName)
     {
-        this.catalogName = catalogName;
+        this.catalogName = catalogName.toLowerCase(ROOT);
         if (catalogName.isEmpty()) {
             throw new IllegalArgumentException("catalogName is empty");
         }
@@ -37,7 +36,10 @@ public final class CatalogSchemaFunctionName
     }
 
     @JsonCreator
-    public CatalogSchemaFunctionName(String catalogName, String schemaName, String functionName)
+    public CatalogSchemaFunctionName(
+            @JsonProperty String catalogName,
+            @JsonProperty String schemaName,
+            @JsonProperty String functionName)
     {
         this(catalogName, new SchemaFunctionName(schemaName, functionName));
     }
