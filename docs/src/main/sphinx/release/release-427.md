@@ -4,6 +4,7 @@
 
 * Add support for comparing IPv4 and IPv6 addresses and CIDRs with [contains](ip-address-contains). ({issue}`18497`)
 * Improve performance of `GROUP BY` and `DISTINCT`. ({issue}`19059`)
+* Reduce coordinator memory footprint when scannning tables. ({issue}`19009`)
 * Fix failure due to exceeding node memory limits with `INSERT` statements. ({issue}`18771`)
 * Fix query hang for certain `LIKE` patterns involving a mix of `%` and `_`. ({issue}`19146`)
 
@@ -58,8 +59,6 @@
 * Add support for usage of `date` and `timestamp` arguments in `FOR TIMESTAMP AS
   OF` expressions. ({issue}`14214`)
 * Add support for using tags with `AS OF VERSION` queries. ({issue}`19111`)
-* Reduce coordinator memory usage when running queries on tables with large
-  metadata. ({issue}`19009`)
 * Reduce data read from Parquet files for queries with filters. ({issue}`19032`)
 * Improve performance of writing to Parquet files. ({issue}`19090`)
 
