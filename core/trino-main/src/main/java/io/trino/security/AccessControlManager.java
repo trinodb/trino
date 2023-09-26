@@ -36,6 +36,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.CatalogHandle.CatalogHandleType;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
@@ -46,6 +47,7 @@ import io.trino.spi.security.Privilege;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemAccessControlFactory;
 import io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext;
+import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
@@ -58,6 +60,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.security.Principal;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -70,6 +73,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -233,9 +237,9 @@ public class AccessControlManager
         };
     }
 
-    @VisibleForTesting
     public void setSystemAccessControls(List<SystemAccessControl> systemAccessControls)
     {
+        systemAccessControls.forEach(AccessControlManager::verifySystemAccessControl);
         checkState(this.systemAccessControls.compareAndSet(null, systemAccessControls), "System access control already initialized");
     }
 
@@ -1351,9 +1355,11 @@ public class AccessControlManager
             return null;
         }
 
-        return transactionManager.getCatalogHandle(transactionId, catalogName)
+        ConnectorAccessControl connectorAccessControl = transactionManager.getCatalogHandle(transactionId, catalogName)
                 .flatMap(connectorAccessControlProvider::getService)
                 .orElse(null);
+
+        return connectorAccessControl;
     }
 
     @Managed
@@ -1477,6 +1483,27 @@ public class AccessControlManager
                 transactionManager.getRequiredCatalogMetadata(requiredTransactionId, catalogName).getTransactionHandleFor(CatalogHandleType.NORMAL),
                 identity.toConnectorIdentity(catalogName),
                 queryId);
+    }
+
+    private static void verifySystemAccessControl(SystemAccessControl systemAccessControl)
+    {
+        Class<?> clazz = systemAccessControl.getClass();
+        mustNotDeclareMethod(clazz, "checkCanAccessCatalog", SystemSecurityContext.class, String.class);
+        mustNotDeclareMethod(clazz, "checkCanGrantExecuteFunctionPrivilege", SystemSecurityContext.class, String.class, TrinoPrincipal.class, boolean.class);
+        mustNotDeclareMethod(clazz, "checkCanExecuteFunction", SystemSecurityContext.class, String.class);
+        mustNotDeclareMethod(clazz, "checkCanExecuteFunction", SystemSecurityContext.class, FunctionKind.class, CatalogSchemaRoutineName.class);
+    }
+
+    private static void mustNotDeclareMethod(Class<?> clazz, String name, Class<?>... parameterTypes)
+    {
+        try {
+            clazz.getMethod(name, parameterTypes);
+            throw new IllegalArgumentException(format("Access control %s must not implement removed method %s(%s)",
+                    clazz.getName(),
+                    name, Arrays.stream(parameterTypes).map(Class::getName).collect(Collectors.joining(", "))));
+        }
+        catch (ReflectiveOperationException ignored) {
+        }
     }
 
     private static class InitializingSystemAccessControl
