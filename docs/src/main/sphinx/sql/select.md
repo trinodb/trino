@@ -711,8 +711,7 @@ A window specification has the following components:
   consists of the rows matched by a pattern starting from that row.
   Additionally, if the frame specifies row pattern measures, they can be
   called over the window, similarly to window functions. For more details, see
-  {doc}`Row pattern recognition in window structures
-  </sql/pattern-recognition-in-window>`.
+  [Row pattern recognition in window structures](/sql/pattern-recognition-in-window) .
 
 Each window component is optional. If a window specification does not specify
 window partitioning, ordering or frame, those components are obtained from

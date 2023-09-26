@@ -1,10 +1,12 @@
 # SQL statement syntax
 
-This section describes the SQL syntax used in Trino.
+This section describes the syntax for SQL statements that can be executed in
+Trino.
 
-A {doc}`reference to the supported SQL data types</language>` is available.
+Refer to the following sections for further details:
 
-Trino also provides {doc}`numerous SQL functions and operators<functions>`.
+* [SQL data types and other general aspects](/language)
+* [SQL functions and operators](/functions)
 
 ```{toctree}
 :maxdepth: 1
@@ -16,7 +18,6 @@ sql/alter-view
 sql/analyze
 sql/call
 sql/comment
-sql/comments
 sql/commit
 sql/create-materialized-view
 sql/create-role
@@ -44,7 +45,6 @@ sql/grant-roles
 sql/insert
 sql/match-recognize
 sql/merge
-sql/pattern-recognition-in-window
 sql/prepare
 sql/refresh-materialized-view
 sql/reset-session
@@ -77,4 +77,10 @@ sql/truncate
 sql/update
 sql/use
 sql/values
+```
+
+```{toctree}
+:hidden:
+
+sql/pattern-recognition-in-window
 ```
