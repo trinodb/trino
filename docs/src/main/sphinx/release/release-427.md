@@ -61,6 +61,7 @@
 * Add support for using tags with `AS OF VERSION` queries. ({issue}`19111`)
 * Reduce data read from Parquet files for queries with filters. ({issue}`19032`)
 * Improve performance of writing to Parquet files. ({issue}`19090`)
+* Improve performance of reading tables with many equality delete files. ({issue}`17114`)
 
 ## Ignite connector
 
