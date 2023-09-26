@@ -3,7 +3,7 @@
 ## General
 
 * Add support for comparing IPv4 and IPv6 addresses and CIDRs with [contains](ip-address-contains). ({issue}`18497`)
-* Improve performance of `GROUP BY`, `DISTINCT`, and other aggregations. ({issue}`19059`)
+* Improve performance of `GROUP BY` and `DISTINCT`. ({issue}`19059`)
 * Fix failure due to exceeding node memory limits with `INSERT` statements. ({issue}`18771`)
 * Fix query hang for certain `LIKE` patterns involving a mix of `%` and `_`. ({issue}`19146`)
 
