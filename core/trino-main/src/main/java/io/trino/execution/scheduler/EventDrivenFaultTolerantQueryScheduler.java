@@ -365,8 +365,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                     smallStageEstimationThreshold,
                     smallStageSourceSizeMultiplier,
                     smallSizePartitionSizeEstimate,
-                    stageEstimationForEagerParentEnabled,
-                    smallStageRequireNoMorePartitions);
+                    smallStageRequireNoMorePartitions,
+                    stageEstimationForEagerParentEnabled);
             queryExecutor.submit(scheduler::run);
         }
         catch (Throwable t) {
@@ -609,8 +609,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                 DataSize smallStageEstimationThreshold,
                 double smallStageSourceSizeMultiplier,
                 DataSize smallSizePartitionSizeEstimate,
-                boolean stageEstimationForEagerParentEnabled,
-                boolean smallStageRequireNoMorePartitions)
+                boolean smallStageRequireNoMorePartitions,
+                boolean stageEstimationForEagerParentEnabled)
         {
             this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
@@ -646,8 +646,8 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.smallStageEstimationThreshold = requireNonNull(smallStageEstimationThreshold, "smallStageEstimationThreshold is null");
             this.smallStageSourceSizeMultiplier = smallStageSourceSizeMultiplier;
             this.smallSizePartitionSizeEstimate = requireNonNull(smallSizePartitionSizeEstimate, "smallSizePartitionSizeEstimate is null");
-            this.stageEstimationForEagerParentEnabled = stageEstimationForEagerParentEnabled;
             this.smallStageRequireNoMorePartitions = smallStageRequireNoMorePartitions;
+            this.stageEstimationForEagerParentEnabled = stageEstimationForEagerParentEnabled;
 
             planInTopologicalOrder = sortPlanInTopologicalOrder(plan);
         }
