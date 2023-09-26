@@ -21,6 +21,7 @@ import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.QueryInfo;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
+import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
@@ -43,6 +44,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.nio.file.Path;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.List;
@@ -62,6 +64,7 @@ import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_DATA_FOLDER_
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.CHANGE_DATA_FEED_COLUMN_NAMES;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
@@ -94,6 +97,7 @@ public class TestDeltaLakeConnectorTest
 
     protected final String bucketName = "test-bucket-" + randomNameSuffix();
     protected MinioClient minioClient;
+    protected HiveMetastore metastore;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -109,6 +113,8 @@ public class TestDeltaLakeConnectorTest
                         .setSchema(SCHEMA)
                         .build())
                 .build();
+        Path metastoreDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("file-metastore");
+        metastore = createTestingFileHiveMetastore(metastoreDirectory.toFile());
         try {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
@@ -116,7 +122,7 @@ public class TestDeltaLakeConnectorTest
             queryRunner.installPlugin(new DeltaLakePlugin());
             queryRunner.createCatalog(DELTA_CATALOG, DeltaLakeConnectorFactory.CONNECTOR_NAME, ImmutableMap.<String, String>builder()
                     .put("hive.metastore", "file")
-                    .put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("file-metastore").toString())
+                    .put("hive.metastore.catalog.dir", metastoreDirectory.toString())
                     .put("hive.metastore.disable-location-checks", "true")
                     .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
                     .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
@@ -3026,5 +3032,39 @@ public class TestDeltaLakeConnectorTest
         return Session.builder(getSession())
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "query_partition_filter_required", "true")
                 .build();
+    }
+
+    @Test
+    public void testTrinoCacheInvalidatedOnCreateTable()
+    {
+        String tableName = "test_create_table_invalidate_cache_" + randomNameSuffix();
+        String tableLocation = "s3://%s/%s/%s".formatted(bucketName, SCHEMA, tableName);
+
+        String initialValues = "VALUES" +
+                               " (1, BOOLEAN 'false', TINYINT '-128')" +
+                               ",(2, BOOLEAN 'true', TINYINT '127')" +
+                               ",(3, BOOLEAN 'false', TINYINT '0')" +
+                               ",(4, BOOLEAN 'false', TINYINT '1')" +
+                               ",(5, BOOLEAN 'true', TINYINT '37')";
+        assertUpdate("CREATE TABLE " + tableName + "(id, boolean, tinyint) WITH (location = '" + tableLocation + "') AS " + initialValues, 5);
+        assertThat(query("SELECT * FROM " + tableName)).matches(initialValues);
+
+        metastore.dropTable(SCHEMA, tableName, false);
+        for (String file : minioClient.listObjects(bucketName, SCHEMA + "/" + tableName)) {
+            minioClient.removeObject(bucketName, file);
+        }
+
+        String newValues = "VALUES" +
+                           " (1, BOOLEAN 'true', TINYINT '1')" +
+                           ",(2, BOOLEAN 'true', TINYINT '1')" +
+                           ",(3, BOOLEAN 'false', TINYINT '2')" +
+                           ",(4, BOOLEAN 'true', TINYINT '3')" +
+                           ",(5, BOOLEAN 'true', TINYINT '5')" +
+                           ",(6, BOOLEAN 'false', TINYINT '8')" +
+                           ",(7, BOOLEAN 'true', TINYINT '13')";
+        assertUpdate("CREATE TABLE " + tableName + "(id, boolean, tinyint) WITH (location = '" + tableLocation + "') AS " + newValues, 7);
+        assertThat(query("SELECT * FROM " + tableName)).matches(newValues);
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 }
