@@ -21,6 +21,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.aggregation.MaxDataSizeForStats;
 import io.trino.operator.aggregation.SumDataSizeForStats;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
@@ -142,7 +143,8 @@ public class StatisticsAggregationPlanner
         QualifiedName name = aggregation.getCatalogSchema()
                 .map(catalogSchemaName -> QualifiedName.of(catalogSchemaName.getCatalogName(), catalogSchemaName.getSchemaName(), aggregation.getName()))
                 .orElseGet(() -> QualifiedName.of(aggregation.getName()));
-        return createAggregation(functionResolver.resolveFunction(session, name, fromTypes(inputType)), input, inputType);
+        // Statistics collection is part of the internal system, so it uses allow all access control
+        return createAggregation(functionResolver.resolveFunction(session, name, fromTypes(inputType), new AllowAllAccessControl()), input, inputType);
     }
 
     private ColumnStatisticsAggregation createAggregation(String functionName, Symbol input, Type inputType)

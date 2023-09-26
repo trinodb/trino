@@ -246,10 +246,10 @@ public class TestAccessControl
                 }))
                 .withFunctions(ImmutableList.<FunctionMetadata>builder()
                         .add(FunctionMetadata.scalarBuilder("my_function")
-                                .signature(Signature.builder().returnType(BIGINT).build())
+                                .signature(Signature.builder().argumentType(BIGINT).returnType(BIGINT).build())
                                 .noDescription()
                                 .build())
-                        .add(FunctionMetadata.scalarBuilder("my_function")
+                        .add(FunctionMetadata.scalarBuilder("other_function")
                                 .signature(Signature.builder().argumentType(BIGINT).returnType(BIGINT).build())
                                 .noDescription()
                                 .build())
@@ -603,9 +603,9 @@ public class TestAccessControl
                 "Cannot execute function my_function",
                 new TestingPrivilege(Optional.empty(), "mock.function.my_function", EXECUTE_FUNCTION));
 
-        TestingPrivilege denyNonReverseFunctionCalls = new TestingPrivilege(Optional.empty(), name -> !name.equals("mock.function.my_function"), EXECUTE_FUNCTION);
-        assertAccessAllowed("SELECT my_function(42)", denyNonReverseFunctionCalls);
-        assertAccessDenied("SELECT concat('a', 'b')", "Cannot execute function concat", denyNonReverseFunctionCalls);
+        TestingPrivilege denyNonMyFunctionCalls = new TestingPrivilege(Optional.empty(), name -> !name.equals("mock.function.my_function"), EXECUTE_FUNCTION);
+        assertAccessAllowed("SELECT my_function(42)", denyNonMyFunctionCalls);
+        assertAccessDenied("SELECT other_function(42)", "Cannot execute function other_function", denyNonMyFunctionCalls);
     }
 
     @Test
@@ -690,7 +690,7 @@ public class TestAccessControl
                 assertAccessDenied(
                         otherUser,
                         "TABLE " + viewName,
-                        "Cannot execute function query",
+                        "Cannot execute function jdbc.system.query",
                         grantExecute);
             }
             else {

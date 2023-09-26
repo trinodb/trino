@@ -114,7 +114,7 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
         String securityInvokerQuery = "SELECT * FROM blackhole.default.view_ptf_alice_security_invoker";
         assertQuerySucceeds(ALICE_USER, securityInvokerQuery);
         assertQuerySucceeds(BOB_USER, securityInvokerQuery);
-        assertAccessDenied(CHARLIE_USER, securityInvokerQuery, "Cannot execute function simple_table_function");
+        assertAccessDenied(CHARLIE_USER, securityInvokerQuery, "Cannot execute function mock.system.simple_table_function");
     }
 
     @Test
@@ -142,9 +142,9 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
     {
         assertQuerySucceeds(BOB_USER, "CREATE VIEW blackhole.default.view_ptf_bob_security_definer SECURITY DEFINER AS SELECT * FROM TABLE(mock.system.simple_table_function())");
         String securityDefinerQuery = "SELECT * FROM blackhole.default.view_ptf_bob_security_definer";
-        assertAccessDenied(ALICE_USER, securityDefinerQuery, "Cannot execute function simple_table_function");
+        assertAccessDenied(ALICE_USER, securityDefinerQuery, "Cannot execute function mock.system.simple_table_function");
         assertQuerySucceeds(BOB_USER, securityDefinerQuery);
-        assertAccessDenied(CHARLIE_USER, securityDefinerQuery, "Cannot execute function simple_table_function");
+        assertAccessDenied(CHARLIE_USER, securityDefinerQuery, "Cannot execute function mock.system.simple_table_function");
     }
 
     @Test
@@ -154,7 +154,7 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
         String securityInvokerQuery = "SELECT * FROM blackhole.default.view_ptf_bob_security_invoker";
         assertQuerySucceeds(ALICE_USER, securityInvokerQuery);
         assertQuerySucceeds(BOB_USER, securityInvokerQuery);
-        assertAccessDenied(CHARLIE_USER, securityInvokerQuery, "Cannot execute function simple_table_function");
+        assertAccessDenied(CHARLIE_USER, securityInvokerQuery, "Cannot execute function mock.system.simple_table_function");
     }
 
     @Test

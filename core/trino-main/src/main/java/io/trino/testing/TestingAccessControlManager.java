@@ -816,8 +816,8 @@ public class TestingAccessControlManager
         public boolean matches(Optional<String> actorName, String entityName, TestingPrivilegeType type)
         {
             return (this.actorName.isEmpty() || this.actorName.equals(actorName)) &&
-                    this.entityPredicate.test(entityName) &&
-                    this.type == type;
+                    this.type == type &&
+                    this.entityPredicate.test(entityName);
         }
 
         @Override
