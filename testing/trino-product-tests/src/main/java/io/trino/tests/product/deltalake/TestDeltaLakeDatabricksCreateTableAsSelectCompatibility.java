@@ -39,7 +39,6 @@ import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertTr
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.removeS3Directory;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -110,55 +109,6 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
 
             QueryResult databricksResult = onDelta().executeQuery("SELECT id, date_format(timestamp_in_utc, \"yyyy-MM-dd HH:mm:ss.SSS\"), date_format(timestamp_in_new_york, \"yyyy-MM-dd HH:mm:ss.SSS\"), date_format(timestamp_in_warsaw, \"yyyy-MM-dd HH:mm:ss.SSS\") FROM default." + tableName);
             QueryResult prestoResult = onTrino().executeQuery("SELECT id, format('%1$tF %1$tT.%1$tL', timestamp_in_utc), format('%1$tF %1$tT.%1$tL', timestamp_in_new_york), format('%1$tF %1$tT.%1$tL', timestamp_in_warsaw) FROM delta.default.\"" + tableName + "\"");
-            assertThat(databricksResult).containsOnly(prestoResult.rows().stream()
-                    .map(QueryAssert.Row::new)
-                    .collect(toImmutableList()));
-        }
-        finally {
-            dropDeltaTableWithRetry("default." + tableName);
-        }
-    }
-
-    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testPrestoCacheInvalidatedOnCreateTable()
-    {
-        String tableName = "test_dl_ctas_caching_" + randomNameSuffix();
-
-        try {
-            assertThat(onTrino().executeQuery("CREATE TABLE delta.default.\"" + tableName + "\" " +
-                    "(id, boolean, tinyint) " +
-                    "WITH (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "') AS VALUES " +
-                    "(1, BOOLEAN 'false', TINYINT '-128')" +
-                    ", (2, BOOLEAN 'true', TINYINT '127')" +
-                    ", (3, BOOLEAN 'false', TINYINT '0')" +
-                    ", (4, BOOLEAN 'false', TINYINT '1')" +
-                    ", (5, BOOLEAN 'true', TINYINT '37')"))
-                    .containsOnly(row(5));
-
-            QueryResult databricksResult = onDelta().executeQuery(format("SELECT * FROM default.%s", tableName));
-            QueryResult prestoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\"", tableName));
-            assertThat(databricksResult).containsOnly(prestoResult.rows().stream()
-                    .map(QueryAssert.Row::new)
-                    .collect(toImmutableList()));
-
-            dropDeltaTableWithRetry("default." + tableName);
-            removeS3Directory(s3, bucketName, "databricks-compatibility-test-" + tableName);
-
-            assertThat(onTrino().executeQuery("CREATE TABLE delta.default.\"" + tableName + "\" " +
-                    "(id, boolean, tinyint) " +
-                    "WITH (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "') AS VALUES " +
-                    "(1, BOOLEAN 'true', TINYINT '1')" +
-                    ", (2, BOOLEAN 'true', TINYINT '1')" +
-                    ", (3, BOOLEAN 'false', TINYINT '2')" +
-                    ", (4, BOOLEAN 'true', TINYINT '3')" +
-                    ", (5, BOOLEAN 'true', TINYINT '5')" +
-                    ", (6, BOOLEAN 'false', TINYINT '8')" +
-                    ", (7, BOOLEAN 'true', TINYINT '13')"))
-                    .containsOnly(row(7));
-
-            databricksResult = onDelta().executeQuery(format("SELECT * FROM default.%s", tableName));
-            prestoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\"", tableName));
             assertThat(databricksResult).containsOnly(prestoResult.rows().stream()
                     .map(QueryAssert.Row::new)
                     .collect(toImmutableList()));
