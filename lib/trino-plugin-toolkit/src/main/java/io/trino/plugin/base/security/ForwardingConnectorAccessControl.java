@@ -406,9 +406,15 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public void checkCanExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
+    public boolean canExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
     {
-        delegate().checkCanExecuteFunction(context, functionKind, function);
+        return delegate().canExecuteFunction(context, functionKind, function);
+    }
+
+    @Override
+    public boolean canCreateViewWithExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
+    {
+        return delegate().canCreateViewWithExecuteFunction(context, functionKind, function);
     }
 
     @Override

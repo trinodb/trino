@@ -24,7 +24,6 @@ import io.trino.spi.type.Type;
 import java.security.Principal;
 import java.util.Collection;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -32,7 +31,6 @@ import java.util.stream.Collectors;
 
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
-import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
@@ -53,7 +51,6 @@ import static io.trino.spi.security.AccessDeniedException.denyDropRole;
 import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
-import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteQuery;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
@@ -94,7 +91,6 @@ import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static io.trino.spi.security.AccessDeniedException.denyViewQuery;
 import static io.trino.spi.security.AccessDeniedException.denyWriteSystemInformationAccess;
-import static java.lang.String.format;
 import static java.util.Collections.emptySet;
 
 public interface SystemAccessControl
@@ -196,13 +192,11 @@ public interface SystemAccessControl
     }
 
     /**
-     * Check if identity is allowed to access the specified catalog
-     *
-     * @throws AccessDeniedException if not allowed
+     * Is identity allowed to access the specified catalog?
      */
-    default void checkCanAccessCatalog(SystemSecurityContext context, String catalogName)
+    default boolean canAccessCatalog(SystemSecurityContext context, String catalogName)
     {
-        denyCatalogAccess(catalogName);
+        return false;
     }
 
     /**
@@ -648,21 +642,9 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, TrinoPrincipal grantee, boolean grantOption)
-    {
-        String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(Locale.ENGLISH), grantee.getName());
-        denyGrantExecuteFunctionPrivilege(functionName, context.getIdentity(), granteeAsString);
-    }
-
-    /**
-     * Check if identity is allowed to grant an access to the function execution to grantee.
-     *
-     * @throws AccessDeniedException if not allowed
-     */
     default void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, FunctionKind functionKind, CatalogSchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
     {
-        String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(Locale.ENGLISH), grantee.getName());
-        denyGrantExecuteFunctionPrivilege(functionName.toString(), context.getIdentity(), granteeAsString);
+        denyGrantExecuteFunctionPrivilege(functionName.toString(), context.getIdentity(), grantee);
     }
 
     /**
@@ -816,23 +798,19 @@ public interface SystemAccessControl
     }
 
     /**
-     * Check if identity is allowed to execute the specified function
-     *
-     * @throws AccessDeniedException if not allowed
+     * Is identity allowed to execute the specified function?
      */
-    default void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, String functionName)
+    default boolean canExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
     {
-        denyExecuteFunction(functionName);
+        return false;
     }
 
     /**
-     * Check if identity is allowed to execute the specified function
-     *
-     * @throws AccessDeniedException if not allowed
+     * Is identity allowed to create a view that executes the specified function?
      */
-    default void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
+    default boolean canCreateViewWithExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
     {
-        denyExecuteFunction(functionName.toString());
+        return false;
     }
 
     /**
