@@ -25,6 +25,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
 import io.trino.metadata.TableMetadata;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.RowChangeParadigm;
@@ -508,6 +509,7 @@ class QueryPlanner
     {
         Table table = node.getTable();
         TableHandle handle = analysis.getTableHandle(table);
+        Metadata metadata = plannerContext.getMetadata();
 
         // create table scan
         RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
@@ -576,7 +578,8 @@ class QueryPlanner
                         handle,
                         Optional.empty(),
                         tableMetadata.getTable(),
-                        paradigmAndTypes),
+                        paradigmAndTypes,
+                        List.of()),
                 projectNode.getOutputSymbols(),
                 partitioningScheme,
                 outputs);
@@ -630,6 +633,13 @@ class QueryPlanner
         Metadata metadata = plannerContext.getMetadata();
         ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
         Assignments.Builder assignments = Assignments.builder();
+        RowChangeParadigm paradigm;
+        try {
+            paradigm = metadata.getRowChangeParadigm(this.session, this.analysis.getTableHandle(table));
+        }
+        catch (TrinoException e) {
+            paradigm = RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
+        }
 
         // Add column values to the rowBuilder - - the SET expression value for updated
         // columns, and the existing column value for non-updated columns
@@ -655,9 +665,11 @@ class QueryPlanner
                 assignments.put(field, rewritten);
             }
             else {
-                // Get the non-updated column value from the table
-                rowBuilder.add(field.toSymbolReference());
-                assignments.putIdentity(field);
+                if (paradigm != RowChangeParadigm.UPDATE_PARTIAL_COLUMNS) {
+                    // Get the non-updated column value from the table
+                    rowBuilder.add(field.toSymbolReference());
+                    assignments.putIdentity(field);
+                }
             }
         }
 
@@ -714,7 +726,7 @@ class QueryPlanner
 
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), subPlanBuilder.getRoot(), projectionAssignmentsBuilder.build());
 
-        return createMergePipeline(table, relationPlan, projectNode, rowIdSymbol, mergeRowSymbol);
+        return createMergePipeline(table, relationPlan, projectNode, rowIdSymbol, mergeRowSymbol, updatedColumnHandles);
     }
 
     private PlanBuilder addCheckConstraints(List<Expression> constraints, PlanBuilder subPlanBuilder)
@@ -914,16 +926,22 @@ class QueryPlanner
 
         FilterNode filterNode = new FilterNode(idAllocator.getNextId(), markDistinctNode, filter);
 
-        return createMergePipeline(merge.getTargetTable(), planWithPresentColumn, filterNode, rowIdSymbol, mergeRowSymbol);
+        return createMergePipeline(merge.getTargetTable(), planWithPresentColumn, filterNode, rowIdSymbol, mergeRowSymbol, List.of());
     }
 
-    private MergeWriterNode createMergePipeline(Table table, RelationPlan relationPlan, PlanNode planNode, Symbol rowIdSymbol, Symbol mergeRowSymbol)
+    private MergeWriterNode createMergePipeline(Table table, RelationPlan relationPlan, PlanNode planNode, Symbol rowIdSymbol, Symbol mergeRowSymbol, List<ColumnHandle> updatedColumnHandles)
     {
         TableHandle handle = analysis.getTableHandle(table);
         MergeAnalysis mergeAnalysis = analysis.getMergeAnalysis().orElseThrow();
 
         Metadata metadata = plannerContext.getMetadata();
-        RowChangeParadigm paradigm = metadata.getRowChangeParadigm(session, handle);
+        RowChangeParadigm paradigm;
+        try {
+            paradigm = metadata.getRowChangeParadigm(session, handle);
+        }
+        catch (TrinoException e) {
+            paradigm = RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
+        }
         Type rowIdType = analysis.getType(analysis.getRowIdField(table));
         ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
         ImmutableList.Builder<String> columnNamesBuilder = ImmutableList.builder();
@@ -934,10 +952,12 @@ class QueryPlanner
                     columnNamesBuilder.add(columnSchema.getName());
                 });
         MergeParadigmAndTypes mergeParadigmAndTypes = new MergeParadigmAndTypes(Optional.of(paradigm), typesBuilder.build(), columnNamesBuilder.build(), rowIdType);
-        MergeTarget mergeTarget = new MergeTarget(handle, Optional.empty(), metadata.getTableName(session, handle).getSchemaTableName(), mergeParadigmAndTypes);
+        MergeTarget mergeTarget = new MergeTarget(handle, Optional.empty(), metadata.getTableName(session, handle).getSchemaTableName(), mergeParadigmAndTypes, updatedColumnHandles);
 
         ImmutableList.Builder<Symbol> columnSymbolsBuilder = ImmutableList.builder();
-        for (ColumnHandle columnHandle : mergeAnalysis.getDataColumnHandles()) {
+        List<ColumnHandle> iterateHandles = (paradigm != RowChangeParadigm.UPDATE_PARTIAL_COLUMNS) ?
+                mergeAnalysis.getDataColumnHandles() : updatedColumnHandles;
+        for (ColumnHandle columnHandle : iterateHandles) {
             int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(columnHandle), "Could not find field number for column handle");
             columnSymbolsBuilder.add(relationPlan.getFieldMappings().get(fieldIndex));
         }

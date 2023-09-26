@@ -205,6 +205,9 @@
                                 <item>
                                     <code>java.annotation.added</code>
                                 </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                </item>
                                 <!-- Allow changing enum constant order (e.g., StandardErrorCode) -->
                                 <item>
                                     <code>java.field.enumConstantOrderChanged</code>

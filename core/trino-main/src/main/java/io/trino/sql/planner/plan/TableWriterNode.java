@@ -807,18 +807,21 @@ public class TableWriterNode
         private final Optional<MergeHandle> mergeHandle;
         private final SchemaTableName schemaTableName;
         private final MergeParadigmAndTypes mergeParadigmAndTypes;
+        private final List<ColumnHandle> updatedColumns;
 
         @JsonCreator
         public MergeTarget(
                 @JsonProperty("handle") TableHandle handle,
                 @JsonProperty("mergeHandle") Optional<MergeHandle> mergeHandle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-                @JsonProperty("mergeParadigmAndTypes") MergeParadigmAndTypes mergeParadigmAndTypes)
+                @JsonProperty("mergeParadigmAndTypes") MergeParadigmAndTypes mergeParadigmAndTypes,
+                @JsonProperty("updatedColumns") List<ColumnHandle> updatedColumns)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.mergeHandle = requireNonNull(mergeHandle, "mergeHandle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
             this.mergeParadigmAndTypes = requireNonNull(mergeParadigmAndTypes, "mergeElements is null");
+            this.updatedColumns = updatedColumns;
         }
 
         @JsonProperty
@@ -861,6 +864,11 @@ public class TableWriterNode
         public OptionalInt getMaxWriterTasks(Metadata metadata, Session session)
         {
             return OptionalInt.empty();
+        }
+
+        public List<ColumnHandle> getUpdatedColumns()
+        {
+            return this.updatedColumns;
         }
 
         @Override

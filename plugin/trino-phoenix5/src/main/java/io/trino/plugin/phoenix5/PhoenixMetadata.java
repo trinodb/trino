@@ -314,7 +314,7 @@ public class PhoenixMetadata
     }
 
     @Override
-    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode, List<ColumnHandle> updatedColumns)
     {
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         checkArgument(handle.isNamedRelation(), "Merge target must be named relation table");

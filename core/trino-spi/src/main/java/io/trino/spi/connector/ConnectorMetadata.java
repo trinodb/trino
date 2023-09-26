@@ -851,12 +851,22 @@ public interface ConnectorMetadata
     {
         return Optional.empty();
     }
+//
+//    /**
+//     * Do whatever is necessary to start an MERGE query, returning the {@link ConnectorMergeTableHandle}
+//     * instance that will be passed to the PageSink, and to the {@link #finishMerge} method.
+//     */
+//    default ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+//    {
+//        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+//    }
 
     /**
+     * This is an alternative API which provides the merged columns for the connector to support CHANGE_ONLY_UPDATED_COLUMNS  from {@link RowChangeParadigm}
      * Do whatever is necessary to start an MERGE query, returning the {@link ConnectorMergeTableHandle}
      * instance that will be passed to the PageSink, and to the {@link #finishMerge} method.
      */
-    default ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    default ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode, List<ColumnHandle> mergableColumns)
     {
         throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
     }

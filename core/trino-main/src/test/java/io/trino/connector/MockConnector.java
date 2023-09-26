@@ -122,7 +122,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.connector.MockConnector.MockConnectorSplit.MOCK_CONNECTOR_SPLIT;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
-import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -182,6 +181,7 @@ public class MockConnector
     private final OptionalInt maxWriterTasks;
     private final BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute;
     private final WriterScalingOptions writerScalingOptions;
+    private final RowChangeParadigm paradigm;
 
     MockConnector(
             Function<ConnectorMetadata, ConnectorMetadata> metadataWrapper,
@@ -231,7 +231,8 @@ public class MockConnector
             Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources,
             OptionalInt maxWriterTasks,
             BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute,
-            WriterScalingOptions writerScalingOptions)
+            WriterScalingOptions writerScalingOptions,
+            RowChangeParadigm paradigm)
     {
         this.metadataWrapper = requireNonNull(metadataWrapper, "metadataWrapper is null");
         this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
@@ -281,6 +282,7 @@ public class MockConnector
         this.maxWriterTasks = requireNonNull(maxWriterTasks, "maxWriterTasks is null");
         this.getLayoutForTableExecute = requireNonNull(getLayoutForTableExecute, "getLayoutForTableExecute is null");
         this.writerScalingOptions = requireNonNull(writerScalingOptions, "writerScalingOptions is null");
+        this.paradigm = requireNonNull(paradigm, "paradigm is null");
     }
 
     @Override
@@ -782,7 +784,7 @@ public class MockConnector
         @Override
         public RowChangeParadigm getRowChangeParadigm(ConnectorSession session, ConnectorTableHandle tableHandle)
         {
-            return DELETE_ROW_AND_INSERT_ROW;
+            return paradigm;
         }
 
         @Override
@@ -792,7 +794,7 @@ public class MockConnector
         }
 
         @Override
-        public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+        public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode, List<ColumnHandle> updatedColumns)
         {
             return new MockConnectorMergeTableHandle((MockConnectorTableHandle) tableHandle);
         }

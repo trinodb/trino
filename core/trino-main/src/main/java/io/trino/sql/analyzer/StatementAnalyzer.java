@@ -68,6 +68,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.PointerType;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.function.CatalogSchemaFunctionName;
@@ -3602,10 +3603,33 @@ class StatementAnalyzer
                     .map(allColumnHandles::get)
                     .collect(toImmutableSet());
 
+            RowChangeParadigm paradigm;
+            try {
+                paradigm = metadata.getRowChangeParadigm(session, handle);
+            }
+            catch (TrinoException e) {
+                paradigm = RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
+            }
+
             // create the RowType that holds all column values
             List<RowType.Field> fields = new ArrayList<>();
+            Set<ColumnHandle> updatedColumnsHandlesSet =
+                    updatedColumns
+                            .stream()
+                            .flatMap(List::stream)
+                            .collect(Collectors.toSet());
+
+            Map<String, ColumnHandle> nameToHandleMap = metadata.getColumnHandles(session, handle);
+
             for (ColumnSchema schema : dataColumnSchemas) {
-                fields.add(new RowType.Field(Optional.of(schema.getName()), schema.getType()));
+                if (paradigm == RowChangeParadigm.UPDATE_PARTIAL_COLUMNS) {
+                    if (updatedColumnsHandlesSet.contains(nameToHandleMap.get(schema.getName()))) {
+                        fields.add(new RowType.Field(Optional.of(schema.getName()), schema.getType()));
+                    }
+                }
+                else {
+                    fields.add(new RowType.Field(Optional.of(schema.getName()), schema.getType()));
+                }
             }
             fields.add(new RowType.Field(Optional.empty(), BOOLEAN)); // present
             fields.add(new RowType.Field(Optional.empty(), TINYINT)); // operation_number

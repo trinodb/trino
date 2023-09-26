@@ -63,7 +63,7 @@ public class MergeProcessorOperator
                     mergeRowChannel,
                     redistributionColumnChannels,
                     dataColumnChannels);
-            case CHANGE_ONLY_UPDATED_COLUMNS -> new ChangeOnlyUpdatedColumnsMergeProcessor(
+            case CHANGE_ONLY_UPDATED_COLUMNS, UPDATE_PARTIAL_COLUMNS -> new ChangeOnlyUpdatedColumnsMergeProcessor(
                     rowIdChannel,
                     mergeRowChannel,
                     dataColumnChannels,

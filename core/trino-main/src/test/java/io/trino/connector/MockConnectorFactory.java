@@ -43,6 +43,7 @@ import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortItem;
@@ -143,6 +144,7 @@ public class MockConnectorFactory
     private final BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute;
 
     private final WriterScalingOptions writerScalingOptions;
+    private final RowChangeParadigm paradigm;
 
     private MockConnectorFactory(
             String name,
@@ -193,7 +195,8 @@ public class MockConnectorFactory
             Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources,
             OptionalInt maxWriterTasks,
             BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute,
-            WriterScalingOptions writerScalingOptions)
+            WriterScalingOptions writerScalingOptions,
+            RowChangeParadigm paradigm)
     {
         this.name = requireNonNull(name, "name is null");
         this.sessionProperty = ImmutableList.copyOf(requireNonNull(sessionProperty, "sessionProperty is null"));
@@ -244,6 +247,7 @@ public class MockConnectorFactory
         this.maxWriterTasks = maxWriterTasks;
         this.getLayoutForTableExecute = requireNonNull(getLayoutForTableExecute, "getLayoutForTableExecute is null");
         this.writerScalingOptions = requireNonNull(writerScalingOptions, "writerScalingOptions is null");
+        this.paradigm = requireNonNull(paradigm, "rowChangeParadigm is null");
     }
 
     @Override
@@ -303,7 +307,8 @@ public class MockConnectorFactory
                 tableFunctionSplitsSources,
                 maxWriterTasks,
                 getLayoutForTableExecute,
-                writerScalingOptions);
+                writerScalingOptions,
+                paradigm);
     }
 
     public static MockConnectorFactory create()
@@ -456,6 +461,8 @@ public class MockConnectorFactory
         private OptionalInt maxWriterTasks = OptionalInt.empty();
         private BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute = (session, handle) -> Optional.empty();
         private WriterScalingOptions writerScalingOptions = WriterScalingOptions.DISABLED;
+
+        private RowChangeParadigm paradigm = RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 
         private Builder() {}
 
@@ -795,6 +802,65 @@ public class MockConnectorFactory
             return this;
         }
 
+        public MockConnectorFactory build(RowChangeParadigm paradigm)
+        {
+            Optional<ConnectorAccessControl> accessControl = Optional.empty();
+            if (provideAccessControl) {
+                accessControl = Optional.of(new MockConnectorAccessControl(schemaGrants, tableGrants, rowFilter, columnMask));
+            }
+            return new MockConnectorFactory(
+                    name,
+                    sessionProperties,
+                    metadataWrapper,
+                    listSchemaNames,
+                    listTables,
+                    streamTableColumns,
+                    streamRelationColumns,
+                    getViews,
+                    getMaterializedViewProperties,
+                    getMaterializedViews,
+                    delegateMaterializedViewRefreshToConnector,
+                    refreshMaterializedView,
+                    getTableHandle,
+                    getColumns,
+                    getComment,
+                    getTableStatistics,
+                    checkConstraints,
+                    applyProjection,
+                    applyAggregation,
+                    applyJoin,
+                    applyTopN,
+                    applyFilter,
+                    applyTableFunction,
+                    applyTableScanRedirect,
+                    redirectTable,
+                    getInsertLayout,
+                    getNewTableLayout,
+                    getSupportedType,
+                    getTableProperties,
+                    listTablePrivileges,
+                    eventListeners,
+                    data,
+                    metrics,
+                    procedures,
+                    tableProcedures,
+                    tableFunctions,
+                    functionProvider,
+                    analyzeProperties,
+                    schemaProperties,
+                    tableProperties,
+                    columnProperties,
+                    partitioningProvider,
+                    roleGrants,
+                    accessControl,
+                    allowMissingColumnsOnInsert,
+                    tableFunctionSplitsSources,
+                    maxWriterTasks,
+                    getLayoutForTableExecute,
+                    writerScalingOptions,
+                    paradigm);
+        }
+
         public MockConnectorFactory build()
         {
             Optional<ConnectorAccessControl> accessControl = Optional.empty();
@@ -850,7 +916,8 @@ public class MockConnectorFactory
                     tableFunctionSplitsSources,
                     maxWriterTasks,
                     getLayoutForTableExecute,
-                    writerScalingOptions);
+                    writerScalingOptions,
+                    RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW);
         }
 
         public static Function<ConnectorSession, List<String>> defaultListSchemaNames()
