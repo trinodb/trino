@@ -85,7 +85,7 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
         String securityInvokerQuery = "SELECT * FROM blackhole.default.view_ptf_alice_security_invoker";
         assertQuerySucceeds(ALICE_USER, securityInvokerQuery);
         assertQuerySucceeds(BOB_USER, securityInvokerQuery);
-        assertAccessDenied(CHARLIE_USER, securityInvokerQuery, "Cannot access catalog mock");
+        assertAccessDenied(CHARLIE_USER, securityInvokerQuery, "Cannot execute function simple_table_function");
     }
 
     @Test
@@ -113,9 +113,9 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
     {
         assertQuerySucceeds(BOB_USER, "CREATE VIEW blackhole.default.view_ptf_bob_security_definer SECURITY DEFINER AS SELECT * FROM TABLE(mock.system.simple_table_function())");
         String securityDefinerQuery = "SELECT * FROM blackhole.default.view_ptf_bob_security_definer";
-        assertAccessDenied(ALICE_USER, securityDefinerQuery, "View owner does not have sufficient privileges: 'bob' cannot grant 'mock\\.system\\.simple_table_function' execution to user 'alice'");
+        assertAccessDenied(ALICE_USER, securityDefinerQuery, "Cannot execute function simple_table_function");
         assertQuerySucceeds(BOB_USER, securityDefinerQuery);
-        assertAccessDenied(CHARLIE_USER, securityDefinerQuery, "View owner does not have sufficient privileges: 'bob' cannot grant 'mock\\.system\\.simple_table_function' execution to user 'charlie'");
+        assertAccessDenied(CHARLIE_USER, securityDefinerQuery, "Cannot execute function simple_table_function");
     }
 
     @Test
@@ -125,7 +125,7 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
         String securityInvokerQuery = "SELECT * FROM blackhole.default.view_ptf_bob_security_invoker";
         assertQuerySucceeds(ALICE_USER, securityInvokerQuery);
         assertQuerySucceeds(BOB_USER, securityInvokerQuery);
-        assertAccessDenied(CHARLIE_USER, securityInvokerQuery, "Cannot access catalog mock");
+        assertAccessDenied(CHARLIE_USER, securityInvokerQuery, "Cannot execute function simple_table_function");
     }
 
     @Test
@@ -133,9 +133,9 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
     {
         assertQuerySucceeds(BOB_USER, "CREATE VIEW blackhole.default.view_function_bob_security_definer SECURITY DEFINER AS SELECT now() AS t");
         String securityDefinerQuery = "SELECT * FROM blackhole.default.view_function_bob_security_definer";
-        assertAccessDenied(ALICE_USER, securityDefinerQuery, "View owner does not have sufficient privileges: 'bob' cannot grant 'now' execution to user 'alice'");
+        assertAccessDenied(ALICE_USER, securityDefinerQuery, "Cannot execute function now");
         assertQuerySucceeds(BOB_USER, securityDefinerQuery);
-        assertAccessDenied(CHARLIE_USER, securityDefinerQuery, "View owner does not have sufficient privileges: 'bob' cannot grant 'now' execution to user 'charlie'");
+        assertAccessDenied(CHARLIE_USER, securityDefinerQuery, "Cannot execute function now");
     }
 
     @Test

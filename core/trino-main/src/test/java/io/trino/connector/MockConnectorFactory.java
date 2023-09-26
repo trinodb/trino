@@ -54,6 +54,7 @@ import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
@@ -67,6 +68,7 @@ import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -122,6 +124,7 @@ public class MockConnectorFactory
     private final BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> listTablePrivileges;
     private final Supplier<Iterable<EventListener>> eventListeners;
+    private final Collection<FunctionMetadata> functions;
     private final Function<SchemaTableName, List<List<?>>> data;
     private final Function<SchemaTableName, Metrics> metrics;
     private final Set<Procedure> procedures;
@@ -176,6 +179,7 @@ public class MockConnectorFactory
             BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties,
             BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> listTablePrivileges,
             Supplier<Iterable<EventListener>> eventListeners,
+            Collection<FunctionMetadata> functions,
             Function<SchemaTableName, List<List<?>>> data,
             Function<SchemaTableName, Metrics> metrics,
             Set<Procedure> procedures,
@@ -226,6 +230,7 @@ public class MockConnectorFactory
         this.getTableProperties = requireNonNull(getTableProperties, "getTableProperties is null");
         this.listTablePrivileges = requireNonNull(listTablePrivileges, "listTablePrivileges is null");
         this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
+        this.functions = ImmutableList.copyOf(functions);
         this.analyzeProperties = requireNonNull(analyzeProperties, "analyzeProperties is null");
         this.schemaProperties = requireNonNull(schemaProperties, "schemaProperties is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
@@ -286,6 +291,7 @@ public class MockConnectorFactory
                 getTableProperties,
                 listTablePrivileges,
                 eventListeners,
+                functions,
                 roleGrants,
                 partitioningProvider,
                 accessControl,
@@ -427,6 +433,7 @@ public class MockConnectorFactory
         private BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties = defaultGetTableProperties();
         private BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> listTablePrivileges = defaultListTablePrivileges();
         private Supplier<Iterable<EventListener>> eventListeners = ImmutableList::of;
+        private Collection<FunctionMetadata> functions = ImmutableList.of();
         private ApplyTopN applyTopN = (session, handle, topNCount, sortItems, assignments) -> Optional.empty();
         private ApplyFilter applyFilter = (session, handle, constraint) -> Optional.empty();
         private ApplyTableFunction applyTableFunction = (session, handle) -> Optional.empty();
@@ -670,6 +677,14 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withFunctions(Collection<FunctionMetadata> functions)
+        {
+            requireNonNull(functions, "functions is null");
+
+            this.functions = ImmutableList.copyOf(functions);
+            return this;
+        }
+
         public Builder withData(Function<SchemaTableName, List<List<?>>> data)
         {
             this.data = requireNonNull(data, "data is null");
@@ -833,6 +848,7 @@ public class MockConnectorFactory
                     getTableProperties,
                     listTablePrivileges,
                     eventListeners,
+                    functions,
                     data,
                     metrics,
                     procedures,

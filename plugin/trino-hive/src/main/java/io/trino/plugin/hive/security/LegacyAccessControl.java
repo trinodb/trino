@@ -36,7 +36,6 @@ import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
-import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
 import static java.lang.String.format;
@@ -404,15 +403,18 @@ public class LegacyAccessControl
     }
 
     @Override
-    public void checkCanExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
+    public boolean canExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
     {
-        switch (functionKind) {
-            case SCALAR, AGGREGATE, WINDOW:
-                return;
-            case TABLE:
-                denyExecuteFunction(function.toString());
-        }
-        throw new UnsupportedOperationException("Unsupported function kind: " + functionKind);
+        return switch (functionKind) {
+            case SCALAR, AGGREGATE, WINDOW -> true;
+            case TABLE -> false;
+        };
+    }
+
+    @Override
+    public boolean canCreateViewWithExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
+    {
+        return canExecuteFunction(context, functionKind, function);
     }
 
     @Override

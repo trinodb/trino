@@ -110,8 +110,9 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
-    public void checkCanAccessCatalog(SystemSecurityContext context, String catalogName)
+    public boolean canAccessCatalog(SystemSecurityContext context, String catalogName)
     {
+        return true;
     }
 
     @Override
@@ -335,11 +336,6 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, TrinoPrincipal grantee, boolean grantOption)
-    {
-    }
-
-    @Override
     public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, FunctionKind functionKind, CatalogSchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
     {
     }
@@ -430,13 +426,15 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
-    public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, String functionName)
+    public boolean canExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
     {
+        return true;
     }
 
     @Override
-    public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
+    public boolean canCreateViewWithExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
     {
+        return true;
     }
 
     @Override

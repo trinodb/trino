@@ -28,10 +28,7 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.base.security.FunctionAccessControlRule.FunctionPrivilege.EXECUTE;
 import static io.trino.plugin.base.security.FunctionAccessControlRule.FunctionPrivilege.GRANT_EXECUTE;
-import static io.trino.spi.function.FunctionKind.AGGREGATE;
-import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.function.FunctionKind.TABLE;
-import static io.trino.spi.function.FunctionKind.WINDOW;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionAccessControlRule
@@ -52,7 +49,6 @@ public class FunctionAccessControlRule
     private final Optional<Pattern> schemaRegex;
     private final Optional<Pattern> functionRegex;
     private final Set<FunctionKind> functionKinds;
-    private final boolean globalScopeFunctionKind;
 
     @JsonCreator
     public FunctionAccessControlRule(
@@ -72,18 +68,6 @@ public class FunctionAccessControlRule
         this.functionRegex = requireNonNull(functionRegex, "functionRegex is null");
         this.functionKinds = requireNonNull(functionKinds, "functionKinds is null");
         checkState(!functionKinds.isEmpty(), "functionKinds cannot be empty, provide at least one function kind " + Arrays.toString(FunctionKind.values()));
-        globalScopeFunctionKind = functionKinds.contains(SCALAR) || functionKinds.contains(AGGREGATE) || functionKinds.contains(WINDOW);
-        // TODO when every function is tied to connectors then remove this check
-        checkState(functionKinds.equals(Set.of(TABLE)) || schemaRegex.isEmpty(), "Cannot define schema for others function kinds than TABLE");
-    }
-
-    public boolean matches(String user, Set<String> roles, Set<String> groups, String functionName)
-    {
-        return globalScopeFunctionKind &&
-                userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
-                roleRegex.map(regex -> roles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
-                groupRegex.map(regex -> groups.stream().anyMatch(group -> regex.matcher(group).matches())).orElse(true) &&
-                functionRegex.map(regex -> regex.matcher(functionName).matches()).orElse(true);
     }
 
     public boolean matches(String user, Set<String> roles, Set<String> groups, FunctionKind functionKind, SchemaRoutineName functionName)

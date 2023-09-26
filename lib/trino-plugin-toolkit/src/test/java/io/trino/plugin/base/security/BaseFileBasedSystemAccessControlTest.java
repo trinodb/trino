@@ -57,6 +57,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.lang.Thread.sleep;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.util.Files.newTemporaryFile;
 import static org.testng.Assert.assertEquals;
@@ -234,17 +235,6 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertThatThrownBy(() -> newFileBasedSystemAccessControl("empty-functions-kind.json"))
                 .hasRootCauseInstanceOf(IllegalStateException.class)
                 .hasRootCauseMessage("functionKinds cannot be empty, provide at least one function kind [SCALAR, AGGREGATE, WINDOW, TABLE]");
-    }
-
-    @Test
-    public void testDisallowFunctionKindRuleCombination()
-    {
-        assertThatThrownBy(() -> newFileBasedSystemAccessControl("file-based-disallow-function-rule-combination.json"))
-                .hasRootCauseInstanceOf(IllegalStateException.class)
-                .hasRootCauseMessage("Cannot define catalog for others function kinds than TABLE");
-        assertThatThrownBy(() -> newFileBasedSystemAccessControl("file-based-disallow-function-rule-combination-without-table.json"))
-                .hasRootCauseInstanceOf(IllegalStateException.class)
-                .hasRootCauseMessage("Cannot define catalog for others function kinds than TABLE");
     }
 
     @Test
@@ -518,18 +508,15 @@ public abstract class BaseFileBasedSystemAccessControlTest
     public void testFunctionRulesForCheckExecuteAndGrantExecuteFunctionWithNoAccess()
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-no-access.json");
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(ALICE, "some_function"), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(ALICE, AGGREGATE, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function")), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(ALICE, SCALAR, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function")), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(ALICE, TABLE, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_table_function")), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(ALICE, WINDOW, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function")), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
+        assertThat(accessControl.canExecuteFunction(ALICE, AGGREGATE, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(ALICE, SCALAR, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(ALICE, TABLE, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_table_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(ALICE, WINDOW, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"))).isFalse();
 
-        TrinoPrincipal grantee = new TrinoPrincipal(USER, "some_user");
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, "some_function", grantee, true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, AGGREGATE, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"), grantee, true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, SCALAR, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"), grantee, true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_table_function"), grantee, true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, WINDOW, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"), grantee, true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
+        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, AGGREGATE, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"))).isFalse();
+        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, SCALAR, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"))).isFalse();
+        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, TABLE, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_table_function"))).isFalse();
+        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, WINDOW, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"))).isFalse();
     }
 
     @Test
@@ -1365,14 +1352,17 @@ public abstract class BaseFileBasedSystemAccessControlTest
     public void testFunctionRulesForCheckCanExecute()
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-visibility.json");
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(ADMIN, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function")), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        accessControl.checkCanExecuteFunction(ALICE, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"));
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(BOB, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function")), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(CHARLIE, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function")), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(ADMIN, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_function")), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(ALICE, "some_function"), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        accessControl.checkCanExecuteFunction(BOB, "some_function");
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(CHARLIE, "some_function"), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
+        assertThat(accessControl.canExecuteFunction(ADMIN, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(ADMIN, SCALAR, new CatalogSchemaRoutineName("system", "builtin", "some_function"))).isFalse();
+
+        assertThat(accessControl.canExecuteFunction(ALICE, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"))).isTrue();
+        assertThat(accessControl.canExecuteFunction(ALICE, SCALAR, new CatalogSchemaRoutineName("system", "builtin", "some_function"))).isFalse();
+
+        assertThat(accessControl.canExecuteFunction(BOB, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(BOB, SCALAR, new CatalogSchemaRoutineName("system", "builtin", "some_function"))).isTrue();
+
+        assertThat(accessControl.canExecuteFunction(CHARLIE, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(CHARLIE, SCALAR, new CatalogSchemaRoutineName("system", "builtin", "some_function"))).isFalse();
     }
 
     @Test
@@ -1384,18 +1374,18 @@ public abstract class BaseFileBasedSystemAccessControlTest
         accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true);
         accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true);
         assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_function"), new TrinoPrincipal(USER, ADMIN.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, "some_function", new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, "some_function", new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, "some_function", new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, SCALAR, new CatalogSchemaRoutineName("system", "builtin", "some_function"), new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, SCALAR, new CatalogSchemaRoutineName("system", "builtin", "some_function"), new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, SCALAR, new CatalogSchemaRoutineName("system", "builtin", "some_function"), new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
 
         assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, ADMIN.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_function"), new TrinoPrincipal(USER, ADMIN.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, "some_function", new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, "some_function", new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, "some_function", new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true);
+        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, SCALAR, new CatalogSchemaRoutineName("system", "builtin", "some_function"), new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true);
+        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, SCALAR, new CatalogSchemaRoutineName("system", "builtin", "some_function"), new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true);
+        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, SCALAR, new CatalogSchemaRoutineName("system", "builtin", "some_function"), new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true);
     }
 
     @Test

@@ -40,6 +40,14 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionId;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.FunctionProvider;
+import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.spi.function.Signature;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.RoleGrant;
@@ -48,6 +56,7 @@ import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
+import io.trino.sql.SqlPath;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -57,6 +66,7 @@ import io.trino.testing.TestingGroupProvider;
 import io.trino.testing.TestingSession;
 import org.junit.jupiter.api.Test;
 
+import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -126,6 +136,7 @@ public class TestAccessControl
                 .setSource("test")
                 .setCatalog("blackhole")
                 .setSchema("default")
+                .setPath(new SqlPath("mock.function"))
                 .build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setAdditionalModule(binder -> {
@@ -233,6 +244,26 @@ public class TestAccessControl
                     }
                     return Optional.empty();
                 }))
+                .withFunctions(ImmutableList.<FunctionMetadata>builder()
+                        .add(FunctionMetadata.scalarBuilder("my_function")
+                                .signature(Signature.builder().returnType(BIGINT).build())
+                                .noDescription()
+                                .build())
+                        .add(FunctionMetadata.scalarBuilder("my_function")
+                                .signature(Signature.builder().argumentType(BIGINT).returnType(BIGINT).build())
+                                .noDescription()
+                                .build())
+                        .build())
+                .withFunctionProvider(Optional.of(new FunctionProvider()
+                {
+                    @Override
+                    public ScalarFunctionImplementation getScalarFunctionImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
+                    {
+                        return ScalarFunctionImplementation.builder()
+                                .methodHandle(MethodHandles.identity(long.class))
+                                .build();
+                    }
+                }))
                 .build()));
         queryRunner.createCatalog("mock", "mock");
         queryRunner.installPlugin(new JdbcPlugin("base_jdbc", new TestingH2JdbcModule()));
@@ -310,8 +341,8 @@ public class TestAccessControl
 
         assertAccessDenied("SHOW CREATE TABLE orders", "Cannot show create table for .*.orders.*", privilege("orders", SHOW_CREATE_TABLE));
         assertAccessAllowed("SHOW CREATE TABLE lineitem", privilege("orders", SHOW_CREATE_TABLE));
-        assertAccessDenied("SELECT abs(1)", "Cannot execute function abs", privilege("abs", EXECUTE_FUNCTION));
-        assertAccessAllowed("SELECT abs(1)", privilege("max", EXECUTE_FUNCTION));
+        assertAccessDenied("SELECT my_function(1)", "Cannot execute function my_function", privilege("mock.function.my_function", EXECUTE_FUNCTION));
+        assertAccessAllowed("SELECT my_function(1)", privilege("max", EXECUTE_FUNCTION));
         assertAccessAllowed("SHOW STATS FOR lineitem");
         assertAccessAllowed("SHOW STATS FOR lineitem", privilege("orders", SELECT_COLUMN));
         assertAccessAllowed("SHOW STATS FOR (SELECT * FROM lineitem)");
@@ -522,6 +553,7 @@ public class TestAccessControl
                 .setIdentity(Identity.ofUser("test_view_access_owner"))
                 .setCatalog(getSession().getCatalog())
                 .setSchema(getSession().getSchema())
+                .setPath(new SqlPath("mock.function"))
                 .build();
 
         // TEST FUNCTION PRIVILEGES
@@ -529,33 +561,33 @@ public class TestAccessControl
         String functionAccessViewName = "test_view_function_access_" + randomNameSuffix();
         assertAccessAllowed(
                 viewOwnerSession,
-                "CREATE VIEW " + functionAccessViewName + " AS SELECT abs(1) AS c",
-                privilege("abs", GRANT_EXECUTE_FUNCTION));
+                "CREATE VIEW " + functionAccessViewName + " AS SELECT my_function(1) AS c",
+                privilege("mock.function.my_function", GRANT_EXECUTE_FUNCTION));
 
         assertAccessDenied(
                 "SELECT * FROM " + functionAccessViewName,
-                "View owner does not have sufficient privileges: 'test_view_access_owner' cannot grant 'abs' execution to user '\\w*'",
-                privilege(viewOwnerSession.getUser(), "abs", GRANT_EXECUTE_FUNCTION));
+                "Cannot execute function my_function",
+                privilege(viewOwnerSession.getUser(), "mock.function.my_function", GRANT_EXECUTE_FUNCTION));
 
         // verify executing from a view over a function does not require the session user to have execute privileges on the underlying function
         assertAccessAllowed(
                 "SELECT * FROM " + functionAccessViewName,
-                privilege(getSession().getUser(), "abs", EXECUTE_FUNCTION));
+                privilege(getSession().getUser(), "mock.function.my_function", EXECUTE_FUNCTION));
 
         // TEST SECURITY INVOKER
         // view creation permissions are only checked at query time, not at creation
         String invokerFunctionAccessViewName = "test_invoker_view_function_access_" + randomNameSuffix();
         assertAccessAllowed(
                 viewOwnerSession,
-                "CREATE VIEW " + invokerFunctionAccessViewName + " SECURITY INVOKER AS SELECT abs(1) AS c",
-                privilege("abs", GRANT_EXECUTE_FUNCTION));
+                "CREATE VIEW " + invokerFunctionAccessViewName + " SECURITY INVOKER AS SELECT my_function(1) AS c",
+                privilege("mock.function.my_function", GRANT_EXECUTE_FUNCTION));
         assertAccessAllowed(
                 "SELECT * FROM " + invokerFunctionAccessViewName,
-                privilege(viewOwnerSession.getUser(), "abs", EXECUTE_FUNCTION));
+                privilege(viewOwnerSession.getUser(), "mock.function.my_function", EXECUTE_FUNCTION));
         assertAccessDenied(
                 "SELECT * FROM " + invokerFunctionAccessViewName,
-                "Cannot execute function abs",
-                privilege(getSession().getUser(), "abs", EXECUTE_FUNCTION));
+                "Cannot execute function my_function",
+                privilege(getSession().getUser(), "mock.function.my_function", EXECUTE_FUNCTION));
 
         assertAccessAllowed(viewOwnerSession, "DROP VIEW " + functionAccessViewName);
         assertAccessAllowed(viewOwnerSession, "DROP VIEW " + invokerFunctionAccessViewName);
@@ -567,12 +599,12 @@ public class TestAccessControl
         reset();
 
         assertAccessDenied(
-                "SELECT reverse('a')",
-                "Cannot execute function reverse",
-                new TestingPrivilege(Optional.empty(), "reverse", EXECUTE_FUNCTION));
+                "SELECT my_function(42)",
+                "Cannot execute function my_function",
+                new TestingPrivilege(Optional.empty(), "mock.function.my_function", EXECUTE_FUNCTION));
 
-        TestingPrivilege denyNonReverseFunctionCalls = new TestingPrivilege(Optional.empty(), name -> !name.equals("reverse"), EXECUTE_FUNCTION);
-        assertAccessAllowed("SELECT reverse('a')", denyNonReverseFunctionCalls);
+        TestingPrivilege denyNonReverseFunctionCalls = new TestingPrivilege(Optional.empty(), name -> !name.equals("mock.function.my_function"), EXECUTE_FUNCTION);
+        assertAccessAllowed("SELECT my_function(42)", denyNonReverseFunctionCalls);
         assertAccessDenied("SELECT concat('a', 'b')", "Cannot execute function concat", denyNonReverseFunctionCalls);
     }
 
@@ -658,7 +690,7 @@ public class TestAccessControl
                 assertAccessDenied(
                         otherUser,
                         "TABLE " + viewName,
-                        "View owner does not have sufficient privileges: 'user' cannot grant 'jdbc.system.query' execution to user 'user-someone-else'",
+                        "Cannot execute function query",
                         grantExecute);
             }
             else {
