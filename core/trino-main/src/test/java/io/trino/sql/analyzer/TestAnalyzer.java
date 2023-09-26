@@ -193,8 +193,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
@@ -7147,8 +7145,7 @@ public class TestAnalyzer
                 .readUncommitted()
                 .execute(clientSession, session -> {
                     Analyzer analyzer = createAnalyzer(session, accessControl);
-                    Statement statement = SQL_PARSER.createStatement(query, new ParsingOptions(
-                            new FeaturesConfig().isParseDecimalLiteralsAsDouble() ? AS_DOUBLE : AS_DECIMAL));
+                    Statement statement = SQL_PARSER.createStatement(query, new ParsingOptions());
                     return analyzer.analyze(statement);
                 });
     }

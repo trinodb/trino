@@ -3235,11 +3235,7 @@ class AstBuilder
     @Override
     public Node visitDecimalLiteral(SqlBaseParser.DecimalLiteralContext context)
     {
-        return switch (parsingOptions.getDecimalLiteralTreatment()) {
-            case AS_DOUBLE -> new DoubleLiteral(getLocation(context), context.getText());
-            case AS_DECIMAL -> new DecimalLiteral(getLocation(context), context.getText());
-            case REJECT -> throw new ParsingException("Unexpected decimal literal: " + context.getText());
-        };
+        return new DecimalLiteral(getLocation(context), context.getText());
     }
 
     @Override
