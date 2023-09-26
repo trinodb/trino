@@ -466,22 +466,22 @@ public class TestSqlParser
                 .isEqualTo(new LongLiteral(new NodeLocation(1, 1), "123_456_789"))
                 .satisfies(value -> assertThat(((LongLiteral) value).getParsedValue()).isEqualTo(123456789L));
 
-        assertThatThrownBy(() -> SQL_PARSER.createExpression("123_456_789_", new ParsingOptions()))
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("123_456_789_"))
                 .isInstanceOf(ParsingException.class);
 
         assertThat(expression("123_456.789_0123"))
                 .isEqualTo(new DecimalLiteral(new NodeLocation(1, 1), "123_456.789_0123"));
 
-        assertThatThrownBy(() -> SQL_PARSER.createExpression("123_456.789_0123_", new ParsingOptions()))
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("123_456.789_0123_"))
                 .isInstanceOf(ParsingException.class);
 
-        assertThatThrownBy(() -> SQL_PARSER.createExpression("_123_456.789_0123", new ParsingOptions()))
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("_123_456.789_0123"))
                 .isInstanceOf(ParsingException.class);
 
-        assertThatThrownBy(() -> SQL_PARSER.createExpression("123_456_.789_0123", new ParsingOptions()))
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("123_456_.789_0123"))
                 .isInstanceOf(ParsingException.class);
 
-        assertThatThrownBy(() -> SQL_PARSER.createExpression("123_456._789_0123", new ParsingOptions()))
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("123_456._789_0123"))
                 .isInstanceOf(ParsingException.class);
 
         assertThat(expression("0x123_abc_def"))
@@ -492,7 +492,7 @@ public class TestSqlParser
                 .isEqualTo(new LongLiteral(new NodeLocation(1, 1), "0X123_ABC_DEF"))
                 .satisfies(value -> assertThat(((LongLiteral) value).getParsedValue()).isEqualTo(4893429231L));
 
-        assertThatThrownBy(() -> SQL_PARSER.createExpression("0x123_ABC_DEF_", new ParsingOptions()))
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("0x123_ABC_DEF_"))
                 .isInstanceOf(ParsingException.class);
 
         assertThat(expression("0O012_345"))
@@ -503,7 +503,7 @@ public class TestSqlParser
                 .isEqualTo(new LongLiteral(new NodeLocation(1, 1), "0o012_345"))
                 .satisfies(value -> assertThat(((LongLiteral) value).getParsedValue()).isEqualTo(5349L));
 
-        assertThatThrownBy(() -> SQL_PARSER.createExpression("0o012_345_", new ParsingOptions()))
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("0o012_345_"))
                 .isInstanceOf(ParsingException.class);
 
         assertThat(expression("0B110_010"))
@@ -514,7 +514,7 @@ public class TestSqlParser
                 .isEqualTo(new LongLiteral(new NodeLocation(1, 1), "0b110_010"))
                 .satisfies(value -> assertThat(((LongLiteral) value).getParsedValue()).isEqualTo(50L));
 
-        assertThatThrownBy(() -> SQL_PARSER.createExpression("0b110_010_", new ParsingOptions()))
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("0b110_010_"))
                 .isInstanceOf(ParsingException.class);
     }
 
@@ -3485,7 +3485,7 @@ public class TestSqlParser
                 .isInstanceOf(ParsingException.class)
                 .hasMessage("line 1:17: mismatched input '.'. Expecting: ',', <EOF>");
 
-        assertThatThrownBy(() -> SQL_PARSER.createStatement("SET PATH ", new ParsingOptions()))
+        assertThatThrownBy(() -> SQL_PARSER.createStatement("SET PATH "))
                 .isInstanceOf(ParsingException.class)
                 .hasMessage("line 1:10: mismatched input '<EOF>'. Expecting: <identifier>");
     }
@@ -5142,7 +5142,7 @@ public class TestSqlParser
     @Test
     public void testAllRowsReference()
     {
-        assertThatThrownBy(() -> SQL_PARSER.createStatement("SELECT 1 + A.*", new ParsingOptions()))
+        assertThatThrownBy(() -> SQL_PARSER.createStatement("SELECT 1 + A.*"))
                 .isInstanceOf(ParsingException.class)
                 .hasMessageMatching("line 1:13: mismatched input '.'.*");
 
@@ -5501,8 +5501,7 @@ public class TestSqlParser
                         SELECT *
                         FROM TABLE(some_ptf(
                         input => TABLE(orders) copartition(a, b, c)))
-                        """,
-                new ParsingOptions()))
+                        """))
                 .isInstanceOf(ParsingException.class)
                 .hasMessageMatching("line 3:24: The word \"COPARTITION\" is ambiguous in this context. " +
                         "To alias an argument, precede the alias with \"AS\". " +
@@ -5542,8 +5541,7 @@ public class TestSqlParser
                     input2 => TABLE(nation) PARTITION BY nationkey,
                     input3 => TABLE(lineitem)
                     COPARTITION(customers, nation)))
-                """,
-                new ParsingOptions()))
+                """))
                 .isInstanceOf(ParsingException.class)
                 .hasMessageMatching("line 6:5: The word \"COPARTITION\" is ambiguous in this context. " +
                         "To alias an argument, precede the alias with \"AS\". " +
@@ -6025,7 +6023,7 @@ public class TestSqlParser
     @Deprecated
     private static void assertStatement(@Language("SQL") String query, Statement expected)
     {
-        assertParsed(query, expected, SQL_PARSER.createStatement(query, new ParsingOptions()));
+        assertParsed(query, expected, SQL_PARSER.createStatement(query));
         assertFormattedSql(SQL_PARSER, expected);
     }
 
@@ -6037,7 +6035,7 @@ public class TestSqlParser
     {
         requireNonNull(expression, "expression is null");
         requireNonNull(expected, "expected is null");
-        assertParsed(expression, expected, SQL_PARSER.createExpression(expression, new ParsingOptions()));
+        assertParsed(expression, expected, SQL_PARSER.createExpression(expression));
     }
 
     private static void assertParsed(String input, Node expected, Node parsed)
@@ -6064,6 +6062,6 @@ public class TestSqlParser
 
     private static Expression createExpression(String expression)
     {
-        return SQL_PARSER.createExpression(expression, new ParsingOptions());
+        return SQL_PARSER.createExpression(expression);
     }
 }

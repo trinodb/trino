@@ -78,7 +78,6 @@ import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import static io.trino.testing.assertions.Assert.assertEventually;
@@ -595,7 +594,7 @@ public abstract class AbstractTestQueryFramework
 
     protected String formatSqlText(@Language("SQL") String sql)
     {
-        return formatSql(SQL_PARSER.createStatement(sql, createParsingOptions(getSession())));
+        return formatSql(SQL_PARSER.createStatement(sql));
     }
 
     protected String getExplainPlan(@Language("SQL") String query, ExplainType.Type planType)
@@ -609,7 +608,7 @@ public abstract class AbstractTestQueryFramework
         return newTransaction()
                 .singleStatement()
                 .execute(session, transactionSession -> {
-                    return explainer.getPlan(transactionSession, SQL_PARSER.createStatement(query, createParsingOptions(transactionSession)), planType, emptyList(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                    return explainer.getPlan(transactionSession, SQL_PARSER.createStatement(query), planType, emptyList(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 });
     }
 
@@ -619,7 +618,7 @@ public abstract class AbstractTestQueryFramework
         return newTransaction()
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getGraphvizPlan(session, SQL_PARSER.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                    return explainer.getGraphvizPlan(session, SQL_PARSER.createStatement(query), planType, emptyList(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 });
     }
 

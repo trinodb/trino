@@ -44,7 +44,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.isOmitDateTimeTypePrecision;
-import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.QueryUtil.aliased;
 import static io.trino.sql.QueryUtil.identifier;
 import static io.trino.sql.QueryUtil.row;
@@ -112,7 +111,7 @@ public final class DescribeOutputRewrite
         protected Node visitDescribeOutput(DescribeOutput node, Void context)
         {
             String sqlString = session.getPreparedStatement(node.getName().getValue());
-            Statement statement = parser.createStatement(sqlString, createParsingOptions(session));
+            Statement statement = parser.createStatement(sqlString);
 
             Analyzer analyzer = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, warningCollector, planOptimizersStatsCollector);
             Analysis analysis = analyzer.analyze(statement, DESCRIBE);
