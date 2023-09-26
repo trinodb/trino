@@ -32,6 +32,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -403,7 +404,7 @@ class FunctionBinder
             return new TrinoException(FUNCTION_NOT_FOUND, format("Function '%s' not registered", name));
         }
 
-        List<String> expectedParameters = new ArrayList<>();
+        Set<String> expectedParameters = new TreeSet<>();
         for (CatalogFunctionMetadata function : candidates) {
             String arguments = Joiner.on(", ").join(function.functionMetadata().getSignature().getArgumentTypes());
             String constraints = Joiner.on(", ").join(function.functionMetadata().getSignature().getTypeVariableConstraints());

@@ -35,6 +35,7 @@ import io.trino.operator.aggregation.state.VarianceState;
 import io.trino.operator.annotations.LiteralImplementationDependency;
 import io.trino.operator.annotations.OperatorImplementationDependency;
 import io.trino.operator.annotations.TypeImplementationDependency;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
@@ -1178,13 +1179,13 @@ public class TestAnnotationEngineForAggregates
     private static ResolvedFunction resolveDependency(FunctionDependencyDeclaration.OperatorDependency dependency)
     {
         QualifiedName name = QualifiedName.of(GlobalSystemConnector.NAME, BUILTIN_SCHEMA, mangleOperatorName(dependency.getOperatorType()));
-        return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeSignatures(dependency.getArgumentTypes()));
+        return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeSignatures(dependency.getArgumentTypes()), new AllowAllAccessControl());
     }
 
     private static ResolvedFunction resolveDependency(FunctionDependencyDeclaration.FunctionDependency dependency)
     {
         QualifiedName name = QualifiedName.of(dependency.getName().getCatalogName(), dependency.getName().getSchemaName(), dependency.getName().getFunctionName());
-        return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeSignatures(dependency.getArgumentTypes()));
+        return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeSignatures(dependency.getArgumentTypes()), new AllowAllAccessControl());
     }
 
     private static BoundSignature builtinFunction(String name, Type returnType, ImmutableList<Type> argumentTypes)

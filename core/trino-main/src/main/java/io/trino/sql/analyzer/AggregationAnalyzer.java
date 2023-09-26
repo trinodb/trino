@@ -16,6 +16,7 @@ package io.trino.sql.analyzer;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.FunctionResolver;
+import io.trino.security.AccessControl;
 import io.trino.spi.StandardErrorCode;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ScopeAware;
@@ -121,6 +122,7 @@ class AggregationAnalyzer
     private final Session session;
     private final Analysis analysis;
     private final FunctionResolver functionResolver;
+    private final AccessControl accessControl;
 
     private final Scope sourceScope;
     private final Optional<Scope> orderByScope;
@@ -131,9 +133,10 @@ class AggregationAnalyzer
             List<Expression> expressions,
             Session session,
             PlannerContext plannerContext,
+            AccessControl accessControl,
             Analysis analysis)
     {
-        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.empty(), session, plannerContext, analysis);
+        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.empty(), session, plannerContext, accessControl, analysis);
         for (Expression expression : expressions) {
             analyzer.analyze(expression);
         }
@@ -146,9 +149,10 @@ class AggregationAnalyzer
             List<Expression> expressions,
             Session session,
             PlannerContext plannerContext,
+            AccessControl accessControl,
             Analysis analysis)
     {
-        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.of(orderByScope), session, plannerContext, analysis);
+        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.of(orderByScope), session, plannerContext, accessControl, analysis);
         for (Expression expression : expressions) {
             analyzer.analyze(expression);
         }
@@ -160,6 +164,7 @@ class AggregationAnalyzer
             Optional<Scope> orderByScope,
             Session session,
             PlannerContext plannerContext,
+            AccessControl accessControl,
             Analysis analysis)
     {
         requireNonNull(groupByExpressions, "groupByExpressions is null");
@@ -167,12 +172,14 @@ class AggregationAnalyzer
         requireNonNull(orderByScope, "orderByScope is null");
         requireNonNull(session, "session is null");
         requireNonNull(plannerContext, "metadata is null");
+        requireNonNull(accessControl, "accessControl is null");
         requireNonNull(analysis, "analysis is null");
 
         this.sourceScope = sourceScope;
         this.orderByScope = orderByScope;
         this.session = session;
         this.analysis = analysis;
+        this.accessControl = accessControl;
         this.expressions = groupByExpressions.stream()
                 .map(expression -> scopeAwareKey(expression, analysis, sourceScope))
                 .collect(toImmutableSet());
@@ -367,9 +374,9 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitFunctionCall(FunctionCall node, Void context)
         {
-            if (functionResolver.isAggregationFunction(session, node.getName())) {
+            if (functionResolver.isAggregationFunction(session, node.getName(), accessControl)) {
                 if (node.getWindow().isEmpty()) {
-                    List<FunctionCall> aggregateFunctions = extractAggregateFunctions(node.getArguments(), session, functionResolver);
+                    List<FunctionCall> aggregateFunctions = extractAggregateFunctions(node.getArguments(), session, functionResolver, accessControl);
                     List<Expression> windowExpressions = extractWindowExpressions(node.getArguments());
 
                     if (!aggregateFunctions.isEmpty()) {
