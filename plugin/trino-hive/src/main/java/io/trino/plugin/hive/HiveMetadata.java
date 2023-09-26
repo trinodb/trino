@@ -3851,6 +3851,7 @@ public class HiveMetadata
         TableNameSplitResult tableNameSplit = splitTableName(tableName.getTableName());
         Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableNameSplit.getBaseTableName());
         Optional<CatalogSchemaTableName> catalogSchemaTableName = tableRedirectionsProvider.redirectTable(session, Optional.of(table.get()));
+
         if (table.isEmpty() || isSomeKindOfAView(table.get())) {
             return Optional.empty();
         }
