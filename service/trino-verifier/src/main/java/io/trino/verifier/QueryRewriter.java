@@ -56,7 +56,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.sql.SqlFormatter.formatSql;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.sql.tree.SaveMode.IGNORE;
 import static io.trino.verifier.QueryType.READ;
@@ -105,7 +104,7 @@ public class QueryRewriter
             throw new QueryRewriteException("Cannot rewrite queries that use post-queries");
         }
 
-        Statement statement = parser.createStatement(query.getQuery(), new ParsingOptions(AS_DOUBLE /* anything */));
+        Statement statement = parser.createStatement(query.getQuery(), new ParsingOptions());
         try (Connection connection = DriverManager.getConnection(gatewayUrl, usernameOverride.orElse(query.getUsername()), passwordOverride.orElse(query.getPassword()))) {
             trySetConnectionProperties(query, connection);
             if (statement instanceof CreateTableAsSelect) {

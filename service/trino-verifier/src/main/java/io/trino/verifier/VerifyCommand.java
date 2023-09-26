@@ -96,7 +96,6 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static io.trino.verifier.QueryType.CREATE;
 import static io.trino.verifier.QueryType.MODIFY;
 import static io.trino.verifier.QueryType.READ;
@@ -362,7 +361,7 @@ public class VerifyCommand
     static QueryType statementToQueryType(SqlParser parser, String sql)
     {
         try {
-            return statementToQueryType(parser.createStatement(sql, new ParsingOptions(AS_DOUBLE /* anything */)));
+            return statementToQueryType(parser.createStatement(sql, new ParsingOptions()));
         }
         catch (RuntimeException e) {
             throw new UnsupportedOperationException();

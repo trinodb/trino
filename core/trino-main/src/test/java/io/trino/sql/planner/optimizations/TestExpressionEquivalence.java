@@ -35,7 +35,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.ExpressionTestUtils.planExpression;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
@@ -130,7 +129,7 @@ public class TestExpressionEquivalence
 
     private static void assertEquivalent(@Language("SQL") String left, @Language("SQL") String right)
     {
-        ParsingOptions parsingOptions = new ParsingOptions(AS_DOUBLE /* anything */);
+        ParsingOptions parsingOptions = new ParsingOptions();
         Expression leftExpression = planExpression(PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(left, parsingOptions));
         Expression rightExpression = planExpression(PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(right, parsingOptions));
 
@@ -204,7 +203,7 @@ public class TestExpressionEquivalence
 
     private static void assertNotEquivalent(@Language("SQL") String left, @Language("SQL") String right)
     {
-        ParsingOptions parsingOptions = new ParsingOptions(AS_DOUBLE /* anything */);
+        ParsingOptions parsingOptions = new ParsingOptions();
         Expression leftExpression = planExpression(PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(left, parsingOptions));
         Expression rightExpression = planExpression(PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(right, parsingOptions));
 
