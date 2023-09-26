@@ -29,7 +29,7 @@
 
 ## Hive connector
 
-* Add support for changing column comments in the Glue catalog. ({issue}`19076`)
+* Add support for changing column comments when using the Glue catalog. ({issue}`19076`)
 * Reduce data read from Parquet files for queries with filters. ({issue}`19032`)
 * Improve performance of reading text files. ({issue}`18959`)
 * Allow changing a column's type from `double` to `varchar` in Hive tables. ({issue}`18930`)
