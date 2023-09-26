@@ -237,7 +237,7 @@ public class TestMockConnector
         assertThatThrownBy(() -> assertUpdate("SELECT * FROM TABLE(mock.system.simple_table_function())"))
                 .hasMessage("missing ConnectorSplitSource for table function handle SimpleTableFunctionHandle");
         assertThatThrownBy(() -> assertUpdate("SELECT * FROM TABLE(mock.system.non_existing_table_function())"))
-                .hasMessageContaining("Table function mock.system.non_existing_table_function not registered");
+                .hasMessageContaining("Table function 'mock.system.non_existing_table_function' not registered");
     }
 
     @Test

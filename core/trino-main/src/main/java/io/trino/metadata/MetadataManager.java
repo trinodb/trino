@@ -149,6 +149,7 @@ import static io.trino.client.NodeVersion.UNKNOWN;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.CONNECTOR;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.SYSTEM;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
+import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.metadata.RedirectionAwareTableHandle.withRedirectionTo;
@@ -2295,7 +2296,7 @@ public final class MetadataManager
     public ResolvedFunction getCoercion(CatalogSchemaFunctionName name, Type fromType, Type toType)
     {
         // coercion can only be resolved for builtin functions
-        if (!isBuiltinFunction(name)) {
+        if (!isBuiltinFunctionName(name)) {
             throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", name));
         }
 
@@ -2316,7 +2317,7 @@ public final class MetadataManager
     @Override
     public Collection<CatalogFunctionMetadata> getFunctions(Session session, CatalogSchemaFunctionName name)
     {
-        if (isBuiltinFunction(name)) {
+        if (isBuiltinFunctionName(name)) {
             return getBuiltinFunctions(name.getFunctionName());
         }
 
@@ -2377,11 +2378,6 @@ public final class MetadataManager
                 functionId,
                 functionSignature,
                 boundSignature);
-    }
-
-    private static boolean isBuiltinFunction(CatalogSchemaFunctionName name)
-    {
-        return name.getCatalogName().equals(GlobalSystemConnector.NAME) && name.getSchemaFunctionName().getSchemaName().equals(BUILTIN_SCHEMA);
     }
 
     //

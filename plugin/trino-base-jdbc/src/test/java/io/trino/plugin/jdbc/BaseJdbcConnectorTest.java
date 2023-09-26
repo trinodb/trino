@@ -1916,7 +1916,7 @@ public abstract class BaseJdbcConnectorTest
         }
         assertQueryFails(
                 format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
-                "line 1:21: Table function system.query not registered");
+                "line 1:21: Table function 'system.query' not registered");
     }
 
     @Test

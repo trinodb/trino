@@ -191,6 +191,11 @@ public class GlobalFunctionCatalog
         return null;
     }
 
+    public static boolean isBuiltinFunctionName(CatalogSchemaFunctionName functionName)
+    {
+        return functionName.getCatalogName().equals(GlobalSystemConnector.NAME) && functionName.getSchemaName().equals(BUILTIN_SCHEMA);
+    }
+
     public static CatalogSchemaFunctionName builtinFunctionName(OperatorType operatorType)
     {
         return builtinFunctionName(mangleOperatorName(operatorType));
