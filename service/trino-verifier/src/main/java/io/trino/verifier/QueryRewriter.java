@@ -19,7 +19,6 @@ import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.units.Duration;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateTableAsSelect;
@@ -104,7 +103,7 @@ public class QueryRewriter
             throw new QueryRewriteException("Cannot rewrite queries that use post-queries");
         }
 
-        Statement statement = parser.createStatement(query.getQuery(), new ParsingOptions());
+        Statement statement = parser.createStatement(query.getQuery());
         try (Connection connection = DriverManager.getConnection(gatewayUrl, usernameOverride.orElse(query.getUsername()), passwordOverride.orElse(query.getPassword()))) {
             trySetConnectionProperties(query, connection);
             if (statement instanceof CreateTableAsSelect) {

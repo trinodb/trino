@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class TestSqlParserErrorHandling
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
-    private static final ParsingOptions PARSING_OPTIONS = new ParsingOptions();
 
     private static Stream<Arguments> expressions()
     {
@@ -221,7 +220,7 @@ public class TestSqlParserErrorHandling
     @MethodSource("statements")
     public void testStatement(String sql, String error)
     {
-        assertThatThrownBy(() -> SQL_PARSER.createStatement(sql, PARSING_OPTIONS))
+        assertThatThrownBy(() -> SQL_PARSER.createStatement(sql))
                 .isInstanceOf(ParsingException.class)
                 .hasMessage(error);
     }
@@ -230,7 +229,7 @@ public class TestSqlParserErrorHandling
     @MethodSource("expressions")
     public void testExpression(String sql, String error)
     {
-        assertThatThrownBy(() -> SQL_PARSER.createExpression(sql, PARSING_OPTIONS))
+        assertThatThrownBy(() -> SQL_PARSER.createExpression(sql))
                 .isInstanceOf(ParsingException.class)
                 .hasMessage(error);
     }
@@ -238,7 +237,7 @@ public class TestSqlParserErrorHandling
     @Test
     public void testParsingExceptionPositionInfo()
     {
-        assertThatThrownBy(() -> SQL_PARSER.createStatement("select *\nfrom x\nwhere from", PARSING_OPTIONS))
+        assertThatThrownBy(() -> SQL_PARSER.createStatement("select *\nfrom x\nwhere from"))
                 .isInstanceOfSatisfying(ParsingException.class, e -> {
                     assertTrue(e.getMessage().startsWith("line 3:7: mismatched input 'from'"));
                     assertTrue(e.getErrorMessage().startsWith("mismatched input 'from'"));
@@ -257,7 +256,7 @@ public class TestSqlParserErrorHandling
                         for (int i = 1; i < size; i++) {
                             expression = "(" + expression + ") OR x = y";
                         }
-                        SQL_PARSER.createExpression(expression, new ParsingOptions());
+                        SQL_PARSER.createExpression(expression);
                     }
                 })
                 .hasMessageContaining("line 1:1: expression is too large (stack overflow while parsing)");
@@ -273,7 +272,7 @@ public class TestSqlParserErrorHandling
                         for (int i = 1; i < size; i++) {
                             expression = "(" + expression + ") OR x = y";
                         }
-                        SQL_PARSER.createStatement("SELECT " + expression, PARSING_OPTIONS);
+                        SQL_PARSER.createStatement("SELECT " + expression);
                     }
                 })
                 .hasMessageContaining("line 1:1: statement is too large (stack overflow while parsing)");

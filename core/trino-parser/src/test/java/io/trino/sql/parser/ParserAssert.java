@@ -67,12 +67,12 @@ public class ParserAssert
 
     private static Expression createExpression(String expression)
     {
-        return new SqlParser().createExpression(expression, new ParsingOptions());
+        return new SqlParser().createExpression(expression);
     }
 
     private static Statement createStatement(String statement)
     {
-        return new SqlParser().createStatement(statement, new ParsingOptions());
+        return new SqlParser().createStatement(statement);
     }
 
     public static ThrowableAssertAlternative<ParsingException> assertExpressionIsInvalid(@Language("SQL") String sql)

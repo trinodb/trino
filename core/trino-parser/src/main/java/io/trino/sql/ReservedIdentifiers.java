@@ -14,7 +14,6 @@
 package io.trino.sql;
 
 import io.trino.sql.parser.ParsingException;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.Identifier;
 
@@ -121,7 +120,7 @@ public final class ReservedIdentifiers
     public static boolean reserved(String name)
     {
         try {
-            return !(PARSER.createExpression(name, new ParsingOptions()) instanceof Identifier);
+            return !(PARSER.createExpression(name) instanceof Identifier);
         }
         catch (ParsingException ignored) {
             return true;

@@ -383,8 +383,7 @@ public class TestStatementBuilder
         println(sql.trim());
         println("");
 
-        ParsingOptions parsingOptions = new ParsingOptions();
-        Statement statement = SQL_PARSER.createStatement(sql, parsingOptions);
+        Statement statement = SQL_PARSER.createStatement(sql);
         println(statement.toString());
         println("");
 
@@ -398,7 +397,7 @@ public class TestStatementBuilder
 
     private static void assertSqlFormatter(String expression, String formatted)
     {
-        Expression originalExpression = SQL_PARSER.createExpression(expression, new ParsingOptions());
+        Expression originalExpression = SQL_PARSER.createExpression(expression);
         String real = SqlFormatter.formatSql(originalExpression);
         assertEquals(formatted, real);
     }

@@ -354,7 +354,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
-import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
 import static io.trino.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
@@ -4623,7 +4622,7 @@ class StatementAnalyzer
         private Query parseView(String view, QualifiedObjectName name, Node node)
         {
             try {
-                return (Query) sqlParser.createStatement(view, createParsingOptions(session));
+                return (Query) sqlParser.createStatement(view);
             }
             catch (ParsingException e) {
                 throw semanticException(INVALID_VIEW, node, e, "Failed parsing stored view '%s': %s", name, e.getMessage());
@@ -4720,7 +4719,7 @@ class StatementAnalyzer
 
             Expression expression;
             try {
-                expression = sqlParser.createExpression(filter.getExpression(), createParsingOptions(session));
+                expression = sqlParser.createExpression(filter.getExpression());
             }
             catch (ParsingException e) {
                 throw new TrinoException(INVALID_ROW_FILTER, extractLocation(table), format("Invalid row filter for '%s': %s", name, e.getErrorMessage()), e);
@@ -4775,7 +4774,7 @@ class StatementAnalyzer
         {
             Expression expression;
             try {
-                expression = sqlParser.createExpression(constraint.getExpression(), createParsingOptions(session));
+                expression = sqlParser.createExpression(constraint.getExpression());
             }
             catch (ParsingException e) {
                 throw new TrinoException(INVALID_CHECK_CONSTRAINT, extractLocation(table), format("Invalid check constraint for '%s': %s", name, e.getErrorMessage()), e);
@@ -4838,7 +4837,7 @@ class StatementAnalyzer
 
             Expression expression;
             try {
-                expression = sqlParser.createExpression(mask.getExpression(), createParsingOptions(session));
+                expression = sqlParser.createExpression(mask.getExpression());
             }
             catch (ParsingException e) {
                 throw new TrinoException(INVALID_ROW_FILTER, extractLocation(table), format("Invalid column mask for '%s.%s': %s", tableName, column, e.getErrorMessage()), e);
