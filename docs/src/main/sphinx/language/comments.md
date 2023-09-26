@@ -23,4 +23,4 @@ SELECT * FROM table; -- This comment is ignored.
 
 ## See also
 
-[](./comment)
+[](/sql/comment)
