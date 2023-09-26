@@ -18,7 +18,6 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AllowAllAccessControl;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.Symbol;
@@ -507,6 +506,6 @@ public class TestScalarStatsCalculator
 
     private Expression expression(String sqlExpression)
     {
-        return rewriteIdentifiersToSymbolReferences(sqlParser.createExpression(sqlExpression, new ParsingOptions()));
+        return rewriteIdentifiersToSymbolReferences(sqlParser.createExpression(sqlExpression));
     }
 }

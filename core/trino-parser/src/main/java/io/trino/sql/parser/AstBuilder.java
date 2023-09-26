@@ -343,12 +343,10 @@ class AstBuilder
         extends SqlBaseBaseVisitor<Node>
 {
     private int parameterPosition;
-    private final ParsingOptions parsingOptions;
     private final Optional<NodeLocation> baseLocation;
 
-    AstBuilder(Optional<NodeLocation> baseLocation, ParsingOptions parsingOptions)
+    AstBuilder(Optional<NodeLocation> baseLocation)
     {
-        this.parsingOptions = requireNonNull(parsingOptions, "parsingOptions is null");
         this.baseLocation = requireNonNull(baseLocation, "location is null");
     }
 

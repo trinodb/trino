@@ -52,7 +52,6 @@ import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.sql.analyzer.QueryExplainer;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.Plan;
@@ -541,7 +540,7 @@ public class DistributedQueryRunner
         }
 
         SqlParser sqlParser = coordinator.getInstance(Key.get(SqlParser.class));
-        Statement statement = sqlParser.createStatement(sql, new ParsingOptions());
+        Statement statement = sqlParser.createStatement(sql);
         return coordinator.getQueryExplainer().getLogicalPlan(session, statement, ImmutableList.of(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
     }
 

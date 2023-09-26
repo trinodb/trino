@@ -33,7 +33,6 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventClient;
 import io.airlift.json.JsonModule;
 import io.airlift.log.Logger;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.Comment;
@@ -361,7 +360,7 @@ public class VerifyCommand
     static QueryType statementToQueryType(SqlParser parser, String sql)
     {
         try {
-            return statementToQueryType(parser.createStatement(sql, new ParsingOptions()));
+            return statementToQueryType(parser.createStatement(sql));
         }
         catch (RuntimeException e) {
             throw new UnsupportedOperationException();

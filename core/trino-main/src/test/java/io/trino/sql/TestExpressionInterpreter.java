@@ -22,7 +22,6 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
@@ -70,7 +69,6 @@ import static io.trino.sql.ExpressionTestUtils.assertExpressionEquals;
 import static io.trino.sql.ExpressionTestUtils.getTypes;
 import static io.trino.sql.ExpressionTestUtils.resolveFunctionCalls;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
-import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -1923,7 +1921,7 @@ public class TestExpressionInterpreter
                         .map(Symbol::getName)
                         .collect(toImmutableMap(identity(), SymbolReference::new)));
 
-        Expression rewrittenExpected = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, new ParsingOptions()));
+        Expression rewrittenExpected = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected));
         assertExpressionEquals(actualOptimized, rewrittenExpected, aliases.build());
     }
 
@@ -1947,7 +1945,7 @@ public class TestExpressionInterpreter
         return TransactionBuilder.transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(TEST_SESSION, transactionSession -> {
-                    Expression parsedExpression = SQL_PARSER.createExpression(expression, createParsingOptions(transactionSession));
+                    Expression parsedExpression = SQL_PARSER.createExpression(expression);
                     parsedExpression = rewriteIdentifiersToSymbolReferences(parsedExpression);
                     parsedExpression = resolveFunctionCalls(PLANNER_CONTEXT, transactionSession, SYMBOL_TYPES, parsedExpression);
                     parsedExpression = CanonicalizeExpressionRewriter.rewrite(
@@ -1976,10 +1974,9 @@ public class TestExpressionInterpreter
 
     private static void assertRoundTrip(String expression)
     {
-        ParsingOptions parsingOptions = createParsingOptions(TEST_SESSION);
-        Expression parsed = SQL_PARSER.createExpression(expression, parsingOptions);
+        Expression parsed = SQL_PARSER.createExpression(expression);
         String formatted = formatExpression(parsed);
-        assertEquals(parsed, SQL_PARSER.createExpression(formatted, parsingOptions));
+        assertEquals(parsed, SQL_PARSER.createExpression(formatted));
     }
 
     private static Object evaluate(Expression expression)

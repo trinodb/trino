@@ -124,7 +124,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
-import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.QueryUtil.aliased;
 import static io.trino.sql.QueryUtil.aliasedName;
 import static io.trino.sql.QueryUtil.aliasedNullToEmpty;
@@ -882,7 +881,7 @@ public final class ShowQueriesRewrite
         private Query parseView(String view, QualifiedObjectName name, Node node)
         {
             try {
-                Statement statement = sqlParser.createStatement(view, createParsingOptions(session));
+                Statement statement = sqlParser.createStatement(view);
                 return (Query) statement;
             }
             catch (ParsingException e) {
