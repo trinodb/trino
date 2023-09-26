@@ -33,19 +33,20 @@ public class DefaultHiveTableRedirectionsProvider
     public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, Optional<Table> table)
     {
         return table.flatMap(t -> {
-            if (isIcebergTable(t)) {
-                Optional<String> targetCatalogName = getIcebergCatalogName(session);
-                return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, t.getSchemaTableName()));
+            Optional<String> targetCatalogName;
+            if (getIcebergCatalogName(session).isPresent() && isIcebergTable(t)) {
+                targetCatalogName = getIcebergCatalogName(session);
             }
-            if (isDeltaLakeTable(t)) {
-                Optional<String> targetCatalogName = getDeltaLakeCatalogName(session);
-                return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, t.getSchemaTableName()));
+            else if (getDeltaLakeCatalogName(session).isPresent() && isDeltaLakeTable(t)) {
+                targetCatalogName = getDeltaLakeCatalogName(session);
             }
-            if (isHudiTable(t)) {
-                Optional<String> targetCatalogName = getHudiCatalogName(session);
-                return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, t.getSchemaTableName()));
+            else if (getHudiCatalogName(session).isPresent() && isHudiTable(t)) {
+                targetCatalogName = getHudiCatalogName(session);
             }
-            return Optional.empty();
+            else {
+                targetCatalogName = Optional.empty();
+            }
+            return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, t.getSchemaTableName()));
         });
     }
 }
