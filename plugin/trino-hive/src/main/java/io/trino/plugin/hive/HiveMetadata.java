@@ -182,10 +182,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
 import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.trino.plugin.hive.HiveSessionProperties.NON_TRANSACTIONAL_OPTIMIZE_ENABLED;
-import static io.trino.plugin.hive.HiveSessionProperties.getDeltaLakeCatalogName;
 import static io.trino.plugin.hive.HiveSessionProperties.getHiveStorageFormat;
-import static io.trino.plugin.hive.HiveSessionProperties.getHudiCatalogName;
-import static io.trino.plugin.hive.HiveSessionProperties.getIcebergCatalogName;
 import static io.trino.plugin.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
 import static io.trino.plugin.hive.HiveSessionProperties.getQueryPartitionFilterRequiredSchemas;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
@@ -385,6 +382,7 @@ public class HiveMetadata
     private final Set<SystemTableProvider> systemTableProviders;
     private final HiveMaterializedViewMetadata hiveMaterializedViewMetadata;
     private final AccessControlMetadata accessControlMetadata;
+    private final HiveTableRedirectionsProvider tableRedirectionsProvider;
     private final DirectoryLister directoryLister;
     private final PartitionProjectionService partitionProjectionService;
     private final boolean allowTableRename;
@@ -414,6 +412,7 @@ public class HiveMetadata
             Set<SystemTableProvider> systemTableProviders,
             HiveMaterializedViewMetadata hiveMaterializedViewMetadata,
             AccessControlMetadata accessControlMetadata,
+            HiveTableRedirectionsProvider tableRedirectionsProvider,
             DirectoryLister directoryLister,
             PartitionProjectionService partitionProjectionService,
             boolean allowTableRename,
@@ -442,6 +441,7 @@ public class HiveMetadata
         this.systemTableProviders = requireNonNull(systemTableProviders, "systemTableProviders is null");
         this.hiveMaterializedViewMetadata = requireNonNull(hiveMaterializedViewMetadata, "hiveMaterializedViewMetadata is null");
         this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
+        this.tableRedirectionsProvider = requireNonNull(tableRedirectionsProvider, "tableRedirectionsProvider is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.partitionProjectionService = requireNonNull(partitionProjectionService, "partitionProjectionService is null");
         this.allowTableRename = allowTableRename;
@@ -3844,28 +3844,16 @@ public class HiveMetadata
         requireNonNull(session, "session is null");
         requireNonNull(tableName, "tableName is null");
 
-        Optional<String> icebergCatalogName = getIcebergCatalogName(session);
-        Optional<String> deltaLakeCatalogName = getDeltaLakeCatalogName(session);
-        Optional<String> hudiCatalogName = getHudiCatalogName(session);
-
-        if (icebergCatalogName.isEmpty() && deltaLakeCatalogName.isEmpty() && hudiCatalogName.isEmpty()) {
-            return Optional.empty();
-        }
-
         if (isHiveSystemSchema(tableName.getSchemaName())) {
             return Optional.empty();
         }
         // we need to chop off any "$partitions" and similar suffixes from table name while querying the metastore for the Table object
         TableNameSplitResult tableNameSplit = splitTableName(tableName.getTableName());
         Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableNameSplit.getBaseTableName());
+        Optional<CatalogSchemaTableName> catalogSchemaTableName = tableRedirectionsProvider.redirectTable(session, Optional.of(table.get()));
         if (table.isEmpty() || isSomeKindOfAView(table.get())) {
             return Optional.empty();
         }
-
-        Optional<CatalogSchemaTableName> catalogSchemaTableName = Optional.<CatalogSchemaTableName>empty()
-                .or(() -> redirectTableToIceberg(icebergCatalogName, table.get()))
-                .or(() -> redirectTableToDeltaLake(deltaLakeCatalogName, table.get()))
-                .or(() -> redirectTableToHudi(hudiCatalogName, table.get()));
 
         // stitch back the suffix we cut off.
         return catalogSchemaTableName.map(name -> new CatalogSchemaTableName(
@@ -3873,39 +3861,6 @@ public class HiveMetadata
                 new SchemaTableName(
                         name.getSchemaTableName().getSchemaName(),
                         name.getSchemaTableName().getTableName() + tableNameSplit.getSuffix().orElse(""))));
-    }
-
-    private Optional<CatalogSchemaTableName> redirectTableToIceberg(Optional<String> targetCatalogName, Table table)
-    {
-        if (targetCatalogName.isEmpty()) {
-            return Optional.empty();
-        }
-        if (isIcebergTable(table)) {
-            return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, table.getSchemaTableName()));
-        }
-        return Optional.empty();
-    }
-
-    private Optional<CatalogSchemaTableName> redirectTableToDeltaLake(Optional<String> targetCatalogName, Table table)
-    {
-        if (targetCatalogName.isEmpty()) {
-            return Optional.empty();
-        }
-        if (isDeltaLakeTable(table)) {
-            return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, table.getSchemaTableName()));
-        }
-        return Optional.empty();
-    }
-
-    private Optional<CatalogSchemaTableName> redirectTableToHudi(Optional<String> targetCatalogName, Table table)
-    {
-        if (targetCatalogName.isEmpty()) {
-            return Optional.empty();
-        }
-        if (isHudiTable(table)) {
-            return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, table.getSchemaTableName()));
-        }
-        return Optional.empty();
     }
 
     @Override

@@ -108,6 +108,7 @@ import static io.trino.plugin.hive.AbstractTestHive.filterNonHiddenColumnMetadat
 import static io.trino.plugin.hive.AbstractTestHive.getAllSplits;
 import static io.trino.plugin.hive.AbstractTestHive.getSplits;
 import static io.trino.plugin.hive.HiveTableProperties.EXTERNAL_LOCATION_PROPERTY;
+import static io.trino.plugin.hive.HiveTableRedirectionsProvider.NO_REDIRECTIONS;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
@@ -235,6 +236,7 @@ public abstract class AbstractTestHiveFileSystem
                         new PropertiesSystemTableProvider()),
                 new DefaultHiveMaterializedViewMetadataFactory(),
                 SqlStandardAccessControlMetadata::new,
+                NO_REDIRECTIONS,
                 new FileSystemDirectoryLister(),
                 new TransactionScopeCachingDirectoryListerFactory(config),
                 new PartitionProjectionService(config, ImmutableMap.of(), new TestingTypeManager()),
