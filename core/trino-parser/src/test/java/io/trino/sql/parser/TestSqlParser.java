@@ -256,8 +256,6 @@ import static io.trino.sql.parser.ParserAssert.assertStatementIsInvalid;
 import static io.trino.sql.parser.ParserAssert.expression;
 import static io.trino.sql.parser.ParserAssert.rowPattern;
 import static io.trino.sql.parser.ParserAssert.statement;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.REJECT;
 import static io.trino.sql.parser.TreeNodes.columnDefinition;
 import static io.trino.sql.parser.TreeNodes.dateTimeType;
 import static io.trino.sql.parser.TreeNodes.field;
@@ -1245,18 +1243,6 @@ public class TestSqlParser
                 .isEqualTo(new DecimalLiteral(location, ".5"));
         assertThat(expression("123.5"))
                 .isEqualTo(new DecimalLiteral(location, "123.5"));
-
-        assertInvalidDecimalExpression("123.", "Unexpected decimal literal: 123.");
-        assertInvalidDecimalExpression("123.0", "Unexpected decimal literal: 123.0");
-        assertInvalidDecimalExpression(".5", "Unexpected decimal literal: .5");
-        assertInvalidDecimalExpression("123.5", "Unexpected decimal literal: 123.5");
-    }
-
-    private static void assertInvalidDecimalExpression(String sql, String message)
-    {
-        assertThatThrownBy(() -> SQL_PARSER.createExpression(sql, new ParsingOptions(REJECT)))
-                .isInstanceOfSatisfying(ParsingException.class, e ->
-                        assertThat(e.getErrorMessage()).isEqualTo(message));
     }
 
     @Test
@@ -5156,7 +5142,7 @@ public class TestSqlParser
     @Test
     public void testAllRowsReference()
     {
-        assertThatThrownBy(() -> SQL_PARSER.createStatement("SELECT 1 + A.*", new ParsingOptions(REJECT)))
+        assertThatThrownBy(() -> SQL_PARSER.createStatement("SELECT 1 + A.*", new ParsingOptions()))
                 .isInstanceOf(ParsingException.class)
                 .hasMessageMatching("line 1:13: mismatched input '.'.*");
 
@@ -6051,7 +6037,7 @@ public class TestSqlParser
     {
         requireNonNull(expression, "expression is null");
         requireNonNull(expected, "expected is null");
-        assertParsed(expression, expected, SQL_PARSER.createExpression(expression, new ParsingOptions(AS_DECIMAL)));
+        assertParsed(expression, expected, SQL_PARSER.createExpression(expression, new ParsingOptions()));
     }
 
     private static void assertParsed(String input, Node expected, Node parsed)

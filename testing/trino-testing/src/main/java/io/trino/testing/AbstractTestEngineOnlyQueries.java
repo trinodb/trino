@@ -36,7 +36,6 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -61,8 +60,6 @@ import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.LATE_MATERIALIZATION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
@@ -921,28 +918,6 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         assertQuery("SELECT TRY(CAST('a' AS BIGINT))",
                 "SELECT NULL");
-    }
-
-    @Test
-    public void testDefaultDecimalLiteralSwitch()
-    {
-        Session decimalLiteral = Session.builder(getSession())
-                .setSystemProperty(SystemSessionProperties.PARSE_DECIMAL_LITERALS_AS_DOUBLE, "false")
-                .build();
-        MaterializedResult decimalColumnResult = computeActual(decimalLiteral, "SELECT 1.0");
-
-        assertEquals(decimalColumnResult.getRowCount(), 1);
-        assertEquals(decimalColumnResult.getTypes().get(0), createDecimalType(2, 1));
-        assertEquals(decimalColumnResult.getMaterializedRows().get(0).getField(0), new BigDecimal("1.0"));
-
-        Session doubleLiteral = Session.builder(getSession())
-                .setSystemProperty(SystemSessionProperties.PARSE_DECIMAL_LITERALS_AS_DOUBLE, "true")
-                .build();
-        MaterializedResult doubleColumnResult = computeActual(doubleLiteral, "SELECT 1.0");
-
-        assertEquals(doubleColumnResult.getRowCount(), 1);
-        assertEquals(doubleColumnResult.getTypes().get(0), DOUBLE);
-        assertEquals(doubleColumnResult.getMaterializedRows().get(0).getField(0), 1.0);
     }
 
     @Test

@@ -61,7 +61,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.trino.client.ProtocolHeaders.detectProtocol;
 import static io.trino.spi.security.AccessDeniedException.denySetRole;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
@@ -418,7 +417,7 @@ public class HttpRequestSessionContextFactory
             // Validate statement
             SqlParser sqlParser = new SqlParser();
             try {
-                sqlParser.createStatement(sqlString, new ParsingOptions(AS_DOUBLE /* anything */));
+                sqlParser.createStatement(sqlString, new ParsingOptions());
             }
             catch (ParsingException e) {
                 throw badRequest(format("Invalid %s header: %s", protocolHeaders.requestPreparedStatement(), e.getMessage()));

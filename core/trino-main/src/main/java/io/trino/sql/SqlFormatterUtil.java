@@ -21,7 +21,6 @@ import io.trino.sql.tree.Statement;
 import jakarta.annotation.Nullable;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.REJECT;
 import static java.lang.String.format;
 
 public final class SqlFormatterUtil
@@ -35,7 +34,7 @@ public final class SqlFormatterUtil
         // verify round-trip
         Statement parsed;
         try {
-            ParsingOptions parsingOptions = new ParsingOptions(REJECT /* formatted SQL should be unambiguous */);
+            ParsingOptions parsingOptions = new ParsingOptions();
             parsed = sqlParser.createStatement(sql, parsingOptions);
         }
         catch (ParsingException e) {
