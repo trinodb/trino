@@ -15,8 +15,7 @@ swap. The table metadata file tracks the table schema, partitioning
 configuration, custom properties, and snapshots of the table contents.
 
 Iceberg data files are stored in either Parquet, ORC, or Avro format, as
-determined by the `format` property in the table definition.  The default
-`format` value is `PARQUET`.
+determined by the `format` property in the table definition.
 
 Iceberg is designed to improve on the known scalability limitations of Hive,
 which stores table metadata in a metastore that is backed by a relational
@@ -655,13 +654,8 @@ TABLE </sql/show-create-table>`.
 
 Table properties supply or set metadata for the underlying tables. This is key
 for {doc}`/sql/create-table-as` statements. Table properties are passed to the
-connector using a {doc}`WITH </sql/create-table-as>` clause:
+connector using a {doc}`WITH </sql/create-table-as>` clause.
 
-```
-CREATE TABLE tablename
-WITH (format='CSV',
-      csv_escape = '"')
-```
 
 ```{eval-rst}
 .. list-table:: Iceberg table properties
@@ -672,7 +666,8 @@ WITH (format='CSV',
     - Description
   * - ``format``
     - Optionally specifies the format of table data files; either ``PARQUET``,
-      ``ORC`, or ``AVRO``.  Defaults to ``ORC``.
+      ``ORC`, or ``AVRO``. Defaults to the value of the ``iceberg.file-format``
+      catalog configuration property, which defaults to ``PARQUET``.
   * - ``partitioning``
     - Optionally specifies table partitioning. If a table is partitioned by
       columns ``c1`` and ``c2``, the partitioning property is ``partitioning =
@@ -692,7 +687,7 @@ WITH (format='CSV',
       Defaults to ``0.05``.
 ```
 
-The table definition below specifies format Parquet, partitioning by columns
+The table definition below specifies to use Parquet files, partitioning by columns
 `c1` and `c2`, and a file system location of
 `/var/example_tables/test_table`:
 
@@ -707,7 +702,7 @@ WITH (
     location = '/var/example_tables/test_table')
 ```
 
-The table definition below specifies format ORC, bloom filter index by columns
+The table definition below specifies to use ORC files, bloom filter index by columns
 `c1` and `c2`, fpp is 0.05, and a file system location of
 `/var/example_tables/test_table`:
 
