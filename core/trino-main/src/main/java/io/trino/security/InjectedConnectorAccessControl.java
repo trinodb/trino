@@ -23,7 +23,6 @@ import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
-import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
@@ -333,7 +332,7 @@ public class InjectedConnectorAccessControl
                 securityContext,
                 functionKind,
                 getQualifiedObjectName(functionName),
-                Identity.ofUser(grantee.getName()),
+                grantee,
                 grantOption);
     }
 
@@ -475,10 +474,17 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
-    public void checkCanExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
+    public boolean canExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanExecuteFunction(securityContext, functionKind, new QualifiedObjectName(catalogName, function.getSchemaName(), function.getRoutineName()));
+        return accessControl.canExecuteFunction(securityContext, functionKind, new QualifiedObjectName(catalogName, function.getSchemaName(), function.getRoutineName()));
+    }
+
+    @Override
+    public boolean canCreateViewWithExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
+    {
+        checkArgument(context == null, "context must be null");
+        return accessControl.canCreateViewWithExecuteFunction(securityContext, functionKind, new QualifiedObjectName(catalogName, function.getSchemaName(), function.getRoutineName()));
     }
 
     @Override

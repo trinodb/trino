@@ -53,7 +53,7 @@
             "function_kinds": [
                 "TABLE"
             ],
-            "function": "some_table_function",
+            "function": "some_function",
             "privileges": [
                 "EXECUTE",
                 "GRANT_EXECUTE"
@@ -61,6 +61,7 @@
         },
         {
             "user": "bob",
+            "schema": "any",
             "function_kinds": [
                 "SCALAR",
                 "AGGREGATE",

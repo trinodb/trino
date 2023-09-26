@@ -86,13 +86,14 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public void checkCanAccessCatalog(SystemSecurityContext context, String catalogName)
+    public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
     }
 
     @Override
-    public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
+    public boolean canAccessCatalog(SystemSecurityContext context, String catalogName)
     {
+        return true;
     }
 
     @Override
@@ -102,11 +103,6 @@ public class ReadOnlySystemAccessControl
 
     @Override
     public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
-    {
-    }
-
-    @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, TrinoPrincipal grantee, boolean grantOption)
     {
     }
 
@@ -180,7 +176,14 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, String functionName)
+    public boolean canExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
     {
+        return functionKind != FunctionKind.TABLE;
+    }
+
+    @Override
+    public boolean canCreateViewWithExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
+    {
+        return functionKind != FunctionKind.TABLE;
     }
 }

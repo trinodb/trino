@@ -406,14 +406,7 @@ public interface AccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption);
-
-    /**
-     * Check if identity is allowed to create a view that executes the function.
-     *
-     * @throws AccessDeniedException if not allowed
-     */
-    void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, Identity grantee, boolean grantOption);
+    void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, TrinoPrincipal grantee, boolean grantOption);
 
     /**
      * Check if identity is allowed to grant a privilege to the grantee on the specified schema.
@@ -555,18 +548,14 @@ public interface AccessControl
     void checkCanExecuteProcedure(SecurityContext context, QualifiedObjectName procedureName);
 
     /**
-     * Check if identity is allowed to execute function
-     *
-     * @throws AccessDeniedException if not allowed
+     * Is the identity allowed to execute function?
      */
-    void checkCanExecuteFunction(SecurityContext context, String functionName);
+    boolean canExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName);
 
     /**
-     * Check if identity is allowed to execute function
-     *
-     * @throws AccessDeniedException if not allowed
+     * Is the identity allowed to create a view that executes the specified function?
      */
-    void checkCanExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName);
+    boolean canCreateViewWithExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName);
 
     /**
      * Check if identity is allowed to execute given table procedure on given table

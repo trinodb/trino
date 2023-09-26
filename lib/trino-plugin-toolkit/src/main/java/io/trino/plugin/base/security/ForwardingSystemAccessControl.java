@@ -110,9 +110,9 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanAccessCatalog(SystemSecurityContext context, String catalogName)
+    public boolean canAccessCatalog(SystemSecurityContext context, String catalogName)
     {
-        delegate().checkCanAccessCatalog(context, catalogName);
+        return delegate().canAccessCatalog(context, catalogName);
     }
 
     @Override
@@ -374,9 +374,15 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, TrinoPrincipal grantee, boolean grantOption)
+    public boolean canExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
     {
-        delegate().checkCanGrantExecuteFunctionPrivilege(context, functionName, grantee, grantOption);
+        return delegate().canExecuteFunction(systemSecurityContext, functionKind, functionName);
+    }
+
+    @Override
+    public boolean canCreateViewWithExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
+    {
+        return delegate().canCreateViewWithExecuteFunction(systemSecurityContext, functionKind, functionName);
     }
 
     @Override
@@ -473,18 +479,6 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanExecuteProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName procedure)
     {
         delegate().checkCanExecuteProcedure(systemSecurityContext, procedure);
-    }
-
-    @Override
-    public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, String functionName)
-    {
-        delegate().checkCanExecuteFunction(systemSecurityContext, functionName);
-    }
-
-    @Override
-    public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
-    {
-        delegate().checkCanExecuteFunction(systemSecurityContext, functionKind, functionName);
     }
 
     @Override

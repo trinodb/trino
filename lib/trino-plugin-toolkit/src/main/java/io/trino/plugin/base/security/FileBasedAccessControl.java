@@ -66,7 +66,6 @@ import static io.trino.spi.security.AccessDeniedException.denyDropRole;
 import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
-import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
@@ -642,11 +641,15 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
+    public boolean canExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
     {
-        if (!checkFunctionPermission(context, functionKind, function, FunctionAccessControlRule::canExecuteFunction)) {
-            denyExecuteFunction(function.toString());
-        }
+        return checkFunctionPermission(context, functionKind, function, FunctionAccessControlRule::canExecuteFunction);
+    }
+
+    @Override
+    public boolean canCreateViewWithExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
+    {
+        return checkFunctionPermission(context, functionKind, function, FunctionAccessControlRule::canGrantExecuteFunction);
     }
 
     @Override

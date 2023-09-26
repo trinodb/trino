@@ -24,7 +24,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.function.FunctionKind.TABLE;
 import static java.util.Objects.requireNonNull;
 
@@ -55,13 +54,6 @@ public class CatalogFunctionAccessControlRule
     {
         this.catalogRegex = requireNonNull(catalogRegex, "catalogRegex is null");
         this.functionAccessControlRule = requireNonNull(functionAccessControlRule, "functionAccessControlRule is null");
-        // TODO when every function is tied to connectors then remove this check
-        checkState(functionAccessControlRule.getFunctionKinds().equals(Set.of(TABLE)) || catalogRegex.isEmpty(), "Cannot define catalog for others function kinds than TABLE");
-    }
-
-    public boolean matches(String user, Set<String> roles, Set<String> groups, String functionName)
-    {
-        return functionAccessControlRule.matches(user, roles, groups, functionName);
     }
 
     public boolean matches(String user, Set<String> roles, Set<String> groups, FunctionKind functionKind, CatalogSchemaRoutineName functionName)

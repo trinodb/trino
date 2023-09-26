@@ -345,6 +345,7 @@ import static io.trino.spi.function.FunctionKind.WINDOW;
 import static io.trino.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.function.table.ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS_THROUGH;
+import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -1783,10 +1784,12 @@ class StatementAnalyzer
                 CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, name.getCatalogName());
                 Optional<ConnectorTableFunction> resolved = tableFunctionRegistry.resolve(catalogHandle, name.getSchemaFunctionName());
                 if (resolved.isPresent()) {
-                    accessControl.checkCanExecuteFunction(SecurityContext.of(session), FunctionKind.TABLE, new QualifiedObjectName(
-                            name.getCatalogName(),
-                            name.getSchemaFunctionName().getSchemaName(),
-                            name.getSchemaFunctionName().getFunctionName()));
+                    if (!accessControl.canExecuteFunction(
+                            SecurityContext.of(session),
+                            FunctionKind.TABLE,
+                            new QualifiedObjectName(name.getCatalogName(), name.getSchemaName(), name.getFunctionName()))) {
+                        denyExecuteFunction(name.getFunctionName());
+                    }
                     return Optional.of(new TableFunctionMetadata(catalogHandle, resolved.get()));
                 }
             }
@@ -4600,7 +4603,7 @@ class StatementAnalyzer
                         viewAccessControl = accessControl;
                     }
                     else {
-                        viewAccessControl = new ViewAccessControl(accessControl, session.getIdentity());
+                        viewAccessControl = new ViewAccessControl(accessControl);
                     }
                 }
                 else {

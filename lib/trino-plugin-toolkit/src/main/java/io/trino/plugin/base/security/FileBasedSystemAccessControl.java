@@ -58,7 +58,6 @@ import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivileg
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
-import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
@@ -79,7 +78,6 @@ import static io.trino.spi.security.AccessDeniedException.denyDropRole;
 import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
-import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
@@ -115,7 +113,6 @@ import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns
 import static io.trino.spi.security.AccessDeniedException.denyViewQuery;
 import static io.trino.spi.security.AccessDeniedException.denyWriteSystemInformationAccess;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class FileBasedSystemAccessControl
@@ -369,11 +366,9 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanAccessCatalog(SystemSecurityContext context, String catalogName)
+    public boolean canAccessCatalog(SystemSecurityContext context, String catalogName)
     {
-        if (!canAccessCatalog(context, catalogName, READ_ONLY)) {
-            denyCatalogAccess(catalogName);
-        }
+        return canAccessCatalog(context, catalogName, READ_ONLY);
     }
 
     @Override
@@ -793,20 +788,10 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, TrinoPrincipal grantee, boolean grantOption)
-    {
-        if (!checkFunctionPermission(context, functionName, CatalogFunctionAccessControlRule::canGrantExecuteFunction)) {
-            String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(ENGLISH), grantee.getName());
-            denyGrantExecuteFunctionPrivilege(functionName, context.getIdentity(), granteeAsString);
-        }
-    }
-
-    @Override
     public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, FunctionKind functionKind, CatalogSchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
     {
         if (!checkFunctionPermission(context, functionKind, functionName, CatalogFunctionAccessControlRule::canGrantExecuteFunction)) {
-            String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(ENGLISH), grantee.getName());
-            denyGrantExecuteFunctionPrivilege(functionName.toString(), context.getIdentity(), granteeAsString);
+            denyGrantExecuteFunctionPrivilege(functionName.toString(), context.getIdentity(), grantee);
         }
     }
 
@@ -938,19 +923,15 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, String functionName)
+    public boolean canExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
     {
-        if (!checkFunctionPermission(systemSecurityContext, functionName, CatalogFunctionAccessControlRule::canExecuteFunction)) {
-            denyExecuteFunction(functionName);
-        }
+        return checkFunctionPermission(systemSecurityContext, functionKind, functionName, CatalogFunctionAccessControlRule::canExecuteFunction);
     }
 
     @Override
-    public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
+    public boolean canCreateViewWithExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
     {
-        if (!checkFunctionPermission(systemSecurityContext, functionKind, functionName, CatalogFunctionAccessControlRule::canExecuteFunction)) {
-            denyExecuteFunction(functionName.toString());
-        }
+        return checkFunctionPermission(systemSecurityContext, functionKind, functionName, CatalogFunctionAccessControlRule::canGrantExecuteFunction);
     }
 
     @Override
@@ -1086,16 +1067,6 @@ public class FileBasedSystemAccessControl
             }
         }
         return false;
-    }
-
-    private boolean checkFunctionPermission(SystemSecurityContext context, String functionName, Predicate<CatalogFunctionAccessControlRule> executePredicate)
-    {
-        Identity identity = context.getIdentity();
-        return functionRules.stream()
-                .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), functionName))
-                .findFirst()
-                .filter(executePredicate)
-                .isPresent();
     }
 
     private boolean checkFunctionPermission(SystemSecurityContext context, FunctionKind functionKind, CatalogSchemaRoutineName functionName, Predicate<CatalogFunctionAccessControlRule> executePredicate)
