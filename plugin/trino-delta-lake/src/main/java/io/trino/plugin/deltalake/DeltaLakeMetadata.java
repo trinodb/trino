@@ -1839,32 +1839,9 @@ public class DeltaLakeMetadata
 
         boolean writeCommitted = false;
         try {
-            TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, handle.getLocation());
-
-            long createdTime = Instant.now().toEpochMilli();
-
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            long commitVersion = getMandatoryCurrentVersion(fileSystem, handle.getLocation()) + 1;
-            if (commitVersion != handle.getReadVersion() + 1) {
-                throw new TransactionConflictException(format("Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s",
-                        handle.getReadVersion(),
-                        commitVersion - 1));
-            }
-            Optional<Long> checkpointInterval = handle.getMetadataEntry().getCheckpointInterval();
-            // it is not obvious why we need to persist this readVersion
-            transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, commitVersion, createdTime, INSERT_OPERATION, handle.getReadVersion()));
-
-            ColumnMappingMode columnMappingMode = getColumnMappingMode(handle.getMetadataEntry(), handle.getProtocolEntry());
-            List<String> partitionColumns = getPartitionColumns(
-                    handle.getMetadataEntry().getOriginalPartitionColumns(),
-                    handle.getInputColumns(),
-                    columnMappingMode);
-            List<String> exactColumnNames = getExactColumnNames(handle.getMetadataEntry());
-            appendAddFileEntries(transactionLogWriter, dataFileInfos, partitionColumns, exactColumnNames, true);
-
-            transactionLogWriter.flush();
+            long commitVersion = commitInsertOperation(session, handle, dataFileInfos);
             writeCommitted = true;
-            writeCheckpointIfNeeded(session, handle.getTableName(), handle.getLocation(), handle.getReadVersion(), checkpointInterval, commitVersion);
+            writeCheckpointIfNeeded(session, handle.getTableName(), handle.getLocation(), handle.getReadVersion(), handle.getMetadataEntry().getCheckpointInterval(), commitVersion);
 
             if (isCollectExtendedStatisticsColumnStatisticsOnWrite(session) && !computedStatistics.isEmpty() && !dataFileInfos.isEmpty()) {
                 // TODO (https://github.com/trinodb/trino/issues/16088) Add synchronization when version conflict for INSERT is resolved.
@@ -1879,7 +1856,7 @@ public class DeltaLakeMetadata
                         handle.getLocation(),
                         maxFileModificationTime,
                         computedStatistics,
-                        exactColumnNames,
+                        getExactColumnNames(handle.getMetadataEntry()),
                         Optional.of(extractSchema(handle.getMetadataEntry(), handle.getProtocolEntry(), typeManager).stream()
                                 .collect(toImmutableMap(DeltaLakeColumnMetadata::getName, DeltaLakeColumnMetadata::getPhysicalName))),
                         true);
@@ -1894,6 +1871,35 @@ public class DeltaLakeMetadata
         }
 
         return Optional.empty();
+    }
+
+    private long commitInsertOperation(
+            ConnectorSession session,
+            DeltaLakeInsertTableHandle handle,
+            List<DataFileInfo> dataFileInfos)
+            throws IOException
+    {
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        long commitVersion = getMandatoryCurrentVersion(fileSystem, handle.getLocation()) + 1;
+        if (commitVersion != handle.getReadVersion() + 1) {
+            throw new TransactionConflictException(format("Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s",
+                    handle.getReadVersion(),
+                    commitVersion - 1));
+        }
+        // it is not obvious why we need to persist this readVersion
+        TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, handle.getLocation());
+        transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, commitVersion, Instant.now().toEpochMilli(), INSERT_OPERATION, handle.getReadVersion()));
+
+        ColumnMappingMode columnMappingMode = getColumnMappingMode(handle.getMetadataEntry(), handle.getProtocolEntry());
+        List<String> partitionColumns = getPartitionColumns(
+                handle.getMetadataEntry().getOriginalPartitionColumns(),
+                handle.getInputColumns(),
+                columnMappingMode);
+        List<String> exactColumnNames = getExactColumnNames(handle.getMetadataEntry());
+        appendAddFileEntries(transactionLogWriter, dataFileInfos, partitionColumns, exactColumnNames, true);
+
+        transactionLogWriter.flush();
+        return commitVersion;
     }
 
     private static List<String> getPartitionColumns(List<String> originalPartitionColumns, List<DeltaLakeColumnHandle> dataColumns, ColumnMappingMode columnMappingMode)
