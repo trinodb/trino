@@ -17,6 +17,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.concurrent.MoreFutures;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -40,12 +41,16 @@ import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
 import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -79,10 +84,12 @@ import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.util.Comparator.comparing;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -2259,6 +2266,63 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 ImmutableList.of("'a', 'part_a'", "'b', 'part_b'"))) {
             assertQueryFails(session, "SELECT * FROM %s WHERE x='a'".formatted(table.getName()), "Filter required on .*" + table.getName() + " for at least one partition column:.*");
             assertQuery(session, "SELECT * FROM %s WHERE part='part_a'".formatted(table.getName()), "VALUES ('a', 'part_a')");
+        }
+    }
+
+    @RepeatedTest(3)
+    public void testConcurrentInsertsReconciliationForBlindInserts()
+            throws Exception
+    {
+        testConcurrentInsertsReconciliationForBlindInserts(false);
+        testConcurrentInsertsReconciliationForBlindInserts(true);
+    }
+
+    private void testConcurrentInsertsReconciliationForBlindInserts(boolean partitioned)
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_inserts_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a INT, part INT) " +
+                (partitioned ? " WITH (partitioned_by = ARRAY['part'])" : ""));
+
+        try {
+            // insert data concurrently
+            executor.invokeAll(ImmutableList.<Callable<Void>>builder()
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("INSERT INTO " + tableName + " VALUES (1, 10)");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("INSERT INTO " + tableName + " VALUES (11, 20)");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("INSERT INTO " + tableName + " VALUES (21, 30)");
+                                return null;
+                            })
+                            .build())
+                    .forEach(MoreFutures::getDone);
+
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (21, 30)");
+            assertQuery("SELECT version, operation, isolation_level, read_version FROM \"" + tableName + "$history\"",
+                    """
+                            VALUES
+                                (0, 'CREATE TABLE', 'WriteSerializable', 0),
+                                (1, 'WRITE', 'WriteSerializable', 0),
+                                (2, 'WRITE', 'WriteSerializable', 1),
+                                (3, 'WRITE', 'WriteSerializable', 2)
+                            """);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(10, SECONDS));
         }
     }
 

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.units.Duration;
 import io.trino.plugin.deltalake.transactionlog.writer.S3NativeTransactionLogSynchronizer;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -242,6 +243,14 @@ public class TestDeltaLakeMinioAndHmsConnectorSmokeTest
 
         assertUpdate("INSERT INTO " + tableName + " VALUES(2, 20)", 1);
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL), (2, 20)");
+    }
+
+    @Override
+    @Test
+    @Disabled
+    public void testConcurrentInsertsReconciliationForBlindInserts()
+    {
+        // testConcurrentInsertsReconciliation requires safe writes capability to avoid test flakiness
     }
 
     private String lockTable(String tableName, java.time.Duration lockDuration)
