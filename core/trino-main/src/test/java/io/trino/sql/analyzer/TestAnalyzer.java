@@ -82,7 +82,6 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.parser.ParsingException;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.rewrite.ShowQueriesRewrite;
@@ -7145,7 +7144,7 @@ public class TestAnalyzer
                 .readUncommitted()
                 .execute(clientSession, session -> {
                     Analyzer analyzer = createAnalyzer(session, accessControl);
-                    Statement statement = SQL_PARSER.createStatement(query, new ParsingOptions());
+                    Statement statement = SQL_PARSER.createStatement(query);
                     return analyzer.analyze(statement);
                 });
     }

@@ -16,7 +16,6 @@ package io.trino.verifier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateTableAsSelect;
@@ -50,7 +49,6 @@ public class TestShadowing
     private static final String CATALOG = "TEST_REWRITE";
     private static final String SCHEMA = "PUBLIC";
     private static final String URL = "jdbc:h2:mem:" + CATALOG;
-    private static final ParsingOptions PARSING_OPTIONS = new ParsingOptions();
 
     private final Handle handle;
 
@@ -77,7 +75,7 @@ public class TestShadowing
         assertEquals(rewrittenQuery.getPreQueries().size(), 1);
         assertEquals(rewrittenQuery.getPostQueries().size(), 1);
 
-        CreateTableAsSelect createTableAs = (CreateTableAsSelect) parser.createStatement(rewrittenQuery.getPreQueries().get(0), PARSING_OPTIONS);
+        CreateTableAsSelect createTableAs = (CreateTableAsSelect) parser.createStatement(rewrittenQuery.getPreQueries().get(0));
         assertEquals(createTableAs.getName().getParts().size(), 1);
         assertTrue(createTableAs.getName().getSuffix().startsWith("tmp_"));
         assertFalse(createTableAs.getName().getSuffix().contains("my_test_table"));
@@ -87,9 +85,9 @@ public class TestShadowing
         Table table = new Table(createTableAs.getName());
         SingleColumn column1 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new Identifier("COLUMN1"))));
         SingleColumn column2 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new FunctionCall(QualifiedName.of("round"), ImmutableList.of(new Identifier("COLUMN2"), new LongLiteral("1"))))));
-        assertEquals(parser.createStatement(rewrittenQuery.getQuery(), PARSING_OPTIONS), simpleQuery(selectList(column1, column2), table));
+        assertEquals(parser.createStatement(rewrittenQuery.getQuery()), simpleQuery(selectList(column1, column2), table));
 
-        assertEquals(parser.createStatement(rewrittenQuery.getPostQueries().get(0), PARSING_OPTIONS), new DropTable(createTableAs.getName(), true));
+        assertEquals(parser.createStatement(rewrittenQuery.getPostQueries().get(0)), new DropTable(createTableAs.getName(), true));
     }
 
     @Test
@@ -102,7 +100,7 @@ public class TestShadowing
         QueryRewriter rewriter = new QueryRewriter(parser, URL, QualifiedName.of("other_catalog", "other_schema", "tmp_"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), 1, new Duration(10, SECONDS));
         Query rewrittenQuery = rewriter.shadowQuery(query);
         assertEquals(rewrittenQuery.getPreQueries().size(), 1);
-        CreateTableAsSelect createTableAs = (CreateTableAsSelect) parser.createStatement(rewrittenQuery.getPreQueries().get(0), PARSING_OPTIONS);
+        CreateTableAsSelect createTableAs = (CreateTableAsSelect) parser.createStatement(rewrittenQuery.getPreQueries().get(0));
         assertEquals(createTableAs.getName().getParts().size(), 3);
         assertEquals(createTableAs.getName().getPrefix().get(), QualifiedName.of("other_catalog", "other_schema"));
         assertTrue(createTableAs.getName().getSuffix().startsWith("tmp_"));
@@ -120,13 +118,13 @@ public class TestShadowing
         Query rewrittenQuery = rewriter.shadowQuery(query);
 
         assertEquals(rewrittenQuery.getPreQueries().size(), 2);
-        CreateTable createTable = (CreateTable) parser.createStatement(rewrittenQuery.getPreQueries().get(0), PARSING_OPTIONS);
+        CreateTable createTable = (CreateTable) parser.createStatement(rewrittenQuery.getPreQueries().get(0));
         assertEquals(createTable.getName().getParts().size(), 3);
         assertEquals(createTable.getName().getPrefix().get(), QualifiedName.of("other_catalog", "other_schema"));
         assertTrue(createTable.getName().getSuffix().startsWith("tmp_"));
         assertFalse(createTable.getName().getSuffix().contains("test_insert_table"));
 
-        Insert insert = (Insert) parser.createStatement(rewrittenQuery.getPreQueries().get(1), PARSING_OPTIONS);
+        Insert insert = (Insert) parser.createStatement(rewrittenQuery.getPreQueries().get(1));
         assertEquals(insert.getTarget(), createTable.getName());
         assertEquals(insert.getColumns(), Optional.of(ImmutableList.of(identifier("b"), identifier("a"), identifier("c"))));
 
@@ -134,9 +132,9 @@ public class TestShadowing
         SingleColumn columnA = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new Identifier("A"))));
         SingleColumn columnB = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new FunctionCall(QualifiedName.of("round"), ImmutableList.of(new Identifier("B"), new LongLiteral("1"))))));
         SingleColumn columnC = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new Identifier("C"))));
-        assertEquals(parser.createStatement(rewrittenQuery.getQuery(), PARSING_OPTIONS), simpleQuery(selectList(columnA, columnB, columnC), table));
+        assertEquals(parser.createStatement(rewrittenQuery.getQuery()), simpleQuery(selectList(columnA, columnB, columnC), table));
 
         assertEquals(rewrittenQuery.getPostQueries().size(), 1);
-        assertEquals(parser.createStatement(rewrittenQuery.getPostQueries().get(0), PARSING_OPTIONS), new DropTable(createTable.getName(), true));
+        assertEquals(parser.createStatement(rewrittenQuery.getPostQueries().get(0)), new DropTable(createTable.getName(), true));
     }
 }

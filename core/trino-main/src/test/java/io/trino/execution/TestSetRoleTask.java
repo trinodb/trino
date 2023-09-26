@@ -26,7 +26,6 @@ import io.trino.spi.security.Identity;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.security.TrinoPrincipal;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.SetRole;
 import io.trino.testing.LocalQueryRunner;
@@ -146,7 +145,7 @@ public class TestSetRoleTask
 
     private QueryStateMachine executeSetRole(String statement)
     {
-        SetRole setRole = (SetRole) parser.createStatement(statement, new ParsingOptions());
+        SetRole setRole = (SetRole) parser.createStatement(statement);
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 Optional.empty(),
                 statement,

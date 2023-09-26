@@ -20,7 +20,6 @@ import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.SetSessionAuthorization;
 import io.trino.transaction.TransactionId;
@@ -84,7 +83,7 @@ public class TestSetSessionAuthorizationTask
     public void testSetSessionAuthorizationInTransaction()
     {
         String query = "SET SESSION AUTHORIZATION user";
-        SetSessionAuthorization statement = (SetSessionAuthorization) parser.createStatement(query, new ParsingOptions());
+        SetSessionAuthorization statement = (SetSessionAuthorization) parser.createStatement(query);
         TransactionId transactionId = transactionManager.beginTransaction(false);
         QueryStateMachine stateMachine = createStateMachine(Optional.of(transactionId), query);
         assertThatThrownBy(() -> new SetSessionAuthorizationTask(accessControl, transactionManager).execute(statement, stateMachine, emptyList(), WarningCollector.NOOP))
@@ -94,7 +93,7 @@ public class TestSetSessionAuthorizationTask
 
     private void assertSetSessionAuthorization(String query, Optional<String> expected)
     {
-        SetSessionAuthorization statement = (SetSessionAuthorization) parser.createStatement(query, new ParsingOptions());
+        SetSessionAuthorization statement = (SetSessionAuthorization) parser.createStatement(query);
         QueryStateMachine stateMachine = createStateMachine(Optional.empty(), query);
         new SetSessionAuthorizationTask(accessControl, transactionManager).execute(statement, stateMachine, emptyList(), WarningCollector.NOOP);
         QueryInfo queryInfo = stateMachine.getQueryInfo(Optional.empty());

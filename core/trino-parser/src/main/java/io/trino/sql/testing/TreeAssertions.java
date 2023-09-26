@@ -16,7 +16,6 @@ package io.trino.sql.testing;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.parser.ParsingException;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.DefaultTraversalVisitor;
 import io.trino.sql.tree.Node;
@@ -34,16 +33,10 @@ public final class TreeAssertions
 
     public static void assertFormattedSql(SqlParser sqlParser, Node expected)
     {
-        ParsingOptions parsingOptions = new ParsingOptions();
-        assertFormattedSql(sqlParser, parsingOptions, expected);
-    }
-
-    public static void assertFormattedSql(SqlParser sqlParser, ParsingOptions parsingOptions, Node expected)
-    {
         String formatted = formatSql(expected);
 
         // verify round-trip of formatting already-formatted SQL
-        Statement actual = parseFormatted(sqlParser, parsingOptions, formatted, expected);
+        Statement actual = parseFormatted(sqlParser, formatted, expected);
         assertEquals(formatSql(actual), formatted);
 
         // compare parsed tree with parsed tree of formatted SQL
@@ -54,10 +47,10 @@ public final class TreeAssertions
         assertEquals(actual, expected);
     }
 
-    private static Statement parseFormatted(SqlParser sqlParser, ParsingOptions parsingOptions, String sql, Node tree)
+    private static Statement parseFormatted(SqlParser sqlParser, String sql, Node tree)
     {
         try {
-            return sqlParser.createStatement(sql, parsingOptions);
+            return sqlParser.createStatement(sql);
         }
         catch (ParsingException e) {
             String message = format("failed to parse formatted SQL: %s\nerror: %s\ntree: %s", sql, e.getMessage(), tree);

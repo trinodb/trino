@@ -33,7 +33,6 @@ import io.trino.spi.security.SelectedRole;
 import io.trino.spi.security.SelectedRole.Type;
 import io.trino.spi.session.ResourceEstimates;
 import io.trino.sql.parser.ParsingException;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.transaction.TransactionId;
 import jakarta.servlet.http.HttpServletRequest;
@@ -417,7 +416,7 @@ public class HttpRequestSessionContextFactory
             // Validate statement
             SqlParser sqlParser = new SqlParser();
             try {
-                sqlParser.createStatement(sqlString, new ParsingOptions());
+                sqlParser.createStatement(sqlString);
             }
             catch (ParsingException e) {
                 throw badRequest(format("Invalid %s header: %s", protocolHeaders.requestPreparedStatement(), e.getMessage()));

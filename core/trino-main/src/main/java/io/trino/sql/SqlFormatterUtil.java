@@ -15,7 +15,6 @@ package io.trino.sql;
 
 import io.trino.spi.TrinoException;
 import io.trino.sql.parser.ParsingException;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.Statement;
 import jakarta.annotation.Nullable;
@@ -34,8 +33,7 @@ public final class SqlFormatterUtil
         // verify round-trip
         Statement parsed;
         try {
-            ParsingOptions parsingOptions = new ParsingOptions();
-            parsed = sqlParser.createStatement(sql, parsingOptions);
+            parsed = sqlParser.createStatement(sql);
         }
         catch (ParsingException e) {
             throw formattingFailure(e, "Formatted query does not parse", statement, sql);
