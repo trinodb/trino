@@ -14,7 +14,7 @@
 ## Delta Lake connector
 
 * Add support for reading tables with
-  [deletion vectors](https://docs.delta.io/latest/delta-deletion-vectors.html). ({issue}`16903`)
+  [Deletion Vectors](https://docs.delta.io/latest/delta-deletion-vectors.html). ({issue}`16903`)
 * Add support for Delta Lake writer
   [version 7](https://docs.delta.io/latest/versioning.html#features-by-protocol-version). ({issue}`15873`)
 * Add support for writing columns with the `timestamp(p)` type. ({issue}`16927`)
