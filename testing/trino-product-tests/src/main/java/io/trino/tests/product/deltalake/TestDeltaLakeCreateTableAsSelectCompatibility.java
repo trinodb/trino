@@ -119,8 +119,7 @@ public class TestDeltaLakeCreateTableAsSelectCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testCreateFromTrinoWithDefaultPartitionValues()
     {
         String tableName = "test_create_partitioned_table_default_as_" + randomNameSuffix();
@@ -149,8 +148,7 @@ public class TestDeltaLakeCreateTableAsSelectCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testReplaceTableWithSchemaChange()
     {
         String tableName = "test_replace_table_with_schema_change_" + randomNameSuffix();
@@ -203,8 +201,7 @@ public class TestDeltaLakeCreateTableAsSelectCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableWithUnsupportedPartitionType()
     {
         String tableName = "test_dl_ctas_unsupported_column_types_" + randomNameSuffix();
@@ -235,8 +232,7 @@ public class TestDeltaLakeCreateTableAsSelectCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableAsSelectWithAllPartitionColumns()
     {
         String tableName = "test_dl_ctas_with_all_partition_columns_" + randomNameSuffix();
