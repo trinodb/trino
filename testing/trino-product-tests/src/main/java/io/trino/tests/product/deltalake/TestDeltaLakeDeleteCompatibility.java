@@ -89,6 +89,34 @@ public class TestDeltaLakeDeleteCompatibility
         }
     }
 
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testDeleteCompatibility()
+    {
+        String tableName = "test_delete_compatibility_" + randomNameSuffix();
+
+        onDelta().executeQuery("CREATE TABLE default." + tableName + " (a int, b int)" +
+                " USING DELTA LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
+
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 2), (2, 3), (3, 4), (4, 5), (5, 6)");
+            onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a % 2 = 0");
+
+            List<Row> expectedRows = ImmutableList.of(
+                    row(1, 2),
+                    row(3, 4),
+                    row(5, 6));
+
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(expectedRows);
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(expectedRows);
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDeleteOnAppendOnlyTableFails()
