@@ -93,7 +93,7 @@ public class TestPostgreSqlConnectorTest
     @BeforeClass
     public void setExtensions()
     {
-        onRemoteDatabase().execute("CREATE EXTENSION file_fdw");
+        onRemoteDatabase().execute("CREATE EXTENSION IF NOT EXISTS file_fdw");
     }
 
     @Override
