@@ -47,7 +47,7 @@ import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestDeltaLakeDatabricksInsertCompatibility
+public class TestDeltaLakeInsertCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
     private Optional<DatabricksVersion> databricksRuntimeVersion;
