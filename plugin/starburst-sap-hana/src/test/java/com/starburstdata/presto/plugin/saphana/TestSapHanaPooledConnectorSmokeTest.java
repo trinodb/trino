@@ -46,8 +46,11 @@ public class TestSapHanaPooledConnectorSmokeTest
             case SUPPORTS_CREATE_VIEW:
             case SUPPORTS_CREATE_MATERIALIZED_VIEW:
             case SUPPORTS_MERGE:
-            case SUPPORTS_UPDATE:
+            case SUPPORTS_ROW_LEVEL_UPDATE:
                 return false;
+
+            case SUPPORTS_UPDATE:
+                return true;
 
             default:
                 return super.hasBehavior(connectorBehavior);
