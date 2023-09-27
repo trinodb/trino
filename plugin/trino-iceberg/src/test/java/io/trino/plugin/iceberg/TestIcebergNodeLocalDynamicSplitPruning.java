@@ -41,7 +41,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -516,20 +515,22 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             DynamicFilter dynamicFilter)
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
-        ConnectorPageSourceProvider provider = new IcebergPageSourceProviderFactory(
+
+        try (IcebergPageSourceProviderFactory providerFactory = new IcebergPageSourceProviderFactory(
                 new DefaultIcebergFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS)),
                 stats,
                 ORC_READER_CONFIG,
                 PARQUET_READER_CONFIG,
-                TESTING_TYPE_MANAGER);
-
-        return provider.createPageSource(
-                transaction,
-                getSession(icebergConfig),
-                split,
-                tableHandle.getConnectorHandle(),
-                columns,
-                dynamicFilter);
+                TESTING_TYPE_MANAGER)) {
+            var provider = providerFactory.createPageSourceProvider();
+            return provider.createPageSource(
+                    transaction,
+                    getSession(icebergConfig),
+                    split,
+                    tableHandle.getConnectorHandle(),
+                    columns,
+                    dynamicFilter);
+        }
     }
 
     private static TestingConnectorSession getSession(IcebergConfig icebergConfig)
