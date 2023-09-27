@@ -145,11 +145,11 @@ public class FileBasedSystemAccessControl
             Optional<List<PrincipalUserMatchRule>> principalUserMatchRules,
             Optional<List<SystemInformationRule>> systemInformationRules,
             List<AuthorizationRule> authorizationRules,
-            List<CatalogSchemaAccessControlRule> schemaRules,
+            Optional<List<CatalogSchemaAccessControlRule>> schemaRules,
             List<CatalogTableAccessControlRule> tableRules,
             List<SessionPropertyAccessControlRule> sessionPropertyRules,
-            List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules,
-            List<CatalogFunctionAccessControlRule> functionRules)
+            Optional<List<CatalogSessionPropertyAccessControlRule>> catalogSessionPropertyRules,
+            Optional<List<CatalogFunctionAccessControlRule>> functionRules)
     {
         this.catalogRules = catalogRules;
         this.queryAccessRules = queryAccessRules;
@@ -157,14 +157,15 @@ public class FileBasedSystemAccessControl
         this.principalUserMatchRules = principalUserMatchRules;
         this.systemInformationRules = systemInformationRules;
         this.authorizationRules = authorizationRules;
-        this.schemaRules = schemaRules;
+        this.schemaRules = schemaRules.orElse(ImmutableList.of(CatalogSchemaAccessControlRule.ALLOW_ALL));
         this.tableRules = tableRules;
         this.sessionPropertyRules = sessionPropertyRules;
-        this.catalogSessionPropertyRules = catalogSessionPropertyRules;
-        this.functionRules = functionRules;
+        this.catalogSessionPropertyRules = catalogSessionPropertyRules.orElse(ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL));
+        this.functionRules = functionRules.orElse(ImmutableList.of(CatalogFunctionAccessControlRule.ALLOW_ALL));
 
         ImmutableSet.Builder<AnyCatalogPermissionsRule> anyCatalogPermissionsRules = ImmutableSet.builder();
         schemaRules.stream()
+                .flatMap(Collection::stream)
                 .map(CatalogSchemaAccessControlRule::toAnyCatalogPermissionsRule)
                 .flatMap(Optional::stream)
                 .forEach(anyCatalogPermissionsRules::add);
@@ -173,10 +174,12 @@ public class FileBasedSystemAccessControl
                 .flatMap(Optional::stream)
                 .forEach(anyCatalogPermissionsRules::add);
         catalogSessionPropertyRules.stream()
+                .flatMap(Collection::stream)
                 .map(CatalogSessionPropertyAccessControlRule::toAnyCatalogPermissionsRule)
                 .flatMap(Optional::stream)
                 .forEach(anyCatalogPermissionsRules::add);
         functionRules.stream()
+                .flatMap(Collection::stream)
                 .map(CatalogFunctionAccessControlRule::toAnyCatalogPermissionsRule)
                 .flatMap(Optional::stream)
                 .forEach(anyCatalogPermissionsRules::add);
@@ -184,6 +187,7 @@ public class FileBasedSystemAccessControl
 
         ImmutableSet.Builder<AnyCatalogSchemaPermissionsRule> anyCatalogSchemaPermissionsRules = ImmutableSet.builder();
         schemaRules.stream()
+                .flatMap(Collection::stream)
                 .map(CatalogSchemaAccessControlRule::toAnyCatalogSchemaPermissionsRule)
                 .flatMap(Optional::stream)
                 .forEach(anyCatalogSchemaPermissionsRules::add);
@@ -192,6 +196,7 @@ public class FileBasedSystemAccessControl
                 .flatMap(Optional::stream)
                 .forEach(anyCatalogSchemaPermissionsRules::add);
         functionRules.stream()
+                .flatMap(Collection::stream)
                 .map(CatalogFunctionAccessControlRule::toAnyCatalogSchemaPermissionsRule)
                 .flatMap(Optional::stream)
                 .forEach(anyCatalogSchemaPermissionsRules::add);
@@ -1135,11 +1140,11 @@ public class FileBasedSystemAccessControl
         private Optional<List<PrincipalUserMatchRule>> principalUserMatchRules = Optional.empty();
         private Optional<List<SystemInformationRule>> systemInformationRules = Optional.empty();
         private List<AuthorizationRule> authorizationRules = ImmutableList.of();
-        private List<CatalogSchemaAccessControlRule> schemaRules = ImmutableList.of(CatalogSchemaAccessControlRule.ALLOW_ALL);
+        private Optional<List<CatalogSchemaAccessControlRule>> schemaRules = Optional.empty();
         private List<CatalogTableAccessControlRule> tableRules = ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL);
         private List<SessionPropertyAccessControlRule> sessionPropertyRules = ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL);
-        private List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules = ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL);
-        private List<CatalogFunctionAccessControlRule> functionRules = ImmutableList.of(CatalogFunctionAccessControlRule.ALLOW_ALL);
+        private Optional<List<CatalogSessionPropertyAccessControlRule>> catalogSessionPropertyRules = Optional.empty();
+        private Optional<List<CatalogFunctionAccessControlRule>> functionRules = Optional.empty();
 
         @SuppressWarnings("unused")
         public Builder denyAllAccess()
@@ -1150,11 +1155,11 @@ public class FileBasedSystemAccessControl
             principalUserMatchRules = Optional.of(ImmutableList.of());
             systemInformationRules = Optional.of(ImmutableList.of());
             authorizationRules = ImmutableList.of();
-            schemaRules = ImmutableList.of();
+            schemaRules = Optional.of(ImmutableList.of());
             tableRules = ImmutableList.of();
             sessionPropertyRules = ImmutableList.of();
-            catalogSessionPropertyRules = ImmutableList.of();
-            functionRules = ImmutableList.of();
+            catalogSessionPropertyRules = Optional.of(ImmutableList.of());
+            functionRules = Optional.of(ImmutableList.of());
             return this;
         }
 
@@ -1194,7 +1199,7 @@ public class FileBasedSystemAccessControl
             return this;
         }
 
-        public Builder setSchemaRules(List<CatalogSchemaAccessControlRule> schemaRules)
+        public Builder setSchemaRules(Optional<List<CatalogSchemaAccessControlRule>> schemaRules)
         {
             this.schemaRules = schemaRules;
             return this;
@@ -1212,13 +1217,13 @@ public class FileBasedSystemAccessControl
             return this;
         }
 
-        public Builder setCatalogSessionPropertyRules(List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules)
+        public Builder setCatalogSessionPropertyRules(Optional<List<CatalogSessionPropertyAccessControlRule>> catalogSessionPropertyRules)
         {
             this.catalogSessionPropertyRules = catalogSessionPropertyRules;
             return this;
         }
 
-        public Builder setFunctionRules(List<CatalogFunctionAccessControlRule> functionRules)
+        public Builder setFunctionRules(Optional<List<CatalogFunctionAccessControlRule>> functionRules)
         {
             this.functionRules = functionRules;
             return this;
