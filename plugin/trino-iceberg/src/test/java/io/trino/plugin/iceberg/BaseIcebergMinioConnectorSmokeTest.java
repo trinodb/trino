@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -232,13 +233,17 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     @Override
     protected String getMetadataLocation(String tableName)
     {
-        HiveMetastore metastore = new BridgingHiveMetastore(
+        Map<String, String> parameters = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()
                         .metastoreClient(hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
-                        .build());
-        return metastore
+                        .build())
                 .getTable(schemaName, tableName).orElseThrow()
-                .getParameters().get("metadata_location");
+                .getParameters();
+        return Optional.ofNullable(parameters.get("storage_table"))
+                // this is a materialized view:
+                .map(this::getMetadataLocation)
+                // this is a plain table:
+                .orElseGet(() -> parameters.get("metadata_location"));
     }
 
     @Override

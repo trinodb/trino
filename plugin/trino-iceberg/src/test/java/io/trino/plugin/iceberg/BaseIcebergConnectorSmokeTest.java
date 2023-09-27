@@ -520,6 +520,24 @@ public abstract class BaseIcebergConnectorSmokeTest
     }
 
     @Test
+    public void testDropMaterializedViewWithMissingMetadataFile()
+            throws Exception
+    {
+        String viewName = "test_drop_mv_with_missing_metadata_file_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT 1 x, 'INDIA' y");
+
+        Location metadataLocation = Location.of(getMetadataLocation(viewName));
+
+        // Delete current metadata file
+        fileSystem.deleteFile(metadataLocation);
+        assertFalse(fileSystem.newInputFile(metadataLocation).exists(), "Current metadata file should not exist");
+
+        // try to drop mv
+        assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+        assertFalse(getQueryRunner().tableExists(getSession(), viewName));
+    }
+
+    @Test
     public void testDropTableWithMissingSnapshotFile()
             throws Exception
     {
