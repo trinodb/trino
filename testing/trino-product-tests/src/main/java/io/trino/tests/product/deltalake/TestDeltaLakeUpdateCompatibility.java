@@ -38,7 +38,7 @@ import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestDeltaLakeDatabricksUpdates
+public class TestDeltaLakeUpdateCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
