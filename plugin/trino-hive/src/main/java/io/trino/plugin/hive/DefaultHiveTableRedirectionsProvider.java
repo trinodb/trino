@@ -16,6 +16,7 @@ package io.trino.plugin.hive;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Optional;
 
@@ -30,7 +31,7 @@ public class DefaultHiveTableRedirectionsProvider
         implements HiveTableRedirectionsProvider
 {
     @Override
-    public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, Optional<Table> table)
+    public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName name, Optional<Table> table)
     {
         return table.flatMap(t -> {
             Optional<String> targetCatalogName;

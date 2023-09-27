@@ -238,7 +238,6 @@ import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.TRANSACTIONAL;
-import static io.trino.plugin.hive.HiveTableRedirectionsProvider.NO_REDIRECTIONS;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_CONFIGURATION;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
@@ -898,7 +897,12 @@ public abstract class AbstractTestHive
                     }
                 },
                 SqlStandardAccessControlMetadata::new,
-                NO_REDIRECTIONS,
+                (session, schemaTableName, tableHandle) -> {
+                    if (!tableHandle.get().getTableName().contains("hive_table_redirection_tester")) {
+                        return Optional.empty();
+                    }
+                    return Optional.of(new CatalogSchemaTableName("hive", databaseName, "hive_table_redirection_target"));
+                },
                 countingDirectoryLister,
                 new TransactionScopeCachingDirectoryListerFactory(hiveConfig),
                 new PartitionProjectionService(hiveConfig, ImmutableMap.of(), new TestingTypeManager()),
@@ -4002,6 +4006,77 @@ public abstract class AbstractTestHive
         finally {
             dropTable(sourceTableName);
             dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testHiveTableRedirection()
+    {
+        SchemaTableName tableName = temporaryTable("hive_table_redirection_tester");
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+            SchemaTableName schemaTableName = new SchemaTableName("test_schema_name", tableName.getTableName());
+            Optional<CatalogSchemaTableName> result = metadata.redirectTable(session, schemaTableName);
+            assertThat(result).isPresent();
+            assertThat(result.get().getCatalogName()).isEqualTo("hive");
+            assertThat(result.get().getSchemaTableName()).isEqualTo("hive_table_redirection_target");
+        }
+    }
+
+    @Test
+    public void testHiveTableExistsNoRedirection()
+    {
+        SchemaTableName tableName = temporaryTable("hive_table_redirection_tester");
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+            SchemaTableName schemaTableName = new SchemaTableName("test_schema_name", tableName.getTableName());
+            Optional<CatalogSchemaTableName> result = metadata.redirectTable(session, schemaTableName);
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Test
+    public void testHiveTableExistsWithRedirection()
+    {
+        SchemaTableName tableName = temporaryTable("hive_table_redirection_tester");
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+            SchemaTableName schemaTableName = new SchemaTableName("test_schema_name", tableName.getTableName());
+            Optional<CatalogSchemaTableName> result = metadata.redirectTable(session, schemaTableName);
+            assertThat(result).isPresent();
+            assertThat(result.get().getCatalogName()).isEqualTo("hive");
+            assertThat(result.get().getSchemaTableName()).isEqualTo("hive_table_redirection_target");
+        }
+    }
+
+    @Test
+    public void testHiveTableDoesNotExistNoRedirection()
+    {
+        SchemaTableName tableName = temporaryTable("non_existent_table");
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+            SchemaTableName schemaTableName = new SchemaTableName("test_schema_name", tableName.getTableName());
+            Optional<CatalogSchemaTableName> result = metadata.redirectTable(session, schemaTableName);
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Test
+    public void testHiveTableDoesNotExistWithRedirection()
+    {
+        SchemaTableName tableName = temporaryTable("non_existent_table");
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+            SchemaTableName schemaTableName = new SchemaTableName("test_schema_name", tableName.getTableName());
+            Optional<CatalogSchemaTableName> result = metadata.redirectTable(session, schemaTableName);
+            assertThat(result).isPresent();
+            assertThat(result.get().getCatalogName()).isEqualTo("hive");
+            assertThat(result.get().getSchemaTableName()).isEqualTo("hive_table_redirection_target");
         }
     }
 

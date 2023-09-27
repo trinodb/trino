@@ -16,12 +16,13 @@ package io.trino.plugin.hive;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Optional;
 
 public interface HiveTableRedirectionsProvider
 {
-    HiveTableRedirectionsProvider NO_REDIRECTIONS = (session, table) -> Optional.empty();
+    HiveTableRedirectionsProvider NO_REDIRECTIONS = (session, tableName, table) -> Optional.empty();
 
-    Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, Optional<Table> table);
+    Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName, Optional<Table> table);
 }
