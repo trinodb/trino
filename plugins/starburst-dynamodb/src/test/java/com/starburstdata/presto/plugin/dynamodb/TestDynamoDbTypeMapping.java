@@ -171,7 +171,7 @@ public class TestDynamoDbTypeMapping
                 "decimal(3, 0)",
                 "CAST('193' AS decimal)",
                 createDecimalType(3, 0),
-                "expected:<[decimal(3,]0)> but was:<[varchar(200]0)>",
+                "expected: decimal(3,0)\n but was: varchar(2000)",
                 "Unsupported column type: decimal");
     }
 
@@ -179,7 +179,7 @@ public class TestDynamoDbTypeMapping
     public void testChar()
     {
         // Driver converts CHAR types to VARCHAR, so flag as unsupported
-        testUnsupportedValue("char(10)", "'abcdefghik'", createCharType(10), "expected:<[]char(10)> but was:<[var]char(10)>", "Unsupported column type: char");
+        testUnsupportedValue("char(10)", "'abcdefghik'", createCharType(10), "expected: char(10)\n but was: varchar(10)", "Unsupported column type: char");
     }
 
     @Test
@@ -204,7 +204,7 @@ public class TestDynamoDbTypeMapping
                 "varchar",
                 "'a'",
                 createUnboundedVarcharType(),
-                "expected:<varchar[]> but was:<varchar[(2000)]>",
+                "expected: varchar\n but was: varchar(2000)",
                 "Unsupported column type: varchar. Only bounded varchars are supported");
     }
 
@@ -232,7 +232,7 @@ public class TestDynamoDbTypeMapping
                 "json",
                 "'a'",
                 JSON,
-                "expected:<[json]> but was:<[varchar(2000)]>",
+                "expected: json\n but was: varchar(2000)",
                 "Unsupported column type: json");
     }
 
@@ -331,7 +331,7 @@ public class TestDynamoDbTypeMapping
                 "time(3) with time zone",
                 "TIME '00:00:00.000 +00:00'",
                 createTimeWithTimeZoneType(3),
-                "expected:<[time(3) with time zone]> but was:<[varchar(2000)]>",
+                "expected: time(3) with time zone\n but was: varchar(2000)",
                 "Unsupported column type: time(3) with time zone");
     }
 
@@ -355,7 +355,7 @@ public class TestDynamoDbTypeMapping
                 "timestamp(3) with time zone",
                 "TIMESTAMP '1970-01-01 00:00:00.000 UTC'",
                 createTimestampWithTimeZoneType(3),
-                "expected:<[timestamp(3) with time zone]> but was:<[varchar(2000)]>",
+                "expected: timestamp(3) with time zone\n but was: varchar(2000)",
                 "Unsupported column type: timestamp(3) with time zone");
     }
 
