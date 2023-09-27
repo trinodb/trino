@@ -23,7 +23,6 @@ import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -189,12 +188,9 @@ public abstract class AbstractTestDynamicRowFiltering
     protected OperatorStats getScanFilterAndProjectOperatorStats(QueryId queryId, String tableName)
     {
         Plan plan = getDistributedQueryRunner().getQueryPlan(queryId);
-        PlanNodeId nodeId = PlanNodeSearcher.searchFrom(plan.getRoot())
+        FilterNode planNode = PlanNodeSearcher.searchFrom(plan.getRoot())
                 .where(node -> {
-                    if (!(node instanceof ProjectNode projectNode)) {
-                        return false;
-                    }
-                    if (!(projectNode.getSource() instanceof FilterNode filterNode)) {
+                    if (!(node instanceof FilterNode filterNode)) {
                         return false;
                     }
                     if (!(filterNode.getSource() instanceof TableScanNode tableScanNode)) {
@@ -206,10 +202,9 @@ public abstract class AbstractTestDynamicRowFiltering
                     return getSchemaTableName(tableScanNode.getTable().getConnectorHandle())
                             .equals(new SchemaTableName("tpch", tableName));
                 })
-                .findOnlyElement()
-                .getId();
+                .findOnlyElement();
 
-        return extractOperatorStatsForNodeId(getDistributedQueryRunner(), queryId, nodeId);
+        return extractOperatorStatsForNodeId(getDistributedQueryRunner(), queryId, planNode.getSource().getId());
     }
 
     public static OperatorStats extractOperatorStatsForNodeId(DistributedQueryRunner queryRunner, QueryId queryId, PlanNodeId nodeId)
@@ -220,7 +215,7 @@ public abstract class AbstractTestDynamicRowFiltering
                 .getQueryStats()
                 .getOperatorSummaries()
                 .stream()
-                .filter(summary -> nodeId.equals(summary.getPlanNodeId()) && summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
+                .filter(summary -> nodeId.equals(summary.getPlanNodeId()) && summary.getOperatorType().equals("TableScanOperator"))
                 .collect(MoreCollectors.onlyElement());
     }
 
