@@ -898,10 +898,10 @@ public abstract class AbstractTestHive
                 },
                 SqlStandardAccessControlMetadata::new,
                 (session, schemaTableName, tableHandle) -> {
-                    if (!tableHandle.get().getTableName().contains("hive_table_redirection_tester")) {
-                        return Optional.empty();
+                    if (tableHandle.isPresent() && tableHandle.get().getTableName().contains("hive_table_redirection_tester")) {
+                        return Optional.of(new CatalogSchemaTableName("hive", databaseName, "hive_table_redirection_target"));
                     }
-                    return Optional.of(new CatalogSchemaTableName("hive", databaseName, "hive_table_redirection_target"));
+                    return Optional.empty();
                 },
                 countingDirectoryLister,
                 new TransactionScopeCachingDirectoryListerFactory(hiveConfig),
