@@ -13,15 +13,6 @@
  */
 package io.trino.plugin.base.type;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.concurrent.TimeUnit.SECONDS;
-
 public record DecodedTimestamp(long epochSeconds, int nanosOfSecond)
 {
-    private static final long NANOS_PER_SECOND = SECONDS.toNanos(1);
-
-    public DecodedTimestamp
-    {
-        checkArgument(nanosOfSecond >= 0 && nanosOfSecond < NANOS_PER_SECOND, "Invalid value for nanosOfSecond: %s", nanosOfSecond);
-    }
 }
