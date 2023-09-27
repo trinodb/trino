@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
@@ -33,18 +34,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestDeltaLakeDatabricksPartitioningCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
-    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testDatabricksCanReadFromCtasTableCreatedByTrinoWithSpecialCharactersInPartitioningColumn()
+    public void testSparkCanReadFromCtasTableCreatedByTrinoWithSpecialCharactersInPartitioningColumn()
     {
-        testDatabricksCanReadFromCtasTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(1);
-        testDatabricksCanReadFromCtasTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(20);
+        testSparkCanReadFromCtasTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(1);
+        testSparkCanReadFromCtasTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(20);
     }
 
-    private void testDatabricksCanReadFromCtasTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(int interval)
+    private void testSparkCanReadFromCtasTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(int interval)
     {
         String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
-        String tableDirectory = "databricks-compatibility-test-" + tableName;
+        String tableDirectory = "delta-compatibility-test-" + tableName;
 
         ImmutableList<QueryAssert.Row> expected = ImmutableList.of(
                 row(1, "with-hyphen"),
@@ -84,18 +85,18 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testTrinoCanReadFromCtasTableCreatedByDatabricksWithSpecialCharactersInPartitioningColumn()
+    public void testTrinoCanReadFromCtasTableCreatedBySparkWithSpecialCharactersInPartitioningColumn()
     {
-        testTrinoCanReadFromCtasTableCreatedByDatabricksWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(1);
-        testTrinoCanReadFromCtasTableCreatedByDatabricksWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(20);
+        testTrinoCanReadFromCtasTableCreatedBySparkWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(1);
+        testTrinoCanReadFromCtasTableCreatedBySparkWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(20);
     }
 
-    private void testTrinoCanReadFromCtasTableCreatedByDatabricksWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(int interval)
+    private void testTrinoCanReadFromCtasTableCreatedBySparkWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(int interval)
     {
         String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
-        String tableDirectory = "databricks-compatibility-test-" + tableName;
+        String tableDirectory = "delta-compatibility-test-" + tableName;
 
         ImmutableList<QueryAssert.Row> expected = ImmutableList.of(
                 row(1, "with-hyphen"),
@@ -138,18 +139,18 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testDatabricksCanReadTableCreatedByTrinoWithSpecialCharactersInPartitioningColumn()
+    public void testSparkCanReadTableCreatedByTrinoWithSpecialCharactersInPartitioningColumn()
     {
-        testDatabricksCanReadTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(1);
-        testDatabricksCanReadTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(20);
+        testSparkCanReadTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(1);
+        testSparkCanReadTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(20);
     }
 
-    private void testDatabricksCanReadTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(int interval)
+    private void testSparkCanReadTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(int interval)
     {
         String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
-        String tableDirectory = "databricks-compatibility-test-" + tableName;
+        String tableDirectory = "delta-compatibility-test-" + tableName;
 
         ImmutableList<QueryAssert.Row> expected = ImmutableList.of(
                 row(1, "with-hyphen"),
@@ -191,18 +192,18 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testTrinoCanReadTableCreatedByDatabricksWithSpecialCharactersInPartitioningColumn()
+    public void testTrinoCanReadTableCreatedBySaprkWithSpecialCharactersInPartitioningColumn()
     {
-        testTrinoCanReadTableCreatedByDatabricksWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(1);
-        testTrinoCanReadTableCreatedByDatabricksWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(20);
+        testTrinoCanReadTableCreatedBySparkWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(1);
+        testTrinoCanReadTableCreatedBySparkWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(20);
     }
 
-    private void testTrinoCanReadTableCreatedByDatabricksWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(int interval)
+    private void testTrinoCanReadTableCreatedBySparkWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(int interval)
     {
         String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
-        String tableDirectory = "databricks-compatibility-test-" + tableName;
+        String tableDirectory = "delta-compatibility-test-" + tableName;
 
         ImmutableList<QueryAssert.Row> expected = ImmutableList.of(
                 row(1, "with-hyphen"),
@@ -247,18 +248,18 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testDatabricksCanReadFromTableUpdatedByTrino()
+    public void testSparkCanReadFromTableUpdatedByTrino()
     {
-        testDatabricksCanReadFromTableUpdatedByTrinoWithCpIntervalSet(1);
-        testDatabricksCanReadFromTableUpdatedByTrinoWithCpIntervalSet(20);
+        testSparkCanReadFromTableUpdatedByTrinoWithCpIntervalSet(1);
+        testSparkCanReadFromTableUpdatedByTrinoWithCpIntervalSet(20);
     }
 
-    private void testDatabricksCanReadFromTableUpdatedByTrinoWithCpIntervalSet(int interval)
+    private void testSparkCanReadFromTableUpdatedByTrinoWithCpIntervalSet(int interval)
     {
         String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
-        String tableDirectory = "databricks-compatibility-test-" + tableName;
+        String tableDirectory = "delta-compatibility-test-" + tableName;
 
         ImmutableList<QueryAssert.Row> expected = ImmutableList.of(
                 row(101, "with-hyphen"),
@@ -300,18 +301,18 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testTrinoCanReadFromTableUpdatedByDatabricks()
+    public void testTrinoCanReadFromTableUpdatedBySpark()
     {
-        testTrinoCanReadFromTableUpdatedByDatabricksWithCpIntervalSet(1);
-        testTrinoCanReadFromTableUpdatedByDatabricksWithCpIntervalSet(20);
+        testTrinoCanReadFromTableUpdatedBySparkWithCpIntervalSet(1);
+        testTrinoCanReadFromTableUpdatedBySparkWithCpIntervalSet(20);
     }
 
-    private void testTrinoCanReadFromTableUpdatedByDatabricksWithCpIntervalSet(int interval)
+    private void testTrinoCanReadFromTableUpdatedBySparkWithCpIntervalSet(int interval)
     {
         String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
-        String tableDirectory = "databricks-compatibility-test-" + tableName;
+        String tableDirectory = "delta-compatibility-test-" + tableName;
 
         ImmutableList<QueryAssert.Row> expected = ImmutableList.of(
                 row(101, "with-hyphen"),
@@ -356,12 +357,12 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testTrinoCanReadFromTablePartitionChangedByDatabricks()
+    public void testTrinoCanReadFromTablePartitionChangedBySpark()
     {
-        String tableName = "test_dl_create_table_partition_changed_by_databricks_" + randomNameSuffix();
-        String tableDirectory = "databricks-compatibility-test-" + tableName;
+        String tableName = "test_dl_create_table_partition_changed_by_spark_" + randomNameSuffix();
+        String tableDirectory = "delta-compatibility-test-" + tableName;
 
         ImmutableList<QueryAssert.Row> expected = ImmutableList.of(row(1, "part"));
 
@@ -386,12 +387,12 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testPartitionedByNonLowercaseColumn()
     {
         String tableName = "test_dl_partitioned_by_non_lowercase_" + randomNameSuffix();
-        String tableDirectory = "databricks-compatibility-test-" + tableName;
+        String tableDirectory = "delta-compatibility-test-" + tableName;
 
         onDelta().executeQuery(format("CREATE TABLE default.%s " +
                         "USING DELTA " +
