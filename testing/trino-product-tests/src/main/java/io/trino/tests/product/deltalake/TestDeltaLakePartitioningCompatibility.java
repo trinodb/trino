@@ -15,16 +15,12 @@ package io.trino.tests.product.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tempto.assertions.QueryAssert;
-import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -34,8 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestDeltaLakePartitioningCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testSparkCanReadFromCtasTableCreatedByTrinoWithSpecialCharactersInPartitioningColumn()
     {
         testSparkCanReadFromCtasTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(1);
@@ -85,8 +80,7 @@ public class TestDeltaLakePartitioningCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testTrinoCanReadFromCtasTableCreatedBySparkWithSpecialCharactersInPartitioningColumn()
     {
         testTrinoCanReadFromCtasTableCreatedBySparkWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(1);
@@ -139,8 +133,7 @@ public class TestDeltaLakePartitioningCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testSparkCanReadTableCreatedByTrinoWithSpecialCharactersInPartitioningColumn()
     {
         testSparkCanReadTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(1);
@@ -192,8 +185,7 @@ public class TestDeltaLakePartitioningCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testTrinoCanReadTableCreatedBySaprkWithSpecialCharactersInPartitioningColumn()
     {
         testTrinoCanReadTableCreatedBySparkWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(1);
@@ -248,8 +240,7 @@ public class TestDeltaLakePartitioningCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testSparkCanReadFromTableUpdatedByTrino()
     {
         testSparkCanReadFromTableUpdatedByTrinoWithCpIntervalSet(1);
@@ -301,8 +292,7 @@ public class TestDeltaLakePartitioningCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testTrinoCanReadFromTableUpdatedBySpark()
     {
         testTrinoCanReadFromTableUpdatedBySparkWithCpIntervalSet(1);
@@ -357,8 +347,7 @@ public class TestDeltaLakePartitioningCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testTrinoCanReadFromTablePartitionChangedBySpark()
     {
         String tableName = "test_dl_create_table_partition_changed_by_spark_" + randomNameSuffix();
@@ -387,8 +376,7 @@ public class TestDeltaLakePartitioningCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testPartitionedByNonLowercaseColumn()
     {
         String tableName = "test_dl_partitioned_by_non_lowercase_" + randomNameSuffix();
