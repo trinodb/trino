@@ -22,10 +22,12 @@ import java.lang.invoke.VarHandle;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfByteArray;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static io.trino.operator.VariableWidthData.EMPTY_CHUNK;
 import static io.trino.operator.VariableWidthData.POINTER_SIZE;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
@@ -118,6 +120,17 @@ public final class FlatHash
             groups[i] = new byte[multiplyExact(RECORDS_PER_GROUP, recordSize)];
         }
         return groups;
+    }
+
+    private static long computeRecordGroupsSize(int capacity, int recordSize)
+    {
+        if (capacity < RECORDS_PER_GROUP) {
+            return sizeOfObjectArray(1) + sizeOfByteArray(multiplyExact(capacity, recordSize));
+        }
+
+        int groupCount = addExact(capacity, 1) >> RECORDS_PER_GROUP_SHIFT;
+        return sizeOfObjectArray(groupCount) +
+                multiplyExact(groupCount, sizeOfByteArray(multiplyExact(RECORDS_PER_GROUP, recordSize)));
     }
 
     public long getEstimatedSize()
@@ -303,21 +316,14 @@ public final class FlatHash
 
     private boolean tryRehash(int minimumRequiredCapacity)
     {
-        long newCapacityLong = capacity * 2L;
-        while (newCapacityLong < minimumRequiredCapacity) {
-            newCapacityLong *= 2;
-        }
-        if (newCapacityLong > Integer.MAX_VALUE) {
-            throw new TrinoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
-        }
-        int newCapacity = toIntExact(newCapacityLong);
+        int newCapacity = computeNewCapacity(minimumRequiredCapacity);
 
         // the entire newCapacity is reserved since during the rehash both the old and new hash table are in retained
         long tempControlBytes = sizeOfByteArray(newCapacity + VECTOR_LENGTH);
-        long tempRecordsBytes = sizeOfByteArray(newCapacity * recordSize);
+        long tempRecordsBytes = computeRecordGroupsSize(newCapacity, recordSize);
         long tempGroupRecordIndexBytes = sizeOfIntArray(newCapacity);
-        long tempRehashBytes = tempControlBytes + tempRecordsBytes + tempGroupRecordIndexBytes;
-        rehashMemoryReservation = tempRehashBytes;
+        rehashMemoryReservation = sumExact(tempControlBytes, tempRecordsBytes, tempGroupRecordIndexBytes);
+        verify(rehashMemoryReservation >= 0, "rehashMemoryReservation is negative");
         if (!checkMemoryReservation.update()) {
             return false;
         }
@@ -332,15 +338,7 @@ public final class FlatHash
         byte[] oldControl = control;
         byte[][] oldRecordGroups = recordGroups;
 
-        long newCapacityLong = capacity * 2L;
-        while (newCapacityLong < minimumRequiredCapacity) {
-            newCapacityLong *= 2;
-        }
-        if (newCapacityLong > Integer.MAX_VALUE) {
-            throw new TrinoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
-        }
-
-        capacity = (int) newCapacityLong;
+        capacity = computeNewCapacity(minimumRequiredCapacity);
         maxFill = toIntExact(capacity * 15L / 16);
         mask = capacity - 1;
 
@@ -393,6 +391,19 @@ public final class FlatHash
         // release temporary memory reservation
         rehashMemoryReservation = 0;
         checkMemoryReservation.update();
+    }
+
+    private int computeNewCapacity(int minimumRequiredCapacity)
+    {
+        checkArgument(minimumRequiredCapacity >= 0, "minimumRequiredCapacity must be positive");
+        long newCapacityLong = capacity * 2L;
+        while (newCapacityLong < minimumRequiredCapacity) {
+            newCapacityLong = multiplyExact(newCapacityLong, 2);
+        }
+        if (newCapacityLong > Integer.MAX_VALUE) {
+            throw new TrinoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
+        }
+        return toIntExact(newCapacityLong);
     }
 
     private int bucket(int hash)
