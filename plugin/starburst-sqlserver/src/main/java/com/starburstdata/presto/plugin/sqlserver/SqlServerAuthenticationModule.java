@@ -278,6 +278,7 @@ public class SqlServerAuthenticationModule
         properties.setProperty("integratedSecurity", "true");
         if (sqlServerTlsConfig.getTruststoreFile().isPresent() && sqlServerTlsConfig.getTruststorePassword().isPresent()) {
             properties.put("encrypt", "true");
+            properties.put("trustServerCertificate", "true");
             properties.put("trustStore", sqlServerTlsConfig.getTruststoreFile().get().getAbsolutePath());
             properties.put("trustStorePassword", sqlServerTlsConfig.getTruststorePassword().get());
             properties.put("trustStoreType", sqlServerTlsConfig.getTruststoreType());
