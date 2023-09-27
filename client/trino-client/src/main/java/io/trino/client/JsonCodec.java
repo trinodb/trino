@@ -84,7 +84,7 @@ public class JsonCodec<T>
     }
 
     public T fromJson(InputStream inputStream)
-            throws IOException, JsonProcessingException
+            throws IOException
     {
         try (JsonParser parser = mapper.createParser(inputStream)) {
             T value = mapper.readerFor(javaType).readValue(parser);
