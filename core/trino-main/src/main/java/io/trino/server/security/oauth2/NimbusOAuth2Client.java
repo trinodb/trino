@@ -20,7 +20,7 @@ import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
-import com.nimbusds.jose.jwk.source.RemoteJWKSet;
+import com.nimbusds.jose.jwk.source.JWKSourceBuilder;
 import com.nimbusds.jose.proc.BadJOSEException;
 import com.nimbusds.jose.proc.DefaultJOSEObjectTypeVerifier;
 import com.nimbusds.jose.proc.JWSKeySelector;
@@ -134,7 +134,7 @@ public class NimbusOAuth2Client
         try {
             jwsKeySelector = new JWSVerificationKeySelector<>(
                     Stream.concat(JWSAlgorithm.Family.RSA.stream(), JWSAlgorithm.Family.EC.stream()).collect(toImmutableSet()),
-                    new RemoteJWKSet<>(config.getJwksUrl().toURL(), httpClient));
+                    JWKSourceBuilder.create(config.getJwksUrl().toURL(), httpClient).build());
         }
         catch (MalformedURLException e) {
             throw new RuntimeException(e);
@@ -366,7 +366,7 @@ public class NimbusOAuth2Client
     {
         T tokenResponse = httpClient.execute(tokenRequest, parser);
         if (!tokenResponse.indicatesSuccess()) {
-            throw new ChallengeFailedException("Error while fetching access token: " + tokenResponse.toErrorResponse().toHTTPResponse().getContent());
+            throw new ChallengeFailedException("Error while fetching access token: " + tokenResponse.toErrorResponse().toHTTPResponse().getBody());
         }
         return tokenResponse;
     }
