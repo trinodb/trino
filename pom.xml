@@ -158,7 +158,7 @@
         <dep.antlr.version>4.13.0</dep.antlr.version>
         <dep.airlift.version>235</dep.airlift.version>
         <dep.arrow.version>13.0.0</dep.arrow.version>
-        <dep.avro.version>1.11.1</dep.avro.version>
+        <dep.avro.version>1.11.3</dep.avro.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.takari.version>2.1.1</dep.takari.version>
         <dep.aws-sdk.version>1.12.552</dep.aws-sdk.version>
