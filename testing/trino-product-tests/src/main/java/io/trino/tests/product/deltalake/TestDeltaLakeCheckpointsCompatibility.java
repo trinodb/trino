@@ -56,7 +56,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestDeltaLakeDatabricksCheckpointsCompatibility
+public class TestDeltaLakeCheckpointsCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
     @Inject
