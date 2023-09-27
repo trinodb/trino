@@ -64,6 +64,7 @@ import static io.trino.sql.analyzer.RegexLibrary.JONI;
         "spill-window-operator",
         "experimental.spill-window-operator",
         "legacy.allow-set-view-authorization",
+        "parse-decimal-literals-as-double"
 })
 public class FeaturesConfig
 {
