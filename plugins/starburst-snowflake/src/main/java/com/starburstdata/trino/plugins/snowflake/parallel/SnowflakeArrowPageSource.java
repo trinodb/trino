@@ -10,6 +10,7 @@
 package com.starburstdata.trino.plugins.snowflake.parallel;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.starburstdata.trino.plugins.snowflake.parallel.writer.BlockWriter;
 import com.starburstdata.trino.plugins.snowflake.parallel.writer.BlockWriterFactory;
 import com.starburstdata.trino.plugins.snowflake.parallel.writer.ConverterFactory;
@@ -32,17 +33,21 @@ import net.snowflake.client.jdbc.internal.apache.arrow.vector.util.TransferPair;
 
 import java.io.IOException;
 import java.nio.channels.SeekableByteChannel;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.starburstdata.trino.plugins.snowflake.parallel.SnowflakeParallelSessionProperties.getQuotedIdentifiersIgnoreCase;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.UnaryOperator.identity;
 
 public class SnowflakeArrowPageSource
         implements ConnectorPageSource
@@ -188,24 +193,26 @@ public class SnowflakeArrowPageSource
 
     private Map<Integer, Integer> buildColumnOrder(List<ValueVector> vectors)
     {
-        Map<Integer, Integer> columnToVectorOrder = new HashMap<>();
-        for (JdbcColumnHandle column : columns) {
-            ValueVector vector = vectors.stream()
-                    .filter(valueVector -> {
-                        String columnName = column.getColumnName();
-                        String vectorName = valueVector.getField().getName();
-                        return quotedIdentifiersIgnoreCase ? columnName.equalsIgnoreCase(vectorName) : columnName.equals(vectorName);
-                    })
-                    .findAny()
-                    .orElseThrow(() -> new IllegalStateException(
-                            "Cannot find corresponding vector for column %s. Trino columns: %s, vectors: %s".formatted(
-                                    column,
-                                    columns,
-                                    vectors.stream().map(valueVector -> valueVector.getField().getName()).toList())));
-            // With this we write columns in the right order
-            columnToVectorOrder.put(columns.indexOf(column), vectors.indexOf(vector));
+        Map<String, Integer> vectorIndexes = IntStream.range(0, vectors.size())
+                .boxed()
+                // In case of a collision, e.g. MyVector and Myvector, the ImmutableMap will throw and such tables can't be queried
+                // with Trino until https://github.com/trinodb/trino/issues/17
+                .collect(toImmutableMap(i -> vectors.get(i).getField().getName(), identity()));
+
+        ImmutableMap.Builder<Integer, Integer> columnToVectorOrder = ImmutableMap.builderWithExpectedSize(columns.size());
+        for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
+            String columnName = columns.get(columnIndex).getColumnName();
+            Integer vectorIndex = vectorIndexes.get(quotedIdentifiersIgnoreCase ? columnName.toUpperCase(ENGLISH) : columnName);
+            if (vectorIndex == null) {
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Cannot find corresponding vector for column %s. Trino columns: %s, vectors: %s".formatted(
+                        columnName,
+                        columns,
+                        vectorIndexes));
+            }
+            columnToVectorOrder.put(columnIndex, vectorIndex);
         }
-        return columnToVectorOrder;
+
+        return columnToVectorOrder.buildOrThrow();
     }
 
     private void closeAllocator()
