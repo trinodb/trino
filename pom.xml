@@ -541,7 +541,7 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>10.15</version>
+                <version>11.0</version>
                 <classifier>jdk11</classifier>
             </dependency>
 
