@@ -15,7 +15,6 @@ import io.trino.plugin.jdbc.DefaultJdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcQueryEventListener;
-import io.trino.plugin.jdbc.SyntheticColumnHandleBuilder;
 
 import java.util.Set;
 
@@ -25,19 +24,17 @@ public class StargateMetadataFactory
         extends DefaultJdbcMetadataFactory
 {
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
-    private final SyntheticColumnHandleBuilder syntheticColumnBuilder;
 
     @Inject
-    public StargateMetadataFactory(JdbcClient jdbcClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners, SyntheticColumnHandleBuilder syntheticColumnBuilder)
+    public StargateMetadataFactory(JdbcClient jdbcClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
-        super(jdbcClient, jdbcQueryEventListeners, syntheticColumnBuilder);
+        super(jdbcClient, jdbcQueryEventListeners);
         this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "jdbcQueryEventListeners is null"));
-        this.syntheticColumnBuilder = requireNonNull(syntheticColumnBuilder, "syntheticColumnBuilder is null");
     }
 
     @Override
     protected JdbcMetadata create(JdbcClient transactionCachingJdbcClient)
     {
-        return new StargateMetadata(transactionCachingJdbcClient, jdbcQueryEventListeners, syntheticColumnBuilder);
+        return new StargateMetadata(transactionCachingJdbcClient, jdbcQueryEventListeners);
     }
 }
