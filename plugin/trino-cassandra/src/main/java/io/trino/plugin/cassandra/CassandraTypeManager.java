@@ -487,41 +487,6 @@ public class CassandraTypeManager
         throw new IllegalStateException("Back conversion not implemented for " + this);
     }
 
-    public boolean isSupportedPartitionKey(CassandraType.Kind kind)
-    {
-        switch (kind) {
-            case ASCII:
-            case TEXT:
-            case VARCHAR:
-            case BIGINT:
-            case BOOLEAN:
-            case DOUBLE:
-            case INET:
-            case INT:
-            case TINYINT:
-            case SMALLINT:
-            case FLOAT:
-            case DECIMAL:
-            case DATE:
-            case TIME:
-            case TIMESTAMP:
-            case UUID:
-            case TIMEUUID:
-                return true;
-            case COUNTER:
-            case BLOB:
-            case CUSTOM:
-            case VARINT:
-            case SET:
-            case LIST:
-            case MAP:
-            case TUPLE:
-            case UDT:
-            default:
-                return false;
-        }
-    }
-
     public boolean isFullySupported(DataType dataType)
     {
         if (toCassandraType(dataType).isEmpty()) {
