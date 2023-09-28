@@ -177,9 +177,15 @@ public final class GroupByHashYieldAssertion
                 // Hash table capacity should not have changed, because memory must be allocated first
                 assertEquals(oldCapacity, (long) getHashCapacity.apply(operator));
 
-                // The increase in hash memory should be twice the current capacity.
-                // The additional memory for the entire new hash table is reserved before rehashing because the new and old hash tables coexist during rehashing.
-                long expectedHashBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity * 2);
+                long expectedHashBytes;
+                if (hashKeyType == BIGINT) {
+                    // The increase in hash memory should be twice the current capacity.
+                    expectedHashBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity * 2);
+                }
+                else {
+                    // Flat hash uses an incremental rehash, so as new memory is allocated old memory is freed
+                    expectedHashBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity) + oldCapacity;
+                }
                 assertBetweenInclusive(actualHashIncreased, expectedHashBytes, expectedHashBytes + additionalMemoryInBytes);
 
                 // Output should be blocked as well
@@ -200,8 +206,7 @@ public final class GroupByHashYieldAssertion
 
                 // Assert the estimated reserved memory after rehash is lower than the one before rehash (extra memory allocation has been released)
                 long rehashedMemoryUsage = operator.getOperatorContext().getDriverContext().getMemoryUsage();
-                long previousHashTableSizeInBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity);
-                long expectedMemoryUsageAfterRehash = newMemoryUsage - previousHashTableSizeInBytes;
+                long expectedMemoryUsageAfterRehash = oldMemoryUsage + getHashTableSizeInBytes(hashKeyType, oldCapacity);
                 double memoryUsageErrorUpperBound = 1.01;
                 double memoryUsageError = rehashedMemoryUsage * 1.0 / expectedMemoryUsageAfterRehash;
                 if (memoryUsageError > memoryUsageErrorUpperBound) {
