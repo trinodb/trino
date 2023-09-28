@@ -48,7 +48,6 @@ public class IcebergNessieCatalogModule
         return new NessieIcebergClient(
                 HttpClientBuilder.builder()
                         .withUri(icebergNessieCatalogConfig.getServerUri())
-                        .withEnableApiCompatibilityCheck(false)
                         .build(NessieApiV1.class),
                 icebergNessieCatalogConfig.getDefaultReferenceName(),
                 null,
