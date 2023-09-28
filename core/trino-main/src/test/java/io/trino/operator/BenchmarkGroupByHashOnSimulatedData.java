@@ -79,9 +79,8 @@ public class BenchmarkGroupByHashOnSimulatedData
     private static final int DEFAULT_POSITIONS = 10_000_000;
     private static final int EXPECTED_GROUP_COUNT = 10_000;
     private static final int DEFAULT_PAGE_SIZE = 8192;
-    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
 
-    private final JoinCompiler joinCompiler = new JoinCompiler(TYPE_OPERATORS);
+    private final JoinCompiler joinCompiler = new JoinCompiler(new TypeOperators());
 
     @Benchmark
     @OperationsPerInvocation(DEFAULT_POSITIONS)
@@ -93,7 +92,6 @@ public class BenchmarkGroupByHashOnSimulatedData
                 EXPECTED_GROUP_COUNT,
                 false,
                 joinCompiler,
-                TYPE_OPERATORS,
                 NOOP);
         List<int[]> results = addInputPages(groupByHash, data.getPages(), data.getWorkType());
 

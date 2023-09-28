@@ -257,13 +257,12 @@ public abstract class AbstractTestHiveFileSystem
                 config.getRecursiveDirWalkerEnabled(),
                 TESTING_TYPE_MANAGER,
                 config.getMaxPartitionsPerScan());
-        TypeOperators typeOperators = new TypeOperators();
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, hdfsEnvironment),
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastoreClient),
-                new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), typeOperators),
+                new GroupByHashPageIndexerFactory(new JoinCompiler(new TypeOperators())),
                 TESTING_TYPE_MANAGER,
                 config,
                 new SortingFileWriterConfig(),

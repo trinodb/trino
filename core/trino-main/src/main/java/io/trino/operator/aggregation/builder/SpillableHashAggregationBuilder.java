@@ -301,8 +301,7 @@ public class SpillableHashAggregationBuilder
                 operatorContext.aggregateUserMemoryContext(),
                 memoryLimitForMerge,
                 hashAggregationBuilder.getKeyChannels(),
-                joinCompiler,
-                typeOperators));
+                joinCompiler));
 
         return merger.get().buildResult();
     }
@@ -323,7 +322,6 @@ public class SpillableHashAggregationBuilder
                 operatorContext,
                 Optional.of(DataSize.succinctBytes(0)),
                 joinCompiler,
-                typeOperators,
                 () -> {
                     updateMemory();
                     // TODO: Support GroupByHash yielding in spillable hash aggregation (https://github.com/trinodb/trino/issues/460)

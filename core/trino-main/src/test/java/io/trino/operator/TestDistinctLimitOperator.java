@@ -54,7 +54,6 @@ public class TestDistinctLimitOperator
     private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
     private JoinCompiler joinCompiler;
-    private TypeOperators typeOperators;
 
     @BeforeMethod
     public void setUp()
@@ -64,8 +63,7 @@ public class TestDistinctLimitOperator
         driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
-        typeOperators = new TypeOperators();
-        joinCompiler = new JoinCompiler(typeOperators);
+        joinCompiler = new JoinCompiler(new TypeOperators());
     }
 
     @AfterMethod(alwaysRun = true)
@@ -96,7 +94,14 @@ public class TestDistinctLimitOperator
                 .addSequencePage(5, 2)
                 .build();
 
-        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, new PlanNodeId("test"), rowPagesBuilder.getTypes(), Ints.asList(0), 5, rowPagesBuilder.getHashChannel(), joinCompiler, typeOperators);
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                rowPagesBuilder.getTypes(),
+                Ints.asList(0),
+                5,
+                rowPagesBuilder.getHashChannel(),
+                joinCompiler);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(1L)
@@ -118,7 +123,14 @@ public class TestDistinctLimitOperator
                 .addSequencePage(3, 2)
                 .build();
 
-        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, new PlanNodeId("test"), rowPagesBuilder.getTypes(), Ints.asList(0), 3, rowPagesBuilder.getHashChannel(), joinCompiler, typeOperators);
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                rowPagesBuilder.getTypes(),
+                Ints.asList(0),
+                3,
+                rowPagesBuilder.getHashChannel(),
+                joinCompiler);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(1L)
@@ -138,7 +150,14 @@ public class TestDistinctLimitOperator
                 .addSequencePage(3, 2)
                 .build();
 
-        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, new PlanNodeId("test"), rowPagesBuilder.getTypes(), Ints.asList(0), 5, rowPagesBuilder.getHashChannel(), joinCompiler, typeOperators);
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                rowPagesBuilder.getTypes(),
+                Ints.asList(0),
+                5,
+                rowPagesBuilder.getHashChannel(),
+                joinCompiler);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(1L)
@@ -162,8 +181,7 @@ public class TestDistinctLimitOperator
                 ImmutableList.of(0),
                 Integer.MAX_VALUE,
                 Optional.of(1),
-                joinCompiler,
-                typeOperators);
+                joinCompiler);
 
         GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((DistinctLimitOperator) operator).getCapacity(), 450_000);
         assertGreaterThanOrEqual(result.getYieldCount(), 5);

@@ -101,7 +101,13 @@ public class TestMarkDistinctOperator
                 .addSequencePage(100, 0)
                 .build();
 
-        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, new PlanNodeId("test"), rowPagesBuilder.getTypes(), ImmutableList.of(0), rowPagesBuilder.getHashChannel(), joinCompiler, typeOperators);
+        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                rowPagesBuilder.getTypes(),
+                ImmutableList.of(0),
+                rowPagesBuilder.getHashChannel(),
+                joinCompiler);
 
         MaterializedResult.Builder expected = resultBuilder(driverContext.getSession(), BIGINT, BOOLEAN);
         for (long i = 0; i < 100; i++) {
@@ -126,7 +132,13 @@ public class TestMarkDistinctOperator
         Page secondInput = inputs.get(1);
         Page singleDistinctPage = inputs.get(2);
         Page singleNotDistinctPage = inputs.get(3);
-        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, new PlanNodeId("test"), rowPagesBuilder.getTypes(), ImmutableList.of(0), rowPagesBuilder.getHashChannel(), joinCompiler, typeOperators);
+        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                rowPagesBuilder.getTypes(),
+                ImmutableList.of(0),
+                rowPagesBuilder.getHashChannel(),
+                joinCompiler);
 
         int maskChannel = firstInput.getChannelCount(); // mask channel is appended to the input
         try (Operator operator = operatorFactory.createOperator(driverContext)) {
@@ -171,7 +183,7 @@ public class TestMarkDistinctOperator
     {
         List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
 
-        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, new PlanNodeId("test"), ImmutableList.of(type), ImmutableList.of(0), Optional.of(1), joinCompiler, typeOperators);
+        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, new PlanNodeId("test"), ImmutableList.of(type), ImmutableList.of(0), Optional.of(1), joinCompiler);
 
         // get result with yield; pick a relatively small buffer for partitionRowCount's memory usage
         GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((MarkDistinctOperator) operator).getCapacity(), 450_000);

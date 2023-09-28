@@ -34,7 +34,6 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.type.BlockTypeOperators;
@@ -75,7 +74,6 @@ public class IndexLoader
     private final List<BlockPositionEqual> keyEqualOperators;
     private final PagesIndex.Factory pagesIndexFactory;
     private final JoinCompiler joinCompiler;
-    private final TypeOperators typeOperators;
 
     @GuardedBy("this")
     private IndexSnapshotLoader indexSnapshotLoader; // Lazily initialized
@@ -97,7 +95,6 @@ public class IndexLoader
             IndexJoinLookupStats stats,
             PagesIndex.Factory pagesIndexFactory,
             JoinCompiler joinCompiler,
-            TypeOperators typeOperators,
             BlockTypeOperators blockTypeOperators)
     {
         requireNonNull(lookupSourceInputChannels, "lookupSourceInputChannels is null");
@@ -112,7 +109,6 @@ public class IndexLoader
         requireNonNull(stats, "stats is null");
         requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
         requireNonNull(joinCompiler, "joinCompiler is null");
-        requireNonNull(typeOperators, "typeOperators is null");
 
         this.lookupSourceInputChannels = ImmutableSet.copyOf(lookupSourceInputChannels);
         this.keyOutputChannels = ImmutableList.copyOf(keyOutputChannels);
@@ -124,7 +120,6 @@ public class IndexLoader
         this.stats = stats;
         this.pagesIndexFactory = pagesIndexFactory;
         this.joinCompiler = joinCompiler;
-        this.typeOperators = typeOperators;
 
         this.keyTypes = keyOutputChannels.stream()
                 .map(outputTypes::get)
@@ -268,8 +263,7 @@ public class IndexLoader
                     expectedPositions,
                     maxIndexMemorySize,
                     pagesIndexFactory,
-                    joinCompiler,
-                    typeOperators);
+                    joinCompiler);
         }
     }
 
@@ -283,7 +277,6 @@ public class IndexLoader
         private final List<Type> indexTypes;
         private final AtomicReference<IndexSnapshot> indexSnapshotReference;
         private final JoinCompiler joinCompiler;
-        private final TypeOperators typeOperators;
 
         private final IndexSnapshotBuilder indexSnapshotBuilder;
 
@@ -298,15 +291,13 @@ public class IndexLoader
                 int expectedPositions,
                 DataSize maxIndexMemorySize,
                 PagesIndex.Factory pagesIndexFactory,
-                JoinCompiler joinCompiler,
-                TypeOperators typeOperators)
+                JoinCompiler joinCompiler)
         {
             this.pipelineContext = pipelineContext;
             this.indexSnapshotReference = indexSnapshotReference;
             this.lookupSourceInputChannels = lookupSourceInputChannels;
             this.indexTypes = indexTypes;
             this.joinCompiler = joinCompiler;
-            this.typeOperators = typeOperators;
 
             List<Type> outputTypes = indexBuildDriverFactoryProvider.getOutputTypes();
             this.indexSnapshotBuilder = new IndexSnapshotBuilder(
@@ -334,7 +325,7 @@ public class IndexLoader
         public boolean load(List<UpdateRequest> requests)
         {
             // Generate a RecordSet that only presents index keys that have not been cached and are deduped based on lookupSourceInputChannels
-            UnloadedIndexKeyRecordSet recordSetForLookupSource = new UnloadedIndexKeyRecordSet(pipelineContext.getSession(), indexSnapshotReference.get(), lookupSourceInputChannels, indexTypes, requests, joinCompiler, typeOperators);
+            UnloadedIndexKeyRecordSet recordSetForLookupSource = new UnloadedIndexKeyRecordSet(pipelineContext.getSession(), indexSnapshotReference.get(), lookupSourceInputChannels, indexTypes, requests, joinCompiler);
 
             // Drive index lookup to produce the output (landing in indexSnapshotBuilder)
             try (Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext())) {
@@ -355,7 +346,7 @@ public class IndexLoader
             // Generate a RecordSet that presents unique index keys that have not been cached
             UnloadedIndexKeyRecordSet indexKeysRecordSet = (lookupSourceInputChannels.equals(allInputChannels))
                     ? recordSetForLookupSource
-                    : new UnloadedIndexKeyRecordSet(pipelineContext.getSession(), indexSnapshotReference.get(), allInputChannels, indexTypes, requests, joinCompiler, typeOperators);
+                    : new UnloadedIndexKeyRecordSet(pipelineContext.getSession(), indexSnapshotReference.get(), allInputChannels, indexTypes, requests, joinCompiler);
 
             // Create lookup source with new data
             IndexSnapshot newValue = indexSnapshotBuilder.createIndexSnapshot(indexKeysRecordSet);
