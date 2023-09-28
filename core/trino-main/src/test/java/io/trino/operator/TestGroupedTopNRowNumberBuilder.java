@@ -240,14 +240,12 @@ public class TestGroupedTopNRowNumberBuilder
 
     private static GroupByHash createGroupByHash(List<Type> partitionTypes, UpdateMemory updateMemory)
     {
-        TypeOperators typeOperators = new TypeOperators();
         return GroupByHash.createGroupByHash(
                 partitionTypes,
                 false,
                 1,
                 false,
-                new JoinCompiler(typeOperators),
-                typeOperators,
+                new JoinCompiler(new TypeOperators()),
                 updateMemory);
     }
 }

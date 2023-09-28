@@ -1048,8 +1048,7 @@ public class LocalExecutionPlanner
                     node.getMaxRowCountPerPartition(),
                     hashChannel,
                     10_000,
-                    joinCompiler,
-                    typeOperators);
+                    joinCompiler);
             return new PhysicalOperation(operatorFactory, outputMappings.buildOrThrow(), context, source);
         }
 
@@ -1884,8 +1883,7 @@ public class LocalExecutionPlanner
                     distinctChannels,
                     node.getLimit(),
                     hashChannel,
-                    joinCompiler,
-                    typeOperators);
+                    joinCompiler);
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }
 
@@ -1961,7 +1959,7 @@ public class LocalExecutionPlanner
 
             List<Integer> channels = getChannelsForSymbols(node.getDistinctSymbols(), source.getLayout());
             Optional<Integer> hashChannel = node.getHashSymbol().map(channelGetter(source));
-            MarkDistinctOperatorFactory operator = new MarkDistinctOperatorFactory(context.getNextOperatorId(), node.getId(), source.getTypes(), channels, hashChannel, joinCompiler, typeOperators);
+            MarkDistinctOperatorFactory operator = new MarkDistinctOperatorFactory(context.getNextOperatorId(), node.getId(), source.getTypes(), channels, hashChannel, joinCompiler);
             return new PhysicalOperation(operator, makeLayout(node), context, source);
         }
 
@@ -2447,7 +2445,6 @@ public class LocalExecutionPlanner
                     SystemSessionProperties.isShareIndexLoading(session),
                     pagesIndexFactory,
                     joinCompiler,
-                    typeOperators,
                     blockTypeOperators);
 
             indexLookupSourceFactory.setTaskContext(context.taskContext);
@@ -3832,7 +3829,6 @@ public class LocalExecutionPlanner
                                 .map(channel -> source.getTypes().get(channel))
                                 .collect(toImmutableList()),
                         joinCompiler,
-                        typeOperators,
                         session);
             }
 
