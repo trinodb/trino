@@ -4010,7 +4010,7 @@ public abstract class AbstractTestHive
     }
 
     @Test
-    public void testHiveTableExistsNoRedirection()
+    public void testHiveTableExistsNoRedirection() //pass
             throws Exception
     {
         SchemaTableName tableName = temporaryTable("hive_table_redirection_tester");
@@ -4028,7 +4028,7 @@ public abstract class AbstractTestHive
     }
 
     @Test
-    public void testHiveTableExistsWithRedirection()
+    public void testHiveTableExistsWithRedirection() //fail
             throws Exception
     {
         SchemaTableName tableName = temporaryTable("hive_table_redirection_tester");
@@ -4048,7 +4048,7 @@ public abstract class AbstractTestHive
     }
 
     @Test
-    public void testHiveTableDoesNotExistNoRedirection()
+    public void testHiveTableDoesNotExistNoRedirection() // pass
             throws Exception
     {
         SchemaTableName tableName = temporaryTable("non_existent_table");
@@ -4062,7 +4062,7 @@ public abstract class AbstractTestHive
     }
 
     @Test
-    public void testHiveTableDoesNotExistWithRedirection()
+    public void testHiveTableDoesNotExistWithRedirection() //fail
     {
         SchemaTableName tableName = temporaryTable("hive_table_redirection_tester");
         try (Transaction transaction = newTransaction()) {

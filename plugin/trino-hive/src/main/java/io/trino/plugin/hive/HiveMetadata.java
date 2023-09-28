@@ -3855,7 +3855,12 @@ public class HiveMetadata
         Optional<CatalogSchemaTableName> catalogSchemaTableName = tableRedirectionsProvider.redirectTable(session, schemaTableName, table);
 
         if (table.isEmpty() || isSomeKindOfAView(table.get())) {
+            System.out.println("TestingRedirectTable: table is empty or is a view");
             return Optional.empty();
+        }
+
+        if (catalogSchemaTableName.isEmpty()) {
+            System.out.println("TestingRedirectTable: catalogSchemaTableName is empty");
         }
 
         // stitch back the suffix we cut off.
