@@ -252,7 +252,7 @@ public class BinPackingNodeAllocatorService
             BinPackingSimulation.ReserveResult result = simulation.tryReserve(pendingAcquire);
             switch (result.getStatus()) {
                 case RESERVED:
-                    InternalNode reservedNode = result.getNode().orElseThrow();
+                    InternalNode reservedNode = result.getNode();
                     fulfilledAcquires.add(pendingAcquire.getLease());
                     pendingAcquire.getFuture().set(reservedNode);
                     if (pendingAcquire.getFuture().isCancelled()) {
@@ -682,9 +682,9 @@ public class BinPackingNodeAllocatorService
                 return status;
             }
 
-            public Optional<InternalNode> getNode()
+            public InternalNode getNode()
             {
-                return node;
+                return node.orElseThrow(() -> new IllegalStateException("node not set"));
             }
         }
     }
