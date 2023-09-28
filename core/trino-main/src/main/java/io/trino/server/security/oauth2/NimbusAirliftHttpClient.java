@@ -95,7 +95,7 @@ public class NimbusAirliftHttpClient
         if (method.equals(POST) || method.equals(PUT)) {
             String query = httpRequest.getBody();
             if (query != null) {
-                request.setBodyGenerator(createStaticBodyGenerator(httpRequest.getBody(), UTF_8));
+                request.setBodyGenerator(createStaticBodyGenerator(query, UTF_8));
             }
         }
         return httpClient.execute(request.build(), new NimbusResponseHandler<>(parser));
