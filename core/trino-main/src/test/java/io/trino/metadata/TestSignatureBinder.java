@@ -24,7 +24,7 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.type.FunctionType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;

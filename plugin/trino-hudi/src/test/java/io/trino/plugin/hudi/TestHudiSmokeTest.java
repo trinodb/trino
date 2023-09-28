@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;

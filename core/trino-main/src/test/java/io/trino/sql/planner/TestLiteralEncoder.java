@@ -37,7 +37,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.type.Re2JRegexp;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Base64;

@@ -47,7 +47,7 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 

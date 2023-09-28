@@ -14,7 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import io.airlift.testing.EquivalenceTester;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 

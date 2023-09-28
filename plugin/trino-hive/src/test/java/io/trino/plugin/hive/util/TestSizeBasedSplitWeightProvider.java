@@ -15,9 +15,10 @@ package io.trino.plugin.hive.util;
 
 import io.airlift.units.DataSize;
 import io.trino.spi.SplitWeight;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestSizeBasedSplitWeightProvider
@@ -43,15 +44,19 @@ public class TestSizeBasedSplitWeightProvider
         assertEquals(provider.weightForSplitSizeInBytes(largerThanTarget.toBytes()), SplitWeight.standard());
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "^minimumWeight must be > 0 and <= 1, found: 1\\.01$")
+    @Test
     public void testInvalidMinimumWeight()
     {
-        new SizeBasedSplitWeightProvider(1.01, DataSize.of(64, MEGABYTE));
+        assertThatThrownBy(() -> new SizeBasedSplitWeightProvider(1.01, DataSize.of(64, MEGABYTE)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("^minimumWeight must be > 0 and <= 1, found: 1\\.01$");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "^targetSplitSize must be > 0, found:.*$")
+    @Test
     public void testInvalidTargetSplitSize()
     {
-        new SizeBasedSplitWeightProvider(0.01, DataSize.ofBytes(0));
+        assertThatThrownBy(() -> new SizeBasedSplitWeightProvider(0.01, DataSize.ofBytes(0)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("^targetSplitSize must be > 0, found:.*$");
     }
 }

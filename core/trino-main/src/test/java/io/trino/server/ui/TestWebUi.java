@@ -57,8 +57,9 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import javax.crypto.SecretKey;
 
@@ -117,9 +118,11 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public class TestWebUi
 {
     private static final String LOCALHOST_KEYSTORE = Resources.getResource("cert/localhost.pem").getPath();
@@ -167,7 +170,7 @@ public class TestWebUi
     private OkHttpClient client;
     private Path passwordConfigDummy;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
             throws IOException
     {

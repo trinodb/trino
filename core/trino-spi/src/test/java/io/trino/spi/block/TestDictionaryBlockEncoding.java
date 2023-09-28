@@ -14,7 +14,7 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.DynamicSliceOutput;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.block.BlockTestUtils.assertBlockEquals;
 import static io.trino.spi.type.VarcharType.VARCHAR;

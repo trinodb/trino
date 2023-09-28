@@ -16,7 +16,7 @@ package io.trino.server.remotetask;
 import com.google.common.collect.ImmutableList;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

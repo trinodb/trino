@@ -94,7 +94,8 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -164,28 +165,32 @@ public class TestHttpRemoteTask
 
     private static final boolean TRACE_HTTP = false;
 
-    @Test(timeOut = 30000)
+    @Test
+    @Timeout(30)
     public void testRemoteTaskMismatch()
             throws Exception
     {
         runTest(FailureScenario.TASK_MISMATCH);
     }
 
-    @Test(timeOut = 30000)
+    @Test
+    @Timeout(30)
     public void testRejectedExecutionWhenVersionIsHigh()
             throws Exception
     {
         runTest(FailureScenario.TASK_MISMATCH_WHEN_VERSION_IS_HIGH);
     }
 
-    @Test(timeOut = 30000)
+    @Test
+    @Timeout(30)
     public void testRejectedExecution()
             throws Exception
     {
         runTest(FailureScenario.REJECTED_EXECUTION);
     }
 
-    @Test(timeOut = 30000)
+    @Test
+    @Timeout(30)
     public void testRegular()
             throws Exception
     {
@@ -213,7 +218,8 @@ public class TestHttpRemoteTask
         httpRemoteTaskFactory.stop();
     }
 
-    @Test(timeOut = 30000)
+    @Test
+    @Timeout(30)
     public void testDynamicFilters()
             throws Exception
     {
@@ -293,7 +299,8 @@ public class TestHttpRemoteTask
         httpRemoteTaskFactory.stop();
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testOutboundDynamicFilters()
             throws Exception
     {
@@ -387,7 +394,8 @@ public class TestHttpRemoteTask
         httpRemoteTaskFactory.stop();
     }
 
-    @Test(timeOut = 300000)
+    @Test
+    @Timeout(300)
     public void testAdaptiveRemoteTaskRequestSize()
             throws Exception
     {

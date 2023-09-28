@@ -22,7 +22,7 @@ import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputInfo;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 

@@ -30,9 +30,10 @@ import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.tpch.LineItem;
 import io.trino.tpch.LineItemGenerator;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import javax.crypto.SecretKey;
 
@@ -51,20 +52,22 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
+@TestInstance(PER_CLASS)
 public class TestPagesSerde
 {
     private BlockEncodingSerde blockEncodingSerde;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         blockEncodingSerde = new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         blockEncodingSerde = null;

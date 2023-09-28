@@ -20,7 +20,7 @@ import io.trino.plugin.hive.metastore.DecimalStatistics;
 import io.trino.plugin.hive.metastore.DoubleStatistics;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.IntegerStatistics;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

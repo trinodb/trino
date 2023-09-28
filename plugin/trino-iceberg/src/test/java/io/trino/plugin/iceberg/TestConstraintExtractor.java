@@ -43,7 +43,7 @@ import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.transaction.NoOpTransactionManager;
 import io.trino.transaction.TransactionId;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.util.List;

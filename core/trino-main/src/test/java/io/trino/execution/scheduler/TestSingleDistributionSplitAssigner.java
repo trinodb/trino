@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.OptionalInt;

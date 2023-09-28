@@ -24,7 +24,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.hive.ql.io.AcidUtils;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.OptionalInt;
 import java.util.OptionalLong;

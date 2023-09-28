@@ -28,7 +28,7 @@ import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.TypeSignature;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 

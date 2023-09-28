@@ -21,7 +21,7 @@ import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TestingTypeManager;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;

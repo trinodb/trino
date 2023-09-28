@@ -14,7 +14,7 @@
 package io.trino.plugin.bigquery;
 
 import io.trino.spi.type.TimeZoneKey;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;

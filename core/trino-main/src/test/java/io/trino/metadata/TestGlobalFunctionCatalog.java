@@ -33,7 +33,7 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.UnknownType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.lang.invoke.MethodHandles;
 import java.util.Arrays;

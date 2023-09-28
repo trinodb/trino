@@ -40,7 +40,8 @@ import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
 import org.joda.time.LocalDate;
 import org.joda.time.LocalTime;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.Map;
 import java.util.Optional;
@@ -1871,7 +1872,8 @@ public class TestExpressionInterpreter
         optimize("MAP(ARRAY[ARRAY[1,1]], ARRAY['a'])[ARRAY[1,1]]");
     }
 
-    @Test(timeOut = 60000)
+    @Test
+    @Timeout(60)
     public void testLikeInvalidUtf8()
     {
         assertLike(new byte[] {'a', 'b', 'c'}, "%b%", true);

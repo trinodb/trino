@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.fs;
 
 import io.trino.filesystem.Location;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.hive.fs.HiveFileIterator.containsHiddenPathPartAfterIndex;
 import static io.trino.plugin.hive.fs.HiveFileIterator.isHiddenFileOrDirectory;

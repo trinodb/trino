@@ -13,7 +13,7 @@
  */
 package io.trino.spi.statistics;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.statistics.DoubleRange.union;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

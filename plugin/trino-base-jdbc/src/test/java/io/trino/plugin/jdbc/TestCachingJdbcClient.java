@@ -32,9 +32,11 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.testing.TestingConnectorSession;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -74,8 +76,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
 public class TestCachingJdbcClient
 {
     private static final Duration FOREVER = Duration.succinctDuration(1, DAYS);
@@ -104,7 +107,7 @@ public class TestCachingJdbcClient
     private String schema;
     private ExecutorService executor;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
             throws Exception
     {
@@ -146,7 +149,7 @@ public class TestCachingJdbcClient
         return createCachingJdbcClient(FOREVER, cacheMissing, cacheMaximumSize);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
             throws Exception
     {
@@ -842,7 +845,8 @@ public class TestCachingJdbcClient
         jdbcClient.dropTable(SESSION, first);
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testConcurrentSchemaCreateAndDrop()
     {
         CachingJdbcClient cachingJdbcClient = cachingStatisticsAwareJdbcClient(FOREVER, true, 10000);
@@ -863,7 +867,8 @@ public class TestCachingJdbcClient
         futures.forEach(Futures::getUnchecked);
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testLoadFailureNotSharedWhenDisabled()
             throws Exception
     {

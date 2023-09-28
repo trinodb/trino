@@ -15,7 +15,7 @@ package io.trino.util;
 
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.spi.TrinoException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;

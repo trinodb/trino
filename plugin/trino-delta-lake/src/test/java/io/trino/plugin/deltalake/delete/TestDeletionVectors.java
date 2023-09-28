@@ -17,8 +17,8 @@ import com.google.common.io.Resources;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
+import org.junit.jupiter.api.Test;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
-import org.testng.annotations.Test;
 
 import java.io.File;
 import java.nio.file.Path;

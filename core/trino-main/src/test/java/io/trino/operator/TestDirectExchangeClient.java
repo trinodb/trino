@@ -41,9 +41,11 @@ import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoTransportException;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -82,20 +84,21 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
 public class TestDirectExchangeClient
 {
     private ScheduledExecutorService scheduler;
     private ExecutorService pageBufferClientCallbackExecutor;
     private PagesSerdeFactory serdeFactory;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         scheduler = newScheduledThreadPool(4, daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
@@ -103,7 +106,7 @@ public class TestDirectExchangeClient
         serdeFactory = new TestingPagesSerdeFactory();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         if (scheduler != null) {
@@ -313,7 +316,8 @@ public class TestDirectExchangeClient
         assertTrue(exchangeClient.isFinished());
     }
 
-    @Test(timeOut = 10000)
+    @Test
+    @Timeout(10)
     public void testStreamingAddLocation()
             throws Exception
     {

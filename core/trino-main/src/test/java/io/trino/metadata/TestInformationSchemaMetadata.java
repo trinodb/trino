@@ -39,9 +39,10 @@ import io.trino.sql.planner.OptimizerConfig;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Map;
 import java.util.Optional;
@@ -53,9 +54,11 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Arrays.stream;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
+@TestInstance(PER_CLASS)
 public class TestInformationSchemaMetadata
 {
     private static final int MAX_PREFIXES_COUNT = new OptimizerConfig().getMaxPrefetchedInformationSchemaPrefixes();
@@ -63,7 +66,7 @@ public class TestInformationSchemaMetadata
     private TransactionManager transactionManager;
     private Metadata metadata;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         queryRunner = LocalQueryRunner.create(TEST_SESSION);
@@ -89,7 +92,7 @@ public class TestInformationSchemaMetadata
         metadata = queryRunner.getMetadata();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         try {

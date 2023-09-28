@@ -35,7 +35,7 @@ import io.trino.sql.tree.WindowFrame;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeSignatureDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.Optional;

@@ -27,7 +27,7 @@ import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.type.FunctionType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 

@@ -15,7 +15,7 @@ package io.trino.spi.block;
 
 import io.airlift.slice.DynamicSliceOutput;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Random;

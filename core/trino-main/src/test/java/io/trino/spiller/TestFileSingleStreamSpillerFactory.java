@@ -23,9 +23,10 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Type;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.File;
 import java.io.IOException;
@@ -47,9 +48,10 @@ import static io.trino.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
 import static java.nio.file.Files.setPosixFilePermissions;
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
 public class TestFileSingleStreamSpillerFactory
 {
     private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
@@ -58,7 +60,7 @@ public class TestFileSingleStreamSpillerFactory
     private File spillPath1;
     private File spillPath2;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
             throws IOException
     {
@@ -71,7 +73,7 @@ public class TestFileSingleStreamSpillerFactory
         closer.register(() -> deleteRecursively(spillPath2.toPath(), ALLOW_INSECURE));
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
             throws Exception
     {

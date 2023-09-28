@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.TestingTicker;
 import io.trino.hive.thrift.metastore.Table;
 import org.apache.thrift.TException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.net.SocketTimeoutException;
 import java.util.Map;

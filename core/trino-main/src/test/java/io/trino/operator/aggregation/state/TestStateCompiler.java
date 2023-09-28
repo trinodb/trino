@@ -37,7 +37,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.util.Reflection;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Field;
@@ -289,7 +289,7 @@ public class TestStateCompiler
         return overhead;
     }
 
-    @Test(invocationCount = 100, successPercentage = 90)
+    @Test
     public void testComplexStateEstimatedSize()
     {
         Map<String, Type> fieldMap = ImmutableMap.of("Block", new ArrayType(BIGINT), "AnotherBlock", mapType(BIGINT, VARCHAR));

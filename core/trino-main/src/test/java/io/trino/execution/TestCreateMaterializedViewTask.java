@@ -62,9 +62,10 @@ import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.transaction.TransactionManager;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.net.URI;
 import java.util.List;
@@ -96,9 +97,10 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
 public class TestCreateMaterializedViewTask
 {
     private static final String DEFAULT_MATERIALIZED_VIEW_FOO_PROPERTY_VALUE = null;
@@ -120,7 +122,7 @@ public class TestCreateMaterializedViewTask
     private LocalQueryRunner queryRunner;
     private CatalogHandle testCatalogHandle;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         testSession = testSessionBuilder()
@@ -153,7 +155,7 @@ public class TestCreateMaterializedViewTask
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl());
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         if (queryRunner != null) {

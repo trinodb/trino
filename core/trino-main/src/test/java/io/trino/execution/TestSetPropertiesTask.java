@@ -25,12 +25,11 @@ import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.StringLiteral;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.tree.SetProperties.Type.MATERIALIZED_VIEW;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test(singleThreaded = true)
 public class TestSetPropertiesTask
         extends BaseDataDefinitionTaskTest
 {

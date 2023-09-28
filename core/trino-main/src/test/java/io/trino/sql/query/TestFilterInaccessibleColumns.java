@@ -22,9 +22,10 @@ import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingAccessControlManager;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Optional;
 
@@ -35,8 +36,9 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@Test(singleThreaded = true) // shared access control
+@TestInstance(PER_CLASS)
 public class TestFilterInaccessibleColumns
 {
     private static final String USER = "user";
@@ -52,7 +54,7 @@ public class TestFilterInaccessibleColumns
     private QueryAssertions assertions;
     private TestingAccessControlManager accessControl;
 
-    @BeforeClass
+    @BeforeAll
     public void init()
     {
         LocalQueryRunner runner = LocalQueryRunner.builder(SESSION)
@@ -64,7 +66,7 @@ public class TestFilterInaccessibleColumns
         accessControl = assertions.getQueryRunner().getAccessControl();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         assertions.close();

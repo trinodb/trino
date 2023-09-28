@@ -16,7 +16,7 @@ package io.trino.faulttolerant;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;

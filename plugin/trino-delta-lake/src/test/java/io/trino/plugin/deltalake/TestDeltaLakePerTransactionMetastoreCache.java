@@ -32,7 +32,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchEntity;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -48,7 +48,6 @@ import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.write;
 import static java.util.Objects.requireNonNull;
 
-@Test(singleThreaded = true) // tests use shared invocation counter map
 public class TestDeltaLakePerTransactionMetastoreCache
 {
     private CountingAccessHiveMetastore metastore;
