@@ -51,6 +51,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.operator.AnnotationEngineAssertions.assertImplementationCount;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -61,7 +62,6 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestAnnotationEngineForScalars
-        extends TestAnnotationEngine
 {
     private static final FunctionManager FUNCTION_MANAGER = createTestingFunctionManager();
 
