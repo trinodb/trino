@@ -26,7 +26,6 @@ import io.trino.plugin.openpolicyagent.schema.TrinoUser;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.security.Identity;
-import io.trino.spi.security.SystemSecurityContext;
 
 import java.net.URI;
 import java.util.Collection;
@@ -59,38 +58,38 @@ public class OpaHighLevelClient
         this.queryResultCodec = queryResultCodec;
     }
 
-    public static OpaQueryInput buildQueryInputForSimpleAction(SystemSecurityContext context, String operation)
+    public static OpaQueryInput buildQueryInputForSimpleAction(OpaQueryContext context, String operation)
     {
         OpaQueryInputAction action = new OpaQueryInputAction.Builder().operation(operation).build();
-        return new OpaQueryInput(OpaQueryContext.fromSystemSecurityContext(context), action);
+        return new OpaQueryInput(context, action);
     }
 
-    public static OpaQueryInput buildQueryInputForSimpleResource(SystemSecurityContext context, String operation, OpaQueryInputResource resource)
+    public static OpaQueryInput buildQueryInputForSimpleResource(OpaQueryContext context, String operation, OpaQueryInputResource resource)
     {
         OpaQueryInputAction action = new OpaQueryInputAction.Builder().operation(operation).resource(resource).build();
-        return new OpaQueryInput(OpaQueryContext.fromSystemSecurityContext(context), action);
+        return new OpaQueryInput(context, action);
     }
 
     public boolean queryOpa(OpaQueryInput input)
     {
-        return opaHttpClient.getOpaResponse(input, opaPolicyUri, queryResultCodec).result();
+        return opaHttpClient.consumeOpaResponse(opaHttpClient.submitOpaRequest(input, opaPolicyUri, queryResultCodec)).result();
     }
 
-    public boolean queryOpaWithSimpleAction(SystemSecurityContext context, String operation)
+    public boolean queryOpaWithSimpleAction(OpaQueryContext context, String operation)
     {
         return queryOpa(buildQueryInputForSimpleAction(context, operation));
     }
 
-    public boolean queryOpaWithSimpleResource(SystemSecurityContext context, String operation, OpaQueryInputResource resource)
+    public boolean queryOpaWithSimpleResource(OpaQueryContext context, String operation, OpaQueryInputResource resource)
     {
         return queryOpa(buildQueryInputForSimpleResource(context, operation, resource));
     }
 
-    public boolean queryOpaWithSourceAndTargetResource(SystemSecurityContext context, String operation, OpaQueryInputResource resource, OpaQueryInputResource targetResource)
+    public boolean queryOpaWithSourceAndTargetResource(OpaQueryContext context, String operation, OpaQueryInputResource resource, OpaQueryInputResource targetResource)
     {
         return queryOpa(
                 new OpaQueryInput(
-                        OpaQueryContext.fromSystemSecurityContext(context),
+                        context,
                         new OpaQueryInputAction
                                 .Builder()
                                 .operation(operation)
@@ -100,7 +99,7 @@ public class OpaHighLevelClient
     }
 
     public <T> void queryAndEnforce(
-            SystemSecurityContext context,
+            OpaQueryContext context,
             String actionName,
             Consumer<T> denyCallable,
             BiFunction<OpaQueryInputResource.Builder, T, OpaQueryInputResource.Builder> builderSetter,
@@ -114,7 +113,7 @@ public class OpaHighLevelClient
     }
 
     public <T> void queryAndEnforce(
-            SystemSecurityContext context,
+            OpaQueryContext context,
             String actionName,
             DenyCallable denyCallable,
             BiFunction<OpaQueryInputResource.Builder, T, OpaQueryInputResource.Builder> builderSetter,
@@ -129,7 +128,7 @@ public class OpaHighLevelClient
     }
 
     public void queryAndEnforce(
-            SystemSecurityContext context,
+            OpaQueryContext context,
             String actionName,
             Consumer<String> denyCallable,
             CatalogSchemaName schema)
@@ -143,7 +142,7 @@ public class OpaHighLevelClient
     }
 
     public void queryAndEnforce(
-            SystemSecurityContext context,
+            OpaQueryContext context,
             String actionName,
             Consumer<String> denyCallable,
             CatalogSchemaName schema,
@@ -158,7 +157,7 @@ public class OpaHighLevelClient
     }
 
     public void queryAndEnforce(
-            SystemSecurityContext context,
+            OpaQueryContext context,
             String actionName,
             Consumer<String> denyCallable,
             CatalogSchemaTableName table)
@@ -172,7 +171,7 @@ public class OpaHighLevelClient
     }
 
     public void queryAndEnforce(
-            SystemSecurityContext context,
+            OpaQueryContext context,
             String actionName,
             BiConsumer<String, Set<String>> denyCallable,
             CatalogSchemaTableName table,
@@ -187,7 +186,7 @@ public class OpaHighLevelClient
     }
 
     public void queryAndEnforce(
-            SystemSecurityContext context,
+            OpaQueryContext context,
             String actionName,
             Consumer<String> denyCallable,
             CatalogSchemaTableName table,
@@ -202,7 +201,7 @@ public class OpaHighLevelClient
     }
 
     public void queryAndEnforce(
-            SystemSecurityContext context,
+            OpaQueryContext context,
             String actionName,
             DenyCallable denyCallable,
             Identity identity)
@@ -211,7 +210,7 @@ public class OpaHighLevelClient
     }
 
     public void queryAndEnforce(
-            SystemSecurityContext context,
+            OpaQueryContext context,
             String actionName,
             DenyCallable denyCallable)
     {

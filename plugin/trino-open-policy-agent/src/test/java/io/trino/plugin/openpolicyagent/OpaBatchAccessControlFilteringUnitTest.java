@@ -19,14 +19,16 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import io.trino.plugin.openpolicyagent.schema.TrinoUser;
-import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SystemSecurityContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Named;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -41,11 +43,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.trino.plugin.openpolicyagent.RequestTestUtilities.assertJsonRequestsEqual;
 import static io.trino.plugin.openpolicyagent.RequestTestUtilities.assertStringRequestsEqual;
+import static io.trino.plugin.openpolicyagent.TestHelpers.systemSecurityContextFromIdentity;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -73,7 +77,7 @@ public class OpaBatchAccessControlFilteringUnitTest
                                 "opa.policy.batched-uri", opaBatchServerUri.toString()),
                         Optional.of(mockClient));
         this.requestingIdentity = Identity.ofUser("source-user");
-        this.requestingSecurityContext = new SystemSecurityContext(requestingIdentity, Optional.empty());
+        this.requestingSecurityContext = systemSecurityContextFromIdentity(requestingIdentity);
     }
 
     @AfterEach
@@ -126,7 +130,7 @@ public class OpaBatchAccessControlFilteringUnitTest
         List<Identity> requestedIdentities = List.of(identityOne, identityTwo, identityThree);
 
         Collection<Identity> result = authorizer.filterViewQueryOwnedBy(
-                requestingSecurityContext,
+                requestingIdentity,
                 requestedIdentities);
         assertEquals(Set.copyOf(result), Set.copyOf(getSubset(requestedIdentities, expectedItems)));
 
@@ -270,37 +274,85 @@ public class OpaBatchAccessControlFilteringUnitTest
         assertStringRequestsEqual(List.of(expectedRequest), this.mockClient.getRequests(), "/input/action");
     }
 
-    @ParameterizedTest(name = "{index}: {0}")
-    @MethodSource("io.trino.plugin.openpolicyagent.OpaBatchAccessControlFilteringUnitTest#subsetProvider")
-    public void testFilterColumns(
-            HttpClientUtils.MockResponse response,
-            List<Integer> expectedItems)
+    private static Function<String, HttpClientUtils.MockResponse> buildHandler(Function<String, String> dataBuilder)
     {
-        this.mockClient.setHandler((request) -> response);
-        CatalogSchemaTableName table = new CatalogSchemaTableName("my-catalog", "my-schema", "my-table");
-        List<String> requestedColumns = List.of("column-one", "column-two", "column-three");
+        return (request) -> new HttpClientUtils.MockResponse(dataBuilder.apply(request), 200);
+    }
 
-        Set<String> result = authorizer.filterColumns(
-                requestingSecurityContext,
-                table,
-                new LinkedHashSet<>(requestedColumns));
-        assertEquals(Set.copyOf(result), Set.copyOf(getSubset(requestedColumns, expectedItems)));
+    @Test
+    public void testFilterColumns()
+    {
+        SchemaTableName tableOne = SchemaTableName.schemaTableName("my-schema", "table-one");
+        SchemaTableName tableTwo = SchemaTableName.schemaTableName("my-schema", "table-two");
+        SchemaTableName tableThree = SchemaTableName.schemaTableName("my-schema", "table-three");
+        Map<SchemaTableName, Set<String>> requestedColumns = Map.of(
+                tableOne, ImmutableSet.of("table-one-column-one", "table-one-column-two"),
+                tableTwo, ImmutableSet.of("table-two-column-one", "table-two-column-two"),
+                tableThree, ImmutableSet.of("table-three-column-one", "table-three-column-two"));
 
-        String expectedRequest = """
-                {
-                    "operation": "FilterColumns",
-                    "filterResources": [
-                        {
-                            "table": {
-                                "tableName": "my-table",
-                                "schemaName": "my-schema",
-                                "catalogName": "my-catalog",
-                                "columns": ["column-one", "column-two", "column-three"]
+        // Allow both columns from one table, one column from another one and no columns from the last one
+        this.mockClient.setHandler(
+                buildHandler(
+                        (request) -> {
+                            if (request.contains("table-one")) {
+                                return "{\"result\": [0, 1]}";
+                            } else if (request.contains("table-two")) {
+                                return "{\"result\": [1]}";
                             }
-                        }
-                    ]
-                }""";
-        assertStringRequestsEqual(List.of(expectedRequest), this.mockClient.getRequests(), "/input/action");
+                            return "{\"result\": []}";
+                        }));
+
+        Map<SchemaTableName, Set<String>> result = authorizer.filterColumns(
+                requestingSecurityContext,
+                "my-catalog",
+                requestedColumns);
+
+        List<String> expectedRequests = Stream.of("table-one", "table-two", "table-three")
+                .map(
+                        (tableName) -> """
+                                        {
+                                            "operation": "FilterColumns",
+                                            "filterResources": [
+                                                {
+                                                    "table": {
+                                                        "tableName": "%s",
+                                                        "schemaName": "my-schema",
+                                                        "catalogName": "my-catalog",
+                                                        "columns": ["%s-column-one", "%s-column-two"]
+                                                    }
+                                                }
+                                            ]
+                                        }""".formatted(tableName, tableName, tableName))
+                .toList();
+        assertStringRequestsEqual(expectedRequests, this.mockClient.getRequests(), "/input/action");
+        assertTrue(
+                Maps.difference(
+                        result,
+                        Map.of(
+                                tableOne, Set.of("table-one-column-one", "table-one-column-two"),
+                                tableTwo, Set.of("table-two-column-two"),
+                                tableThree, Set.of()))
+                        .areEqual());
+    }
+
+    @Test
+    public void testEmptyFilterColumns()
+    {
+        SchemaTableName tableOne = SchemaTableName.schemaTableName("my-schema", "table-one");
+        SchemaTableName tableTwo = SchemaTableName.schemaTableName("my-schema", "table-two");
+        Map<SchemaTableName, Set<String>> requestedColumns = Map.of(
+                tableOne, ImmutableSet.of(),
+                tableTwo, ImmutableSet.of());
+
+        Map<SchemaTableName, Set<String>> result = authorizer.filterColumns(
+                requestingSecurityContext,
+                "my-catalog",
+                requestedColumns);
+        assertEquals(mockClient.getRequests().size(), 0);
+        assertTrue(
+                Maps.difference(
+                        result,
+                        requestedColumns).areEqual());
     }
 
     @ParameterizedTest(name = "{index}: {0}")
@@ -316,7 +368,7 @@ public class OpaBatchAccessControlFilteringUnitTest
     @ParameterizedTest(name = "{index}: {0} - {1}")
     @MethodSource("io.trino.plugin.openpolicyagent.FilteringTestHelpers#prepopulatedErrorCases")
     public void testIllegalResponseThrows(
-            BiFunction<OpaAccessControl, SystemSecurityContext, Collection> callable,
+            BiFunction<OpaAccessControl, SystemSecurityContext, ?> callable,
             HttpClientUtils.MockResponse failureResponse,
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)

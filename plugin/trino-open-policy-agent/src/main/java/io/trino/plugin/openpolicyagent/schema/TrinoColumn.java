@@ -13,20 +13,15 @@
  */
 package io.trino.plugin.openpolicyagent.schema;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import io.trino.spi.security.Identity;
-import io.trino.spi.security.SystemSecurityContext;
+import io.trino.spi.connector.SchemaTableName;
 
-@JsonInclude
-public record OpaQueryContext(TrinoIdentity identity)
-{
-    public static OpaQueryContext fromSystemSecurityContext(SystemSecurityContext ctx)
-    {
-        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(ctx.getIdentity()));
-    }
-
-    public static OpaQueryContext fromIdentity(Identity identity)
-    {
-        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(identity));
-    }
-}
+/**
+ * Helper record used to denote a specific column within a schema & table pair
+ * This is only used in filterColumns where simpler objects than TrinoTable help
+ * keep the code cleaner
+ *
+ * @param schemaTableName Schema and table name
+ * @param columnName Column name
+ */
+public record TrinoColumn(SchemaTableName schemaTableName, String columnName)
+{ }

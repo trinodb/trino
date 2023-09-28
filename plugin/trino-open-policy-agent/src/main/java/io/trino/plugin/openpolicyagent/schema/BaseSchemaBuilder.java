@@ -15,7 +15,8 @@ package io.trino.plugin.openpolicyagent.schema;
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
+
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 public abstract class BaseSchemaBuilder<T, B extends BaseSchemaBuilder<T, B>>
 {
@@ -55,7 +56,7 @@ public abstract class BaseSchemaBuilder<T, B extends BaseSchemaBuilder<T, B>>
                 .entrySet()
                 .stream()
                 .map((e) -> Map.entry(e.getKey(), buildOptional(e.getValue())))
-                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         return getInstance();
     }
 

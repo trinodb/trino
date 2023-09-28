@@ -52,6 +52,12 @@ public class OpaAccessControlFactory
         return create(config, Optional.empty());
     }
 
+    @Override
+    public SystemAccessControl create(Map<String, String> config, SystemAccessControlContext context)
+    {
+        return create(config);
+    }
+
     @VisibleForTesting
     protected SystemAccessControl create(Map<String, String> config, Optional<HttpClient> httpClient)
     {

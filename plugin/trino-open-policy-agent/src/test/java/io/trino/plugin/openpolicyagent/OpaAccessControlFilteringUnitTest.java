@@ -15,7 +15,7 @@ package io.trino.plugin.openpolicyagent;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import io.trino.spi.connector.CatalogSchemaTableName;
+import com.google.common.collect.Maps;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SystemSecurityContext;
@@ -40,6 +40,7 @@ import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.trino.plugin.openpolicyagent.RequestTestUtilities.assertStringRequestsEqual;
 import static io.trino.plugin.openpolicyagent.TestHelpers.NO_ACCESS_RESPONSE;
 import static io.trino.plugin.openpolicyagent.TestHelpers.OK_RESPONSE;
+import static io.trino.plugin.openpolicyagent.TestHelpers.systemSecurityContextFromIdentity;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -62,7 +63,7 @@ public class OpaAccessControlFilteringUnitTest
                 .create(Map.of("opa.policy.uri", opaServerUri.toString()),
                         Optional.of(mockClient));
         this.requestingIdentity = Identity.ofUser("source-user");
-        this.requestingSecurityContext = new SystemSecurityContext(requestingIdentity, Optional.empty());
+        this.requestingSecurityContext = systemSecurityContextFromIdentity(requestingIdentity);
     }
 
     @AfterEach
@@ -75,13 +76,13 @@ public class OpaAccessControlFilteringUnitTest
         }
     }
 
-    private Function<String, HttpClientUtils.MockResponse> buildHandler(String jsonPath, String resourceToAccept)
+    private Function<String, HttpClientUtils.MockResponse> buildHandler(String jsonPath, Set<String> resourcesToAccept)
     {
         return (request) -> {
             try {
                 JsonNode parsedRequest = this.jsonMapper.readTree(request);
                 String requestedItem = parsedRequest.at(jsonPath).asText();
-                if (requestedItem.equals(resourceToAccept)) {
+                if (resourcesToAccept.contains(requestedItem)) {
                     return OK_RESPONSE;
                 }
             }
@@ -90,6 +91,11 @@ public class OpaAccessControlFilteringUnitTest
             }
             return NO_ACCESS_RESPONSE;
         };
+    }
+
+    private Function<String, HttpClientUtils.MockResponse> buildHandler(String jsonPath, String resourceToAccept)
+    {
+        return buildHandler(jsonPath, Set.of(resourceToAccept));
     }
 
     @Test
@@ -101,7 +107,7 @@ public class OpaAccessControlFilteringUnitTest
         this.mockClient.setHandler(buildHandler("/input/action/resource/user/name", "user-one"));
 
         Collection<Identity> result = authorizer.filterViewQueryOwnedBy(
-                requestingSecurityContext,
+                requestingIdentity,
                 requestedIdentities);
         assertEquals(Set.copyOf(result), Set.of(userOne));
 
@@ -232,31 +238,68 @@ public class OpaAccessControlFilteringUnitTest
     @Test
     public void testFilterColumns()
     {
-        CatalogSchemaTableName table = new CatalogSchemaTableName("my-catalog", "my-schema", "my-table");
-        Set<String> requestedColumns = Set.of("column-one", "column-two");
-        this.mockClient.setHandler(buildHandler("/input/action/resource/table/columns/0", "column-one"));
+        SchemaTableName tableOne = SchemaTableName.schemaTableName("my-schema", "table-one");
+        SchemaTableName tableTwo = SchemaTableName.schemaTableName("my-schema", "table-two");
+        SchemaTableName tableThree = SchemaTableName.schemaTableName("my-schema", "table-three");
+        Map<SchemaTableName, Set<String>> requestedColumns = Map.of(
+                tableOne, Set.of("table-one-column-one", "table-one-column-two"),
+                tableTwo, Set.of("table-two-column-one", "table-two-column-two"),
+                tableThree, Set.of("table-three-column-one", "table-three-column-two"));
+        // Allow both columns from one table, one column from another one and no columns from the last one
+        Set<String> columnsToAllow = Set.of("table-one-column-one", "table-one-column-two", "table-two-column-two");
 
-        Set<String> result = authorizer.filterColumns(
+        this.mockClient.setHandler(buildHandler("/input/action/resource/table/columns/0", columnsToAllow));
+
+        Map<SchemaTableName, Set<String>> result = authorizer.filterColumns(
                 requestingSecurityContext,
-                table,
+                "my-catalog",
                 requestedColumns);
-        assertEquals(Set.copyOf(result), Set.of("column-one"));
 
-        List<String> expectedRequests = requestedColumns.stream().map(
-                        """
-                                {
-                                    "operation": "FilterColumns",
-                                    "resource": {
-                                        "table": {
-                                            "tableName": "my-table",
-                                            "schemaName": "my-schema",
-                                            "catalogName": "my-catalog",
-                                            "columns": ["%s"]
+        List<String> expectedRequests = requestedColumns
+                .entrySet()
+                .stream()
+                .<String>mapMulti(
+                        (requestedColumnsForTable, accepter) -> requestedColumnsForTable.getValue().forEach(
+                                (col) -> accepter.accept("""
+                                    {
+                                        "operation": "FilterColumns",
+                                        "resource": {
+                                            "table": {
+                                                "tableName": "%s",
+                                                "schemaName": "my-schema",
+                                                "catalogName": "my-catalog",
+                                                "columns": ["%s"]
+                                            }
                                         }
-                                    }
-                                }"""::formatted)
+                                    }""".formatted(requestedColumnsForTable.getKey().getTableName(), col))))
                 .collect(Collectors.toList());
         assertStringRequestsEqual(expectedRequests, this.mockClient.getRequests(), "/input/action");
+        assertTrue(
+                Maps.difference(
+                        result,
+                        Map.of(
+                                tableOne, Set.of("table-one-column-one", "table-one-column-two"),
+                                tableTwo, Set.of("table-two-column-two"),
+                                tableThree, Set.of()))
+                        .areEqual());
+    }
+
+    @Test
+    public void testEmptyFilterColumns()
+    {
+        SchemaTableName someTable = SchemaTableName.schemaTableName("my-schema", "my-table");
+        Map<SchemaTableName, Set<String>> requestedColumns = Map.of(someTable, Set.of());
+
+        Map<SchemaTableName, Set<String>> result = authorizer.filterColumns(
+                requestingSecurityContext,
+                "my-catalog",
+                requestedColumns);
+
+        assertEquals(mockClient.getRequests().size(), 0);
+        assertTrue(
+                Maps.difference(
+                        result,
+                        requestedColumns).areEqual());
     }
 
     @ParameterizedTest(name = "{index}: {0}")
@@ -272,7 +315,7 @@ public class OpaAccessControlFilteringUnitTest
     @ParameterizedTest(name = "{index}: {0} - {1}")
     @MethodSource("io.trino.plugin.openpolicyagent.FilteringTestHelpers#prepopulatedErrorCases")
     public void testIllegalResponseThrows(
-            BiFunction<OpaAccessControl, SystemSecurityContext, Collection> callable,
+            BiFunction<OpaAccessControl, SystemSecurityContext, ?> callable,
             HttpClientUtils.MockResponse failureResponse,
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)

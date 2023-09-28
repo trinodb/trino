@@ -49,7 +49,9 @@ import static io.trino.plugin.openpolicyagent.HttpClientUtils.InstrumentedHttpCl
 import static io.trino.plugin.openpolicyagent.RequestTestUtilities.assertJsonRequestsEqual;
 import static io.trino.plugin.openpolicyagent.RequestTestUtilities.assertStringRequestsEqual;
 import static io.trino.plugin.openpolicyagent.TestHelpers.OK_RESPONSE;
+import static io.trino.plugin.openpolicyagent.TestHelpers.convertSystemSecurityContextToIdentityArgument;
 import static io.trino.plugin.openpolicyagent.TestHelpers.createFailingTestCases;
+import static io.trino.plugin.openpolicyagent.TestHelpers.systemSecurityContextFromIdentity;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -71,7 +73,7 @@ public class OpaAccessControlUnitTest
                 Map.of("opa.policy.uri", opaServerUri.toString()),
                 Optional.of(mockClient));
         this.requestingIdentity = Identity.ofUser("source-user");
-        this.requestingSecurityContext = new SystemSecurityContext(requestingIdentity, Optional.empty());
+        this.requestingSecurityContext = systemSecurityContextFromIdentity(requestingIdentity);
     }
 
     @AfterEach
@@ -88,9 +90,9 @@ public class OpaAccessControlUnitTest
     {
         Stream<BiConsumer<OpaAccessControl, SystemSecurityContext>> methods =
                 Stream.of(
-                        OpaAccessControl::checkCanExecuteQuery,
-                        OpaAccessControl::checkCanReadSystemInformation,
-                        OpaAccessControl::checkCanWriteSystemInformation,
+                        convertSystemSecurityContextToIdentityArgument(OpaAccessControl::checkCanExecuteQuery),
+                        convertSystemSecurityContextToIdentityArgument(OpaAccessControl::checkCanReadSystemInformation),
+                        convertSystemSecurityContextToIdentityArgument(OpaAccessControl::checkCanWriteSystemInformation),
                         OpaAccessControl::checkCanShowRoles,
                         OpaAccessControl::checkCanShowCurrentRoles,
                         OpaAccessControl::checkCanShowRoleGrants);
@@ -327,7 +329,7 @@ public class OpaAccessControlUnitTest
 
     private static Stream<Arguments> identityResourceTestCases()
     {
-        Stream<FunctionalHelpers.Consumer3<OpaAccessControl, SystemSecurityContext, Identity>> methods = Stream.of(
+        Stream<FunctionalHelpers.Consumer3<OpaAccessControl, Identity, Identity>> methods = Stream.of(
                 OpaAccessControl::checkCanViewQueryOwnedBy,
                 OpaAccessControl::checkCanKillQueryOwnedBy);
         Stream<String> actions = Stream.of(
@@ -340,13 +342,13 @@ public class OpaAccessControlUnitTest
     @MethodSource("io.trino.plugin.openpolicyagent.OpaAccessControlUnitTest#identityResourceTestCases")
     public void testIdentityResourceActions(
             String actionName,
-            FunctionalHelpers.Consumer3<OpaAccessControl, SystemSecurityContext, Identity> callable)
+            FunctionalHelpers.Consumer3<OpaAccessControl, Identity, Identity> callable)
     {
         Identity dummyIdentity = Identity.forUser("dummy-user")
                 .withGroups(Set.of("some-group"))
                 .withExtraCredentials(Map.of("some-extra-credential", "value"))
                 .build();
-        callable.accept(authorizer, requestingSecurityContext, dummyIdentity);
+        callable.accept(authorizer, requestingIdentity, dummyIdentity);
 
         String expectedRequest = """
                 {
@@ -375,7 +377,7 @@ public class OpaAccessControlUnitTest
     @MethodSource("io.trino.plugin.openpolicyagent.OpaAccessControlUnitTest#identityResourceFailureTestCases")
     public void testIdentityResourceActionsFailure(
             String actionName,
-            FunctionalHelpers.Consumer3<OpaAccessControl, SystemSecurityContext, Identity> method,
+            FunctionalHelpers.Consumer3<OpaAccessControl, Identity, Identity> method,
             HttpClientUtils.MockResponse failureResponse,
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
@@ -386,7 +388,7 @@ public class OpaAccessControlUnitTest
                 expectedException,
                 () -> method.accept(
                         authorizer,
-                        requestingSecurityContext,
+                        requestingIdentity,
                         Identity.ofUser("dummy-user")));
         assertTrue(actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
@@ -395,8 +397,8 @@ public class OpaAccessControlUnitTest
     private static Stream<Arguments> stringResourceTestCases()
     {
         Stream<FunctionalHelpers.Consumer3<OpaAccessControl, SystemSecurityContext, String>> methods = Stream.of(
-                OpaAccessControl::checkCanImpersonateUser,
-                OpaAccessControl::checkCanSetSystemSessionProperty,
+                convertSystemSecurityContextToIdentityArgument(OpaAccessControl::checkCanImpersonateUser),
+                convertSystemSecurityContextToIdentityArgument(OpaAccessControl::checkCanSetSystemSessionProperty),
                 OpaAccessControl::checkCanAccessCatalog,
                 OpaAccessControl::checkCanCreateCatalog,
                 OpaAccessControl::checkCanDropCatalog,

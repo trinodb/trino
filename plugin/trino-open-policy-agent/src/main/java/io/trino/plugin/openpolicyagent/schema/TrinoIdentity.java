@@ -19,7 +19,8 @@ import io.trino.spi.security.SelectedRole;
 
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
+
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record TrinoIdentity(
@@ -41,7 +42,7 @@ public record TrinoIdentity(
                         .stream()
                         .map((entry) -> Map.entry(
                                 entry.getKey(), OpaSelectedRole.fromTrinoSelectedRole(entry.getValue())))
-                        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)),
+                        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)),
                 identity.getExtraCredentials());
     }
 

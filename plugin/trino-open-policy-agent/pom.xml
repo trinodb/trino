@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>425-SNAPSHOT</version>
+        <version>428-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -14,8 +14,6 @@
     <description>Trino - Open Policy Agent</description>
 
     <properties>
-        <fasterxml.jackson.version>2.15.0</fasterxml.jackson.version>
-        <air.check.skip-modernizer>true</air.check.skip-modernizer>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
     </properties>
 

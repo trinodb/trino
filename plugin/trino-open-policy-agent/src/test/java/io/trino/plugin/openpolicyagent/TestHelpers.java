@@ -14,11 +14,16 @@
 package io.trino.plugin.openpolicyagent;
 
 import com.google.common.collect.Sets;
+import io.trino.execution.QueryIdGenerator;
 import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.Identity;
+import io.trino.spi.security.SystemSecurityContext;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.params.provider.Arguments;
 
+import java.time.Instant;
 import java.util.Arrays;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -80,5 +85,20 @@ public class TestHelpers
                 illegalResponseArgumentProvider(),
                 Stream.of(
                         Arguments.of(Named.of("No access response", NO_ACCESS_RESPONSE), AccessDeniedException.class, "Access Denied")));
+    }
+
+    public static SystemSecurityContext systemSecurityContextFromIdentity(Identity identity) {
+        return new SystemSecurityContext(identity, new QueryIdGenerator().createNextQueryId(), Instant.now());
+    }
+
+    public static <T> BiConsumer<OpaAccessControl, SystemSecurityContext> convertSystemSecurityContextToIdentityArgument(
+            BiConsumer<OpaAccessControl, Identity> callable)
+    {
+        return (acc, ctx) -> callable.accept(acc, ctx.getIdentity());
+    }
+
+    public static <T> FunctionalHelpers.Consumer3<OpaAccessControl, SystemSecurityContext, T> convertSystemSecurityContextToIdentityArgument(
+            FunctionalHelpers.Consumer3<OpaAccessControl, Identity, T> callable) {
+        return (acc, ctx, val) -> callable.accept(acc, ctx.getIdentity(), val);
     }
 }

@@ -25,7 +25,6 @@ import io.trino.plugin.openpolicyagent.schema.OpaQueryInputResource;
 import io.trino.plugin.openpolicyagent.schema.TrinoSchema;
 import io.trino.plugin.openpolicyagent.schema.TrinoTable;
 import io.trino.plugin.openpolicyagent.schema.TrinoUser;
-import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SystemSecurityContext;
@@ -33,12 +32,12 @@ import io.trino.spi.security.SystemSecurityContext;
 import java.net.URI;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.util.Objects.requireNonNull;
 
 public class OpaBatchAccessControl
         extends OpaAccessControl
@@ -60,111 +59,114 @@ public class OpaBatchAccessControl
         this.opaHttpClient = httpClient;
     }
 
-    private List<Integer> batchQueryOpa(OpaQueryInput input)
+    private <V> Function<List<V>, OpaQueryInput> batchRequestBuilder(OpaQueryContext context, String operation, Function<V, OpaQueryInputResource> resourceMapper)
     {
-        return opaHttpClient.getOpaResponse(input, opaBatchedPolicyUri, batchResultCodec).result();
+        return (items) -> new OpaQueryInput(
+                context,
+                new OpaQueryInputAction.Builder()
+                        .operation(operation)
+                        .filterResources(items.stream().map(resourceMapper).collect(toImmutableList()))
+                        .build());
     }
 
-    private <T> Set<T> batchFilterFromOpa(SystemSecurityContext context, String operation, Collection<T> items, Function<List<T>, List<OpaQueryInputResource>> converter)
+    private <K, V> BiFunction<K, List<V>, OpaQueryInput> batchRequestBuilder(OpaQueryContext context, String operation, BiFunction<K, List<V>, OpaQueryInputResource> resourceMapper)
     {
-        if (items.isEmpty()) {
-            return ImmutableSet.of();
-        }
-        List<T> orderedItems = ImmutableList.copyOf(items);
-        OpaQueryInputAction action = new OpaQueryInputAction.Builder()
-                .operation(operation)
-                .filterResources(requireNonNull(converter.apply(orderedItems)))
-                .build();
-        OpaQueryInput query = new OpaQueryInput(OpaQueryContext.fromSystemSecurityContext(context), action);
-        return batchQueryOpa(query)
-                .stream()
-                .map(orderedItems::get)
-                .collect(toImmutableSet());
+        return (k, v) -> new OpaQueryInput(
+                context,
+                new OpaQueryInputAction.Builder()
+                        .operation(operation)
+                        .filterResources(ImmutableList.of(resourceMapper.apply(k, v)))
+                        .build());
     }
 
-    private <T> Function<List<T>, List<OpaQueryInputResource>> mapItemToResource(Function<T, OpaQueryInputResource> converter)
+    private <T> Set<T> batchFilterFromOpa(OpaQueryContext context, String operation, Collection<T> items, Function<T, OpaQueryInputResource> converter)
     {
-        return (s) -> s.stream().map(converter).collect(toImmutableList());
+        return opaHttpClient.batchFilterFromOpa(
+                items,
+                batchRequestBuilder(context, operation, converter),
+                opaBatchedPolicyUri,
+                batchResultCodec);
     }
 
     @Override
-    public Collection<Identity> filterViewQueryOwnedBy(SystemSecurityContext context, Collection<Identity> queryOwners)
+    public Collection<Identity> filterViewQueryOwnedBy(Identity identity, Collection<Identity> queryOwners)
     {
         return batchFilterFromOpa(
-                context,
+                OpaQueryContext.fromIdentity(identity),
                 "FilterViewQueryOwnedBy",
                 queryOwners,
-                mapItemToResource((item) -> new OpaQueryInputResource
+                (item) -> new OpaQueryInputResource
                         .Builder()
                         .user(new TrinoUser(item))
-                        .build()));
+                        .build());
     }
 
     @Override
     public Set<String> filterCatalogs(SystemSecurityContext context, Set<String> catalogs)
     {
         return batchFilterFromOpa(
-                context,
+                OpaQueryContext.fromSystemSecurityContext(context),
                 "FilterCatalogs",
                 catalogs,
-                mapItemToResource(
-                        (i) -> new OpaQueryInputResource
-                                .Builder()
-                                .catalog(i)
-                                .build()));
+                (item) -> new OpaQueryInputResource
+                        .Builder()
+                        .catalog(item)
+                        .build());
     }
 
     @Override
     public Set<String> filterSchemas(SystemSecurityContext context, String catalogName, Set<String> schemaNames)
     {
         return batchFilterFromOpa(
-                context,
+                OpaQueryContext.fromSystemSecurityContext(context),
                 "FilterSchemas",
                 schemaNames,
-                mapItemToResource(
-                        (i) -> new OpaQueryInputResource
+                (item) -> new OpaQueryInputResource
+                        .Builder()
+                        .schema(new TrinoSchema
                                 .Builder()
-                                .schema(new TrinoSchema
-                                        .Builder()
-                                        .catalogName(catalogName)
-                                        .schemaName(i)
-                                        .build())
-                                .build()));
+                                .catalogName(catalogName)
+                                .schemaName(item)
+                                .build())
+                        .build());
     }
 
     @Override
     public Set<SchemaTableName> filterTables(SystemSecurityContext context, String catalogName, Set<SchemaTableName> tableNames)
     {
         return batchFilterFromOpa(
-                context,
+                OpaQueryContext.fromSystemSecurityContext(context),
                 "FilterTables",
                 tableNames,
-                mapItemToResource(
-                        (i) -> new OpaQueryInputResource
+                (i) -> new OpaQueryInputResource
+                        .Builder()
+                        .table(new TrinoTable
                                 .Builder()
-                                .table(new TrinoTable
-                                        .Builder()
-                                        .catalogName(catalogName)
-                                        .schemaName(i.getSchemaName())
-                                        .tableName(i.getTableName())
-                                        .build())
-                                .build()));
+                                .catalogName(catalogName)
+                                .schemaName(i.getSchemaName())
+                                .tableName(i.getTableName())
+                                .build())
+                        .build());
     }
 
     @Override
-    public Set<String> filterColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
+    public Map<SchemaTableName, Set<String>> filterColumns(SystemSecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
     {
-        return batchFilterFromOpa(
-                context,
+        BiFunction<SchemaTableName, List<String>, OpaQueryInput> requestBuilder = batchRequestBuilder(
+                OpaQueryContext.fromSystemSecurityContext(context),
                 "FilterColumns",
-                columns,
-                (s) -> List.of(new OpaQueryInputResource
-                        .Builder()
-                        .table(TrinoTable
-                                .Builder
-                                .fromTrinoTable(table)
-                                .columns(ImmutableSet.copyOf(s))
-                                .build())
-                        .build()));
+                (schemaTableName, columns) ->
+                        new OpaQueryInputResource
+                                .Builder()
+                                .table(
+                                        new TrinoTable
+                                                .Builder()
+                                                .catalogName(catalogName)
+                                                .schemaName(schemaTableName.getSchemaName())
+                                                .tableName(schemaTableName.getTableName())
+                                                .columns(ImmutableSet.copyOf(columns))
+                                                .build())
+                                .build());
+        return opaHttpClient.parallelBatchFilterFromOpa(tableColumns, requestBuilder, opaBatchedPolicyUri, batchResultCodec);
     }
 }
