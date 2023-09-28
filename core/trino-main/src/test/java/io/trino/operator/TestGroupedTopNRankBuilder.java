@@ -260,7 +260,6 @@ public class TestGroupedTopNRankBuilder
                 1,
                 false,
                 new JoinCompiler(typeOperators),
-                typeOperators,
                 updateMemory);
     }
 

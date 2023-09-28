@@ -182,9 +182,8 @@ public class TestDeltaLakePageSink
                 OptionalInt.empty(),
                 new ProtocolEntry(DEFAULT_READER_VERSION, DEFAULT_WRITER_VERSION, Optional.empty(), Optional.empty()));
 
-        TypeOperators typeOperators = new TypeOperators();
         DeltaLakePageSinkProvider provider = new DeltaLakePageSinkProvider(
-                new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), typeOperators),
+                new GroupByHashPageIndexerFactory(new JoinCompiler(new TypeOperators())),
                 new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS),
                 JsonCodec.jsonCodec(DataFileInfo.class),
                 JsonCodec.jsonCodec(DeltaLakeMergeResult.class),

@@ -25,7 +25,6 @@ import io.trino.operator.join.LookupSourceProvider;
 import io.trino.operator.join.OuterPositionIterator;
 import io.trino.operator.join.StaticLookupSourceProvider;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.type.BlockTypeOperators;
 
@@ -58,17 +57,38 @@ public class IndexLookupSourceFactory
             boolean shareIndexLoading,
             PagesIndex.Factory pagesIndexFactory,
             JoinCompiler joinCompiler,
-            TypeOperators typeOperators,
             BlockTypeOperators blockTypeOperators)
     {
         this.outputTypes = ImmutableList.copyOf(requireNonNull(outputTypes, "outputTypes is null"));
 
         if (shareIndexLoading) {
-            IndexLoader shared = new IndexLoader(lookupSourceInputChannels, keyOutputChannels, keyOutputHashChannel, outputTypes, indexBuildDriverFactoryProvider, 10_000, maxIndexMemorySize, stats, pagesIndexFactory, joinCompiler, typeOperators, blockTypeOperators);
+            IndexLoader shared = new IndexLoader(
+                    lookupSourceInputChannels,
+                    keyOutputChannels,
+                    keyOutputHashChannel,
+                    outputTypes,
+                    indexBuildDriverFactoryProvider,
+                    10_000,
+                    maxIndexMemorySize,
+                    stats,
+                    pagesIndexFactory,
+                    joinCompiler,
+                    blockTypeOperators);
             this.indexLoaderSupplier = () -> shared;
         }
         else {
-            this.indexLoaderSupplier = () -> new IndexLoader(lookupSourceInputChannels, keyOutputChannels, keyOutputHashChannel, outputTypes, indexBuildDriverFactoryProvider, 10_000, maxIndexMemorySize, stats, pagesIndexFactory, joinCompiler, typeOperators, blockTypeOperators);
+            this.indexLoaderSupplier = () -> new IndexLoader(
+                    lookupSourceInputChannels,
+                    keyOutputChannels,
+                    keyOutputHashChannel,
+                    outputTypes,
+                    indexBuildDriverFactoryProvider,
+                    10_000,
+                    maxIndexMemorySize,
+                    stats,
+                    pagesIndexFactory,
+                    joinCompiler,
+                    blockTypeOperators);
         }
     }
 
