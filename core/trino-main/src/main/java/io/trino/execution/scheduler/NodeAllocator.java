@@ -40,6 +40,10 @@ public interface NodeAllocator
 
         default void attachTaskId(TaskId taskId) {}
 
+        /**
+         * Update execution class if it changes at runtime.
+         * It is only allowed to change execution class from speculative to non-speculative.
+         */
         void setExecutionClass(TaskExecutionClass executionClass);
 
         void release();
