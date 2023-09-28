@@ -18,21 +18,23 @@ import io.trino.operator.scalar.ParametricScalar;
 
 import static org.testng.Assert.assertEquals;
 
-abstract class TestAnnotationEngine
+class AnnotationEngineAssertions
 {
-    void assertImplementationCount(ParametricScalar scalar, int exact, int specialized, int generic)
+    private AnnotationEngineAssertions() {}
+
+    public static void assertImplementationCount(ParametricScalar scalar, int exact, int specialized, int generic)
     {
         assertImplementationCount(scalar.getImplementations(), exact, specialized, generic);
     }
 
-    void assertImplementationCount(ParametricImplementationsGroup<?> implementations, int exact, int specialized, int generic)
+    public static void assertImplementationCount(ParametricImplementationsGroup<?> implementations, int exact, int specialized, int generic)
     {
         assertEquals(implementations.getExactImplementations().size(), exact);
         assertEquals(implementations.getSpecializedImplementations().size(), specialized);
         assertEquals(implementations.getGenericImplementations().size(), generic);
     }
 
-    void assertDependencyCount(ParametricAggregationImplementation implementation, int input, int combine, int output)
+    public static void assertDependencyCount(ParametricAggregationImplementation implementation, int input, int combine, int output)
     {
         assertEquals(implementation.getInputDependencies().size(), input);
         assertEquals(implementation.getCombineDependencies().size(), combine);
