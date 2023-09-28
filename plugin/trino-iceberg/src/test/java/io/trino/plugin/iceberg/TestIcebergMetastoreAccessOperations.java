@@ -212,6 +212,19 @@ public class TestIcebergMetastoreAccessOperations
     }
 
     @Test
+    public void testDropMaterializedView()
+    {
+        assertUpdate("CREATE TABLE test_drop_mview_table (id VARCHAR, age INT)");
+        assertUpdate("CREATE MATERIALIZED VIEW test_drop_mview_view AS SELECT id, age FROM test_drop_mview_table");
+
+        assertMetastoreInvocations("DROP MATERIALIZED VIEW test_drop_mview_view",
+                ImmutableMultiset.builder()
+                        .addCopies(GET_TABLE, 2)
+                        .addCopies(DROP_TABLE, 2)
+                        .build());
+    }
+
+    @Test
     public void testJoin()
     {
         assertUpdate("CREATE TABLE test_join_t1 AS SELECT 2 as age, 'id1' AS id", 1);
