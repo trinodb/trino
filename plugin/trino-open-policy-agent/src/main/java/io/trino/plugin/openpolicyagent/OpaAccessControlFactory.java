@@ -62,12 +62,9 @@ public class OpaAccessControlFactory
                 binder -> {
                     jsonCodecBinder(binder).bindJsonCodec(OpaQuery.class);
                     jsonCodecBinder(binder).bindJsonCodec(OpaQueryResult.class);
-                    if (httpClient.isEmpty()) {
-                        httpClientBinder(binder).bindHttpClient("opa-access-control", ForOpa.class);
-                    }
-                    else {
-                        binder.bind(Key.get(HttpClient.class, ForOpa.class)).toInstance(httpClient.orElseThrow());
-                    }
+                    httpClient.ifPresentOrElse(
+                            client -> binder.bind(Key.get(HttpClient.class, ForOpa.class)).toInstance(client),
+                            () -> httpClientBinder(binder).bindHttpClient("opa-access-control", ForOpa.class));
                     binder.bind(OpaHighLevelClient.class);
                     binder.bind(Key.get(Executor.class, ForOpa.class))
                             .toProvider(ExecutorProvider.class)

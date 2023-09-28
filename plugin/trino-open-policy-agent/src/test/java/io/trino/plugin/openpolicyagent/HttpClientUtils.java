@@ -14,7 +14,6 @@
 package io.trino.plugin.openpolicyagent;
 
 import com.google.common.collect.ImmutableListMultimap;
-import io.airlift.http.client.BodyGenerator;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
@@ -58,23 +57,24 @@ public class HttpClientUtils
             if (!requireNonNull(request.getUri()).equals(expectedURI)) {
                 throw new IllegalArgumentException("Unexpected URI: %s".formatted(request.getUri().toString()));
             }
-            BodyGenerator requestBodyGenerator = requireNonNull(request.getBodyGenerator());
-            if (!(requestBodyGenerator instanceof StaticBodyGenerator)) {
-                throw new IllegalArgumentException("Request has an unexpected body generator");
+            if (requireNonNull(request.getBodyGenerator()) instanceof StaticBodyGenerator bodyGenerator) {
+                synchronized (this.requests) {
+                    String requestContents = new String(bodyGenerator.getBody(), StandardCharsets.UTF_8);
+                    requests.add(requestContents);
+                    return handler.apply(requestContents).buildResponse();
+                }
             }
-            synchronized (this.requests) {
-                String requestContents = new String(((StaticBodyGenerator) requestBodyGenerator).getBody(), StandardCharsets.UTF_8);
-                requests.add(requestContents);
-                return handler.apply(requestContents).buildResponse();
+            else {
+                throw new IllegalArgumentException("Request has an unexpected body generator");
             }
         }
 
         public RecordingHttpProcessor(URI expectedURI, String expectedMethod, String expectedContentType, Function<String, MockResponse> handler)
         {
-            this.expectedMethod = expectedMethod;
-            this.expectedContentType = expectedContentType;
-            this.expectedURI = expectedURI;
-            this.handler = handler;
+            this.expectedMethod = requireNonNull(expectedMethod, "expectedMethod is null");
+            this.expectedContentType = requireNonNull(expectedContentType, "expectedContentType is null");
+            this.expectedURI = requireNonNull(expectedURI, "expectedURI is null");
+            this.handler = requireNonNull(handler, "handler is null");
         }
 
         public List<String> getRequests()

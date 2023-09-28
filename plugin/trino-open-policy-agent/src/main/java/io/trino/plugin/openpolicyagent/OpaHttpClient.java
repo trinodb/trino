@@ -103,8 +103,8 @@ public class OpaHttpClient
             return opaResponseFuture.get();
         }
         catch (ExecutionException e) {
-            if (e.getCause() != null && e.getCause() instanceof OpaQueryException) {
-                throw (OpaQueryException) e.getCause();
+            if (e.getCause() instanceof OpaQueryException queryException) {
+                throw queryException;
             }
             throw new OpaQueryException.QueryFailed(e);
         }

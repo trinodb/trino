@@ -40,8 +40,8 @@ public abstract class BaseSchemaBuilder<T, B extends BaseSchemaBuilder<T, B>>
     private Optional<Object> buildOptional(Object item)
     {
         Object valueToUse = item;
-        if (item instanceof Optional) {
-            valueToUse = ((Optional<?>) item).orElse(null);
+        if (item instanceof Optional<?> optionalItem) {
+            valueToUse = optionalItem.orElse(null);
         }
         return Optional.ofNullable(valueToUse);
     }
