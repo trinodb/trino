@@ -3996,7 +3996,7 @@ public abstract class AbstractTestHive
         doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS);
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
-            ConnectorMetadata metadata = transaction.getMetadata();
+            HiveMetadata metadata = (HiveMetadata) transaction.getMetadata();
             assertThat(metadata.applyTableScanRedirect(session, getTableHandle(metadata, tableName))).isEmpty();
             Optional<TableScanRedirectApplicationResult> result = metadata.applyTableScanRedirect(session, getTableHandle(metadata, sourceTableName));
             assertThat(result).isPresent();
@@ -4010,14 +4010,14 @@ public abstract class AbstractTestHive
     }
 
     @Test
-    public void testHiveTableRedirection()
+    public void testHiveTableDoesNotExistsWithRedirection()
             throws Exception
     {
         SchemaTableName tableName = temporaryTable("hive_table_redirection_tester");
         doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS);
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
-            ConnectorMetadata metadata = transaction.getMetadata();
+            HiveMetadata metadata = (HiveMetadata) transaction.getMetadata();
             SchemaTableName schemaTableName = new SchemaTableName("test_schema_name", tableName.getTableName());
             Optional<CatalogSchemaTableName> result = metadata.redirectTable(session, schemaTableName);
             assertThat(result).isPresent();
@@ -4037,7 +4037,7 @@ public abstract class AbstractTestHive
         doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS);
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
-            ConnectorMetadata metadata = transaction.getMetadata();
+            HiveMetadata metadata = (HiveMetadata) transaction.getMetadata();
             SchemaTableName schemaTableName = new SchemaTableName("test_schema_name", tableName.getTableName());
             Optional<CatalogSchemaTableName> result = metadata.redirectTable(session, schemaTableName);
             assertThat(result).isPresent();
@@ -4056,7 +4056,7 @@ public abstract class AbstractTestHive
         SchemaTableName tableName = temporaryTable("non_existent_table");
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
-            ConnectorMetadata metadata = transaction.getMetadata();
+            HiveMetadata metadata = (HiveMetadata) transaction.getMetadata();
             SchemaTableName schemaTableName = new SchemaTableName("test_schema_name", tableName.getTableName());
             Optional<CatalogSchemaTableName> result = metadata.redirectTable(session, schemaTableName);
             assertThat(result).isEmpty();
@@ -4069,7 +4069,7 @@ public abstract class AbstractTestHive
         SchemaTableName tableName = temporaryTable("non_existent_table");
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
-            ConnectorMetadata metadata = transaction.getMetadata();
+            HiveMetadata metadata = (HiveMetadata) transaction.getMetadata();
             SchemaTableName schemaTableName = new SchemaTableName("test_schema_name", tableName.getTableName());
             Optional<CatalogSchemaTableName> result = metadata.redirectTable(session, schemaTableName);
             assertThat(result).isPresent();
