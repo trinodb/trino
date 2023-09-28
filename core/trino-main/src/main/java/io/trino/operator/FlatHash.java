@@ -24,7 +24,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfByteArray;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
@@ -78,6 +77,7 @@ public final class FlatHash
 
     // reserve enough memory before rehash
     private final UpdateMemory checkMemoryReservation;
+    private long fixedSizeEstimate;
     private long rehashMemoryReservation;
 
     private int nextGroupId;
@@ -90,7 +90,7 @@ public final class FlatHash
         this.checkMemoryReservation = checkMemoryReservation;
 
         capacity = max(VECTOR_LENGTH, computeCapacity(expectedSize, DEFAULT_LOAD_FACTOR));
-        maxFill = toIntExact(capacity * 15L / 16);
+        maxFill = calculateMaxFill(capacity);
         mask = capacity - 1;
         control = new byte[capacity + VECTOR_LENGTH];
 
@@ -106,41 +106,16 @@ public final class FlatHash
         recordHashOffset = recordGroupIdOffset + Integer.BYTES;
         recordValueOffset = recordHashOffset + (hasPrecomputedHash ? Long.BYTES : 0);
         recordSize = recordValueOffset + flatHashStrategy.getTotalFlatFixedLength();
+
         recordGroups = createRecordGroups(capacity, recordSize);
-    }
-
-    private static byte[][] createRecordGroups(int capacity, int recordSize)
-    {
-        if (capacity < RECORDS_PER_GROUP) {
-            return new byte[][] {new byte[multiplyExact(capacity, recordSize)]};
-        }
-
-        byte[][] groups = new byte[(capacity + 1) >> RECORDS_PER_GROUP_SHIFT][];
-        for (int i = 0; i < groups.length; i++) {
-            groups[i] = new byte[multiplyExact(RECORDS_PER_GROUP, recordSize)];
-        }
-        return groups;
-    }
-
-    private static long computeRecordGroupsSize(int capacity, int recordSize)
-    {
-        if (capacity < RECORDS_PER_GROUP) {
-            return sizeOfObjectArray(1) + sizeOfByteArray(multiplyExact(capacity, recordSize));
-        }
-
-        int groupCount = addExact(capacity, 1) >> RECORDS_PER_GROUP_SHIFT;
-        return sizeOfObjectArray(groupCount) +
-                multiplyExact(groupCount, sizeOfByteArray(multiplyExact(RECORDS_PER_GROUP, recordSize)));
+        fixedSizeEstimate = computeFixedSizeEstimate(capacity, recordSize);
     }
 
     public long getEstimatedSize()
     {
         return sumExact(
-                INSTANCE_SIZE,
-                sizeOf(control),
-                multiplyExact(sizeOf(recordGroups[0]), recordGroups.length),
+                fixedSizeEstimate,
                 (variableWidthData == null ? 0 : variableWidthData.getRetainedSizeBytes()),
-                sizeOf(groupRecordIndex),
                 rehashMemoryReservation);
     }
 
@@ -319,10 +294,7 @@ public final class FlatHash
         int newCapacity = computeNewCapacity(minimumRequiredCapacity);
 
         // the entire newCapacity is reserved since during the rehash both the old and new hash table are in retained
-        long tempControlBytes = sizeOfByteArray(newCapacity + VECTOR_LENGTH);
-        long tempRecordsBytes = computeRecordGroupsSize(newCapacity, recordSize);
-        long tempGroupRecordIndexBytes = sizeOfIntArray(newCapacity);
-        rehashMemoryReservation = sumExact(tempControlBytes, tempRecordsBytes, tempGroupRecordIndexBytes);
+        rehashMemoryReservation = computeFixedSizeEstimate(newCapacity, recordSize);
         verify(rehashMemoryReservation >= 0, "rehashMemoryReservation is negative");
         if (!checkMemoryReservation.update()) {
             return false;
@@ -339,7 +311,7 @@ public final class FlatHash
         byte[][] oldRecordGroups = recordGroups;
 
         capacity = computeNewCapacity(minimumRequiredCapacity);
-        maxFill = toIntExact(capacity * 15L / 16);
+        maxFill = calculateMaxFill(capacity);
         mask = capacity - 1;
 
         control = new byte[capacity + VECTOR_LENGTH];
@@ -390,6 +362,7 @@ public final class FlatHash
 
         // release temporary memory reservation
         rehashMemoryReservation = 0;
+        fixedSizeEstimate = computeFixedSizeEstimate(capacity, recordSize);
         checkMemoryReservation.update();
     }
 
@@ -479,6 +452,44 @@ public final class FlatHash
     public int getPhysicalPosition(int groupId)
     {
         return groupRecordIndex[groupId];
+    }
+
+    private static int calculateMaxFill(int capacity)
+    {
+        return toIntExact(capacity * 15L / 16);
+    }
+
+    private static byte[][] createRecordGroups(int capacity, int recordSize)
+    {
+        if (capacity <= RECORDS_PER_GROUP) {
+            return new byte[][] {new byte[multiplyExact(capacity, recordSize)]};
+        }
+
+        byte[][] groups = new byte[(capacity + 1) >> RECORDS_PER_GROUP_SHIFT][];
+        for (int i = 0; i < groups.length; i++) {
+            groups[i] = new byte[multiplyExact(RECORDS_PER_GROUP, recordSize)];
+        }
+        return groups;
+    }
+
+    private static long computeRecordGroupsSize(int capacity, int recordSize)
+    {
+        if (capacity <= RECORDS_PER_GROUP) {
+            return sizeOfObjectArray(1) + sizeOfByteArray(multiplyExact(capacity, recordSize));
+        }
+
+        int groupCount = addExact(capacity, 1) >> RECORDS_PER_GROUP_SHIFT;
+        return sizeOfObjectArray(groupCount) +
+                multiplyExact(groupCount, sizeOfByteArray(multiplyExact(RECORDS_PER_GROUP, recordSize)));
+    }
+
+    private static long computeFixedSizeEstimate(int capacity, int recordSize)
+    {
+        return sumExact(
+                INSTANCE_SIZE,
+                sizeOfByteArray(capacity + VECTOR_LENGTH),
+                computeRecordGroupsSize(capacity, recordSize),
+                sizeOfIntArray(capacity));
     }
 
     public static long sumExact(long... values)
