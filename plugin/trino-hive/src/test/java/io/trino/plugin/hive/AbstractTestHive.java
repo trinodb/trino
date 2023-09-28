@@ -513,8 +513,7 @@ public abstract class AbstractTestHive
             // exclude formats that change table schema with serde and read-only formats
             ImmutableSet.of(AVRO, CSV, REGEX));
 
-    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
-    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(TYPE_OPERATORS);
+    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(new TypeOperators());
 
     protected static final List<ColumnMetadata> STATISTICS_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
             .add(new ColumnMetadata("t_boolean", BOOLEAN))
@@ -925,7 +924,7 @@ public abstract class AbstractTestHive
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastoreClient),
-                new GroupByHashPageIndexerFactory(JOIN_COMPILER, TYPE_OPERATORS),
+                new GroupByHashPageIndexerFactory(JOIN_COMPILER),
                 TESTING_TYPE_MANAGER,
                 getHiveConfig(),
                 getSortingFileWriterConfig(),
