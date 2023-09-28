@@ -4701,9 +4701,14 @@ public abstract class BaseIcebergConnectorTest
     protected void verifyIcebergTableProperties(MaterializedResult actual)
     {
         assertThat(actual).isNotNull();
-        MaterializedResult expected = resultBuilder(getSession())
-                .row("write.format.default", format.name())
-                .build();
+        MaterializedResult.Builder rows = resultBuilder(getSession())
+                .row("write.format.default", format.name());
+
+        if (format == PARQUET) {
+            rows = rows.row("write.parquet.compression-codec", "zstd");
+        }
+
+        MaterializedResult expected = rows.build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 
