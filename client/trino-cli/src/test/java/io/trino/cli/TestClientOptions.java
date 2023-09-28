@@ -21,7 +21,7 @@ import io.trino.cli.ClientOptions.ClientSessionProperty;
 import io.trino.cli.ClientOptions.OutputFormat;
 import io.trino.client.ClientSession;
 import io.trino.client.uri.TrinoUri;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
 import java.time.ZoneId;
@@ -29,6 +29,7 @@ import java.util.Optional;
 
 import static io.trino.cli.Trino.createCommandLine;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -129,18 +130,26 @@ public class TestClientOptions
         assertEquals(session.getServer().toString(), "http://test:443");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Unparseable port number: x:y")
+    @Test
     public void testInvalidServer()
     {
-        Console console = createConsole("--server=x:y");
-        console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        assertThatThrownBy(() -> {
+            Console console = createConsole("--server=x:y");
+            console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        })
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Unparseable port number: x:y");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Using both the URL parameter and the --server option is not allowed")
+    @Test
     public void testServerAndURL()
     {
-        Console console = createConsole("--server=trino://server.example:80", "trino://server.example:80");
-        console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        assertThatThrownBy(() -> {
+            Console console = createConsole("--server=trino://server.example:80", "trino://server.example:80");
+            console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        })
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Using both the URL parameter and the --server option is not allowed");
     }
 
     @Test
@@ -164,11 +173,15 @@ public class TestClientOptions
         assertEquals(uri.getSource(), Optional.of("my-client"));
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Setting the password in the URL parameter is not allowed.*")
+    @Test
     public void testURLPassword()
     {
-        Console console = createConsole("trino://server.example:80?password=invalid");
-        console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        assertThatThrownBy(() -> {
+            Console console = createConsole("trino://server.example:80?password=invalid");
+            console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        })
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Setting the password in the URL parameter is not allowed.*");
     }
 
     @Test
@@ -256,41 +269,55 @@ public class TestClientOptions
         assertTrue(session.isCompressionDisabled());
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QInvalid session property: foo.bar.baz=value\\E")
+    @Test
     public void testThreePartPropertyName()
     {
-        new ClientSessionProperty("foo.bar.baz=value");
+        assertThatThrownBy(() -> new ClientSessionProperty("foo.bar.baz=value"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid session property: foo.bar.baz=value");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QSession property name is empty\\E")
+    @Test
     public void testEmptyPropertyName()
     {
-        new ClientSessionProperty("=value");
+        assertThatThrownBy(() -> new ClientSessionProperty("=value"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Session property name is empty");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QSession property name contains spaces or is not ASCII: ☃\\E")
+    @Test
     public void testInvalidCharsetPropertyName()
     {
-        new ClientSessionProperty("\u2603=value");
+        assertThatThrownBy(() -> new ClientSessionProperty("\u2603=value"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Session property name contains spaces or is not ASCII: ☃");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QSession property value contains spaces or is not ASCII: ☃\\E")
+    @Test
     public void testInvalidCharsetPropertyValue()
     {
-        new ClientSessionProperty("name=\u2603");
+        assertThatThrownBy(() -> new ClientSessionProperty("name=\u2603"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Session property value contains spaces or is not ASCII: ☃");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QSession property catalog must not contain '=': name\\E")
+    @Test
     public void testEqualSignNoAllowedInPropertyCatalog()
     {
-        new ClientSessionProperty(Optional.of("cat=alog"), "name", "value");
+        assertThatThrownBy(() -> new ClientSessionProperty(Optional.of("cat=alog"), "name", "value"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Session property catalog must not contain '=': name");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QMultiple entries with same key: test.token.foo=bar and test.token.foo=foo\\E")
+    @Test
     public void testDuplicateExtraCredentialKey()
     {
-        Console console = createConsole("--extra-credential", "test.token.foo=foo", "--extra-credential", "test.token.foo=bar");
-        console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        assertThatThrownBy(() -> {
+            Console console = createConsole("--extra-credential", "test.token.foo=foo", "--extra-credential", "test.token.foo=bar");
+            console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        })
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Multiple entries with same key: test.token.foo=bar and test.token.foo=foo");
     }
 
     private static Console createConsole(String... args)

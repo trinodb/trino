@@ -20,7 +20,7 @@ import io.trino.sql.ExpressionTestUtils;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SymbolReference;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;

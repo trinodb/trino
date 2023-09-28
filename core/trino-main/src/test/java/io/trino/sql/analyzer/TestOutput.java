@@ -20,7 +20,7 @@ import io.trino.execution.Column;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.sql.analyzer.Analysis.SourceColumn;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 

@@ -15,7 +15,7 @@ package io.trino.plugin.postgresql;
 
 import io.trino.plugin.jdbc.BaseAutomaticJoinPushdownTest;
 import io.trino.testing.QueryRunner;
-import org.testng.SkipException;
+import org.junit.jupiter.api.Disabled;
 
 import java.util.List;
 import java.util.Map;
@@ -40,10 +40,10 @@ public class TestPostgreSqlAutomaticJoinPushdown
     }
 
     @Override
+    @Disabled
     public void testJoinPushdownWithEmptyStatsInitially()
     {
         // PostgreSQL automatically collects stats for newly created tables via the autovacuum daemon and this cannot be disabled reliably
-        throw new SkipException("PostgreSQL table statistics are automatically populated");
     }
 
     @Override

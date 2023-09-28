@@ -16,9 +16,11 @@ package io.trino.plugin.hive.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -28,28 +30,31 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public class TestThrottledAsyncQueue
 {
     private ExecutorService executor;
 
-    @BeforeClass
+    @BeforeAll
     public void setUpClass()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("TestThrottledAsyncQueue-%s"));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDownClass()
     {
         executor.shutdownNow();
         executor = null;
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testThrottle()
     {
         // Make sure that the dequeuing is throttled even if we have enough elements in the queue
@@ -82,7 +87,8 @@ public class TestThrottledAsyncQueue
         assertTrue(queue.isFinished());
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testThrottleEmptyQueue()
             throws Exception
     {
@@ -116,7 +122,8 @@ public class TestThrottledAsyncQueue
         assertTrue(queue.isFinished());
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testBorrowThrows()
             throws Exception
     {
@@ -163,7 +170,8 @@ public class TestThrottledAsyncQueue
         assertTrue(queue.isFinished());
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testGetPartial()
             throws Exception
     {
@@ -178,7 +186,8 @@ public class TestThrottledAsyncQueue
         assertTrue(queue.isFinished());
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testFullQueue()
             throws Exception
     {
@@ -209,7 +218,8 @@ public class TestThrottledAsyncQueue
         assertTrue(queue.isFinished());
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testEmptyQueue()
             throws Exception
     {
@@ -233,7 +243,8 @@ public class TestThrottledAsyncQueue
         assertTrue(queue.isFinished());
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testOfferAfterFinish()
             throws Exception
     {

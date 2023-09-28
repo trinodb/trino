@@ -23,7 +23,7 @@ import io.trino.spi.block.RunLengthBlockEncoding;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ShortArrayBlockBuilder;
 import io.trino.spi.block.VariableWidthBlockBuilder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

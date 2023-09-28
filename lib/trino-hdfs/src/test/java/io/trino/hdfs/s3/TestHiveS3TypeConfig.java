@@ -14,7 +14,7 @@
 package io.trino.hdfs.s3;
 
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 

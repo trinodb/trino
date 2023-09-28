@@ -21,7 +21,7 @@ import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Array;
 import java.util.Arrays;

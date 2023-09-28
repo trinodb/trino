@@ -52,9 +52,10 @@ import io.trino.type.LikePatternType;
 import io.trino.type.TypeCoercion;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -101,11 +102,13 @@ import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+@TestInstance(PER_CLASS)
 public class TestDomainTranslator
 {
     private static final Symbol C_BIGINT = new Symbol("c_bigint");
@@ -179,7 +182,7 @@ public class TestDomainTranslator
     private LiteralEncoder literalEncoder;
     private DomainTranslator domainTranslator;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         functionResolution = new TestingFunctionResolution();
@@ -187,7 +190,7 @@ public class TestDomainTranslator
         domainTranslator = new DomainTranslator(functionResolution.getPlannerContext());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         functionResolution = null;

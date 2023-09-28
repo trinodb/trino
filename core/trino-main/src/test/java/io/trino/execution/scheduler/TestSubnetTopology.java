@@ -15,7 +15,7 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.HostAddress;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.execution.scheduler.NetworkLocation.ROOT_LOCATION;
 import static io.trino.execution.scheduler.SubnetBasedTopology.AddressProtocol.IPv4;

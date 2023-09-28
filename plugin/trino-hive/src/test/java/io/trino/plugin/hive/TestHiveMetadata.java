@@ -19,7 +19,8 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.ValueSet;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.Optional;
 import java.util.stream.IntStream;
@@ -51,7 +52,8 @@ public class TestHiveMetadata
             HiveColumnHandle.ColumnType.PARTITION_KEY,
             Optional.empty());
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testCreatePredicate()
     {
         ImmutableList.Builder<HivePartition> partitions = ImmutableList.builder();

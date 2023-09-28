@@ -16,7 +16,7 @@ package io.trino.split;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.split.SplitSource.SplitBatch;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.Future;
 

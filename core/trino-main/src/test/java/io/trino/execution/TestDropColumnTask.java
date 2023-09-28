@@ -25,7 +25,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -38,7 +38,6 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test(singleThreaded = true)
 public class TestDropColumnTask
         extends BaseDataDefinitionTaskTest
 {

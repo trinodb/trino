@@ -57,8 +57,9 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.transaction.TransactionManager;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInstance;
 
 import java.net.URI;
 import java.util.HashMap;
@@ -89,7 +90,9 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
+@TestInstance(PER_METHOD)
 public abstract class BaseDataDefinitionTaskTest
 {
     public static final String SCHEMA = "schema";
@@ -112,7 +115,7 @@ public abstract class BaseDataDefinitionTaskTest
     protected TransactionManager transactionManager;
     protected QueryStateMachine queryStateMachine;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         testSession = testSessionBuilder()
@@ -134,7 +137,7 @@ public abstract class BaseDataDefinitionTaskTest
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl(), testSession);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         if (queryRunner != null) {

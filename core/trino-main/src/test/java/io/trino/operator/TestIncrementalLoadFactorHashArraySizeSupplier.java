@@ -13,7 +13,7 @@
  */
 package io.trino.operator;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.trino.operator.IncrementalLoadFactorHashArraySizeSupplier.THRESHOLD_25;

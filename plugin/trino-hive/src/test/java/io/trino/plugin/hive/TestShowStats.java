@@ -17,14 +17,17 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
 import static io.trino.SystemSessionProperties.USE_PARTIAL_DISTINCT_LIMIT;
 import static io.trino.SystemSessionProperties.USE_PARTIAL_TOPN;
 import static io.trino.tpch.TpchTable.NATION;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestShowStats
         extends AbstractTestQueryFramework
 {
@@ -39,7 +42,7 @@ public class TestShowStats
                 .build();
     }
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         assertUpdate("CREATE TABLE nation_partitioned(nationkey BIGINT, name VARCHAR, comment VARCHAR, regionkey BIGINT) WITH (partitioned_by = ARRAY['regionkey'])");

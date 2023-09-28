@@ -29,8 +29,8 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -76,7 +76,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
  * on ways to set your AWS credentials which will be needed to run this test.
  */
-@Test(singleThreaded = true) // metastore invocation counters shares mutable state so can't be run from many threads simultaneously
 public class TestIcebergGlueCatalogAccessOperations
         extends AbstractTestQueryFramework
 {
@@ -119,7 +118,7 @@ public class TestIcebergGlueCatalogAccessOperations
         return queryRunner;
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanUpSchema()
     {
         getQueryRunner().execute("DROP SCHEMA " + testSchema);

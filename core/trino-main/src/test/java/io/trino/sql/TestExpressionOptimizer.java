@@ -25,7 +25,8 @@ import io.trino.sql.relational.ConstantExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.relational.optimizer.ExpressionOptimizer;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -58,7 +59,8 @@ public class TestExpressionOptimizer
             functionResolution.getPlannerContext().getFunctionManager(),
             TEST_SESSION);
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testPossibleExponentialOptimizationTime()
     {
         RowExpression expression = constant(1L, BIGINT);

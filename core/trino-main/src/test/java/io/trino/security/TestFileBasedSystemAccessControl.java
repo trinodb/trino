@@ -28,7 +28,7 @@ import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.transaction.TransactionManager;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import javax.security.auth.kerberos.KerberosPrincipal;
 

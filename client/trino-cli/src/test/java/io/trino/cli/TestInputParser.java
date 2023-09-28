@@ -14,7 +14,7 @@
 package io.trino.cli;
 
 import org.jline.reader.EOFError;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.jline.reader.Parser.ParseContext.ACCEPT_LINE;

@@ -30,7 +30,7 @@ import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;

@@ -37,9 +37,10 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.transaction.TransactionManager;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.lang.invoke.MethodHandle;
 import java.net.URI;
@@ -60,14 +61,16 @@ import static io.trino.util.Reflection.methodHandle;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestCallTask
 {
     private static final MethodHandle PROCEDURE_METHOD_HANDLE = methodHandle(TestingProcedure.class, "testingMethod", Target.class, ConnectorAccessControl.class);
     private ExecutorService executor;
     private LocalQueryRunner queryRunner;
 
-    @BeforeClass
+    @BeforeAll
     public void init()
     {
         queryRunner = LocalQueryRunner.builder(TEST_SESSION).build();
@@ -75,7 +78,7 @@ public class TestCallTask
         executor = newCachedThreadPool(daemonThreadsNamed("call-task-test-%s"));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void close()
     {
         if (queryRunner != null) {

@@ -39,7 +39,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.Optional;

@@ -43,9 +43,12 @@ import io.trino.split.RemoteSplit;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -77,14 +80,16 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+@TestInstance(PER_CLASS)
 public class TestEventDrivenTaskSource
 {
     private static final int INVOCATION_COUNT = 20;
-    private static final long TIMEOUT = 60 * 1000;
+    private static final long TIMEOUT = 60;
 
     private static final PlanNodeId PLAN_NODE_1 = new PlanNodeId("plan-node-1");
     private static final PlanNodeId PLAN_NODE_2 = new PlanNodeId("plan-node-2");
@@ -99,13 +104,13 @@ public class TestEventDrivenTaskSource
 
     private ListeningScheduledExecutorService executor;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         executor = listeningDecorator(newScheduledThreadPool(10, daemonThreadsNamed(getClass().getName())));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         if (executor != null) {
@@ -114,7 +119,9 @@ public class TestEventDrivenTaskSource
         }
     }
 
-    @Test(invocationCount = INVOCATION_COUNT, timeOut = TIMEOUT)
+    @Test
+    @RepeatedTest(INVOCATION_COUNT)
+    @Timeout(TIMEOUT)
     public void testHappyPath()
             throws Exception
     {
@@ -239,7 +246,9 @@ public class TestEventDrivenTaskSource
                         .build());
     }
 
-    @Test(invocationCount = INVOCATION_COUNT, timeOut = TIMEOUT)
+    @Test
+    @RepeatedTest(INVOCATION_COUNT)
+    @Timeout(TIMEOUT)
     public void stressTest()
             throws Exception
     {

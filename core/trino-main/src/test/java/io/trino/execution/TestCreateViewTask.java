@@ -29,8 +29,9 @@ import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Optional;
 
@@ -42,8 +43,9 @@ import static io.trino.sql.QueryUtil.table;
 import static io.trino.sql.analyzer.StatementAnalyzerFactory.createTestingStatementAnalyzerFactory;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
 public class TestCreateViewTask
         extends BaseDataDefinitionTaskTest
 {
@@ -52,7 +54,7 @@ public class TestCreateViewTask
     private AnalyzerFactory analyzerFactory;
 
     @Override
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         super.setUp();

@@ -21,7 +21,7 @@ import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.operator.TestDriverStats.assertExpectedDriverStats;
 import static io.trino.operator.TestOperatorStats.assertExpectedOperatorStats;

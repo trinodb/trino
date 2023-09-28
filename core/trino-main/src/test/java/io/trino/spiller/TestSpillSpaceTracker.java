@@ -15,7 +15,7 @@ package io.trino.spiller;
 
 import io.airlift.units.DataSize;
 import io.trino.ExceededSpillLimitException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
