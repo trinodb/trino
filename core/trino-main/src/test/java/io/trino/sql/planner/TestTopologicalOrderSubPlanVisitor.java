@@ -29,7 +29,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.StringLiteral;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;

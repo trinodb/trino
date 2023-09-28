@@ -16,7 +16,7 @@ package io.trino.plugin.example;
 
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestExampleQueries
         extends AbstractTestQueryFramework

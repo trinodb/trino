@@ -65,7 +65,8 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.type.Constraint;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -491,7 +492,8 @@ public class TestAnnotationEngineForAggregates
         }
     }
 
-    @Test(enabled = false) // TODO this is not yet supported
+    @Test
+    @Disabled // TODO this is not yet supported
     public void testSimpleImplicitSpecializedAggregationParse()
     {
         Signature expectedSignature = Signature.builder()
@@ -581,7 +583,8 @@ public class TestAnnotationEngineForAggregates
         }
     }
 
-    @Test(enabled = false) // TODO this is not yet supported
+    @Test
+    @Disabled // TODO this is not yet supported
     public void testSimpleExplicitSpecializedAggregationParse()
     {
         Signature expectedSignature = Signature.builder()

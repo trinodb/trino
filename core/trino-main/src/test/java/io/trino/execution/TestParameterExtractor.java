@@ -17,7 +17,7 @@ import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Statement;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

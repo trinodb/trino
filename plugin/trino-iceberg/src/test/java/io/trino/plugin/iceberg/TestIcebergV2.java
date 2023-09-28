@@ -62,9 +62,10 @@ import org.apache.iceberg.deletes.PositionDeleteWriter;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Types;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.Closeable;
 import java.io.File;
@@ -104,9 +105,11 @@ import static org.apache.iceberg.FileFormat.ORC;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public class TestIcebergV2
         extends AbstractTestQueryFramework
 {
@@ -140,13 +143,13 @@ public class TestIcebergV2
         return queryRunner;
     }
 
-    @BeforeClass
+    @BeforeAll
     public void initFileSystemFactory()
     {
         fileSystemFactory = getFileSystemFactory(getDistributedQueryRunner());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws IOException
     {

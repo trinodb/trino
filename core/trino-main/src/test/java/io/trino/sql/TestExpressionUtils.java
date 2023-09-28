@@ -18,7 +18,7 @@ import io.trino.metadata.Metadata;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LogicalExpression;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.sql.tree.LogicalExpression.Operator.AND;

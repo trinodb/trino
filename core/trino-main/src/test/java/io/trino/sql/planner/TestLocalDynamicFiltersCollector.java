@@ -27,7 +27,7 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.tree.Cast;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;

@@ -29,7 +29,7 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
 import io.trino.spi.session.TestingSessionPropertyConfigurationManagerFactory;
 import io.trino.testing.AllowAllAccessControlManager;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 

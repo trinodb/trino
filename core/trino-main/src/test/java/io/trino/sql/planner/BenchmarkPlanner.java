@@ -27,6 +27,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.planner.LogicalPlanner.Stage;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.tpch.Customer;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -40,7 +41,6 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.options.WarmupMode;
-import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.net.URL;

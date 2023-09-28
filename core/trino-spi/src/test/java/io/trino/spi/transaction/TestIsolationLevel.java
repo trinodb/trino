@@ -13,7 +13,7 @@
  */
 package io.trino.spi.transaction;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.trino.spi.transaction.IsolationLevel.READ_UNCOMMITTED;

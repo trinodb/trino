@@ -45,7 +45,7 @@ import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingEventListenerManager;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;

@@ -35,9 +35,10 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -59,12 +60,13 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
 public class TestMergeOperator
 {
     private static final TaskId TASK_1_ID = new TaskId(new StageId("query", 0), 0, 0);
@@ -81,7 +83,7 @@ public class TestMergeOperator
 
     private LoadingCache<TaskId, TestingTaskBuffer> taskBuffers;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("test-merge-operator-%s"));
@@ -99,7 +101,7 @@ public class TestMergeOperator
         orderingCompiler = new OrderingCompiler(new TypeOperators());
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         serdeFactory = null;

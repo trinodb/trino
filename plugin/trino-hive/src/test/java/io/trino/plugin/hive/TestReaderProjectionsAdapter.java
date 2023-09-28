@@ -24,7 +24,7 @@ import io.trino.spi.block.RowBlock;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
