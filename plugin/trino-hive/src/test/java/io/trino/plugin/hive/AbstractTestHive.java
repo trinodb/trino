@@ -4010,7 +4010,7 @@ public abstract class AbstractTestHive
     }
 
     @Test
-    public void testHiveTableDoesNotExistsWithRedirection()
+    public void testHiveTableExistsNoRedirection()
             throws Exception
     {
         SchemaTableName tableName = temporaryTable("hive_table_redirection_tester");
@@ -4020,9 +4020,7 @@ public abstract class AbstractTestHive
             HiveMetadata metadata = (HiveMetadata) transaction.getMetadata();
             SchemaTableName schemaTableName = new SchemaTableName("test_schema_name", tableName.getTableName());
             Optional<CatalogSchemaTableName> result = metadata.redirectTable(session, schemaTableName);
-            assertThat(result).isPresent();
-            assertThat(result.get().getCatalogName()).isEqualTo("hive");
-            assertThat(result.get().getSchemaTableName()).isEqualTo("hive_table_redirection_target");
+            assertThat(result).isEmpty();
         }
         finally {
             dropTable(tableName);
@@ -4066,7 +4064,7 @@ public abstract class AbstractTestHive
     @Test
     public void testHiveTableDoesNotExistWithRedirection()
     {
-        SchemaTableName tableName = temporaryTable("non_existent_table");
+        SchemaTableName tableName = temporaryTable("hive_table_redirection_tester");
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
             HiveMetadata metadata = (HiveMetadata) transaction.getMetadata();
