@@ -78,6 +78,8 @@ import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
+import static io.trino.operator.AnnotationEngineAssertions.assertDependencyCount;
+import static io.trino.operator.AnnotationEngineAssertions.assertImplementationCount;
 import static io.trino.operator.aggregation.AggregationFromAnnotationsParser.parseFunctionDefinitions;
 import static io.trino.operator.aggregation.AggregationFromAnnotationsParser.toAccumulatorStateDetails;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INDEX;
@@ -101,7 +103,6 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestAnnotationEngineForAggregates
-        extends TestAnnotationEngine
 {
     private static final MetadataManager METADATA = createTestMetadataManager();
     private static final FunctionManager FUNCTION_MANAGER = createTestingFunctionManager();
