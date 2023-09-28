@@ -22,7 +22,7 @@ import java.util.function.LongUnaryOperator;
 
 import static io.trino.util.SingleAccessMethodCompiler.compileSingleAccessMethod;
 import static java.lang.invoke.MethodHandles.lookup;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
