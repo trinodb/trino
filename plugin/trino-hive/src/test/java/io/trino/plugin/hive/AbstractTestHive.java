@@ -901,6 +901,7 @@ public abstract class AbstractTestHive
                     if (tableHandle.isPresent() && tableHandle.get().getTableName().contains("hive_table_redirection_tester")) {
                         return Optional.of(new CatalogSchemaTableName("hive", databaseName, "hive_table_redirection_target"));
                     }
+                    System.out.println("tableHandle is null or does not contain hive_table_redirection_tester");
                     return Optional.empty();
                 },
                 countingDirectoryLister,
@@ -4014,7 +4015,7 @@ public abstract class AbstractTestHive
             throws Exception
     {
         SchemaTableName tableName = temporaryTable("hive_table_redirection_tester");
-        doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS);
+        doCreateTable(tableName, ORC);
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
             HiveMetadata metadata = (HiveMetadata) transaction.getMetadata();
@@ -4032,7 +4033,7 @@ public abstract class AbstractTestHive
             throws Exception
     {
         SchemaTableName tableName = temporaryTable("hive_table_redirection_tester");
-        doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS);
+        doCreateTable(tableName, ORC);
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
             HiveMetadata metadata = (HiveMetadata) transaction.getMetadata();

@@ -3850,14 +3850,13 @@ public class HiveMetadata
         // we need to chop off any "$partitions" and similar suffixes from table name while querying the metastore for the Table object
         TableNameSplitResult tableNameSplit = splitTableName(tableName.getTableName());
         Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableNameSplit.getBaseTableName());
-        SchemaTableName schemaTableName = new SchemaTableName(tableName.getSchemaName(), tableNameSplit.getBaseTableName());
-
-        Optional<CatalogSchemaTableName> catalogSchemaTableName = tableRedirectionsProvider.redirectTable(session, schemaTableName, table);
-
         if (table.isEmpty() || isSomeKindOfAView(table.get())) {
             System.out.println("TestingRedirectTable: table is empty or is a view");
             return Optional.empty();
         }
+
+        SchemaTableName schemaTableName = new SchemaTableName(tableName.getSchemaName(), tableNameSplit.getBaseTableName());
+        Optional<CatalogSchemaTableName> catalogSchemaTableName = tableRedirectionsProvider.redirectTable(session, schemaTableName, table);
 
         if (catalogSchemaTableName.isEmpty()) {
             System.out.println("TestingRedirectTable: catalogSchemaTableName is empty");
