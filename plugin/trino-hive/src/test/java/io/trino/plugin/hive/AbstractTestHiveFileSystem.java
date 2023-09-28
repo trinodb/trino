@@ -296,12 +296,6 @@ public abstract class AbstractTestHiveFileSystem
         return HiveFileSystemTestUtils.readTable(tableName, transactionManager, config, pageSourceProvider, splitManager);
     }
 
-    protected MaterializedResult filterTable(SchemaTableName tableName, List<ColumnHandle> projectedColumns)
-            throws IOException
-    {
-        return HiveFileSystemTestUtils.filterTable(tableName, projectedColumns, transactionManager, config, pageSourceProvider, splitManager);
-    }
-
     @Test
     public void testGetRecords()
             throws Exception
