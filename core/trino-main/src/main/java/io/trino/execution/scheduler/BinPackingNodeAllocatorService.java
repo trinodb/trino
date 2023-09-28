@@ -57,6 +57,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -375,13 +376,13 @@ public class BinPackingNodeAllocatorService
     {
         private final SettableFuture<InternalNode> node = SettableFuture.create();
         private final AtomicBoolean released = new AtomicBoolean();
-        private final long memoryLease;
+        private final AtomicLong memoryLease;
         private final AtomicReference<TaskId> taskId = new AtomicReference<>();
         private final AtomicReference<TaskExecutionClass> executionClass;
 
         private BinPackingNodeLease(long memoryLease, TaskExecutionClass executionClass)
         {
-            this.memoryLease = memoryLease;
+            this.memoryLease = new AtomicLong(memoryLease);
             requireNonNull(executionClass, "executionClass is null");
             this.executionClass = new AtomicReference<>(executionClass);
         }
@@ -443,9 +444,19 @@ public class BinPackingNodeAllocatorService
             return Optional.ofNullable(this.taskId.get());
         }
 
+        @Override
+        public void setMemoryRequirement(DataSize memoryRequirement)
+        {
+            long newBytes = memoryRequirement.toBytes();
+            long previousBytes = memoryLease.getAndSet(newBytes);
+            if (newBytes < previousBytes) {
+                wakeupProcessPendingAcquires();
+            }
+        }
+
         public long getMemoryLease()
         {
-            return memoryLease;
+            return memoryLease.get();
         }
 
         @Override
@@ -601,7 +612,10 @@ public class BinPackingNodeAllocatorService
                     .max(comparator)
                     .orElseThrow();
 
-            if (nodesRemainingMemoryRuntimeAdjusted.get(selectedNode.getNodeIdentifier()) >= acquire.getMemoryLease() || isNodeEmpty(selectedNode.getNodeIdentifier())) {
+            // result of acquire.getMemoryLease() can change; store memory as a variable, so we have consistent value through this method.
+            long memoryRequirements = acquire.getMemoryLease();
+
+            if (nodesRemainingMemoryRuntimeAdjusted.get(selectedNode.getNodeIdentifier()) >= memoryRequirements || isNodeEmpty(selectedNode.getNodeIdentifier())) {
                 // there is enough unreserved memory on the node
                 // OR
                 // there is not enough memory available on the node but the node is empty so we cannot to better anyway
@@ -609,7 +623,7 @@ public class BinPackingNodeAllocatorService
                 // todo: currant logic does not handle heterogenous clusters best. There is a chance that there is a larger node in the cluster but
                 //       with less memory available right now, hence that one was not selected as a candidate.
                 // mark memory reservation
-                subtractFromRemainingMemory(selectedNode.getNodeIdentifier(), acquire.getMemoryLease());
+                subtractFromRemainingMemory(selectedNode.getNodeIdentifier(), memoryRequirements);
                 return ReserveResult.reserved(selectedNode);
             }
 
@@ -623,7 +637,7 @@ public class BinPackingNodeAllocatorService
             InternalNode fallbackNode = candidates.stream()
                     .max(fallbackComparator)
                     .orElseThrow();
-            subtractFromRemainingMemory(fallbackNode.getNodeIdentifier(), acquire.getMemoryLease());
+            subtractFromRemainingMemory(fallbackNode.getNodeIdentifier(), memoryRequirements);
             return ReserveResult.NOT_ENOUGH_RESOURCES_NOW;
         }
 
