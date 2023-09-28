@@ -299,7 +299,7 @@ public class BinPackingNodeAllocatorService
     public NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement, TaskExecutionClass executionClass)
     {
         BinPackingNodeLease nodeLease = new BinPackingNodeLease(memoryRequirement.toBytes(), executionClass);
-        PendingAcquire pendingAcquire = new PendingAcquire(nodeRequirements, memoryRequirement, nodeLease, ticker);
+        PendingAcquire pendingAcquire = new PendingAcquire(nodeRequirements, nodeLease, ticker);
         pendingAcquires.add(pendingAcquire);
         wakeupProcessPendingAcquires();
         return nodeLease;
@@ -316,14 +316,12 @@ public class BinPackingNodeAllocatorService
     private static class PendingAcquire
     {
         private final NodeRequirements nodeRequirements;
-        private final DataSize memoryRequirement;
         private final BinPackingNodeLease lease;
         private final Stopwatch noMatchingNodeStopwatch;
 
-        private PendingAcquire(NodeRequirements nodeRequirements, DataSize memoryRequirement, BinPackingNodeLease lease, Ticker ticker)
+        private PendingAcquire(NodeRequirements nodeRequirements, BinPackingNodeLease lease, Ticker ticker)
         {
             this.nodeRequirements = requireNonNull(nodeRequirements, "nodeRequirements is null");
-            this.memoryRequirement = requireNonNull(memoryRequirement, "memoryRequirement is null");
             this.lease = requireNonNull(lease, "lease is null");
             this.noMatchingNodeStopwatch = Stopwatch.createUnstarted(ticker);
         }
@@ -345,7 +343,7 @@ public class BinPackingNodeAllocatorService
 
         public long getMemoryLease()
         {
-            return memoryRequirement.toBytes();
+            return lease.getMemoryLease();
         }
 
         public Duration markNoMatchingNodeFound()
