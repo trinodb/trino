@@ -858,7 +858,7 @@ public class TestFileBasedSystemAccessControl
     @Test
     public void parseUnknownRules()
     {
-        assertThatThrownBy(() -> parse("src/test/resources/security-config-file-with-unknown-rules.json"))
+        assertThatThrownBy(() -> parse(getResourcePath("security-config-file-with-unknown-rules.json")))
                 .hasMessageContaining("Failed to convert JSON tree node");
     }
 
