@@ -20,7 +20,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.RenameTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -29,7 +29,6 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test(singleThreaded = true)
 public class TestRenameTableTask
         extends BaseDataDefinitionTaskTest
 {

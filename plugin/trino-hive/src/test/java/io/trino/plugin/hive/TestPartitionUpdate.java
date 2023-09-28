@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.Location;
 import io.trino.plugin.hive.PartitionUpdate.UpdateMode;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;

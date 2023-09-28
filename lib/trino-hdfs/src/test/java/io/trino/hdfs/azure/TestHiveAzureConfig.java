@@ -15,7 +15,7 @@ package io.trino.hdfs.azure;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 

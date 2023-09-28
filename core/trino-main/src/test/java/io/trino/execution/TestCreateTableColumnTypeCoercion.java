@@ -18,9 +18,10 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.spi.type.TimestampType;
 import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Optional;
 
@@ -29,7 +30,9 @@ import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestCreateTableColumnTypeCoercion
 {
     private static final String catalogName = "mock";
@@ -79,13 +82,13 @@ public class TestCreateTableColumnTypeCoercion
                 .hasMessage("Type 'timestamp(3)' is not compatible with the supplied type 'varchar' in getSupportedType");
     }
 
-    @BeforeClass
+    @BeforeAll
     public final void initQueryRunner()
     {
         this.queryRunner = createLocalQueryRunner();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public final void destroyQueryRunner()
     {
         closeAllRuntimeException(queryRunner);

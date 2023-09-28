@@ -24,7 +24,7 @@ import io.trino.plugin.cassandra.CassandraTypes;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.cassandra.CassandraTestingUtils.CASSANDRA_TYPE_MANAGER;
 import static io.trino.spi.type.BigintType.BIGINT;

@@ -16,7 +16,7 @@ package io.trino.server.security;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import io.trino.server.security.UserMapping.Rule;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.net.URISyntaxException;

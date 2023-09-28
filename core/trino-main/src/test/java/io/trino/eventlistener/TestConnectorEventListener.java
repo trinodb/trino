@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;

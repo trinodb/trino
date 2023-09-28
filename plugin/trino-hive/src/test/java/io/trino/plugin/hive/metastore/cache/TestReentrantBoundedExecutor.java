@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.metastore.cache;
 
 import com.google.common.util.concurrent.SettableFuture;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;

@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
 import org.assertj.core.api.AssertProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 

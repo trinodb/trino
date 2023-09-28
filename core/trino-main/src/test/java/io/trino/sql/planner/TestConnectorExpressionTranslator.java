@@ -50,7 +50,7 @@ import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.type.LikeFunctions;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;

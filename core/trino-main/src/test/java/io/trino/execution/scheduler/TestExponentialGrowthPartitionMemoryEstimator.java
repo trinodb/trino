@@ -26,7 +26,7 @@ import io.trino.metadata.InternalNodeManager;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.memory.MemoryPoolInfo;
 import io.trino.testing.TestingSession;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.time.Duration;

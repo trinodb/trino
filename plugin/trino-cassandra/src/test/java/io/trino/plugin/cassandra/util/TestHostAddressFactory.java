@@ -22,7 +22,7 @@ import com.datastax.oss.driver.internal.core.metadata.DefaultEndPoint;
 import com.datastax.oss.driver.internal.core.metadata.DefaultNode;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.HostAddress;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;

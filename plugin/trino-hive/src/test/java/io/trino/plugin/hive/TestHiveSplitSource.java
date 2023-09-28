@@ -19,7 +19,7 @@ import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.List;

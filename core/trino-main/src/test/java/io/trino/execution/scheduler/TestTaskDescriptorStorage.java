@@ -26,7 +26,7 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 

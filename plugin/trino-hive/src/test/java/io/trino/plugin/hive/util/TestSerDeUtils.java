@@ -33,7 +33,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.io.BytesWritable;
 import org.joda.time.DateTime;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Type;
 import java.time.LocalDate;

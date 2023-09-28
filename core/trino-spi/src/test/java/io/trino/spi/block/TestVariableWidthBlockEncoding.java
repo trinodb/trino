@@ -14,7 +14,7 @@
 package io.trino.spi.block;
 
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Random;
 

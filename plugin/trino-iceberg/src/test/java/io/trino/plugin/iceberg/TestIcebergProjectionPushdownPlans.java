@@ -29,8 +29,8 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.PrincipalType;
 import io.trino.sql.planner.assertions.BasePushdownPlanTest;
 import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -102,7 +102,7 @@ public class TestIcebergProjectionPushdownPlans
         return queryRunner;
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
             throws Exception
     {

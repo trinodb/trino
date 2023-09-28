@@ -19,7 +19,7 @@ import io.airlift.testing.TempFile;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import io.trino.spi.HostAddress;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.net.URISyntaxException;

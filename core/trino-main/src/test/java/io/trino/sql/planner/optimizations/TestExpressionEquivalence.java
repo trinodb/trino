@@ -25,7 +25,7 @@ import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.Expression;
 import io.trino.transaction.TestingTransactionManager;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Set;
 

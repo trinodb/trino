@@ -26,7 +26,8 @@ import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -43,7 +44,8 @@ public class TestSqlToRowExpressionTranslator
 {
     private final LiteralEncoder literalEncoder = new LiteralEncoder(PLANNER_CONTEXT);
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testPossibleExponentialOptimizationTime()
     {
         Expression expression = new LongLiteral("1");

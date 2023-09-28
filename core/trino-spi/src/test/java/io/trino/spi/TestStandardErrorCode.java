@@ -13,7 +13,7 @@
  */
 package io.trino.spi;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
 import java.util.Iterator;

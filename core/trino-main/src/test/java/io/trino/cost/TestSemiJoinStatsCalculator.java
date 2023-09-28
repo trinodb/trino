@@ -15,7 +15,7 @@
 package io.trino.cost;
 
 import io.trino.sql.planner.Symbol;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.cost.PlanNodeStatsAssertion.assertThat;
 import static io.trino.cost.SemiJoinStatsCalculator.computeAntiJoin;

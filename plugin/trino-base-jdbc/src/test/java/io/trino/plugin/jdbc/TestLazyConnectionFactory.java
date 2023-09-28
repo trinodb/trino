@@ -15,7 +15,7 @@ package io.trino.plugin.jdbc;
 
 import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
 import org.h2.Driver;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
 import java.util.concurrent.ThreadLocalRandom;

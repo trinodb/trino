@@ -14,7 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.hive.TableToPartitionMapping.isIdentityMapping;
 import static org.testng.Assert.assertFalse;

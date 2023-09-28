@@ -16,7 +16,7 @@ package io.trino.sql.relational;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.BigintType.BIGINT;

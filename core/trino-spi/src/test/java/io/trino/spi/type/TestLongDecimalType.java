@@ -17,7 +17,7 @@ import com.google.common.base.Throwables;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.Int128ArrayBlockBuilder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;

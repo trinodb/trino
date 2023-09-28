@@ -23,7 +23,7 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 

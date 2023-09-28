@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -28,7 +29,6 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.profile.GCProfiler;
 import org.openjdk.jmh.runner.RunnerException;
-import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;

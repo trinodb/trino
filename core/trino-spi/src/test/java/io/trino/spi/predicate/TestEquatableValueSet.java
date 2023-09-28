@@ -24,7 +24,7 @@ import io.trino.spi.block.TestingBlockJsonSerde;
 import io.trino.spi.type.TestingTypeDeserializer;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collection;
 import java.util.Iterator;

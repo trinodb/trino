@@ -19,9 +19,10 @@ import com.google.common.io.Resources;
 import io.trino.Session;
 import io.trino.spi.security.Identity;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.File;
 
@@ -29,12 +30,14 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tpch.TpchTable.NATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestHiveFileBasedSecurity
 {
     private QueryRunner queryRunner;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
             throws Exception
     {
@@ -48,7 +51,7 @@ public class TestHiveFileBasedSecurity
                 .build();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         queryRunner.close();

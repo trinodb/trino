@@ -14,7 +14,7 @@
 package io.trino.plugin.jdbc.expression;
 
 import io.trino.sql.tree.ComparisonExpression;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.stream.Stream;
 

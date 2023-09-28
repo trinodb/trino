@@ -17,22 +17,29 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.testng.services.ManageTestResources.Suppress;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.Network;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
 
 import java.io.IOException;
 
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
 import static io.trino.tpch.TpchTable.ORDERS;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestElasticsearchBackpressure
         extends AbstractTestQueryFramework
 {
     private static final String image = "elasticsearch:7.0.0";
 
+    @Suppress(because = "Not a TestNG test class")
     private Network network;
+    @Suppress(because = "Not a TestNG test class")
     private ElasticsearchServer elasticsearch;
+    @Suppress(because = "Not a TestNG test class")
     private ElasticsearchNginxProxy elasticsearchNginxProxy;
 
     @Override
@@ -55,7 +62,7 @@ public class TestElasticsearchBackpressure
                 "elasticsearch-backpressure");
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public final void destroy()
             throws IOException
     {

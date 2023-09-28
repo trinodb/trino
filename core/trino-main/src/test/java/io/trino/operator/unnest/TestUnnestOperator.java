@@ -26,9 +26,10 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -75,9 +76,10 @@ import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
 public class TestUnnestOperator
 {
     private ExecutorService executor;
@@ -87,7 +89,7 @@ public class TestUnnestOperator
     private static final int PAGE_COUNT = 2;
     private static final int POSITION_COUNT = 500;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
@@ -98,7 +100,7 @@ public class TestUnnestOperator
                 .addDriverContext();
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         executor.shutdownNow();

@@ -15,7 +15,7 @@ package io.trino.hdfs.s3;
 
 import io.trino.filesystem.Location;
 import org.apache.hadoop.fs.Path;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 

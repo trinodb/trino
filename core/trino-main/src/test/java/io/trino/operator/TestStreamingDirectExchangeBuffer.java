@@ -21,7 +21,7 @@ import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.slice.Slices.utf8Slice;

@@ -15,7 +15,7 @@
 package io.trino.plugin.deltalake.expression;
 
 import io.trino.plugin.deltalake.expression.ArithmeticBinaryExpression.Operator;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.deltalake.expression.SparkExpressionParser.createExpression;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

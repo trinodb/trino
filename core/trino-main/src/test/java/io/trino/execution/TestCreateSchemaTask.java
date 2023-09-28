@@ -23,7 +23,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
@@ -32,7 +32,6 @@ import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
 public class TestCreateSchemaTask
         extends BaseDataDefinitionTaskTest
 {

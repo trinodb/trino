@@ -17,7 +17,7 @@ import com.google.common.io.Resources;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.DistributedQueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 

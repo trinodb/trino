@@ -26,7 +26,7 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.RenameColumn;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -42,7 +42,6 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test(singleThreaded = true)
 public class TestRenameColumnTask
         extends BaseDataDefinitionTaskTest
 {

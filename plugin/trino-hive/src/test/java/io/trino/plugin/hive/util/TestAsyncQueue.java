@@ -18,9 +18,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.Threads;
 import io.trino.plugin.hive.util.AsyncQueue.BorrowResult;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,27 +34,30 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public class TestAsyncQueue
 {
     private ExecutorService executor;
 
-    @BeforeClass
+    @BeforeAll
     public void setUpClass()
     {
         executor = Executors.newFixedThreadPool(8, Threads.daemonThreadsNamed("test-async-queue-%s"));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDownClass()
     {
         executor.shutdownNow();
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testGetPartial()
             throws Exception
     {
@@ -67,7 +72,8 @@ public class TestAsyncQueue
         assertTrue(queue.isFinished());
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testFullQueue()
             throws Exception
     {
@@ -98,7 +104,8 @@ public class TestAsyncQueue
         assertTrue(queue.isFinished());
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testEmptyQueue()
             throws Exception
     {
@@ -122,7 +129,8 @@ public class TestAsyncQueue
         assertTrue(queue.isFinished());
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testOfferAfterFinish()
             throws Exception
     {

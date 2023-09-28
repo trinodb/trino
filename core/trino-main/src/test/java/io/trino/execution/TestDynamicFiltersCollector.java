@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.plan.DynamicFilterId;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.spi.predicate.Domain.multipleValues;

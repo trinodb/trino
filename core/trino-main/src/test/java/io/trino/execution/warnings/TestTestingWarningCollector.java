@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoWarning;
 import io.trino.testing.TestingWarningCollector;
 import io.trino.testing.TestingWarningCollectorConfig;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.testing.TestingWarningCollector.createTestWarning;
 import static org.testng.Assert.assertEquals;

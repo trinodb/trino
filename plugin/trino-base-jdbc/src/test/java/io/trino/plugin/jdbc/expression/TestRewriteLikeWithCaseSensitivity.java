@@ -18,7 +18,7 @@ import io.trino.plugin.jdbc.QueryParameter;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.Variable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;

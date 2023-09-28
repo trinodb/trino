@@ -14,7 +14,7 @@
 package io.trino.cost;
 
 import io.trino.Session;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.testing.TestingSession.testSessionBuilder;

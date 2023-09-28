@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import io.airlift.units.Duration;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
 import java.time.Instant;

@@ -16,7 +16,7 @@ package io.trino.sql.planner.assertions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SymbolReference;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
