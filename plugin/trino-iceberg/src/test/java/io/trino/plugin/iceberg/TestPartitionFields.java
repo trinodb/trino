@@ -73,7 +73,7 @@ public class TestPartitionFields
         assertInvalid("notes", "Cannot partition by non-primitive source field: list<string>");
         assertInvalid("bucket(price, 42)", "Invalid source type double for transform: bucket[42]");
         assertInvalid("bucket(notes, 88)", "Cannot partition by non-primitive source field: list<string>");
-        assertInvalid("truncate(ts, 13)", "Invalid source type timestamp for transform: truncate");
+        assertInvalid("truncate(ts, 13)", "Invalid source type timestamp for transform: truncate[13]");
         assertInvalid("year(order_key)", "Invalid source type long for transform: year");
         assertInvalid("\"test\"", "Cannot find source column: test");
         assertInvalid("\"test with space\"", "Cannot find source column: test with space");
