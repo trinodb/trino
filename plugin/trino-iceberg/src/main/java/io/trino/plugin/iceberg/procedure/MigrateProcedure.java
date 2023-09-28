@@ -67,7 +67,7 @@ import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.mapping.MappingUtil;
 import org.apache.iceberg.mapping.NameMapping;
 import org.apache.iceberg.orc.OrcMetrics;
-import org.apache.iceberg.parquet.TrinoParquetUtil;
+import org.apache.iceberg.parquet.ParquetUtil;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 
@@ -382,7 +382,7 @@ public class MigrateProcedure
         InputFile inputFile = new ForwardingInputFile(file);
         return switch (storageFormat) {
             case ORC -> OrcMetrics.fromInputFile(inputFile, METRICS_CONFIG, nameMapping);
-            case PARQUET -> TrinoParquetUtil.fileMetrics(inputFile, METRICS_CONFIG, nameMapping);
+            case PARQUET -> ParquetUtil.fileMetrics(inputFile, METRICS_CONFIG, nameMapping);
             case AVRO -> new Metrics(Avro.rowCount(inputFile), null, null, null, null);
             default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported storage format: " + storageFormat);
         };
