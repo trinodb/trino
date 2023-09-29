@@ -88,5 +88,6 @@ public class FileSystemConfig
     public enum CacheType
     {
         NONE,
+        ALLUXIO,
     }
 }
