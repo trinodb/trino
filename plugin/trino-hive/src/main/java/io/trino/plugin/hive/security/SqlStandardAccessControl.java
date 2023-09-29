@@ -102,8 +102,6 @@ import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
-import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
@@ -436,19 +434,8 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanGrantExecuteFunctionPrivilege(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
     {
-        switch (functionKind) {
-            case SCALAR, AGGREGATE, WINDOW -> {
-                return;
-            }
-            case TABLE -> {
-                if (isAdmin(context)) {
-                    return;
-                }
-                String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(ENGLISH), grantee.getName());
-                denyGrantExecuteFunctionPrivilege(functionName.toString(), Identity.ofUser(context.getIdentity().getUser()), granteeAsString);
-            }
-        }
-        throw new UnsupportedOperationException("Unsupported function kind: " + functionKind);
+        // there is no way to grant execute function privilege in Hive
+        denyGrantExecuteFunctionPrivilege(functionName.toString(), Identity.ofUser(context.getIdentity().getUser()), grantee);
     }
 
     @Override
@@ -607,18 +594,15 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public boolean canExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
+    public boolean canExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)
     {
-        return switch (functionKind) {
-            case SCALAR, AGGREGATE, WINDOW -> true;
-            case TABLE -> isAdmin(context);
-        };
+        return !function.getSchemaName().equals("system") || isAdmin(context);
     }
 
     @Override
-    public boolean canCreateViewWithExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
+    public boolean canCreateViewWithExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)
     {
-        return canExecuteFunction(context, functionKind, function);
+        return canExecuteFunction(context, function);
     }
 
     @Override

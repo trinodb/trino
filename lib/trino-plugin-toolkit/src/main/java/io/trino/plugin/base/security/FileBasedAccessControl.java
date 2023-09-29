@@ -95,7 +95,6 @@ import static io.trino.spi.security.AccessDeniedException.denyShowTables;
 import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 
 public class FileBasedAccessControl
         implements ConnectorAccessControl
@@ -507,9 +506,8 @@ public class FileBasedAccessControl
     @Override
     public void checkCanGrantExecuteFunctionPrivilege(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
     {
-        if (!checkFunctionPermission(context, functionKind, functionName, FunctionAccessControlRule::canGrantExecuteFunction)) {
-            String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(ENGLISH), grantee.getName());
-            denyGrantExecuteFunctionPrivilege(functionName.toString(), Identity.ofUser(context.getIdentity().getUser()), granteeAsString);
+        if (!checkFunctionPermission(context, functionName, FunctionAccessControlRule::canGrantExecuteFunction)) {
+            denyGrantExecuteFunctionPrivilege(functionName.toString(), Identity.ofUser(context.getIdentity().getUser()), grantee);
         }
     }
 
@@ -641,15 +639,15 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public boolean canExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
+    public boolean canExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)
     {
-        return checkFunctionPermission(context, functionKind, function, FunctionAccessControlRule::canExecuteFunction);
+        return checkFunctionPermission(context, function, FunctionAccessControlRule::canExecuteFunction);
     }
 
     @Override
-    public boolean canCreateViewWithExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
+    public boolean canCreateViewWithExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)
     {
-        return checkFunctionPermission(context, functionKind, function, FunctionAccessControlRule::canGrantExecuteFunction);
+        return checkFunctionPermission(context, function, FunctionAccessControlRule::canGrantExecuteFunction);
     }
 
     @Override
@@ -749,11 +747,11 @@ public class FileBasedAccessControl
         return false;
     }
 
-    private boolean checkFunctionPermission(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName functionName, Predicate<FunctionAccessControlRule> executePredicate)
+    private boolean checkFunctionPermission(ConnectorSecurityContext context, SchemaRoutineName functionName, Predicate<FunctionAccessControlRule> executePredicate)
     {
         ConnectorIdentity identity = context.getIdentity();
         return functionRules.stream()
-                .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledSystemRoles(), identity.getGroups(), functionKind, functionName))
+                .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledSystemRoles(), identity.getGroups(), functionName))
                 .findFirst()
                 .filter(executePredicate)
                 .isPresent();

@@ -712,25 +712,25 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public boolean canExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
+    public boolean canExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName.toString(), EXECUTE_FUNCTION)) {
             return false;
         }
         if (denyPrivileges.isEmpty()) {
-            return super.canExecuteFunction(context, functionKind, functionName);
+            return super.canExecuteFunction(context, functionName);
         }
         return true;
     }
 
     @Override
-    public boolean canCreateViewWithExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
+    public boolean canCreateViewWithExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), functionName.toString(), GRANT_EXECUTE_FUNCTION)) {
             return false;
         }
         if (denyPrivileges.isEmpty()) {
-            return super.canCreateViewWithExecuteFunction(context, functionKind, functionName);
+            return super.canCreateViewWithExecuteFunction(context, functionName);
         }
         return true;
     }

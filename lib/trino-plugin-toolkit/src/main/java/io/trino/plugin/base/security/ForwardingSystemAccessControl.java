@@ -374,15 +374,15 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public boolean canExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
+    public boolean canExecuteFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
     {
-        return delegate().canExecuteFunction(systemSecurityContext, functionKind, functionName);
+        return delegate().canExecuteFunction(systemSecurityContext, functionName);
     }
 
     @Override
-    public boolean canCreateViewWithExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
+    public boolean canCreateViewWithExecuteFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
     {
-        return delegate().canCreateViewWithExecuteFunction(systemSecurityContext, functionKind, functionName);
+        return delegate().canCreateViewWithExecuteFunction(systemSecurityContext, functionName);
     }
 
     @Override

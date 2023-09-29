@@ -32,8 +32,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
-import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 
 public class ReadOnlySystemAccessControl
         implements SystemAccessControl
@@ -114,8 +112,7 @@ public class ReadOnlySystemAccessControl
                 return;
             case TABLE:
                 // May not be read-only, so deny
-                String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(ENGLISH), grantee.getName());
-                denyGrantExecuteFunctionPrivilege(functionName.toString(), context.getIdentity(), granteeAsString);
+                denyGrantExecuteFunctionPrivilege(functionName.toString(), context.getIdentity(), grantee);
         }
         throw new UnsupportedOperationException("Unsupported function kind: " + functionKind);
     }
@@ -176,14 +173,19 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public boolean canExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
+    public boolean canExecuteFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
     {
-        return functionKind != FunctionKind.TABLE;
+        return isSystemBuiltinSchema(functionName);
     }
 
     @Override
-    public boolean canCreateViewWithExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
+    public boolean canCreateViewWithExecuteFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
     {
-        return functionKind != FunctionKind.TABLE;
+        return isSystemBuiltinSchema(functionName);
+    }
+
+    private static boolean isSystemBuiltinSchema(CatalogSchemaRoutineName functionName)
+    {
+        return functionName.getCatalogName().equals("system") && functionName.getSchemaName().equals("builtin");
     }
 }

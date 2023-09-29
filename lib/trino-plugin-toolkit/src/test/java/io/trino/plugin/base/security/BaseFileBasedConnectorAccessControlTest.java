@@ -130,14 +130,6 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     }
 
     @Test
-    public void testEmptyFunctionKind()
-    {
-        assertThatThrownBy(() -> createAccessControl("empty-functions-kind.json"))
-                .hasRootCauseInstanceOf(IllegalStateException.class)
-                .hasRootCauseMessage("functionKinds cannot be empty, provide at least one function kind [SCALAR, AGGREGATE, WINDOW, TABLE]");
-    }
-
-    @Test
     public void testSchemaRules()
     {
         ConnectorAccessControl accessControl = createAccessControl("schema.json");
@@ -505,14 +497,14 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     {
         ConnectorAccessControl accessControl = createAccessControl("no-access.json");
 
-        assertThat(accessControl.canExecuteFunction(ALICE, AGGREGATE, new SchemaRoutineName("schema", "some_function"))).isFalse();
-        assertThat(accessControl.canExecuteFunction(ALICE, SCALAR, new SchemaRoutineName("schema", "some_function"))).isFalse();
-        assertThat(accessControl.canExecuteFunction(ALICE, TABLE, new SchemaRoutineName("ptf_schema", "some_function"))).isFalse();
-        assertThat(accessControl.canExecuteFunction(ALICE, WINDOW, new SchemaRoutineName("schema", "some_function"))).isFalse();
-        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, AGGREGATE, new SchemaRoutineName("schema", "some_function"))).isFalse();
-        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, SCALAR, new SchemaRoutineName("schema", "some_function"))).isFalse();
-        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, TABLE, new SchemaRoutineName("ptf_schema", "some_function"))).isFalse();
-        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, WINDOW, new SchemaRoutineName("schema", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(ALICE, new SchemaRoutineName("schema", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(ALICE, new SchemaRoutineName("schema", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(ALICE, new SchemaRoutineName("ptf_schema", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(ALICE, new SchemaRoutineName("schema", "some_function"))).isFalse();
+        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, new SchemaRoutineName("schema", "some_function"))).isFalse();
+        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, new SchemaRoutineName("schema", "some_function"))).isFalse();
+        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, new SchemaRoutineName("ptf_schema", "some_function"))).isFalse();
+        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, new SchemaRoutineName("schema", "some_function"))).isFalse();
     }
 
     @Test
@@ -566,7 +558,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         accessControl.checkCanShowTables(BOB, "bob-schema");
         assertDenied(() -> accessControl.checkCanShowTables(BOB, "alice-schema"));
         assertDenied(() -> accessControl.checkCanShowTables(BOB, "secret"));
-        assertDenied(() -> accessControl.checkCanShowTables(BOB, "any"));
+        accessControl.checkCanShowTables(BOB, "any");
         accessControl.checkCanShowTables(CHARLIE, "specific-schema");
         assertDenied(() -> accessControl.checkCanShowTables(CHARLIE, "bob-schema"));
         assertDenied(() -> accessControl.checkCanShowTables(CHARLIE, "alice-schema"));
@@ -578,25 +570,25 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     public void testFunctionRulesForCheckCanExecute()
     {
         ConnectorAccessControl accessControl = createAccessControl("visibility.json");
-        assertThat(accessControl.canExecuteFunction(ADMIN, TABLE, new SchemaRoutineName("ptf_schema", "some_function"))).isFalse();
-        assertThat(accessControl.canExecuteFunction(ADMIN, SCALAR, new SchemaRoutineName("any", "some_function"))).isFalse();
-        assertThat(accessControl.canExecuteFunction(ADMIN, AGGREGATE, new SchemaRoutineName("any", "some_function"))).isFalse();
-        assertThat(accessControl.canExecuteFunction(ADMIN, WINDOW, new SchemaRoutineName("any", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(ADMIN, new SchemaRoutineName("ptf_schema", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(ADMIN, new SchemaRoutineName("any", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(ADMIN, new SchemaRoutineName("any", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(ADMIN, new SchemaRoutineName("any", "some_function"))).isFalse();
 
-        assertThat(accessControl.canExecuteFunction(ALICE, TABLE, new SchemaRoutineName("ptf_schema", "some_function"))).isTrue();
-        assertThat(accessControl.canExecuteFunction(ALICE, SCALAR, new SchemaRoutineName("any", "some_function"))).isFalse();
-        assertThat(accessControl.canExecuteFunction(ALICE, AGGREGATE, new SchemaRoutineName("any", "some_function"))).isFalse();
-        assertThat(accessControl.canExecuteFunction(ALICE, WINDOW, new SchemaRoutineName("any", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(ALICE, new SchemaRoutineName("ptf_schema", "some_function"))).isTrue();
+        assertThat(accessControl.canExecuteFunction(ALICE, new SchemaRoutineName("any", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(ALICE, new SchemaRoutineName("any", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(ALICE, new SchemaRoutineName("any", "some_function"))).isFalse();
 
-        assertThat(accessControl.canExecuteFunction(BOB, TABLE, new SchemaRoutineName("ptf_schema", "some_function"))).isFalse();
-        assertThat(accessControl.canExecuteFunction(BOB, SCALAR, new SchemaRoutineName("any", "some_function"))).isTrue();
-        assertThat(accessControl.canExecuteFunction(BOB, AGGREGATE, new SchemaRoutineName("any", "some_function"))).isTrue();
-        assertThat(accessControl.canExecuteFunction(BOB, WINDOW, new SchemaRoutineName("any", "some_function"))).isTrue();
+        assertThat(accessControl.canExecuteFunction(BOB, new SchemaRoutineName("ptf_schema", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(BOB, new SchemaRoutineName("any", "some_function"))).isTrue();
+        assertThat(accessControl.canExecuteFunction(BOB, new SchemaRoutineName("any", "some_function"))).isTrue();
+        assertThat(accessControl.canExecuteFunction(BOB, new SchemaRoutineName("any", "some_function"))).isTrue();
 
-        assertThat(accessControl.canExecuteFunction(CHARLIE, TABLE, new SchemaRoutineName("ptf_schema", "some_function"))).isFalse();
-        assertThat(accessControl.canExecuteFunction(CHARLIE, SCALAR, new SchemaRoutineName("any", "some_function"))).isFalse();
-        assertThat(accessControl.canExecuteFunction(CHARLIE, AGGREGATE, new SchemaRoutineName("any", "some_function"))).isFalse();
-        assertThat(accessControl.canExecuteFunction(CHARLIE, WINDOW, new SchemaRoutineName("any", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(CHARLIE, new SchemaRoutineName("ptf_schema", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(CHARLIE, new SchemaRoutineName("any", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(CHARLIE, new SchemaRoutineName("any", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(CHARLIE, new SchemaRoutineName("any", "some_function"))).isFalse();
     }
 
     @Test
