@@ -49,6 +49,8 @@ public class TestIcebergFileMetastoreCreateTableFailure
     private static final String ICEBERG_CATALOG = "iceberg";
     private static final String SCHEMA_NAME = "test_schema";
 
+    private static final String METADATA_GLOB = "glob:**.metadata.json";
+
     private Path dataDirectory;
     private HiveMetastore metastore;
     private final AtomicReference<RuntimeException> testException = new AtomicReference<>();
@@ -123,10 +125,10 @@ public class TestIcebergFileMetastoreCreateTableFailure
 
         Path metadataDirectory = Path.of(tableLocation, "metadata");
         if (shouldMetadataFileExist) {
-            assertThat(metadataDirectory).as("Metadata file should exist").isDirectoryContaining("glob:**.metadata.json");
+            assertThat(metadataDirectory).as("Metadata file should exist").isDirectoryContaining(METADATA_GLOB);
         }
         else {
-            assertThat(metadataDirectory).as("Metadata file should not exist").isEmptyDirectory();
+            assertThat(metadataDirectory).as("Metadata file should not exist").isDirectoryNotContaining(METADATA_GLOB);
         }
     }
 }
