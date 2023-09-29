@@ -13,11 +13,13 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.common.base.Throwables;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provider;
 import com.google.inject.Provides;
+import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.log.Logger;
 import io.trino.plugin.base.CatalogName;
@@ -27,7 +29,10 @@ import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.trino.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
 import org.weakref.jmx.guice.MBeanModule;
 
+import java.sql.SQLRecoverableException;
+
 import static com.google.common.reflect.Reflection.newProxy;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.lang.String.format;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -39,6 +44,11 @@ public class JdbcDiagnosticModule
     {
         binder.install(new MBeanServerModule());
         binder.install(new MBeanModule());
+
+        newOptionalBinder(binder, RetryingConnectionFactory.RetryStrategy.class)
+                .setDefault()
+                .to(DefaultOpenConnectionRetryStrategy.class)
+                .in(Scopes.SINGLETON);
 
         Provider<CatalogName> catalogName = binder.getProvider(CatalogName.class);
         newExporter(binder).export(Key.get(JdbcClient.class, StatsCollecting.class))
@@ -69,8 +79,20 @@ public class JdbcDiagnosticModule
     @Provides
     @Singleton
     @StatsCollecting
-    public static ConnectionFactory createConnectionFactoryWithStats(@ForBaseJdbc ConnectionFactory connectionFactory)
+    public static ConnectionFactory createConnectionFactoryWithStats(@ForBaseJdbc ConnectionFactory connectionFactory, RetryingConnectionFactory.RetryStrategy retryStrategy)
     {
-        return new StatisticsAwareConnectionFactory(connectionFactory);
+        return new StatisticsAwareConnectionFactory(
+                new RetryingConnectionFactory(connectionFactory, retryStrategy));
+    }
+
+    private static class DefaultOpenConnectionRetryStrategy
+            implements RetryingConnectionFactory.RetryStrategy
+    {
+        @Override
+        public boolean isSqlRecoverableException(Throwable exception)
+        {
+            return Throwables.getCausalChain(exception).stream()
+                    .anyMatch(SQLRecoverableException.class::isInstance);
+        }
     }
 }
