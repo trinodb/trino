@@ -16,7 +16,6 @@ package io.trino.server.security;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import io.trino.server.security.UserMapping.Rule;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -30,10 +29,9 @@ import static org.testng.Assert.assertEquals;
 
 public class TestUserMapping
 {
-    private File testFile;
+    private final File testFile;
 
-    @BeforeClass
-    public void setUp()
+    public TestUserMapping()
             throws URISyntaxException
     {
         testFile = new File(Resources.getResource("user-mapping.json").toURI());
