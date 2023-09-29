@@ -16,6 +16,7 @@ package io.trino.plugin.hive.coercions;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.coercions.DateCoercer.VarcharToDateCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToLongTimestampCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToShortTimestampCoercer;
 import io.trino.plugin.hive.type.Category;
@@ -33,6 +34,7 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -104,6 +106,9 @@ public final class CoercionUtils
                 return Optional.of(new VarcharCoercer(fromVarcharType, toVarcharType));
             }
             return Optional.empty();
+        }
+        if (fromType instanceof VarcharType fromVarcharType && toType instanceof DateType toDateType) {
+            return Optional.of(new VarcharToDateCoercer(fromVarcharType, toDateType));
         }
         if (fromType instanceof CharType fromCharType && toType instanceof CharType toCharType) {
             if (narrowerThan(toCharType, fromCharType)) {
