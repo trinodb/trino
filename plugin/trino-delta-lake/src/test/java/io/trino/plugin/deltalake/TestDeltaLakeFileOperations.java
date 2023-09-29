@@ -277,8 +277,13 @@ public class TestDeltaLakeFileOperations
     public void testSelfJoin()
     {
         assertUpdate("CREATE TABLE test_self_join_table AS SELECT 2 as age, 0 parent, 3 AS id", 1);
+        Session sessionWithoutDynamicFiltering = Session.builder(getSession())
+                // Disable dynamic filtering so that the second table data scan is not being pruned
+                .setSystemProperty("enable_dynamic_filtering", "false")
+                .build();
 
         assertFileSystemAccesses(
+                sessionWithoutDynamicFiltering,
                 "SELECT child.age, parent.age FROM test_self_join_table child JOIN test_self_join_table parent ON child.parent = parent.id",
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM))
