@@ -27,6 +27,9 @@ import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.filesystem.cache.CachingHostAddressProvider;
+import io.trino.filesystem.cache.ConsistentHashingHostAddressProvider;
+import io.trino.filesystem.cache.ConsistentHashingHostAddressProviderConfiguration;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
 
 import java.io.IOException;
@@ -47,6 +50,7 @@ import static alluxio.conf.PropertyKey.USER_CLIENT_CACHE_TTL_THRESHOLD_SECONDS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.inject.Scopes.SINGLETON;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.filesystem.alluxio.AlluxioFileSystemCacheConfig.CACHE_DIRECTORIES;
 import static io.trino.filesystem.alluxio.AlluxioFileSystemCacheConfig.CACHE_MAX_PERCENTAGES;
@@ -62,10 +66,12 @@ public class AlluxioFileSystemCacheModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(AlluxioFileSystemCacheConfig.class);
+        configBinder(binder).bindConfig(ConsistentHashingHostAddressProviderConfiguration.class);
         binder.bind(CacheStats.class).to(AlluxioCacheStats.class).in(SINGLETON);
         newExporter(binder).export(CacheStats.class).as(generator -> generator.generatedNameOf(AlluxioCacheStats.class));
 
         binder.bind(TrinoFileSystemCache.class).to(AlluxioFileSystemCache.class).in(SINGLETON);
+        newOptionalBinder(binder, CachingHostAddressProvider.class).setBinding().to(ConsistentHashingHostAddressProvider.class).in(SINGLETON);
 
         Properties metricProps = new Properties();
         metricProps.put("sink.jmx.class", "alluxio.metrics.sink.JmxSink");
