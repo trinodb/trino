@@ -24,8 +24,12 @@ import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.azure.AzureFileSystemFactory;
 import io.trino.filesystem.azure.AzureFileSystemModule;
+import io.trino.filesystem.cache.CacheFileSystemFactory;
+import io.trino.filesystem.cache.CacheKeyProvider;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
+import io.trino.filesystem.cache.DefaultCacheKeyProvider;
 import io.trino.filesystem.cache.NoneCachingHostAddressProvider;
+import io.trino.filesystem.cache.TrinoFileSystemCache;
 import io.trino.filesystem.gcs.GcsFileSystemFactory;
 import io.trino.filesystem.gcs.GcsFileSystemModule;
 import io.trino.filesystem.s3.S3FileSystemFactory;
@@ -96,6 +100,8 @@ public class FileSystemModule
         }
 
         newOptionalBinder(binder, CachingHostAddressProvider.class).setDefault().to(NoneCachingHostAddressProvider.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, CacheKeyProvider.class).setDefault().to(DefaultCacheKeyProvider.class).in(Scopes.SINGLETON);
+        newMapBinder(binder, String.class, TrinoFileSystemCache.class);
     }
 
     @Provides
@@ -104,12 +110,28 @@ public class FileSystemModule
             Optional<HdfsFileSystemLoader> hdfsFileSystemLoader,
             LifeCycleManager lifeCycleManager,
             Map<String, TrinoFileSystemFactory> factories,
+            Optional<TrinoFileSystemCache> fileSystemCache,
+            Optional<CacheKeyProvider> keyProvider,
             Tracer tracer)
     {
         Optional<TrinoFileSystemFactory> hdfsFactory = hdfsFileSystemLoader.map(HdfsFileSystemLoader::create);
         hdfsFactory.ifPresent(lifeCycleManager::addInstance);
 
         TrinoFileSystemFactory delegate = new SwitchingFileSystemFactory(hdfsFactory, factories);
+        if (fileSystemCache.isPresent()) {
+            delegate = new CacheFileSystemFactory(delegate, fileSystemCache.orElseThrow(), keyProvider.orElseThrow());
+        }
         return new TracingFileSystemFactory(tracer, delegate);
+    }
+
+    @Provides
+    @Singleton
+    public Optional<TrinoFileSystemCache> createFileSystemCache(FileSystemConfig config, Map<String, TrinoFileSystemCache> caches)
+    {
+        Optional<TrinoFileSystemCache> cache = Optional.ofNullable(caches.get(config.getCacheType()));
+        if (cache.isEmpty() && config.getCacheType() != null) {
+            throw new IllegalArgumentException("Unknown cache type %s".formatted(config.getCacheType()));
+        }
+        return cache;
     }
 }
