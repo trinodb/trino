@@ -318,20 +318,26 @@ public class TestStatistics
     @Test
     public void testFromComputedStatistics()
     {
-        Function<Integer, Block> singleIntegerValueBlock = value ->
+        Function<Long, Block> singleLongValueBlock = value ->
         {
             BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 1);
             BIGINT.writeLong(blockBuilder, value);
             return blockBuilder.build();
         };
+        Function<Integer, Block> singleIntegerValueBlock = value ->
+        {
+            BlockBuilder blockBuilder = INTEGER.createBlockBuilder(null, 1);
+            INTEGER.writeLong(blockBuilder, value);
+            return blockBuilder.build();
+        };
 
         ComputedStatistics statistics = ComputedStatistics.builder(ImmutableList.of(), ImmutableList.of())
-                .addTableStatistic(TableStatisticType.ROW_COUNT, singleIntegerValueBlock.apply(5))
+                .addTableStatistic(TableStatisticType.ROW_COUNT, singleLongValueBlock.apply(5L))
                 .addColumnStatistic(MIN_VALUE.createColumnStatisticMetadata("a_column"), singleIntegerValueBlock.apply(1))
                 .addColumnStatistic(MAX_VALUE.createColumnStatisticMetadata("a_column"), singleIntegerValueBlock.apply(5))
-                .addColumnStatistic(NUMBER_OF_DISTINCT_VALUES.createColumnStatisticMetadata("a_column"), singleIntegerValueBlock.apply(5))
-                .addColumnStatistic(NUMBER_OF_NON_NULL_VALUES.createColumnStatisticMetadata("a_column"), singleIntegerValueBlock.apply(5))
-                .addColumnStatistic(NUMBER_OF_NON_NULL_VALUES.createColumnStatisticMetadata("b_column"), singleIntegerValueBlock.apply(4))
+                .addColumnStatistic(NUMBER_OF_DISTINCT_VALUES.createColumnStatisticMetadata("a_column"), singleLongValueBlock.apply(5L))
+                .addColumnStatistic(NUMBER_OF_NON_NULL_VALUES.createColumnStatisticMetadata("a_column"), singleLongValueBlock.apply(5L))
+                .addColumnStatistic(NUMBER_OF_NON_NULL_VALUES.createColumnStatisticMetadata("b_column"), singleLongValueBlock.apply(4L))
                 .build();
 
         Map<String, Type> columnTypes = ImmutableMap.of("a_column", INTEGER, "b_column", VARCHAR);

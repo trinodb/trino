@@ -634,9 +634,9 @@ public class TestingColumnReader
                 // FLOAT parquet primitive type can be read as a DOUBLE or REAL type in Trino
                 new ColumnReaderFormat<>(FLOAT, DoubleType.DOUBLE, PLAIN_WRITER, DICTIONARY_FLOAT_WRITER, WRITE_FLOAT, ASSERT_DOUBLE_STORED_AS_FLOAT),
                 new ColumnReaderFormat<>(DOUBLE, DoubleType.DOUBLE, PLAIN_WRITER, DICTIONARY_DOUBLE_WRITER, WRITE_DOUBLE, ASSERT_DOUBLE),
-                new ColumnReaderFormat<>(INT32, decimalType(0, 8), createDecimalType(8), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
+                new ColumnReaderFormat<>(INT32, decimalType(0, 8), createDecimalType(8), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
                 // INT32 can be read as a ShortDecimalType in Trino without decimal logical type annotation as well
-                new ColumnReaderFormat<>(INT32, createDecimalType(8, 0), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
+                new ColumnReaderFormat<>(INT32, createDecimalType(8, 0), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
                 new ColumnReaderFormat<>(INT32, BIGINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
                 new ColumnReaderFormat<>(INT32, INTEGER, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
                 new ColumnReaderFormat<>(INT32, SMALLINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_SHORT, ASSERT_SHORT),
@@ -658,9 +658,9 @@ public class TestingColumnReader
                 // Reading a column TimeLogicalTypeAnnotation as a BIGINT
                 new ColumnReaderFormat<>(INT64, timeType(false, MICROS), BIGINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_LONG),
                 // Short decimals
-                new ColumnReaderFormat<>(INT32, decimalType(0, 8), createDecimalType(8), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
+                new ColumnReaderFormat<>(INT32, decimalType(0, 8), createDecimalType(8), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
                 // INT32 values can be read as zero scale decimals provided the precision is at least 10 to accommodate the largest possible integer
-                new ColumnReaderFormat<>(INT32, createDecimalType(10), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
+                new ColumnReaderFormat<>(INT32, createDecimalType(10), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
                 new ColumnReaderFormat<>(INT32, decimalType(0, 8), BIGINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
                 new ColumnReaderFormat<>(INT32, decimalType(0, 8), INTEGER, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
                 new ColumnReaderFormat<>(INT32, decimalType(0, 8), SMALLINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_SHORT, ASSERT_SHORT),

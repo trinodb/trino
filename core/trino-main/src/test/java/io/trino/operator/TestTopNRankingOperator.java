@@ -299,7 +299,7 @@ public class TestTopNRankingOperator
         for (Page page : result.getOutput()) {
             assertEquals(page.getChannelCount(), 2);
             for (int i = 0; i < page.getPositionCount(); i++) {
-                assertEquals(page.getBlock(1).getByte(i, 0), 1);
+                assertEquals(page.getBlock(1).getLong(i, 0), 1);
                 count++;
             }
         }

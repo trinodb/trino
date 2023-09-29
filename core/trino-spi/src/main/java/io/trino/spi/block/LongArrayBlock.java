@@ -27,7 +27,6 @@ import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
-import static java.lang.Math.toIntExact;
 
 public class LongArrayBlock
         implements Block
@@ -132,52 +131,6 @@ public class LongArrayBlock
             throw new IllegalArgumentException("offset must be zero");
         }
         return values[position + arrayOffset];
-    }
-
-    @Override
-    @Deprecated
-    // TODO: Remove when we fix intermediate types on aggregations.
-    public int getInt(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
-        return toIntExact(values[position + arrayOffset]);
-    }
-
-    @Override
-    @Deprecated
-    // TODO: Remove when we fix intermediate types on aggregations.
-    public short getShort(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
-
-        short value = (short) (values[position + arrayOffset]);
-        if (value != values[position + arrayOffset]) {
-            throw new ArithmeticException("short overflow");
-        }
-        return value;
-    }
-
-    @Override
-    @Deprecated
-    // TODO: Remove when we fix intermediate types on aggregations.
-    public byte getByte(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
-
-        byte value = (byte) (values[position + arrayOffset]);
-        if (value != values[position + arrayOffset]) {
-            throw new ArithmeticException("byte overflow");
-        }
-        return value;
     }
 
     @Override
