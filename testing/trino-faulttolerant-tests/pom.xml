@@ -185,6 +185,12 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-hdfs</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.qubole.rubix</groupId>
+                    <artifactId>rubix-presto-shaded</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
