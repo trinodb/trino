@@ -17,7 +17,6 @@ import com.google.common.base.Stopwatch;
 import com.google.common.base.Ticker;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -25,7 +24,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
-import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.TaskId;
@@ -35,7 +33,6 @@ import io.trino.memory.MemoryManagerConfig;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.InternalNodeManager.NodesSnapshot;
-import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.memory.MemoryPoolInfo;
 import jakarta.annotation.PostConstruct;
@@ -60,18 +57,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryEstimationQuantile;
-import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryGrowthFactor;
-import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
-import static io.trino.execution.scheduler.ErrorCodes.isWorkerCrashAssociatedError;
 import static io.trino.execution.scheduler.TaskExecutionClass.EAGER_SPECULATIVE;
 import static io.trino.execution.scheduler.TaskExecutionClass.SPECULATIVE;
 import static io.trino.execution.scheduler.TaskExecutionClass.STANDARD;
@@ -83,7 +74,7 @@ import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class BinPackingNodeAllocatorService
-        implements NodeAllocatorService, NodeAllocator, PartitionMemoryEstimatorFactory
+        implements NodeAllocatorService, NodeAllocator
 {
     private static final Logger log = Logger.get(BinPackingNodeAllocatorService.class);
 
@@ -98,9 +89,7 @@ public class BinPackingNodeAllocatorService
     private final AtomicBoolean stopped = new AtomicBoolean();
     private final Semaphore processSemaphore = new Semaphore(0);
     private final AtomicReference<Map<String, MemoryPoolInfo>> nodePoolMemoryInfos = new AtomicReference<>(ImmutableMap.of());
-    private final AtomicReference<Optional<DataSize>> maxNodePoolSize = new AtomicReference<>(Optional.empty());
     private final boolean scheduleOnCoordinator;
-    private final boolean memoryRequirementIncreaseOnWorkerCrashEnabled;
     private final DataSize taskRuntimeMemoryEstimationOverhead;
     private final DataSize eagerSpeculativeTasksNodeMemoryOvercommit;
     private final Ticker ticker;
@@ -119,7 +108,6 @@ public class BinPackingNodeAllocatorService
         this(nodeManager,
                 clusterMemoryManager::getWorkerMemoryInfo,
                 nodeSchedulerConfig.isIncludeCoordinator(),
-                memoryManagerConfig.isFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled(),
                 Duration.ofMillis(nodeSchedulerConfig.getAllowedNoMatchingNodePeriod().toMillis()),
                 memoryManagerConfig.getFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(),
                 memoryManagerConfig.getFaultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit(),
@@ -131,7 +119,6 @@ public class BinPackingNodeAllocatorService
             InternalNodeManager nodeManager,
             Supplier<Map<String, Optional<MemoryInfo>>> workerMemoryInfoSupplier,
             boolean scheduleOnCoordinator,
-            boolean memoryRequirementIncreaseOnWorkerCrashEnabled,
             Duration allowedNoMatchingNodePeriod,
             DataSize taskRuntimeMemoryEstimationOverhead,
             DataSize eagerSpeculativeTasksNodeMemoryOvercommit,
@@ -140,7 +127,6 @@ public class BinPackingNodeAllocatorService
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.workerMemoryInfoSupplier = requireNonNull(workerMemoryInfoSupplier, "workerMemoryInfoSupplier is null");
         this.scheduleOnCoordinator = scheduleOnCoordinator;
-        this.memoryRequirementIncreaseOnWorkerCrashEnabled = memoryRequirementIncreaseOnWorkerCrashEnabled;
         this.allowedNoMatchingNodePeriod = requireNonNull(allowedNoMatchingNodePeriod, "allowedNoMatchingNodePeriod is null");
         this.taskRuntimeMemoryEstimationOverhead = requireNonNull(taskRuntimeMemoryEstimationOverhead, "taskRuntimeMemoryEstimationOverhead is null");
         this.eagerSpeculativeTasksNodeMemoryOvercommit = eagerSpeculativeTasksNodeMemoryOvercommit;
@@ -205,7 +191,6 @@ public class BinPackingNodeAllocatorService
             newNodePoolMemoryInfos.put(entry.getKey(), poolInfo);
             maxNodePoolSizeBytes = Math.max(poolInfo.getMaxBytes(), maxNodePoolSizeBytes);
         }
-        maxNodePoolSize.set(maxNodePoolSizeBytes == -1 ? Optional.empty() : Optional.of(DataSize.ofBytes(maxNodePoolSizeBytes)));
         nodePoolMemoryInfos.set(newNodePoolMemoryInfos.buildOrThrow());
     }
 
@@ -699,105 +684,5 @@ public class BinPackingNodeAllocatorService
                 return node.orElseThrow(() -> new IllegalStateException("node not set"));
             }
         }
-    }
-
-    @Override
-    public PartitionMemoryEstimator createPartitionMemoryEstimator()
-    {
-        return new ExponentialGrowthPartitionMemoryEstimator();
-    }
-
-    private class ExponentialGrowthPartitionMemoryEstimator
-            implements PartitionMemoryEstimator
-    {
-        private final TDigest memoryUsageDistribution = new TDigest();
-
-        private ExponentialGrowthPartitionMemoryEstimator() {}
-
-        @Override
-        public MemoryRequirements getInitialMemoryRequirements(Session session, DataSize defaultMemoryLimit)
-        {
-            DataSize memory = Ordering.natural().max(defaultMemoryLimit, getEstimatedMemoryUsage(session));
-            memory = capMemoryToMaxNodeSize(memory);
-            return new MemoryRequirements(memory);
-        }
-
-        @Override
-        public MemoryRequirements getNextRetryMemoryRequirements(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode)
-        {
-            DataSize previousMemory = previousMemoryRequirements.getRequiredMemory();
-
-            // start with the maximum of previously used memory and actual usage
-            DataSize newMemory = Ordering.natural().max(peakMemoryUsage, previousMemory);
-            if (shouldIncreaseMemoryRequirement(errorCode)) {
-                // multiply if we hit an oom error
-                double growthFactor = getFaultTolerantExecutionTaskMemoryGrowthFactor(session);
-                newMemory = DataSize.of((long) (newMemory.toBytes() * growthFactor), DataSize.Unit.BYTE);
-            }
-
-            // if we are still below current estimate for new partition let's bump further
-            newMemory = Ordering.natural().max(newMemory, getEstimatedMemoryUsage(session));
-
-            newMemory = capMemoryToMaxNodeSize(newMemory);
-            return new MemoryRequirements(newMemory);
-        }
-
-        private DataSize capMemoryToMaxNodeSize(DataSize memory)
-        {
-            Optional<DataSize> currentMaxNodePoolSize = maxNodePoolSize.get();
-            if (currentMaxNodePoolSize.isEmpty()) {
-                return memory;
-            }
-            return Ordering.natural().min(memory, currentMaxNodePoolSize.get());
-        }
-
-        @Override
-        public synchronized void registerPartitionFinished(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, boolean success, Optional<ErrorCode> errorCode)
-        {
-            if (success) {
-                memoryUsageDistribution.add(peakMemoryUsage.toBytes());
-            }
-            if (!success && errorCode.isPresent() && shouldIncreaseMemoryRequirement(errorCode.get())) {
-                double growthFactor = getFaultTolerantExecutionTaskMemoryGrowthFactor(session);
-                // take previousRequiredBytes into account when registering failure on oom. It is conservative hence safer (and in-line with getNextRetryMemoryRequirements)
-                long previousRequiredBytes = previousMemoryRequirements.getRequiredMemory().toBytes();
-                long previousPeakBytes = peakMemoryUsage.toBytes();
-                memoryUsageDistribution.add(Math.max(previousRequiredBytes, previousPeakBytes) * growthFactor);
-            }
-        }
-
-        private synchronized DataSize getEstimatedMemoryUsage(Session session)
-        {
-            double estimationQuantile = getFaultTolerantExecutionTaskMemoryEstimationQuantile(session);
-            double estimation = memoryUsageDistribution.valueAt(estimationQuantile);
-            if (Double.isNaN(estimation)) {
-                return DataSize.ofBytes(0);
-            }
-            return DataSize.ofBytes((long) estimation);
-        }
-
-        private String memoryUsageDistributionInfo()
-        {
-            double[] quantiles = new double[] {0.01, 0.05, 0.1, 0.2, 0.5, 0.8, 0.9, 0.95, 0.99};
-            double[] values;
-            synchronized (this) {
-                values = memoryUsageDistribution.valuesAt(quantiles);
-            }
-
-            return IntStream.range(0, quantiles.length)
-                    .mapToObj(i -> "" + quantiles[i] + "=" + values[i])
-                    .collect(Collectors.joining(", ", "[", "]"));
-        }
-
-        @Override
-        public String toString()
-        {
-            return "memoryUsageDistribution=" + memoryUsageDistributionInfo();
-        }
-    }
-
-    private boolean shouldIncreaseMemoryRequirement(ErrorCode errorCode)
-    {
-        return isOutOfMemoryError(errorCode) || (memoryRequirementIncreaseOnWorkerCrashEnabled && isWorkerCrashAssociatedError(errorCode));
     }
 }

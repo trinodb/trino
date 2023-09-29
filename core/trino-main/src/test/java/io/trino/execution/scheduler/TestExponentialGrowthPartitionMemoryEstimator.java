@@ -13,23 +13,19 @@
  */
 package io.trino.execution.scheduler;
 
-import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.execution.scheduler.PartitionMemoryEstimator.MemoryRequirements;
 import io.trino.memory.MemoryInfo;
-import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNode;
-import io.trino.metadata.InternalNodeManager;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.memory.MemoryPoolInfo;
 import io.trino.testing.TestingSession;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
-import java.time.Duration;
 import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -37,27 +33,18 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
-import static java.time.temporal.ChronoUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExponentialGrowthPartitionMemoryEstimator
 {
     @Test
     public void testEstimator()
-            throws Exception
     {
-        InternalNodeManager nodeManager = new InMemoryNodeManager(new InternalNode("a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false));
-        BinPackingNodeAllocatorService nodeAllocatorService = new BinPackingNodeAllocatorService(
-                nodeManager,
+        ExponentialGrowthPartitionMemoryEstimator.Factory estimatorFactory = new ExponentialGrowthPartitionMemoryEstimator.Factory(
                 () -> ImmutableMap.of(new InternalNode("a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false).getNodeIdentifier(), Optional.of(buildWorkerMemoryInfo(DataSize.ofBytes(0)))),
-                false,
-                true,
-                Duration.of(1, MINUTES),
-                DataSize.ofBytes(0),
-                DataSize.ofBytes(0),
-                Ticker.systemTicker());
-        nodeAllocatorService.refreshNodePoolMemoryInfos();
-        PartitionMemoryEstimator estimator = nodeAllocatorService.createPartitionMemoryEstimator();
+                true);
+        estimatorFactory.refreshNodePoolMemoryInfos();
+        PartitionMemoryEstimator estimator = estimatorFactory.createPartitionMemoryEstimator();
 
         Session session = TestingSession.testSessionBuilder().build();
 
