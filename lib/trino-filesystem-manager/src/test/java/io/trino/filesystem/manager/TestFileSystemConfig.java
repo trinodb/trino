@@ -21,6 +21,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.trino.filesystem.manager.FileSystemConfig.CacheType.NONE;
 
 public class TestFileSystemConfig
 {
@@ -31,7 +32,8 @@ public class TestFileSystemConfig
                 .setHadoopEnabled(true)
                 .setNativeAzureEnabled(false)
                 .setNativeS3Enabled(false)
-                .setNativeGcsEnabled(false));
+                .setNativeGcsEnabled(false)
+                .setCacheType(NONE));
     }
 
     @Test
@@ -42,13 +44,15 @@ public class TestFileSystemConfig
                 .put("fs.native-azure.enabled", "true")
                 .put("fs.native-s3.enabled", "true")
                 .put("fs.native-gcs.enabled", "true")
+                .put("fs.cache", "none")
                 .buildOrThrow();
 
         FileSystemConfig expected = new FileSystemConfig()
                 .setHadoopEnabled(false)
                 .setNativeAzureEnabled(true)
                 .setNativeS3Enabled(true)
-                .setNativeGcsEnabled(true);
+                .setNativeGcsEnabled(true)
+                .setCacheType(NONE);
 
         assertFullMapping(properties, expected);
     }

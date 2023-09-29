@@ -110,6 +110,11 @@ public abstract class AbstractTestTrinoFileSystem
         return true;
     }
 
+    protected boolean isFileContentCaching()
+    {
+        return false;
+    }
+
     protected Location createLocation(String path)
     {
         if (path.isEmpty()) {
@@ -1026,7 +1031,7 @@ public abstract class AbstractTestTrinoFileSystem
 
             // Verify deleting
             getFileSystem().deleteFile(location);
-            assertThat(inputFile.exists()).as("exists after delete").isFalse();
+            assertThat(newInputFile.exists()).as("exists after delete").isFalse();
 
             // Verify renames
             if (supportsRenameFile()) {
