@@ -681,20 +681,20 @@ public class TracingAccessControl
     }
 
     @Override
-    public boolean canExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
+    public boolean canExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
         Span span = startSpan("canExecuteFunction");
         try (var ignored = scopedSpan(span)) {
-            return delegate.canExecuteFunction(context, functionKind, functionName);
+            return delegate.canExecuteFunction(context, functionName);
         }
     }
 
     @Override
-    public boolean canCreateViewWithExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
+    public boolean canCreateViewWithExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
         Span span = startSpan("canCreateViewWithExecuteFunction");
         try (var ignored = scopedSpan(span)) {
-            return delegate.canCreateViewWithExecuteFunction(context, functionKind, functionName);
+            return delegate.canCreateViewWithExecuteFunction(context, functionName);
         }
     }
 

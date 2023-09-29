@@ -800,7 +800,7 @@ public interface SystemAccessControl
     /**
      * Is identity allowed to execute the specified function?
      */
-    default boolean canExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
+    default boolean canExecuteFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
     {
         return false;
     }
@@ -808,7 +808,7 @@ public interface SystemAccessControl
     /**
      * Is identity allowed to create a view that executes the specified function?
      */
-    default boolean canCreateViewWithExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
+    default boolean canCreateViewWithExecuteFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
     {
         return false;
     }

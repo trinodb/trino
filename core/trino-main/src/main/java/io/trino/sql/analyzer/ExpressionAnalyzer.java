@@ -3239,7 +3239,6 @@ public class ExpressionAnalyzer
             CatalogSchemaFunctionName name = function.getSignature().getName();
             if (!accessControl.canExecuteFunction(
                     SecurityContext.of(session),
-                    function.getFunctionKind(),
                     new QualifiedObjectName(name.getCatalogName(), name.getSchemaName(), name.getFunctionName()))) {
                 denyExecuteFunction(name.getFunctionName());
             }

@@ -445,8 +445,8 @@ public class TestAccessControlManager
         QualifiedObjectName functionName = new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "executed_function");
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    assertThat(accessControlManager.canExecuteFunction(context(transactionId), SCALAR, functionName)).isFalse();
-                    assertThat(accessControlManager.canCreateViewWithExecuteFunction(context(transactionId), SCALAR, functionName)).isFalse();
+                    assertThat(accessControlManager.canExecuteFunction(context(transactionId), functionName)).isFalse();
+                    assertThat(accessControlManager.canCreateViewWithExecuteFunction(context(transactionId), functionName)).isFalse();
                     assertThatThrownBy(() -> accessControlManager.checkCanGrantExecuteFunctionPrivilege(context(transactionId), SCALAR, functionName, new TrinoPrincipal(USER, "bob"), true))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: 'user_name' cannot grant 'test-catalog.schema.executed_function' execution to USER bob");
@@ -463,8 +463,8 @@ public class TestAccessControlManager
         QualifiedObjectName functionName = new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "executed_function");
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    assertThat(accessControlManager.canExecuteFunction(context(transactionId), SCALAR, functionName)).isTrue();
-                    assertThat(accessControlManager.canCreateViewWithExecuteFunction(context(transactionId), SCALAR, functionName)).isTrue();
+                    assertThat(accessControlManager.canExecuteFunction(context(transactionId), functionName)).isTrue();
+                    assertThat(accessControlManager.canCreateViewWithExecuteFunction(context(transactionId), functionName)).isTrue();
                     accessControlManager.checkCanGrantExecuteFunctionPrivilege(context(transactionId), SCALAR, functionName, new TrinoPrincipal(USER, "bob"), true);
                 });
     }
@@ -479,8 +479,8 @@ public class TestAccessControlManager
         QualifiedObjectName functionName = new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "executed_function");
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    assertThat(accessControlManager.canExecuteFunction(context(transactionId), TABLE, functionName)).isTrue();
-                    assertThat(accessControlManager.canCreateViewWithExecuteFunction(context(transactionId), TABLE, functionName)).isTrue();
+                    assertThat(accessControlManager.canExecuteFunction(context(transactionId), functionName)).isTrue();
+                    assertThat(accessControlManager.canCreateViewWithExecuteFunction(context(transactionId), functionName)).isTrue();
                     accessControlManager.checkCanGrantExecuteFunctionPrivilege(context(transactionId), TABLE, functionName, new TrinoPrincipal(USER, "bob"), true);
                 });
     }

@@ -45,10 +45,6 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.io.Files.copy;
-import static io.trino.spi.function.FunctionKind.AGGREGATE;
-import static io.trino.spi.function.FunctionKind.SCALAR;
-import static io.trino.spi.function.FunctionKind.TABLE;
-import static io.trino.spi.function.FunctionKind.WINDOW;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.security.Privilege.UPDATE;
@@ -227,14 +223,6 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertAccessDenied(
                 () -> accessControl.checkCanWriteSystemInformation(unknown),
                 "Cannot write system information");
-    }
-
-    @Test
-    public void testEmptyFunctionKind()
-    {
-        assertThatThrownBy(() -> newFileBasedSystemAccessControl("empty-functions-kind.json"))
-                .hasRootCauseInstanceOf(IllegalStateException.class)
-                .hasRootCauseMessage("functionKinds cannot be empty, provide at least one function kind [SCALAR, AGGREGATE, WINDOW, TABLE]");
     }
 
     @Test
@@ -508,15 +496,8 @@ public abstract class BaseFileBasedSystemAccessControlTest
     public void testFunctionRulesForCheckExecuteAndGrantExecuteFunctionWithNoAccess()
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-no-access.json");
-        assertThat(accessControl.canExecuteFunction(ALICE, AGGREGATE, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"))).isFalse();
-        assertThat(accessControl.canExecuteFunction(ALICE, SCALAR, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"))).isFalse();
-        assertThat(accessControl.canExecuteFunction(ALICE, TABLE, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_table_function"))).isFalse();
-        assertThat(accessControl.canExecuteFunction(ALICE, WINDOW, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"))).isFalse();
-
-        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, AGGREGATE, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"))).isFalse();
-        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, SCALAR, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"))).isFalse();
-        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, TABLE, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_table_function"))).isFalse();
-        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, WINDOW, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(ALICE, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"))).isFalse();
+        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"))).isFalse();
     }
 
     @Test
@@ -1190,7 +1171,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
 
         assertEquals(accessControl.filterSchemas(ADMIN, "specific-catalog", ImmutableSet.of("specific-schema", "unknown")), ImmutableSet.of("specific-schema", "unknown"));
         assertEquals(accessControl.filterSchemas(ALICE, "specific-catalog", ImmutableSet.of("specific-schema", "unknown")), ImmutableSet.of("specific-schema"));
-        assertEquals(accessControl.filterSchemas(BOB, "specific-catalog", ImmutableSet.of("specific-schema", "unknown")), ImmutableSet.of("specific-schema"));
+        assertEquals(accessControl.filterSchemas(BOB, "specific-catalog", ImmutableSet.of("specific-schema")), ImmutableSet.of("specific-schema"));
         assertEquals(accessControl.filterSchemas(CHARLIE, "specific-catalog", ImmutableSet.of("specific-schema", "unknown")), ImmutableSet.of("specific-schema"));
 
         assertEquals(accessControl.filterSchemas(ADMIN, "alice-catalog", ImmutableSet.of("alice-schema", "bob-schema", "unknown")), ImmutableSet.of("alice-schema", "bob-schema", "unknown"));
@@ -1352,40 +1333,34 @@ public abstract class BaseFileBasedSystemAccessControlTest
     public void testFunctionRulesForCheckCanExecute()
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-visibility.json");
-        assertThat(accessControl.canExecuteFunction(ADMIN, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"))).isFalse();
-        assertThat(accessControl.canExecuteFunction(ADMIN, SCALAR, new CatalogSchemaRoutineName("system", "builtin", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(BOB, new CatalogSchemaRoutineName("specific-catalog", "system", "some_function"))).isTrue();
 
-        assertThat(accessControl.canExecuteFunction(ALICE, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"))).isTrue();
-        assertThat(accessControl.canExecuteFunction(ALICE, SCALAR, new CatalogSchemaRoutineName("system", "builtin", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(ADMIN, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(ADMIN, new CatalogSchemaRoutineName("specific-catalog", "system", "some_function"))).isFalse();
 
-        assertThat(accessControl.canExecuteFunction(BOB, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"))).isFalse();
-        assertThat(accessControl.canExecuteFunction(BOB, SCALAR, new CatalogSchemaRoutineName("system", "builtin", "some_function"))).isTrue();
+        assertThat(accessControl.canExecuteFunction(ALICE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"))).isTrue();
+        assertThat(accessControl.canExecuteFunction(ALICE, new CatalogSchemaRoutineName("specific-catalog", "system", "some_function"))).isFalse();
 
-        assertThat(accessControl.canExecuteFunction(CHARLIE, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"))).isFalse();
-        assertThat(accessControl.canExecuteFunction(CHARLIE, SCALAR, new CatalogSchemaRoutineName("system", "builtin", "some_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(BOB, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(BOB, new CatalogSchemaRoutineName("specific-catalog", "system", "some_function"))).isTrue();
+
+        assertThat(accessControl.canExecuteFunction(CHARLIE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(CHARLIE, new CatalogSchemaRoutineName("specific-catalog", "system", "some_function"))).isFalse();
     }
 
     @Test
-    public void testFunctionRulesForCheckCanGrantExecute()
+    public void testFunctionRulesForCheckCanCreateView()
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-visibility.json");
-        accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, ADMIN.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_function"), new TrinoPrincipal(USER, ADMIN.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, SCALAR, new CatalogSchemaRoutineName("system", "builtin", "some_function"), new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, SCALAR, new CatalogSchemaRoutineName("system", "builtin", "some_function"), new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, SCALAR, new CatalogSchemaRoutineName("system", "builtin", "some_function"), new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
+        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"))).isTrue();
+        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_function"))).isFalse();
+        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, new CatalogSchemaRoutineName("specific-catalog", "builtin", "some_table_function"))).isFalse();
+        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, new CatalogSchemaRoutineName("specific-catalog", "builtin", "some_function"))).isFalse();
 
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, ADMIN.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_function"), new TrinoPrincipal(USER, ADMIN.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, SCALAR, new CatalogSchemaRoutineName("system", "builtin", "some_function"), new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, SCALAR, new CatalogSchemaRoutineName("system", "builtin", "some_function"), new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, SCALAR, new CatalogSchemaRoutineName("system", "builtin", "some_function"), new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true);
+        assertThat(accessControl.canCreateViewWithExecuteFunction(BOB, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"))).isFalse();
+        assertThat(accessControl.canCreateViewWithExecuteFunction(BOB, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_function"))).isFalse();
+        assertThat(accessControl.canCreateViewWithExecuteFunction(BOB, new CatalogSchemaRoutineName("specific-catalog", "builtin", "some_table_function"))).isFalse();
+        assertThat(accessControl.canCreateViewWithExecuteFunction(BOB, new CatalogSchemaRoutineName("specific-catalog", "builtin", "some_function"))).isTrue();
     }
 
     @Test

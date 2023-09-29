@@ -430,18 +430,6 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("'%s' cannot grant '%s' execution to %s", identity.getUser(), functionName, grantee));
     }
 
-    @Deprecated(forRemoval = true)
-    public static void denyGrantExecuteFunctionPrivilege(String functionName, Identity identity, Identity grantee)
-    {
-        denyGrantExecuteFunctionPrivilege(functionName, identity, format("user '%s'", grantee.getUser()));
-    }
-
-    @Deprecated(forRemoval = true)
-    public static void denyGrantExecuteFunctionPrivilege(String functionName, Identity identity, String grantee)
-    {
-        throw new AccessDeniedException(format("'%s' cannot grant '%s' execution to %s", identity.getUser(), functionName, grantee));
-    }
-
     public static void denyRenameView(String viewName, String newViewName)
     {
         denyRenameView(viewName, newViewName, null);
