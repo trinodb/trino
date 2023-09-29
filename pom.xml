@@ -2437,6 +2437,9 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
+                    <properties>
+                        <configurationParameters>junit.jupiter.execution.timeout.thread.mode.default = SEPARATE_THREAD</configurationParameters>
+                    </properties>
                     <includes>
                         <!-- Tests classes should start with "Test", but we do also want to include tests incorrectly named, with "Test" at the end -->
                         <include>**/Test*.java</include>
