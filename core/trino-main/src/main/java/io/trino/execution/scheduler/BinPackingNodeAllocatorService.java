@@ -506,23 +506,16 @@ public class BinPackingNodeAllocatorService
 
             Map<String, Long> preReservedMemory = new HashMap<>();
             SetMultimap<String, BinPackingNodeLease> fulfilledAcquiresByNode = HashMultimap.create();
-            for (BinPackingNodeLease fulfilledAcquire : fulfilledAcquires) {
-                if (ignoreAcquiredSpeculative && fulfilledAcquire.isSpeculative()) {
-                    continue;
-                }
-                InternalNode node = fulfilledAcquire.getAssignedNode();
-                fulfilledAcquiresByNode.put(node.getNodeIdentifier(), fulfilledAcquire);
-                preReservedMemory.compute(node.getNodeIdentifier(), (key, prev) -> (prev == null ? 0L : prev) + fulfilledAcquire.getMemoryLease());
-            }
-
             speculativeMemoryReserved = new HashMap<>();
-            if (ignoreAcquiredSpeculative) {
-                for (BinPackingNodeLease fulfilledAcquire : fulfilledAcquires) {
-                    if (!fulfilledAcquire.isSpeculative()) {
-                        continue;
-                    }
-                    InternalNode node = fulfilledAcquire.getAssignedNode();
-                    speculativeMemoryReserved.compute(node.getNodeIdentifier(), (key, prev) -> (prev == null ? 0L : prev) + fulfilledAcquire.getMemoryLease());
+            for (BinPackingNodeLease fulfilledAcquire : fulfilledAcquires) {
+                InternalNode node = fulfilledAcquire.getAssignedNode();
+                long memoryLease = fulfilledAcquire.getMemoryLease();
+                if (ignoreAcquiredSpeculative && fulfilledAcquire.isSpeculative()) {
+                    speculativeMemoryReserved.compute(node.getNodeIdentifier(), (key, prev) -> (prev == null ? 0L : prev) + memoryLease);
+                }
+                else {
+                    fulfilledAcquiresByNode.put(node.getNodeIdentifier(), fulfilledAcquire);
+                    preReservedMemory.compute(node.getNodeIdentifier(), (key, prev) -> (prev == null ? 0L : prev) + memoryLease);
                 }
             }
 
