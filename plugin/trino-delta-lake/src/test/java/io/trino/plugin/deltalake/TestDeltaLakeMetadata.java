@@ -24,6 +24,8 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.cache.CachingHostAddressProvider;
+import io.trino.filesystem.cache.NoneCachingHostAddressProvider;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.TrinoHdfsFileSystemStats;
@@ -206,6 +208,7 @@ public class TestDeltaLakeMetadata
                     binder.bind(HdfsEnvironment.class).toInstance(HDFS_ENVIRONMENT);
                     binder.bind(TrinoHdfsFileSystemStats.class).toInstance(HDFS_FILE_SYSTEM_STATS);
                     binder.bind(TrinoFileSystemFactory.class).to(HdfsFileSystemFactory.class).in(Scopes.SINGLETON);
+                    binder.bind(CachingHostAddressProvider.class).to(NoneCachingHostAddressProvider.class).in(Scopes.SINGLETON);
                 },
                 new AbstractModule()
                 {

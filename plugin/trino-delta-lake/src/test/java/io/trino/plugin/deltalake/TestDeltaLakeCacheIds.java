@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
+import io.trino.filesystem.cache.NoneCachingHostAddressProvider;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfiguration;
@@ -146,7 +147,8 @@ public class TestDeltaLakeCacheIds
                 config,
                 hdfsFileSystemFactory,
                 createJsonCodec(DeltaLakeCacheSplitId.class),
-                new DeltaLakeTransactionManager(metadataFactory));
+                new DeltaLakeTransactionManager(metadataFactory),
+                new NoneCachingHostAddressProvider());
     }
 
     @AfterAll

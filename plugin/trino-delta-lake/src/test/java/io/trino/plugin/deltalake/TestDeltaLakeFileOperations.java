@@ -21,6 +21,8 @@ import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.filesystem.TrackingFileSystemFactory;
 import io.trino.filesystem.TrackingFileSystemFactory.OperationType;
+import io.trino.filesystem.cache.CachingHostAddressProvider;
+import io.trino.filesystem.cache.NoneCachingHostAddressProvider;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -42,7 +44,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.inject.util.Modules.EMPTY_MODULE;
+import static com.google.inject.Scopes.SINGLETON;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_EXISTS;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_GET_LENGTH;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
@@ -95,7 +97,7 @@ public class TestDeltaLakeFileOperations
             queryRunner.createCatalog("tpch", "tpch");
 
             Path dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
-            queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.empty(), Optional.of(trackingFileSystemFactory), EMPTY_MODULE));
+            queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.empty(), Optional.of(trackingFileSystemFactory), binder -> binder.bind(CachingHostAddressProvider.class).to(NoneCachingHostAddressProvider.class).in(SINGLETON)));
             queryRunner.createCatalog(
                     "delta_lake",
                     "delta_lake",
