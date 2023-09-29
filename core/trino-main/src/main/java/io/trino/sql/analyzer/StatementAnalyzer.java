@@ -1784,10 +1784,7 @@ class StatementAnalyzer
                 CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, name.getCatalogName());
                 Optional<ConnectorTableFunction> resolved = tableFunctionRegistry.resolve(catalogHandle, name.getSchemaFunctionName());
                 if (resolved.isPresent()) {
-                    if (!accessControl.canExecuteFunction(
-                            SecurityContext.of(session),
-                            FunctionKind.TABLE,
-                            new QualifiedObjectName(name.getCatalogName(), name.getSchemaName(), name.getFunctionName()))) {
+                    if (!accessControl.canExecuteFunction(SecurityContext.of(session), new QualifiedObjectName(name.getCatalogName(), name.getSchemaName(), name.getFunctionName()))) {
                         denyExecuteFunction(name.getFunctionName());
                     }
                     return Optional.of(new TableFunctionMetadata(catalogHandle, resolved.get()));

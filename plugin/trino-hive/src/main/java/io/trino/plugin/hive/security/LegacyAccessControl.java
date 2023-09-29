@@ -403,18 +403,15 @@ public class LegacyAccessControl
     }
 
     @Override
-    public boolean canExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
+    public boolean canExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)
     {
-        return switch (functionKind) {
-            case SCALAR, AGGREGATE, WINDOW -> true;
-            case TABLE -> false;
-        };
+        return !function.getSchemaName().equals("system");
     }
 
     @Override
-    public boolean canCreateViewWithExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
+    public boolean canCreateViewWithExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)
     {
-        return canExecuteFunction(context, functionKind, function);
+        return canExecuteFunction(context, function);
     }
 
     @Override

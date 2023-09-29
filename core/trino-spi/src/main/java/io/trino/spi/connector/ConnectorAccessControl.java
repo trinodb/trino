@@ -639,7 +639,7 @@ public interface ConnectorAccessControl
     /**
      * Is the identity allowed to execute the specified function?
      */
-    default boolean canExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
+    default boolean canExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)
     {
         return false;
     }
@@ -647,7 +647,7 @@ public interface ConnectorAccessControl
     /**
      * Is identity allowed to create a view that executes the specified function?
      */
-    default boolean canCreateViewWithExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
+    default boolean canCreateViewWithExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)
     {
         return false;
     }
