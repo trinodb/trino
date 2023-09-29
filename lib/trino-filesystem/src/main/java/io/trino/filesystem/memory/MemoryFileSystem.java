@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.memory;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.FileEntry;
@@ -42,7 +43,8 @@ public class MemoryFileSystem
 {
     private final ConcurrentMap<String, MemoryBlob> blobs = new ConcurrentHashMap<>();
 
-    boolean isEmpty()
+    @VisibleForTesting
+    public boolean isEmpty()
     {
         return blobs.isEmpty();
     }

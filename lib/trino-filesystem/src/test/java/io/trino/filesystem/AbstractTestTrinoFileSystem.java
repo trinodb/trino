@@ -102,6 +102,11 @@ public abstract class AbstractTestTrinoFileSystem
         return true;
     }
 
+    protected boolean isFileContentCaching()
+    {
+        return false;
+    }
+
     protected Location createLocation(String path)
     {
         if (path.isEmpty()) {
@@ -1011,14 +1016,17 @@ public abstract class AbstractTestTrinoFileSystem
             try (OutputStream outputStream = getFileSystem().newOutputFile(location).createOrOverwrite()) {
                 outputStream.write(newContents.clone());
             }
-            try (TrinoInputStream inputStream = inputFile.newStream()) {
+            // Open a new input file with an updated file length. If we read with the old inputFile the cached (wrong) file length would be used.
+            // This can break some file system read operations (e.g., TrinoInput.readTail for most filesystems, newStream for caching file systems).
+            TrinoInputFile newInputFile = getFileSystem().newInputFile(location);
+            try (TrinoInputStream inputStream = newInputFile.newStream()) {
                 byte[] bytes = ByteStreams.toByteArray(inputStream);
                 assertThat(bytes).isEqualTo(newContents);
             }
 
             // Verify deleting
             getFileSystem().deleteFile(location);
-            assertThat(inputFile.exists()).as("exists after delete").isFalse();
+            assertThat(newInputFile.exists()).as("exists after delete").isFalse();
 
             // Verify renames
             if (supportsRenameFile()) {
