@@ -16,7 +16,6 @@ package io.trino.plugin.hive;
 import io.trino.filesystem.Location;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.orc.OriginalFilesUtils;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -30,11 +29,9 @@ import static org.testng.Assert.assertEquals;
 
 public class TestOriginalFilesUtils
 {
-    private Location tablePath;
+    private final Location tablePath;
 
-    @BeforeClass
-    public void setup()
-            throws Exception
+    public TestOriginalFilesUtils()
     {
         tablePath = Location.of(getResource("dummy_id_data_orc").toString());
     }

@@ -31,7 +31,6 @@ import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.transaction.TestingTransactionManager;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -48,18 +47,10 @@ import static java.lang.Double.POSITIVE_INFINITY;
 
 public class TestScalarStatsCalculator
 {
-    private TestingFunctionResolution functionResolution;
-    private ScalarStatsCalculator calculator;
-    private Session session;
+    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
+    private final ScalarStatsCalculator calculator = new ScalarStatsCalculator(functionResolution.getPlannerContext(), createTestingTypeAnalyzer(functionResolution.getPlannerContext()));
+    private final Session session = testSessionBuilder().build();
     private final SqlParser sqlParser = new SqlParser();
-
-    @BeforeClass
-    public void setUp()
-    {
-        functionResolution = new TestingFunctionResolution();
-        calculator = new ScalarStatsCalculator(functionResolution.getPlannerContext(), createTestingTypeAnalyzer(functionResolution.getPlannerContext()));
-        session = testSessionBuilder().build();
-    }
 
     @Test
     public void testLiteral()

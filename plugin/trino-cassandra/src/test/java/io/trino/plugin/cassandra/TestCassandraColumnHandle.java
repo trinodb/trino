@@ -19,7 +19,6 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.base.TypeDeserializer;
 import io.trino.spi.type.Type;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -27,10 +26,9 @@ import static org.testng.Assert.assertEquals;
 
 public class TestCassandraColumnHandle
 {
-    private JsonCodec<CassandraColumnHandle> codec;
+    private final JsonCodec<CassandraColumnHandle> codec;
 
-    @BeforeClass
-    public void setup()
+    public TestCassandraColumnHandle()
     {
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
         objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)));
