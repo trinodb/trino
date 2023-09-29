@@ -46,7 +46,6 @@ public class DefaultHiveTableRedirectionsProvider
             }
             else {
                 targetCatalogName = Optional.empty();
-                System.out.println("DefaultHiveTableRedirectionsProvider:redirectTable:targetCatalogName is empty");
             }
             return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, t.getSchemaTableName()));
         });

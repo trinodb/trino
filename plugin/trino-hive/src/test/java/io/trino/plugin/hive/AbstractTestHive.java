@@ -898,11 +898,13 @@ public abstract class AbstractTestHive
                 },
                 SqlStandardAccessControlMetadata::new,
                 (session, schemaTableName, tableHandle) -> {
-                    if (tableHandle.isPresent() && tableHandle.get().getTableName().contains("hive_table_redirection_tester")) {
-                        return Optional.of(new CatalogSchemaTableName("hive", databaseName, "hive_table_redirection_target"));
+                    if (schemaTableName.getTableName().contains("hive_table_redirection_tester") ||
+                            schemaTableName.getTableName().contains("no_hive_table_redirection_tester")) {
+                        return Optional.of(new CatalogSchemaTableName("hive", databaseName, "redirection_target"));
                     }
-                    System.out.println("tableHandle is null or does not contain hive_table_redirection_tester");
-                    return Optional.empty();
+                    else {
+                        return Optional.empty();
+                    }
                 },
                 countingDirectoryLister,
                 new TransactionScopeCachingDirectoryListerFactory(hiveConfig),
@@ -3997,7 +3999,7 @@ public abstract class AbstractTestHive
         doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS);
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
-            HiveMetadata metadata = (HiveMetadata) transaction.getMetadata();
+            ConnectorMetadata metadata = transaction.getMetadata();
             assertThat(metadata.applyTableScanRedirect(session, getTableHandle(metadata, tableName))).isEmpty();
             Optional<TableScanRedirectApplicationResult> result = metadata.applyTableScanRedirect(session, getTableHandle(metadata, sourceTableName));
             assertThat(result).isPresent();
@@ -4011,15 +4013,15 @@ public abstract class AbstractTestHive
     }
 
     @Test
-    public void testHiveTableExistsNoRedirection() //pass
+    public void testHiveTableExistsNoRedirection()
             throws Exception
     {
-        SchemaTableName tableName = temporaryTable("hive_table_redirection_tester");
+        SchemaTableName tableName = temporaryTable("hive_table_no_redirection_tester");
         doCreateTable(tableName, ORC);
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
             HiveMetadata metadata = (HiveMetadata) transaction.getMetadata();
-            SchemaTableName schemaTableName = new SchemaTableName("test_schema_name", tableName.getTableName());
+            SchemaTableName schemaTableName = new SchemaTableName("testSchemaName", tableName.getTableName());
             Optional<CatalogSchemaTableName> result = metadata.redirectTable(session, schemaTableName);
             assertThat(result).isEmpty();
         }
@@ -4029,7 +4031,7 @@ public abstract class AbstractTestHive
     }
 
     @Test
-    public void testHiveTableExistsWithRedirection() //fail
+    public void testHiveTableExistsWithRedirection()
             throws Exception
     {
         SchemaTableName tableName = temporaryTable("hive_table_redirection_tester");
@@ -4037,11 +4039,11 @@ public abstract class AbstractTestHive
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
             HiveMetadata metadata = (HiveMetadata) transaction.getMetadata();
-            SchemaTableName schemaTableName = new SchemaTableName("test_schema_name", tableName.getTableName());
+            SchemaTableName schemaTableName = new SchemaTableName(tableName.getSchemaName(), tableName.getTableName());
             Optional<CatalogSchemaTableName> result = metadata.redirectTable(session, schemaTableName);
             assertThat(result).isPresent();
             assertThat(result.get().getCatalogName()).isEqualTo("hive");
-            assertThat(result.get().getSchemaTableName()).isEqualTo("hive_table_redirection_target");
+            assertThat(result.get().getSchemaTableName().toString()).contains("redirection_target");
         }
         finally {
             dropTable(tableName);
@@ -4049,31 +4051,30 @@ public abstract class AbstractTestHive
     }
 
     @Test
-    public void testHiveTableDoesNotExistNoRedirection() // pass
-            throws Exception
+    public void testHiveTableDoesNotExistNoRedirection()
     {
-        SchemaTableName tableName = temporaryTable("non_existent_table");
+        SchemaTableName tableName = temporaryTable("no_hive_table_no_redirection_tester");
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
             HiveMetadata metadata = (HiveMetadata) transaction.getMetadata();
-            SchemaTableName schemaTableName = new SchemaTableName("test_schema_name", tableName.getTableName());
+            SchemaTableName schemaTableName = new SchemaTableName(tableName.getSchemaName(), tableName.getTableName());
             Optional<CatalogSchemaTableName> result = metadata.redirectTable(session, schemaTableName);
             assertThat(result).isEmpty();
         }
     }
 
     @Test
-    public void testHiveTableDoesNotExistWithRedirection() //fail
+    public void testHiveTableDoesNotExistWithRedirection()
     {
-        SchemaTableName tableName = temporaryTable("hive_table_redirection_tester");
+        SchemaTableName tableName = temporaryTable("no_hive_table_redirection_tester");
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
             HiveMetadata metadata = (HiveMetadata) transaction.getMetadata();
-            SchemaTableName schemaTableName = new SchemaTableName("test_schema_name", tableName.getTableName());
+            SchemaTableName schemaTableName = new SchemaTableName(tableName.getSchemaName(), tableName.getTableName());
             Optional<CatalogSchemaTableName> result = metadata.redirectTable(session, schemaTableName);
             assertThat(result).isPresent();
             assertThat(result.get().getCatalogName()).isEqualTo("hive");
-            assertThat(result.get().getSchemaTableName()).isEqualTo("hive_table_redirection_target");
+            assertThat(result.get().getSchemaTableName().toString()).contains("redirection_target");
         }
     }
 

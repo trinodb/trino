@@ -3850,24 +3850,21 @@ public class HiveMetadata
         // we need to chop off any "$partitions" and similar suffixes from table name while querying the metastore for the Table object
         TableNameSplitResult tableNameSplit = splitTableName(tableName.getTableName());
         Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableNameSplit.getBaseTableName());
-        if (table.isEmpty() || isSomeKindOfAView(table.get())) {
-            System.out.println("TestingRedirectTable: table is empty or is a view");
-            return Optional.empty();
-        }
-
         SchemaTableName schemaTableName = new SchemaTableName(tableName.getSchemaName(), tableNameSplit.getBaseTableName());
         Optional<CatalogSchemaTableName> catalogSchemaTableName = tableRedirectionsProvider.redirectTable(session, schemaTableName, table);
 
-        if (catalogSchemaTableName.isEmpty()) {
-            System.out.println("TestingRedirectTable: catalogSchemaTableName is empty");
+        if (catalogSchemaTableName.isPresent()) {
+            String suffix = tableNameSplit.getSuffix().orElse("");
+            return catalogSchemaTableName.map(name -> appendSuffixToTableName(name, suffix));
+        }
+
+        if (table.isEmpty() || isSomeKindOfAView(table.get())) {
+            return Optional.empty();
         }
 
         // stitch back the suffix we cut off.
-        return catalogSchemaTableName.map(name -> new CatalogSchemaTableName(
-                name.getCatalogName(),
-                new SchemaTableName(
-                        name.getSchemaTableName().getSchemaName(),
-                        name.getSchemaTableName().getTableName() + tableNameSplit.getSuffix().orElse(""))));
+        String suffix = tableNameSplit.getSuffix().orElse("");
+        return catalogSchemaTableName.map(name -> appendSuffixToTableName(name, suffix));
     }
 
     @Override
@@ -3929,5 +3926,14 @@ public class HiveMetadata
         // If query_partition_filter_required_schemas is empty then we would apply partition filter for all tables.
         return isQueryPartitionFilterRequired(session) &&
                 requiredSchemas.isEmpty() || requiredSchemas.contains(schemaTableName.getSchemaName());
+    }
+
+    private static CatalogSchemaTableName appendSuffixToTableName(CatalogSchemaTableName name, String suffix)
+    {
+        return new CatalogSchemaTableName(
+                name.getCatalogName(),
+                new SchemaTableName(
+                        name.getSchemaTableName().getSchemaName(),
+                        name.getSchemaTableName().getTableName() + suffix));
     }
 }
