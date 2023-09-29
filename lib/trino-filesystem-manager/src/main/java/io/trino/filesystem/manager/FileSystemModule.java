@@ -15,6 +15,7 @@ package io.trino.filesystem.manager;
 
 import com.google.inject.Binder;
 import com.google.inject.Provides;
+import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -23,6 +24,8 @@ import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.azure.AzureFileSystemFactory;
 import io.trino.filesystem.azure.AzureFileSystemModule;
+import io.trino.filesystem.cache.CachingHostAddressProvider;
+import io.trino.filesystem.cache.NoneCachingHostAddressProvider;
 import io.trino.filesystem.gcs.GcsFileSystemFactory;
 import io.trino.filesystem.gcs.GcsFileSystemModule;
 import io.trino.filesystem.s3.S3FileSystemFactory;
@@ -91,6 +94,8 @@ public class FileSystemModule
             install(new GcsFileSystemModule());
             factories.addBinding("gs").to(GcsFileSystemFactory.class);
         }
+
+        newOptionalBinder(binder, CachingHostAddressProvider.class).setDefault().to(NoneCachingHostAddressProvider.class).in(Scopes.SINGLETON);
     }
 
     @Provides
