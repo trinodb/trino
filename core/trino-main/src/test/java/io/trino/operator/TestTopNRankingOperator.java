@@ -26,8 +26,7 @@ import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import io.trino.type.BlockTypeOperators;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -60,24 +59,15 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
 public class TestTopNRankingOperator
 {
-    private ExecutorService executor;
-    private ScheduledExecutorService scheduledExecutor;
-    private JoinCompiler joinCompiler;
-    private TypeOperators typeOperators = new TypeOperators();
-    private BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+    private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
+    private final TypeOperators typeOperators = new TypeOperators();
+    private final JoinCompiler joinCompiler = new JoinCompiler(typeOperators);
+    private final BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
 
-    @BeforeMethod
-    public void setUp()
-    {
-        executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
-        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
-        joinCompiler = new JoinCompiler(typeOperators);
-    }
-
-    @AfterMethod(alwaysRun = true)
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();

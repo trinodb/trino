@@ -19,7 +19,6 @@ import io.trino.operator.output.TestPagePartitioner.TestOutputBuffer;
 import io.trino.spi.Page;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.ExecutorService;
@@ -32,12 +31,10 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
 public class TestPartitionedOutputOperator
 {
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
-    private TestOutputBuffer outputBuffer;
 
     @BeforeClass
     public void setUpClass()
@@ -55,16 +52,10 @@ public class TestPartitionedOutputOperator
         scheduledExecutor = null;
     }
 
-    @BeforeMethod
-    public void setUp()
-    {
-        outputBuffer = new TestOutputBuffer();
-    }
-
     @Test
     public void testOperatorContextStats()
     {
-        PartitionedOutputOperator partitionedOutputOperator = new PagePartitionerBuilder(executor, scheduledExecutor, outputBuffer)
+        PartitionedOutputOperator partitionedOutputOperator = new PagePartitionerBuilder(executor, scheduledExecutor, new TestOutputBuffer())
                 .withTypes(BIGINT).buildPartitionedOutputOperator();
         Page page = new Page(createLongSequenceBlock(0, 8));
 
