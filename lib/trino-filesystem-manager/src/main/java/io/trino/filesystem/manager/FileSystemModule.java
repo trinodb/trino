@@ -22,6 +22,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.alluxio.AlluxioFileSystemCacheModule;
 import io.trino.filesystem.azure.AzureFileSystemFactory;
 import io.trino.filesystem.azure.AzureFileSystemModule;
 import io.trino.filesystem.cache.CacheFileSystemFactory;
@@ -42,6 +43,7 @@ import java.util.Optional;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static java.util.Objects.requireNonNull;
 
 public class FileSystemModule
@@ -101,7 +103,14 @@ public class FileSystemModule
 
         newOptionalBinder(binder, CachingHostAddressProvider.class).setDefault().to(NoneCachingHostAddressProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, CacheKeyProvider.class).setDefault().to(DefaultCacheKeyProvider.class).in(Scopes.SINGLETON);
-        newMapBinder(binder, String.class, TrinoFileSystemCache.class);
+        newMapBinder(binder, FileSystemConfig.CacheType.class, TrinoFileSystemCache.class);
+
+        newOptionalBinder(binder, TrinoFileSystemCache.class);
+
+        install(conditionalModule(
+                FileSystemConfig.class,
+                cache -> cache.getCacheType() == FileSystemConfig.CacheType.ALLUXIO,
+                new AlluxioFileSystemCacheModule()));
     }
 
     @Provides
@@ -122,16 +131,5 @@ public class FileSystemModule
             delegate = new CacheFileSystemFactory(delegate, fileSystemCache.orElseThrow(), keyProvider.orElseThrow());
         }
         return new TracingFileSystemFactory(tracer, delegate);
-    }
-
-    @Provides
-    @Singleton
-    public Optional<TrinoFileSystemCache> createFileSystemCache(FileSystemConfig config, Map<String, TrinoFileSystemCache> caches)
-    {
-        Optional<TrinoFileSystemCache> cache = Optional.ofNullable(caches.get(config.getCacheType()));
-        if (cache.isEmpty() && config.getCacheType() != null) {
-            throw new IllegalArgumentException("Unknown cache type %s".formatted(config.getCacheType()));
-        }
-        return cache;
     }
 }
