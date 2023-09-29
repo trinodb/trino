@@ -15,12 +15,15 @@ package io.trino.filesystem.manager;
 
 import io.airlift.configuration.Config;
 
+import static io.trino.filesystem.manager.FileSystemConfig.CacheType.NONE;
+
 public class FileSystemConfig
 {
     private boolean hadoopEnabled = true;
     private boolean nativeAzureEnabled;
     private boolean nativeS3Enabled;
     private boolean nativeGcsEnabled;
+    private CacheType cacheType = NONE;
 
     public boolean isHadoopEnabled()
     {
@@ -68,5 +71,22 @@ public class FileSystemConfig
     {
         this.nativeGcsEnabled = nativeGcsEnabled;
         return this;
+    }
+
+    public CacheType getCacheType()
+    {
+        return cacheType;
+    }
+
+    @Config("fs.cache")
+    public FileSystemConfig setCacheType(CacheType cacheType)
+    {
+        this.cacheType = cacheType;
+        return this;
+    }
+
+    public enum CacheType
+    {
+        NONE,
     }
 }
