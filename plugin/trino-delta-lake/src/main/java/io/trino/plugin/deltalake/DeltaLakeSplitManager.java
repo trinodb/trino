@@ -18,6 +18,7 @@ import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.plugin.deltalake.functions.tablechanges.TableChangesSplitSource;
 import io.trino.plugin.deltalake.functions.tablechanges.TableChangesTableFunctionHandle;
@@ -85,6 +86,7 @@ public class DeltaLakeSplitManager
     private final double minimumAssignedSplitWeight;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final DeltaLakeTransactionManager deltaLakeTransactionManager;
+    private final CachingHostAddressProvider cachingHostAddressProvider;
 
     @Inject
     public DeltaLakeSplitManager(
@@ -93,7 +95,8 @@ public class DeltaLakeSplitManager
             ExecutorService executor,
             DeltaLakeConfig config,
             TrinoFileSystemFactory fileSystemFactory,
-            DeltaLakeTransactionManager deltaLakeTransactionManager)
+            DeltaLakeTransactionManager deltaLakeTransactionManager,
+            CachingHostAddressProvider cachingHostAddressProvider)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
@@ -104,6 +107,7 @@ public class DeltaLakeSplitManager
         this.minimumAssignedSplitWeight = config.getMinimumAssignedSplitWeight();
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.deltaLakeTransactionManager = requireNonNull(deltaLakeTransactionManager, "deltaLakeTransactionManager is null");
+        this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cacheHostAddressProvider is null");
     }
 
     @Override
@@ -329,6 +333,7 @@ public class DeltaLakeSplitManager
                     addFileEntry.getStats().flatMap(DeltaLakeFileStatistics::getNumRecords),
                     addFileEntry.getModificationTime(),
                     addFileEntry.getDeletionVector(),
+                    cachingHostAddressProvider.getHosts(splitPath),
                     SplitWeight.standard(),
                     statisticsPredicate,
                     partitionKeys));
@@ -354,6 +359,7 @@ public class DeltaLakeSplitManager
                     Optional.empty(),
                     addFileEntry.getModificationTime(),
                     addFileEntry.getDeletionVector(),
+                    cachingHostAddressProvider.getHosts(splitPath),
                     SplitWeight.fromProportion(clamp((double) splitSize / maxSplitSize, minimumAssignedSplitWeight, 1.0)),
                     statisticsPredicate,
                     partitionKeys));
