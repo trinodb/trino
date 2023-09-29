@@ -1235,45 +1235,43 @@ public class AccessControlManager
     }
 
     @Override
-    public boolean canExecuteFunction(SecurityContext securityContext, FunctionKind functionKind, QualifiedObjectName functionName)
+    public boolean canExecuteFunction(SecurityContext securityContext, QualifiedObjectName functionName)
     {
         requireNonNull(securityContext, "securityContext is null");
-        requireNonNull(functionKind, "functionKind is null");
         requireNonNull(functionName, "functionName is null");
 
         if (!canAccessCatalog(securityContext, functionName.getCatalogName())) {
             return false;
         }
 
-        if (!systemAuthorizationTest(control -> control.canExecuteFunction(securityContext.toSystemSecurityContext(), functionKind, functionName.asCatalogSchemaRoutineName()))) {
+        if (!systemAuthorizationTest(control -> control.canExecuteFunction(securityContext.toSystemSecurityContext(), functionName.asCatalogSchemaRoutineName()))) {
             return false;
         }
 
         return catalogAuthorizationTest(
                 functionName.getCatalogName(),
                 securityContext,
-                (control, context) -> control.canExecuteFunction(context, functionKind, functionName.asSchemaRoutineName()));
+                (control, context) -> control.canExecuteFunction(context, functionName.asSchemaRoutineName()));
     }
 
     @Override
-    public boolean canCreateViewWithExecuteFunction(SecurityContext securityContext, FunctionKind functionKind, QualifiedObjectName functionName)
+    public boolean canCreateViewWithExecuteFunction(SecurityContext securityContext, QualifiedObjectName functionName)
     {
         requireNonNull(securityContext, "securityContext is null");
-        requireNonNull(functionKind, "functionKind is null");
         requireNonNull(functionName, "functionName is null");
 
         if (!canAccessCatalog(securityContext, functionName.getCatalogName())) {
             return false;
         }
 
-        if (!systemAuthorizationTest(control -> control.canCreateViewWithExecuteFunction(securityContext.toSystemSecurityContext(), functionKind, functionName.asCatalogSchemaRoutineName()))) {
+        if (!systemAuthorizationTest(control -> control.canCreateViewWithExecuteFunction(securityContext.toSystemSecurityContext(), functionName.asCatalogSchemaRoutineName()))) {
             return false;
         }
 
         return catalogAuthorizationTest(
                 functionName.getCatalogName(),
                 securityContext,
-                (control, context) -> control.canCreateViewWithExecuteFunction(context, functionKind, functionName.asSchemaRoutineName()));
+                (control, context) -> control.canCreateViewWithExecuteFunction(context, functionName.asSchemaRoutineName()));
     }
 
     @Override

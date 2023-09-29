@@ -550,12 +550,12 @@ public interface AccessControl
     /**
      * Is the identity allowed to execute function?
      */
-    boolean canExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName);
+    boolean canExecuteFunction(SecurityContext context, QualifiedObjectName functionName);
 
     /**
      * Is the identity allowed to create a view that executes the specified function?
      */
-    boolean canCreateViewWithExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName);
+    boolean canCreateViewWithExecuteFunction(SecurityContext context, QualifiedObjectName functionName);
 
     /**
      * Check if identity is allowed to execute given table procedure on given table

@@ -236,6 +236,16 @@
                                     <code>java.method.removed</code>
                                     <old>method void io.trino.spi.security.SystemAccessControl::checkCanAccessCatalog(io.trino.spi.security.SystemSecurityContext, java.lang.String)</old>
                                 </item>
+                                <item>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.security.AccessDeniedException::denyGrantExecuteFunctionPrivilege(java.lang.String, io.trino.spi.security.Identity, ===io.trino.spi.security.Identity===)</old>
+                                    <new>parameter void io.trino.spi.security.AccessDeniedException::denyGrantExecuteFunctionPrivilege(java.lang.String, io.trino.spi.security.Identity, ===io.trino.spi.security.TrinoPrincipal===)</new>
+                                    <parameterIndex>2</parameterIndex>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.security.AccessDeniedException::denyGrantExecuteFunctionPrivilege(java.lang.String, io.trino.spi.security.Identity, java.lang.String)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

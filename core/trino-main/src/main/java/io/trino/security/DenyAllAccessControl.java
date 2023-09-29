@@ -514,13 +514,13 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public boolean canExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
+    public boolean canExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
         return false;
     }
 
     @Override
-    public boolean canCreateViewWithExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
+    public boolean canCreateViewWithExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
         return false;
     }

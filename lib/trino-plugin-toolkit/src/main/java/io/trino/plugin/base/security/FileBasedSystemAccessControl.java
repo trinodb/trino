@@ -790,7 +790,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, FunctionKind functionKind, CatalogSchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
     {
-        if (!checkFunctionPermission(context, functionKind, functionName, CatalogFunctionAccessControlRule::canGrantExecuteFunction)) {
+        if (!checkFunctionPermission(context, functionName, CatalogFunctionAccessControlRule::canGrantExecuteFunction)) {
             denyGrantExecuteFunctionPrivilege(functionName.toString(), context.getIdentity(), grantee);
         }
     }
@@ -923,15 +923,15 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public boolean canExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
+    public boolean canExecuteFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
     {
-        return checkFunctionPermission(systemSecurityContext, functionKind, functionName, CatalogFunctionAccessControlRule::canExecuteFunction);
+        return checkFunctionPermission(systemSecurityContext, functionName, CatalogFunctionAccessControlRule::canExecuteFunction);
     }
 
     @Override
-    public boolean canCreateViewWithExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
+    public boolean canCreateViewWithExecuteFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
     {
-        return checkFunctionPermission(systemSecurityContext, functionKind, functionName, CatalogFunctionAccessControlRule::canGrantExecuteFunction);
+        return checkFunctionPermission(systemSecurityContext, functionName, CatalogFunctionAccessControlRule::canGrantExecuteFunction);
     }
 
     @Override
@@ -1069,16 +1069,12 @@ public class FileBasedSystemAccessControl
         return false;
     }
 
-    private boolean checkFunctionPermission(SystemSecurityContext context, FunctionKind functionKind, CatalogSchemaRoutineName functionName, Predicate<CatalogFunctionAccessControlRule> executePredicate)
+    private boolean checkFunctionPermission(SystemSecurityContext context, CatalogSchemaRoutineName functionName, Predicate<CatalogFunctionAccessControlRule> executePredicate)
     {
-        AccessMode requiredCatalogAccess = switch (functionKind) {
-            case SCALAR, AGGREGATE, WINDOW -> READ_ONLY;
-            case TABLE -> ALL;
-        };
         Identity identity = context.getIdentity();
-        return canAccessCatalog(context, functionName.getCatalogName(), requiredCatalogAccess) &&
+        return canAccessCatalog(context, functionName.getCatalogName(), READ_ONLY) &&
                 functionRules.stream()
-                        .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), functionKind, functionName))
+                        .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), functionName))
                         .findFirst()
                         .filter(executePredicate)
                         .isPresent();
@@ -1110,7 +1106,7 @@ public class FileBasedSystemAccessControl
         private List<CatalogTableAccessControlRule> tableRules = ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL);
         private List<SessionPropertyAccessControlRule> sessionPropertyRules = ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL);
         private List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules = ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL);
-        private List<CatalogFunctionAccessControlRule> functionRules = ImmutableList.of(CatalogFunctionAccessControlRule.ALLOW_ALL);
+        private List<CatalogFunctionAccessControlRule> functionRules = ImmutableList.of(CatalogFunctionAccessControlRule.ALLOW_BUILTIN);
 
         @SuppressWarnings("unused")
         public Builder denyAllAccess()
