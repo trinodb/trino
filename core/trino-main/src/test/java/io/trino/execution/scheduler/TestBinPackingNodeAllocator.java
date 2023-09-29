@@ -109,7 +109,6 @@ public class TestBinPackingNodeAllocator
                 nodeManager,
                 () -> workerMemoryInfos,
                 false,
-                false,
                 Duration.of(1, MINUTES),
                 taskRuntimeMemoryEstimationOverhead,
                 DataSize.of(10, GIGABYTE), // allow overcommit of 10GB for EAGER_SPECULATIVE tasks
