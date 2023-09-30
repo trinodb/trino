@@ -164,7 +164,7 @@
         <dep.jsonwebtoken.version>0.11.5</dep.jsonwebtoken.version>
         <dep.oracle.version>21.9.0.0</dep.oracle.version>
         <dep.drift.version>1.21</dep.drift.version>
-        <dep.tempto.version>200</dep.tempto.version>
+        <dep.tempto.version>201</dep.tempto.version>
         <dep.gcs.version>2.2.8</dep.gcs.version>
 
         <dep.errorprone.version>2.22.0</dep.errorprone.version>
