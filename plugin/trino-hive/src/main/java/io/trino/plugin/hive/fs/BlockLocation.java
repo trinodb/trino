@@ -13,14 +13,10 @@
  */
 package io.trino.plugin.hive.fs;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
 import io.trino.filesystem.FileEntry.Block;
-import jakarta.annotation.Nullable;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Objects;
 
@@ -28,8 +24,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
-import static java.util.Arrays.stream;
-import static java.util.Objects.requireNonNull;
 
 public class BlockLocation
 {
@@ -46,17 +40,6 @@ public class BlockLocation
     private final long offset;
     private final long length;
 
-    public static List<BlockLocation> fromHiveBlockLocations(@Nullable org.apache.hadoop.fs.BlockLocation[] blockLocations)
-    {
-        if (blockLocations == null) {
-            return ImmutableList.of();
-        }
-
-        return stream(blockLocations)
-                .map(BlockLocation::new)
-                .collect(toImmutableList());
-    }
-
     public BlockLocation(Block block)
     {
         this.hosts = block.hosts().stream()
@@ -64,21 +47,6 @@ public class BlockLocation
                 .collect(toImmutableList());
         this.offset = block.offset();
         this.length = block.length();
-    }
-
-    public BlockLocation(org.apache.hadoop.fs.BlockLocation blockLocation)
-    {
-        requireNonNull(blockLocation, "blockLocation is null");
-        try {
-            this.hosts = stream(blockLocation.getHosts())
-                    .map(HOST_INTERNER::intern)
-                    .collect(toImmutableList());
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        this.offset = blockLocation.getOffset();
-        this.length = blockLocation.getLength();
     }
 
     public List<String> getHosts()
