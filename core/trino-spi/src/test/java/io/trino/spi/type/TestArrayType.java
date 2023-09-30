@@ -16,7 +16,7 @@ package io.trino.spi.type;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestArrayType
 {
@@ -24,6 +24,6 @@ public class TestArrayType
     public void testDisplayName()
     {
         ArrayType type = new ArrayType(BOOLEAN);
-        assertEquals(type.getDisplayName(), "array(boolean)");
+        assertThat(type.getDisplayName()).isEqualTo("array(boolean)");
     }
 }
