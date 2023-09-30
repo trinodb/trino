@@ -25,7 +25,7 @@ import io.trino.server.BasicQueryStats;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import org.joda.time.DateTime;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.util.Optional;

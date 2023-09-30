@@ -29,9 +29,11 @@ import io.trino.jdbc.TrinoStatement;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.testing.TestingTrinoServer;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 import java.io.IOException;
 import java.net.URI;
@@ -56,11 +58,9 @@ import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestProxyServer
 {
     private Path sharedSecretFile;
@@ -69,7 +69,7 @@ public class TestProxyServer
     private HttpServerInfo httpServerInfo;
     private ExecutorService executorService;
 
-    @BeforeClass
+    @BeforeAll
     public void setupServer()
             throws Exception
     {
@@ -108,7 +108,7 @@ public class TestProxyServer
         setupTestTable();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDownServer()
             throws IOException
     {
@@ -125,7 +125,7 @@ public class TestProxyServer
             throws Exception
     {
         try (Connection connection = createConnection()) {
-            assertEquals(connection.getMetaData().getDatabaseProductVersion(), "testversion");
+            assertThat(connection.getMetaData().getDatabaseProductVersion()).isEqualTo("testversion");
         }
     }
 
@@ -142,8 +142,8 @@ public class TestProxyServer
                 count++;
                 sum += rs.getLong("n");
             }
-            assertEquals(count, 15000);
-            assertEquals(sum, (count / 2) * (1 + count));
+            assertThat(count).isEqualTo(15000);
+            assertThat(sum).isEqualTo((count / 2) * (1 + count));
         }
     }
 
@@ -167,7 +167,8 @@ public class TestProxyServer
         }
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testCancel()
             throws Exception
     {
@@ -195,20 +196,21 @@ public class TestProxyServer
 
             // start query and make sure it is not finished
             queryStarted.await(10, SECONDS);
-            assertNotNull(queryId.get());
-            assertFalse(getQueryState(queryId.get()).isDone());
+            assertThat(queryId.get()).isNotNull();
+            assertThat(getQueryState(queryId.get()).isDone()).isFalse();
 
             // cancel the query from this test thread
             statement.cancel();
 
             // make sure the query was aborted
             queryFinished.await(10, SECONDS);
-            assertNotNull(queryFailure.get());
-            assertEquals(getQueryState(queryId.get()), FAILED);
+            assertThat(queryFailure.get()).isNotNull();
+            assertThat(getQueryState(queryId.get())).isEqualTo(FAILED);
         }
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testPartialCancel()
             throws Exception
     {
@@ -216,8 +218,8 @@ public class TestProxyServer
                 Statement statement = connection.createStatement();
                 ResultSet resultSet = statement.executeQuery("SELECT count(*) FROM blackhole.test.slow")) {
             statement.unwrap(TrinoStatement.class).partialCancel();
-            assertTrue(resultSet.next());
-            assertEquals(resultSet.getLong(1), 0);
+            assertThat(resultSet.next()).isTrue();
+            assertThat(resultSet.getLong(1)).isEqualTo(0);
         }
     }
 
@@ -228,7 +230,9 @@ public class TestProxyServer
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement();
                 ResultSet rs = statement.executeQuery(sql)) {
-            assertTrue(rs.next(), "query not found");
+            assertThat(rs.next())
+                    .describedAs("query not found")
+                    .isTrue();
             return QueryState.valueOf(rs.getString("state"));
         }
     }
@@ -238,14 +242,15 @@ public class TestProxyServer
     {
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {
-            assertEquals(statement.executeUpdate("CREATE SCHEMA blackhole.test"), 0);
-            assertEquals(statement.executeUpdate("CREATE TABLE blackhole.test.slow (x bigint) " +
+            assertThat(statement.executeUpdate("CREATE SCHEMA blackhole.test")).isEqualTo(0);
+            assertThat(statement.executeUpdate("CREATE TABLE blackhole.test.slow (x bigint) " +
                     "WITH (" +
                     "   split_count = 1, " +
                     "   pages_per_split = 1, " +
                     "   rows_per_page = 1, " +
                     "   page_processing_delay = '1m'" +
-                    ")"), 0);
+                    ")"))
+                    .isEqualTo(0);
         }
     }
 

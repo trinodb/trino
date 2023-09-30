@@ -22,7 +22,7 @@ import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.OptionalInt;
@@ -32,7 +32,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestEvaluateClassifierPredictions
 {
@@ -49,8 +49,10 @@ public class TestEvaluateClassifierPredictions
 
         String output = VARCHAR.getSlice(block, 0).toStringUtf8();
         List<String> parts = ImmutableList.copyOf(Splitter.on('\n').omitEmptyStrings().split(output));
-        assertEquals(parts.size(), 7, output);
-        assertEquals(parts.get(0), "Accuracy: 1/2 (50.00%)");
+        assertThat(parts.size())
+                .describedAs(output)
+                .isEqualTo(7);
+        assertThat(parts.get(0)).isEqualTo("Accuracy: 1/2 (50.00%)");
     }
 
     private static Page getPage()

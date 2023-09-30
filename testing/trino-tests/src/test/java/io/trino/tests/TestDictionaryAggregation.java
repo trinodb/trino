@@ -18,7 +18,7 @@ import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.SystemSessionProperties.DICTIONARY_AGGREGATION;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;

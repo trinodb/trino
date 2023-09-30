@@ -41,8 +41,7 @@ import io.trino.testing.TestingMetadata;
 import io.trino.testing.TestingPageSinkProvider;
 import io.trino.testing.TestingSplitManager;
 import io.trino.testing.TestingTransactionHandle;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -52,7 +51,6 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
 public class TestBeginQuery
         extends AbstractTestQueryFramework
 {
@@ -77,21 +75,19 @@ public class TestBeginQuery
                 .build();
     }
 
-    @AfterMethod(alwaysRun = true)
-    public void afterMethod()
-    {
-        metadata.clear();
-    }
-
     @Test
     public void testCreateTableAsSelect()
     {
+        metadata.clear();
+
         assertBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
     }
 
     @Test
     public void testCreateTableAsSelectSameConnector()
     {
+        metadata.clear();
+
         assertBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         assertBeginQuery("CREATE TABLE nation_copy AS SELECT * FROM nation");
     }
@@ -99,6 +95,8 @@ public class TestBeginQuery
     @Test
     public void testInsert()
     {
+        metadata.clear();
+
         assertBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         assertBeginQuery("INSERT INTO nation SELECT * FROM tpch.tiny.nation");
         assertBeginQuery("INSERT INTO nation VALUES (12345, 'name', 54321, 'comment')");
@@ -107,6 +105,8 @@ public class TestBeginQuery
     @Test
     public void testInsertSelectSameConnector()
     {
+        metadata.clear();
+
         assertBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         assertBeginQuery("INSERT INTO nation SELECT * FROM nation");
     }
@@ -114,6 +114,8 @@ public class TestBeginQuery
     @Test
     public void testSelect()
     {
+        metadata.clear();
+
         assertBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         assertBeginQuery("SELECT * FROM nation");
     }

@@ -19,7 +19,7 @@ import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
