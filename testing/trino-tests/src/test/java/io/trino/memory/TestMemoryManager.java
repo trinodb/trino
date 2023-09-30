@@ -26,9 +26,11 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -53,14 +55,14 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-// run single threaded to avoid creating multiple query runners at once
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
 public class TestMemoryManager
 {
     private static final Session SESSION = testSessionBuilder()
@@ -76,20 +78,21 @@ public class TestMemoryManager
 
     private ExecutorService executor;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         executor = newCachedThreadPool();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void shutdown()
     {
         executor.shutdownNow();
         executor = null;
     }
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(240)
     public void testResourceOverCommit()
             throws Exception
     {
@@ -111,7 +114,8 @@ public class TestMemoryManager
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(240)
     public void testOutOfMemoryKiller()
             throws Exception
     {
@@ -187,7 +191,8 @@ public class TestMemoryManager
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(240)
     public void testNoLeak()
             throws Exception
     {
@@ -215,7 +220,8 @@ public class TestMemoryManager
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(240)
     public void testClusterPools()
             throws Exception
     {
@@ -302,50 +308,62 @@ public class TestMemoryManager
         return stats.isFullyBlocked() || stats.getRunningDrivers() == 0;
     }
 
-    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded distributed user memory limit of 1kB.*")
+    @Test
+    @Timeout(60)
     public void testQueryUserMemoryLimit()
-            throws Exception
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("task.max-partial-aggregation-memory", "1B")
-                .put("query.max-memory", "1kB")
-                .put("query.max-total-memory", "1GB")
-                .buildOrThrow();
-        try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {
-            queryRunner.execute(SESSION, "SELECT COUNT(*), repeat(orderstatus, 1000) FROM orders GROUP BY 2");
-        }
+        assertThatThrownBy(() -> {
+            Map<String, String> properties = ImmutableMap.<String, String>builder()
+                    .put("task.max-partial-aggregation-memory", "1B")
+                    .put("query.max-memory", "1kB")
+                    .put("query.max-total-memory", "1GB")
+                    .buildOrThrow();
+            try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {
+                queryRunner.execute(SESSION, "SELECT COUNT(*), repeat(orderstatus, 1000) FROM orders GROUP BY 2");
+            }
+        })
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Query exceeded distributed user memory limit of 1kB");
     }
 
-    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded distributed total memory limit of 120MB.*")
+    @Test
+    @Timeout(60)
     public void testQueryTotalMemoryLimit()
-            throws Exception
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                // Relatively high memory limit is required, so that the table scan memory usage alone does not cause the query to fail.
-                .put("query.max-memory", "120MB")
-                .put("query.max-total-memory", "120MB")
-                // The user memory enforcement is tested in testQueryTotalMemoryLimit().
-                // Total memory = user memory + revocable memory.
-                .put("spill-enabled", "true")
-                .put("spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "trino", "spills", randomUUID().toString()).toString())
-                .put("spiller-max-used-space-threshold", "1.0")
-                .buildOrThrow();
-        try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {
-            queryRunner.execute(SESSION, "SELECT * FROM tpch.sf10.orders ORDER BY orderkey");
-        }
+        assertThatThrownBy(() -> {
+            Map<String, String> properties = ImmutableMap.<String, String>builder()
+                    // Relatively high memory limit is required, so that the table scan memory usage alone does not cause the query to fail.
+                    .put("query.max-memory", "120MB")
+                    .put("query.max-total-memory", "120MB")
+                    // The user memory enforcement is tested in testQueryTotalMemoryLimit().
+                    // Total memory = user memory + revocable memory.
+                    .put("spill-enabled", "true")
+                    .put("spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "trino", "spills", randomUUID().toString()).toString())
+                    .put("spiller-max-used-space-threshold", "1.0")
+                    .buildOrThrow();
+            try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {
+                queryRunner.execute(SESSION, "SELECT * FROM tpch.sf10.orders ORDER BY orderkey");
+            }
+        })
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Query exceeded distributed total memory limit of 120MB");
     }
 
-    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded per-node memory limit of 1kB.*")
+    @Test
+    @Timeout(60)
     public void testQueryMemoryPerNodeLimit()
-            throws Exception
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("task.max-partial-aggregation-memory", "1B")
-                .put("query.max-memory-per-node", "1kB")
-                .buildOrThrow();
-        try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {
-            queryRunner.execute(SESSION, "SELECT COUNT(*), repeat(orderstatus, 1000) FROM orders GROUP BY 2");
-        }
+        assertThatThrownBy(() -> {
+            Map<String, String> properties = ImmutableMap.<String, String>builder()
+                    .put("task.max-partial-aggregation-memory", "1B")
+                    .put("query.max-memory-per-node", "1kB")
+                    .buildOrThrow();
+            try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {
+                queryRunner.execute(SESSION, "SELECT COUNT(*), repeat(orderstatus, 1000) FROM orders GROUP BY 2");
+            }
+        })
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Query exceeded per-node memory limit of 1kB");
     }
 
     public static DistributedQueryRunner createQueryRunner(Session session, Map<String, String> extraProperties)

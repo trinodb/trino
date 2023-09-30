@@ -24,23 +24,27 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.testng.services.ManageTestResources;
 import io.trino.tracing.TracingMetadata;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@Test(singleThreaded = true) // counting metadata is a shared mutable state
+@TestInstance(PER_CLASS)
 public class TestGetTableStatisticsOperations
         extends AbstractTestQueryFramework
 {
+    @ManageTestResources.Suppress(because = "Not a TestNG test class")
     private LocalQueryRunner localQueryRunner;
+    @ManageTestResources.Suppress(because = "Not a TestNG test class")
     private InMemorySpanExporter spanExporter;
 
     @Override
@@ -62,7 +66,7 @@ public class TestGetTableStatisticsOperations
         return localQueryRunner;
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         localQueryRunner.close();
@@ -70,8 +74,7 @@ public class TestGetTableStatisticsOperations
         spanExporter = null;
     }
 
-    @BeforeMethod
-    public void resetCounters()
+    private void resetCounters()
     {
         spanExporter.reset();
     }
@@ -79,6 +82,8 @@ public class TestGetTableStatisticsOperations
     @Test
     public void testTwoWayJoin()
     {
+        resetCounters();
+
         planDistributedQuery("SELECT * " +
                 "FROM tpch.tiny.orders o, tpch.tiny.lineitem l " +
                 "WHERE o.orderkey = l.orderkey");
@@ -88,6 +93,8 @@ public class TestGetTableStatisticsOperations
     @Test
     public void testThreeWayJoin()
     {
+        resetCounters();
+
         planDistributedQuery("SELECT * " +
                 "FROM tpch.tiny.customer c, tpch.tiny.orders o, tpch.tiny.lineitem l " +
                 "WHERE o.orderkey = l.orderkey AND c.custkey = o.custkey");
