@@ -7114,7 +7114,6 @@ public class TestAnalyzer
                         new PolymorphicStaticReturnTypeFunction(),
                         new PassThroughFunction(),
                         new RequiredColumnsFunction()))),
-                new SessionPropertyManager(),
                 tablePropertyManager,
                 analyzePropertyManager,
                 new TableProceduresPropertyManager(CatalogServiceProvider.fail("procedures are not supported in testing analyzer")));

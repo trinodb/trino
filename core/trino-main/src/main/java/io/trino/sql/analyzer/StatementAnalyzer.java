@@ -38,7 +38,6 @@ import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableFunctionMetadata;
 import io.trino.metadata.TableFunctionRegistry;
@@ -104,7 +103,6 @@ import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.SqlPath;
 import io.trino.sql.analyzer.Analysis.GroupingSetAnalysis;
 import io.trino.sql.analyzer.Analysis.MergeAnalysis;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
@@ -412,7 +410,6 @@ class StatementAnalyzer
     private final TransactionManager transactionManager;
     private final TableProceduresRegistry tableProceduresRegistry;
     private final TableFunctionRegistry tableFunctionRegistry;
-    private final SessionPropertyManager sessionPropertyManager;
     private final TablePropertyManager tablePropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
     private final TableProceduresPropertyManager tableProceduresPropertyManager;
@@ -433,7 +430,6 @@ class StatementAnalyzer
             Session session,
             TableProceduresRegistry tableProceduresRegistry,
             TableFunctionRegistry tableFunctionRegistry,
-            SessionPropertyManager sessionPropertyManager,
             TablePropertyManager tablePropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
             TableProceduresPropertyManager tableProceduresPropertyManager,
@@ -453,7 +449,6 @@ class StatementAnalyzer
         this.session = requireNonNull(session, "session is null");
         this.tableProceduresRegistry = requireNonNull(tableProceduresRegistry, "tableProceduresRegistry is null");
         this.tableFunctionRegistry = requireNonNull(tableFunctionRegistry, "tableFunctionRegistry is null");
-        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.tableProceduresPropertyManager = tableProceduresPropertyManager;
@@ -4615,7 +4610,7 @@ class StatementAnalyzer
                 }
 
                 // TODO: record path in view definition (?) (check spec) and feed it into the session object we use to evaluate the query defined by the view
-                Session viewSession = createViewSession(catalog, schema, identity, session.getPath());
+                Session viewSession = session.createViewSession(catalog, schema, identity, session.getPath());
 
                 StatementAnalyzer analyzer = statementAnalyzerFactory
                         .withSpecializedAccessControl(viewAccessControl)
@@ -4746,7 +4741,7 @@ class StatementAnalyzer
                                 .build())
                         .orElseGet(session::getIdentity);
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        createViewSession(filter.getCatalog(), filter.getSchema(), filterIdentity, EMPTY_PATH), // TODO: path should be included in row filter
+                        session.createViewSession(filter.getCatalog(), filter.getSchema(), filterIdentity, EMPTY_PATH), // TODO: path should be included in row filter
                         plannerContext,
                         statementAnalyzerFactory,
                         accessControl,
@@ -4799,7 +4794,7 @@ class StatementAnalyzer
                             .build())
                         .orElseGet(session::getIdentity);
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        createViewSession(constraint.getCatalog(), constraint.getSchema(), constraintIdentity, EMPTY_PATH),
+                        session.createViewSession(constraint.getCatalog(), constraint.getSchema(), constraintIdentity, EMPTY_PATH),
                         plannerContext,
                         statementAnalyzerFactory,
                         accessControl,
@@ -4864,7 +4859,7 @@ class StatementAnalyzer
                                 .build())
                         .orElseGet(session::getIdentity);
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        createViewSession(mask.getCatalog(), mask.getSchema(), maskIdentity, EMPTY_PATH), // TODO: path should be included in row filter
+                        session.createViewSession(mask.getCatalog(), mask.getSchema(), maskIdentity, EMPTY_PATH), // TODO: path should be included in row filter
                         plannerContext,
                         statementAnalyzerFactory,
                         accessControl,
@@ -5564,26 +5559,6 @@ class StatementAnalyzer
             InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
             return functionInvoker.invoke(coercion, session.toConnectorSession(), value);
         }
-    }
-
-    private Session createViewSession(Optional<String> catalog, Optional<String> schema, Identity identity, SqlPath path)
-    {
-        return Session.builder(sessionPropertyManager)
-                .setQueryId(session.getQueryId())
-                .setTransactionId(session.getTransactionId().orElse(null))
-                .setIdentity(identity)
-                .setOriginalIdentity(session.getOriginalIdentity())
-                .setSource(session.getSource().orElse(null))
-                .setCatalog(catalog)
-                .setSchema(schema)
-                .setPath(path)
-                .setTimeZoneKey(session.getTimeZoneKey())
-                .setLocale(session.getLocale())
-                .setRemoteUserAddress(session.getRemoteUserAddress().orElse(null))
-                .setUserAgent(session.getUserAgent().orElse(null))
-                .setClientInfo(session.getClientInfo().orElse(null))
-                .setStart(session.getStart())
-                .build();
     }
 
     private static boolean hasScopeAsLocalParent(Scope root, Scope parent)
