@@ -350,7 +350,8 @@ public class TestMemoryMetadata
                 ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId(), Optional.empty())),
                 Optional.empty(),
                 Optional.empty(),
-                true);
+                true,
+                ImmutableList.of());
     }
 
     private static MemoryMetadata createMetadata()

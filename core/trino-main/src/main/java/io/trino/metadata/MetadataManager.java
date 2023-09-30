@@ -1360,13 +1360,34 @@ public final class MetadataManager
     {
         Optional<ConnectorViewDefinition> connectorView = getViewInternal(session, viewName);
         if (connectorView.isEmpty() || connectorView.get().isRunAsInvoker() || isCatalogManagedSecurity(session, viewName.getCatalogName())) {
-            return connectorView.map(view -> new ViewDefinition(viewName, view));
+            return connectorView.map(view -> createViewDefinition(viewName, view, view.getOwner().map(Identity::ofUser)));
         }
 
         Identity runAsIdentity = systemSecurityMetadata.getViewRunAsIdentity(session, viewName.asCatalogSchemaTableName())
                 .or(() -> connectorView.get().getOwner().map(Identity::ofUser))
                 .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Catalog does not support run-as DEFINER views: " + viewName));
-        return Optional.of(new ViewDefinition(viewName, connectorView.get(), runAsIdentity));
+        return Optional.of(createViewDefinition(viewName, connectorView.get(), Optional.of(runAsIdentity)));
+    }
+
+    private static ViewDefinition createViewDefinition(QualifiedObjectName viewName, ConnectorViewDefinition view, Optional<Identity> runAsIdentity)
+    {
+        if (view.isRunAsInvoker() && runAsIdentity.isPresent()) {
+            throw new TrinoException(INVALID_VIEW, "Run-as identity cannot be set for a run-as invoker view: " + viewName);
+        }
+        if (!view.isRunAsInvoker() && runAsIdentity.isEmpty()) {
+            throw new TrinoException(INVALID_VIEW, "Run-as identity must be set for a run-as definer view: " + viewName);
+        }
+
+        return new ViewDefinition(
+                view.getOriginalSql(),
+                view.getCatalog(),
+                view.getSchema(),
+                view.getColumns().stream()
+                        .map(column -> new ViewColumn(column.getName(), column.getType(), column.getComment()))
+                        .collect(toImmutableList()),
+                view.getComment(),
+                runAsIdentity,
+                view.getPath());
     }
 
     private Optional<ConnectorViewDefinition> getViewInternal(Session session, QualifiedObjectName viewName)
@@ -1564,14 +1585,31 @@ public final class MetadataManager
         if (connectorView.isEmpty() || isCatalogManagedSecurity(session, viewName.getCatalogName())) {
             return connectorView.map(view -> {
                 String runAsUser = view.getOwner().orElseThrow(() -> new TrinoException(INVALID_VIEW, "Owner not set for a run-as invoker view: " + viewName));
-                return new MaterializedViewDefinition(view, Identity.ofUser(runAsUser));
+                return createMaterializedViewDefinition(view, Identity.ofUser(runAsUser));
             });
         }
 
         Identity runAsIdentity = systemSecurityMetadata.getViewRunAsIdentity(session, viewName.asCatalogSchemaTableName())
                 .or(() -> connectorView.get().getOwner().map(Identity::ofUser))
                 .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Materialized view does not have an owner: " + viewName));
-        return Optional.of(new MaterializedViewDefinition(connectorView.get(), runAsIdentity));
+        return Optional.of(createMaterializedViewDefinition(connectorView.get(), runAsIdentity));
+    }
+
+    private static MaterializedViewDefinition createMaterializedViewDefinition(ConnectorMaterializedViewDefinition view, Identity runAsIdentity)
+    {
+        return new MaterializedViewDefinition(
+                view.getOriginalSql(),
+                view.getCatalog(),
+                view.getSchema(),
+                view.getColumns().stream()
+                        .map(column -> new ViewColumn(column.getName(), column.getType(), Optional.empty()))
+                        .collect(toImmutableList()),
+                view.getGracePeriod(),
+                view.getComment(),
+                runAsIdentity,
+                view.getPath(),
+                view.getStorageTable(),
+                view.getProperties());
     }
 
     private Optional<ConnectorMaterializedViewDefinition> getMaterializedViewInternal(Session session, QualifiedObjectName viewName)

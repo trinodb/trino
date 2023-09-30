@@ -105,7 +105,8 @@ public class TestConnectorViewDefinition
                         new ViewColumn("xyz", new ArrayType(createVarcharType(32)).getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of("test_owner"),
-                false));
+                false,
+                ImmutableList.of()));
     }
 
     private static void assertBaseView(ConnectorViewDefinition view)
