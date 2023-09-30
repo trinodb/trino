@@ -26,7 +26,6 @@ import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
@@ -1028,8 +1027,16 @@ public abstract class BaseRaptorConnectorTest
         assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Arches'), ('Bill', 7, 'Buena'), ('Dave', 22, 'Darbyshire'), ('Ed', 7, 'Etherville')");
     }
 
-    @Test(dataProvider = "partitionedBucketedFailure")
-    public void testMergeMultipleRowsMatchFails(String createTableSql)
+    @Test
+    public void testMergeMultipleRows()
+    {
+        testMergeMultipleRowsMatchFails("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)");
+        testMergeMultipleRowsMatchFails("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['customer'])");
+        testMergeMultipleRowsMatchFails("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 4, bucketed_on = ARRAY['address'])");
+        testMergeMultipleRowsMatchFails("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 4, bucketed_on = ARRAY['address', 'purchases', 'customer'])");
+    }
+
+    private void testMergeMultipleRowsMatchFails(String createTableSql)
     {
         String targetTable = "merge_all_matches_deleted_target_" + randomNameSuffix();
         assertUpdate(format(createTableSql, targetTable));
@@ -1054,23 +1061,28 @@ public abstract class BaseRaptorConnectorTest
         assertUpdate("DROP TABLE " + targetTable);
     }
 
-    @DataProvider
-    public Object[][] partitionedBucketedFailure()
+    @Test
+    public void testMergeWithDifferentBucketing()
     {
-        return new Object[][] {
-                {"CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)"},
-                {"CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['customer'])"},
-                {"CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 4, bucketed_on = ARRAY['address'])"},
-                {"CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 4, bucketed_on = ARRAY['address', 'purchases', 'customer'])"}};
+        testMergeWithDifferentBucketing(
+                "target_and_source_with_different_bucketing_counts",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 5, bucketed_on = ARRAY['customer'])",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['purchases', 'address'])");
+        testMergeWithDifferentBucketing(
+                "target_and_source_with_different_bucketing_columns",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['address'])",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['customer'])");
+        testMergeWithDifferentBucketing(
+                "target_flat_source_bucketed_by_customer",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['customer'])");
+        testMergeWithDifferentBucketing(
+                "target_bucketed_by_customer_source_flat",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['customer'])",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)");
     }
 
-    @Test(dataProvider = "targetAndSourceWithDifferentBucketing")
-    public void testMergeWithDifferentBucketing(String testDescription, String createTargetTableSql, String createSourceTableSql)
-    {
-        testMergeWithDifferentBucketingInternal(testDescription, createTargetTableSql, createSourceTableSql);
-    }
-
-    private void testMergeWithDifferentBucketingInternal(String testDescription, String createTargetTableSql, String createSourceTableSql)
+    private void testMergeWithDifferentBucketing(String testDescription, String createTargetTableSql, String createSourceTableSql)
     {
         String targetTable = format("%s_target_%s", testDescription, randomNameSuffix());
         assertUpdate(format(createTargetTableSql, targetTable));
@@ -1093,33 +1105,6 @@ public abstract class BaseRaptorConnectorTest
 
         assertUpdate("DROP TABLE " + sourceTable);
         assertUpdate("DROP TABLE " + targetTable);
-    }
-
-    @DataProvider
-    public Object[][] targetAndSourceWithDifferentBucketing()
-    {
-        return new Object[][] {
-                {
-                        "target_and_source_with_different_bucketing_counts",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 5, bucketed_on = ARRAY['customer'])",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['purchases', 'address'])",
-                },
-                {
-                        "target_and_source_with_different_bucketing_columns",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['address'])",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['customer'])",
-                },
-                {
-                        "target_flat_source_bucketed_by_customer",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['customer'])",
-                },
-                {
-                        "target_bucketed_by_customer_source_flat",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['customer'])",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)",
-                },
-        };
     }
 
     @Test

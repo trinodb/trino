@@ -23,7 +23,6 @@ import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -59,19 +58,13 @@ public class TestDistinctLimitOperator
         scheduledExecutor.shutdownNow();
     }
 
-    @DataProvider
-    public Object[][] dataType()
+    @Test
+    public void testDistinctLimit()
     {
-        return new Object[][] {{VARCHAR}, {BIGINT}};
+        testDistinctLimit(true);
+        testDistinctLimit(false);
     }
 
-    @DataProvider(name = "hashEnabledValues")
-    public static Object[][] hashEnabledValuesProvider()
-    {
-        return new Object[][] {{true}, {false}};
-    }
-
-    @Test(dataProvider = "hashEnabledValues")
     public void testDistinctLimit(boolean hashEnabled)
     {
         DriverContext driverContext = newDriverContext();
@@ -101,7 +94,13 @@ public class TestDistinctLimitOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected, hashEnabled, ImmutableList.of(1));
     }
 
-    @Test(dataProvider = "hashEnabledValues")
+    @Test
+    public void testDistinctLimitWithPageAlignment()
+    {
+        testDistinctLimitWithPageAlignment(true);
+        testDistinctLimitWithPageAlignment(false);
+    }
+
     public void testDistinctLimitWithPageAlignment(boolean hashEnabled)
     {
         DriverContext driverContext = newDriverContext();
@@ -129,10 +128,17 @@ public class TestDistinctLimitOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected, hashEnabled, ImmutableList.of(1));
     }
 
-    @Test(dataProvider = "hashEnabledValues")
+    @Test
+    public void testDistinctLimitValuesLessThanLimit()
+    {
+        testDistinctLimitValuesLessThanLimit(true);
+        testDistinctLimitValuesLessThanLimit(false);
+    }
+
     public void testDistinctLimitValuesLessThanLimit(boolean hashEnabled)
     {
         DriverContext driverContext = newDriverContext();
+
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
         List<Page> input = rowPagesBuilder
                 .addSequencePage(3, 1)
@@ -158,7 +164,13 @@ public class TestDistinctLimitOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected, hashEnabled, ImmutableList.of(1));
     }
 
-    @Test(dataProvider = "dataType")
+    @Test
+    public void testMemoryReservationYield()
+    {
+        testMemoryReservationYield(VARCHAR);
+        testMemoryReservationYield(BIGINT);
+    }
+
     public void testMemoryReservationYield(Type type)
     {
         List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
