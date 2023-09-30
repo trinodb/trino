@@ -69,6 +69,7 @@ import static java.sql.JDBCType.REAL;
 import static java.sql.JDBCType.SMALLINT;
 import static java.sql.JDBCType.STRUCT;
 import static java.sql.JDBCType.TIMESTAMP;
+import static java.sql.JDBCType.TINYINT;
 import static java.sql.JDBCType.VARCHAR;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
@@ -118,6 +119,16 @@ public abstract class BaseTestHiveCoercion
                 "double_to_decimal",
                 "decimal_to_float",
                 "decimal_to_double",
+                "longdecimal_to_tinyint",
+                "shortdecimal_to_tinyint",
+                "longdecimal_to_smallint",
+                "shortdecimal_to_smallint",
+                "too_big_shortdecimal_to_smallint",
+                "longdecimal_to_int",
+                "shortdecimal_to_int",
+                "shortdecimal_with_0_scale_to_int",
+                "longdecimal_to_bigint",
+                "shortdecimal_to_bigint",
                 "short_decimal_to_varchar",
                 "long_decimal_to_varchar",
                 "short_decimal_to_bounded_varchar",
@@ -180,6 +191,16 @@ public abstract class BaseTestHiveCoercion
                         "  DECIMAL '12345678.12', " +
                         "  DECIMAL '12345678.123456123456', " +
                         "  DECIMAL '12345678.123456123456', " +
+                        "  DECIMAL '13.1313', " +
+                        "  DECIMAL '11.99', " +
+                        "  DECIMAL '140.1323', " +
+                        "  DECIMAL '142.99', " +
+                        "  DECIMAL '312343.99', " +
+                        "  DECIMAL '312345.99', " +
+                        "  DECIMAL '312347.13433', " +
+                        "  DECIMAL '123', " +
+                        "  DECIMAL '123471234567.9989', " +
+                        "  DECIMAL '12345678.12', " +
                         "  %2$s '12345.12345', " +
                         "  DOUBLE '12345.12345', " +
                         "  DECIMAL '12345.12345', " +
@@ -220,6 +241,16 @@ public abstract class BaseTestHiveCoercion
                         "  DECIMAL '-12345678.12', " +
                         "  DECIMAL '-12345678.123456123456', " +
                         "  DECIMAL '-12345678.123456123456', " +
+                        "  DECIMAL '-12.1313', " +
+                        "  DECIMAL '-10.99', " +
+                        "  DECIMAL '-141.1323', " +
+                        "  DECIMAL '-143.99', " +
+                        "  DECIMAL '-312342.99', " +
+                        "  DECIMAL '-312346.99', " +
+                        "  DECIMAL '-312348.13433', " +
+                        "  DECIMAL '-124', " +
+                        "  DECIMAL '-123471234577.9989', " +
+                        "  DECIMAL '-12345678.12', " +
                         "  %2$s '-12345.12345', " +
                         "  DOUBLE '-12345.12345', " +
                         "  DECIMAL '-12345.12345', " +
@@ -367,6 +398,36 @@ public abstract class BaseTestHiveCoercion
                 .put("decimal_to_double", ImmutableList.of(
                         12345.12345,
                         -12345.12345))
+                .put("longdecimal_to_tinyint", ImmutableList.of(
+                        13,
+                        -12))
+                .put("shortdecimal_to_tinyint", ImmutableList.of(
+                        11,
+                        -10))
+                .put("longdecimal_to_smallint", ImmutableList.of(
+                        140,
+                        -141))
+                .put("shortdecimal_to_smallint", ImmutableList.of(
+                        142,
+                        -143))
+                .put("too_big_shortdecimal_to_smallint", Arrays.asList(
+                        null,
+                        null))
+                .put("longdecimal_to_int", ImmutableList.of(
+                        312345,
+                        -312346))
+                .put("shortdecimal_to_int", ImmutableList.of(
+                        312347,
+                        -312348))
+                .put("shortdecimal_with_0_scale_to_int", ImmutableList.of(
+                        123,
+                        -124))
+                .put("longdecimal_to_bigint", ImmutableList.of(
+                        123471234567L,
+                        -123471234577L))
+                .put("shortdecimal_to_bigint", ImmutableList.of(
+                        12345678,
+                        -12345678))
                 .put("short_decimal_to_varchar", ImmutableList.of(
                         "12345.12345",
                         "-12345.12345"))
@@ -789,6 +850,16 @@ public abstract class BaseTestHiveCoercion
                 row("shortdecimal_to_longdecimal", "decimal(20,4)"),
                 row("longdecimal_to_shortdecimal", "decimal(12,2)"),
                 row("longdecimal_to_longdecimal", "decimal(38,14)"),
+                row("longdecimal_to_tinyint", "tinyint"),
+                row("shortdecimal_to_tinyint", "tinyint"),
+                row("longdecimal_to_smallint", "smallint"),
+                row("shortdecimal_to_smallint", "smallint"),
+                row("too_big_shortdecimal_to_smallint", "smallint"),
+                row("longdecimal_to_int", "integer"),
+                row("shortdecimal_to_int", "integer"),
+                row("shortdecimal_with_0_scale_to_int", "integer"),
+                row("longdecimal_to_bigint", "bigint"),
+                row("shortdecimal_to_bigint", "bigint"),
                 row("float_to_decimal", "decimal(10,5)"),
                 row("double_to_decimal", "decimal(10,5)"),
                 row("decimal_to_float", floatType),
@@ -845,6 +916,16 @@ public abstract class BaseTestHiveCoercion
                 .put("shortdecimal_to_longdecimal", DECIMAL)
                 .put("longdecimal_to_shortdecimal", DECIMAL)
                 .put("longdecimal_to_longdecimal", DECIMAL)
+                .put("longdecimal_to_tinyint", TINYINT)
+                .put("shortdecimal_to_tinyint", TINYINT)
+                .put("longdecimal_to_smallint", SMALLINT)
+                .put("shortdecimal_to_smallint", SMALLINT)
+                .put("too_big_shortdecimal_to_smallint", SMALLINT)
+                .put("longdecimal_to_int", INTEGER)
+                .put("shortdecimal_to_int", INTEGER)
+                .put("shortdecimal_with_0_scale_to_int", INTEGER)
+                .put("longdecimal_to_bigint", BIGINT)
+                .put("shortdecimal_to_bigint", BIGINT)
                 .put("float_to_decimal", DECIMAL)
                 .put("double_to_decimal", DECIMAL)
                 .put("decimal_to_float", floatType)
@@ -900,6 +981,16 @@ public abstract class BaseTestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_longdecimal shortdecimal_to_longdecimal DECIMAL(20,4)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN longdecimal_to_shortdecimal longdecimal_to_shortdecimal DECIMAL(12,2)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN longdecimal_to_longdecimal longdecimal_to_longdecimal DECIMAL(38,14)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN longdecimal_to_tinyint longdecimal_to_tinyint TINYINT", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_tinyint shortdecimal_to_tinyint TINYINT", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN longdecimal_to_smallint longdecimal_to_smallint SMALLINT", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_smallint shortdecimal_to_smallint SMALLINT", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN too_big_shortdecimal_to_smallint too_big_shortdecimal_to_smallint SMALLINT", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN longdecimal_to_int longdecimal_to_int INTEGER", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_int shortdecimal_to_int INTEGER", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_with_0_scale_to_int shortdecimal_with_0_scale_to_int INTEGER", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN longdecimal_to_bigint longdecimal_to_bigint BIGINT", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_bigint shortdecimal_to_bigint BIGINT", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_decimal float_to_decimal DECIMAL(10,5)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_decimal double_to_decimal DECIMAL(10,5)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN decimal_to_float decimal_to_float %s", tableName, floatType));

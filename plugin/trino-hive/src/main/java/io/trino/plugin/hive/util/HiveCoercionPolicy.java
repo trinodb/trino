@@ -96,7 +96,13 @@ public final class HiveCoercionPolicy
             return toHiveType.equals(HIVE_FLOAT) || toType instanceof DecimalType;
         }
         if (fromType instanceof DecimalType) {
-            return toType instanceof DecimalType || toHiveType.equals(HIVE_FLOAT) || toHiveType.equals(HIVE_DOUBLE);
+            return toType instanceof DecimalType ||
+                    toHiveType.equals(HIVE_FLOAT) ||
+                    toHiveType.equals(HIVE_DOUBLE) ||
+                    toHiveType.equals(HIVE_BYTE) ||
+                    toHiveType.equals(HIVE_SHORT) ||
+                    toHiveType.equals(HIVE_INT) ||
+                    toHiveType.equals(HIVE_LONG);
         }
 
         return canCoerceForList(fromHiveType, toHiveType, hiveTimestampPrecision)
