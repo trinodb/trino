@@ -87,7 +87,8 @@ public class TestMockConnector
                                                 ImmutableList.of(new ViewColumn("nationkey", BIGINT.getTypeId(), Optional.empty())),
                                                 Optional.empty(),
                                                 Optional.of("alice"),
-                                                false)))
+                                                false,
+                                                ImmutableList.of())))
                                 .withGetMaterializedViewProperties(() -> ImmutableList.of(
                                         durationProperty(
                                                 "refresh_interval",
@@ -105,6 +106,7 @@ public class TestMockConnector
                                                 Optional.of(Duration.ZERO),
                                                 Optional.empty(),
                                                 Optional.of("alice"),
+                                                ImmutableList.of(),
                                                 ImmutableMap.of())))
                                 .withData(schemaTableName -> {
                                     if (schemaTableName.equals(new SchemaTableName("default", "nation"))) {

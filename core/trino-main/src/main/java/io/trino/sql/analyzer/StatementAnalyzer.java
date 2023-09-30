@@ -355,7 +355,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
-import static io.trino.sql.SqlPath.EMPTY_PATH;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
 import static io.trino.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
@@ -2433,13 +2432,23 @@ class StatementAnalyzer
                     view.getCatalog(),
                     view.getSchema(),
                     view.getRunAsIdentity(),
+                    view.getPath(),
                     view.getColumns(),
                     storageTable);
         }
 
         private Scope createScopeForView(Table table, QualifiedObjectName name, Optional<Scope> scope, ViewDefinition view)
         {
-            return createScopeForView(table, name, scope, view.getOriginalSql(), view.getCatalog(), view.getSchema(), view.getRunAsIdentity(), view.getColumns(), Optional.empty());
+            return createScopeForView(table,
+                    name,
+                    scope,
+                    view.getOriginalSql(),
+                    view.getCatalog(),
+                    view.getSchema(),
+                    view.getRunAsIdentity(),
+                    view.getPath(),
+                    view.getColumns(),
+                    Optional.empty());
         }
 
         private Scope createScopeForView(
@@ -2450,6 +2459,7 @@ class StatementAnalyzer
                 Optional<String> catalog,
                 Optional<String> schema,
                 Optional<Identity> owner,
+                List<CatalogSchemaName> path,
                 List<ViewColumn> columns,
                 Optional<TableHandle> storageTable)
         {
@@ -2472,7 +2482,7 @@ class StatementAnalyzer
 
             Query query = parseView(originalSql, name, table);
             analysis.registerTableForView(table);
-            RelationType descriptor = analyzeView(query, name, catalog, schema, owner, table);
+            RelationType descriptor = analyzeView(query, name, catalog, schema, owner, path, table);
             analysis.unregisterTableForView();
 
             checkViewStaleness(columns, descriptor.getVisibleFields(), name, table)
@@ -4586,7 +4596,14 @@ class StatementAnalyzer
             }
         }
 
-        private RelationType analyzeView(Query query, QualifiedObjectName name, Optional<String> catalog, Optional<String> schema, Optional<Identity> owner, Table node)
+        private RelationType analyzeView(
+                Query query,
+                QualifiedObjectName name,
+                Optional<String> catalog,
+                Optional<String> schema,
+                Optional<Identity> owner,
+                List<CatalogSchemaName> path,
+                Table node)
         {
             try {
                 // run view as view owner if set; otherwise, run as session user
@@ -4609,8 +4626,7 @@ class StatementAnalyzer
                     viewAccessControl = accessControl;
                 }
 
-                // TODO: record path in view definition (?) (check spec) and feed it into the session object we use to evaluate the query defined by the view
-                Session viewSession = session.createViewSession(catalog, schema, identity, session.getPath());
+                Session viewSession = session.createViewSession(catalog, schema, identity, path);
 
                 StatementAnalyzer analyzer = statementAnalyzerFactory
                         .withSpecializedAccessControl(viewAccessControl)
@@ -4741,7 +4757,7 @@ class StatementAnalyzer
                                 .build())
                         .orElseGet(session::getIdentity);
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        session.createViewSession(filter.getCatalog(), filter.getSchema(), filterIdentity, EMPTY_PATH), // TODO: path should be included in row filter
+                        session.createViewSession(filter.getCatalog(), filter.getSchema(), filterIdentity, ImmutableList.of()),
                         plannerContext,
                         statementAnalyzerFactory,
                         accessControl,
@@ -4794,7 +4810,7 @@ class StatementAnalyzer
                             .build())
                         .orElseGet(session::getIdentity);
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        session.createViewSession(constraint.getCatalog(), constraint.getSchema(), constraintIdentity, EMPTY_PATH),
+                        session.createViewSession(constraint.getCatalog(), constraint.getSchema(), constraintIdentity, ImmutableList.of()),
                         plannerContext,
                         statementAnalyzerFactory,
                         accessControl,
@@ -4859,7 +4875,7 @@ class StatementAnalyzer
                                 .build())
                         .orElseGet(session::getIdentity);
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        session.createViewSession(mask.getCatalog(), mask.getSchema(), maskIdentity, EMPTY_PATH), // TODO: path should be included in row filter
+                        session.createViewSession(mask.getCatalog(), mask.getSchema(), maskIdentity, ImmutableList.of()),
                         plannerContext,
                         statementAnalyzerFactory,
                         accessControl,

@@ -394,7 +394,8 @@ public class MemoryMetadata
                 view.getColumns(),
                 comment,
                 view.getOwner(),
-                view.isRunAsInvoker()));
+                view.isRunAsInvoker(),
+                view.getPath()));
     }
 
     @Override
@@ -410,7 +411,8 @@ public class MemoryMetadata
                         .collect(toImmutableList()),
                 view.getComment(),
                 view.getOwner(),
-                view.isRunAsInvoker()));
+                view.isRunAsInvoker(),
+                view.getPath()));
     }
 
     @Override

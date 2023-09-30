@@ -1035,7 +1035,8 @@ public class TrinoGlueCatalog
                 definition.getColumns(),
                 comment,
                 definition.getOwner(),
-                definition.isRunAsInvoker());
+                definition.isRunAsInvoker(),
+                definition.getPath());
 
         updateView(session, viewName, newDefinition);
     }
@@ -1054,7 +1055,8 @@ public class TrinoGlueCatalog
                         .collect(toImmutableList()),
                 definition.getComment(),
                 definition.getOwner(),
-                definition.isRunAsInvoker());
+                definition.isRunAsInvoker(),
+                definition.getPath());
 
         updateView(session, viewName, newDefinition);
     }
@@ -1169,6 +1171,7 @@ public class TrinoGlueCatalog
                 definition.getGracePeriod(),
                 definition.getComment(),
                 definition.getOwner(),
+                definition.getPath(),
                 definition.getProperties());
 
         updateMaterializedView(session, viewName, newDefinition);

@@ -192,6 +192,7 @@ public abstract class BaseDataDefinitionTaskTest
                 Optional.empty(),
                 Optional.empty(),
                 Identity.ofUser("owner"),
+                ImmutableList.of(),
                 Optional.empty(),
                 ImmutableMap.of(MATERIALIZED_VIEW_PROPERTY_2_NAME, MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE));
     }
@@ -214,7 +215,8 @@ public abstract class BaseDataDefinitionTaskTest
                 Optional.empty(),
                 columns,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableList.of());
     }
 
     private static QueryStateMachine stateMachine(TransactionManager transactionManager, MetadataManager metadata, AccessControl accessControl, Session session)
@@ -483,6 +485,7 @@ public abstract class BaseDataDefinitionTaskTest
                             existingDefinition.getGracePeriod(),
                             existingDefinition.getComment(),
                             existingDefinition.getRunAsIdentity().get(),
+                            existingDefinition.getPath(),
                             existingDefinition.getStorageTable(),
                             newProperties));
         }
@@ -503,6 +506,7 @@ public abstract class BaseDataDefinitionTaskTest
                             view.getGracePeriod(),
                             view.getComment(),
                             view.getRunAsIdentity().get(),
+                            view.getPath(),
                             view.getStorageTable(),
                             view.getProperties()));
         }
@@ -564,7 +568,8 @@ public abstract class BaseDataDefinitionTaskTest
                             view.getSchema(),
                             view.getColumns(),
                             comment,
-                            view.getRunAsIdentity()));
+                            view.getRunAsIdentity(),
+                            view.getPath()));
         }
 
         @Override
@@ -596,7 +601,8 @@ public abstract class BaseDataDefinitionTaskTest
                                     .map(currentViewColumn -> columnName.equals(currentViewColumn.getName()) ? new ViewColumn(currentViewColumn.getName(), currentViewColumn.getType(), comment) : currentViewColumn)
                                     .collect(toImmutableList()),
                             view.getComment(),
-                            view.getRunAsIdentity()));
+                            view.getRunAsIdentity(),
+                            view.getPath()));
         }
 
         @Override

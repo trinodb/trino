@@ -185,7 +185,8 @@ public class TestAccessControl
                             ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test", BIGINT.getTypeId(), Optional.empty())),
                             Optional.of("comment"),
                             Optional.of("admin"),
-                            false);
+                            false,
+                            ImmutableList.of());
                     ConnectorViewDefinition definitionRunAsInvoker = new ConnectorViewDefinition(
                             "SELECT 1 AS test",
                             Optional.of("mock"),
@@ -193,7 +194,8 @@ public class TestAccessControl
                             ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test", BIGINT.getTypeId(), Optional.empty())),
                             Optional.of("comment"),
                             Optional.empty(),
-                            true);
+                            true,
+                            ImmutableList.of());
                     return ImmutableMap.of(
                             new SchemaTableName("default", "test_view_definer"), definitionRunAsDefiner,
                             new SchemaTableName("default", "test_view_invoker"), definitionRunAsInvoker);
@@ -212,6 +214,7 @@ public class TestAccessControl
                                 Optional.of(Duration.ZERO),
                                 Optional.of("comment"),
                                 Optional.of("owner"),
+                                ImmutableList.of(),
                                 ImmutableMap.of());
                         return ImmutableMap.of(
                                 new SchemaTableName("default", "test_materialized_view"), materializedViewDefinition);

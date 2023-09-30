@@ -106,6 +106,7 @@ public class TestRefreshMaterializedView
                                                 Optional.of(Duration.ZERO),
                                                 Optional.empty(),
                                                 Optional.of("alice"),
+                                                ImmutableList.of(),
                                                 ImmutableMap.of())))
                                 .withDelegateMaterializedViewRefreshToConnector((connectorSession, schemaTableName) -> true)
                                 .withRefreshMaterializedView(((connectorSession, schemaTableName) -> {
