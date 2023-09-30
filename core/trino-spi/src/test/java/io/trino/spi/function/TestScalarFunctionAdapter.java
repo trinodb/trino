@@ -68,10 +68,6 @@ import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 public class TestScalarFunctionAdapter
 {
@@ -254,12 +250,12 @@ public class TestScalarFunctionAdapter
                     argumentTypes,
                     actualConvention,
                     expectedConvention);
-            assertTrue(ScalarFunctionAdapter.canAdapt(actualConvention, expectedConvention));
+            assertThat(ScalarFunctionAdapter.canAdapt(actualConvention, expectedConvention)).isTrue();
         }
         catch (IllegalArgumentException e) {
             if (!ScalarFunctionAdapter.canAdapt(actualConvention, expectedConvention)) {
                 if (hasNullableToNoNullableAdaptation(actualConvention, expectedConvention)) {
-                    assertTrue(expectedConvention.getReturnConvention() == FAIL_ON_NULL || expectedConvention.getReturnConvention() == FLAT_RETURN);
+                    assertThat(expectedConvention.getReturnConvention() == FAIL_ON_NULL || expectedConvention.getReturnConvention() == FLAT_RETURN).isTrue();
                     return;
                 }
                 if (actualConvention.getArgumentConventions().stream().anyMatch(convention -> convention == BLOCK_POSITION || convention == BLOCK_POSITION_NOT_NULL)) {
@@ -307,14 +303,14 @@ public class TestScalarFunctionAdapter
 
                 Boolean result = (Boolean) exactInvoker.invokeWithArguments(argumentValues);
                 switch (expectedConvention.getReturnConvention()) {
-                    case FAIL_ON_NULL -> assertTrue(result);
-                    case DEFAULT_ON_NULL -> assertEquals(result, (Boolean) !expectNull);
-                    case NULLABLE_RETURN -> assertEquals(result, !expectNull ? true : null);
+                    case FAIL_ON_NULL -> assertThat(result).isTrue();
+                    case DEFAULT_ON_NULL -> assertThat(result).isEqualTo((Boolean) !expectNull);
+                    case NULLABLE_RETURN -> assertThat(result).isEqualTo(!expectNull ? true : null);
                     default -> throw new UnsupportedOperationException();
                 }
             }
             catch (TrinoException trinoException) {
-                assertEquals(trinoException.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
+                assertThat(trinoException.getErrorCode()).isEqualTo(INVALID_FUNCTION_ARGUMENT.toErrorCode());
             }
             target.verify(actualConvention, nullArguments, argumentTypes);
         }
@@ -596,7 +592,7 @@ public class TestScalarFunctionAdapter
             objectsMethod = false;
 
             if (doubleNull) {
-                assertEquals(doubleValue, 0.0);
+                assertThat(doubleValue).isEqualTo(0.0);
                 this.doubleValue = null;
             }
             else {
@@ -604,7 +600,7 @@ public class TestScalarFunctionAdapter
             }
 
             if (sliceNull) {
-                assertNull(sliceValue);
+                assertThat(sliceValue).isNull();
                 this.sliceValue = null;
             }
             else {
@@ -612,7 +608,7 @@ public class TestScalarFunctionAdapter
             }
 
             if (blockNull) {
-                assertNull(blockValue);
+                assertThat(blockValue).isNull();
                 this.blockValue = null;
             }
             else {
@@ -633,7 +629,7 @@ public class TestScalarFunctionAdapter
             objectsMethod = true;
 
             if (sliceNull) {
-                assertNull(sliceValue);
+                assertThat(sliceValue).isNull();
                 this.sliceValue = null;
             }
             else {
@@ -641,7 +637,7 @@ public class TestScalarFunctionAdapter
             }
 
             if (blockNull) {
-                assertNull(blockValue);
+                assertThat(blockValue).isNull();
                 this.blockValue = null;
             }
             else {
@@ -649,7 +645,7 @@ public class TestScalarFunctionAdapter
             }
 
             if (objectCharNull) {
-                assertNull(objectCharValue);
+                assertThat(objectCharValue).isNull();
                 this.objectCharValue = null;
             }
             else {
@@ -657,7 +653,7 @@ public class TestScalarFunctionAdapter
             }
 
             if (objectTimestampNull) {
-                assertNull(objectTimestampValue);
+                assertThat(objectTimestampValue).isNull();
                 this.objectTimestampValue = null;
             }
             else {
@@ -746,7 +742,9 @@ public class TestScalarFunctionAdapter
                 List<Type> argumentTypes)
         {
             if (shouldFunctionBeInvoked(actualConvention, nullArguments)) {
-                assertTrue(invoked, "function not invoked");
+                assertThat(invoked)
+                        .describedAs("function not invoked")
+                        .isTrue();
                 if (!objectsMethod) {
                     assertArgumentValue(this.doubleValue, 0, actualConvention, nullArguments, argumentTypes);
                     assertArgumentValue(this.sliceValue, 1, actualConvention, nullArguments, argumentTypes);
@@ -760,12 +758,14 @@ public class TestScalarFunctionAdapter
                 }
             }
             else {
-                assertFalse(invoked, "Function should not be invoked when null is passed to a NEVER_NULL argument");
-                assertNull(this.doubleValue);
-                assertNull(this.sliceValue);
-                assertNull(this.blockValue);
-                assertNull(this.objectCharValue);
-                assertNull(this.objectTimestampValue);
+                assertThat(invoked)
+                        .describedAs("Function should not be invoked when null is passed to a NEVER_NULL argument")
+                        .isFalse();
+                assertThat(this.doubleValue).isNull();
+                assertThat(this.sliceValue).isNull();
+                assertThat(this.blockValue).isNull();
+                assertThat(this.objectCharValue).isNull();
+                assertThat(this.objectTimestampValue).isNull();
             }
 
             this.invoked = false;
@@ -810,7 +810,7 @@ public class TestScalarFunctionAdapter
             }
 
             if (argumentConvention != NEVER_NULL && argumentConvention != FLAT) {
-                assertNull(actualValue);
+                assertThat(actualValue).isNull();
                 return;
             }
 
@@ -827,14 +827,14 @@ public class TestScalarFunctionAdapter
                 assertBlockEquals(BIGINT, (Block) actual, (Block) expected);
             }
             else {
-                assertEquals(actual, expected);
+                assertThat(actual).isEqualTo(expected);
             }
         }
 
         private static void assertBlockEquals(Type type, Block actual, Block expected)
         {
             for (int position = 0; position < actual.getPositionCount(); position++) {
-                assertEquals(type.getObjectValue(SESSION, actual, position), type.getObjectValue(SESSION, expected, position));
+                assertThat(type.getObjectValue(SESSION, actual, position)).isEqualTo(type.getObjectValue(SESSION, expected, position));
             }
         }
     }
