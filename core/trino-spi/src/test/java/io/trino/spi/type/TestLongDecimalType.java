@@ -26,7 +26,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static java.lang.Math.signum;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLongDecimalType
 {
@@ -60,7 +60,9 @@ public class TestLongDecimalType
     {
         try {
             long actual = (long) TYPE_COMPARISON.invokeExact(decimalAsBlock(decimalA), 0, decimalAsBlock(decimalB), 0);
-            assertEquals((int) signum(actual), (int) signum(expected), "bad comparison result for " + decimalA + ", " + decimalB);
+            assertThat((int) signum(actual))
+                    .describedAs("bad comparison result for " + decimalA + ", " + decimalB)
+                    .isEqualTo((int) signum(expected));
         }
         catch (Throwable throwable) {
             Throwables.throwIfUnchecked(throwable);

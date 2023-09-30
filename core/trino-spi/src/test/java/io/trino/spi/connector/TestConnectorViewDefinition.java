@@ -33,9 +33,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.util.Comparator.comparing;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestConnectorViewDefinition
 {
@@ -57,7 +54,7 @@ public class TestConnectorViewDefinition
         // very old view before owner was added
         ConnectorViewDefinition view = CODEC.fromJson("{" + BASE_JSON + "}");
         assertBaseView(view);
-        assertFalse(view.getOwner().isPresent());
+        assertThat(view.getOwner()).isNotPresent();
     }
 
     @Test
@@ -66,8 +63,8 @@ public class TestConnectorViewDefinition
         // old view before invoker security was added
         ConnectorViewDefinition view = CODEC.fromJson("{" + BASE_JSON + ", \"owner\": \"abc\"}");
         assertBaseView(view);
-        assertEquals(view.getOwner(), Optional.of("abc"));
-        assertFalse(view.isRunAsInvoker());
+        assertThat(view.getOwner()).isEqualTo(Optional.of("abc"));
+        assertThat(view.isRunAsInvoker()).isFalse();
     }
 
     @Test
@@ -75,7 +72,7 @@ public class TestConnectorViewDefinition
     {
         ConnectorViewDefinition view = CODEC.fromJson("{" + BASE_JSON + ", \"comment\": \"hello\"}");
         assertBaseView(view);
-        assertEquals(view.getComment(), Optional.of("hello"));
+        assertThat(view.getComment()).isEqualTo(Optional.of("hello"));
     }
 
     @Test
@@ -83,8 +80,8 @@ public class TestConnectorViewDefinition
     {
         ConnectorViewDefinition view = CODEC.fromJson("{" + BASE_JSON + ", \"owner\": \"abc\", \"runAsInvoker\": false}");
         assertBaseView(view);
-        assertEquals(view.getOwner(), Optional.of("abc"));
-        assertFalse(view.isRunAsInvoker());
+        assertThat(view.getOwner()).isEqualTo(Optional.of("abc"));
+        assertThat(view.isRunAsInvoker()).isFalse();
     }
 
     @Test
@@ -92,8 +89,8 @@ public class TestConnectorViewDefinition
     {
         ConnectorViewDefinition view = CODEC.fromJson("{" + BASE_JSON + ", \"runAsInvoker\": true}");
         assertBaseView(view);
-        assertFalse(view.getOwner().isPresent());
-        assertTrue(view.isRunAsInvoker());
+        assertThat(view.getOwner()).isNotPresent();
+        assertThat(view.isRunAsInvoker()).isTrue();
     }
 
     @Test
@@ -113,22 +110,22 @@ public class TestConnectorViewDefinition
 
     private static void assertBaseView(ConnectorViewDefinition view)
     {
-        assertEquals(view.getOriginalSql(), "SELECT 42 x");
-        assertEquals(view.getColumns().size(), 1);
+        assertThat(view.getOriginalSql()).isEqualTo("SELECT 42 x");
+        assertThat(view.getColumns().size()).isEqualTo(1);
         ViewColumn column = getOnlyElement(view.getColumns());
-        assertEquals(column.getName(), "x");
-        assertEquals(column.getType(), BIGINT.getTypeId());
+        assertThat(column.getName()).isEqualTo("x");
+        assertThat(column.getType()).isEqualTo(BIGINT.getTypeId());
         assertRoundTrip(view);
     }
 
     private static void assertRoundTrip(ConnectorViewDefinition expected)
     {
         ConnectorViewDefinition actual = CODEC.fromJson(CODEC.toJson(expected));
-        assertEquals(actual.getOwner(), expected.getOwner());
-        assertEquals(actual.isRunAsInvoker(), expected.isRunAsInvoker());
-        assertEquals(actual.getCatalog(), expected.getCatalog());
-        assertEquals(actual.getSchema(), expected.getSchema());
-        assertEquals(actual.getOriginalSql(), expected.getOriginalSql());
+        assertThat(actual.getOwner()).isEqualTo(expected.getOwner());
+        assertThat(actual.isRunAsInvoker()).isEqualTo(expected.isRunAsInvoker());
+        assertThat(actual.getCatalog()).isEqualTo(expected.getCatalog());
+        assertThat(actual.getSchema()).isEqualTo(expected.getSchema());
+        assertThat(actual.getOriginalSql()).isEqualTo(expected.getOriginalSql());
         assertThat(actual.getColumns())
                 .usingElementComparator(columnComparator())
                 .isEqualTo(expected.getColumns());
