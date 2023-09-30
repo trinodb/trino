@@ -355,7 +355,8 @@ public abstract class BaseTrinoCatalogTest
                         new ConnectorViewDefinition.ViewColumn("name", VarcharType.createVarcharType(25).getTypeId(), Optional.empty())),
                 Optional.empty(),
                 Optional.of(SESSION.getUser()),
-                false);
+                false,
+                ImmutableList.of());
 
         try {
             catalog.createNamespace(SESSION, namespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));

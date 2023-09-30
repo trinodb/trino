@@ -157,7 +157,8 @@ public class TestEventListenerBasic
                                     ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", BIGINT.getTypeId(), Optional.empty())),
                                     Optional.empty(),
                                     Optional.empty(),
-                                    true);
+                                    true,
+                                    ImmutableList.of());
                             SchemaTableName viewName = new SchemaTableName("default", "test_view");
                             return ImmutableMap.of(viewName, definition);
                         })
@@ -171,6 +172,7 @@ public class TestEventListenerBasic
                                     Optional.of(Duration.ZERO),
                                     Optional.empty(),
                                     Optional.of("alice"),
+                                    ImmutableList.of(),
                                     ImmutableMap.of());
                             SchemaTableName materializedViewName = new SchemaTableName("default", "test_materialized_view");
                             return ImmutableMap.of(materializedViewName, definition);

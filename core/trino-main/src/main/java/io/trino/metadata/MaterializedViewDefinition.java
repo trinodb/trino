@@ -14,6 +14,7 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.security.Identity;
@@ -43,30 +44,15 @@ public class MaterializedViewDefinition
             Optional<Duration> gracePeriod,
             Optional<String> comment,
             Identity owner,
+            List<CatalogSchemaName> path,
             Optional<CatalogSchemaTableName> storageTable,
             Map<String, Object> properties)
     {
-        super(originalSql, catalog, schema, columns, comment, Optional.of(owner));
+        super(originalSql, catalog, schema, columns, comment, Optional.of(owner), path);
         checkArgument(gracePeriod.isEmpty() || !gracePeriod.get().isNegative(), "gracePeriod cannot be negative: %s", gracePeriod);
         this.gracePeriod = gracePeriod;
         this.storageTable = requireNonNull(storageTable, "storageTable is null");
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
-    }
-
-    public MaterializedViewDefinition(ConnectorMaterializedViewDefinition view, Identity runAsIdentity)
-    {
-        super(
-                view.getOriginalSql(),
-                view.getCatalog(),
-                view.getSchema(),
-                view.getColumns().stream()
-                        .map(column -> new ViewColumn(column.getName(), column.getType(), Optional.empty()))
-                        .collect(toImmutableList()),
-                view.getComment(),
-                Optional.of(runAsIdentity));
-        this.gracePeriod = view.getGracePeriod();
-        this.storageTable = view.getStorageTable();
-        this.properties = ImmutableMap.copyOf(view.getProperties());
     }
 
     public Optional<Duration> getGracePeriod()
@@ -97,6 +83,7 @@ public class MaterializedViewDefinition
                 getGracePeriod(),
                 getComment(),
                 getRunAsIdentity().map(Identity::getUser),
+                getPath(),
                 properties);
     }
 
@@ -111,6 +98,7 @@ public class MaterializedViewDefinition
                 .add("gracePeriod", gracePeriod.orElse(null))
                 .add("comment", getComment().orElse(null))
                 .add("runAsIdentity", getRunAsIdentity())
+                .add("path", getPath())
                 .add("storageTable", storageTable.orElse(null))
                 .add("properties", properties)
                 .toString();

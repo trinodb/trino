@@ -219,6 +219,7 @@ public class TestMetadataManager
                 ImmutableList.of(new ConnectorViewDefinition.ViewColumn("col", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of("test_owner"),
-                false);
+                false,
+                ImmutableList.of());
     }
 }

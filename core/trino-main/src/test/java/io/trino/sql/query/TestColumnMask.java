@@ -87,7 +87,8 @@ public class TestColumnMask
                         new ConnectorViewDefinition.ViewColumn("name", VarcharType.createVarcharType(25).getTypeId(), Optional.empty())),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
-                false);
+                false,
+                ImmutableList.of());
 
         ConnectorViewDefinition viewWithNested = new ConnectorViewDefinition(
                 """
@@ -107,7 +108,8 @@ public class TestColumnMask
                         new ConnectorViewDefinition.ViewColumn("id", INTEGER.getTypeId(), Optional.empty())),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
-                false);
+                false,
+                ImmutableList.of());
 
         ConnectorMaterializedViewDefinition materializedView = new ConnectorMaterializedViewDefinition(
                 "SELECT * FROM local.tiny.nation",
@@ -122,6 +124,7 @@ public class TestColumnMask
                 Optional.of(Duration.ZERO),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
+                ImmutableList.of(),
                 ImmutableMap.of());
 
         ConnectorMaterializedViewDefinition freshMaterializedView = new ConnectorMaterializedViewDefinition(
@@ -137,6 +140,7 @@ public class TestColumnMask
                 Optional.of(Duration.ZERO),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
+                ImmutableList.of(),
                 ImmutableMap.of());
 
         ConnectorMaterializedViewDefinition materializedViewWithCasts = new ConnectorMaterializedViewDefinition(
@@ -152,6 +156,7 @@ public class TestColumnMask
                 Optional.of(Duration.ZERO),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
+                ImmutableList.of(),
                 ImmutableMap.of());
 
         MockConnectorFactory mock = MockConnectorFactory.builder()
