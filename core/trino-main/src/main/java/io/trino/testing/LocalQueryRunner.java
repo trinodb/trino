@@ -448,7 +448,6 @@ public class LocalQueryRunner
                 groupProvider,
                 tableProceduresRegistry,
                 tableFunctionRegistry,
-                sessionPropertyManager,
                 tablePropertyManager,
                 analyzePropertyManager,
                 tableProceduresPropertyManager);

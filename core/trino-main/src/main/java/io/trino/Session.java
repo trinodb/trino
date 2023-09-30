@@ -579,6 +579,26 @@ public final class Session
         }
     }
 
+    public Session createViewSession(Optional<String> catalog, Optional<String> schema, Identity identity, SqlPath path)
+    {
+        return builder(sessionPropertyManager)
+                .setQueryId(getQueryId())
+                .setTransactionId(getTransactionId().orElse(null))
+                .setIdentity(identity)
+                .setOriginalIdentity(getOriginalIdentity())
+                .setSource(getSource().orElse(null))
+                .setCatalog(catalog)
+                .setSchema(schema)
+                .setPath(path)
+                .setTimeZoneKey(getTimeZoneKey())
+                .setLocale(getLocale())
+                .setRemoteUserAddress(getRemoteUserAddress().orElse(null))
+                .setUserAgent(getUserAgent().orElse(null))
+                .setClientInfo(getClientInfo().orElse(null))
+                .setStart(getStart())
+                .build();
+    }
+
     public static SessionBuilder builder(SessionPropertyManager sessionPropertyManager)
     {
         return new SessionBuilder(sessionPropertyManager);
