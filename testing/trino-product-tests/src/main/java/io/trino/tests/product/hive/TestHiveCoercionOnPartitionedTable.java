@@ -119,6 +119,16 @@ public class TestHiveCoercionOnPartitionedTable
                         "    shortdecimal_to_longdecimal           DECIMAL(10,2)," +
                         "    longdecimal_to_shortdecimal           DECIMAL(20,12)," +
                         "    longdecimal_to_longdecimal            DECIMAL(20,12)," +
+                        "    longdecimal_to_tinyint                DECIMAL(20,12)," +
+                        "    shortdecimal_to_tinyint               DECIMAL(10,2)," +
+                        "    longdecimal_to_smallint               DECIMAL(20,12)," +
+                        "    shortdecimal_to_smallint              DECIMAL(10,2)," +
+                        "    too_big_shortdecimal_to_smallint      DECIMAL(10,2)," +
+                        "    longdecimal_to_int                    DECIMAL(20,12)," +
+                        "    shortdecimal_to_int                   DECIMAL(10,2)," +
+                        "    shortdecimal_with_0_scale_to_int      DECIMAL(10,0)," +
+                        "    longdecimal_to_bigint                 DECIMAL(20,4)," +
+                        "    shortdecimal_to_bigint                DECIMAL(10,2)," +
                         "    float_to_decimal           " + floatType + "," +
                         "    double_to_decimal          DOUBLE," +
                         "    decimal_to_float                   DECIMAL(10,5)," +
