@@ -46,7 +46,6 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingTaskContext;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -324,7 +323,14 @@ public class TestSpatialJoinOperator
         assertEquals(output.getPositionCount(), 40);
     }
 
-    @Test(dataProvider = "testDuplicateProbeFactoryDataProvider")
+    @Test
+    public void testDuplicateProbeFactory()
+            throws Exception
+    {
+        testDuplicateProbeFactory(true);
+        testDuplicateProbeFactory(false);
+    }
+
     public void testDuplicateProbeFactory(boolean createSecondaryOperators)
             throws Exception
     {
@@ -356,15 +362,6 @@ public class TestSpatialJoinOperator
                 .row("0_1", "0_0")
                 .build();
         assertOperatorEquals(firstFactory, probeDriver, probePages.build(), expected);
-    }
-
-    @DataProvider
-    public Object[][] testDuplicateProbeFactoryDataProvider()
-    {
-        return new Object[][] {
-                {true},
-                {false},
-        };
     }
 
     @Test
