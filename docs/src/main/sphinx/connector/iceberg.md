@@ -1276,6 +1276,35 @@ FROM example.testdb."customer_orders$snapshots"
 ORDER BY committed_at DESC
 ```
 
+(iceberg-create-or-replace)=
+
+#### Replacing tables
+
+The connector supports replacing a table as an atomic operation. Atomic table
+replacement creates a new snapshot with the new table definition (see
+{doc}`/sql/create-table` and {doc}`/sql/create-table-as`), but keeps table history.
+
+The new table after replacement is completely new and separate from the old table.
+Only the name of the table remains identical. Earlier snapshots can be retrieved 
+through Iceberg's [time travel](iceberg-time-travel).
+
+For example a partitioned table `my_table` can be replaced by completely new
+definition.
+
+```
+CREATE TABLE my_table (
+    a BIGINT,
+    b DATE,
+    c BIGINT)
+WITH (partitioning = ARRAY['a']);
+
+CREATE OR REPLACE TABLE my_table
+WITH (sorted_by = ARRAY['a'])
+AS SELECT * from another_table;
+```
+
+Earlier snapshots can be retrieved through Iceberg's [time travel](iceberg-time-travel).
+
 (iceberg-time-travel)=
 
 ##### Time travel queries
@@ -1298,6 +1327,14 @@ before or at the specified timestamp in the query is internally used for
 providing the previous state of the table:
 
 ```
+SELECT *
+FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 09:59:29.803 Europe/Vienna'
+```
+
+The connector allows to create a new snapshot through Iceberg's [replace table](iceberg-create-or-replace).
+
+```
+CREATE OR REPLACE TABLE example.testdb.customer_orders AS 
 SELECT *
 FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 09:59:29.803 Europe/Vienna'
 ```
