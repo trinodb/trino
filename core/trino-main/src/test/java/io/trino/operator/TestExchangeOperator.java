@@ -34,10 +34,10 @@ import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -57,11 +57,12 @@ import static io.trino.operator.TestingTaskBuffer.PAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
 public class TestExchangeOperator
 {
     private static final List<Type> TYPES = ImmutableList.of(VARCHAR);
@@ -81,7 +82,7 @@ public class TestExchangeOperator
     private ExecutorService pageBufferClientCallbackExecutor;
 
     @SuppressWarnings("resource")
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         scheduler = newScheduledThreadPool(4, daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
@@ -104,7 +105,7 @@ public class TestExchangeOperator
                 taskFailureListener);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         httpClient.close();
@@ -120,17 +121,12 @@ public class TestExchangeOperator
         pageBufferClientCallbackExecutor = null;
     }
 
-    @BeforeMethod
-    public void setUpMethod()
-    {
-        // the test class is single-threaded, so there should be no ongoing loads and invalidation should be effective
-        taskBuffers.invalidateAll();
-    }
-
     @Test
     public void testSimple()
             throws Exception
     {
+        taskBuffers.invalidateAll();
+
         SourceOperator operator = createExchangeOperator();
 
         operator.addSplit(newRemoteSplit(TASK_1_ID));
@@ -159,6 +155,8 @@ public class TestExchangeOperator
     public void testWaitForClose()
             throws Exception
     {
+        taskBuffers.invalidateAll();
+
         SourceOperator operator = createExchangeOperator();
 
         operator.addSplit(newRemoteSplit(TASK_1_ID));
@@ -195,6 +193,8 @@ public class TestExchangeOperator
     public void testWaitForNoMoreSplits()
             throws Exception
     {
+        taskBuffers.invalidateAll();
+
         SourceOperator operator = createExchangeOperator();
 
         // add a buffer location containing one page and close the buffer
@@ -228,6 +228,8 @@ public class TestExchangeOperator
     public void testFinish()
             throws Exception
     {
+        taskBuffers.invalidateAll();
+
         SourceOperator operator = createExchangeOperator();
 
         operator.addSplit(newRemoteSplit(TASK_1_ID));

@@ -27,7 +27,7 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.type.BigintType.BIGINT;
