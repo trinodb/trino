@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```text
-CREATE TABLE [ IF NOT EXISTS ] table_name [ ( column_alias, ... ) ]
+CREATE [ OR REPLACE ] TABLE [ IF NOT EXISTS ] table_name [ ( column_alias, ... ) ]
 [ COMMENT table_comment ]
 [ WITH ( property_name = expression [, ...] ) ]
 AS query
@@ -15,8 +15,15 @@ AS query
 Create a new table containing the result of a {doc}`select` query.
 Use {doc}`create-table` to create an empty table.
 
+The optional `OR REPLACE` clause causes an existing table with the
+specified name to be replaced with the new table definition. Support
+for table replacement varies across connectors. Refer to the
+connector documentation for details.
+
 The optional `IF NOT EXISTS` clause causes the error to be
 suppressed if the table already exists.
+
+`OR REPLACE` and `IF NOT EXISTS` cannot be used together.
 
 The optional `WITH` clause can be used to set properties
 on the newly created table.  To list all available table
