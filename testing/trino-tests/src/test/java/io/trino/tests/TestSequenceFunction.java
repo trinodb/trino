@@ -16,7 +16,7 @@ package io.trino.tests;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.operator.table.Sequence.SequenceFunctionSplit.DEFAULT_SPLIT_SIZE;
 import static io.trino.testing.TestingSession.testSessionBuilder;

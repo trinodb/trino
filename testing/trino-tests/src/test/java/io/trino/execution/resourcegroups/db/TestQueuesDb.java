@@ -27,9 +27,11 @@ import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.Optional;
 import java.util.Set;
@@ -62,11 +64,12 @@ import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 // run single threaded to avoid creating multiple query runners at once
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
 public class TestQueuesDb
 {
     // Copy of TestQueues with tests for db reconfiguration of resource groups
@@ -74,7 +77,7 @@ public class TestQueuesDb
     private DistributedQueryRunner queryRunner;
     private H2ResourceGroupsDao dao;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws Exception
     {
@@ -83,14 +86,15 @@ public class TestQueuesDb
         queryRunner = createQueryRunner(dbConfigUrl, dao);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         queryRunner.close();
         queryRunner = null;
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testRunningQuery()
             throws Exception
     {
@@ -106,7 +110,8 @@ public class TestQueuesDb
         }
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testBasic()
             throws Exception
     {
@@ -146,7 +151,8 @@ public class TestQueuesDb
         waitForCompleteQueryCount(queryRunner, 1);
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testTwoQueriesAtSameTime()
             throws Exception
     {
@@ -156,7 +162,8 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
     }
 
-    @Test(timeOut = 90_000)
+    @Test
+    @Timeout(90)
     public void testTooManyQueries()
             throws Exception
     {
@@ -193,7 +200,8 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, thirdDashboardQuery, QUEUED);
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testRejection()
             throws Exception
     {
@@ -218,7 +226,8 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, queryId, FAILED);
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testQuerySystemTableResourceGroup()
             throws Exception
     {
@@ -228,7 +237,8 @@ public class TestQueuesDb
         assertEquals(result.getOnlyValue(), ImmutableList.of("global", "user-user", "dashboard-user"));
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testSelectorPriority()
             throws Exception
     {
@@ -260,7 +270,8 @@ public class TestQueuesDb
         assertEquals(basicQueryInfo.getErrorCode(), QUERY_QUEUE_FULL.toErrorCode());
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testQueryExecutionTimeLimit()
             throws Exception
     {

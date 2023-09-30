@@ -21,7 +21,8 @@ import io.trino.server.PrefixObjectNameGeneratorModule;
 import io.trino.spi.QueryId;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
@@ -39,7 +40,8 @@ public class TestExecutionJmxMetrics
 {
     private static final String LONG_RUNNING_QUERY = "SELECT COUNT(*) FROM tpch.sf100000.lineitem";
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testQueryStats()
             throws Exception
     {

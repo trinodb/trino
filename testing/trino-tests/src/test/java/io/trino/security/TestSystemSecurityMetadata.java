@@ -20,20 +20,17 @@ import io.trino.spi.security.Identity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
-@Test(singleThreaded = true) // singleThreaded is because TestingSystemSecurityMetadata is stateful and is shared between tests
 public class TestSystemSecurityMetadata
         extends AbstractTestQueryFramework
 {
     private final TestingSystemSecurityMetadata securityMetadata = new TestingSystemSecurityMetadata();
 
-    @BeforeMethod
-    public void reset()
+    private void reset()
     {
         securityMetadata.reset();
     }
@@ -59,6 +56,8 @@ public class TestSystemSecurityMetadata
     @Test
     public void testNoSystemRoles()
     {
+        reset();
+
         assertQueryReturnsEmptyResult("SHOW ROLES");
         assertQueryReturnsEmptyResult("SHOW CURRENT ROLES");
         assertQueryReturnsEmptyResult("SHOW ROLE GRANTS");
@@ -68,6 +67,8 @@ public class TestSystemSecurityMetadata
     @Test
     public void testRoleCreationAndDeletion()
     {
+        reset();
+
         assertQueryReturnsEmptyResult("SHOW ROLES");
 
         assertQuerySucceeds("CREATE ROLE role1");
@@ -80,6 +81,8 @@ public class TestSystemSecurityMetadata
     @Test
     public void testRoleGrant()
     {
+        reset();
+
         Session alice = user("alice");
         Session aliceWithRole = user("alice", "role1");
 
@@ -122,6 +125,8 @@ public class TestSystemSecurityMetadata
     @Test
     public void testTransitiveRoleGrant()
     {
+        reset();
+
         Session alice = user("alice");
         Session aliceWithRole = user("alice", "role2");
 

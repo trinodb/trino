@@ -16,7 +16,8 @@ package io.trino.execution.resourcegroups.db;
 import io.trino.plugin.resourcegroups.db.H2ResourceGroupsDao;
 import io.trino.spi.QueryId;
 import io.trino.testing.DistributedQueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import static io.trino.execution.QueryRunnerUtil.createQuery;
 import static io.trino.execution.QueryRunnerUtil.waitForQueryState;
@@ -29,12 +30,12 @@ import static io.trino.execution.resourcegroups.db.H2TestUtil.createQueryRunner;
 import static io.trino.execution.resourcegroups.db.H2TestUtil.getDao;
 import static io.trino.execution.resourcegroups.db.H2TestUtil.getDbConfigUrl;
 
-@Test(singleThreaded = true)
 public class TestEnvironments
 {
     private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(240)
     public void testEnvironment1()
             throws Exception
     {
@@ -48,7 +49,8 @@ public class TestEnvironments
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(240)
     public void testEnvironment2()
             throws Exception
     {
