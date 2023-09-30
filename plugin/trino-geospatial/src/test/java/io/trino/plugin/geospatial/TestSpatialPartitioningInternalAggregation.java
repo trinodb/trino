@@ -31,7 +31,6 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -53,13 +52,13 @@ import static org.testng.Assert.assertEquals;
 
 public class TestSpatialPartitioningInternalAggregation
 {
-    @DataProvider(name = "partitionCount")
-    public static Object[][] partitionCountProvider()
+    @Test
+    public void test()
     {
-        return new Object[][] {{100}, {10}};
+        test(10);
+        test(100);
     }
 
-    @Test(dataProvider = "partitionCount")
     public void test(int partitionCount)
     {
         LocalQueryRunner runner = LocalQueryRunner.builder(testSessionBuilder().build())
