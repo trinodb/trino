@@ -62,6 +62,7 @@ public class TestTestingMetadata
                 Optional.of(Duration.ZERO),
                 Optional.empty(),
                 Optional.of("owner"),
+                ImmutableList.of(),
                 ImmutableMap.of());
     }
 }

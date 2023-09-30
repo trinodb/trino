@@ -15,9 +15,11 @@ package io.trino.plugin.iceberg;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
+import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.type.TypeId;
 
@@ -26,6 +28,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.StringJoiner;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -50,6 +53,7 @@ public class IcebergMaterializedViewDefinition
     private final List<Column> columns;
     private final Optional<Duration> gracePeriod;
     private final Optional<String> comment;
+    private final List<CatalogSchemaName> path;
 
     public static String encodeMaterializedViewData(IcebergMaterializedViewDefinition definition)
     {
@@ -78,7 +82,8 @@ public class IcebergMaterializedViewDefinition
                         .map(column -> new Column(column.getName(), column.getType(), column.getComment()))
                         .collect(toImmutableList()),
                 definition.getGracePeriod(),
-                definition.getComment());
+                definition.getComment(),
+                definition.getPath());
     }
 
     @JsonCreator
@@ -88,7 +93,8 @@ public class IcebergMaterializedViewDefinition
             @JsonProperty("schema") Optional<String> schema,
             @JsonProperty("columns") List<Column> columns,
             @JsonProperty("gracePeriod") Optional<Duration> gracePeriod,
-            @JsonProperty("comment") Optional<String> comment)
+            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("path") List<CatalogSchemaName> path)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
@@ -97,6 +103,7 @@ public class IcebergMaterializedViewDefinition
         checkArgument(gracePeriod.isEmpty() || !gracePeriod.get().isNegative(), "gracePeriod cannot be negative: %s", gracePeriod);
         this.gracePeriod = gracePeriod;
         this.comment = requireNonNull(comment, "comment is null");
+        this.path = path == null ? ImmutableList.of() : ImmutableList.copyOf(path);
 
         if (catalog.isEmpty() && schema.isPresent()) {
             throw new IllegalArgumentException("catalog must be present if schema is present");
@@ -142,6 +149,12 @@ public class IcebergMaterializedViewDefinition
         return comment;
     }
 
+    @JsonProperty
+    public List<CatalogSchemaName> getPath()
+    {
+        return path;
+    }
+
     @Override
     public String toString()
     {
@@ -152,6 +165,7 @@ public class IcebergMaterializedViewDefinition
         joiner.add("columns=" + columns);
         gracePeriod.ifPresent(value -> joiner.add("gracePeriod≥=" + value));
         comment.ifPresent(value -> joiner.add("comment=" + value));
+        joiner.add(path.stream().map(CatalogSchemaName::toString).collect(Collectors.joining(", ", "path=(", ")")));
         return getClass().getSimpleName() + joiner;
     }
 
