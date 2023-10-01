@@ -241,7 +241,7 @@ public class MongoSession
                 .filter(name -> !name.equals(schemaCollection))
                 .filter(name -> !SYSTEM_TABLES.contains(name))
                 .collect(toSet()));
-        builder.addAll(getTableMetadataNames(schema));
+        builder.addAll(getTableMetadataNames(schemaName));
 
         return builder.build();
     }
