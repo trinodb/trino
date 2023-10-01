@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.mongodb;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
@@ -27,22 +28,29 @@ import java.util.Locale;
 import java.util.Optional;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.trino.plugin.mongodb.AuthenticatedMongoServer.TEST_COLLECTION;
-import static io.trino.plugin.mongodb.AuthenticatedMongoServer.TEST_DATABASE;
-import static io.trino.plugin.mongodb.AuthenticatedMongoServer.createTestRole;
-import static io.trino.plugin.mongodb.AuthenticatedMongoServer.createTestUser;
+import static io.trino.plugin.mongodb.AuthenticatedMongoServer.createRole;
+import static io.trino.plugin.mongodb.AuthenticatedMongoServer.createUser;
+import static io.trino.plugin.mongodb.AuthenticatedMongoServer.privilege;
+import static io.trino.plugin.mongodb.AuthenticatedMongoServer.resource;
+import static io.trino.plugin.mongodb.AuthenticatedMongoServer.role;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMongoPrivileges
         extends AbstractTestQueryFramework
 {
+    private static final String TEST_USER = "testUser";
+    private static final String TEST_PASSWORD = "pass";
+    private static final String TEST_DATABASE = "test";
+    private static final String TEST_ROLE = "testRole";
+    private static final String TEST_COLLECTION = "testCollection";
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         AuthenticatedMongoServer mongoServer = closeAfterClass(setupMongoServer());
-        return createMongoQueryRunner(mongoServer.testUserConnectionString().getConnectionString());
+        return createMongoQueryRunner(mongoServer.testUserConnectionString(TEST_DATABASE, TEST_USER, TEST_PASSWORD).getConnectionString());
     }
 
     @Test
@@ -99,5 +107,30 @@ public class TestMongoPrivileges
             closeAllSuppress(e, queryRunner);
             throw e;
         }
+    }
+
+    private static Document createTestRole()
+    {
+        return createRole(
+                TEST_ROLE,
+                ImmutableList.of(
+                        testPrivilege("_schema"),
+                        testPrivilege(TEST_COLLECTION)),
+                ImmutableList.of());
+    }
+
+    private static Document testPrivilege(String collectionName)
+    {
+        return privilege(
+                resource(TEST_DATABASE, collectionName),
+                ImmutableList.of("find"));
+    }
+
+    private static Document createTestUser()
+    {
+        return createUser(
+                TEST_USER,
+                TEST_PASSWORD,
+                ImmutableList.of(role(TEST_DATABASE, TEST_ROLE)));
     }
 }
