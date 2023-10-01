@@ -119,7 +119,6 @@ public class TestDriver
     }
 
     // The race can be reproduced somewhat reliably when the invocationCount is 10K, but we use 1K iterations to cap the test runtime.
-    @Test
     @RepeatedTest(1000)
     @Timeout(10)
     public void testConcurrentClose()
