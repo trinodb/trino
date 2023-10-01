@@ -46,7 +46,6 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.RepeatedTest;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 
@@ -119,7 +118,6 @@ public class TestEventDrivenTaskSource
         }
     }
 
-    @Test
     @RepeatedTest(INVOCATION_COUNT)
     @Timeout(TIMEOUT)
     public void testHappyPath()
@@ -246,7 +244,6 @@ public class TestEventDrivenTaskSource
                         .build());
     }
 
-    @Test
     @RepeatedTest(INVOCATION_COUNT)
     @Timeout(TIMEOUT)
     public void stressTest()
