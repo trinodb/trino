@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.client.ClientCapabilities;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
@@ -31,6 +32,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 
 public class SetSessionAuthorizationTask
@@ -60,6 +62,9 @@ public class SetSessionAuthorizationTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
+        if (!session.getClientCapabilities().contains(ClientCapabilities.SESSION_AUTHORIZATION.toString())) {
+            throw new TrinoException(NOT_SUPPORTED, "SET SESSION AUTHORIZATION not supported by client");
+        }
         Identity originalIdentity = session.getOriginalIdentity();
         // Set authorization user in the middle of a transaction is disallowed by the SQL spec
         session.getTransactionId().ifPresent(transactionId -> {
