@@ -68,6 +68,7 @@ import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ClientCapabilities.PATH;
+import static io.trino.client.ClientCapabilities.SESSION_AUTHORIZATION;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -288,6 +289,34 @@ public class TestServer
 
         try (TestingTrinoClient testingClient = new TestingTrinoClient(server, testSessionBuilder().setClientCapabilities(Set.of(PATH.name())).build())) {
             testingClient.execute("SET PATH foo");
+        }
+    }
+
+    @Test
+    public void testSetSessionSupportByClient()
+    {
+        try (TestingTrinoClient testingClient = new TestingTrinoClient(server, testSessionBuilder().setClientCapabilities(Set.of()).build())) {
+            assertThatThrownBy(() -> testingClient.execute("SET SESSION AUTHORIZATION userA"))
+                    .hasMessage("SET SESSION AUTHORIZATION not supported by client");
+        }
+
+        try (TestingTrinoClient testingClient = new TestingTrinoClient(server, testSessionBuilder().setClientCapabilities(Set.of(
+                SESSION_AUTHORIZATION.name())).build())) {
+            testingClient.execute("SET SESSION AUTHORIZATION userA");
+        }
+    }
+
+    @Test
+    public void testResetSessionSupportByClient()
+    {
+        try (TestingTrinoClient testingClient = new TestingTrinoClient(server, testSessionBuilder().setClientCapabilities(Set.of()).build())) {
+            assertThatThrownBy(() -> testingClient.execute("RESET SESSION AUTHORIZATION"))
+                    .hasMessage("RESET SESSION AUTHORIZATION not supported by client");
+        }
+
+        try (TestingTrinoClient testingClient = new TestingTrinoClient(server, testSessionBuilder().setClientCapabilities(Set.of(
+                SESSION_AUTHORIZATION.name())).build())) {
+            testingClient.execute("RESET SESSION AUTHORIZATION");
         }
     }
 
