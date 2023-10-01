@@ -28,7 +28,7 @@ import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.transaction.TransactionManager;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import javax.security.auth.kerberos.KerberosPrincipal;
 
@@ -858,7 +858,7 @@ public class TestFileBasedSystemAccessControl
     @Test
     public void parseUnknownRules()
     {
-        assertThatThrownBy(() -> parse("src/test/resources/security-config-file-with-unknown-rules.json"))
+        assertThatThrownBy(() -> parse(getResourcePath("security-config-file-with-unknown-rules.json")))
                 .hasMessageContaining("Failed to convert JSON tree node");
     }
 

@@ -16,7 +16,7 @@ package io.trino.server;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.failuredetector.FailureDetectorConfig;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.concurrent.TimeUnit;

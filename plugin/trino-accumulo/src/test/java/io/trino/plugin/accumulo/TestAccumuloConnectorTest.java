@@ -20,8 +20,8 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
 import org.testng.SkipException;
-import org.testng.annotations.Test;
 
 import java.util.Optional;
 

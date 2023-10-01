@@ -42,8 +42,7 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.TypeManager;
 import io.trino.util.DateTimeUtils;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -76,13 +75,7 @@ import static org.testng.Assert.assertEquals;
 public class TestCheckpointWriter
 {
     private final TypeManager typeManager = TESTING_TYPE_MANAGER;
-    private CheckpointSchemaManager checkpointSchemaManager;
-
-    @BeforeClass
-    public void setUp()
-    {
-        checkpointSchemaManager = new CheckpointSchemaManager(typeManager);
-    }
+    private final CheckpointSchemaManager checkpointSchemaManager = new CheckpointSchemaManager(typeManager);
 
     @Test
     public void testCheckpointWriteReadJsonRoundtrip()

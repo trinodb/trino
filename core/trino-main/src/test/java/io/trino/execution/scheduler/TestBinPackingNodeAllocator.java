@@ -28,8 +28,10 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.memory.MemoryPoolInfo;
 import io.trino.testing.assertions.Assert;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 import java.net.URI;
 import java.time.Duration;
@@ -49,14 +51,16 @@ import static io.trino.execution.scheduler.TaskExecutionClass.STANDARD;
 import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.time.temporal.ChronoUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 // uses mutable state
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
 public class TestBinPackingNodeAllocator
 {
     private static final Session SESSION = testSessionBuilder().build();
@@ -136,7 +140,7 @@ public class TestBinPackingNodeAllocator
                         ImmutableMap.of()));
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void shutdownNodeAllocatorService()
     {
         if (nodeAllocatorService != null) {
@@ -145,7 +149,8 @@ public class TestBinPackingNodeAllocator
         nodeAllocatorService = null;
     }
 
-    @Test(timeOut = TEST_TIMEOUT)
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateSimple()
             throws Exception
     {
@@ -194,7 +199,8 @@ public class TestBinPackingNodeAllocator
         }
     }
 
-    @Test(timeOut = TEST_TIMEOUT)
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateDifferentSizes()
             throws Exception
     {
@@ -241,7 +247,8 @@ public class TestBinPackingNodeAllocator
         }
     }
 
-    @Test(timeOut = TEST_TIMEOUT)
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateDifferentSizesOpportunisticAcquisition()
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
@@ -281,7 +288,8 @@ public class TestBinPackingNodeAllocator
         }
     }
 
-    @Test(timeOut = TEST_TIMEOUT)
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateReleaseBeforeAcquired()
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1);
@@ -310,7 +318,8 @@ public class TestBinPackingNodeAllocator
         }
     }
 
-    @Test(timeOut = TEST_TIMEOUT)
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testNoMatchingNodeAvailable()
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
@@ -356,7 +365,8 @@ public class TestBinPackingNodeAllocator
         }
     }
 
-    @Test(timeOut = TEST_TIMEOUT)
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testNoMatchingNodeAvailableTimeoutReset()
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
@@ -388,7 +398,7 @@ public class TestBinPackingNodeAllocator
 
             // sleep for a while before releasing lease, as background processPendingAcquires may be still running with old snapshot
             // containing NODE_2, and theNotAcquireLease could be fulfilled when theAcquireLease is released
-            sleepUninterruptibly(10, TimeUnit.MILLISECONDS);
+            sleepUninterruptibly(10, MILLISECONDS);
             theAcquireLease.release();
             nodeAllocatorService.processPendingAcquires();
             assertNotAcquired(theNotAcquireLease);
@@ -404,7 +414,8 @@ public class TestBinPackingNodeAllocator
         }
     }
 
-    @Test(timeOut = TEST_TIMEOUT)
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testRemoveAcquiredNode()
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1);
@@ -422,7 +433,8 @@ public class TestBinPackingNodeAllocator
         }
     }
 
-    @Test(timeOut = TEST_TIMEOUT)
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateNodeWithAddressRequirements()
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
@@ -450,7 +462,8 @@ public class TestBinPackingNodeAllocator
         }
     }
 
-    @Test(timeOut = TEST_TIMEOUT)
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateNotEnoughRuntimeMemory()
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
@@ -506,7 +519,8 @@ public class TestBinPackingNodeAllocator
         }
     }
 
-    @Test(timeOut = TEST_TIMEOUT)
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateRuntimeMemoryDiscrepancies()
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1);
@@ -567,7 +581,8 @@ public class TestBinPackingNodeAllocator
         }
     }
 
-    @Test(timeOut = TEST_TIMEOUT)
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testSpaceReservedOnPrimaryNodeIfNoNodeWithEnoughRuntimeMemoryAvailable()
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
@@ -605,7 +620,8 @@ public class TestBinPackingNodeAllocator
         }
     }
 
-    @Test(timeOut = TEST_TIMEOUT)
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateWithRuntimeMemoryEstimateOverhead()
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1);
@@ -655,7 +671,8 @@ public class TestBinPackingNodeAllocator
         }
     }
 
-    @Test(timeOut = TEST_TIMEOUT)
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateSpeculative()
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
@@ -710,7 +727,8 @@ public class TestBinPackingNodeAllocator
         }
     }
 
-    @Test(timeOut = TEST_TIMEOUT)
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testSwitchAcquiredSpeculativeToStandard()
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1);
@@ -735,7 +753,8 @@ public class TestBinPackingNodeAllocator
         }
     }
 
-    @Test(timeOut = TEST_TIMEOUT)
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateEagerSpeculative()
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
@@ -821,8 +840,8 @@ public class TestBinPackingNodeAllocator
     private static void assertEventually(ThrowingRunnable assertion)
     {
         Assert.assertEventually(
-                new io.airlift.units.Duration(TEST_TIMEOUT, TimeUnit.MILLISECONDS),
-                new io.airlift.units.Duration(10, TimeUnit.MILLISECONDS),
+                new io.airlift.units.Duration(TEST_TIMEOUT, MILLISECONDS),
+                new io.airlift.units.Duration(10, MILLISECONDS),
                 () -> {
                     try {
                         assertion.run();

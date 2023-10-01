@@ -56,7 +56,6 @@ public class TestingAggregationFunction
                 factory,
                 parameterTypes,
                 new JoinCompiler(TYPE_OPERATORS),
-                TYPE_OPERATORS,
                 TEST_SESSION);
     }
 
@@ -71,7 +70,6 @@ public class TestingAggregationFunction
                 factory,
                 parameterTypes,
                 new JoinCompiler(TYPE_OPERATORS),
-                TYPE_OPERATORS,
                 TEST_SESSION);
     }
 

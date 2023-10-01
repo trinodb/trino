@@ -29,8 +29,9 @@ import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.connector.SchemaTableName;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -54,9 +55,10 @@ import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true) // e.g. TrackingFileSystemFactory is shared mutable state
+@TestInstance(PER_METHOD) // e.g. TrackingFileSystemFactory is shared mutable state
 public class TestTableSnapshot
 {
     private final ParquetReaderOptions parquetReaderOptions = new ParquetReaderConfig().toParquetReaderOptions();
@@ -67,7 +69,7 @@ public class TestTableSnapshot
     private TrinoFileSystem trackingFileSystem;
     private String tableLocation;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
             throws URISyntaxException
     {

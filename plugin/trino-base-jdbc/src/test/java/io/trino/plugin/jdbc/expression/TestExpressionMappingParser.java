@@ -14,7 +14,7 @@
 package io.trino.plugin.jdbc.expression;
 
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;

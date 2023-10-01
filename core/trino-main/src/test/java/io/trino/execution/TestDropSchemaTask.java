@@ -24,7 +24,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.execution.warnings.WarningCollector.NOOP;
@@ -35,7 +35,6 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
 public class TestDropSchemaTask
         extends BaseDataDefinitionTaskTest
 {

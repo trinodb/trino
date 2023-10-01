@@ -20,8 +20,8 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
+import org.junit.jupiter.api.Test;
 import org.testng.SkipException;
-import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -106,6 +106,7 @@ public class TestKuduConnectorTest
                 .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
     }
 
+    @Test
     @Override
     public void testCreateSchemaWithNonLowercaseOwnerName()
     {
@@ -113,6 +114,7 @@ public class TestKuduConnectorTest
                 .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
     }
 
+    @Test
     @Override
     public void testCreateSchemaWithLongName()
     {
@@ -129,6 +131,7 @@ public class TestKuduConnectorTest
                 .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
     }
 
+    @Test
     @Override
     public void testDropSchemaCascade()
     {
@@ -687,7 +690,7 @@ public class TestKuduConnectorTest
      * This test fails intermittently because Kudu doesn't have strong enough
      * semantics to support writing from multiple threads.
      */
-    @Test(enabled = false)
+    @org.testng.annotations.Test(enabled = false)
     @Override
     public void testUpdateWithPredicates()
     {
@@ -709,7 +712,6 @@ public class TestKuduConnectorTest
      * This test fails intermittently because Kudu doesn't have strong enough
      * semantics to support writing from multiple threads.
      */
-    @Test(enabled = false)
     @Override
     public void testUpdateAllValues()
     {
@@ -721,12 +723,10 @@ public class TestKuduConnectorTest
         });
     }
 
-    @Test
     @Override
     public void testWrittenStats()
     {
         // TODO Kudu connector supports CTAS and inserts, but the test would fail
-        throw new SkipException("TODO");
     }
 
     @Override
@@ -786,7 +786,6 @@ public class TestKuduConnectorTest
         throw new SkipException("TODO: implement the test for Kudu");
     }
 
-    @Test
     @Override
     public void testCharVarcharComparison()
     {
@@ -948,7 +947,7 @@ public class TestKuduConnectorTest
      * This test fails intermittently because Kudu doesn't have strong enough
      * semantics to support writing from multiple threads.
      */
-    @Test(enabled = false)
+    @org.testng.annotations.Test(enabled = false)
     @Override
     public void testUpdate()
     {
@@ -964,7 +963,7 @@ public class TestKuduConnectorTest
      * This test fails intermittently because Kudu doesn't have strong enough
      * semantics to support writing from multiple threads.
      */
-    @Test(enabled = false)
+    @org.testng.annotations.Test(enabled = false)
     @Override
     public void testRowLevelUpdate()
     {
@@ -992,6 +991,7 @@ public class TestKuduConnectorTest
         throw new SkipException("Kudu doesn't support concurrent update of different columns in a row");
     }
 
+    @Test
     @Override
     public void testCreateTableWithTableComment()
     {

@@ -35,7 +35,7 @@ public class TestS3FileSystemAwsS3
         accessKey = environmentVariable("AWS_ACCESS_KEY_ID");
         secretKey = environmentVariable("AWS_SECRET_ACCESS_KEY");
         region = environmentVariable("AWS_REGION");
-        bucket = environmentVariable("S3_BUCKET");
+        bucket = environmentVariable("EMPTY_S3_BUCKET");
     }
 
     @Override

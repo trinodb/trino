@@ -14,7 +14,7 @@
 package io.trino.execution.resourcegroups;
 
 import io.trino.execution.resourcegroups.WeightedFairQueue.Usage;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

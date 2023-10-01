@@ -15,7 +15,7 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.VarcharType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;

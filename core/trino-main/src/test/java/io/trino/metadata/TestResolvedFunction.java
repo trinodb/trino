@@ -24,7 +24,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeSignature;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.function.Function;
@@ -61,12 +61,13 @@ public class TestResolvedFunction
                         createVarcharType(10 + depth),
                         ImmutableList.of(createVarcharType(20 + depth), createVarcharType(30 + depth))),
                 GlobalSystemConnector.CATALOG_HANDLE,
-                FunctionId.toFunctionId(Signature.builder()
-                        .name(name)
-                        .returnType(new TypeSignature("x"))
-                        .argumentType(new TypeSignature("y"))
-                        .argumentType(new TypeSignature("z"))
-                        .build()),
+                FunctionId.toFunctionId(
+                        name,
+                        Signature.builder()
+                                .returnType(new TypeSignature("x"))
+                                .argumentType(new TypeSignature("y"))
+                                .argumentType(new TypeSignature("z"))
+                                .build()),
                 SCALAR,
                 true,
                 new FunctionNullability(false, ImmutableList.of(false, false)),

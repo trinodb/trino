@@ -19,8 +19,7 @@ import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.tpch.TpchTable;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Set;
@@ -244,33 +243,24 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT orderkey FROM orders WHERE totalprice IN (1, 2, 3)");
     }
 
-    @Test(dataProvider = "largeInValuesCount")
-    public void testLargeIn(int valuesCount)
+    @Test
+    public void testLargeIn()
     {
-        String longValues = range(0, valuesCount)
-                .mapToObj(Integer::toString)
-                .collect(joining(", "));
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (" + longValues + ")");
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (" + longValues + ")");
+        for (int count : largeInValuesCountData()) {
+            String longValues = range(0, count)
+                    .mapToObj(Integer::toString)
+                    .collect(joining(", "));
+            assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (" + longValues + ")");
+            assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (" + longValues + ")");
 
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (mod(1000, orderkey), " + longValues + ")");
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (mod(1000, orderkey), " + longValues + ")");
+            assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (mod(1000, orderkey), " + longValues + ")");
+            assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (mod(1000, orderkey), " + longValues + ")");
+        }
     }
 
-    @DataProvider
-    public Object[][] largeInValuesCount()
+    protected List<Integer> largeInValuesCountData()
     {
-        return largeInValuesCountData();
-    }
-
-    protected Object[][] largeInValuesCountData()
-    {
-        return new Object[][] {
-                {200},
-                {500},
-                {1000},
-                {5000}
-        };
+        return ImmutableList.of(200, 500, 1000, 5000);
     }
 
     @Test

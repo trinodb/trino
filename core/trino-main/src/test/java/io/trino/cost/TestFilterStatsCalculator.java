@@ -24,8 +24,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.Expression;
 import io.trino.transaction.TestingTransactionManager;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.function.Consumer;
 
@@ -45,116 +44,96 @@ public class TestFilterStatsCalculator
 {
     private static final VarcharType MEDIUM_VARCHAR_TYPE = VarcharType.createVarcharType(100);
 
-    private SymbolStatsEstimate xStats;
-    private SymbolStatsEstimate yStats;
-    private SymbolStatsEstimate zStats;
-    private SymbolStatsEstimate leftOpenStats;
-    private SymbolStatsEstimate rightOpenStats;
-    private SymbolStatsEstimate unknownRangeStats;
-    private SymbolStatsEstimate emptyRangeStats;
-    private SymbolStatsEstimate mediumVarcharStats;
-    private FilterStatsCalculator statsCalculator;
-    private PlanNodeStatsEstimate standardInputStatistics;
-    private PlanNodeStatsEstimate zeroStatistics;
-    private TypeProvider standardTypes;
-    private Session session;
-
-    @BeforeClass
-    public void setUp()
-    {
-        xStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(40.0)
-                .setLowValue(-10.0)
-                .setHighValue(10.0)
-                .setNullsFraction(0.25)
-                .build();
-        yStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(20.0)
-                .setLowValue(0.0)
-                .setHighValue(5.0)
-                .setNullsFraction(0.5)
-                .build();
-        zStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(5.0)
-                .setLowValue(-100.0)
-                .setHighValue(100.0)
-                .setNullsFraction(0.1)
-                .build();
-        leftOpenStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(50.0)
-                .setLowValue(NEGATIVE_INFINITY)
-                .setHighValue(15.0)
-                .setNullsFraction(0.1)
-                .build();
-        rightOpenStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(50.0)
-                .setLowValue(-15.0)
-                .setHighValue(POSITIVE_INFINITY)
-                .setNullsFraction(0.1)
-                .build();
-        unknownRangeStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(50.0)
-                .setLowValue(NEGATIVE_INFINITY)
-                .setHighValue(POSITIVE_INFINITY)
-                .setNullsFraction(0.1)
-                .build();
-        emptyRangeStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(0.0)
-                .setDistinctValuesCount(0.0)
-                .setLowValue(NaN)
-                .setHighValue(NaN)
-                .setNullsFraction(NaN)
-                .build();
-        mediumVarcharStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(85.0)
-                .setDistinctValuesCount(165)
-                .setLowValue(NEGATIVE_INFINITY)
-                .setHighValue(POSITIVE_INFINITY)
-                .setNullsFraction(0.34)
-                .build();
-        standardInputStatistics = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol("x"), xStats)
-                .addSymbolStatistics(new Symbol("y"), yStats)
-                .addSymbolStatistics(new Symbol("z"), zStats)
-                .addSymbolStatistics(new Symbol("leftOpen"), leftOpenStats)
-                .addSymbolStatistics(new Symbol("rightOpen"), rightOpenStats)
-                .addSymbolStatistics(new Symbol("unknownRange"), unknownRangeStats)
-                .addSymbolStatistics(new Symbol("emptyRange"), emptyRangeStats)
-                .addSymbolStatistics(new Symbol("mediumVarchar"), mediumVarcharStats)
-                .setOutputRowCount(1000.0)
-                .build();
-        zeroStatistics = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol("x"), SymbolStatsEstimate.zero())
-                .addSymbolStatistics(new Symbol("y"), SymbolStatsEstimate.zero())
-                .addSymbolStatistics(new Symbol("z"), SymbolStatsEstimate.zero())
-                .addSymbolStatistics(new Symbol("leftOpen"), SymbolStatsEstimate.zero())
-                .addSymbolStatistics(new Symbol("rightOpen"), SymbolStatsEstimate.zero())
-                .addSymbolStatistics(new Symbol("unknownRange"), SymbolStatsEstimate.zero())
-                .addSymbolStatistics(new Symbol("emptyRange"), SymbolStatsEstimate.zero())
-                .addSymbolStatistics(new Symbol("mediumVarchar"), SymbolStatsEstimate.zero())
-                .setOutputRowCount(0)
-                .build();
-
-        standardTypes = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
-                .put(new Symbol("x"), DoubleType.DOUBLE)
-                .put(new Symbol("y"), DoubleType.DOUBLE)
-                .put(new Symbol("z"), DoubleType.DOUBLE)
-                .put(new Symbol("leftOpen"), DoubleType.DOUBLE)
-                .put(new Symbol("rightOpen"), DoubleType.DOUBLE)
-                .put(new Symbol("unknownRange"), DoubleType.DOUBLE)
-                .put(new Symbol("emptyRange"), DoubleType.DOUBLE)
-                .put(new Symbol("mediumVarchar"), MEDIUM_VARCHAR_TYPE)
-                .buildOrThrow());
-
-        session = testSessionBuilder().build();
-        statsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)), new StatsNormalizer());
-    }
+    private final SymbolStatsEstimate xStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(40.0)
+            .setLowValue(-10.0)
+            .setHighValue(10.0)
+            .setNullsFraction(0.25)
+            .build();
+    private final SymbolStatsEstimate yStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(20.0)
+            .setLowValue(0.0)
+            .setHighValue(5.0)
+            .setNullsFraction(0.5)
+            .build();
+    private final SymbolStatsEstimate zStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(5.0)
+            .setLowValue(-100.0)
+            .setHighValue(100.0)
+            .setNullsFraction(0.1)
+            .build();
+    private final SymbolStatsEstimate leftOpenStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(50.0)
+            .setLowValue(NEGATIVE_INFINITY)
+            .setHighValue(15.0)
+            .setNullsFraction(0.1)
+            .build();
+    private final SymbolStatsEstimate rightOpenStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(50.0)
+            .setLowValue(-15.0)
+            .setHighValue(POSITIVE_INFINITY)
+            .setNullsFraction(0.1)
+            .build();
+    private final SymbolStatsEstimate unknownRangeStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(50.0)
+            .setLowValue(NEGATIVE_INFINITY)
+            .setHighValue(POSITIVE_INFINITY)
+            .setNullsFraction(0.1)
+            .build();
+    private final SymbolStatsEstimate emptyRangeStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(0.0)
+            .setDistinctValuesCount(0.0)
+            .setLowValue(NaN)
+            .setHighValue(NaN)
+            .setNullsFraction(NaN)
+            .build();
+    private final SymbolStatsEstimate mediumVarcharStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(85.0)
+            .setDistinctValuesCount(165)
+            .setLowValue(NEGATIVE_INFINITY)
+            .setHighValue(POSITIVE_INFINITY)
+            .setNullsFraction(0.34)
+            .build();
+    private final FilterStatsCalculator statsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)), new StatsNormalizer());
+    private final PlanNodeStatsEstimate standardInputStatistics = PlanNodeStatsEstimate.builder()
+            .addSymbolStatistics(new Symbol("x"), xStats)
+            .addSymbolStatistics(new Symbol("y"), yStats)
+            .addSymbolStatistics(new Symbol("z"), zStats)
+            .addSymbolStatistics(new Symbol("leftOpen"), leftOpenStats)
+            .addSymbolStatistics(new Symbol("rightOpen"), rightOpenStats)
+            .addSymbolStatistics(new Symbol("unknownRange"), unknownRangeStats)
+            .addSymbolStatistics(new Symbol("emptyRange"), emptyRangeStats)
+            .addSymbolStatistics(new Symbol("mediumVarchar"), mediumVarcharStats)
+            .setOutputRowCount(1000.0)
+            .build();
+    private final PlanNodeStatsEstimate zeroStatistics = PlanNodeStatsEstimate.builder()
+            .addSymbolStatistics(new Symbol("x"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol("y"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol("z"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol("leftOpen"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol("rightOpen"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol("unknownRange"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol("emptyRange"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol("mediumVarchar"), SymbolStatsEstimate.zero())
+            .setOutputRowCount(0)
+            .build();
+    private final TypeProvider standardTypes = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
+            .put(new Symbol("x"), DoubleType.DOUBLE)
+            .put(new Symbol("y"), DoubleType.DOUBLE)
+            .put(new Symbol("z"), DoubleType.DOUBLE)
+            .put(new Symbol("leftOpen"), DoubleType.DOUBLE)
+            .put(new Symbol("rightOpen"), DoubleType.DOUBLE)
+            .put(new Symbol("unknownRange"), DoubleType.DOUBLE)
+            .put(new Symbol("emptyRange"), DoubleType.DOUBLE)
+            .put(new Symbol("mediumVarchar"), MEDIUM_VARCHAR_TYPE)
+            .buildOrThrow());
+    private final Session session = testSessionBuilder().build();
 
     @Test
     public void testBooleanLiteralStats()

@@ -30,9 +30,11 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.Optional;
 
@@ -42,14 +44,16 @@ import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public class TestIterativeOptimizer
 {
     private LocalQueryRunner queryRunner;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
@@ -65,7 +69,7 @@ public class TestIterativeOptimizer
                 ImmutableMap.of());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         if (queryRunner != null) {
@@ -74,7 +78,8 @@ public class TestIterativeOptimizer
         }
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void optimizerQueryRulesStatsCollect()
     {
         LocalQueryRunner queryRunner = null;
@@ -109,7 +114,8 @@ public class TestIterativeOptimizer
         }
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void optimizerTimeoutsOnNonConvergingPlan()
     {
         PlanOptimizer optimizer = new IterativeOptimizer(

@@ -21,8 +21,9 @@ import io.trino.execution.RemoteTask;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.metadata.InternalNode;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.net.URI;
 import java.util.List;
@@ -36,9 +37,11 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public class TestFixedCountScheduler
 {
     private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "executor-%s"));
@@ -50,7 +53,7 @@ public class TestFixedCountScheduler
         taskFactory = new MockRemoteTaskFactory(executor, scheduledExecutor);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void destroyExecutor()
     {
         executor.shutdownNow();

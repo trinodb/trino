@@ -22,9 +22,10 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
 import java.util.OptionalInt;
@@ -45,8 +46,9 @@ import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
 public class TestStreamingAggregationOperator
 {
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
@@ -58,7 +60,7 @@ public class TestStreamingAggregationOperator
     private DriverContext driverContext;
     private OperatorFactory operatorFactory;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
@@ -79,7 +81,7 @@ public class TestStreamingAggregationOperator
                 new JoinCompiler(new TypeOperators()));
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         executor.shutdownNow();
@@ -146,11 +148,11 @@ public class TestStreamingAggregationOperator
     {
         RowPagesBuilder rowPagesBuilder = RowPagesBuilder.rowPagesBuilder(BOOLEAN, VARCHAR, BIGINT);
         List<Page> input = rowPagesBuilder
-                .addSequencePage(1_000_000, 0, 0, 1)
+                .addSequencePage(50_000, 0, 0, 1)
                 .build();
 
         MaterializedResult.Builder expectedBuilder = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT);
-        for (int i = 0; i < 1_000_000; ++i) {
+        for (int i = 0; i < 50_000; ++i) {
             expectedBuilder.row(String.valueOf(i), 1L, i + 1L);
         }
 

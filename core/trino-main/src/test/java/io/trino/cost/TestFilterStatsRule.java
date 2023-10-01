@@ -20,20 +20,23 @@ import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.ComparisonExpression.Operator;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.SymbolReference;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestFilterStatsRule
         extends BaseStatsCalculatorTest
 {
     public StatsCalculatorTester defaultFilterTester;
 
-    @BeforeClass
+    @BeforeAll
     public void setupClass()
     {
         defaultFilterTester = new StatsCalculatorTester(
@@ -42,7 +45,7 @@ public class TestFilterStatsRule
                         .build());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDownClass()
     {
         defaultFilterTester.close();

@@ -87,9 +87,8 @@ public final class ArrayTransformFunction
 
     private ArrayTransformFunction()
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.scalarBuilder("transform")
                 .signature(Signature.builder()
-                        .name("transform")
                         .typeVariable("T")
                         .typeVariable("U")
                         .returnType(arrayType(new TypeSignature("U")))

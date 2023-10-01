@@ -22,7 +22,7 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.OptionalInt;

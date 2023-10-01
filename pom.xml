@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>144</version>
+        <version>146</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -151,22 +151,20 @@
 
         <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
 
-        <dep.slice.version>2.2</dep.slice.version>
-
         <dep.accumulo.version>1.10.2</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.13.0</dep.antlr.version>
         <dep.airlift.version>235</dep.airlift.version>
         <dep.arrow.version>13.0.0</dep.arrow.version>
-        <dep.avro.version>1.11.1</dep.avro.version>
+        <dep.avro.version>1.11.3</dep.avro.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.takari.version>2.1.1</dep.takari.version>
-        <dep.aws-sdk.version>1.12.552</dep.aws-sdk.version>
-        <dep.aws-sdk-v2.version>2.20.149</dep.aws-sdk-v2.version>
+        <dep.aws-sdk.version>1.12.560</dep.aws-sdk.version>
+        <dep.aws-sdk-v2.version>2.20.157</dep.aws-sdk-v2.version>
         <dep.jsonwebtoken.version>0.11.5</dep.jsonwebtoken.version>
         <dep.oracle.version>21.9.0.0</dep.oracle.version>
         <dep.drift.version>1.21</dep.drift.version>
-        <dep.tempto.version>200</dep.tempto.version>
+        <dep.tempto.version>201</dep.tempto.version>
         <dep.gcs.version>2.2.8</dep.gcs.version>
 
         <dep.errorprone.version>2.22.0</dep.errorprone.version>
@@ -175,20 +173,17 @@
         <dep.confluent.version>7.3.1</dep.confluent.version>
         <dep.kafka-clients.version>3.3.2</dep.kafka-clients.version>
         <dep.casandra.version>4.17.0</dep.casandra.version>
-        <dep.minio.version>8.5.5</dep.minio.version>
+        <dep.minio.version>8.5.6</dep.minio.version>
         <dep.iceberg.version>1.4.0</dep.iceberg.version>
         <dep.protobuf.version>3.23.2</dep.protobuf.version>
         <dep.wire.version>4.5.0</dep.wire.version>
-        <dep.opentelemetry.version>1.30.1</dep.opentelemetry.version>
-        <dep.opentelemetry-instrumentation.version>1.30.0</dep.opentelemetry-instrumentation.version>
-        <dep.netty.version>4.1.97.Final</dep.netty.version>
+        <dep.netty.version>4.1.99.Final</dep.netty.version>
         <dep.jna.version>5.13.0</dep.jna.version>
         <dep.okio.version>3.3.0</dep.okio.version>
-        <dep.flyway.version>9.22.1</dep.flyway.version>
+        <dep.flyway.version>9.22.2</dep.flyway.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
-        <dep.jmh.version>1.37</dep.jmh.version>
-        <dep.junit.version>5.10.0</dep.junit.version>
         <dep.antlr.version>4.13.1</dep.antlr.version>
+        <dep.logback.version>1.4.8</dep.logback.version>
 
         <dep.docker.images.version>86</dep.docker.images.version>
 
@@ -224,7 +219,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.2.16</version>
+                <version>1.2.17</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -256,7 +251,7 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
-                <version>3.41.1</version>
+                <version>3.41.2</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -473,7 +468,7 @@
             <dependency>
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
-                <version>6.4.5</version>
+                <version>6.4.6</version>
             </dependency>
 
             <dependency>
@@ -541,7 +536,7 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>10.15</version>
+                <version>11.0</version>
                 <classifier>jdk11</classifier>
             </dependency>
 
@@ -763,7 +758,7 @@
             <dependency>
                 <groupId>io.dropwizard.metrics</groupId>
                 <artifactId>metrics-core</artifactId>
-                <version>4.2.19</version>
+                <version>4.2.20</version>
             </dependency>
 
             <dependency>
@@ -793,7 +788,7 @@
             <dependency>
                 <groupId>io.projectreactor</groupId>
                 <artifactId>reactor-core</artifactId>
-                <version>3.4.30</version>
+                <version>3.4.31</version>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
@@ -1595,7 +1590,7 @@
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-compress</artifactId>
-                <version>1.23.0</version>
+                <version>1.24.0</version>
             </dependency>
 
             <dependency>
@@ -1901,7 +1896,7 @@
             <dependency>
                 <groupId>org.roaringbitmap</groupId>
                 <artifactId>RoaringBitmap</artifactId>
-                <version>0.9.49</version>
+                <version>1.0.0</version>
             </dependency>
 
             <dependency>
@@ -1925,7 +1920,7 @@
             <dependency>
                 <groupId>org.xerial.snappy</groupId>
                 <artifactId>snappy-java</artifactId>
-                <version>1.1.10.3</version>
+                <version>1.1.10.5</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.osgi</groupId>
@@ -2445,6 +2440,9 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
+                    <properties>
+                        <configurationParameters>junit.jupiter.execution.timeout.thread.mode.default = SEPARATE_THREAD</configurationParameters>
+                    </properties>
                     <includes>
                         <!-- Tests classes should start with "Test", but we do also want to include tests incorrectly named, with "Test" at the end -->
                         <include>**/Test*.java</include>

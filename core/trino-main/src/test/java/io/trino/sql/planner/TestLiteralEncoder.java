@@ -37,7 +37,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.type.Re2JRegexp;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Base64;
@@ -105,11 +105,12 @@ public class TestLiteralEncoder
                     VARBINARY,
                     ImmutableList.of(VARCHAR)),
             GlobalSystemConnector.CATALOG_HANDLE,
-            toFunctionId(Signature.builder()
-                    .name("from_base64")
-                    .returnType(VARBINARY)
-                    .argumentType(new TypeSignature("varchar", typeVariable("x")))
-                    .build()),
+            toFunctionId(
+                    "from_base64",
+                    Signature.builder()
+                            .returnType(VARBINARY)
+                            .argumentType(new TypeSignature("varchar", typeVariable("x")))
+                            .build()),
             SCALAR,
             true,
             new FunctionNullability(false, ImmutableList.of(false)),

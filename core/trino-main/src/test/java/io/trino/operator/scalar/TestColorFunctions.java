@@ -14,7 +14,7 @@
 package io.trino.operator.scalar;
 
 import io.trino.sql.query.QueryAssertions;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.scalar.ColorFunctions.bar;

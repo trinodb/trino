@@ -33,7 +33,6 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.function.BoundSignature;
-import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -73,7 +72,6 @@ import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingSession;
@@ -145,21 +143,9 @@ public class TestEffectivePredicateExtractor
         private final Metadata delegate = functionResolution.getMetadata();
 
         @Override
-        public ResolvedFunction resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
-        {
-            return delegate.resolveFunction(session, name, parameterTypes);
-        }
-
-        @Override
         public ResolvedFunction resolveBuiltinFunction(String name, List<TypeSignatureProvider> parameterTypes)
         {
             return delegate.resolveBuiltinFunction(name, parameterTypes);
-        }
-
-        @Override
-        public FunctionMetadata getFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
-        {
-            return delegate.getFunctionMetadata(session, resolvedFunction);
         }
 
         @Override
@@ -1218,7 +1204,7 @@ public class TestEffectivePredicateExtractor
         return new ResolvedFunction(
                 boundSignature,
                 GlobalSystemConnector.CATALOG_HANDLE,
-                toFunctionId(boundSignature.toSignature()),
+                toFunctionId(name, boundSignature.toSignature()),
                 SCALAR,
                 true,
                 new FunctionNullability(false, ImmutableList.of()),

@@ -16,7 +16,7 @@ package io.trino.plugin.deltalake.transactionlog;
 
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;

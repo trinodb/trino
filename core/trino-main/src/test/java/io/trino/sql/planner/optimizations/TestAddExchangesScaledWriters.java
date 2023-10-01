@@ -24,8 +24,9 @@ import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.testing.LocalQueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
 
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -57,42 +58,40 @@ public class TestAddExchangesScaledWriters
                 .build();
     }
 
-    @DataProvider(name = "scale_writers")
-    public Object[][] prepareScaledWritersOption()
+    @Test
+    public void testScaledWriters()
     {
-        return new Object[][] {{true}, {false}};
+        for (boolean isScaleWritersEnabled : Arrays.asList(true, false)) {
+            Session session = testSessionBuilder()
+                    .setSystemProperty("scale_writers", Boolean.toString(isScaleWritersEnabled))
+                    .build();
+
+            @Language("SQL")
+            String query = "CREATE TABLE catalog_with_scaled_writers.mock.test AS SELECT * FROM tpch.tiny.nation";
+            SubPlan subPlan = subplan(query, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, false, session);
+            if (isScaleWritersEnabled) {
+                assertThat(subPlan.getAllFragments().get(1).getPartitioning().getConnectorHandle()).isEqualTo(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION.getConnectorHandle());
+            }
+            else {
+                subPlan.getAllFragments().forEach(
+                        fragment -> assertThat(fragment.getPartitioning().getConnectorHandle()).isNotEqualTo(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION.getConnectorHandle()));
+            }
+        }
     }
 
-    @Test(dataProvider = "scale_writers")
-    public void testScaledWriters(boolean isScaleWritersEnabled)
+    @Test
+    public void testScaledWritersWithTasksScalingDisabled()
     {
-        Session session = testSessionBuilder()
-                .setSystemProperty("scale_writers", Boolean.toString(isScaleWritersEnabled))
-                .build();
+        for (boolean isScaleWritersEnabled : Arrays.asList(true, false)) {
+            Session session = testSessionBuilder()
+                    .setSystemProperty("scale_writers", Boolean.toString(isScaleWritersEnabled))
+                    .build();
 
-        @Language("SQL")
-        String query = "CREATE TABLE catalog_with_scaled_writers.mock.test AS SELECT * FROM tpch.tiny.nation";
-        SubPlan subPlan = subplan(query, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, false, session);
-        if (isScaleWritersEnabled) {
-            assertThat(subPlan.getAllFragments().get(1).getPartitioning().getConnectorHandle()).isEqualTo(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION.getConnectorHandle());
-        }
-        else {
+            @Language("SQL")
+            String query = "CREATE TABLE catalog_without_scaled_writers.mock.test AS SELECT * FROM tpch.tiny.nation";
+            SubPlan subPlan = subplan(query, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, false, session);
             subPlan.getAllFragments().forEach(
                     fragment -> assertThat(fragment.getPartitioning().getConnectorHandle()).isNotEqualTo(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION.getConnectorHandle()));
         }
-    }
-
-    @Test(dataProvider = "scale_writers")
-    public void testScaledWritersWithTasksScalingDisabled(boolean isScaleWritersEnabled)
-    {
-        Session session = testSessionBuilder()
-                .setSystemProperty("scale_writers", Boolean.toString(isScaleWritersEnabled))
-                .build();
-
-        @Language("SQL")
-        String query = "CREATE TABLE catalog_without_scaled_writers.mock.test AS SELECT * FROM tpch.tiny.nation";
-        SubPlan subPlan = subplan(query, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, false, session);
-        subPlan.getAllFragments().forEach(
-                fragment -> assertThat(fragment.getPartitioning().getConnectorHandle()).isNotEqualTo(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION.getConnectorHandle()));
     }
 }

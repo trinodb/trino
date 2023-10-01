@@ -16,7 +16,7 @@ package io.trino.hdfs.s3;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.http.client.testing.TestingResponse.mockResponse;

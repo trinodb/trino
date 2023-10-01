@@ -42,8 +42,9 @@ import io.trino.sql.planner.sanity.DynamicFiltersChecker;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingTransactionHandle;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Optional;
 
@@ -64,8 +65,9 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@Test(singleThreaded = true) // e.g. PlanBuilder is mutable
+@TestInstance(PER_CLASS)
 public class TestRemoveUnsupportedDynamicFilters
         extends BasePlanTest
 {
@@ -78,12 +80,12 @@ public class TestRemoveUnsupportedDynamicFilters
     private Symbol ordersOrderKeySymbol;
     private TableScanNode ordersTableScanNode;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         plannerContext = getQueryRunner().getPlannerContext();
         metadata = plannerContext.getMetadata();
-        builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata, TEST_SESSION);
+        builder = new PlanBuilder(new PlanNodeIdAllocator(), plannerContext, TEST_SESSION);
         CatalogHandle catalogHandle = getCurrentCatalogHandle();
         lineitemTableHandle = new TableHandle(
                 catalogHandle,

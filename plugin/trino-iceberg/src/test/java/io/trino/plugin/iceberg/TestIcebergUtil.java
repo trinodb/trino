@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.iceberg.IcebergUtil.parseVersion;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

@@ -17,7 +17,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.Hash.Strategy;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenCustomHashMap;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;

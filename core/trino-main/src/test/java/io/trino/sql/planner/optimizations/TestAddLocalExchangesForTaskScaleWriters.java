@@ -38,9 +38,9 @@ import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.LocalQueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
@@ -217,62 +217,60 @@ public class TestAddLocalExchangesForTaskScaleWriters
                                                 tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
     }
 
-    @Test(dataProvider = "taskScaleWritersOption")
-    public void testLocalScaledPartitionedWriterWithoutSupportForMultipleWritersPerPartition(boolean taskScaleWritersEnabled)
+    @Test
+    public void testLocalScaledPartitionedWriterWithoutSupportForMultipleWritersPerPartition()
     {
-        String catalogName = "mock_without_multiple_writer_per_partition";
-        PartitioningHandle partitioningHandle = new PartitioningHandle(
-                Optional.of(getCatalogHandle(catalogName)),
-                Optional.of(MockConnectorTransactionHandle.INSTANCE),
-                CONNECTOR_PARTITIONING_HANDLE);
+        for (boolean taskScaleWritersEnabled : Arrays.asList(true, false)) {
+            String catalogName = "mock_without_multiple_writer_per_partition";
+            PartitioningHandle partitioningHandle = new PartitioningHandle(
+                    Optional.of(getCatalogHandle(catalogName)),
+                    Optional.of(MockConnectorTransactionHandle.INSTANCE),
+                    CONNECTOR_PARTITIONING_HANDLE);
 
-        assertDistributedPlan(
-                "INSERT INTO connector_partitioned_table SELECT * FROM source_table",
-                testSessionBuilder()
-                        .setCatalog(catalogName)
-                        .setSchema("mock")
-                        .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, String.valueOf(taskScaleWritersEnabled))
-                        .setSystemProperty(SCALE_WRITERS, "false")
-                        .build(),
-                anyTree(
-                        tableWriter(
-                                ImmutableList.of("customer", "year"),
-                                ImmutableList.of("customer", "year"),
-                                exchange(LOCAL, REPARTITION, partitioningHandle,
-                                        exchange(REMOTE, REPARTITION, partitioningHandle,
-                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
+            assertDistributedPlan(
+                    "INSERT INTO connector_partitioned_table SELECT * FROM source_table",
+                    testSessionBuilder()
+                            .setCatalog(catalogName)
+                            .setSchema("mock")
+                            .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, String.valueOf(taskScaleWritersEnabled))
+                            .setSystemProperty(SCALE_WRITERS, "false")
+                            .build(),
+                    anyTree(
+                            tableWriter(
+                                    ImmutableList.of("customer", "year"),
+                                    ImmutableList.of("customer", "year"),
+                                    exchange(LOCAL, REPARTITION, partitioningHandle,
+                                            exchange(REMOTE, REPARTITION, partitioningHandle,
+                                                    tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
+        }
     }
 
-    @Test(dataProvider = "taskScaleWritersOption")
-    public void testLocalScaledPartitionedWriterWithPerTaskScalingDisabled(boolean taskScaleWritersEnabled)
+    @Test
+    public void testLocalScaledPartitionedWriterWithPerTaskScalingDisabled()
     {
-        String catalogName = "mock_without_scaled_writers";
-        PartitioningHandle partitioningHandle = new PartitioningHandle(
-                Optional.of(getCatalogHandle(catalogName)),
-                Optional.of(MockConnectorTransactionHandle.INSTANCE),
-                CONNECTOR_PARTITIONING_HANDLE);
+        for (boolean taskScaleWritersEnabled : Arrays.asList(true, false)) {
+            String catalogName = "mock_without_scaled_writers";
+            PartitioningHandle partitioningHandle = new PartitioningHandle(
+                    Optional.of(getCatalogHandle(catalogName)),
+                    Optional.of(MockConnectorTransactionHandle.INSTANCE),
+                    CONNECTOR_PARTITIONING_HANDLE);
 
-        assertDistributedPlan(
-                "INSERT INTO connector_partitioned_table SELECT * FROM source_table",
-                testSessionBuilder()
-                        .setCatalog(catalogName)
-                        .setSchema("mock")
-                        .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, String.valueOf(taskScaleWritersEnabled))
-                        .setSystemProperty(SCALE_WRITERS, "false")
-                        .build(),
-                anyTree(
-                        tableWriter(
-                                ImmutableList.of("customer", "year"),
-                                ImmutableList.of("customer", "year"),
-                                exchange(LOCAL, REPARTITION, partitioningHandle,
-                                        exchange(REMOTE, REPARTITION, partitioningHandle,
-                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
-    }
-
-    @DataProvider
-    public Object[][] taskScaleWritersOption()
-    {
-        return new Object[][] {{true}, {false}};
+            assertDistributedPlan(
+                    "INSERT INTO connector_partitioned_table SELECT * FROM source_table",
+                    testSessionBuilder()
+                            .setCatalog(catalogName)
+                            .setSchema("mock")
+                            .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, String.valueOf(taskScaleWritersEnabled))
+                            .setSystemProperty(SCALE_WRITERS, "false")
+                            .build(),
+                    anyTree(
+                            tableWriter(
+                                    ImmutableList.of("customer", "year"),
+                                    ImmutableList.of("customer", "year"),
+                                    exchange(LOCAL, REPARTITION, partitioningHandle,
+                                            exchange(REMOTE, REPARTITION, partitioningHandle,
+                                                    tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
+        }
     }
 
     @Test

@@ -33,9 +33,9 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.ToIntFunction;
@@ -101,17 +101,12 @@ public class TestColocatedJoin
         return queryRunner;
     }
 
-    @DataProvider(name = "colocated_join_enabled")
-    public Object[][] colocatedJoinEnabled()
+    @Test
+    public void testColocatedJoinWhenNumberOfBucketsInTableScanIsNotSufficient()
     {
-        return new Object[][] {{true}, {false}};
-    }
-
-    @Test(dataProvider = "colocated_join_enabled")
-    public void testColocatedJoinWhenNumberOfBucketsInTableScanIsNotSufficient(boolean colocatedJoinEnabled)
-    {
-        assertDistributedPlan(
-                """
+        for (boolean colocatedJoinEnabled : Arrays.asList(true, false)) {
+            assertDistributedPlan(
+                    """
                     SELECT
                         orders.column_a,
                         orders.column_b
@@ -129,15 +124,16 @@ public class TestColocatedJoin
                             orders.column_a = t.column_a
                         AND orders.column_b = t.column_b
                 """,
-                prepareSession(20, colocatedJoinEnabled),
-                anyTree(
-                        anyTree(
-                                tableScan("orders")),
-                        exchange(
-                                LOCAL,
-                                exchange(
-                                        REMOTE,
-                                        tableScan("orders")))));
+                    prepareSession(20, colocatedJoinEnabled),
+                    anyTree(
+                            anyTree(
+                                    tableScan("orders")),
+                            exchange(
+                                    LOCAL,
+                                    exchange(
+                                            REMOTE,
+                                            tableScan("orders")))));
+        }
     }
 
     @Test

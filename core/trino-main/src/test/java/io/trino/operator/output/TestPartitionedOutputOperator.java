@@ -17,10 +17,10 @@ import io.trino.operator.OperatorContext;
 import io.trino.operator.output.TestPagePartitioner.PagePartitionerBuilder;
 import io.trino.operator.output.TestPagePartitioner.TestOutputBuffer;
 import io.trino.spi.Page;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -30,23 +30,23 @@ import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
 public class TestPartitionedOutputOperator
 {
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
-    private TestOutputBuffer outputBuffer;
 
-    @BeforeClass
+    @BeforeAll
     public void setUpClass()
     {
         executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-executor-%s"));
         scheduledExecutor = newScheduledThreadPool(1, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDownClass()
     {
         executor.shutdownNow();
@@ -55,16 +55,10 @@ public class TestPartitionedOutputOperator
         scheduledExecutor = null;
     }
 
-    @BeforeMethod
-    public void setUp()
-    {
-        outputBuffer = new TestOutputBuffer();
-    }
-
     @Test
     public void testOperatorContextStats()
     {
-        PartitionedOutputOperator partitionedOutputOperator = new PagePartitionerBuilder(executor, scheduledExecutor, outputBuffer)
+        PartitionedOutputOperator partitionedOutputOperator = new PagePartitionerBuilder(executor, scheduledExecutor, new TestOutputBuffer())
                 .withTypes(BIGINT).buildPartitionedOutputOperator();
         Page page = new Page(createLongSequenceBlock(0, 8));
 

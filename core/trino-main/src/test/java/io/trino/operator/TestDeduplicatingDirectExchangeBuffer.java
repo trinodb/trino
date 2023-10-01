@@ -28,9 +28,10 @@ import io.trino.execution.TaskId;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeManagerFactory;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.HashSet;
 import java.util.List;
@@ -48,19 +49,21 @@ import static io.trino.spi.exchange.ExchangeId.createRandomExchangeId;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public class TestDeduplicatingDirectExchangeBuffer
 {
     private static final DataSize DEFAULT_BUFFER_CAPACITY = DataSize.of(1, KILOBYTE);
 
     private ExchangeManagerRegistry exchangeManagerRegistry;
 
-    @BeforeClass
+    @BeforeAll
     public void beforeClass()
     {
         exchangeManagerRegistry = new ExchangeManagerRegistry();
@@ -69,7 +72,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                 "exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void afterClass()
     {
         exchangeManagerRegistry = null;

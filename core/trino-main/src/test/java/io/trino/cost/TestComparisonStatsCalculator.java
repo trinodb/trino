@@ -27,8 +27,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -59,134 +58,113 @@ import static java.util.stream.Collectors.joining;
 
 public class TestComparisonStatsCalculator
 {
-    private FilterStatsCalculator filterStatsCalculator;
-    private Session session;
-    private PlanNodeStatsEstimate standardInputStatistics;
-    private TypeProvider types;
-    private SymbolStatsEstimate uStats;
-    private SymbolStatsEstimate wStats;
-    private SymbolStatsEstimate xStats;
-    private SymbolStatsEstimate yStats;
-    private SymbolStatsEstimate zStats;
-    private SymbolStatsEstimate leftOpenStats;
-    private SymbolStatsEstimate rightOpenStats;
-    private SymbolStatsEstimate unknownRangeStats;
-    private SymbolStatsEstimate emptyRangeStats;
-    private SymbolStatsEstimate unknownNdvRangeStats;
-    private SymbolStatsEstimate varcharStats;
+    private final FilterStatsCalculator filterStatsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)), new StatsNormalizer());
+    private final Session session = testSessionBuilder().build();
+    private final TypeProvider types = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
+            .put(new Symbol("u"), DoubleType.DOUBLE)
+            .put(new Symbol("w"), DoubleType.DOUBLE)
+            .put(new Symbol("x"), DoubleType.DOUBLE)
+            .put(new Symbol("y"), DoubleType.DOUBLE)
+            .put(new Symbol("z"), DoubleType.DOUBLE)
+            .put(new Symbol("leftOpen"), DoubleType.DOUBLE)
+            .put(new Symbol("rightOpen"), DoubleType.DOUBLE)
+            .put(new Symbol("unknownRange"), DoubleType.DOUBLE)
+            .put(new Symbol("emptyRange"), DoubleType.DOUBLE)
+            .put(new Symbol("unknownNdvRange"), DoubleType.DOUBLE)
+            .put(new Symbol("varchar"), VarcharType.createVarcharType(10))
+            .buildOrThrow());
+    private final SymbolStatsEstimate uStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(8.0)
+            .setDistinctValuesCount(300)
+            .setLowValue(0)
+            .setHighValue(20)
+            .setNullsFraction(0.1)
+            .build();
+    private final SymbolStatsEstimate wStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(8.0)
+            .setDistinctValuesCount(30)
+            .setLowValue(0)
+            .setHighValue(20)
+            .setNullsFraction(0.1)
+            .build();
+    private final SymbolStatsEstimate xStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(40.0)
+            .setLowValue(-10.0)
+            .setHighValue(10.0)
+            .setNullsFraction(0.25)
+            .build();
+    private final SymbolStatsEstimate yStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(20.0)
+            .setLowValue(0.0)
+            .setHighValue(5.0)
+            .setNullsFraction(0.5)
+            .build();
+    private final SymbolStatsEstimate zStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(5.0)
+            .setLowValue(-100.0)
+            .setHighValue(100.0)
+            .setNullsFraction(0.1)
+            .build();
+    private final SymbolStatsEstimate leftOpenStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(50.0)
+            .setLowValue(NEGATIVE_INFINITY)
+            .setHighValue(15.0)
+            .setNullsFraction(0.1)
+            .build();
+    private final SymbolStatsEstimate rightOpenStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(50.0)
+            .setLowValue(-15.0)
+            .setHighValue(POSITIVE_INFINITY)
+            .setNullsFraction(0.1)
+            .build();
+    private final SymbolStatsEstimate unknownRangeStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(50.0)
+            .setLowValue(NEGATIVE_INFINITY)
+            .setHighValue(POSITIVE_INFINITY)
+            .setNullsFraction(0.1)
+            .build();
+    private final SymbolStatsEstimate emptyRangeStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(0.0)
+            .setDistinctValuesCount(0.0)
+            .setLowValue(NaN)
+            .setHighValue(NaN)
+            .setNullsFraction(1.0)
+            .build();
+    private final SymbolStatsEstimate unknownNdvRangeStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(NaN)
+            .setLowValue(0)
+            .setHighValue(10)
+            .setNullsFraction(0.1)
+            .build();
+    private final SymbolStatsEstimate varcharStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(50.0)
+            .setLowValue(NEGATIVE_INFINITY)
+            .setHighValue(POSITIVE_INFINITY)
+            .setNullsFraction(0.1)
+            .build();
 
-    @BeforeClass
-    public void setUp()
-    {
-        session = testSessionBuilder().build();
-        filterStatsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)), new StatsNormalizer());
-
-        uStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(8.0)
-                .setDistinctValuesCount(300)
-                .setLowValue(0)
-                .setHighValue(20)
-                .setNullsFraction(0.1)
-                .build();
-        wStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(8.0)
-                .setDistinctValuesCount(30)
-                .setLowValue(0)
-                .setHighValue(20)
-                .setNullsFraction(0.1)
-                .build();
-        xStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(40.0)
-                .setLowValue(-10.0)
-                .setHighValue(10.0)
-                .setNullsFraction(0.25)
-                .build();
-        yStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(20.0)
-                .setLowValue(0.0)
-                .setHighValue(5.0)
-                .setNullsFraction(0.5)
-                .build();
-        zStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(5.0)
-                .setLowValue(-100.0)
-                .setHighValue(100.0)
-                .setNullsFraction(0.1)
-                .build();
-        leftOpenStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(50.0)
-                .setLowValue(NEGATIVE_INFINITY)
-                .setHighValue(15.0)
-                .setNullsFraction(0.1)
-                .build();
-        rightOpenStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(50.0)
-                .setLowValue(-15.0)
-                .setHighValue(POSITIVE_INFINITY)
-                .setNullsFraction(0.1)
-                .build();
-        unknownRangeStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(50.0)
-                .setLowValue(NEGATIVE_INFINITY)
-                .setHighValue(POSITIVE_INFINITY)
-                .setNullsFraction(0.1)
-                .build();
-        emptyRangeStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(0.0)
-                .setDistinctValuesCount(0.0)
-                .setLowValue(NaN)
-                .setHighValue(NaN)
-                .setNullsFraction(1.0)
-                .build();
-        unknownNdvRangeStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(NaN)
-                .setLowValue(0)
-                .setHighValue(10)
-                .setNullsFraction(0.1)
-                .build();
-        varcharStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(50.0)
-                .setLowValue(NEGATIVE_INFINITY)
-                .setHighValue(POSITIVE_INFINITY)
-                .setNullsFraction(0.1)
-                .build();
-        standardInputStatistics = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol("u"), uStats)
-                .addSymbolStatistics(new Symbol("w"), wStats)
-                .addSymbolStatistics(new Symbol("x"), xStats)
-                .addSymbolStatistics(new Symbol("y"), yStats)
-                .addSymbolStatistics(new Symbol("z"), zStats)
-                .addSymbolStatistics(new Symbol("leftOpen"), leftOpenStats)
-                .addSymbolStatistics(new Symbol("rightOpen"), rightOpenStats)
-                .addSymbolStatistics(new Symbol("unknownRange"), unknownRangeStats)
-                .addSymbolStatistics(new Symbol("emptyRange"), emptyRangeStats)
-                .addSymbolStatistics(new Symbol("unknownNdvRange"), unknownNdvRangeStats)
-                .addSymbolStatistics(new Symbol("varchar"), varcharStats)
-                .setOutputRowCount(1000.0)
-                .build();
-
-        types = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
-                .put(new Symbol("u"), DoubleType.DOUBLE)
-                .put(new Symbol("w"), DoubleType.DOUBLE)
-                .put(new Symbol("x"), DoubleType.DOUBLE)
-                .put(new Symbol("y"), DoubleType.DOUBLE)
-                .put(new Symbol("z"), DoubleType.DOUBLE)
-                .put(new Symbol("leftOpen"), DoubleType.DOUBLE)
-                .put(new Symbol("rightOpen"), DoubleType.DOUBLE)
-                .put(new Symbol("unknownRange"), DoubleType.DOUBLE)
-                .put(new Symbol("emptyRange"), DoubleType.DOUBLE)
-                .put(new Symbol("unknownNdvRange"), DoubleType.DOUBLE)
-                .put(new Symbol("varchar"), VarcharType.createVarcharType(10))
-                .buildOrThrow());
-    }
+    private final PlanNodeStatsEstimate standardInputStatistics = PlanNodeStatsEstimate.builder()
+            .addSymbolStatistics(new Symbol("u"), uStats)
+            .addSymbolStatistics(new Symbol("w"), wStats)
+            .addSymbolStatistics(new Symbol("x"), xStats)
+            .addSymbolStatistics(new Symbol("y"), yStats)
+            .addSymbolStatistics(new Symbol("z"), zStats)
+            .addSymbolStatistics(new Symbol("leftOpen"), leftOpenStats)
+            .addSymbolStatistics(new Symbol("rightOpen"), rightOpenStats)
+            .addSymbolStatistics(new Symbol("unknownRange"), unknownRangeStats)
+            .addSymbolStatistics(new Symbol("emptyRange"), emptyRangeStats)
+            .addSymbolStatistics(new Symbol("unknownNdvRange"), unknownNdvRangeStats)
+            .addSymbolStatistics(new Symbol("varchar"), varcharStats)
+            .setOutputRowCount(1000.0)
+            .build();
 
     private Consumer<SymbolStatsAssertion> equalTo(SymbolStatsEstimate estimate)
     {

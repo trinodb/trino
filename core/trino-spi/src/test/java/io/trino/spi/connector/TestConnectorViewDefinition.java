@@ -23,7 +23,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TestingTypeDeserializer;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Comparator;
 import java.util.Optional;

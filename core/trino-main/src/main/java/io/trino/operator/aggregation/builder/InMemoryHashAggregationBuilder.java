@@ -32,7 +32,6 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 import it.unimi.dsi.fastutil.ints.AbstractIntIterator;
@@ -71,7 +70,6 @@ public class InMemoryHashAggregationBuilder
             OperatorContext operatorContext,
             Optional<DataSize> maxPartialMemory,
             JoinCompiler joinCompiler,
-            TypeOperators typeOperators,
             UpdateMemory updateMemory)
     {
         this(aggregatorFactories,
@@ -84,7 +82,6 @@ public class InMemoryHashAggregationBuilder
                 maxPartialMemory,
                 Optional.empty(),
                 joinCompiler,
-                typeOperators,
                 updateMemory);
     }
 
@@ -99,7 +96,6 @@ public class InMemoryHashAggregationBuilder
             Optional<DataSize> maxPartialMemory,
             Optional<Integer> unspillIntermediateChannelOffset,
             JoinCompiler joinCompiler,
-            TypeOperators typeOperators,
             UpdateMemory updateMemory)
     {
         if (hashChannel.isPresent()) {
@@ -124,7 +120,6 @@ public class InMemoryHashAggregationBuilder
                 hashChannel.isPresent(),
                 expectedGroups,
                 joinCompiler,
-                typeOperators,
                 updateMemory);
         this.partial = step.isOutputPartial();
         this.maxPartialMemory = maxPartialMemory.map(dataSize -> OptionalLong.of(dataSize.toBytes())).orElseGet(OptionalLong::empty);

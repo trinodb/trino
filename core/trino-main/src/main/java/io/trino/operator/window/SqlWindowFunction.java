@@ -30,10 +30,10 @@ public class SqlWindowFunction
     private final WindowFunctionSupplier supplier;
     private final FunctionMetadata functionMetadata;
 
-    public SqlWindowFunction(Signature signature, Optional<String> description, boolean deprecated, WindowFunctionSupplier supplier)
+    public SqlWindowFunction(String name, Signature signature, Optional<String> description, boolean deprecated, WindowFunctionSupplier supplier)
     {
         this.supplier = requireNonNull(supplier, "supplier is null");
-        FunctionMetadata.Builder functionMetadata = FunctionMetadata.windowBuilder()
+        FunctionMetadata.Builder functionMetadata = FunctionMetadata.windowBuilder(name)
                 .signature(signature);
         if (description.isPresent()) {
             functionMetadata.description(description.get());

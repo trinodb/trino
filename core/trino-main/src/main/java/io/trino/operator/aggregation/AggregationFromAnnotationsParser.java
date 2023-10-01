@@ -113,7 +113,6 @@ public final class AggregationFromAnnotationsParser
                 Optional<Method> removeInputFunction = getRemoveInputFunction(aggregationDefinition, inputFunction);
                 ParametricAggregationImplementation implementation = parseImplementation(
                         aggregationDefinition,
-                        header.getName(),
                         stateDetails,
                         inputFunction,
                         removeInputFunction,
@@ -127,18 +126,13 @@ public final class AggregationFromAnnotationsParser
                 }
             }
 
-            // register a set functions for the canonical name, and each alias
-            functions.addAll(buildFunctions(header.getName(), header, stateDetails, exactImplementations, nonExactImplementations));
-            for (String alias : getAliases(aggregationDefinition.getAnnotation(AggregationFunction.class), outputFunction)) {
-                functions.addAll(buildFunctions(alias, header, stateDetails, exactImplementations, nonExactImplementations));
-            }
+            functions.addAll(buildFunctions(header, stateDetails, exactImplementations, nonExactImplementations));
         }
 
         return functions.build();
     }
 
     private static List<ParametricAggregation> buildFunctions(
-            String name,
             AggregationHeader header,
             List<AccumulatorStateDetails<?>> stateDetails,
             List<ParametricAggregationImplementation> exactImplementations,
@@ -149,10 +143,10 @@ public final class AggregationFromAnnotationsParser
         // create a separate function for each exact implementation
         for (ParametricAggregationImplementation exactImplementation : exactImplementations) {
             functions.add(new ParametricAggregation(
-                    exactImplementation.getSignature().withName(name),
+                    exactImplementation.getSignature(),
                     header,
                     stateDetails,
-                    ParametricImplementationsGroup.of(exactImplementation).withAlias(name)));
+                    ParametricImplementationsGroup.of(exactImplementation)));
         }
 
         // if there are non-exact functions, create a single generic/calculated function using these implementations
@@ -161,10 +155,10 @@ public final class AggregationFromAnnotationsParser
             nonExactImplementations.forEach(implementationsBuilder::addImplementation);
             ParametricImplementationsGroup<ParametricAggregationImplementation> implementations = implementationsBuilder.build();
             functions.add(new ParametricAggregation(
-                    implementations.getSignature().withName(name),
+                    implementations.getSignature(),
                     header,
                     stateDetails,
-                    implementations.withAlias(name)));
+                    implementations));
         }
 
         return functions.build();
@@ -181,9 +175,9 @@ public final class AggregationFromAnnotationsParser
     {
         AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
         requireNonNull(aggregationAnnotation, "aggregationAnnotation is null");
-        String name = getName(aggregationAnnotation, outputFunction);
         return new AggregationHeader(
-                name,
+                getName(aggregationAnnotation, outputFunction),
+                getAliases(aggregationAnnotation, outputFunction),
                 parseDescription(aggregationDefinition, outputFunction),
                 aggregationAnnotation.decomposable(),
                 aggregationAnnotation.isOrderSensitive(),
@@ -200,13 +194,13 @@ public final class AggregationFromAnnotationsParser
         return emptyToNull(aggregationAnnotation.value());
     }
 
-    private static List<String> getAliases(AggregationFunction aggregationAnnotation, AnnotatedElement outputFunction)
+    private static Set<String> getAliases(AggregationFunction aggregationAnnotation, AnnotatedElement outputFunction)
     {
         AggregationFunction annotation = outputFunction.getAnnotation(AggregationFunction.class);
         if (annotation != null && annotation.alias().length > 0) {
-            return ImmutableList.copyOf(annotation.alias());
+            return ImmutableSet.copyOf(annotation.alias());
         }
-        return ImmutableList.copyOf(aggregationAnnotation.alias());
+        return ImmutableSet.copyOf(aggregationAnnotation.alias());
     }
 
     private static Optional<Method> getCombineFunction(Class<?> clazz, List<AccumulatorStateDetails<?>> stateDetails)
@@ -484,7 +478,7 @@ public final class AggregationFromAnnotationsParser
         return new TypeSignatureMapping(mapping.buildOrThrow());
     }
 
-    public static List<ImplementationDependency> parseImplementationDependencies(TypeSignatureMapping typeSignatureMapping, Executable inputFunction)
+    private static List<ImplementationDependency> parseImplementationDependencies(TypeSignatureMapping typeSignatureMapping, Executable inputFunction)
     {
         ImmutableList.Builder<ImplementationDependency> builder = ImmutableList.builder();
 

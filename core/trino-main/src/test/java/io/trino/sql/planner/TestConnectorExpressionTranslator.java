@@ -50,13 +50,11 @@ import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.type.LikeFunctions;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -85,7 +83,6 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
-import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.LikeFunctions.likePattern;
@@ -159,70 +156,55 @@ public class TestConnectorExpressionTranslator
                         0));
     }
 
-    @Test(dataProvider = "testTranslateLogicalExpressionDataProvider")
-    public void testTranslateLogicalExpression(LogicalExpression.Operator operator)
+    @Test
+    public void testTranslateLogicalExpression()
     {
-        assertTranslationRoundTrips(
-                new LogicalExpression(
-                        operator,
-                        List.of(
-                                new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")),
-                                new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")))),
-                new Call(
-                        BOOLEAN,
-                        operator == LogicalExpression.Operator.AND ? StandardFunctions.AND_FUNCTION_NAME : StandardFunctions.OR_FUNCTION_NAME,
-                        List.of(
-                                new Call(
-                                        BOOLEAN,
-                                        StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME,
-                                        List.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))),
-                                new Call(
-                                        BOOLEAN,
-                                        StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME,
-                                        List.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))))));
+        for (LogicalExpression.Operator operator : LogicalExpression.Operator.values()) {
+            assertTranslationRoundTrips(
+                    new LogicalExpression(
+                            operator,
+                            List.of(
+                                    new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")),
+                                    new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")))),
+                    new Call(
+                            BOOLEAN,
+                            operator == LogicalExpression.Operator.AND ? StandardFunctions.AND_FUNCTION_NAME : StandardFunctions.OR_FUNCTION_NAME,
+                            List.of(
+                                    new Call(
+                                            BOOLEAN,
+                                            StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME,
+                                            List.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))),
+                                    new Call(
+                                            BOOLEAN,
+                                            StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME,
+                                            List.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))))));
+        }
     }
 
-    @DataProvider
-    public Object[][] testTranslateLogicalExpressionDataProvider()
+    @Test
+    public void testTranslateComparisonExpression()
     {
-        return Stream.of(LogicalExpression.Operator.values())
-                .collect(toDataProvider());
+        for (ComparisonExpression.Operator operator : ComparisonExpression.Operator.values()) {
+            assertTranslationRoundTrips(
+                    new ComparisonExpression(operator, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")),
+                    new Call(
+                            BOOLEAN,
+                            ConnectorExpressionTranslator.functionNameForComparisonOperator(operator),
+                            List.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))));
+        }
     }
 
-    @Test(dataProvider = "testTranslateComparisonExpressionDataProvider")
-    public void testTranslateComparisonExpression(ComparisonExpression.Operator operator)
+    @Test
+    public void testTranslateArithmeticBinary()
     {
-        assertTranslationRoundTrips(
-                new ComparisonExpression(operator, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")),
-                new Call(
-                        BOOLEAN,
-                        ConnectorExpressionTranslator.functionNameForComparisonOperator(operator),
-                        List.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))));
-    }
-
-    @DataProvider
-    public static Object[][] testTranslateComparisonExpressionDataProvider()
-    {
-        return Stream.of(ComparisonExpression.Operator.values())
-                .collect(toDataProvider());
-    }
-
-    @Test(dataProvider = "testTranslateArithmeticBinaryDataProvider")
-    public void testTranslateArithmeticBinary(ArithmeticBinaryExpression.Operator operator)
-    {
-        assertTranslationRoundTrips(
-                new ArithmeticBinaryExpression(operator, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")),
-                new Call(
-                        DOUBLE,
-                        ConnectorExpressionTranslator.functionNameForArithmeticBinaryOperator(operator),
-                        List.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))));
-    }
-
-    @DataProvider
-    public static Object[][] testTranslateArithmeticBinaryDataProvider()
-    {
-        return Stream.of(ArithmeticBinaryExpression.Operator.values())
-                .collect(toDataProvider());
+        for (ArithmeticBinaryExpression.Operator operator : ArithmeticBinaryExpression.Operator.values()) {
+            assertTranslationRoundTrips(
+                    new ArithmeticBinaryExpression(operator, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")),
+                    new Call(
+                            DOUBLE,
+                            ConnectorExpressionTranslator.functionNameForArithmeticBinaryOperator(operator),
+                            List.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))));
+        }
     }
 
     @Test

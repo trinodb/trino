@@ -33,8 +33,8 @@ import io.trino.tpch.TpchTable;
 import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -66,7 +66,6 @@ import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
 import static io.trino.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static io.trino.sql.tree.ExplainType.Type.IO;
 import static io.trino.sql.tree.ExplainType.Type.LOGICAL;
-import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
@@ -853,17 +852,11 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT CAST(1 AS decimal(3,2)) <> ANY(SELECT CAST(1 AS decimal(3,1)))");
     }
 
-    @Test(dataProvider = "quantified_comparisons_corner_cases")
-    public void testQuantifiedComparisonCornerCases(String query)
-    {
-        assertQuery(query);
-    }
-
-    @DataProvider(name = "quantified_comparisons_corner_cases")
-    public Object[][] qualifiedComparisonsCornerCases()
+    @Test
+    public void testQuantifiedComparisonCornerCases()
     {
         //the %subquery% is wrapped in a SELECT so that H2 does not blow up on the VALUES subquery
-        return queryTemplate("SELECT %value% %operator% %quantifier% (SELECT * FROM (%subquery%))")
+        queryTemplate("SELECT %value% %operator% %quantifier% (SELECT * FROM (%subquery%))")
                 .replaceAll(
                         parameter("subquery").of(
                                 "SELECT 1 WHERE false",
@@ -872,7 +865,7 @@ public abstract class AbstractTestEngineOnlyQueries
                         parameter("quantifier").of("ALL", "ANY"),
                         parameter("value").of("1", "NULL"),
                         parameter("operator").of("=", "!=", "<", ">", "<=", ">="))
-                .collect(toDataProvider());
+                .forEach(this::assertQuery);
     }
 
     @Test
@@ -6236,7 +6229,8 @@ public abstract class AbstractTestEngineOnlyQueries
         return format("SELECT * FROM (SELECT %s FROM region LIMIT 1) a(%s) INNER JOIN unnest(ARRAY[%s], ARRAY[%2$s]) b(b1, b2) ON true", fields, columns, literals);
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testLateMaterializationOuterJoin()
     {
         Session session = Session.builder(getSession())

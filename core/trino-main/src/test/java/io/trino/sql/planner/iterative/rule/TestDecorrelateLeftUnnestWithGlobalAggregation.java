@@ -230,7 +230,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                         project(
                                 aggregation(
                                         singleGroupingSet("unique", "corr"),
-                                        ImmutableMap.of(Optional.of("arbitrary"), functionCall("arbitrary", ImmutableList.of("sum"))),
+                                        ImmutableMap.of(Optional.of("any_value"), functionCall("any_value", ImmutableList.of("sum"))),
                                         ImmutableList.of(),
                                         Optional.empty(),
                                         SINGLE,

@@ -31,9 +31,9 @@ import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
@@ -128,33 +128,35 @@ public class TestAddDynamicFilterSource
                                                                 tableScan("supplier", ImmutableMap.of("SUPPLIER_SK", "suppkey")))))))));
     }
 
-    @Test(dataProvider = "joinDistributionTypes")
-    public void testSemiJoin(JoinDistributionType joinDistributionType)
+    @Test
+    public void testSemiJoin()
     {
-        SemiJoinNode.DistributionType semiJoinDistributionType = joinDistributionType == PARTITIONED
-                ? SemiJoinNode.DistributionType.PARTITIONED
-                : SemiJoinNode.DistributionType.REPLICATED;
-        assertDistributedPlan(
-                "SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber % 4 = 0)",
-                noSemiJoinRewrite(joinDistributionType),
-                anyTree(
-                        filter("S",
-                                semiJoin("X", "Y", "S", Optional.of(semiJoinDistributionType), Optional.of(true),
-                                        node(
-                                                FilterNode.class,
-                                                tableScan("orders", ImmutableMap.of("X", "orderkey")))
-                                                .with(numberOfDynamicFilters(1)),
-                                        exchange(
-                                                LOCAL,
-                                                exchange(
-                                                        REMOTE,
-                                                        joinDistributionType == PARTITIONED ? REPARTITION : REPLICATE,
-                                                        node(
-                                                                DynamicFilterSourceNode.class,
-                                                                project(
-                                                                        filter(
-                                                                                "Z % 4 = 0",
-                                                                                tableScan("lineitem", ImmutableMap.of("Y", "orderkey", "Z", "linenumber")))))))))));
+        for (JoinDistributionType joinDistributionType : Arrays.asList(BROADCAST, PARTITIONED)) {
+            SemiJoinNode.DistributionType semiJoinDistributionType = joinDistributionType == PARTITIONED
+                    ? SemiJoinNode.DistributionType.PARTITIONED
+                    : SemiJoinNode.DistributionType.REPLICATED;
+            assertDistributedPlan(
+                    "SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber % 4 = 0)",
+                    noSemiJoinRewrite(joinDistributionType),
+                    anyTree(
+                            filter("S",
+                                    semiJoin("X", "Y", "S", Optional.of(semiJoinDistributionType), Optional.of(true),
+                                            node(
+                                                    FilterNode.class,
+                                                    tableScan("orders", ImmutableMap.of("X", "orderkey")))
+                                                    .with(numberOfDynamicFilters(1)),
+                                            exchange(
+                                                    LOCAL,
+                                                    exchange(
+                                                            REMOTE,
+                                                            joinDistributionType == PARTITIONED ? REPARTITION : REPLICATE,
+                                                            node(
+                                                                    DynamicFilterSourceNode.class,
+                                                                    project(
+                                                                            filter(
+                                                                                    "Z % 4 = 0",
+                                                                                    tableScan("lineitem", ImmutableMap.of("Y", "orderkey", "Z", "linenumber")))))))))));
+        }
     }
 
     @Test
@@ -293,12 +295,6 @@ public class TestAddDynamicFilterSource
                 return new MatchResult(DynamicFilters.extractDynamicFilters(filterNode.getPredicate()).getDynamicConjuncts().size() == numberOfDynamicFilters);
             }
         };
-    }
-
-    @DataProvider
-    public Object[][] joinDistributionTypes()
-    {
-        return new Object[][] {{BROADCAST}, {PARTITIONED}};
     }
 
     private Session noSemiJoinRewrite(JoinDistributionType distributionType)

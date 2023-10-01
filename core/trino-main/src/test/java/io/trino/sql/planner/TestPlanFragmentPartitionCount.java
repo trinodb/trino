@@ -27,9 +27,10 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Map;
 import java.util.Optional;
@@ -42,14 +43,16 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestPlanFragmentPartitionCount
 {
     private PlanFragmenter planFragmenter;
     private Session session;
     private LocalQueryRunner localQueryRunner;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         session = testSessionBuilder().setCatalog(TEST_CATALOG_NAME).build();
@@ -64,7 +67,7 @@ public class TestPlanFragmentPartitionCount
                 new QueryManagerConfig());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         planFragmenter = null;
@@ -76,7 +79,7 @@ public class TestPlanFragmentPartitionCount
     @Test
     public void testPartitionCountInPlanFragment()
     {
-        PlanBuilder p = new PlanBuilder(new PlanNodeIdAllocator(), localQueryRunner.getMetadata(), session);
+        PlanBuilder p = new PlanBuilder(new PlanNodeIdAllocator(), localQueryRunner.getPlannerContext(), session);
         Symbol a = p.symbol("a", VARCHAR);
         Symbol b = p.symbol("b", VARCHAR);
         Symbol c = p.symbol("c", VARCHAR);
