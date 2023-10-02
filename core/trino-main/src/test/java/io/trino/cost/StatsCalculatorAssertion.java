@@ -15,14 +15,12 @@ package io.trino.cost;
 
 import io.trino.Session;
 import io.trino.cost.ComposableStatsCalculator.Rule;
-import io.trino.metadata.Metadata;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.transaction.TestingTransactionManager;
+import io.trino.testing.QueryRunner;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -32,13 +30,11 @@ import java.util.function.Consumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
-import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
 
 public class StatsCalculatorAssertion
 {
-    private final Metadata metadata;
-    private final StatsCalculator statsCalculator;
+    private final QueryRunner queryRunner;
     private final Session session;
     private final PlanNode planNode;
     private final TypeProvider types;
@@ -47,10 +43,9 @@ public class StatsCalculatorAssertion
 
     private Optional<TableStatsProvider> tableStatsProvider = Optional.empty();
 
-    public StatsCalculatorAssertion(Metadata metadata, StatsCalculator statsCalculator, Session session, PlanNode planNode, TypeProvider types)
+    StatsCalculatorAssertion(QueryRunner queryRunner, Session session, PlanNode planNode, TypeProvider types)
     {
-        this.metadata = requireNonNull(metadata, "metadata cannot be null");
-        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator cannot be null");
+        this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
         this.session = requireNonNull(session, "session cannot be null");
         this.planNode = requireNonNull(planNode, "planNode is null");
         this.types = requireNonNull(types, "types is null");
@@ -93,16 +88,13 @@ public class StatsCalculatorAssertion
 
     public StatsCalculatorAssertion check(Consumer<PlanNodeStatsAssertion> statisticsAssertionConsumer)
     {
-        PlanNodeStatsEstimate statsEstimate = transaction(new TestingTransactionManager(), new AllowAllAccessControl())
-                .execute(session, transactionSession -> {
-                    return statsCalculator.calculateStats(
-                            planNode,
-                            this::getSourceStats,
-                            noLookup(),
-                            transactionSession,
-                            types,
-                            tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(metadata, session)));
-                });
+        PlanNodeStatsEstimate statsEstimate = queryRunner.getStatsCalculator().calculateStats(
+                planNode,
+                this::getSourceStats,
+                noLookup(),
+                session,
+                types,
+                tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(queryRunner.getMetadata(), session)));
         statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate));
         return this;
     }
@@ -116,7 +108,7 @@ public class StatsCalculatorAssertion
                 noLookup(),
                 session,
                 types,
-                tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(metadata, session)));
+                tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(queryRunner.getMetadata(), session)));
         checkState(statsEstimate.isPresent(), "Expected stats estimates to be present");
         statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate.get()));
         return this;

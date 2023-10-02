@@ -42,7 +42,6 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.InternalFunctionBundle.extractFunctions;
 import static io.trino.metadata.OperatorNameUtil.unmangleOperator;
@@ -76,7 +75,7 @@ public class TestGlobalFunctionCatalog
         TestingFunctionResolution functionResolution = new TestingFunctionResolution();
         Metadata metadata = functionResolution.getMetadata();
         boolean foundOperator = false;
-        for (FunctionMetadata function : listOperators(metadata)) {
+        for (FunctionMetadata function : listOperators(functionResolution)) {
             OperatorType operatorType = unmangleOperator(function.getCanonicalName());
             if (operatorType == CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST) {
                 continue;
@@ -266,13 +265,13 @@ public class TestGlobalFunctionCatalog
                 .failsWithMessage("Could not choose a best candidate operator. Explicit type casts must be added.");
     }
 
-    private static List<FunctionMetadata> listOperators(Metadata metadata)
+    private static List<FunctionMetadata> listOperators(TestingFunctionResolution functionResolution)
     {
         Set<String> operatorNames = Arrays.stream(OperatorType.values())
                 .map(OperatorNameUtil::mangleOperatorName)
                 .collect(toImmutableSet());
 
-        return metadata.listFunctions(TEST_SESSION).stream()
+        return functionResolution.listFunctions().stream()
                 .filter(function -> operatorNames.contains(function.getCanonicalName()))
                 .collect(toImmutableList());
     }

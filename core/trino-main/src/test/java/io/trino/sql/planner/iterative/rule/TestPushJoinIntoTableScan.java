@@ -147,6 +147,7 @@ public class TestPushJoinIntoTableScan
         });
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
             ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getPlannerContext(), ruleTester.getTypeAnalyzer()))
+                    .withSession(MOCK_SESSION)
                     .on(p -> {
                         Symbol columnA1Symbol = p.symbol(COLUMN_A1);
                         Symbol columnA2Symbol = p.symbol(COLUMN_A2);
@@ -175,7 +176,6 @@ public class TestPushJoinIntoTableScan
                                 right,
                                 new ComparisonExpression(filterComparisonOperator.get(), columnA1Symbol.toSymbolReference(), columnB1Symbol.toSymbolReference()));
                     })
-                    .withSession(MOCK_SESSION)
                     .matches(
                             project(
                                     tableScan(JOIN_PUSHDOWN_SCHEMA_TABLE_NAME.getTableName())));
@@ -249,6 +249,7 @@ public class TestPushJoinIntoTableScan
                 });
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
             ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getPlannerContext(), ruleTester.getTypeAnalyzer()))
+                    .withSession(MOCK_SESSION)
                     .on(p -> {
                         Symbol columnA1Symbol = p.symbol(COLUMN_A1);
                         Symbol columnA2Symbol = p.symbol(COLUMN_A2);
@@ -273,7 +274,6 @@ public class TestPushJoinIntoTableScan
                                         new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, new GenericLiteral("BIGINT", "44"), columnA1Symbol.toSymbolReference()),
                                         columnB1Symbol.toSymbolReference()));
                     })
-                    .withSession(MOCK_SESSION)
                     .matches(
                             project(
                                     tableScan(JOIN_PUSHDOWN_SCHEMA_TABLE_NAME.getTableName())));
@@ -292,6 +292,7 @@ public class TestPushJoinIntoTableScan
             TableHandle tableBHandleAnotherCatalog = createTableHandle(new MockConnectorTableHandle(new SchemaTableName(SCHEMA, TABLE_B)), createTestCatalogHandle("another_catalog"));
 
             ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getPlannerContext(), ruleTester.getTypeAnalyzer()))
+                    .withSession(MOCK_SESSION)
                     .on(p -> {
                         Symbol columnA1Symbol = p.symbol(COLUMN_A1);
                         Symbol columnA2Symbol = p.symbol(COLUMN_A2);
@@ -313,7 +314,6 @@ public class TestPushJoinIntoTableScan
                                 right,
                                 new JoinNode.EquiJoinClause(columnA1Symbol, columnB1Symbol));
                     })
-                    .withSession(MOCK_SESSION)
                     .doesNotFire();
         }
     }
@@ -331,6 +331,7 @@ public class TestPushJoinIntoTableScan
                 });
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
             ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getPlannerContext(), ruleTester.getTypeAnalyzer()))
+                    .withSession(joinPushDownDisabledSession)
                     .on(p -> {
                         Symbol columnA1Symbol = p.symbol(COLUMN_A1);
                         Symbol columnA2Symbol = p.symbol(COLUMN_A2);
@@ -352,7 +353,6 @@ public class TestPushJoinIntoTableScan
                                 right,
                                 new JoinNode.EquiJoinClause(columnA1Symbol, columnB1Symbol));
                     })
-                    .withSession(joinPushDownDisabledSession)
                     .doesNotFire();
         }
     }
@@ -370,6 +370,7 @@ public class TestPushJoinIntoTableScan
                 });
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
             ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getPlannerContext(), ruleTester.getTypeAnalyzer()))
+                    .withSession(allPushdownsDisabledSession)
                     .on(p -> {
                         Symbol columnA1Symbol = p.symbol(COLUMN_A1);
                         Symbol columnA2Symbol = p.symbol(COLUMN_A2);
@@ -391,7 +392,6 @@ public class TestPushJoinIntoTableScan
                                 right,
                                 new JoinNode.EquiJoinClause(columnA1Symbol, columnB1Symbol));
                     })
-                    .withSession(allPushdownsDisabledSession)
                     .doesNotFire();
         }
     }
@@ -407,6 +407,7 @@ public class TestPushJoinIntoTableScan
                 false)));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
             ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getPlannerContext(), ruleTester.getTypeAnalyzer()))
+                    .withSession(MOCK_SESSION)
                     .on(p -> {
                         Symbol columnA1Symbol = p.symbol(COLUMN_A1);
                         Symbol columnA2Symbol = p.symbol(COLUMN_A2);
@@ -431,7 +432,6 @@ public class TestPushJoinIntoTableScan
                                 right,
                                 new JoinNode.EquiJoinClause(columnA1Symbol, columnB1Symbol));
                     })
-                    .withSession(MOCK_SESSION)
                     .matches(
                             project(
                                     tableScan(
@@ -502,6 +502,7 @@ public class TestPushJoinIntoTableScan
                 });
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
             ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getPlannerContext(), ruleTester.getTypeAnalyzer()))
+                    .withSession(MOCK_SESSION)
                     .on(p -> {
                         Symbol columnA1Symbol = p.symbol(COLUMN_A1);
                         Symbol columnA2Symbol = p.symbol(COLUMN_A2);
@@ -524,7 +525,6 @@ public class TestPushJoinIntoTableScan
                                 left,
                                 right);
                     })
-                    .withSession(MOCK_SESSION)
                     .doesNotFire();
         }
     }
@@ -541,6 +541,7 @@ public class TestPushJoinIntoTableScan
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
             assertThatThrownBy(() -> {
                 ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getPlannerContext(), ruleTester.getTypeAnalyzer()))
+                        .withSession(MOCK_SESSION)
                         .on(p -> {
                             Symbol columnA1Symbol = p.symbol(COLUMN_A1);
                             Symbol columnA2Symbol = p.symbol(COLUMN_A2);
@@ -570,7 +571,6 @@ public class TestPushJoinIntoTableScan
                                     right,
                                     new JoinNode.EquiJoinClause(columnA1Symbol, columnB1Symbol));
                         })
-                        .withSession(MOCK_SESSION)
                         .matches(anyTree());
             })
                     .isInstanceOf(IllegalStateException.class)
