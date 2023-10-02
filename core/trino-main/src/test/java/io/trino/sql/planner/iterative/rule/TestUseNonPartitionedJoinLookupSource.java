@@ -90,6 +90,9 @@ public class TestUseNonPartitionedJoinLookupSource
     {
         tester()
                 .assertThat(new UseNonPartitionedJoinLookupSource())
+                .overrideStats("source", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(5_000_001)
+                        .build())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -98,9 +101,6 @@ public class TestUseNonPartitionedJoinLookupSource
                             p.values(a),
                             repartitioningExchange(p, b, p.values(new PlanNodeId("source"), b)));
                 })
-                .overrideStats("source", PlanNodeStatsEstimate.builder()
-                        .setOutputRowCount(5_000_001)
-                        .build())
                 .doesNotFire();
     }
 
@@ -108,6 +108,7 @@ public class TestUseNonPartitionedJoinLookupSource
     public void testRepartitioningExchangeNotChangedIfRuleDisabled()
     {
         tester().assertThat(new UseNonPartitionedJoinLookupSource())
+                .setSystemProperty(JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT, "0")
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -116,7 +117,6 @@ public class TestUseNonPartitionedJoinLookupSource
                             p.values(a),
                             repartitioningExchange(p, b, p.values(b)));
                 })
-                .setSystemProperty(JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT, "0")
                 .doesNotFire();
     }
 
@@ -162,6 +162,9 @@ public class TestUseNonPartitionedJoinLookupSource
     {
         tester()
                 .assertThat(new UseNonPartitionedJoinLookupSource())
+                .overrideStats("source", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(NaN)
+                        .build())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -170,9 +173,6 @@ public class TestUseNonPartitionedJoinLookupSource
                             p.values(a),
                             repartitioningExchange(p, b, p.values(new PlanNodeId("source"), b)));
                 })
-                .overrideStats("source", PlanNodeStatsEstimate.builder()
-                        .setOutputRowCount(NaN)
-                        .build())
                 .doesNotFire();
     }
 

@@ -261,18 +261,21 @@ public class TestJsonRepresentation
 
     private void assertJsonRepresentation(Function<PlanBuilder, PlanNode> sourceNodeSupplier, JsonRenderedNode expectedRepresentation)
     {
-        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), queryRunner.getPlannerContext(), queryRunner.getDefaultSession());
-        ValuePrinter valuePrinter = new ValuePrinter(queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getDefaultSession());
-        String jsonRenderedNode = new PlanPrinter(
-                sourceNodeSupplier.apply(planBuilder),
-                planBuilder.getTypes(),
-                scanNode -> TABLE_INFO,
-                ImmutableMap.of(),
-                valuePrinter,
-                StatsAndCosts.empty(),
-                Optional.empty(),
-                new NoOpAnonymizer())
-                .toJson();
-        assertThat(jsonRenderedNode).isEqualTo(JSON_RENDERED_NODE_CODEC.toJson(expectedRepresentation));
+        queryRunner.inTransaction(transactionSession -> {
+            PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), queryRunner.getPlannerContext(), transactionSession);
+            ValuePrinter valuePrinter = new ValuePrinter(queryRunner.getMetadata(), queryRunner.getFunctionManager(), transactionSession);
+            String jsonRenderedNode = new PlanPrinter(
+                    sourceNodeSupplier.apply(planBuilder),
+                    planBuilder.getTypes(),
+                    scanNode -> TABLE_INFO,
+                    ImmutableMap.of(),
+                    valuePrinter,
+                    StatsAndCosts.empty(),
+                    Optional.empty(),
+                    new NoOpAnonymizer())
+                    .toJson();
+            assertThat(jsonRenderedNode).isEqualTo(JSON_RENDERED_NODE_CODEC.toJson(expectedRepresentation));
+            return null;
+        });
     }
 }

@@ -25,7 +25,7 @@ import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
-import io.trino.sql.planner.iterative.rule.test.RuleAssert;
+import io.trino.sql.planner.iterative.rule.test.RuleBuilder;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
@@ -110,6 +110,7 @@ public class TestDetermineJoinDistributionType
     private void testDetermineDistributionType(JoinDistributionType sessionDistributedJoin, Type joinType, DistributionType expectedDistribution)
     {
         assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, sessionDistributedJoin.name())
                 .on(p ->
                         p.join(
                                 joinType,
@@ -119,7 +120,6 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
                                 Optional.empty()))
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, sessionDistributedJoin.name())
                 .matches(
                         join(joinType, builder -> builder
                                 .equiCriteria("B1", "A1")
@@ -142,6 +142,7 @@ public class TestDetermineJoinDistributionType
     private void testRepartitionRightOuter(JoinDistributionType sessionDistributedJoin, Type joinType)
     {
         assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, sessionDistributedJoin.name())
                 .on(p ->
                         p.join(
                                 joinType,
@@ -151,7 +152,6 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
                                 Optional.empty()))
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, sessionDistributedJoin.name())
                 .matches(
                         join(joinType, builder -> builder
                                 .equiCriteria("A1", "B1")
@@ -164,6 +164,7 @@ public class TestDetermineJoinDistributionType
     public void testReplicateScalar()
     {
         assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .on(p ->
                         p.join(
                                 INNER,
@@ -174,7 +175,6 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
                                 Optional.empty()))
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .matches(
                         join(INNER, builder -> builder
                                 .equiCriteria("A1", "B1")
@@ -193,6 +193,7 @@ public class TestDetermineJoinDistributionType
     private void testReplicateNoEquiCriteria(Type joinType)
     {
         assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .on(p ->
                         p.join(
                                 joinType,
@@ -202,7 +203,6 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
                                 Optional.of(expression("A1 * B1 > 100"))))
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .matches(
                         join(joinType, builder -> builder
                                 .filter("A1 * B1 > 100")
@@ -308,7 +308,7 @@ public class TestDetermineJoinDistributionType
         int aRows = 100;
         int bRows = 10_000;
         assertDetermineJoinDistributionType()
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(aRows)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 6400, 100)))
@@ -329,7 +329,6 @@ public class TestDetermineJoinDistributionType
                             ImmutableList.of(b1),
                             Optional.empty());
                 })
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .matches(
                         join(INNER, builder -> builder
                                 .equiCriteria("B1", "A1")
@@ -377,7 +376,7 @@ public class TestDetermineJoinDistributionType
         int aRows = 10_000;
         int bRows = 10_000;
         assertDetermineJoinDistributionType()
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(aRows)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
@@ -398,7 +397,6 @@ public class TestDetermineJoinDistributionType
                             ImmutableList.of(b1),
                             Optional.empty());
                 })
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
                 .matches(
                         join(INNER, builder -> builder
                                 .equiCriteria("A1", "B1")
@@ -1129,12 +1127,12 @@ public class TestDetermineJoinDistributionType
                 NaN);
     }
 
-    private RuleAssert assertDetermineJoinDistributionType()
+    private RuleBuilder assertDetermineJoinDistributionType()
     {
         return assertDetermineJoinDistributionType(COST_COMPARATOR);
     }
 
-    private RuleAssert assertDetermineJoinDistributionType(CostComparator costComparator)
+    private RuleBuilder assertDetermineJoinDistributionType(CostComparator costComparator)
     {
         return tester.assertThat(new DetermineJoinDistributionType(costComparator, new TaskCountEstimator(() -> NODES_COUNT)));
     }
