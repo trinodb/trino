@@ -559,11 +559,11 @@ public class TracingMetadata
     }
 
     @Override
-    public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Type type)
+    public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Map<String, Object> tableProperties, Type type)
     {
         Span span = startSpan("getSupportedType", catalogHandle.getCatalogName());
         try (var ignored = scopedSpan(span)) {
-            return delegate.getSupportedType(session, catalogHandle, type);
+            return delegate.getSupportedType(session, catalogHandle, tableProperties, type);
         }
     }
 

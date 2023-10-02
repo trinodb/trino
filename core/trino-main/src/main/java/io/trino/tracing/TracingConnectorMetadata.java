@@ -547,11 +547,11 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    public Optional<Type> getSupportedType(ConnectorSession session, Map<String, Object> tableProperties, Type type)
     {
         Span span = startSpan("getSupportedType");
         try (var ignored = scopedSpan(span)) {
-            return delegate.getSupportedType(session, type);
+            return delegate.getSupportedType(session, tableProperties, type);
         }
     }
 

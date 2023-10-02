@@ -133,10 +133,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    public Optional<Type> getSupportedType(ConnectorSession session, Map<String, Object> tableProperties, Type type)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getSupportedType(session, type);
+            return delegate.getSupportedType(session, tableProperties, type);
         }
     }
 
