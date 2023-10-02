@@ -38,6 +38,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -102,6 +103,7 @@ public class TestRefreshMaterializedView
                                                 Optional.of("mock"),
                                                 Optional.of("default"),
                                                 ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("nationkey", BIGINT.getTypeId())),
+                                                Optional.of(Duration.ZERO),
                                                 Optional.empty(),
                                                 Optional.of("alice"),
                                                 ImmutableMap.of())))

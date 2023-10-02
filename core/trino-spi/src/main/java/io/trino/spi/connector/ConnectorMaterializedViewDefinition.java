@@ -37,29 +37,6 @@ public class ConnectorMaterializedViewDefinition
     private final Optional<String> owner;
     private final Map<String, Object> properties;
 
-    @Deprecated
-    public ConnectorMaterializedViewDefinition(
-            String originalSql,
-            Optional<CatalogSchemaTableName> storageTable,
-            Optional<String> catalog,
-            Optional<String> schema,
-            List<Column> columns,
-            Optional<String> comment,
-            Optional<String> owner,
-            Map<String, Object> properties)
-    {
-        this(
-                originalSql,
-                storageTable,
-                catalog,
-                schema,
-                columns,
-                Optional.of(Duration.ZERO),
-                comment,
-                owner,
-                properties);
-    }
-
     public ConnectorMaterializedViewDefinition(
             String originalSql,
             Optional<CatalogSchemaTableName> storageTable,
