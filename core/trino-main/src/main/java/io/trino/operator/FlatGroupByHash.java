@@ -58,6 +58,8 @@ public class FlatGroupByHash
     // reusable arrays for the blocks and block builders
     private final Block[] currentBlocks;
     private final BlockBuilder[] currentBlockBuilders;
+    // reusable array for computing hash batches into
+    private long[] currentHashes;
 
     public FlatGroupByHash(
             List<Type> hashTypes,
@@ -98,6 +100,7 @@ public class FlatGroupByHash
                 INSTANCE_SIZE,
                 flatHash.getEstimatedSize(),
                 currentPageSizeInBytes,
+                sizeOf(currentHashes),
                 (dictionaryLookBack != null ? dictionaryLookBack.getRetainedSizeInBytes() : 0));
     }
 
@@ -173,6 +176,14 @@ public class FlatGroupByHash
     private int putIfAbsent(Block[] blocks, int position)
     {
         return flatHash.putIfAbsent(blocks, position);
+    }
+
+    private long[] getHashesBufferArray()
+    {
+        if (currentHashes == null) {
+            currentHashes = new long[BATCH_SIZE];
+        }
+        return currentHashes;
     }
 
     private Block[] getBlocksFromPage(Page page)
@@ -308,14 +319,16 @@ public class FlatGroupByHash
 
             int remainingPositions = positionCount - lastPosition;
 
+            long[] hashes = getHashesBufferArray();
             while (remainingPositions != 0) {
-                int batchSize = min(remainingPositions, BATCH_SIZE);
+                int batchSize = min(remainingPositions, hashes.length);
                 if (!flatHash.ensureAvailableCapacity(batchSize)) {
                     return false;
                 }
 
-                for (int i = lastPosition; i < lastPosition + batchSize; i++) {
-                    putIfAbsent(blocks, i);
+                flatHash.computeHashes(blocks, hashes, lastPosition, batchSize);
+                for (int i = 0; i < batchSize; i++) {
+                    flatHash.putIfAbsent(blocks, lastPosition + i, hashes[i]);
                 }
 
                 lastPosition += batchSize;
@@ -473,14 +486,16 @@ public class FlatGroupByHash
 
             int remainingPositions = positionCount - lastPosition;
 
+            long[] hashes = getHashesBufferArray();
             while (remainingPositions != 0) {
-                int batchSize = min(remainingPositions, BATCH_SIZE);
+                int batchSize = min(remainingPositions, hashes.length);
                 if (!flatHash.ensureAvailableCapacity(batchSize)) {
                     return false;
                 }
 
-                for (int i = lastPosition; i < lastPosition + batchSize; i++) {
-                    groupIds[i] = putIfAbsent(blocks, i);
+                flatHash.computeHashes(blocks, hashes, lastPosition, batchSize);
+                for (int i = 0, position = lastPosition; i < batchSize; i++, position++) {
+                    groupIds[position] = flatHash.putIfAbsent(blocks, position, hashes[i]);
                 }
 
                 lastPosition += batchSize;
