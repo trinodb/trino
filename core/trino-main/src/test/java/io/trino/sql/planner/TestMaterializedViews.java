@@ -238,7 +238,7 @@ public class TestMaterializedViews
                 new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "materialized_view_with_casts"),
                 "a",
                 "user",
-                new ViewExpression(Optional.empty(), Optional.empty(), Optional.empty(), "a + 1"));
+                ViewExpression.builder().expression("a + 1").build());
         assertPlan("SELECT * FROM materialized_view_with_casts",
                 anyTree(
                         project(

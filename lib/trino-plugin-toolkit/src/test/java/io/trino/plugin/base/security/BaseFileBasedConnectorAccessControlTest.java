@@ -401,7 +401,11 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         accessControl.checkCanSelectFromColumns(userGroup2, myTable, ImmutableSet.of());
         assertViewExpressionEquals(
                 accessControl.getColumnMask(userGroup2, myTable, "col_a", VARCHAR).orElseThrow(),
-                new ViewExpression(Optional.empty(), Optional.of("test_catalog"), Optional.of("my_schema"), "'mask_a'"));
+                ViewExpression.builder()
+                        .catalog("test_catalog")
+                        .schema("my_schema")
+                        .expression("'mask_a'")
+                        .build());
         assertEquals(
                 accessControl.getRowFilters(userGroup2, myTable),
                 ImmutableList.of());
@@ -425,13 +429,21 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         accessControl.checkCanSelectFromColumns(userGroup3, myTable, ImmutableSet.of());
         assertViewExpressionEquals(
                 accessControl.getColumnMask(userGroup3, myTable, "col_a", VARCHAR).orElseThrow(),
-                new ViewExpression(Optional.empty(), Optional.of("test_catalog"), Optional.of("my_schema"), "'mask_a'"));
+                ViewExpression.builder()
+                        .catalog("test_catalog")
+                        .schema("my_schema")
+                        .expression("'mask_a'")
+                        .build());
 
         List<ViewExpression> rowFilters = accessControl.getRowFilters(userGroup3, myTable);
         assertEquals(rowFilters.size(), 1);
         assertViewExpressionEquals(
                 rowFilters.get(0),
-                new ViewExpression(Optional.empty(), Optional.of("test_catalog"), Optional.of("my_schema"), "country='US'"));
+                ViewExpression.builder()
+                        .catalog("test_catalog")
+                        .schema("my_schema")
+                        .expression("country='US'")
+                        .build());
     }
 
     private static void assertViewExpressionEquals(ViewExpression actual, ViewExpression expected)
