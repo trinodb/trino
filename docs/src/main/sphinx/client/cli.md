@@ -8,7 +8,7 @@ JAR file, which means it acts like a normal UNIX executable.
 ## Requirements
 
 The CLI requires a Java virtual machine available on the path.
-It can be used with Java version 8 and higher.
+It can be used with Java version 11 and higher.
 
 The CLI uses the {doc}`Trino client REST API </develop/client-protocol>` over
 HTTP/HTTPS to communicate with the coordinator on the cluster.
