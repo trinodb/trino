@@ -73,6 +73,7 @@ import static io.trino.plugin.pinot.query.PinotPatterns.transformFunctionName;
 import static io.trino.plugin.pinot.query.PinotPatterns.transformFunctionType;
 import static io.trino.plugin.pinot.query.PinotTransformFunctionTypeResolver.getTransformFunctionType;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.pinot.common.function.TransformFunctionType.CASE;
@@ -285,7 +286,7 @@ public class PinotSqlFormatter
 
     public static PinotColumnHandle getColumnHandle(String name, SchemaTableName schemaTableName, Map<String, ColumnHandle> columnHandles)
     {
-        PinotColumnHandle columnHandle = (PinotColumnHandle) columnHandles.get(name);
+        PinotColumnHandle columnHandle = (PinotColumnHandle) columnHandles.get(name.toLowerCase(ENGLISH));
         if (columnHandle == null) {
             throw new ColumnNotFoundException(schemaTableName, name);
         }

@@ -35,6 +35,7 @@ import io.trino.plugin.pinot.query.aggregation.ImplementCountAll;
 import io.trino.plugin.pinot.query.aggregation.ImplementCountDistinct;
 import io.trino.plugin.pinot.query.aggregation.ImplementMinMax;
 import io.trino.plugin.pinot.query.aggregation.ImplementSum;
+import io.trino.plugin.pinot.query.ptf.Query;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
@@ -49,8 +50,10 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
@@ -152,7 +155,7 @@ public class PinotMetadata
     public PinotTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         if (tableName.getTableName().trim().startsWith("select ")) {
-            DynamicTable dynamicTable = DynamicTableBuilder.buildFromPql(this, tableName, pinotClient, typeConverter);
+            DynamicTable dynamicTable = DynamicTableBuilder.buildFromPql(this, tableName.getTableName(), pinotClient, typeConverter);
             return new PinotTableHandle(tableName.getSchemaName(), dynamicTable.getTableName(), TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable));
         }
         String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableNameIfExists(tableName.getTableName());
@@ -404,7 +407,6 @@ public class PinotMetadata
         }
         List<PinotColumnHandle> aggregationColumns = aggregateColumnsBuilder.build();
         String newQuery = "";
-        List<PinotColumnHandle> newSelections = groupingColumns;
         if (tableHandle.getQuery().isPresent()) {
             newQuery = tableHandle.getQuery().get().getQuery();
             Map<String, PinotColumnHandle> projectionsMap = tableHandle.getQuery().get().getProjections().stream()
@@ -412,20 +414,16 @@ public class PinotMetadata
             groupingColumns = groupingColumns.stream()
                     .map(groupIngColumn -> projectionsMap.getOrDefault(groupIngColumn.getColumnName(), groupIngColumn))
                     .collect(toImmutableList());
-            ImmutableList.Builder<PinotColumnHandle> newSelectionsBuilder = ImmutableList.<PinotColumnHandle>builder()
-                    .addAll(groupingColumns);
 
             aggregationColumns = aggregationColumns.stream()
                     .map(aggregateExpression -> resolveAggregateExpressionWithAlias(aggregateExpression, projectionsMap))
                     .collect(toImmutableList());
-
-            newSelections = newSelectionsBuilder.build();
         }
 
         DynamicTable dynamicTable = new DynamicTable(
                 tableHandle.getTableName(),
                 Optional.empty(),
-                newSelections,
+                groupingColumns,
                 tableHandle.getQuery().flatMap(DynamicTable::getFilter),
                 groupingColumns,
                 aggregationColumns,
@@ -504,6 +502,20 @@ public class PinotMetadata
         return aggregateColumn;
     }
 
+    @Override
+    public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
+    {
+        if (!(handle instanceof Query.QueryFunctionHandle)) {
+            return Optional.empty();
+        }
+
+        PinotTableHandle tableHandle = (PinotTableHandle) ((Query.QueryFunctionHandle) handle).getTableHandle();
+        checkState(tableHandle.getQuery().isPresent(), "dynamic table is not present");
+        return Optional.of(new TableFunctionApplicationResult<>(tableHandle, tableHandle.getQuery().get().getColumnHandlesForSelect()
+                .map(ColumnHandle.class::cast)
+                .collect(toImmutableList())));
+    }
+
     @VisibleForTesting
     public List<ColumnMetadata> getColumnsMetadata(String tableName)
     {
@@ -529,10 +541,7 @@ public class PinotMetadata
         DynamicTable dynamicTable = pinotTableHandle.getQuery().get();
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandlesBuilder = ImmutableMap.builder();
-        for (PinotColumnHandle pinotColumnHandle : dynamicTable.getProjections()) {
-            columnHandlesBuilder.put(pinotColumnHandle.getColumnName().toLowerCase(ENGLISH), pinotColumnHandle);
-        }
-        dynamicTable.getAggregateColumns()
+        dynamicTable.getColumnHandlesForSelect()
                 .forEach(columnHandle -> columnHandlesBuilder.put(columnHandle.getColumnName().toLowerCase(ENGLISH), columnHandle));
         return columnHandlesBuilder.buildOrThrow();
     }

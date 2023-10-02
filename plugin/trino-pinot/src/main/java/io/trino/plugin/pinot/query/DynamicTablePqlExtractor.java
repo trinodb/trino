@@ -34,21 +34,9 @@ public final class DynamicTablePqlExtractor
     {
         StringBuilder builder = new StringBuilder();
         builder.append("SELECT ");
-        if (!table.getProjections().isEmpty()) {
-            builder.append(table.getProjections().stream()
-                    .map(DynamicTablePqlExtractor::formatExpression)
-                    .collect(joining(", ")));
-        }
-
-        if (!table.getAggregateColumns().isEmpty()) {
-            // If there are only pushed down aggregate expressions
-            if (!table.getProjections().isEmpty()) {
-                builder.append(", ");
-            }
-            builder.append(table.getAggregateColumns().stream()
-                    .map(DynamicTablePqlExtractor::formatExpression)
-                    .collect(joining(", ")));
-        }
+        builder.append(table.getColumnHandlesForSelect()
+                .map(DynamicTablePqlExtractor::formatExpression)
+                .collect(joining(", ")));
         builder.append(" FROM ");
         builder.append(table.getTableName());
         builder.append(table.getSuffix().orElse(""));

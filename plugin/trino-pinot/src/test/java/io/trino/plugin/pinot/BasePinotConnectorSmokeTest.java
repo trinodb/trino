@@ -2833,4 +2833,11 @@ public abstract class BasePinotConnectorSmokeTest
                 .matches("VALUES (VARCHAR 'Los Angeles', BIGINT '50000')")
                 .isFullyPushedDown();
     }
+
+    @Test
+    public void testTableFunctions()
+    {
+        assertQuerySucceeds("SELECT * FROM TABLE(system.query('select * from my_table where city = ''Los Angeles'''))");
+        assertQuerySucceeds("SELECT * FROM TABLE(system.query('select * from mixedCase'))");
+    }
 }

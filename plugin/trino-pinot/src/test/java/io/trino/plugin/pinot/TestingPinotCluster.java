@@ -91,7 +91,7 @@ public class TestingPinotCluster
     public TestingPinotCluster(Network network, boolean secured, String pinotImageName)
     {
         httpClient = closer.register(new JettyHttpClient());
-        zookeeper = new GenericContainer<>(parse("zookeeper:3.5.6"))
+        zookeeper = new GenericContainer<>(parse("zookeeper"))
                 .withStartupAttempts(3)
                 .withNetwork(network)
                 .withNetworkAliases(ZOOKEEPER_INTERNAL_HOST)

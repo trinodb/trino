@@ -33,8 +33,10 @@ import io.trino.plugin.pinot.client.PinotGrpcServerQueryClientTlsConfig;
 import io.trino.plugin.pinot.client.PinotHostMapper;
 import io.trino.plugin.pinot.client.PinotLegacyDataFetcher;
 import io.trino.plugin.pinot.client.PinotLegacyServerQueryClientConfig;
+import io.trino.plugin.pinot.query.ptf.Query;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
+import io.trino.spi.function.table.ConnectorTableFunction;
 import org.apache.pinot.common.utils.DataSchema;
 
 import javax.management.MBeanServer;
@@ -42,6 +44,7 @@ import javax.management.MBeanServer;
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
@@ -101,7 +104,7 @@ public class PinotModule
         binder.bind(NodeManager.class).toInstance(nodeManager);
         binder.bind(ConnectorNodePartitioningProvider.class).to(PinotNodePartitioningProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, PinotHostMapper.class).setDefault().to(IdentityPinotHostMapper.class).in(Scopes.SINGLETON);
-
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
         install(conditionalModule(
                 PinotConfig.class,
                 config -> config.isGrpcEnabled(),

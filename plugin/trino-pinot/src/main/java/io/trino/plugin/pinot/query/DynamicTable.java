@@ -16,12 +16,14 @@ package io.trino.plugin.pinot.query;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import io.trino.plugin.pinot.PinotColumnHandle;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -150,6 +152,11 @@ public final class DynamicTable
     public boolean isAggregateInProjections()
     {
         return isAggregateInProjections;
+    }
+
+    public Stream<PinotColumnHandle> getColumnHandlesForSelect()
+    {
+        return Streams.concat(getProjections().stream(), getAggregateColumns().stream());
     }
 
     @Override

@@ -47,6 +47,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
+import static io.trino.plugin.pinot.PinotMetadata.SCHEMA_NAME;
 import static io.trino.plugin.pinot.query.PinotExpressionRewriter.rewriteExpression;
 import static io.trino.plugin.pinot.query.PinotPatterns.WILDCARD;
 import static io.trino.plugin.pinot.query.PinotSqlFormatter.formatExpression;
@@ -69,12 +70,10 @@ public final class DynamicTableBuilder
     {
     }
 
-    public static DynamicTable buildFromPql(PinotMetadata pinotMetadata, SchemaTableName schemaTableName, PinotClient pinotClient, PinotTypeConverter typeConverter)
+    public static DynamicTable buildFromPql(PinotMetadata pinotMetadata, String query, PinotClient pinotClient, PinotTypeConverter typeConverter)
     {
         requireNonNull(pinotMetadata, "pinotMetadata is null");
-        requireNonNull(schemaTableName, "schemaTableName is null");
         requireNonNull(typeConverter, "typeConverter is null");
-        String query = schemaTableName.getTableName();
         BrokerRequest request = CalciteSqlCompiler.compileToBrokerRequest(query);
         PinotQuery pinotQuery = request.getPinotQuery();
         QueryContext queryContext = QueryContextConverterUtils.getQueryContext(pinotQuery);
@@ -89,6 +88,7 @@ public final class DynamicTableBuilder
         PinotTypeResolver pinotTypeResolver = new PinotTypeResolver(pinotClient, typeConverter, pinotTableName);
         List<PinotColumnHandle> selectColumns = ImmutableList.of();
 
+        SchemaTableName schemaTableName = new SchemaTableName(SCHEMA_NAME, trinoTableName);
         Map<String, PinotColumnNameAndTrinoType> aggregateTypes = ImmutableMap.of();
         if (queryContext.getAggregationFunctions() != null) {
             checkState(queryContext.getAggregationFunctions().length > 0, "Aggregation Functions is empty");
