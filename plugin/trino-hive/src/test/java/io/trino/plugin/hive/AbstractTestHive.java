@@ -890,6 +890,7 @@ public abstract class AbstractTestHive
                                 Optional.empty(),
                                 Optional.empty(),
                                 ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("abc", TypeId.of("type"))),
+                                Optional.of(java.time.Duration.ZERO),
                                 Optional.empty(),
                                 Optional.of("alice"),
                                 ImmutableMap.of()));
