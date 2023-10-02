@@ -44,6 +44,7 @@ public class TestLocalQueryAssertions
         return queryRunner;
     }
 
+    @Test
     @Override
     public void testIsFullyPushedDown()
     {
@@ -52,6 +53,7 @@ public class TestLocalQueryAssertions
                 .hasMessage("isFullyPushedDown() currently does not work with LocalQueryRunner");
     }
 
+    @Test
     @Override
     public void testIsFullyPushedDownWithSession()
     {
