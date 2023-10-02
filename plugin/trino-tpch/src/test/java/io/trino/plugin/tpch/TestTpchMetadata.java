@@ -70,10 +70,8 @@ import static java.lang.String.format;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.withinPercentage;
 
 public class TestTpchMetadata
 {
@@ -150,19 +148,19 @@ public class TestTpchMetadata
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
         ConnectorTableMetadata tableMetadata = tpchMetadata.getTableMetadata(session, tableHandle);
-        assertEquals(tableMetadata.getTableSchema().getTable().getTableName(), table.getTableName());
-        assertEquals(tableMetadata.getTableSchema().getTable().getSchemaName(), schema);
+        assertThat(tableMetadata.getTableSchema().getTable().getTableName()).isEqualTo(table.getTableName());
+        assertThat(tableMetadata.getTableSchema().getTable().getSchemaName()).isEqualTo(schema);
     }
 
     @Test
     public void testHiddenSchemas()
     {
-        assertTrue(tpchMetadata.schemaExists(session, "sf1"));
-        assertTrue(tpchMetadata.schemaExists(session, "sf3000.0"));
-        assertFalse(tpchMetadata.schemaExists(session, "sf0"));
-        assertFalse(tpchMetadata.schemaExists(session, "hf1"));
-        assertFalse(tpchMetadata.schemaExists(session, "sf"));
-        assertFalse(tpchMetadata.schemaExists(session, "sfabc"));
+        assertThat(tpchMetadata.schemaExists(session, "sf1")).isTrue();
+        assertThat(tpchMetadata.schemaExists(session, "sf3000.0")).isTrue();
+        assertThat(tpchMetadata.schemaExists(session, "sf0")).isFalse();
+        assertThat(tpchMetadata.schemaExists(session, "hf1")).isFalse();
+        assertThat(tpchMetadata.schemaExists(session, "sf")).isFalse();
+        assertThat(tpchMetadata.schemaExists(session, "sfabc")).isFalse();
     }
 
     private void testTableStats(String schema, TpchTable<?> table, double expectedRowCount)
@@ -180,15 +178,16 @@ public class TestTpchMetadata
         TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle);
 
         double actualRowCountValue = tableStatistics.getRowCount().getValue();
-        assertEquals(tableStatistics.getRowCount(), Estimate.of(actualRowCountValue));
-        assertEquals(actualRowCountValue, expectedRowCount, expectedRowCount * TOLERANCE);
+        assertThat(tableStatistics.getRowCount()).isEqualTo(Estimate.of(actualRowCountValue));
+        assertThat(actualRowCountValue)
+                .isCloseTo(expectedRowCount, withinPercentage(TOLERANCE * 100));
     }
 
     private void testNoTableStats(String schema, TpchTable<?> table)
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
         TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle);
-        assertTrue(tableStatistics.getRowCount().isUnknown());
+        assertThat(tableStatistics.getRowCount().isUnknown()).isTrue();
     }
 
     @Test
@@ -405,7 +404,7 @@ public class TestTpchMetadata
     private void assertTupleDomainEquals(TupleDomain<?> actual, TupleDomain<?> expected, ConnectorSession session)
     {
         if (!Objects.equals(actual, expected)) {
-            fail(format("expected [%s] but found [%s]", expected.toString(session), actual.toString(session)));
+            throw new AssertionError(format("expected [%s] but found [%s]", expected.toString(session), actual.toString(session)));
         }
     }
 
