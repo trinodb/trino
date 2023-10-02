@@ -799,7 +799,7 @@ public class DefaultJdbcMetadata
     }
 
     @Override
-    public Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    public Optional<Type> getSupportedType(ConnectorSession session, Map<String, Object> tableProperties, Type type)
     {
         return jdbcClient.getSupportedType(session, type);
     }

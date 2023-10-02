@@ -3416,7 +3416,7 @@ public class HiveMetadata
     }
 
     @Override
-    public Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    public Optional<Type> getSupportedType(ConnectorSession session, Map<String, Object> tableProperties, Type type)
     {
         if (type instanceof VarcharType varcharType && !varcharType.isUnbounded() && varcharType.getBoundedLength() == 0) {
             return Optional.of(VarcharType.createVarcharType(1));

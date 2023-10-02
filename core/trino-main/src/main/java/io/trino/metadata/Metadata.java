@@ -309,7 +309,7 @@ public interface Metadata
     /**
      * Return the effective {@link io.trino.spi.type.Type} that is supported by the connector for the given type, if {@link Optional#empty()} is returned, the type will be used as is during table creation which may or may not be supported by the connector.
      */
-    Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Type type);
+    Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Map<String, Object> tableProperties, Type type);
 
     /**
      * Begin the atomic creation of a table with data.

@@ -463,7 +463,7 @@ public class TestCreateTableTask
         }
 
         @Override
-        public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Type type)
+        public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Map<String, Object> tableProperties, Type type)
         {
             if (type instanceof TimestampType) {
                 return Optional.of(TIMESTAMP_MILLIS);

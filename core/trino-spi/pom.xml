@@ -211,6 +211,11 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.Optional&lt;io.trino.spi.type.Type&gt; io.trino.spi.connector.ConnectorMetadata::getSupportedType(io.trino.spi.connector.ConnectorSession, io.trino.spi.type.Type)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

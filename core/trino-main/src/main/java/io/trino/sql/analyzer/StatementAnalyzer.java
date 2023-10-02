@@ -946,7 +946,7 @@ class StatementAnalyzer
                         throw semanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown at position %s", queryScope.getRelationType().indexOf(field) + 1);
                     }
                     String columnName = node.getColumnAliases().get().get(aliasPosition).getValue();
-                    columnsBuilder.add(new ColumnMetadata(columnName, metadata.getSupportedType(session, catalogHandle, field.getType()).orElse(field.getType())));
+                    columnsBuilder.add(new ColumnMetadata(columnName, metadata.getSupportedType(session, catalogHandle, properties, field.getType()).orElse(field.getType())));
                     outputColumns.add(new OutputColumn(new Column(columnName, field.getType().toString()), analysis.getSourceColumns(field)));
                     aliasPosition++;
                 }
@@ -954,7 +954,7 @@ class StatementAnalyzer
             else {
                 validateColumns(node, queryScope.getRelationType());
                 columnsBuilder.addAll(queryScope.getRelationType().getVisibleFields().stream()
-                        .map(field -> new ColumnMetadata(field.getName().orElseThrow(), metadata.getSupportedType(session, catalogHandle, field.getType()).orElse(field.getType())))
+                        .map(field -> new ColumnMetadata(field.getName().orElseThrow(), metadata.getSupportedType(session, catalogHandle, properties, field.getType()).orElse(field.getType())))
                         .collect(toImmutableList()));
                 queryScope.getRelationType().getVisibleFields().stream()
                         .map(this::createOutputColumn)
