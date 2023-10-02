@@ -195,7 +195,8 @@ public class AvroPageSourceFactory
         for (String columnName : maskedColumns) {
             Schema.Field field = tableSchema.getField(columnName);
             if (Objects.isNull(field)) {
-                continue;
+                throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "INCORRECTNESS PROBE");
+                //maskedSchema.name(columnName).type(Schema.create(Schema.Type.NULL)).withDefault(null);
             }
             if (field.hasDefaultValue()) {
                 try {
