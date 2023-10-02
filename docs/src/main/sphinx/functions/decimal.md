@@ -10,20 +10,19 @@ The precision of a decimal type for a literal will be equal to the number of dig
 in the literal (including trailing and leading zeros). The scale will be equal
 to the number of digits in the fractional part (including trailing zeros).
 
-```{eval-rst}
-.. list-table::
-   :widths: 50, 50
-   :header-rows: 1
+:::{list-table}
+:widths: 50, 50
+:header-rows: 1
 
-   * - Example literal
-     - Data type
-   * - ``DECIMAL '0'``
-     - ``DECIMAL(1)``
-   * - ``DECIMAL '12345'``
-     - ``DECIMAL(5)``
-   * - ``DECIMAL '0000012345.1234500000'``
-     - ``DECIMAL(20, 10)``
-```
+* - Example literal
+  - Data type
+* - `DECIMAL '0'`
+  - `DECIMAL(1)`
+* - `DECIMAL '12345'`
+  - `DECIMAL(5)`
+* - `DECIMAL '0000012345.1234500000'`
+  - `DECIMAL(20, 10)`
+:::
 
 ## Binary arithmetic decimal operators
 
@@ -31,41 +30,44 @@ Standard mathematical operators are supported. The table below explains
 precision and scale calculation rules for result.
 Assuming `x` is of type `DECIMAL(xp, xs)` and `y` is of type `DECIMAL(yp, ys)`.
 
-```{eval-rst}
-.. list-table::
-   :widths: 30, 40, 30
-   :header-rows: 1
+:::{list-table}
+:widths: 30, 40, 30
+:header-rows: 1
 
-   * - Operation
-     - Result type precision
-     - Result type scale
-   * - ``x + y`` and ``x - y``
-     - .. code-block:: text
-
-            min(38,
-                1 +
-                    max(xs, ys) +
-                    max(xp - xs, yp - ys)
-            )
-     - ``max(xs, ys)``
-   * - ``x * y``
-     - ``min(38, xp + yp)``
-     - ``xs + ys``
-   * - ``x / y``
-     - .. code-block:: text
-
-            min(38,
-                xp + ys-xs
-                + max(0, ys-xs)
-               )
-     - ``max(xs, ys)``
-   * - ``x % y``
-     - .. code-block:: text
-
-            min(xp - xs, yp - ys) +
-            max(xs, bs)
-     - ``max(xs, ys)``
-```
+* - Operation
+  - Result type precision
+  - Result type scale
+* - `x + y` and `x - y`
+  -
+    ```
+    min(38,
+        1 +
+        max(xs, ys) +
+        max(xp - xs, yp - ys)
+    )
+    ```
+  - `max(xs, ys)`
+* - `x * y`
+  - ```
+    min(38, xp + yp)
+    ```
+  - `xs + ys`
+* - `x / y`
+  -
+    ```
+    min(38,
+        xp + ys-xs
+        + max(0, ys-xs)
+        )
+    ```
+  - `max(xs, ys)`
+* - `x % y`
+  - ```
+    min(xp - xs, yp - ys) +
+    max(xs, bs)
+    ```
+  - `max(xs, ys)`
+:::
 
 If the mathematical result of the operation is not exactly representable with
 the precision and scale of the result data type,

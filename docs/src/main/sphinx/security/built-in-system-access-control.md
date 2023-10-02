@@ -20,27 +20,26 @@ contain a comma separated list of the access control property files to use
 
 Trino offers the following built-in system access control implementations:
 
-```{eval-rst}
-.. list-table::
-  :widths: 20, 80
-  :header-rows: 1
+:::{list-table}
+:widths: 20, 80
+:header-rows: 1
 
-  * - Name
-    - Description
-  * - ``default``
-    - All operations are permitted, except for user impersonation and triggering
-      :doc:`/admin/graceful-shutdown`.
+* - Name
+  - Description
+* - `default`
+  - All operations are permitted, except for user impersonation and triggering
+    [](/admin/graceful-shutdown).
 
-      This is the default access control if none are configured.
-  * - ``allow-all``
-    - All operations are permitted.
-  * - ``read-only``
-    - Operations that read data or metadata are permitted, but none of the
-      operations that write data or metadata are allowed.
-  * - ``file``
-    - Authorization rules are specified in a config file. See
-      :doc:`file-system-access-control`.
-```
+    This is the default access control if none are configured.
+* - `allow-all`
+  - All operations are permitted.
+* - `read-only`
+  - Operations that read data or metadata are permitted, but none of the
+    operations that write data or metadata are allowed.
+* - `file`
+  - Authorization rules are specified in a config file. See
+    [](/security/file-system-access-control).
+:::
 
 If you want to limit access on a system level in any other way than the ones
 listed above, you must implement a custom {doc}`/develop/system-access-control`.

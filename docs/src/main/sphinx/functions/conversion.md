@@ -62,42 +62,41 @@ SELECT format_number(1000000); -- '1M'
 
 The `parse_data_size` function supports the following units:
 
-```{eval-rst}
-.. list-table::
-   :widths: 30, 40, 30
-   :header-rows: 1
+:::{list-table}
+:widths: 30, 40, 30
+:header-rows: 1
 
-   * - Unit
-     - Description
-     - Value
-   * - ``B``
-     - Bytes
-     - 1
-   * - ``kB``
-     - Kilobytes
-     - 1024
-   * - ``MB``
-     - Megabytes
-     - 1024\ :sup:`2`
-   * - ``GB``
-     - Gigabytes
-     - 1024\ :sup:`3`
-   * - ``TB``
-     - Terabytes
-     - 1024\ :sup:`4`
-   * - ``PB``
-     - Petabytes
-     - 1024\ :sup:`5`
-   * - ``EB``
-     - Exabytes
-     - 1024\ :sup:`6`
-   * - ``ZB``
-     - Zettabytes
-     - 1024\ :sup:`7`
-   * - ``YB``
-     - Yottabytes
-     - 1024\ :sup:`8`
-```
+* - Unit
+  - Description
+  - Value
+* - ``B``
+  - Bytes
+  - 1
+* - ``kB``
+  - Kilobytes
+  - 1024
+* - ``MB``
+  - Megabytes
+  - 1024{sup}`2`
+* - ``GB``
+  - Gigabytes
+  - 1024{sup}`3`
+* - ``TB``
+  - Terabytes
+  - 1024{sup}`4`
+* - ``PB``
+  - Petabytes
+  - 1024{sup}`5`
+* - ``EB``
+  - Exabytes
+  - 1024{sup}`6`
+* - ``ZB``
+  - Zettabytes
+  - 1024{sup}`7`
+* - ``YB``
+  - Yottabytes
+  - 1024{sup}`8`
+:::
 
 :::{function} parse_data_size(string) -> decimal(38)
 Parses `string` of format `value unit` into a number, where

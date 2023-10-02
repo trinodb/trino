@@ -117,139 +117,132 @@ may not be specified using both methods.
 
 ## Parameter reference
 
-```{eval-rst}
-.. list-table::
-   :widths: 35, 65
-   :header-rows: 1
+:::{list-table}
+:widths: 35, 65
+:header-rows: 1
 
-   * - Name
-     - Description
-   * - ``user``
-     - Username to use for authentication and authorization.
-   * - ``password``
-     - Password to use for LDAP authentication.
-   * - ``sessionUser``
-     - Session username override, used for impersonation.
-   * - ``socksProxy``
-     - SOCKS proxy host and port. Example: ``localhost:1080``
-   * - ``httpProxy``
-     - HTTP proxy host and port. Example: ``localhost:8888``
-   * - ``clientInfo``
-     - Extra information about the client.
-   * - ``clientTags``
-     - Client tags for selecting resource groups. Example: ``abc,xyz``
-   * - ``traceToken``
-     - Trace token for correlating requests across systems.
-   * - ``source``
-     - Source name for the Trino query. This parameter should be used in
-       preference to ``ApplicationName``. Thus, it takes precedence over
-       ``ApplicationName`` and/or ``applicationNamePrefix``.
-   * - ``applicationNamePrefix``
-     - Prefix to append to any specified ``ApplicationName`` client info
-       property, which is used to set the source name for the Trino query if the
-       ``source`` parameter has not been set. If neither this property nor
-       ``ApplicationName`` or ``source`` are set, the source name for the query
-       is ``trino-jdbc``.
-   * - ``accessToken``
-     - :doc:`JWT </security/jwt>` access token for token based authentication.
-   * - ``SSL``
-     - Set ``true`` to specify using TLS/HTTPS for connections.
-   * - ``SSLVerification``
-     - The method of TLS verification. There are three modes: ``FULL``
-       (default), ``CA`` and ``NONE``. For ``FULL``, the normal TLS verification
-       is performed. For ``CA``, only the CA is verified but hostname mismatch
-       is allowed. For ``NONE``, there is no verification.
-   * - ``SSLKeyStorePath``
-     - Use only when connecting to a Trino cluster that has :doc:`certificate
-       authentication </security/certificate>` enabled. Specifies the path to a
-       :doc:`PEM </security/inspect-pem>` or :doc:`JKS </security/inspect-jks>`
-       file, which must contain a certificate that is trusted by the Trino
-       cluster you connect to.
-   * - ``SSLKeyStorePassword``
-     - The password for the KeyStore, if any.
-   * - ``SSLKeyStoreType``
-     - The type of the KeyStore. The default type is provided by the Java
-       ``keystore.type`` security property or ``jks`` if none exists.
-   * - ``SSLTrustStorePath``
-     - The location of the Java TrustStore file to use to validate HTTPS server
-       certificates.
-   * - ``SSLTrustStorePassword``
-     - The password for the TrustStore.
-   * - ``SSLTrustStoreType``
-     - The type of the TrustStore. The default type is provided by the Java
-       ``keystore.type`` security property or ``jks`` if none exists.
-   * - ``SSLUseSystemTrustStore``
-     - Set ``true`` to automatically use the system TrustStore based on the
-       operating system. The supported OSes are Windows and macOS. For Windows,
-       the ``Windows-ROOT`` TrustStore is selected. For macOS, the
-       ``KeychainStore`` TrustStore is selected. For other OSes, the default
-       Java TrustStore is loaded. The TrustStore specification can be overridden
-       using ``SSLTrustStoreType``.
-   * - ``hostnameInCertificate``
-     - Expected hostname in the certificate presented by the Trino server. Only
-        applicable with full SSL verification enabled.
-   * - ``KerberosRemoteServiceName``
-     - Trino coordinator Kerberos service name. This parameter is required for
-       Kerberos authentication.
-   * - ``KerberosPrincipal``
-     - The principal to use when authenticating to the Trino coordinator.
-   * - ``KerberosUseCanonicalHostname``
-     - Use the canonical hostname of the Trino coordinator for the Kerberos
-       service principal by first resolving the hostname to an IP address and
-       then doing a reverse DNS lookup for that IP address. This is enabled by
-       default.
-   * - ``KerberosServicePrincipalPattern``
-     - Trino coordinator Kerberos service principal pattern. The default is
-       ``${SERVICE}@${HOST}``. ``${SERVICE}`` is replaced with the value of
-       ``KerberosRemoteServiceName`` and ``${HOST}`` is replaced with the
-       hostname of the coordinator (after canonicalization if enabled).
-   * - ``KerberosConfigPath``
-     - Kerberos configuration file.
-   * - ``KerberosKeytabPath``
-     - Kerberos keytab file.
-   * - ``KerberosCredentialCachePath``
-     - Kerberos credential cache.
-   * - ``KerberosDelegation``
-     - Set to ``true`` to use the token from an existing Kerberos context. This
-       allows client to use Kerberos authentication without passing the Keytab
-       or credential cache. Defaults to ``false``.
-   * - ``extraCredentials``
-     - Extra credentials for connecting to external services, specified as a
-       list of key-value pairs. For example, ``foo:bar;abc:xyz`` creates the
-       credential named ``abc`` with value ``xyz`` and the credential named
-       ``foo`` with value ``bar``.
-   * - ``roles``
-     - Authorization roles to use for catalogs, specified as a list of key-value
-       pairs for the catalog and role. For example,
-       ``catalog1:roleA;catalog2:roleB`` sets ``roleA`` for ``catalog1`` and
-       ``roleB`` for ``catalog2``.
-   * - ``sessionProperties``
-     - Session properties to set for the system and for catalogs, specified as a
-       list of key-value pairs. For example, ``abc:xyz;example.foo:bar`` sets
-       the system property ``abc`` to the value ``xyz`` and the ``foo`` property
-       for catalog ``example`` to the value ``bar``.
-   * - ``externalAuthentication``
-     - Set to true if you want to use external authentication via
-       :doc:`/security/oauth2`. Use a local web browser to authenticate with an
-       identity provider (IdP) that has been configured for the Trino
-       coordinator.
-   * - ``externalAuthenticationTokenCache``
-     - Allows the sharing of external authentication tokens between different
-       connections for the same authenticated user until the cache is
-       invalidated, such as when a client is restarted or when the classloader
-       reloads the JDBC driver. This is disabled by default, with a value of
-       ``NONE``. To enable, set the value to ``MEMORY``. If the JDBC driver is
-       used in a shared mode by different users, the first registered token is
-       stored and authenticates all users.
-   * - ``disableCompression``
-     -  Whether compression should be enabled.
-   * - ``assumeLiteralUnderscoreInMetadataCallsForNonConformingClients``
-     - When enabled, the name patterns passed to ``DatabaseMetaData`` methods are
-        treated as underscores. You can use this as a workaround for
-        applications that do not escape schema or table names when passing them
-        to ``DatabaseMetaData`` methods as schema or table name patterns.
-   * - ``timezone``
-     - Sets the time zone for the session using the `time zone passed
-       <https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/time/ZoneId.html#of(java.lang.String)>`_. Defaults
-       to the timezone of the JVM running the JDBC driver.
-```
+* - Name
+  - Description
+* - `user`
+  - Username to use for authentication and authorization.
+* - `password`
+  - Password to use for LDAP authentication.
+* - `sessionUser`
+  - Session username override, used for impersonation.
+* - `socksProxy`
+  - SOCKS proxy host and port. Example: `localhost:1080`
+* - `httpProxy`
+  - HTTP proxy host and port. Example: `localhost:8888`
+* - `clientInfo`
+  - Extra information about the client.
+* - `clientTags`
+  - Client tags for selecting resource groups. Example: `abc,xyz`
+* - `traceToken`
+  - Trace token for correlating requests across systems.
+* - `source`
+  - Source name for the Trino query. This parameter should be used in preference
+    to `ApplicationName`. Thus, it takes precedence over `ApplicationName`
+    and/or `applicationNamePrefix`.
+* - `applicationNamePrefix`
+  - Prefix to append to any specified `ApplicationName` client info property,
+    which is used to set the source name for the Trino query if the `source`
+    parameter has not been set. If neither this property nor `ApplicationName`
+    or `source` are set, the source name for the query is `trino-jdbc`.
+* - `accessToken`
+  - [JWT](/security/jwt) access token for token based authentication.
+* - `SSL`
+  - Set `true` to specify using TLS/HTTPS for connections.
+* - `SSLVerification`
+  - The method of TLS verification. There are three modes: `FULL`
+    (default), `CA` and `NONE`. For `FULL`, the normal TLS verification
+    is performed. For `CA`, only the CA is verified but hostname mismatch
+    is allowed. For `NONE`, there is no verification.
+* - `SSLKeyStorePath`
+  - Use only when connecting to a Trino cluster that has [certificate
+    authentication](/security/certificate) enabled. Specifies the path to a
+    [PEM](/security/inspect-pem) or [JKS](/security/inspect-jks) file, which must
+    contain a certificate that is trusted by the Trino cluster you connect to.
+* - `SSLKeyStorePassword`
+  - The password for the KeyStore, if any.
+* - `SSLKeyStoreType`
+  - The type of the KeyStore. The default type is provided by the Java
+    `keystore.type` security property or `jks` if none exists.
+* - `SSLTrustStorePath`
+  - The location of the Java TrustStore file to use to validate HTTPS server
+    certificates.
+* - `SSLTrustStorePassword`
+  - The password for the TrustStore.
+* - `SSLTrustStoreType`
+  - The type of the TrustStore. The default type is provided by the Java
+    `keystore.type` security property or `jks` if none exists.
+* - `SSLUseSystemTrustStore`
+  - Set `true` to automatically use the system TrustStore based on the operating
+    system. The supported OSes are Windows and macOS. For Windows, the
+    `Windows-ROOT` TrustStore is selected. For macOS, the `KeychainStore`
+    TrustStore is selected. For other OSes, the default Java TrustStore is
+    loaded. The TrustStore specification can be overridden using
+    `SSLTrustStoreType`.
+* - `hostnameInCertificate`
+  - Expected hostname in the certificate presented by the Trino server. Only
+    applicable with full SSL verification enabled.
+* - `KerberosRemoteServiceName`
+  - Trino coordinator Kerberos service name. This parameter is required for
+    Kerberos authentication.
+* - `KerberosPrincipal`
+  - The principal to use when authenticating to the Trino coordinator.
+* - `KerberosUseCanonicalHostname`
+  - Use the canonical hostname of the Trino coordinator for the Kerberos service
+    principal by first resolving the hostname to an IP address and then doing a
+    reverse DNS lookup for that IP address. This is enabled by default.
+* - `KerberosServicePrincipalPattern`
+  - Trino coordinator Kerberos service principal pattern. The default is
+    `${SERVICE}@${HOST}`. `${SERVICE}` is replaced with the value of
+    `KerberosRemoteServiceName` and `${HOST}` is replaced with the hostname of
+    the coordinator (after canonicalization if enabled).
+* - `KerberosConfigPath`
+  - Kerberos configuration file.
+* - `KerberosKeytabPath`
+  - Kerberos keytab file.
+* - `KerberosCredentialCachePath`
+  - Kerberos credential cache.
+* - `KerberosDelegation`
+  - Set to `true` to use the token from an existing Kerberos context. This
+    allows client to use Kerberos authentication without passing the Keytab or
+    credential cache. Defaults to `false`.
+* - `extraCredentials`
+  - Extra credentials for connecting to external services, specified as a list
+    of key-value pairs. For example, `foo:bar;abc:xyz` creates the credential
+    named `abc` with value `xyz` and the credential named `foo` with value
+    `bar`.
+* - `roles`
+  - Authorization roles to use for catalogs, specified as a list of key-value
+    pairs for the catalog and role. For example, `catalog1:roleA;catalog2:roleB`
+    sets `roleA` for `catalog1` and `roleB` for `catalog2`.
+* - `sessionProperties`
+  - Session properties to set for the system and for catalogs, specified as a
+    list of key-value pairs. For example, `abc:xyz;example.foo:bar` sets the
+    system property `abc` to the value `xyz` and the `foo` property for catalog
+    `example` to the value `bar`.
+* - `externalAuthentication`
+  - Set to true if you want to use external authentication via
+    [](/security/oauth2). Use a local web browser to authenticate with an
+    identity provider (IdP) that has been configured for the Trino coordinator.
+* - `externalAuthenticationTokenCache`
+  - Allows the sharing of external authentication tokens between different
+    connections for the same authenticated user until the cache is invalidated,
+    such as when a client is restarted or when the classloader reloads the JDBC
+    driver. This is disabled by default, with a value of `NONE`. To enable, set
+    the value to `MEMORY`. If the JDBC driver is used in a shared mode by
+    different users, the first registered token is stored and authenticates all
+    users.
+* - `disableCompression`
+  -  Whether compression should be enabled.
+* - `assumeLiteralUnderscoreInMetadataCallsForNonConformingClients`
+  - When enabled, the name patterns passed to `DatabaseMetaData` methods are
+    treated as underscores. You can use this as a workaround for applications
+    that do not escape schema or table names when passing them to
+    `DatabaseMetaData` methods as schema or table name patterns. :::
+* - `timezone`
+  - Sets the time zone for the session using the [time zone
+    passed](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/time/ZoneId.html#of(java.lang.String)).
+    Defaults to the timezone of the JVM running the JDBC driver.
