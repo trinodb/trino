@@ -1165,7 +1165,7 @@ public class TestAccessControl
                 new QualifiedObjectName("blackhole", "default", "orders"),
                 "comment",
                 getSession().getUser(),
-                new ViewExpression(Optional.empty(), Optional.empty(), Optional.empty(), "substr(comment,1,3)"));
+                ViewExpression.builder().expression("substr(comment,1,3)").build());
 
         assertAccessAllowed("SELECT comment FROM orders");
     }
@@ -1181,7 +1181,7 @@ public class TestAccessControl
         accessControlManager.rowFilter(
                 new QualifiedObjectName("blackhole", "default", "nation"),
                 getSession().getUser(),
-                new ViewExpression(Optional.empty(), Optional.empty(), Optional.empty(), "nationkey % 2 = 0"));
+                ViewExpression.builder().expression("nationkey % 2 = 0").build());
 
         assertAccessAllowed("SELECT nationkey FROM nation");
     }
@@ -1205,7 +1205,7 @@ public class TestAccessControl
                 new QualifiedObjectName("blackhole", "default", "orders"),
                 "comment",
                 getSession().getUser(),
-                new ViewExpression(Optional.empty(), Optional.empty(), Optional.empty(), "substr(comment,1,3)"));
+                ViewExpression.builder().expression("substr(comment,1,3)").build());
 
         assertAccessAllowed(session, "SELECT comment FROM orders");
     }
@@ -1228,7 +1228,7 @@ public class TestAccessControl
         accessControlManager.rowFilter(
                 new QualifiedObjectName("blackhole", "default", "nation"),
                 getSession().getUser(),
-                new ViewExpression(Optional.empty(), Optional.empty(), Optional.empty(), "nationkey % 2 = 0"));
+                ViewExpression.builder().expression("nationkey % 2 = 0").build());
 
         assertAccessAllowed(session, "SELECT nationkey FROM nation");
     }

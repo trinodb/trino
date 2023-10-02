@@ -27,8 +27,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import java.util.Optional;
-
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
@@ -164,7 +162,12 @@ public class TestFilterInaccessibleColumns
 
         accessControl.rowFilter(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation"),
                 USER,
-                new ViewExpression(Optional.of(ADMIN), Optional.of(TEST_CATALOG_NAME), Optional.of(TINY_SCHEMA_NAME), "comment IS NOT null"));
+                ViewExpression.builder()
+                        .identity(ADMIN)
+                        .catalog(TEST_CATALOG_NAME)
+                        .schema(TINY_SCHEMA_NAME)
+                        .expression("comment IS NOT null")
+                        .build());
         accessControl.deny(privilege(USER, "nation.comment", SELECT_COLUMN));
         assertThat(assertions.query("SELECT * FROM nation WHERE name = 'FRANCE'"))
                 .matches("VALUES (BIGINT '6', CAST('FRANCE' AS VARCHAR(25)), BIGINT '3')");
@@ -177,7 +180,12 @@ public class TestFilterInaccessibleColumns
 
         accessControl.rowFilter(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation"),
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.of(TEST_CATALOG_NAME), Optional.of(TINY_SCHEMA_NAME), "comment IS NOT null"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .catalog(TEST_CATALOG_NAME)
+                        .schema(TINY_SCHEMA_NAME)
+                        .expression("comment IS NOT null")
+                        .build());
         accessControl.deny(privilege(USER, "nation.comment", SELECT_COLUMN));
         assertThatThrownBy(() -> assertions.query("SELECT * FROM nation WHERE name = 'FRANCE'"))
                 .hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view test-catalog.tiny.nation");
@@ -190,7 +198,11 @@ public class TestFilterInaccessibleColumns
 
         accessControl.deny(privilege(USER, "nation.comment", SELECT_COLUMN));
         QualifiedObjectName table = new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation");
-        ViewExpression filter = new ViewExpression(Optional.empty(), Optional.of(TEST_CATALOG_NAME), Optional.of(TINY_SCHEMA_NAME), "comment IS NOT null");
+        ViewExpression filter = ViewExpression.builder()
+                .catalog(TEST_CATALOG_NAME)
+                .schema(TINY_SCHEMA_NAME)
+                .expression("comment IS NOT null")
+                .build();
         accessControl.rowFilter(table, ADMIN, filter);
         accessControl.rowFilter(table, USER, filter);
 
@@ -208,7 +220,12 @@ public class TestFilterInaccessibleColumns
         accessControl.columnMask(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation"),
                 "nationkey",
                 USER,
-                new ViewExpression(Optional.of(ADMIN), Optional.of(TEST_CATALOG_NAME), Optional.of(TINY_SCHEMA_NAME), "-nationkey"));
+                ViewExpression.builder()
+                        .identity(ADMIN)
+                        .catalog(TEST_CATALOG_NAME)
+                        .schema(TINY_SCHEMA_NAME)
+                        .expression("-nationkey")
+                        .build());
         assertThat(assertions.query("SELECT * FROM nation WHERE name = 'FRANCE'"))
                 .matches("VALUES (BIGINT '-6',CAST('FRANCE' AS VARCHAR(25)), BIGINT '3', CAST('refully final requests. regular, ironi' AS VARCHAR(152)))");
     }
@@ -222,7 +239,12 @@ public class TestFilterInaccessibleColumns
         accessControl.columnMask(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation"),
                 "comment",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.of(TEST_CATALOG_NAME), Optional.of(TINY_SCHEMA_NAME), "CASE nationkey WHEN 6 THEN 'masked-comment' ELSE comment END"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .catalog(TEST_CATALOG_NAME)
+                        .schema(TINY_SCHEMA_NAME)
+                        .expression("CASE nationkey WHEN 6 THEN 'masked-comment' ELSE comment END")
+                        .build());
 
         assertThatThrownBy(() -> assertions.query("SELECT * FROM nation WHERE name = 'FRANCE'"))
                 .hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view test-catalog.tiny.nation");
@@ -237,7 +259,12 @@ public class TestFilterInaccessibleColumns
         accessControl.columnMask(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation"),
                 "comment",
                 USER,
-                new ViewExpression(Optional.of(ADMIN), Optional.of(TEST_CATALOG_NAME), Optional.of(TINY_SCHEMA_NAME), "CASE nationkey WHEN 6 THEN 'masked-comment' ELSE comment END"));
+                ViewExpression.builder()
+                        .identity(ADMIN)
+                        .catalog(TEST_CATALOG_NAME)
+                        .schema(TINY_SCHEMA_NAME)
+                        .expression("CASE nationkey WHEN 6 THEN 'masked-comment' ELSE comment END")
+                        .build());
 
         assertThat(assertions.query("SELECT * FROM nation WHERE name = 'FRANCE'"))
                 .matches("VALUES (CAST('FRANCE' AS VARCHAR(25)), BIGINT '3', CAST('masked-comment' AS VARCHAR(152)))");
@@ -253,7 +280,11 @@ public class TestFilterInaccessibleColumns
 
         accessControl.deny(privilege(USER, "nation.nationkey", SELECT_COLUMN));
         QualifiedObjectName table = new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation");
-        ViewExpression mask = new ViewExpression(Optional.empty(), Optional.of(TEST_CATALOG_NAME), Optional.of(TINY_SCHEMA_NAME), "CASE nationkey WHEN 3 THEN 'masked-comment' ELSE comment END");
+        ViewExpression mask = ViewExpression.builder()
+                .catalog(TEST_CATALOG_NAME)
+                .schema(TINY_SCHEMA_NAME)
+                .expression("CASE nationkey WHEN 3 THEN 'masked-comment' ELSE comment END")
+                .build();
         accessControl.columnMask(table, "comment", ADMIN, mask);
         accessControl.columnMask(table, "comment", USER, mask);
 

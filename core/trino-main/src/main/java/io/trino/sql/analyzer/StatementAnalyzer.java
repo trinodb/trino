@@ -2351,7 +2351,11 @@ class StatementAnalyzer
         private void analyzeCheckConstraints(Table table, QualifiedObjectName name, Scope accessControlScope, List<String> constraints)
         {
             for (String constraint : constraints) {
-                ViewExpression expression = new ViewExpression(Optional.empty(), Optional.of(name.getCatalogName()), Optional.of(name.getSchemaName()), constraint);
+                ViewExpression expression = ViewExpression.builder()
+                        .catalog(name.getCatalogName())
+                        .schema(name.getSchemaName())
+                        .expression(constraint)
+                        .build();
                 analyzeCheckConstraint(table, name, accessControlScope, expression);
             }
         }
