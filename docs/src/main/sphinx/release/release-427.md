@@ -10,7 +10,7 @@
 
 ## Security
 
-* Ensure authorization is checked when accessing table comments. ({issue}`18514`)
+* Ensure authorization is checked when accessing table comments with table redirections. ({issue}`18514`)
 
 ## Delta Lake connector
 
