@@ -41,6 +41,12 @@ public class TestTpcds
     }
 
     @Test
+    public void testFooBar()
+    {
+        throw new RuntimeException("Greetings from a test: " + getClass().getName());
+    }
+
+    @Test
     public void testSelect()
     {
         MaterializedResult actual = computeActual(
