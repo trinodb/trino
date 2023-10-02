@@ -38,6 +38,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
@@ -101,6 +102,7 @@ public class TestMockConnector
                                                 Optional.of("mock"),
                                                 Optional.of("default"),
                                                 ImmutableList.of(new Column("nationkey", BIGINT.getTypeId())),
+                                                Optional.of(Duration.ZERO),
                                                 Optional.empty(),
                                                 Optional.of("alice"),
                                                 ImmutableMap.of())))
