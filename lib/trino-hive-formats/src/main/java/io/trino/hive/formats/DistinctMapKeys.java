@@ -60,7 +60,6 @@ public class DistinctMapKeys
         int[] hashTable = hashTableBuffer;
         Arrays.fill(hashTable, -1);
 
-        int hashTableOffset = 0;
         for (int i = 0; i < keyCount; i++) {
             // Nulls are not marked as distinct and thus are ignored
             if (keyBlock.isNull(i)) {
@@ -68,8 +67,8 @@ public class DistinctMapKeys
             }
             int hash = getHashPosition(keyBlock, i, hashTableSize);
             while (true) {
-                if (hashTable[hashTableOffset + hash] == -1) {
-                    hashTable[hashTableOffset + hash] = i;
+                if (hashTable[hash] == -1) {
+                    hashTable[hash] = i;
                     distinct[i] = true;
                     break;
                 }
@@ -77,7 +76,7 @@ public class DistinctMapKeys
                 Boolean isDuplicateKey;
                 try {
                     // assuming maps with indeterminate keys are not supported
-                    isDuplicateKey = (Boolean) mapType.getKeyBlockEqual().invokeExact(keyBlock, i, keyBlock, hashTable[hashTableOffset + hash]);
+                    isDuplicateKey = (Boolean) mapType.getKeyBlockEqual().invokeExact(keyBlock, i, keyBlock, hashTable[hash]);
                 }
                 catch (RuntimeException e) {
                     throw e;
@@ -94,10 +93,10 @@ public class DistinctMapKeys
                 // duplicate keys are ignored
                 if (isDuplicateKey) {
                     if (userLastEntry) {
-                        int duplicateIndex = hashTable[hashTableOffset + hash];
+                        int duplicateIndex = hashTable[hash];
                         distinct[duplicateIndex] = false;
 
-                        hashTable[hashTableOffset + hash] = i;
+                        hashTable[hash] = i;
                         distinct[i] = true;
                     }
                     break;
