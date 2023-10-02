@@ -51,9 +51,11 @@ public class DistinctMapKeys
         int hashTableSize = keyCount * HASH_MULTIPLIER;
 
         if (distinctBuffer.length < keyCount) {
-            int bufferSize = calculateBufferSize(keyCount);
-            distinctBuffer = new boolean[bufferSize];
-            hashTableBuffer = new int[bufferSize];
+            distinctBuffer = new boolean[calculateBufferSize(keyCount)];
+        }
+
+        if (hashTableBuffer.length < hashTableSize) {
+            hashTableBuffer = new int[calculateBufferSize(hashTableSize)];
         }
         boolean[] distinct = distinctBuffer;
         Arrays.fill(distinct, false);
