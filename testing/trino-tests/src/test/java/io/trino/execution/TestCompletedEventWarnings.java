@@ -72,6 +72,12 @@ public class TestCompletedEventWarnings
     }
 
     @Test
+    public void testFooBar()
+    {
+        throw new RuntimeException("Greetings from a test: " + getClass().getName());
+    }
+
+    @Test
     public void testCompletedEventWarnings()
             throws Exception
     {
