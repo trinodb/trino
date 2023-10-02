@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
-import io.trino.sql.planner.iterative.rule.test.RuleAssert;
+import io.trino.sql.planner.iterative.rule.test.RuleBuilder;
 import io.trino.sql.planner.plan.AggregationNode;
 import org.junit.jupiter.api.Test;
 
@@ -82,7 +82,7 @@ public class TestRewriteSpatialPartitioningAggregation
                                         values("geometry"))));
     }
 
-    private RuleAssert assertRuleApplication()
+    private RuleBuilder assertRuleApplication()
     {
         return tester().assertThat(new RewriteSpatialPartitioningAggregation(tester().getPlannerContext()));
     }
