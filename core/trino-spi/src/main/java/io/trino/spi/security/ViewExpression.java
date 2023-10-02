@@ -24,7 +24,7 @@ public class ViewExpression
     private final Optional<String> schema;
     private final String expression;
 
-    public ViewExpression(Optional<String> identity, Optional<String> catalog, Optional<String> schema, String expression)
+    private ViewExpression(Optional<String> identity, Optional<String> catalog, Optional<String> schema, String expression)
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
@@ -37,7 +37,7 @@ public class ViewExpression
     }
 
     /**
-     * @return user as whom the view expression will be evaluated. If empty identity is returned
+     * @return user as whom the view expression will be evaluated. If empty identity is returned,
      * then session user is used.
      */
     public Optional<String> getSecurityIdentity()
@@ -58,5 +58,53 @@ public class ViewExpression
     public String getExpression()
     {
         return expression;
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static class Builder
+    {
+        private String identity;
+        private String catalog;
+        private String schema;
+        private String expression;
+
+        private Builder() {}
+
+        public Builder identity(String identity)
+        {
+            this.identity = identity;
+            return this;
+        }
+
+        public Builder catalog(String catalog)
+        {
+            this.catalog = catalog;
+            return this;
+        }
+
+        public Builder schema(String schema)
+        {
+            this.schema = schema;
+            return this;
+        }
+
+        public Builder expression(String expression)
+        {
+            this.expression = expression;
+            return this;
+        }
+
+        public ViewExpression build()
+        {
+            return new ViewExpression(
+                    Optional.ofNullable(identity),
+                    Optional.ofNullable(catalog),
+                    Optional.ofNullable(schema),
+                    expression);
+        }
     }
 }
