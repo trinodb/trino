@@ -101,6 +101,18 @@ public abstract class BaseQueryAssertionsTest
     }
 
     @Test
+    public void testWrongTypeWithEmptyResult()
+    {
+        QueryAssert queryAssert = assertThat(query("SELECT X'001234' WHERE false"));
+        assertThatThrownBy(() -> queryAssert.matches("SELECT '001234' WHERE false"))
+                .hasMessageContaining("""
+                        [Output types for query [SELECT X'001234' WHERE false]]\s
+                        expected: [varchar(6)]
+                         but was: [varbinary]
+                        """);
+    }
+
+    @Test
     public void testReturnsEmptyResult()
     {
         assertThat(query("SELECT 'foobar' WHERE false")).returnsEmptyResult();
