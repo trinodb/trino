@@ -13,6 +13,11 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.inject.Guice;
+import com.google.inject.Inject;
+import com.google.inject.Injector;
+import com.google.inject.Key;
+import com.google.inject.Scopes;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -50,42 +55,55 @@ public class TestRetryingConnectionFactory
     public void testSimplyReturnConnection()
             throws Exception
     {
-        MockConnectorFactory mock = new MockConnectorFactory(RETURN);
-        ConnectionFactory factory = new RetryingConnectionFactory(mock);
-        assertThat(factory.openConnection(SESSION)).isNotNull();
+        Injector injector = createInjector(RETURN);
+        ConnectionFactory factory = injector.getInstance(RetryingConnectionFactory.class);
+        MockConnectorFactory mock = injector.getInstance(MockConnectorFactory.class);
+
+        Connection connection = factory.openConnection(SESSION);
+
+        assertThat(connection).isNotNull();
         assertThat(mock.getCallCount()).isEqualTo(1);
     }
 
     @Test
     public void testRetryAndStopOnTrinoException()
     {
-        MockConnectorFactory mock = new MockConnectorFactory(THROW_SQL_RECOVERABLE_EXCEPTION, THROW_TRINO_EXCEPTION);
-        ConnectionFactory factory = new RetryingConnectionFactory(mock);
+        Injector injector = createInjector(THROW_SQL_RECOVERABLE_EXCEPTION, THROW_TRINO_EXCEPTION);
+        ConnectionFactory factory = injector.getInstance(RetryingConnectionFactory.class);
+        MockConnectorFactory mock = injector.getInstance(MockConnectorFactory.class);
+
         assertThatThrownBy(() -> factory.openConnection(SESSION))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Testing Trino exception");
+
         assertThat(mock.getCallCount()).isEqualTo(2);
     }
 
     @Test
     public void testRetryAndStopOnSqlException()
     {
-        MockConnectorFactory mock = new MockConnectorFactory(THROW_SQL_RECOVERABLE_EXCEPTION, THROW_SQL_EXCEPTION);
-        ConnectionFactory factory = new RetryingConnectionFactory(mock);
+        Injector injector = createInjector(THROW_SQL_RECOVERABLE_EXCEPTION, THROW_SQL_EXCEPTION);
+        ConnectionFactory factory = injector.getInstance(RetryingConnectionFactory.class);
+        MockConnectorFactory mock = injector.getInstance(MockConnectorFactory.class);
+
         assertThatThrownBy(() -> factory.openConnection(SESSION))
                 .isInstanceOf(SQLException.class)
                 .hasMessage("Testing sql exception");
+
         assertThat(mock.getCallCount()).isEqualTo(2);
     }
 
     @Test
     public void testNullPointerException()
     {
-        MockConnectorFactory mock = new MockConnectorFactory(THROW_NPE);
-        ConnectionFactory factory = new RetryingConnectionFactory(mock);
+        Injector injector = createInjector(THROW_NPE);
+        ConnectionFactory factory = injector.getInstance(RetryingConnectionFactory.class);
+        MockConnectorFactory mock = injector.getInstance(MockConnectorFactory.class);
+
         assertThatThrownBy(() -> factory.openConnection(SESSION))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("Testing NPE");
+
         assertThat(mock.getCallCount()).isEqualTo(1);
     }
 
@@ -93,9 +111,13 @@ public class TestRetryingConnectionFactory
     public void testRetryAndReturn()
             throws Exception
     {
-        MockConnectorFactory mock = new MockConnectorFactory(THROW_SQL_RECOVERABLE_EXCEPTION, RETURN);
-        ConnectionFactory factory = new RetryingConnectionFactory(mock);
-        assertThat(factory.openConnection(SESSION)).isNotNull();
+        Injector injector = createInjector(THROW_SQL_RECOVERABLE_EXCEPTION, RETURN);
+        ConnectionFactory factory = injector.getInstance(RetryingConnectionFactory.class);
+        MockConnectorFactory mock = injector.getInstance(MockConnectorFactory.class);
+
+        Connection connection = factory.openConnection(SESSION);
+
+        assertThat(connection).isNotNull();
         assertThat(mock.getCallCount()).isEqualTo(2);
     }
 
@@ -103,10 +125,23 @@ public class TestRetryingConnectionFactory
     public void testRetryOnWrappedAndReturn()
             throws Exception
     {
-        MockConnectorFactory mock = new MockConnectorFactory(THROW_WRAPPED_SQL_RECOVERABLE_EXCEPTION, RETURN);
-        ConnectionFactory factory = new RetryingConnectionFactory(mock);
-        assertThat(factory.openConnection(SESSION)).isNotNull();
+        Injector injector = createInjector(THROW_WRAPPED_SQL_RECOVERABLE_EXCEPTION, RETURN);
+        ConnectionFactory factory = injector.getInstance(RetryingConnectionFactory.class);
+        MockConnectorFactory mock = injector.getInstance(MockConnectorFactory.class);
+
+        Connection connection = factory.openConnection(SESSION);
+
+        assertThat(connection).isNotNull();
         assertThat(mock.getCallCount()).isEqualTo(2);
+    }
+
+    private static Injector createInjector(MockConnectorFactory.Action... actions)
+    {
+        return Guice.createInjector(binder -> {
+            binder.bind(MockConnectorFactory.Action[].class).toInstance(actions);
+            binder.bind(MockConnectorFactory.class).in(Scopes.SINGLETON);
+            binder.bind(ConnectionFactory.class).annotatedWith(StatsCollecting.class).to(Key.get(MockConnectorFactory.class));
+        });
     }
 
     public static class MockConnectorFactory
@@ -115,6 +150,7 @@ public class TestRetryingConnectionFactory
         private final Deque<Action> actions = new ArrayDeque<>();
         private int callCount;
 
+        @Inject
         public MockConnectorFactory(Action... actions)
         {
             Stream.of(actions)
