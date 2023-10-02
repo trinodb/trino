@@ -774,7 +774,7 @@ public class MockConnector
         }
 
         @Override
-        public Optional<Type> getSupportedType(ConnectorSession session, Type type)
+        public Optional<Type> getSupportedType(ConnectorSession session, Map<String, Object> tableProperties, Type type)
         {
             return getSupportedType.apply(session, type);
         }

@@ -393,7 +393,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Type type)
+    public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Map<String, Object> tableProperties, Type type)
     {
         throw new UnsupportedOperationException();
     }

@@ -1008,11 +1008,11 @@ public final class MetadataManager
     }
 
     @Override
-    public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Type type)
+    public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Map<String, Object> tableProperties, Type type)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogHandle);
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
-        return metadata.getSupportedType(session.toConnectorSession(catalogHandle), type)
+        return metadata.getSupportedType(session.toConnectorSession(catalogHandle), tableProperties, type)
                 .map(newType -> {
                     if (!typeCoercion.isCompatible(newType, type)) {
                         throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, format("Type '%s' is not compatible with the supplied type '%s' in getSupportedType", type, newType));
