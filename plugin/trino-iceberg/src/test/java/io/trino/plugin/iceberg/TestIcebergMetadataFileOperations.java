@@ -41,7 +41,6 @@ import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_CREATE;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_CREATE_OR_OVERWRITE;
-import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_LOCATION;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
@@ -116,11 +115,9 @@ public class TestIcebergMetadataFileOperations
         assertFileSystemAccesses("CREATE TABLE test_create (id VARCHAR, age INT)",
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation(METADATA_JSON, OUTPUT_FILE_CREATE), 1)
-                        .addCopies(new FileOperation(METADATA_JSON, OUTPUT_FILE_LOCATION), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation(SNAPSHOT, OUTPUT_FILE_CREATE_OR_OVERWRITE), 1)
-                        .addCopies(new FileOperation(SNAPSHOT, OUTPUT_FILE_LOCATION), 2)
                         .build());
     }
 
@@ -132,13 +129,10 @@ public class TestIcebergMetadataFileOperations
                 "CREATE TABLE test_create_as_select AS SELECT 1 col_name",
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation(METADATA_JSON, OUTPUT_FILE_CREATE), 1)
-                        .addCopies(new FileOperation(METADATA_JSON, OUTPUT_FILE_LOCATION), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation(SNAPSHOT, OUTPUT_FILE_CREATE_OR_OVERWRITE), 1)
-                        .addCopies(new FileOperation(SNAPSHOT, OUTPUT_FILE_LOCATION), 2)
                         .addCopies(new FileOperation(MANIFEST, OUTPUT_FILE_CREATE_OR_OVERWRITE), 1)
-                        .addCopies(new FileOperation(MANIFEST, OUTPUT_FILE_LOCATION), 1)
                         .build());
 
         assertFileSystemAccesses(
@@ -147,13 +141,10 @@ public class TestIcebergMetadataFileOperations
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation(METADATA_JSON, OUTPUT_FILE_CREATE), 2) // TODO (https://github.com/trinodb/trino/issues/15439): it would be good to publish data and stats in one commit
-                        .addCopies(new FileOperation(METADATA_JSON, OUTPUT_FILE_LOCATION), 2)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation(SNAPSHOT, OUTPUT_FILE_CREATE_OR_OVERWRITE), 1)
-                        .addCopies(new FileOperation(SNAPSHOT, OUTPUT_FILE_LOCATION), 2)
                         .addCopies(new FileOperation(MANIFEST, OUTPUT_FILE_CREATE_OR_OVERWRITE), 1)
-                        .addCopies(new FileOperation(MANIFEST, OUTPUT_FILE_LOCATION), 1)
                         .addCopies(new FileOperation(STATS, OUTPUT_FILE_CREATE), 1)
                         .build());
     }
