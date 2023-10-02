@@ -174,16 +174,21 @@ public final class FlatHash
         return getIndex(blocks, position, hash) >= 0;
     }
 
-    public int putIfAbsent(Block[] blocks, int position)
+    public void computeHashes(Block[] blocks, long[] hashes, int offset, int length)
     {
-        long hash;
         if (hasPrecomputedHash) {
-            hash = BIGINT.getLong(blocks[blocks.length - 1], position);
+            Block hashBlock = blocks[blocks.length - 1];
+            for (int i = 0; i < length; i++) {
+                hashes[i] = BIGINT.getLong(hashBlock, offset + i);
+            }
         }
         else {
-            hash = flatHashStrategy.hash(blocks, position);
+            flatHashStrategy.hashBlocksBatched(blocks, hashes, offset, length);
         }
+    }
 
+    public int putIfAbsent(Block[] blocks, int position, long hash)
+    {
         int index = getIndex(blocks, position, hash);
         if (index >= 0) {
             return (int) INT_HANDLE.get(getRecords(index), getRecordOffset(index) + recordGroupIdOffset);
@@ -195,6 +200,19 @@ public final class FlatHash
             rehash(0);
         }
         return groupId;
+    }
+
+    public int putIfAbsent(Block[] blocks, int position)
+    {
+        long hash;
+        if (hasPrecomputedHash) {
+            hash = BIGINT.getLong(blocks[blocks.length - 1], position);
+        }
+        else {
+            hash = flatHashStrategy.hash(blocks, position);
+        }
+
+        return putIfAbsent(blocks, position, hash);
     }
 
     private int getIndex(Block[] blocks, int position, long hash)
