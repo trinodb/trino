@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.base.Throwables;
+import com.google.inject.Inject;
 import dev.failsafe.Failsafe;
 import dev.failsafe.FailsafeException;
 import dev.failsafe.RetryPolicy;
@@ -41,7 +42,8 @@ public class RetryingConnectionFactory
 
     private final ConnectionFactory delegate;
 
-    public RetryingConnectionFactory(ConnectionFactory delegate)
+    @Inject
+    public RetryingConnectionFactory(@StatsCollecting ConnectionFactory delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
