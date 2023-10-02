@@ -37,6 +37,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_WITH_HIDDEN_COLUMN;
@@ -118,6 +119,7 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("name", VarcharType.createVarcharType(25).getTypeId()),
                         new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId()),
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId())),
+                Optional.of(Duration.ZERO),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 ImmutableMap.of());
@@ -132,6 +134,7 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("name", VarcharType.createVarcharType(25).getTypeId()),
                         new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId()),
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId())),
+                Optional.of(Duration.ZERO),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 ImmutableMap.of());
@@ -146,6 +149,7 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("name", VarcharType.createVarcharType(2).getTypeId()),
                         new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId()),
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId())),
+                Optional.of(Duration.ZERO),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 ImmutableMap.of());

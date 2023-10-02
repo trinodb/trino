@@ -168,6 +168,7 @@ public class TestEventListenerBasic
                                     Optional.empty(),
                                     Optional.empty(),
                                     ImmutableList.of(new Column("test_column", BIGINT.getTypeId())),
+                                    Optional.of(Duration.ZERO),
                                     Optional.empty(),
                                     Optional.of("alice"),
                                     ImmutableMap.of());

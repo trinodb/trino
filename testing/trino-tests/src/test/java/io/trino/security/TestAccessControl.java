@@ -67,6 +67,7 @@ import io.trino.testing.TestingSession;
 import org.junit.jupiter.api.Test;
 
 import java.lang.invoke.MethodHandles;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -208,6 +209,7 @@ public class TestAccessControl
                                 Optional.empty(),
                                 Optional.empty(),
                                 ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("test", BIGINT.getTypeId())),
+                                Optional.of(Duration.ZERO),
                                 Optional.of("comment"),
                                 Optional.of("owner"),
                                 ImmutableMap.of());
