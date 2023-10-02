@@ -4629,7 +4629,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testRowLevelDelete()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_delete", "AS SELECT * FROM region")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 2", 1);
@@ -4645,7 +4645,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_update", "AS SELECT * FROM nation")) {
             assertQueryFails("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", MODIFYING_ROWS_MESSAGE);
         }
@@ -4659,7 +4659,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_update", "AS SELECT * FROM nation")) {
             assertQueryFails("UPDATE " + table.getName() + " SET nationkey = nationkey * 100 WHERE regionkey = 2", MODIFYING_ROWS_MESSAGE);
         }
@@ -4682,6 +4682,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testRowLevelUpdate()
     {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
         if (!hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
             // Note this change is a no-op, if actually run
             assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", MODIFYING_ROWS_MESSAGE);
