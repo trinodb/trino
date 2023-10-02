@@ -619,58 +619,76 @@ public abstract class BaseJdbcClient
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
 
-        ConnectorIdentity identity = session.getIdentity();
         if (!getSchemaNames(session).contains(schemaTableName.getSchemaName())) {
             throw new SchemaNotFoundException(schemaTableName.getSchemaName());
         }
 
         try (Connection connection = connectionFactory.openConnection(session)) {
-            verify(connection.getAutoCommit());
-            RemoteIdentifiers remoteIdentifiers = getRemoteIdentifiers(connection);
-            String remoteSchema = identifierMapping.toRemoteSchemaName(remoteIdentifiers, identity, schemaTableName.getSchemaName());
-            String remoteTable = identifierMapping.toRemoteTableName(remoteIdentifiers, identity, remoteSchema, schemaTableName.getTableName());
-            String remoteTargetTableName = identifierMapping.toRemoteTableName(remoteIdentifiers, identity, remoteSchema, targetTableName);
-            String catalog = connection.getCatalog();
-
-            verifyTableName(connection.getMetaData(), remoteTargetTableName);
-
-            List<ColumnMetadata> columns = tableMetadata.getColumns();
-            ImmutableList.Builder<String> columnNames = ImmutableList.builderWithExpectedSize(columns.size());
-            ImmutableList.Builder<Type> columnTypes = ImmutableList.builderWithExpectedSize(columns.size());
-            // columnList is only used for createTableSql - the extraColumns are not included on the JdbcOutputTableHandle
-            ImmutableList.Builder<String> columnList = ImmutableList.builderWithExpectedSize(columns.size() + (pageSinkIdColumn.isPresent() ? 1 : 0));
-
-            for (ColumnMetadata column : columns) {
-                String columnName = identifierMapping.toRemoteColumnName(remoteIdentifiers, column.getName());
-                verifyColumnName(connection.getMetaData(), columnName);
-                columnNames.add(columnName);
-                columnTypes.add(column.getType());
-                columnList.add(getColumnDefinitionSql(session, column, columnName));
-            }
-
-            Optional<String> pageSinkIdColumnName = Optional.empty();
-            if (pageSinkIdColumn.isPresent()) {
-                String columnName = identifierMapping.toRemoteColumnName(remoteIdentifiers, pageSinkIdColumn.get().getName());
-                pageSinkIdColumnName = Optional.of(columnName);
-                verifyColumnName(connection.getMetaData(), columnName);
-                columnList.add(getColumnDefinitionSql(session, pageSinkIdColumn.get(), columnName));
-            }
-
-            RemoteTableName remoteTableName = new RemoteTableName(Optional.ofNullable(catalog), Optional.ofNullable(remoteSchema), remoteTargetTableName);
-            for (String sql : createTableSqls(remoteTableName, columnList.build(), tableMetadata)) {
-                execute(session, connection, sql);
-            }
-
-            return new JdbcOutputTableHandle(
-                    catalog,
-                    remoteSchema,
-                    remoteTable,
-                    columnNames.build(),
-                    columnTypes.build(),
-                    Optional.empty(),
-                    Optional.of(remoteTargetTableName),
-                    pageSinkIdColumnName);
+            return createTable(
+                    session,
+                    connection,
+                    tableMetadata,
+                    schemaTableName,
+                    targetTableName,
+                    pageSinkIdColumn);
         }
+    }
+
+    protected JdbcOutputTableHandle createTable(
+            ConnectorSession session,
+            Connection connection,
+            ConnectorTableMetadata tableMetadata,
+            SchemaTableName schemaTableName,
+            String targetTableName,
+            Optional<ColumnMetadata> pageSinkIdColumn)
+            throws SQLException
+    {
+        ConnectorIdentity identity = session.getIdentity();
+        verify(connection.getAutoCommit());
+        RemoteIdentifiers remoteIdentifiers = getRemoteIdentifiers(connection);
+        String remoteSchema = identifierMapping.toRemoteSchemaName(remoteIdentifiers, identity, schemaTableName.getSchemaName());
+        String remoteTable = identifierMapping.toRemoteTableName(remoteIdentifiers, identity, remoteSchema, schemaTableName.getTableName());
+        String remoteTargetTableName = identifierMapping.toRemoteTableName(remoteIdentifiers, identity, remoteSchema, targetTableName);
+        String catalog = connection.getCatalog();
+
+        verifyTableName(connection.getMetaData(), remoteTargetTableName);
+
+        List<ColumnMetadata> columns = tableMetadata.getColumns();
+        ImmutableList.Builder<String> columnNames = ImmutableList.builderWithExpectedSize(columns.size());
+        ImmutableList.Builder<Type> columnTypes = ImmutableList.builderWithExpectedSize(columns.size());
+        // columnList is only used for createTableSql - the extraColumns are not included on the JdbcOutputTableHandle
+        ImmutableList.Builder<String> columnList = ImmutableList.builderWithExpectedSize(columns.size() + (pageSinkIdColumn.isPresent() ? 1 : 0));
+
+        for (ColumnMetadata column : columns) {
+            String columnName = identifierMapping.toRemoteColumnName(remoteIdentifiers, column.getName());
+            verifyColumnName(connection.getMetaData(), columnName);
+            columnNames.add(columnName);
+            columnTypes.add(column.getType());
+            columnList.add(getColumnDefinitionSql(session, column, columnName));
+        }
+
+        Optional<String> pageSinkIdColumnName = Optional.empty();
+        if (pageSinkIdColumn.isPresent()) {
+            String columnName = identifierMapping.toRemoteColumnName(remoteIdentifiers, pageSinkIdColumn.get().getName());
+            pageSinkIdColumnName = Optional.of(columnName);
+            verifyColumnName(connection.getMetaData(), columnName);
+            columnList.add(getColumnDefinitionSql(session, pageSinkIdColumn.get(), columnName));
+        }
+
+        RemoteTableName remoteTableName = new RemoteTableName(Optional.ofNullable(catalog), Optional.ofNullable(remoteSchema), remoteTargetTableName);
+        for (String sql : createTableSqls(remoteTableName, columnList.build(), tableMetadata)) {
+            execute(session, connection, sql);
+        }
+
+        return new JdbcOutputTableHandle(
+                catalog,
+                remoteSchema,
+                remoteTable,
+                columnNames.build(),
+                columnTypes.build(),
+                Optional.empty(),
+                Optional.of(remoteTargetTableName),
+                pageSinkIdColumnName);
     }
 
     protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
@@ -707,50 +725,40 @@ public abstract class BaseJdbcClient
     public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
     {
         SchemaTableName schemaTableName = tableHandle.asPlainTable().getSchemaTableName();
-        ConnectorIdentity identity = session.getIdentity();
-
         verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(tableHandle));
         try (Connection connection = connectionFactory.openConnection(session)) {
-            verify(connection.getAutoCommit());
-            RemoteIdentifiers remoteIdentifiers = getRemoteIdentifiers(connection);
-            String remoteSchema = identifierMapping.toRemoteSchemaName(remoteIdentifiers, identity, schemaTableName.getSchemaName());
-            String remoteTable = identifierMapping.toRemoteTableName(remoteIdentifiers, identity, remoteSchema, schemaTableName.getTableName());
-            String catalog = connection.getCatalog();
+            return beginInsertTable(
+                    session,
+                    connection,
+                    schemaTableName,
+                    tableHandle,
+                    columns);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
 
-            ImmutableList.Builder<String> columnNames = ImmutableList.builder();
-            ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
-            ImmutableList.Builder<JdbcTypeHandle> jdbcColumnTypes = ImmutableList.builder();
-            for (JdbcColumnHandle column : columns) {
-                columnNames.add(column.getColumnName());
-                columnTypes.add(column.getColumnType());
-                jdbcColumnTypes.add(column.getJdbcTypeHandle());
-            }
+    protected JdbcOutputTableHandle beginInsertTable(ConnectorSession session, Connection connection, SchemaTableName schemaTableName, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
+            throws SQLException
+    {
+        ConnectorIdentity identity = session.getIdentity();
+        verify(connection.getAutoCommit());
+        RemoteIdentifiers remoteIdentifiers = getRemoteIdentifiers(connection);
+        String remoteSchema = identifierMapping.toRemoteSchemaName(remoteIdentifiers, identity, schemaTableName.getSchemaName());
+        String remoteTable = identifierMapping.toRemoteTableName(remoteIdentifiers, identity, remoteSchema, schemaTableName.getTableName());
+        String catalog = connection.getCatalog();
 
-            if (isNonTransactionalInsert(session)) {
-                return new JdbcOutputTableHandle(
-                        catalog,
-                        remoteSchema,
-                        remoteTable,
-                        columnNames.build(),
-                        columnTypes.build(),
-                        Optional.of(jdbcColumnTypes.build()),
-                        Optional.empty(),
-                        Optional.empty());
-            }
+        ImmutableList.Builder<String> columnNames = ImmutableList.builder();
+        ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
+        ImmutableList.Builder<JdbcTypeHandle> jdbcColumnTypes = ImmutableList.builder();
+        for (JdbcColumnHandle column : columns) {
+            columnNames.add(column.getColumnName());
+            columnTypes.add(column.getColumnType());
+            jdbcColumnTypes.add(column.getJdbcTypeHandle());
+        }
 
-            String remoteTemporaryTableName = identifierMapping.toRemoteTableName(remoteIdentifiers, identity, remoteSchema, generateTemporaryTableName(session));
-            copyTableSchema(session, connection, catalog, remoteSchema, remoteTable, remoteTemporaryTableName, columnNames.build());
-
-            Optional<ColumnMetadata> pageSinkIdColumn = Optional.empty();
-            if (shouldUseFaultTolerantExecution(session)) {
-                pageSinkIdColumn = Optional.of(getPageSinkIdColumn(columnNames.build()));
-                addColumn(session, connection, new RemoteTableName(
-                        Optional.ofNullable(catalog),
-                        Optional.ofNullable(remoteSchema),
-                        remoteTemporaryTableName
-                ), pageSinkIdColumn.get());
-            }
-
+        if (isNonTransactionalInsert(session)) {
             return new JdbcOutputTableHandle(
                     catalog,
                     remoteSchema,
@@ -758,12 +766,32 @@ public abstract class BaseJdbcClient
                     columnNames.build(),
                     columnTypes.build(),
                     Optional.of(jdbcColumnTypes.build()),
-                    Optional.of(remoteTemporaryTableName),
-                    pageSinkIdColumn.map(column -> identifierMapping.toRemoteColumnName(remoteIdentifiers, column.getName())));
+                    Optional.empty(),
+                    Optional.empty());
         }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+
+        String remoteTemporaryTableName = identifierMapping.toRemoteTableName(remoteIdentifiers, identity, remoteSchema, generateTemporaryTableName(session));
+        copyTableSchema(session, connection, catalog, remoteSchema, remoteTable, remoteTemporaryTableName, columnNames.build());
+
+        Optional<ColumnMetadata> pageSinkIdColumn = Optional.empty();
+        if (shouldUseFaultTolerantExecution(session)) {
+            pageSinkIdColumn = Optional.of(getPageSinkIdColumn(columnNames.build()));
+            addColumn(session, connection, new RemoteTableName(
+                    Optional.ofNullable(catalog),
+                    Optional.ofNullable(remoteSchema),
+                    remoteTemporaryTableName
+            ), pageSinkIdColumn.get());
         }
+
+        return new JdbcOutputTableHandle(
+                catalog,
+                remoteSchema,
+                remoteTable,
+                columnNames.build(),
+                columnTypes.build(),
+                Optional.of(jdbcColumnTypes.build()),
+                Optional.of(remoteTemporaryTableName),
+                pageSinkIdColumn.map(column -> identifierMapping.toRemoteColumnName(remoteIdentifiers, column.getName())));
     }
 
     protected void copyTableSchema(ConnectorSession session, Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
