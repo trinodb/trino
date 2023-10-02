@@ -19,7 +19,6 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchConnectorFactory;
-import io.trino.security.AccessControl;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorFactory;
@@ -29,7 +28,6 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.testing.LocalQueryRunner;
-import io.trino.transaction.TransactionManager;
 
 import java.io.Closeable;
 import java.util.ArrayList;
@@ -49,10 +47,8 @@ public class RuleTester
     private final Metadata metadata;
     private final Session session;
     private final LocalQueryRunner queryRunner;
-    private final TransactionManager transactionManager;
     private final SplitManager splitManager;
     private final PageSourceManager pageSourceManager;
-    private final AccessControl accessControl;
     private final TypeAnalyzer typeAnalyzer;
     private final FunctionManager functionManager;
 
@@ -67,16 +63,14 @@ public class RuleTester
         this.session = queryRunner.getDefaultSession();
         this.metadata = queryRunner.getMetadata();
         this.functionManager = queryRunner.getFunctionManager();
-        this.transactionManager = queryRunner.getTransactionManager();
         this.splitManager = queryRunner.getSplitManager();
         this.pageSourceManager = queryRunner.getPageSourceManager();
-        this.accessControl = queryRunner.getAccessControl();
         this.typeAnalyzer = createTestingTypeAnalyzer(queryRunner.getPlannerContext());
     }
 
-    public RuleAssert assertThat(Rule<?> rule)
+    public RuleBuilder assertThat(Rule<?> rule)
     {
-        return new RuleAssert(queryRunner.getPlannerContext(), queryRunner.getStatsCalculator(), queryRunner.getEstimatedExchangesCostCalculator(), session, rule, transactionManager, accessControl);
+        return new RuleBuilder(rule, queryRunner, session);
     }
 
     @Override
