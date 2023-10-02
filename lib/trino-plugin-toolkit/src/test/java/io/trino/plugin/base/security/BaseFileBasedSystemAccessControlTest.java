@@ -762,7 +762,11 @@ public abstract class BaseFileBasedSystemAccessControlTest
                         new CatalogSchemaTableName("some-catalog", "my_schema", "my_table"),
                         "col_a",
                         VARCHAR).orElseThrow(),
-                new ViewExpression(Optional.empty(), Optional.of("some-catalog"), Optional.of("my_schema"), "'mask_a'"));
+                ViewExpression.builder()
+                        .catalog("some-catalog")
+                        .schema("my_schema")
+                        .expression("'mask_a'")
+                        .build());
 
         SystemSecurityContext userGroup1Group3 = new SystemSecurityContext(Identity.forUser("user_1_3")
                 .withGroups(ImmutableSet.of("group1", "group3")).build(), queryId, queryStart);
@@ -781,7 +785,11 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertEquals(rowFilters.size(), 1);
         assertViewExpressionEquals(
                 rowFilters.get(0),
-                new ViewExpression(Optional.empty(), Optional.of("some-catalog"), Optional.of("my_schema"), "country='US'"));
+                ViewExpression.builder()
+                        .catalog("some-catalog")
+                        .schema("my_schema")
+                        .expression("country='US'")
+                        .build());
     }
 
     @Test
@@ -1288,7 +1296,11 @@ public abstract class BaseFileBasedSystemAccessControlTest
                         new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
                         "masked",
                         VARCHAR).orElseThrow(),
-                new ViewExpression(Optional.empty(), Optional.of("some-catalog"), Optional.of("bobschema"), "'mask'"));
+                ViewExpression.builder()
+                        .catalog("some-catalog")
+                        .schema("bobschema")
+                        .expression("'mask'")
+                        .build());
 
         assertViewExpressionEquals(
                 accessControl.getColumnMask(
@@ -1296,7 +1308,12 @@ public abstract class BaseFileBasedSystemAccessControlTest
                         new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
                         "masked_with_user",
                         VARCHAR).orElseThrow(),
-                new ViewExpression(Optional.of("mask-user"), Optional.of("some-catalog"), Optional.of("bobschema"), "'mask-with-user'"));
+                ViewExpression.builder()
+                        .identity("mask-user")
+                        .catalog("some-catalog")
+                        .schema("bobschema")
+                        .expression("'mask-with-user'")
+                        .build());
     }
 
     @Test
@@ -1312,13 +1329,22 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertEquals(rowFilters.size(), 1);
         assertViewExpressionEquals(
                 rowFilters.get(0),
-                new ViewExpression(Optional.empty(), Optional.of("some-catalog"), Optional.of("bobschema"), "starts_with(value, 'filter')"));
+                ViewExpression.builder()
+                        .catalog("some-catalog")
+                        .schema("bobschema")
+                        .expression("starts_with(value, 'filter')")
+                        .build());
 
         rowFilters = accessControl.getRowFilters(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns_with_grant"));
         assertEquals(rowFilters.size(), 1);
         assertViewExpressionEquals(
                 rowFilters.get(0),
-                new ViewExpression(Optional.of("filter-user"), Optional.of("some-catalog"), Optional.of("bobschema"), "starts_with(value, 'filter-with-user')"));
+                ViewExpression.builder()
+                        .identity("filter-user")
+                        .catalog("some-catalog")
+                        .schema("bobschema")
+                        .expression("starts_with(value, 'filter-with-user')")
+                        .build());
     }
 
     private static void assertViewExpressionEquals(ViewExpression actual, ViewExpression expected)

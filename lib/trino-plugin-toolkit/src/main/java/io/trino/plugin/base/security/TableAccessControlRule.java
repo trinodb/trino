@@ -105,20 +105,21 @@ public class TableAccessControlRule
     public Optional<ViewExpression> getColumnMask(String catalog, String schema, String column)
     {
         return Optional.ofNullable(columnConstraints.get(column)).flatMap(constraint ->
-                constraint.getMask().map(mask -> new ViewExpression(
-                        constraint.getMaskEnvironment().flatMap(ExpressionEnvironment::getUser),
-                        Optional.of(catalog),
-                        Optional.of(schema),
-                        mask)));
+                constraint.getMask().map(mask -> ViewExpression.builder()
+                        .identity(constraint.getMaskEnvironment().flatMap(ExpressionEnvironment::getUser).orElse(null))
+                        .catalog(catalog)
+                        .schema(schema)
+                        .expression(mask).build()));
     }
 
     public Optional<ViewExpression> getFilter(String catalog, String schema)
     {
-        return filter.map(filter -> new ViewExpression(
-                filterEnvironment.flatMap(ExpressionEnvironment::getUser),
-                Optional.of(catalog),
-                Optional.of(schema),
-                filter));
+        return filter.map(filter -> ViewExpression.builder()
+                .identity(filterEnvironment.flatMap(ExpressionEnvironment::getUser).orElse(null))
+                .catalog(catalog)
+                .schema(schema)
+                .expression(filter)
+                .build());
     }
 
     Optional<AnySchemaPermissionsRule> toAnySchemaPermissionsRule()
