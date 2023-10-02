@@ -24,12 +24,6 @@ public class ViewExpression
     private final Optional<String> schema;
     private final String expression;
 
-    @Deprecated
-    public ViewExpression(String identity, Optional<String> catalog, Optional<String> schema, String expression)
-    {
-        this(Optional.of(identity), catalog, schema, expression);
-    }
-
     public ViewExpression(Optional<String> identity, Optional<String> catalog, Optional<String> schema, String expression)
     {
         this.identity = requireNonNull(identity, "identity is null");
@@ -40,12 +34,6 @@ public class ViewExpression
         if (catalog.isEmpty() && schema.isPresent()) {
             throw new IllegalArgumentException("catalog must be present if schema is present");
         }
-    }
-
-    @Deprecated
-    public String getIdentity()
-    {
-        return identity.orElseThrow();
     }
 
     /**
