@@ -18,8 +18,8 @@ Set the callback/redirect URL to `https://<trino-coordinator-domain-name>/oauth2
 when configuring an OAuth 2.0 authorization server like an OpenID Connect (OIDC)
 provider.
 
-If Web UI is enabled, set the post-logout callback URL to 
-`https://<trino-coordinator-domain-name>/ui/logout/logout.html` when configuring 
+If Web UI is enabled, set the post-logout callback URL to
+`https://<trino-coordinator-domain-name>/ui/logout/logout.html` when configuring
 an OAuth 2.0 authentication server like an OpenID Connect (OIDC) provider.
 
 Using {doc}`TLS <tls>` and {doc}`a configured shared secret
@@ -84,89 +84,91 @@ web-ui.authentication.type=oauth2
 
 The following configuration properties are available:
 
-```{eval-rst}
-.. list-table:: OAuth2 configuration properties
-   :widths: 40 60
-   :header-rows: 1
+:::{list-table} OAuth2 configuration properties
+:widths: 40 60
+:header-rows: 1
 
-   * - Property
-     - Description
-   * - ``http-server.authentication.type``
-     - The type of authentication to use. Must  be set to ``oauth2`` to enable
-       OAuth2 authentication for the Trino coordinator.
-   * - ``http-server.authentication.oauth2.issuer``
-     - The issuer URL of the IdP. All issued tokens must have this in the ``iss`` field.
-   * - ``http-server.authentication.oauth2.access-token-issuer``
-     - The issuer URL of the IdP for access tokens, if different.
-       All issued access tokens must have this in the ``iss`` field.
-       Providing this value while OIDC discovery is enabled overrides the value
-       from the OpenID provider metadata document.
-       Defaults to the value of ``http-server.authentication.oauth2.issuer``.
-   * - ``http-server.authentication.oauth2.auth-url``
-     - The authorization URL. The URL a user's browser will be redirected to in
-       order to begin the OAuth 2.0 authorization process. Providing this value
-       while OIDC discovery is enabled overrides the value from the OpenID
-       provider metadata document.
-   * - ``http-server.authentication.oauth2.token-url``
-     - The URL of the endpoint on the authorization server which Trino uses to
-       obtain an access token. Providing this value while OIDC discovery is
-       enabled overrides the value from the OpenID provider metadata document.
-   * - ``http-server.authentication.oauth2.jwks-url``
-     - The URL of the JSON Web Key Set (JWKS) endpoint on the authorization
-       server. It provides Trino the set of keys containing the public key
-       to verify any JSON Web Token (JWT) from the authorization server.
-       Providing this value while OIDC discovery is enabled overrides the value
-       from the OpenID provider metadata document.
-   * - ``http-server.authentication.oauth2.userinfo-url``
-     - The URL of the IdPs ``/userinfo`` endpoint. If supplied then this URL is
-       used to validate the OAuth access token and retrieve any associated
-       claims. This is required if the IdP issues opaque tokens. Providing this
-       value while OIDC discovery is enabled overrides the value from the OpenID
-       provider metadata document.
-   * - ``http-server.authentication.oauth2.client-id``
-     - The public identifier of the Trino client.
-   * - ``http-server.authentication.oauth2.client-secret``
-     - The secret used to authorize Trino client with the authorization server.
-   * - ``http-server.authentication.oauth2.additional-audiences``
-     - Additional audiences to trust in addition to the client ID which is
-       always a trusted audience.
-   * - ``http-server.authentication.oauth2.scopes``
-     - Scopes requested by the server during the authorization challenge. See:
-       https://tools.ietf.org/html/rfc6749#section-3.3
-   * - ``http-server.authentication.oauth2.challenge-timeout``
-     - Maximum :ref:`duration <prop-type-duration>` of the authorization challenge.
-       Default is ``15m``.
-   * - ``http-server.authentication.oauth2.state-key``
-     - A secret key used by the SHA-256
-       `HMAC <https://tools.ietf.org/html/rfc2104>`_
-       algorithm to sign the state parameter in order to ensure that the
-       authorization request was not forged. Default is a random string
-       generated during the coordinator start.
-   * - ``http-server.authentication.oauth2.user-mapping.pattern``
-     - Regex to match against user. If matched, the user name is replaced with
-       first regex group. If not matched, authentication is denied.  Default is
-       ``(.*)`` which allows any user name.
-   * - ``http-server.authentication.oauth2.user-mapping.file``
-     - File containing rules for mapping user. See :doc:`/security/user-mapping`
-       for more information.
-   * - ``http-server.authentication.oauth2.principal-field``
-     - The field of the access token used for the Trino user principal. Defaults to ``sub``. Other commonly used fields include ``sAMAccountName``, ``name``, ``upn``, and ``email``.
-   * - ``http-server.authentication.oauth2.oidc.discovery``
-     - Enable reading the `OIDC provider metadata <https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata>`_.
-       Default is ``true``.
-   * - ``http-server.authentication.oauth2.oidc.discovery.timeout``
-     - The timeout when reading OpenID provider metadata. Default is ``30s``.
-   * - ``http-server.authentication.oauth2.oidc.use-userinfo-endpoint``
-     - Use the value of ``userinfo_endpoint`` `in the provider metadata <https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata>`_.
-       When a ``userinfo_endpoint`` value is supplied this URL is used to
-       validate the OAuth 2.0 access token, and retrieve any associated claims.
-       This flag allows ignoring the value provided in the metadata document.
-       Default is ``true``.
-   * - ``http-server.authentication.oauth2.end-session-url``
-     - The URL of the endpoint on the authorization server to which user's browser 
-       will be redirected to so that End-User will be logged out from the authorization 
-       server when logging out from Trino.
-```
+* - Property
+  - Description
+* - `http-server.authentication.type`
+  - The type of authentication to use. Must  be set to `oauth2` to enable OAuth2
+    authentication for the Trino coordinator.
+* - `http-server.authentication.oauth2.issuer`
+  - The issuer URL of the IdP. All issued tokens must have this in the `iss`
+    field.
+* - `http-server.authentication.oauth2.access-token-issuer`
+  - The issuer URL of the IdP for access tokens, if different. All issued access
+    tokens must have this in the `iss` field. Providing this value while OIDC
+    discovery is enabled overrides the value from the OpenID provider metadata
+    document. Defaults to the value of
+    `http-server.authentication.oauth2.issuer`.
+* - `http-server.authentication.oauth2.auth-url`
+  - The authorization URL. The URL a user's browser will be redirected to in
+    order to begin the OAuth 2.0 authorization process. Providing this value
+    while OIDC discovery is enabled overrides the value from the OpenID provider
+    metadata document.
+* - `http-server.authentication.oauth2.token-url`
+  - The URL of the endpoint on the authorization server which Trino uses to
+    obtain an access token. Providing this value while OIDC discovery is enabled
+    overrides the value from the OpenID provider metadata document.
+* - `http-server.authentication.oauth2.jwks-url`
+  - The URL of the JSON Web Key Set (JWKS) endpoint on the authorization server.
+    It provides Trino the set of keys containing the public key to verify any
+    JSON Web Token (JWT) from the authorization server. Providing this value
+    while OIDC discovery is enabled overrides the value from the OpenID provider
+    metadata document.
+* - `http-server.authentication.oauth2.userinfo-url`
+  - The URL of the IdPs `/userinfo` endpoint. If supplied then this URL is used
+    to validate the OAuth access token and retrieve any associated claims. This
+    is required if the IdP issues opaque tokens. Providing this value while OIDC
+    discovery is enabled overrides the value from the OpenID provider metadata
+    document.
+* - `http-server.authentication.oauth2.client-id`
+  - The public identifier of the Trino client.
+* - `http-server.authentication.oauth2.client-secret`
+  - The secret used to authorize Trino client with the authorization server.
+* - `http-server.authentication.oauth2.additional-audiences`
+  - Additional audiences to trust in addition to the client ID which is
+    always a trusted audience.
+* - `http-server.authentication.oauth2.scopes`
+  - Scopes requested by the server during the authorization challenge. See:
+    https://tools.ietf.org/html/rfc6749#section-3.3
+* - `http-server.authentication.oauth2.challenge-timeout`
+  - Maximum [duration](prop-type-duration) of the authorization challenge.
+    Default is `15m`.
+* - `http-server.authentication.oauth2.state-key`
+  - A secret key used by the SHA-256 [HMAC](https://tools.ietf.org/html/rfc2104)
+    algorithm to sign the state parameter in order to ensure that the
+    authorization request was not forged. Default is a random string generated
+    during the coordinator start.
+* - `http-server.authentication.oauth2.user-mapping.pattern`
+  - Regex to match against user. If matched, the user name is replaced with
+    first regex group. If not matched, authentication is denied.  Default is
+    `(.*)` which allows any user name.
+* - `http-server.authentication.oauth2.user-mapping.file`
+  - File containing rules for mapping user. See [](/security/user-mapping) for
+    more information.
+* - `http-server.authentication.oauth2.principal-field`
+  - The field of the access token used for the Trino user principal. Defaults to
+    `sub`. Other commonly used fields include `sAMAccountName`, `name`,
+    `upn`, and `email`.
+* - `http-server.authentication.oauth2.oidc.discovery`
+  - Enable reading the [OIDC provider metadata](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata).
+    Default is `true`.
+* - `http-server.authentication.oauth2.oidc.discovery.timeout`
+  - The timeout when reading OpenID provider metadata. Default is `30s`.
+* - `http-server.authentication.oauth2.oidc.use-userinfo-endpoint`
+  - Use the value of `userinfo_endpoint` in the [provider
+    metadata](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata).
+    When a `userinfo_endpoint` value is supplied this URL is used to validate
+    the OAuth 2.0 access token, and retrieve any associated claims. This flag
+    allows ignoring the value provided in the metadata document. Default is
+    `true`.
+* - `http-server.authentication.oauth2.end-session-url`
+  - The URL of the endpoint on the authentication server to which the user's
+    browser is redirected to so that End-User is logged out from the
+    authentication server when logging out from Trino.
+:::
 
 (trino-oauth2-refresh-tokens)=
 
@@ -215,33 +217,30 @@ http-server.authentication.oauth2.scopes=openid,offline_access [or offline]
 
 The following configuration properties are available:
 
-```{eval-rst}
-.. list-table:: OAuth2 configuration properties for refresh flow
-   :widths: 40 60
-   :header-rows: 1
+:::{list-table} OAuth2 configuration properties for refresh flow
+:widths: 40 60
+:header-rows: 1
 
-   * - Property
-     - Description
-   * - ``http-server.authentication.oauth2.refresh-tokens.issued-token.timeout``
-     - Expiration time for an issued token, which is the Trino-encrypted token
-       that contains an access token and a refresh token. The timeout value must
-       be less than or equal to the :ref:`duration <prop-type-duration>` of the
-       refresh token expiration issued by the IdP. Defaults to ``1h``. The
-       timeout value is the maximum session time for an OAuth2-authenticated
-       client with refresh tokens enabled. For more details, see
-       :ref:`trino-oauth2-troubleshooting`.
-   * - ``http-server.authentication.oauth2.refresh-tokens.issued-token.issuer``
-     - Issuer representing the coordinator instance, that is referenced in the
-       issued token, defaults to ``Trino_coordinator``. The current
-       Trino version is appended to the value. This is mainly used for
-       debugging purposes.
-   * - ``http-server.authentication.oauth2.refresh-tokens.issued-token.audience``
-     - Audience representing this coordinator instance, that is used in the
-       issued token. Defaults to ``Trino_coordinator``.
-   * - ``http-server.authentication.oauth2.refresh-tokens.secret-key``
-     - Base64-encoded secret key used to encrypt the generated token.
-       By default it's generated during startup.
-```
+* - Property
+  - Description
+* - `http-server.authentication.oauth2.refresh-tokens.issued-token.timeout`
+  - Expiration time for an issued token, which is the Trino-encrypted token that
+    contains an access token and a refresh token. The timeout value must be less
+    than or equal to the [duration](prop-type-duration) of the refresh token
+    expiration issued by the IdP. Defaults to `1h`. The timeout value is the
+    maximum session time for an OAuth2-authenticated client with refresh tokens
+    enabled. For more details, see [](trino-oauth2-troubleshooting).
+* - `http-server.authentication.oauth2.refresh-tokens.issued-token.issuer`
+  - Issuer representing the coordinator instance, that is referenced in the
+    issued token, defaults to `Trino_coordinator`. The current Trino version is
+    appended to the value. This is mainly used for debugging purposes.
+* - `http-server.authentication.oauth2.refresh-tokens.issued-token.audience`
+  - Audience representing this coordinator instance, that is used in the
+    issued token. Defaults to `Trino_coordinator`.
+* - `http-server.authentication.oauth2.refresh-tokens.secret-key`
+  - Base64-encoded secret key used to encrypt the generated token. By default
+    it's generated during startup.
+:::
 
 (trino-oauth2-troubleshooting)=
 

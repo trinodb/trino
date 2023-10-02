@@ -302,30 +302,29 @@ The installation provides a `bin/launcher` script, which requires Python in
 the `PATH`. The script can be used manually or as a daemon startup script. It
 accepts the following commands:
 
-```{eval-rst}
-.. list-table:: ``launcher`` commands
-  :widths: 15, 85
-  :header-rows: 1
+:::{list-table} `launcher` commands
+:widths: 15, 85
+:header-rows: 1
 
-  * - Command
-    - Action
-  * - ``run``
-    - Starts the server in the foreground and leaves it running. To shut down
-      the server, use Ctrl+C in this terminal or the ``stop`` command from
-      another terminal.
-  * - ``start``
-    - Starts the server as a daemon and returns its process ID.
-  * - ``stop``
-    - Shuts down a server started with either ``start`` or ``run``. Sends the
-      SIGTERM signal.
-  * - ``restart``
-    - Stops then restarts a running server, or starts a stopped server,
-      assigning a new process ID.
-  * - ``kill``
-    - Shuts down a possibly hung server by sending the SIGKILL signal.
-  * - ``status``
-    - Prints a status line, either *Stopped pid* or *Running as pid*.
-```
+* - Command
+  - Action
+* - `run`
+  - Starts the server in the foreground and leaves it running. To shut down
+    the server, use Ctrl+C in this terminal or the `stop` command from
+    another terminal.
+* - `start`
+  - Starts the server as a daemon and returns its process ID.
+* - `stop`
+  - Shuts down a server started with either `start` or `run`. Sends the
+    SIGTERM signal.
+* - `restart`
+  - Stops then restarts a running server, or starts a stopped server,
+    assigning a new process ID.
+* - `kill`
+  - Shuts down a possibly hung server by sending the SIGKILL signal.
+* - `status`
+  - Prints a status line, either *Stopped pid* or *Running as pid*.
+:::
 
 A number of additional options allow you to specify configuration file and
 directory locations, as well as Java options. Run the launcher with `--help`
