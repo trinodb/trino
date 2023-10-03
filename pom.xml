@@ -289,7 +289,7 @@
             <dependency>
                 <groupId>com.amazonaws</groupId>
                 <artifactId>amazon-kinesis-client</artifactId>
-                <version>1.6.3</version>
+                <version>1.15.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.amazonaws</groupId>
