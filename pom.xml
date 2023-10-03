@@ -183,6 +183,7 @@
         <dep.flyway.version>9.22.2</dep.flyway.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
         <dep.antlr.version>4.13.1</dep.antlr.version>
+        <dep.asm.version>9.6</dep.asm.version>
 
         <dep.docker.images.version>86</dep.docker.images.version>
 
@@ -258,7 +259,7 @@
             <dependency>
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm-bom</artifactId>
-                <version>9.6</version>
+                <version>${dep.asm.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
