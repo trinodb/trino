@@ -16,9 +16,10 @@ package io.trino.plugin.geospatial.aggregation;
 import com.google.common.base.Joiner;
 import io.trino.plugin.geospatial.GeoPlugin;
 import io.trino.sql.query.QueryAssertions;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Arrays;
 import java.util.List;
@@ -28,20 +29,22 @@ import static java.lang.String.format;
 import static java.util.Collections.reverse;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestGeometryUnionGeoAggregation
         extends AbstractTestGeoAggregationFunctions
 {
     private QueryAssertions assertions;
 
-    @BeforeClass
+    @BeforeAll
     public void init()
     {
         assertions = new QueryAssertions();
         assertions.addPlugin(new GeoPlugin());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         assertions.close();

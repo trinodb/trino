@@ -44,9 +44,10 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.SpatialJoinNode.Type;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingTaskContext;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
 import java.util.Optional;
@@ -76,8 +77,9 @@ import static java.util.Collections.emptyIterator;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
 public class TestSpatialJoinOperator
 {
     private static final String KDB_TREE_JSON = KdbTreeUtils.toJson(
@@ -100,7 +102,7 @@ public class TestSpatialJoinOperator
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         // Before/AfterMethod is chosen here because the executor needs to be shutdown
@@ -120,7 +122,7 @@ public class TestSpatialJoinOperator
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         executor.shutdownNow();

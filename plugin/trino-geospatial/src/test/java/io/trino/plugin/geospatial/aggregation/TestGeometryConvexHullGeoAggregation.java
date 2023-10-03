@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.geospatial.aggregation;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.nio.file.Files;
