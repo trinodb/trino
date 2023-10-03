@@ -168,7 +168,7 @@
         <dep.gcs.version>2.2.8</dep.gcs.version>
         <dep.swagger.version>1.6.11</dep.swagger.version>
         <dep.kotlin.version>1.9.10</dep.kotlin.version>
-
+        <dep.google.http.client.version>1.43.3</dep.google.http.client.version>
         <dep.errorprone.version>2.22.0</dep.errorprone.version>
         <dep.testcontainers.version>1.19.1</dep.testcontainers.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
@@ -474,6 +474,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.google.auto.value</groupId>
+                <artifactId>auto-value-annotations</artifactId>
+                <version>1.10.2</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
                 <version>hadoop2-${dep.gcs.version}</version>
@@ -497,6 +503,18 @@
                 <groupId>com.google.errorprone</groupId>
                 <artifactId>error_prone_annotations</artifactId>
                 <version>${dep.errorprone.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.http-client</groupId>
+                <artifactId>google-http-client</artifactId>
+                <version>${dep.google.http.client.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.http-client</groupId>
+                <artifactId>google-http-client-gson</artifactId>
+                <version>${dep.google.http.client.version}</version>
             </dependency>
 
             <dependency>
