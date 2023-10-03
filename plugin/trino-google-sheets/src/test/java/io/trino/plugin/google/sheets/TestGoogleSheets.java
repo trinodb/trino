@@ -41,8 +41,8 @@ import static io.trino.plugin.google.sheets.TestSheetsPlugin.DATA_SHEET_ID;
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.getTestCredentialsPath;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.Math.toIntExact;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestGoogleSheets
         extends AbstractTestQueryFramework
@@ -93,7 +93,7 @@ public class TestGoogleSheets
                 .update(spreadsheetId, "Metadata", updateValues)
                 .setValueInputOption("RAW")
                 .execute();
-        assertEquals(toIntExact(updateResult.getUpdatedRows()), 5);
+        assertThat(toIntExact(updateResult.getUpdatedRows())).isEqualTo(5);
 
         updateValues = new ValueRange().setValues(ImmutableList.of(
                 ImmutableList.of("number", "text"),
@@ -106,7 +106,7 @@ public class TestGoogleSheets
                 .update(spreadsheetId, "Number Text", updateValues)
                 .setValueInputOption("RAW")
                 .execute();
-        assertEquals(toIntExact(updateResult.getUpdatedRows()), 6);
+        assertThat(toIntExact(updateResult.getUpdatedRows())).isEqualTo(6);
 
         updateValues = new ValueRange().setValues(ImmutableList.of(
                 ImmutableList.of("a", "A", "", "C"),
@@ -115,13 +115,13 @@ public class TestGoogleSheets
                 .update(spreadsheetId, "Table with duplicate and missing column names", updateValues)
                 .setValueInputOption("RAW")
                 .execute();
-        assertEquals(toIntExact(updateResult.getUpdatedRows()), 2);
+        assertThat(toIntExact(updateResult.getUpdatedRows())).isEqualTo(2);
 
         updateValues = new ValueRange().setValues(ImmutableList.of(ImmutableList.of("nationkey", "name", "regionkey", "comment")));
         updateResult = sheetsService.spreadsheets().values().update(spreadsheetId, "Nation Insert test", updateValues)
                 .setValueInputOption("RAW")
                 .execute();
-        assertEquals(toIntExact(updateResult.getUpdatedRows()), 1);
+        assertThat(toIntExact(updateResult.getUpdatedRows())).isEqualTo(1);
 
         return spreadsheetId;
     }
@@ -134,7 +134,7 @@ public class TestGoogleSheets
         assertQueryReturnsEmptyResult("SHOW TABLES IN gsheets.information_schema LIKE 'number_text'");
         assertQuery("select table_name from gsheets.information_schema.tables WHERE table_schema <> 'information_schema'", expectedTableNamesStatement);
         assertQuery("select table_name from gsheets.information_schema.tables WHERE table_schema <> 'information_schema' LIMIT 1000", expectedTableNamesStatement);
-        assertEquals(getQueryRunner().execute("select table_name from gsheets.information_schema.tables WHERE table_schema = 'unknown_schema'").getRowCount(), 0);
+        assertThat(getQueryRunner().execute("select table_name from gsheets.information_schema.tables WHERE table_schema = 'unknown_schema'").getRowCount()).isEqualTo(0);
     }
 
     @Test
