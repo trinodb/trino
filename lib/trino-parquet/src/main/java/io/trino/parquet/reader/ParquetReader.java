@@ -155,7 +155,7 @@ public class ParquetReader
             AggregatedMemoryContext memoryContext,
             ParquetReaderOptions options,
             Function<Exception, RuntimeException> exceptionTransform,
-            Optional<TupleDomainParquetPredicate> parquetPredicate,
+            Optional<FilterPredicate> filter,
             List<Optional<ColumnIndexStore>> columnIndexStore,
             Optional<ParquetWriteValidation> writeValidation)
             throws IOException
@@ -187,12 +187,8 @@ public class ParquetReader
         this.writeChecksumBuilder = writeValidation.map(validation -> createWriteChecksumBuilder(validation.getTypes()));
         this.rowGroupStatisticsValidation = writeValidation.map(validation -> createStatisticsValidationBuilder(validation.getTypes()));
 
-        requireNonNull(parquetPredicate, "parquetPredicate is null");
+        requireNonNull(filter, "filter is null");
         this.columnIndexStore = requireNonNull(columnIndexStore, "columnIndexStore is null");
-        Optional<FilterPredicate> filter = Optional.empty();
-        if (parquetPredicate.isPresent() && options.isUseColumnIndex()) {
-            filter = parquetPredicate.get().toParquetFilter(timeZone);
-        }
         this.blockRowRanges = calculateFilteredRowRanges(blocks, filter, columnIndexStore, primitiveFields);
 
         this.blockFactory = new ParquetBlockFactory(exceptionTransform);
@@ -534,6 +530,14 @@ public class ParquetReader
     public AggregatedMemoryContext getMemoryContext()
     {
         return memoryContext;
+    }
+
+    public static Optional<FilterPredicate> toParquetFilter(Optional<TupleDomainParquetPredicate> parquetPredicate, DateTimeZone timeZone, ParquetReaderOptions options)
+    {
+        if (parquetPredicate.isPresent() && options.isUseColumnIndex()) {
+            return parquetPredicate.get().toParquetFilter(timeZone);
+        }
+        return Optional.empty();
     }
 
     private static FilteredRowRanges[] calculateFilteredRowRanges(

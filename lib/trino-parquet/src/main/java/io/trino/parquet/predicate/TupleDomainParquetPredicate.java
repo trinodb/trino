@@ -671,7 +671,7 @@ public class TupleDomainParquetPredicate
         return Optional.of(valueSet.getDiscreteSet());
     }
 
-    private FilterPredicate convertToParquetFilter(DateTimeZone timeZone)
+    public FilterPredicate convertToParquetFilter(DateTimeZone timeZone)
     {
         FilterPredicate filter = null;
 

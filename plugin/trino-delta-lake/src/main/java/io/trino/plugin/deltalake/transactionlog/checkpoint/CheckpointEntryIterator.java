@@ -91,6 +91,7 @@ import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.predicateMatches;
+import static io.trino.parquet.reader.ParquetReader.toParquetFilter;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_DATA;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
@@ -283,7 +284,7 @@ public class CheckpointEntryIterator
                     memoryContext,
                     parquetReaderOptions,
                     exception -> handleException(dataSourceId, exception),
-                    Optional.of(parquetPredicate),
+                    toParquetFilter(Optional.of(parquetPredicate), UTC, parquetReaderOptions),
                     columnIndexes.build(),
                     parquetWriteValidation);
             ConnectorPageSource parquetPageSource = createParquetPageSource(baseColumns, fileSchema, messageColumn, true, parquetReaderProvider);
