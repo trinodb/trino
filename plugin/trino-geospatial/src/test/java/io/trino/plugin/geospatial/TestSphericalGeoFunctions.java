@@ -40,7 +40,6 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 public class TestSphericalGeoFunctions
@@ -87,7 +86,7 @@ public class TestSphericalGeoFunctions
         }
         Block block = builder.build();
         for (int i = 0; i < wktList.size(); i++) {
-            assertEquals(wktList.get(i), SPHERICAL_GEOGRAPHY.getObjectValue(null, block, i));
+            assertThat(wktList.get(i)).isEqualTo(SPHERICAL_GEOGRAPHY.getObjectValue(null, block, i));
         }
     }
 
