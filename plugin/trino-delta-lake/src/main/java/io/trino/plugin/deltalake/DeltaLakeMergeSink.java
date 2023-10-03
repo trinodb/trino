@@ -504,7 +504,7 @@ public class DeltaLakeMergeSink
                 dataColumns.stream()
                         .map(DeltaLakeColumnHandle::toHiveColumnHandle)
                         .collect(toImmutableList()),
-                TupleDomain.all(),
+                ImmutableList.of(TupleDomain.all()),
                 true,
                 parquetDateTimeZone,
                 new FileFormatDataSourceStats(),

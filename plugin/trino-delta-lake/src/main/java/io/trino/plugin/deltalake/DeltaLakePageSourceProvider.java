@@ -230,7 +230,7 @@ public class DeltaLakePageSourceProvider
                 split.getStart(),
                 split.getLength(),
                 hiveColumnHandles.build(),
-                parquetPredicate,
+                ImmutableList.of(parquetPredicate),
                 true,
                 parquetDateTimeZone,
                 fileFormatDataSourceStats,
