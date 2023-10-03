@@ -37,7 +37,7 @@ import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.geospatial.GeoFunctions.stGeometryFromText;
 import static io.trino.plugin.geospatial.GeoFunctions.toSphericalGeography;
 import static io.trino.plugin.geospatial.GeometryBenchmarkUtils.loadPolygon;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @State(Scope.Thread)
 @Fork(2)
@@ -107,10 +107,10 @@ public class BenchmarkSTArea
         data.setup();
         BenchmarkSTArea benchmark = new BenchmarkSTArea();
 
-        assertEquals(Math.round(1000 * (Double) benchmark.stSphericalArea(data) / 3.659E8), 1000);
-        assertEquals(Math.round(1000 * (Double) benchmark.stSphericalArea500k(data) / 38842273735.0), 1000);
-        assertEquals(benchmark.stArea(data), 0.05033099592771004);
-        assertEquals(Math.round(1000 * (Double) benchmark.stArea500k(data) / Math.PI), 1000);
+        assertThat(Math.round(1000 * (Double) benchmark.stSphericalArea(data) / 3.659E8)).isEqualTo(1000);
+        assertThat(Math.round(1000 * (Double) benchmark.stSphericalArea500k(data) / 38842273735.0)).isEqualTo(1000);
+        assertThat(benchmark.stArea(data)).isEqualTo(0.05033099592771004);
+        assertThat(Math.round(1000 * (Double) benchmark.stArea500k(data) / Math.PI)).isEqualTo(1000);
     }
 
     private static String createPolygon(int vertexCount)

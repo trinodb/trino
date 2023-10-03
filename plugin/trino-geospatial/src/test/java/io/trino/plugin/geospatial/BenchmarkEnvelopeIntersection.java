@@ -35,7 +35,7 @@ import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.geospatial.GeoFunctions.stEnvelope;
 import static io.trino.plugin.geospatial.GeoFunctions.stGeometryFromText;
 import static io.trino.plugin.geospatial.GeoFunctions.stIntersection;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @State(Scope.Thread)
 @Fork(2)
@@ -82,7 +82,7 @@ public class BenchmarkEnvelopeIntersection
         BenchmarkData data = new BenchmarkData();
         data.setup();
         BenchmarkEnvelopeIntersection benchmark = new BenchmarkEnvelopeIntersection();
-        assertEquals(deserialize(benchmark.envelopes(data)), deserialize(benchmark.geometries(data)));
+        assertThat(deserialize(benchmark.envelopes(data))).isEqualTo(deserialize(benchmark.geometries(data)));
     }
 
     public static void main(String[] args)
