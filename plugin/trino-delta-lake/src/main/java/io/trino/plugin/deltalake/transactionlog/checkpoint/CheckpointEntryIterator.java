@@ -80,7 +80,6 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
@@ -187,20 +186,20 @@ public class CheckpointEntryIterator
             this.columnsWithMinMaxStats = columnsWithStats(schema, this.metadataEntry.getOriginalPartitionColumns());
         }
 
-        List<HiveColumnHandle> columns = fields.stream()
-                .map(field -> buildColumnHandle(field, checkpointSchemaManager, this.metadataEntry, this.protocolEntry).toHiveColumnHandle())
-                .collect(toImmutableList());
-
-        TupleDomain<HiveColumnHandle> tupleDomain = columns.size() > 1 ?
-                TupleDomain.all() :
-                buildTupleDomainColumnHandle(getOnlyElement(fields), getOnlyElement(columns));
+        ImmutableList.Builder<HiveColumnHandle> columnsBuilder = ImmutableList.builderWithExpectedSize(fields.size());
+        ImmutableList.Builder<TupleDomain<HiveColumnHandle>> disjunctDomainsBuilder = ImmutableList.builderWithExpectedSize(fields.size());
+        for (EntryType field : fields) {
+            HiveColumnHandle column = buildColumnHandle(field, checkpointSchemaManager, this.metadataEntry, this.protocolEntry).toHiveColumnHandle();
+            columnsBuilder.add(column);
+            disjunctDomainsBuilder.add(buildTupleDomainColumnHandle(field, column));
+        }
 
         ReaderPageSource pageSource = ParquetPageSourceFactory.createPageSource(
                 checkpoint,
                 0,
                 fileSize,
-                columns,
-                tupleDomain,
+                columnsBuilder.build(),
+                disjunctDomainsBuilder.build(), // OR-ed condition
                 true,
                 DateTimeZone.UTC,
                 stats,
