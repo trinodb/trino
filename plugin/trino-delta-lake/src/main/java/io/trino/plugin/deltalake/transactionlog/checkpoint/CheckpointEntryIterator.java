@@ -64,6 +64,8 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.filter2.predicate.FilterApi;
+import org.apache.parquet.filter2.predicate.FilterPredicate;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
@@ -74,6 +76,7 @@ import org.apache.parquet.schema.MessageType;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -86,12 +89,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.predicateMatches;
-import static io.trino.parquet.reader.ParquetReader.toParquetFilter;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_DATA;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
@@ -209,9 +210,18 @@ public class CheckpointEntryIterator
                 .map(field -> buildColumnHandle(field, checkpointSchemaManager, this.metadataEntry, this.protocolEntry).toHiveColumnHandle())
                 .collect(toImmutableList());
 
-        TupleDomain<HiveColumnHandle> tupleDomain = columns.size() > 1 ?
-                TupleDomain.all() :
-                buildTupleDomainColumnHandle(getOnlyElement(fields), getOnlyElement(columns));
+        List<TupleDomain<HiveColumnHandle>> tupleDomains; // OR-ed condition
+        if (columns.isEmpty()) {
+            tupleDomains = ImmutableList.of(TupleDomain.all());
+        }
+        else {
+            ImmutableList.Builder<TupleDomain<HiveColumnHandle>> builder = ImmutableList.builder();
+            int i = 0;
+            for (EntryType field : fields) {
+                builder.add(buildTupleDomainColumnHandle(field, columns.get(i++)));
+            }
+            tupleDomains = builder.build();
+        }
 
         ReaderPageSource pageSource;
         Optional<ParquetWriteValidation> parquetWriteValidation = Optional.empty();
@@ -234,10 +244,25 @@ public class CheckpointEntryIterator
 
             Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
 
-            TupleDomain<ColumnDescriptor> parquetTupleDomain = parquetReaderOptions.isIgnoreStatistics()
-                    ? TupleDomain.all()
-                    : ParquetPageSourceFactory.getParquetTupleDomain(descriptorsByPath, tupleDomain, fileSchema, true);
-            TupleDomainParquetPredicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, UTC);
+            List<ParquetDomainAndPredicate> parquetDomains = new ArrayList<>();
+            FilterPredicate nullableFilterPredicate = null;
+            for (TupleDomain<HiveColumnHandle> domain : tupleDomains) {
+                TupleDomain<ColumnDescriptor> parquetTupleDomain = parquetReaderOptions.isIgnoreStatistics()
+                        ? TupleDomain.all()
+                        : ParquetPageSourceFactory.getParquetTupleDomain(descriptorsByPath, domain, fileSchema, true);
+                TupleDomainParquetPredicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, UTC);
+                parquetDomains.add(new ParquetDomainAndPredicate(parquetTupleDomain, parquetPredicate));
+
+                FilterPredicate filter = parquetPredicate.convertToParquetFilter(UTC);
+                if (filter != null) {
+                    if (nullableFilterPredicate == null) {
+                        nullableFilterPredicate = filter;
+                    }
+                    else {
+                        nullableFilterPredicate = FilterApi.or(nullableFilterPredicate, filter);
+                    }
+                }
+            }
 
             long nextStart = 0;
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
@@ -245,24 +270,34 @@ public class CheckpointEntryIterator
             ImmutableList.Builder<Optional<ColumnIndexStore>> columnIndexes = ImmutableList.builder();
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
-                Optional<ColumnIndexStore> columnIndex = ParquetPageSourceFactory.getColumnIndexStore(dataSource, block, descriptorsByPath, parquetTupleDomain, parquetReaderOptions);
+                boolean isBlockAdded = false;
+                for (ParquetDomainAndPredicate domain : parquetDomains) {
+                    if (isBlockAdded) {
+                        break;
+                    }
 
-                if ((long) 0 <= firstDataPage && firstDataPage < fileSize &&
-                        predicateMatches(
-                            parquetPredicate,
-                            block,
-                            dataSource,
-                            descriptorsByPath,
-                            parquetTupleDomain,
-                            columnIndex,
-                            Optional.empty(),
-                            UTC,
-                            domainCompactionThreshold)) {
-                    blocks.add(block);
-                    blockStarts.add(nextStart);
-                    columnIndexes.add(columnIndex);
+                    TupleDomain<ColumnDescriptor> parquetTupleDomain = domain.tupleDomain;
+                    TupleDomainParquetPredicate parquetPredicate = domain.predicate;
+                    Optional<ColumnIndexStore> columnIndex = ParquetPageSourceFactory.getColumnIndexStore(dataSource, block, descriptorsByPath, parquetTupleDomain, parquetReaderOptions);
+
+                    if ((long) 0 <= firstDataPage && firstDataPage < fileSize &&
+                            predicateMatches(
+                                parquetPredicate,
+                                block,
+                                dataSource,
+                                descriptorsByPath,
+                                parquetTupleDomain,
+                                columnIndex,
+                                Optional.empty(),
+                                UTC,
+                                domainCompactionThreshold)) {
+                        blocks.add(block);
+                        blockStarts.add(nextStart);
+                        columnIndexes.add(columnIndex);
+                        isBlockAdded = true;
+                    }
+                    nextStart += block.getRowCount();
                 }
-                nextStart += block.getRowCount();
             }
 
             Optional<ReaderColumns> readerProjections = projectBaseColumns(columns, true);
@@ -272,6 +307,7 @@ public class CheckpointEntryIterator
                                     .collect(toUnmodifiableList()))
                     .orElse(columns);
 
+            Optional<FilterPredicate> filterPredicate = Optional.ofNullable(nullableFilterPredicate);
             ParquetDataSourceId dataSourceId = dataSource.getId();
             ParquetDataSource finalDataSource = dataSource;
             ParquetPageSourceFactory.ParquetReaderProvider parquetReaderProvider = columnFields -> new ParquetReader(
@@ -284,7 +320,7 @@ public class CheckpointEntryIterator
                     memoryContext,
                     parquetReaderOptions,
                     exception -> handleException(dataSourceId, exception),
-                    toParquetFilter(Optional.of(parquetPredicate), UTC, parquetReaderOptions),
+                    filterPredicate,
                     columnIndexes.build(),
                     parquetWriteValidation);
             ConnectorPageSource parquetPageSource = createParquetPageSource(baseColumns, fileSchema, messageColumn, true, parquetReaderProvider);
@@ -316,6 +352,8 @@ public class CheckpointEntryIterator
                 .map(field -> requireNonNull(extractors.get(field), "No extractor found for field " + field))
                 .collect(toImmutableList());
     }
+
+    private record ParquetDomainAndPredicate(TupleDomain<ColumnDescriptor> tupleDomain, TupleDomainParquetPredicate predicate) {}
 
     private DeltaLakeColumnHandle buildColumnHandle(EntryType entryType, CheckpointSchemaManager schemaManager, MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
     {
