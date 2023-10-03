@@ -4761,7 +4761,7 @@ class StatementAnalyzer
                                 .build())
                         .orElseGet(session::getIdentity);
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        session.createViewSession(filter.getCatalog(), filter.getSchema(), filterIdentity, ImmutableList.of()),
+                        session.createViewSession(filter.getCatalog(), filter.getSchema(), filterIdentity, filter.getPath()),
                         plannerContext,
                         statementAnalyzerFactory,
                         accessControl,
@@ -4814,7 +4814,7 @@ class StatementAnalyzer
                             .build())
                         .orElseGet(session::getIdentity);
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        session.createViewSession(constraint.getCatalog(), constraint.getSchema(), constraintIdentity, ImmutableList.of()),
+                        session.createViewSession(constraint.getCatalog(), constraint.getSchema(), constraintIdentity, constraint.getPath()),
                         plannerContext,
                         statementAnalyzerFactory,
                         accessControl,
@@ -4879,7 +4879,7 @@ class StatementAnalyzer
                                 .build())
                         .orElseGet(session::getIdentity);
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        session.createViewSession(mask.getCatalog(), mask.getSchema(), maskIdentity, ImmutableList.of()),
+                        session.createViewSession(mask.getCatalog(), mask.getSchema(), maskIdentity, mask.getPath()),
                         plannerContext,
                         statementAnalyzerFactory,
                         accessControl,
