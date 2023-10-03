@@ -187,7 +187,7 @@ public class ParquetPageSourceFactory
                 start,
                 length,
                 columns,
-                effectivePredicate,
+                ImmutableList.of(effectivePredicate),
                 isUseParquetColumnNames(session),
                 timeZone,
                 stats,
@@ -210,7 +210,7 @@ public class ParquetPageSourceFactory
             long start,
             long length,
             List<HiveColumnHandle> columns,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
+            List<TupleDomain<HiveColumnHandle>> disjunctTupleDomains,
             boolean useColumnNames,
             DateTimeZone timeZone,
             FileFormatDataSourceStats stats,
@@ -237,11 +237,23 @@ public class ParquetPageSourceFactory
             messageColumn = getColumnIO(fileSchema, requestedSchema);
 
             Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
-            TupleDomain<ColumnDescriptor> parquetTupleDomain = options.isIgnoreStatistics()
-                    ? TupleDomain.all()
-                    : getParquetTupleDomain(descriptorsByPath, effectivePredicate, fileSchema, useColumnNames);
-
-            TupleDomainParquetPredicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, timeZone);
+            List<TupleDomain<ColumnDescriptor>> parquetTupleDomains;
+            List<TupleDomainParquetPredicate> parquetPredicates;
+            if (options.isIgnoreStatistics()) {
+                parquetTupleDomains = ImmutableList.of();
+                parquetPredicates = ImmutableList.of();
+            }
+            else {
+                ImmutableList.Builder<TupleDomain<ColumnDescriptor>> parquetTupleDomainsBuilder = ImmutableList.builderWithExpectedSize(disjunctTupleDomains.size());
+                ImmutableList.Builder<TupleDomainParquetPredicate> parquetPredicatesBuilder = ImmutableList.builderWithExpectedSize(disjunctTupleDomains.size());
+                for (TupleDomain<HiveColumnHandle> tupleDomain : disjunctTupleDomains) {
+                    TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, tupleDomain, fileSchema, useColumnNames);
+                    parquetTupleDomainsBuilder.add(parquetTupleDomain);
+                    parquetPredicatesBuilder.add(buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, timeZone));
+                }
+                parquetTupleDomains = parquetTupleDomainsBuilder.build();
+                parquetPredicates = parquetPredicatesBuilder.build();
+            }
 
             long nextStart = 0;
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
@@ -249,23 +261,27 @@ public class ParquetPageSourceFactory
             ImmutableList.Builder<Optional<ColumnIndexStore>> columnIndexes = ImmutableList.builder();
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
-                Optional<ColumnIndexStore> columnIndex = getColumnIndexStore(dataSource, block, descriptorsByPath, parquetTupleDomain, options);
-                Optional<BloomFilterStore> bloomFilterStore = getBloomFilterStore(dataSource, block, parquetTupleDomain, options);
-
-                if (start <= firstDataPage && firstDataPage < start + length
-                        && predicateMatches(
-                        parquetPredicate,
-                        block,
-                        dataSource,
-                        descriptorsByPath,
-                        parquetTupleDomain,
-                        columnIndex,
-                        bloomFilterStore,
-                        timeZone,
-                        domainCompactionThreshold)) {
-                    blocks.add(block);
-                    blockStarts.add(nextStart);
-                    columnIndexes.add(columnIndex);
+                for (int i = 0; i < disjunctTupleDomains.size(); i++) {
+                    TupleDomain<ColumnDescriptor> parquetTupleDomain = parquetTupleDomains.get(i);
+                    TupleDomainParquetPredicate parquetPredicate = parquetPredicates.get(i);
+                    Optional<ColumnIndexStore> columnIndex = getColumnIndexStore(dataSource, block, descriptorsByPath, parquetTupleDomain, options);
+                    Optional<BloomFilterStore> bloomFilterStore = getBloomFilterStore(dataSource, block, parquetTupleDomain, options);
+                    if (start <= firstDataPage && firstDataPage < start + length
+                            && predicateMatches(
+                            parquetPredicate,
+                            block,
+                            dataSource,
+                            descriptorsByPath,
+                            parquetTupleDomain,
+                            columnIndex,
+                            bloomFilterStore,
+                            timeZone,
+                            domainCompactionThreshold)) {
+                        blocks.add(block);
+                        blockStarts.add(nextStart);
+                        columnIndexes.add(columnIndex);
+                        break;
+                    }
                 }
                 nextStart += block.getRowCount();
             }
@@ -289,7 +305,9 @@ public class ParquetPageSourceFactory
                     memoryContext,
                     options,
                     exception -> handleException(dataSourceId, exception),
-                    Optional.of(parquetPredicate),
+                    // We avoid using disjuncts of parquetPredicate for page pruning in ParquetReader as currently column indexes
+                    // are not present in the Parquet files which are read with disjunct predicates.
+                    parquetPredicates.size() == 1 ? Optional.of(parquetPredicates.get(0)) : Optional.empty(),
                     columnIndexes.build(),
                     parquetWriteValidation);
             ConnectorPageSource parquetPageSource = createParquetPageSource(baseColumns, fileSchema, messageColumn, useColumnNames, parquetReaderProvider);
