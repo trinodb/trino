@@ -72,7 +72,8 @@ public class OracleClientModule
                     credentialProvider,
                     oracleConfig.getConnectionPoolMinSize(),
                     oracleConfig.getConnectionPoolMaxSize(),
-                    oracleConfig.getInactiveConnectionTimeout());
+                    oracleConfig.getInactiveConnectionTimeout(),
+                    openTelemetry);
         }
 
         return new RetryingConnectionFactory(new DriverConnectionFactory(
