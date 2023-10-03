@@ -898,8 +898,7 @@ public abstract class AbstractTestHive
                 },
                 SqlStandardAccessControlMetadata::new,
                 (session, schemaTableName, tableHandle) -> {
-                    if (schemaTableName.getTableName().contains("hive_table_redirection_tester") ||
-                            schemaTableName.getTableName().contains("no_hive_table_redirection_tester")) {
+                    if (schemaTableName.getTableName().contains("hive_table_redirection_tester")) {
                         return Optional.of(new CatalogSchemaTableName("hive", databaseName, "redirection_target"));
                     }
                     else {

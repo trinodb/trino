@@ -252,7 +252,6 @@ import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.ViewReaderUtil.createViewReader;
 import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
 import static io.trino.plugin.hive.ViewReaderUtil.isHiveView;
-import static io.trino.plugin.hive.ViewReaderUtil.isSomeKindOfAView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
@@ -3850,17 +3849,8 @@ public class HiveMetadata
         // we need to chop off any "$partitions" and similar suffixes from table name while querying the metastore for the Table object
         TableNameSplitResult tableNameSplit = splitTableName(tableName.getTableName());
         Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableNameSplit.getBaseTableName());
-        SchemaTableName schemaTableName = new SchemaTableName(tableName.getSchemaName(), tableNameSplit.getBaseTableName());
-        Optional<CatalogSchemaTableName> catalogSchemaTableName = tableRedirectionsProvider.redirectTable(session, schemaTableName, table);
-
-        if (catalogSchemaTableName.isPresent()) {
-            String suffix = tableNameSplit.getSuffix().orElse("");
-            return catalogSchemaTableName.map(name -> appendSuffixToTableName(name, suffix));
-        }
-
-        if (table.isEmpty() || isSomeKindOfAView(table.get())) {
-            return Optional.empty();
-        }
+        SchemaTableName tableNameWithoutSuffix = new SchemaTableName(tableName.getSchemaName(), tableNameSplit.getBaseTableName());
+        Optional<CatalogSchemaTableName> catalogSchemaTableName = tableRedirectionsProvider.redirectTable(session, tableNameWithoutSuffix, table);
 
         // stitch back the suffix we cut off.
         String suffix = tableNameSplit.getSuffix().orElse("");

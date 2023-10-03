@@ -23,6 +23,7 @@ import java.util.Optional;
 import static io.trino.plugin.hive.HiveSessionProperties.getDeltaLakeCatalogName;
 import static io.trino.plugin.hive.HiveSessionProperties.getHudiCatalogName;
 import static io.trino.plugin.hive.HiveSessionProperties.getIcebergCatalogName;
+import static io.trino.plugin.hive.ViewReaderUtil.isSomeKindOfAView;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
@@ -33,7 +34,7 @@ public class DefaultHiveTableRedirectionsProvider
     @Override
     public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName name, Optional<Table> table)
     {
-        return table.flatMap(t -> {
+        return table.filter(t -> !isSomeKindOfAView(t)).flatMap(t -> {
             Optional<String> targetCatalogName;
             if (getIcebergCatalogName(session).isPresent() && isIcebergTable(t)) {
                 targetCatalogName = getIcebergCatalogName(session);
