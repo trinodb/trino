@@ -167,6 +167,7 @@
         <dep.tempto.version>201</dep.tempto.version>
         <dep.gcs.version>2.2.8</dep.gcs.version>
         <dep.swagger.version>1.6.11</dep.swagger.version>
+        <dep.kotlin.version>1.9.10</dep.kotlin.version>
 
         <dep.errorprone.version>2.22.0</dep.errorprone.version>
         <dep.testcontainers.version>1.19.1</dep.testcontainers.version>
