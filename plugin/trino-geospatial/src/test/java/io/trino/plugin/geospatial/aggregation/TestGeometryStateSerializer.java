@@ -23,8 +23,7 @@ import io.trino.spi.function.AccumulatorStateSerializer;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.geospatial.aggregation.GeometryStateFactory.GroupedGeometryState;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGeometryStateSerializer
 {
@@ -41,12 +40,12 @@ public class TestGeometryStateSerializer
         serializer.serialize(state, builder);
         Block block = builder.build();
 
-        assertEquals(GeometryType.GEOMETRY.getObjectValue(null, block, 0), "POINT (1 2)");
+        assertThat(GeometryType.GEOMETRY.getObjectValue(null, block, 0)).isEqualTo("POINT (1 2)");
 
         state.setGeometry(null);
         serializer.deserialize(block, 0, state);
 
-        assertEquals(state.getGeometry().asText(), "POINT (1 2)");
+        assertThat(state.getGeometry().asText()).isEqualTo("POINT (1 2)");
     }
 
     @Test
@@ -69,18 +68,18 @@ public class TestGeometryStateSerializer
         serializer.serialize(state, builder);
         Block block = builder.build();
 
-        assertEquals(GeometryType.GEOMETRY.getObjectValue(null, block, 0), "POINT (1 2)");
+        assertThat(GeometryType.GEOMETRY.getObjectValue(null, block, 0)).isEqualTo("POINT (1 2)");
 
         state.setGeometry(null);
         serializer.deserialize(block, 0, state);
 
         // Assert the state of group 1
-        assertEquals(state.getGeometry().asText(), "POINT (1 2)");
+        assertThat(state.getGeometry().asText()).isEqualTo("POINT (1 2)");
         // Verify nothing changed in group 2
         state.setGroupId(2);
-        assertEquals(state.getGeometry().asText(), "POINT (2 3)");
+        assertThat(state.getGeometry().asText()).isEqualTo("POINT (2 3)");
         // Groups we did not touch are null
         state.setGroupId(3);
-        assertNull(state.getGeometry());
+        assertThat(state.getGeometry()).isNull();
     }
 }

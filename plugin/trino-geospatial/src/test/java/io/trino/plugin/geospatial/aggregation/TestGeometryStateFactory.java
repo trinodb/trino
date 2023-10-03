@@ -16,10 +16,7 @@ package io.trino.plugin.geospatial.aggregation;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import org.junit.jupiter.api.Test;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGeometryStateFactory
 {
@@ -29,8 +26,8 @@ public class TestGeometryStateFactory
     public void testCreateSingleStateEmpty()
     {
         GeometryState state = factory.createSingleState();
-        assertNull(state.getGeometry());
-        assertEquals(0, state.getEstimatedSize());
+        assertThat(state.getGeometry()).isNull();
+        assertThat(0).isEqualTo(state.getEstimatedSize());
     }
 
     @Test
@@ -38,37 +35,41 @@ public class TestGeometryStateFactory
     {
         GeometryState state = factory.createSingleState();
         state.setGeometry(OGCGeometry.fromText("POINT (1 2)"));
-        assertEquals(OGCGeometry.fromText("POINT (1 2)"), state.getGeometry());
-        assertTrue(state.getEstimatedSize() > 0, "Estimated memory size was " + state.getEstimatedSize());
+        assertThat(OGCGeometry.fromText("POINT (1 2)")).isEqualTo(state.getGeometry());
+        assertThat(state.getEstimatedSize() > 0)
+                .describedAs("Estimated memory size was " + state.getEstimatedSize())
+                .isTrue();
     }
 
     @Test
     public void testCreateGroupedStateEmpty()
     {
         GeometryState state = factory.createGroupedState();
-        assertNull(state.getGeometry());
-        assertTrue(state.getEstimatedSize() > 0, "Estimated memory size was " + state.getEstimatedSize());
+        assertThat(state.getGeometry()).isNull();
+        assertThat(state.getEstimatedSize() > 0)
+                .describedAs("Estimated memory size was " + state.getEstimatedSize())
+                .isTrue();
     }
 
     @Test
     public void testCreateGroupedStatePresent()
     {
         GeometryState state = factory.createGroupedState();
-        assertNull(state.getGeometry());
-        assertTrue(state instanceof GeometryStateFactory.GroupedGeometryState);
+        assertThat(state.getGeometry()).isNull();
+        assertThat(state instanceof GeometryStateFactory.GroupedGeometryState).isTrue();
         GeometryStateFactory.GroupedGeometryState groupedState = (GeometryStateFactory.GroupedGeometryState) state;
 
         groupedState.setGroupId(1);
-        assertNull(state.getGeometry());
+        assertThat(state.getGeometry()).isNull();
         groupedState.setGeometry(OGCGeometry.fromText("POINT (1 2)"));
-        assertEquals(state.getGeometry(), OGCGeometry.fromText("POINT (1 2)"));
+        assertThat(state.getGeometry()).isEqualTo(OGCGeometry.fromText("POINT (1 2)"));
 
         groupedState.setGroupId(2);
-        assertNull(state.getGeometry());
+        assertThat(state.getGeometry()).isNull();
         groupedState.setGeometry(OGCGeometry.fromText("POINT (3 4)"));
-        assertEquals(state.getGeometry(), OGCGeometry.fromText("POINT (3 4)"));
+        assertThat(state.getGeometry()).isEqualTo(OGCGeometry.fromText("POINT (3 4)"));
 
         groupedState.setGroupId(1);
-        assertNotNull(state.getGeometry());
+        assertThat(state.getGeometry()).isNotNull();
     }
 }
