@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>146</version>
+        <version>147</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -183,7 +183,6 @@
         <dep.flyway.version>9.22.2</dep.flyway.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
         <dep.antlr.version>4.13.1</dep.antlr.version>
-        <dep.logback.version>1.4.8</dep.logback.version>
 
         <dep.docker.images.version>86</dep.docker.images.version>
 
@@ -2094,31 +2093,6 @@
                             <exclusion>com/google/inject/Provider</exclusion>
                         </exclusions>
                     </configuration>
-                </plugin>
-
-                <plugin>
-                    <groupId>com.github.ekryd.sortpom</groupId>
-                    <artifactId>sortpom-maven-plugin</artifactId>
-                    <version>3.2.1</version>
-                    <configuration>
-                        <createBackupFile>false</createBackupFile>
-                        <nrOfIndentSpace>4</nrOfIndentSpace>
-                        <sortModules>true</sortModules>
-                        <sortDependencies>scope,groupId,artifactId</sortDependencies>
-                        <sortDependencyExclusions>groupId,artifactId</sortDependencyExclusions>
-                        <spaceBeforeCloseEmptyElement>true</spaceBeforeCloseEmptyElement>
-                        <expandEmptyElements>false</expandEmptyElements>
-                        <verifyFailOn>Strict</verifyFailOn>
-                        <verifyFail>Stop</verifyFail>
-                    </configuration>
-                    <executions>
-                        <execution>
-                            <goals>
-                                <goal>verify</goal>
-                            </goals>
-                            <phase>validate</phase>
-                        </execution>
-                    </executions>
                 </plugin>
 
                 <plugin>
