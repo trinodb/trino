@@ -20,7 +20,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.math.LongMath;
 import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.parquet.ParquetCorruptionException;
+import io.trino.parquet.ParquetDataSource;
+import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.ParquetWriteValidation;
+import io.trino.parquet.predicate.TupleDomainParquetPredicate;
+import io.trino.parquet.reader.MetadataReader;
+import io.trino.parquet.reader.ParquetReader;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
@@ -37,6 +45,7 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnHandle.ColumnType;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
 import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.spi.Page;
@@ -54,7 +63,13 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTimeZone;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.hadoop.metadata.BlockMetaData;
+import org.apache.parquet.hadoop.metadata.FileMetaData;
+import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
+import org.apache.parquet.io.MessageColumnIO;
+import org.apache.parquet.schema.MessageType;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -72,6 +87,10 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
+import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
+import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
+import static io.trino.parquet.predicate.PredicateUtils.predicateMatches;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_DATA;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
@@ -85,6 +104,11 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.TRANSACTION;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
+import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
+import static io.trino.plugin.hive.parquet.ParquetPageSource.handleException;
+import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.createParquetPageSource;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -98,6 +122,8 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class CheckpointEntryIterator
         extends AbstractIterator<DeltaLakeTransactionLogEntry>
@@ -186,19 +212,100 @@ public class CheckpointEntryIterator
                 TupleDomain.all() :
                 buildTupleDomainColumnHandle(getOnlyElement(fields), getOnlyElement(columns));
 
-        ReaderPageSource pageSource = ParquetPageSourceFactory.createPageSource(
-                checkpoint,
-                0,
-                fileSize,
-                columns,
-                tupleDomain,
-                true,
-                DateTimeZone.UTC,
-                stats,
-                parquetReaderOptions,
-                Optional.empty(),
-                domainCompactionThreshold,
-                OptionalLong.empty());
+        ReaderPageSource pageSource;
+        Optional<ParquetWriteValidation> parquetWriteValidation = Optional.empty();
+        MessageType fileSchema;
+        MessageType requestedSchema;
+        MessageColumnIO messageColumn;
+        ParquetDataSource dataSource = null;
+        try {
+            AggregatedMemoryContext memoryContext = AggregatedMemoryContext.newSimpleAggregatedMemoryContext();
+            dataSource = ParquetPageSourceFactory.createDataSource(checkpoint, OptionalLong.empty(), parquetReaderOptions, memoryContext, stats);
+
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, parquetWriteValidation);
+            FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
+            fileSchema = fileMetaData.getSchema();
+
+            Optional<MessageType> message = ParquetPageSourceFactory.getParquetMessageType(columns, true, fileSchema);
+
+            requestedSchema = message.orElse(new MessageType(fileSchema.getName(), ImmutableList.of()));
+            messageColumn = getColumnIO(fileSchema, requestedSchema);
+
+            Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
+
+            TupleDomain<ColumnDescriptor> parquetTupleDomain = parquetReaderOptions.isIgnoreStatistics()
+                    ? TupleDomain.all()
+                    : ParquetPageSourceFactory.getParquetTupleDomain(descriptorsByPath, tupleDomain, fileSchema, true);
+            TupleDomainParquetPredicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, UTC);
+
+            long nextStart = 0;
+            ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
+            ImmutableList.Builder<Long> blockStarts = ImmutableList.builder();
+            ImmutableList.Builder<Optional<ColumnIndexStore>> columnIndexes = ImmutableList.builder();
+            for (BlockMetaData block : parquetMetadata.getBlocks()) {
+                long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
+                Optional<ColumnIndexStore> columnIndex = ParquetPageSourceFactory.getColumnIndexStore(dataSource, block, descriptorsByPath, parquetTupleDomain, parquetReaderOptions);
+
+                if ((long) 0 <= firstDataPage && firstDataPage < fileSize &&
+                        predicateMatches(
+                            parquetPredicate,
+                            block,
+                            dataSource,
+                            descriptorsByPath,
+                            parquetTupleDomain,
+                            columnIndex,
+                            Optional.empty(),
+                            UTC,
+                            domainCompactionThreshold)) {
+                    blocks.add(block);
+                    blockStarts.add(nextStart);
+                    columnIndexes.add(columnIndex);
+                }
+                nextStart += block.getRowCount();
+            }
+
+            Optional<ReaderColumns> readerProjections = projectBaseColumns(columns, true);
+            List<HiveColumnHandle> baseColumns = readerProjections.map(projection ->
+                            projection.get().stream()
+                                    .map(HiveColumnHandle.class::cast)
+                                    .collect(toUnmodifiableList()))
+                    .orElse(columns);
+
+            ParquetDataSourceId dataSourceId = dataSource.getId();
+            ParquetDataSource finalDataSource = dataSource;
+            ParquetPageSourceFactory.ParquetReaderProvider parquetReaderProvider = columnFields -> new ParquetReader(
+                    Optional.ofNullable(fileMetaData.getCreatedBy()),
+                    columnFields,
+                    blocks.build(),
+                    blockStarts.build(),
+                    finalDataSource,
+                    UTC,
+                    memoryContext,
+                    parquetReaderOptions,
+                    exception -> handleException(dataSourceId, exception),
+                    Optional.of(parquetPredicate),
+                    columnIndexes.build(),
+                    parquetWriteValidation);
+            ConnectorPageSource parquetPageSource = createParquetPageSource(baseColumns, fileSchema, messageColumn, true, parquetReaderProvider);
+            pageSource = new ReaderPageSource(parquetPageSource, readerProjections);
+        }
+        catch (Exception e) {
+            try {
+                if (dataSource != null) {
+                    dataSource.close();
+                }
+            }
+            catch (IOException ignored) {
+            }
+            if (e instanceof TrinoException) {
+                throw (TrinoException) e;
+            }
+            if (e instanceof ParquetCorruptionException) {
+                throw new TrinoException(HIVE_BAD_DATA, e);
+            }
+            String message = format("Error opening Hive split %s (offset=%s, length=%s): %s", checkpoint.location(), (long) 0, fileSize, e.getMessage());
+            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
+        }
 
         verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");
 

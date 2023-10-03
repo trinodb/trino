@@ -189,7 +189,7 @@ public class ParquetPageSource
         return new Page(batchSize, blocks);
     }
 
-    static TrinoException handleException(ParquetDataSourceId dataSourceId, Exception exception)
+    public static TrinoException handleException(ParquetDataSourceId dataSourceId, Exception exception)
     {
         if (exception instanceof TrinoException) {
             return (TrinoException) exception;
