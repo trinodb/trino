@@ -29,7 +29,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.google.sheets.SheetsQueryRunner.GOOGLE_SHEETS;
 import static java.io.File.createTempFile;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.testng.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSheetsPlugin
 {
@@ -55,7 +55,7 @@ public class TestSheetsPlugin
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         ImmutableMap.Builder<String, String> propertiesMap = ImmutableMap.<String, String>builder().put("gsheets.credentials-path", getTestCredentialsPath()).put("gsheets.metadata-sheet-id", TEST_METADATA_SHEET_ID);
         Connector connector = factory.create(GOOGLE_SHEETS, propertiesMap.buildOrThrow(), new TestingConnectorContext());
-        assertNotNull(connector);
+        assertThat(connector).isNotNull();
         connector.shutdown();
     }
 }
