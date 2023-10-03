@@ -39,10 +39,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.avro.AvroHiveConstants.CHAR_TYPE_LOGICAL_NAME;
 import static io.trino.plugin.hive.avro.AvroHiveConstants.SCHEMA_DOC;
@@ -59,6 +62,7 @@ import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_COMMENTS;
 import static java.util.Collections.emptyList;
 import static java.util.function.Predicate.not;
+import static java.util.function.UnaryOperator.identity;
 
 public final class AvroHiveFileUtils
 {
@@ -278,6 +282,14 @@ public final class AvroHiveFileUtils
         }
 
         return prunedSchemas;
+    }
+
+    static Map<String, String> getCanonicalToGivenFieldName(Schema schema)
+    {
+        // Lower case top level fields to allow for manually set avro schema (passed in via avro_schema_literal or avro_schema_url) to have uppercase field names
+        return schema.getFields().stream()
+                .map(Schema.Field::name)
+                .collect(toImmutableMap(fieldName -> fieldName.toLowerCase(Locale.ENGLISH), identity()));
     }
 
     private static Schema.Parser getSchemaParser()

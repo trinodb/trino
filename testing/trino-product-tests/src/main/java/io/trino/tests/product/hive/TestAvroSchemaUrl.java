@@ -252,16 +252,12 @@ public class TestAvroSchemaUrl
                 "INPUTFORMAT 'org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat' " +
                 "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.avro.AvroContainerOutputFormat' " +
                 "TBLPROPERTIES ('avro.schema.url'='/user/hive/warehouse/TestAvroSchemaUrl/schemas/camelCaseSchema.avsc')");
-        //both able to insert with camel case
         onHive().executeQuery("INSERT INTO test_camelCase_avro_schema_url_hive VALUES ('hi', 1)");
         onTrino().executeQuery("INSERT INTO test_camelCase_avro_schema_url_hive VALUES ('bye', 2)");
-        // both can select *
         assertThat(onHive().executeQuery("SELECT * FROM test_camelCase_avro_schema_url_hive")).containsOnly(row("hi", 1), row("bye", 2));
         assertThat(onTrino().executeQuery("SELECT * FROM test_camelCase_avro_schema_url_hive")).containsOnly(row("hi", 1), row("bye", 2));
-        // column names lower-cased in the engine, can be used as uppercase
         assertThat(onHive().executeQuery("SELECT intCol, stringCol FROM test_camelCase_avro_schema_url_hive")).containsOnly(row(1, "hi"), row(2, "bye"));
         assertThat(onTrino().executeQuery("SELECT intCol, stringCol FROM test_camelCase_avro_schema_url_hive")).containsOnly(row(1, "hi"), row(2, "bye"));
-        // Table and column names returned as lowercase
         assertThat(onTrino().executeQuery("SELECT column_name FROM information_schema.columns WHERE table_name = 'test_camelcase_avro_schema_url_hive'"))
                 .containsOnly(row("stringcol"), row("intcol"));
 
