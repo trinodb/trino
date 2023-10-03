@@ -262,9 +262,15 @@ public interface ConnectorMetadata
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is implemented without getTableMetadata()");
     }
 
+    @Deprecated(forRemoval = true)
     default Optional<Object> getInfo(ConnectorTableHandle table)
     {
         return Optional.empty();
+    }
+
+    default Optional<Object> getInfo(ConnectorSession session, ConnectorTableHandle table)
+    {
+        return getInfo(table);
     }
 
     /**

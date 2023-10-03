@@ -194,7 +194,7 @@ public class HudiMetadata
     }
 
     @Override
-    public Optional<Object> getInfo(ConnectorTableHandle table)
+    public Optional<Object> getInfo(ConnectorSession session, ConnectorTableHandle table)
     {
         return Optional.of(HudiTableInfo.from((HudiTableHandle) table));
     }

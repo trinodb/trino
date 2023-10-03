@@ -3532,7 +3532,7 @@ public abstract class AbstractTestHive
             ConnectorSession session = newSession();
             ConnectorMetadata metadata = transaction.getMetadata();
             HiveTableHandle tableHandle = (HiveTableHandle) metadata.getTableHandle(session, tableName);
-            assertThat(metadata.getInfo(tableHandle)).isEqualTo(Optional.of(expectedInputInfo));
+            assertThat(metadata.getInfo(SESSION, tableHandle)).isEqualTo(Optional.of(expectedInputInfo));
         }
     }
 

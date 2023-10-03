@@ -507,7 +507,7 @@ public class TestDeltaLakeMetadata
                 ImmutableList.of(BIGINT_COLUMN_1));
         deltaLakeMetadata.createTable(SESSION, tableMetadata, false);
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable());
-        assertThat(deltaLakeMetadata.getInfo(tableHandle)).isEqualTo(Optional.of(new DeltaLakeInputInfo(true)));
+        assertThat(deltaLakeMetadata.getInfo(SESSION, tableHandle)).isEqualTo(Optional.of(new DeltaLakeInputInfo(true)));
     }
 
     @Test
@@ -519,7 +519,7 @@ public class TestDeltaLakeMetadata
                 ImmutableList.of());
         deltaLakeMetadata.createTable(SESSION, tableMetadata, false);
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable());
-        assertThat(deltaLakeMetadata.getInfo(tableHandle)).isEqualTo(Optional.of(new DeltaLakeInputInfo(false)));
+        assertThat(deltaLakeMetadata.getInfo(SESSION, tableHandle)).isEqualTo(Optional.of(new DeltaLakeInputInfo(false)));
     }
 
     private static DeltaLakeTableHandle createDeltaLakeTableHandle(Set<DeltaLakeColumnHandle> projectedColumns, Set<DeltaLakeColumnHandle> constrainedColumns)
