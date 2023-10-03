@@ -621,6 +621,12 @@ public class TestDeltaLakeFileOperations
         };
     }
 
+    @Test
+    public void testShowTables()
+    {
+        assertFileSystemAccesses("SHOW TABLES", ImmutableMultiset.of());
+    }
+
     private int countCdfFilesForKey(String partitionValue)
     {
         String path = (String) computeScalar("SELECT \"$path\" FROM table_changes_file_system_access WHERE key = '" + partitionValue + "'");
