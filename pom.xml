@@ -166,6 +166,7 @@
         <dep.drift.version>1.21</dep.drift.version>
         <dep.tempto.version>201</dep.tempto.version>
         <dep.gcs.version>2.2.8</dep.gcs.version>
+        <dep.swagger.version>1.6.11</dep.swagger.version>
 
         <dep.errorprone.version>2.22.0</dep.errorprone.version>
         <dep.testcontainers.version>1.19.1</dep.testcontainers.version>
@@ -795,14 +796,14 @@
             <dependency>
                 <groupId>io.swagger</groupId>
                 <artifactId>swagger-annotations</artifactId>
-                <version>1.6.2</version>
+                <version>${dep.swagger.version}</version>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
             <dependency>
                 <groupId>io.swagger</groupId>
                 <artifactId>swagger-core</artifactId>
-                <version>1.6.2</version>
+                <version>${dep.swagger.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.trino</groupId>
