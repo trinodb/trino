@@ -42,7 +42,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 public class TestGeoFunctions
@@ -130,7 +129,7 @@ public class TestGeoFunctions
         GEOMETRY.writeSlice(builder, GeoFunctions.stPoint(1.2, 3.4));
         Block block = builder.build();
 
-        assertEquals("POINT (1.2 3.4)", GEOMETRY.getObjectValue(null, block, 0));
+        assertThat("POINT (1.2 3.4)").isEqualTo(GEOMETRY.getObjectValue(null, block, 0));
     }
 
     @Test

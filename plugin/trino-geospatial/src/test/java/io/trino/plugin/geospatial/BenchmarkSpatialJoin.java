@@ -45,9 +45,9 @@ import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 import static org.openjdk.jmh.annotations.Scope.Thread;
-import static org.testng.Assert.assertTrue;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Thread)
@@ -111,7 +111,9 @@ public class BenchmarkSpatialJoin
                 Metadata metadata = queryRunner.getMetadata();
                 QualifiedObjectName tableName = QualifiedObjectName.valueOf("memory.default.points");
                 Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, tableName);
-                assertTrue(tableHandle.isPresent(), "Table memory.default.points does not exist");
+                assertThat(tableHandle.isPresent())
+                        .describedAs("Table memory.default.points does not exist")
+                        .isTrue();
                 metadata.dropTable(transactionSession, tableHandle.get(), tableName.asCatalogSchemaTableName());
                 return null;
             });
