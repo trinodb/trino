@@ -170,7 +170,9 @@ public class TaskDescriptorStorage
             TaskDescriptors storage = storages.get(killCandidate);
             long previousReservedBytes = storage.getReservedBytes();
 
-            log.info("Failing query %s; reclaiming %s of %s task descriptor memory from %s queries; extraStorageInfo=%s", killCandidate, storage.getReservedBytes(), succinctBytes(reservedBytes), storages.size(), storage.getDebugInfo());
+            if (log.isInfoEnabled()) {
+                log.info("Failing query %s; reclaiming %s of %s task descriptor memory from %s queries; extraStorageInfo=%s", killCandidate, storage.getReservedBytes(), succinctBytes(reservedBytes), storages.size(), storage.getDebugInfo());
+            }
 
             storage.fail(new TrinoException(
                     EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY,
