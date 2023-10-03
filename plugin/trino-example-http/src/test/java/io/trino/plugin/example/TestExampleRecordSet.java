@@ -17,18 +17,20 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestExampleRecordSet
 {
     private ExampleHttpServer exampleHttpServer;
@@ -40,21 +42,21 @@ public class TestExampleRecordSet
         RecordSet recordSet = new ExampleRecordSet(new ExampleSplit(dataUri), ImmutableList.of(
                 new ExampleColumnHandle("text", createUnboundedVarcharType(), 0),
                 new ExampleColumnHandle("value", BIGINT, 1)));
-        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(createUnboundedVarcharType(), BIGINT));
+        assertThat(recordSet.getColumnTypes()).isEqualTo(ImmutableList.of(createUnboundedVarcharType(), BIGINT));
 
         recordSet = new ExampleRecordSet(new ExampleSplit(dataUri), ImmutableList.of(
                 new ExampleColumnHandle("value", BIGINT, 1),
                 new ExampleColumnHandle("text", createUnboundedVarcharType(), 0)));
-        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, createUnboundedVarcharType()));
+        assertThat(recordSet.getColumnTypes()).isEqualTo(ImmutableList.of(BIGINT, createUnboundedVarcharType()));
 
         recordSet = new ExampleRecordSet(new ExampleSplit(dataUri), ImmutableList.of(
                 new ExampleColumnHandle("value", BIGINT, 1),
                 new ExampleColumnHandle("value", BIGINT, 1),
                 new ExampleColumnHandle("text", createUnboundedVarcharType(), 0)));
-        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, BIGINT, createUnboundedVarcharType()));
+        assertThat(recordSet.getColumnTypes()).isEqualTo(ImmutableList.of(BIGINT, BIGINT, createUnboundedVarcharType()));
 
         recordSet = new ExampleRecordSet(new ExampleSplit(dataUri), ImmutableList.of());
-        assertEquals(recordSet.getColumnTypes(), ImmutableList.of());
+        assertThat(recordSet.getColumnTypes()).isEqualTo(ImmutableList.of());
     }
 
     @Test
@@ -65,16 +67,16 @@ public class TestExampleRecordSet
                 new ExampleColumnHandle("value", BIGINT, 1)));
         RecordCursor cursor = recordSet.cursor();
 
-        assertEquals(cursor.getType(0), createUnboundedVarcharType());
-        assertEquals(cursor.getType(1), BIGINT);
+        assertThat(cursor.getType(0)).isEqualTo(createUnboundedVarcharType());
+        assertThat(cursor.getType(1)).isEqualTo(BIGINT);
 
         Map<String, Long> data = new LinkedHashMap<>();
         while (cursor.advanceNextPosition()) {
             data.put(cursor.getSlice(0).toStringUtf8(), cursor.getLong(1));
-            assertFalse(cursor.isNull(0));
-            assertFalse(cursor.isNull(1));
+            assertThat(cursor.isNull(0)).isFalse();
+            assertThat(cursor.isNull(1)).isFalse();
         }
-        assertEquals(data, ImmutableMap.<String, Long>builder()
+        assertThat(data).isEqualTo(ImmutableMap.<String, Long>builder()
                 .put("ten", 10L)
                 .put("eleven", 11L)
                 .put("twelve", 12L)
@@ -92,10 +94,10 @@ public class TestExampleRecordSet
 
         Map<String, Long> data = new LinkedHashMap<>();
         while (cursor.advanceNextPosition()) {
-            assertEquals(cursor.getLong(0), cursor.getLong(1));
+            assertThat(cursor.getLong(0)).isEqualTo(cursor.getLong(1));
             data.put(cursor.getSlice(2).toStringUtf8(), cursor.getLong(0));
         }
-        assertEquals(data, ImmutableMap.<String, Long>builder()
+        assertThat(data).isEqualTo(ImmutableMap.<String, Long>builder()
                 .put("ten", 10L)
                 .put("eleven", 11L)
                 .put("twelve", 12L)
@@ -110,14 +112,14 @@ public class TestExampleRecordSet
     // Start http server for testing
     //
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         exampleHttpServer = new ExampleHttpServer();
         dataUri = exampleHttpServer.resolve("/example-data/numbers-2.csv").toString();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         if (exampleHttpServer != null) {

@@ -22,8 +22,9 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.net.URL;
 import java.util.Optional;
@@ -32,23 +33,24 @@ import static io.trino.plugin.example.MetadataUtil.CATALOG_CODEC;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
 public class TestExampleMetadata
 {
     private static final ExampleTableHandle NUMBERS_TABLE_HANDLE = new ExampleTableHandle("example", "numbers");
     private ExampleMetadata metadata;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
             throws Exception
     {
         URL metadataUrl = Resources.getResource(TestExampleClient.class, "/example-data/example-metadata.json");
-        assertNotNull(metadataUrl, "metadataUrl is null");
+        assertThat(metadataUrl)
+                .describedAs("metadataUrl is null")
+                .isNotNull();
         ExampleClient client = new ExampleClient(new ExampleConfig().setMetadata(metadataUrl.toURI()), CATALOG_CODEC);
         metadata = new ExampleMetadata(client);
     }
@@ -56,23 +58,23 @@ public class TestExampleMetadata
     @Test
     public void testListSchemaNames()
     {
-        assertEquals(metadata.listSchemaNames(SESSION), ImmutableSet.of("example", "tpch"));
+        assertThat(metadata.listSchemaNames(SESSION)).containsExactlyElementsOf(ImmutableSet.of("example", "tpch"));
     }
 
     @Test
     public void testGetTableHandle()
     {
-        assertEquals(metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers")), NUMBERS_TABLE_HANDLE);
-        assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("example", "unknown")));
-        assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "numbers")));
-        assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "unknown")));
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"))).isEqualTo(NUMBERS_TABLE_HANDLE);
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("example", "unknown"))).isNull();
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "numbers"))).isNull();
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "unknown"))).isNull();
     }
 
     @Test
     public void testGetColumnHandles()
     {
         // known table
-        assertEquals(metadata.getColumnHandles(SESSION, NUMBERS_TABLE_HANDLE), ImmutableMap.of(
+        assertThat(metadata.getColumnHandles(SESSION, NUMBERS_TABLE_HANDLE)).isEqualTo(ImmutableMap.of(
                 "text", new ExampleColumnHandle("text", createUnboundedVarcharType(), 0),
                 "value", new ExampleColumnHandle("value", BIGINT, 1)));
 
@@ -90,42 +92,41 @@ public class TestExampleMetadata
     {
         // known table
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, NUMBERS_TABLE_HANDLE);
-        assertEquals(tableMetadata.getTable(), new SchemaTableName("example", "numbers"));
-        assertEquals(tableMetadata.getColumns(), ImmutableList.of(
+        assertThat(tableMetadata.getTable()).isEqualTo(new SchemaTableName("example", "numbers"));
+        assertThat(tableMetadata.getColumns()).isEqualTo(ImmutableList.of(
                 new ColumnMetadata("text", createUnboundedVarcharType()),
                 new ColumnMetadata("value", BIGINT)));
 
         // unknown tables should produce null
-        assertNull(metadata.getTableMetadata(SESSION, new ExampleTableHandle("unknown", "unknown")));
-        assertNull(metadata.getTableMetadata(SESSION, new ExampleTableHandle("example", "unknown")));
-        assertNull(metadata.getTableMetadata(SESSION, new ExampleTableHandle("unknown", "numbers")));
+        assertThat(metadata.getTableMetadata(SESSION, new ExampleTableHandle("unknown", "unknown"))).isNull();
+        assertThat(metadata.getTableMetadata(SESSION, new ExampleTableHandle("example", "unknown"))).isNull();
+        assertThat(metadata.getTableMetadata(SESSION, new ExampleTableHandle("unknown", "numbers"))).isNull();
     }
 
     @Test
     public void testListTables()
     {
         // all schemas
-        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.empty())), ImmutableSet.of(
+        assertThat(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.empty()))).isEqualTo(ImmutableSet.of(
                 new SchemaTableName("example", "numbers"),
                 new SchemaTableName("tpch", "orders"),
                 new SchemaTableName("tpch", "lineitem")));
 
         // specific schema
-        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("example"))), ImmutableSet.of(
+        assertThat(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("example")))).isEqualTo(ImmutableSet.of(
                 new SchemaTableName("example", "numbers")));
-        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("tpch"))), ImmutableSet.of(
+        assertThat(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("tpch")))).isEqualTo(ImmutableSet.of(
                 new SchemaTableName("tpch", "orders"),
                 new SchemaTableName("tpch", "lineitem")));
 
         // unknown schema
-        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("unknown"))), ImmutableSet.of());
+        assertThat(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("unknown")))).isEqualTo(ImmutableSet.of());
     }
 
     @Test
     public void getColumnMetadata()
     {
-        assertEquals(metadata.getColumnMetadata(SESSION, NUMBERS_TABLE_HANDLE, new ExampleColumnHandle("text", createUnboundedVarcharType(), 0)),
-                new ColumnMetadata("text", createUnboundedVarcharType()));
+        assertThat(metadata.getColumnMetadata(SESSION, NUMBERS_TABLE_HANDLE, new ExampleColumnHandle("text", createUnboundedVarcharType(), 0))).isEqualTo(new ColumnMetadata("text", createUnboundedVarcharType()));
 
         // example connector assumes that the table handle and column handle are
         // properly formed, so it will return a metadata object for any
@@ -147,9 +148,10 @@ public class TestExampleMetadata
                 .hasMessage("This connector does not support creating tables");
     }
 
-    @Test(expectedExceptions = TrinoException.class)
+    @Test
     public void testDropTableTable()
     {
-        metadata.dropTable(SESSION, NUMBERS_TABLE_HANDLE);
+        assertThatThrownBy(() -> metadata.dropTable(SESSION, NUMBERS_TABLE_HANDLE))
+                .isInstanceOf(TrinoException.class);
     }
 }
