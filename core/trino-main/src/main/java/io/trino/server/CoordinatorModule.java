@@ -87,6 +87,7 @@ import io.trino.memory.NoneLowMemoryKiller;
 import io.trino.memory.TotalReservationLowMemoryKiller;
 import io.trino.memory.TotalReservationOnBlockedNodesQueryLowMemoryKiller;
 import io.trino.memory.TotalReservationOnBlockedNodesTaskLowMemoryKiller;
+import io.trino.metadata.Split;
 import io.trino.operator.ForScheduler;
 import io.trino.operator.OperatorStats;
 import io.trino.server.protocol.ExecutingStatementResource;
@@ -307,6 +308,7 @@ public class CoordinatorModule
 
         binder.bind(EventDrivenTaskSourceFactory.class).in(Scopes.SINGLETON);
         binder.bind(TaskDescriptorStorage.class).in(Scopes.SINGLETON);
+        jsonCodecBinder(binder).bindJsonCodec(Split.class);
         newExporter(binder).export(TaskDescriptorStorage.class).withGeneratedName();
 
         binder.bind(TaskExecutionStats.class).in(Scopes.SINGLETON);
