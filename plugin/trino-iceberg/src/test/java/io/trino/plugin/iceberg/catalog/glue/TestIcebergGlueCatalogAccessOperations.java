@@ -586,7 +586,7 @@ public class TestIcebergGlueCatalogAccessOperations
         assertGlueMetastoreApiInvocations("SHOW TABLES",
                 ImmutableMultiset.builder()
                         .add(GET_DATABASE)
-                        .addCopies(GET_TABLES, 2)
+                        .add(GET_TABLES)
                         .build());
     }
 

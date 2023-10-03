@@ -426,7 +426,6 @@ public class TestIcebergMetastoreAccessOperations
                 ImmutableMultiset.builder()
                         .add(GET_DATABASE)
                         .add(GET_ALL_TABLES_FROM_DATABASE)
-                        .add(GET_TABLES_WITH_PARAMETER)
                         .build());
     }
 
