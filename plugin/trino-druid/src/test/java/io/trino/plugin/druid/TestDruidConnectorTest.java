@@ -62,13 +62,13 @@ import static org.testng.Assert.assertFalse;
 public class TestDruidConnectorTest
         extends BaseJdbcConnectorTest
 {
-    protected TestingDruidServer druidServer;
+    private TestingDruidServer druidServer;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        druidServer = new TestingDruidServer();
+        druidServer = closeAfterClass(new TestingDruidServer());
         return createDruidQueryRunnerTpch(
                 druidServer,
                 ImmutableMap.of(),
@@ -79,10 +79,7 @@ public class TestDruidConnectorTest
     @AfterClass(alwaysRun = true)
     public void destroy()
     {
-        if (druidServer != null) {
-            druidServer.close();
-            druidServer = null;
-        }
+        druidServer = null; // closed by closeAfterClass
     }
 
     @Override
