@@ -14,7 +14,6 @@
 package io.trino.execution.scheduler;
 
 import io.airlift.units.DataSize;
-import io.trino.Session;
 import io.trino.spi.ErrorCode;
 
 import java.util.Objects;
@@ -25,11 +24,11 @@ import static java.util.Objects.requireNonNull;
 
 public interface PartitionMemoryEstimator
 {
-    MemoryRequirements getInitialMemoryRequirements(Session session, DataSize defaultMemoryLimit);
+    MemoryRequirements getInitialMemoryRequirements();
 
-    MemoryRequirements getNextRetryMemoryRequirements(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode);
+    MemoryRequirements getNextRetryMemoryRequirements(MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode);
 
-    void registerPartitionFinished(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, boolean success, Optional<ErrorCode> errorCode);
+    void registerPartitionFinished(MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, boolean success, Optional<ErrorCode> errorCode);
 
     class MemoryRequirements
     {
