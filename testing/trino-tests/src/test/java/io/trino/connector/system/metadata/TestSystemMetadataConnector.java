@@ -305,7 +305,8 @@ public class TestSystemMetadataConnector
                 // TODO introduce materialized views in CountingMockConnector
                 "VALUES (0, 0, 0, 0)",
                 ImmutableMultiset.<String>builder()
-                        .add("ConnectorMetadata.getMaterializedViews")
+                        .add("ConnectorMetadata.getMaterializedViews(schema=test_schema1)")
+                        .add("ConnectorMetadata.getMaterializedViews(schema=test_schema2)")
                         .build());
 
         // Multiple schemas
@@ -320,7 +321,11 @@ public class TestSystemMetadataConnector
                 // TODO introduce materialized views in CountingMockConnector
                 "VALUES (0, 0, 0, 0)",
                 ImmutableMultiset.<String>builder()
-                        .add("ConnectorMetadata.getMaterializedViews")
+                        .add("ConnectorMetadata.getMaterializedViews(schema=test_schema1)")
+                        .add("ConnectorMetadata.getMaterializedViews(schema=test_schema2)")
+                        .addAll(IntStream.range(1, MAX_PREFIXES_COUNT + 1)
+                                .mapToObj("ConnectorMetadata.getMaterializedViews(schema=bogus_schema%s)"::formatted)
+                                .toList())
                         .build());
 
         // Small LIMIT
