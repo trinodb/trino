@@ -25,10 +25,12 @@ import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.InMemoryRecordSet.Builder;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Optional;
 
+import static io.trino.connector.system.jdbc.FilterUtil.isImpossibleObjectName;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.trino.metadata.MetadataListing.listCatalogNames;
 import static io.trino.metadata.MetadataListing.listSchemas;
@@ -65,10 +67,18 @@ public class SchemaJdbcTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
-        Session session = ((FullConnectorSession) connectorSession).getSession();
-        Optional<String> catalogFilter = tryGetSingleVarcharValue(constraint, 1);
-
         Builder table = InMemoryRecordSet.builder(METADATA);
+        Session session = ((FullConnectorSession) connectorSession).getSession();
+
+        Domain schemaDomain = constraint.getDomain(0, VARCHAR);
+        Domain catalogDomain = constraint.getDomain(1, VARCHAR);
+
+        if (isImpossibleObjectName(catalogDomain) || isImpossibleObjectName(schemaDomain)) {
+            return table.build().cursor();
+        }
+
+        Optional<String> catalogFilter = tryGetSingleVarcharValue(catalogDomain);
+
         for (String catalog : listCatalogNames(session, metadata, accessControl, catalogFilter)) {
             for (String schema : listSchemas(session, metadata, accessControl, catalog)) {
                 table.addRow(schema, catalog);

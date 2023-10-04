@@ -31,11 +31,13 @@ import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 
 import java.util.Optional;
 
+import static io.trino.connector.system.jdbc.FilterUtil.isImpossibleObjectName;
 import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.trino.metadata.MetadataListing.getMaterializedViews;
@@ -45,6 +47,7 @@ import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -96,9 +99,17 @@ public class MaterializedViewSystemTable
         Session session = ((FullConnectorSession) connectorSession).getSession();
         InMemoryRecordSet.Builder displayTable = InMemoryRecordSet.builder(getTableMetadata());
 
-        Optional<String> catalogFilter = tryGetSingleVarcharValue(constraint, 0);
-        Optional<String> schemaFilter = tryGetSingleVarcharValue(constraint, 1);
-        Optional<String> tableFilter = tryGetSingleVarcharValue(constraint, 2);
+        Domain catalogDomain = constraint.getDomain(0, VARCHAR);
+        Domain schemaDomain = constraint.getDomain(1, VARCHAR);
+        Domain tableDomain = constraint.getDomain(2, VARCHAR);
+
+        if (isImpossibleObjectName(catalogDomain) || isImpossibleObjectName(schemaDomain) || isImpossibleObjectName(tableDomain)) {
+            return displayTable.build().cursor();
+        }
+
+        Optional<String> catalogFilter = tryGetSingleVarcharValue(catalogDomain);
+        Optional<String> schemaFilter = tryGetSingleVarcharValue(schemaDomain);
+        Optional<String> tableFilter = tryGetSingleVarcharValue(tableDomain);
 
         listCatalogNames(session, metadata, accessControl, catalogFilter).forEach(catalogName -> {
             QualifiedTablePrefix tablePrefix = tablePrefix(catalogName, schemaFilter, tableFilter);

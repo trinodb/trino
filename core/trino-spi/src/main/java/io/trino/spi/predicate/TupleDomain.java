@@ -235,6 +235,21 @@ public final class TupleDomain<T>
         return domains;
     }
 
+    public Domain getDomain(T column, Type type)
+    {
+        if (domains.isEmpty()) {
+            return Domain.none(type);
+        }
+        Domain domain = domains.get().get(column);
+        if (domain != null && !domain.getType().equals(type)) {
+            throw new IllegalArgumentException("Provided type %s does not match domain type %s for column %s".formatted(type, domain.getType(), column));
+        }
+        if (domain == null) {
+            return Domain.all(type);
+        }
+        return domain;
+    }
+
     /**
      * Returns the strict intersection of the TupleDomains.
      * The resulting TupleDomain represents the set of tuples that would be valid
