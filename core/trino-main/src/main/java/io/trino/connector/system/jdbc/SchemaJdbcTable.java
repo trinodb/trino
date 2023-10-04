@@ -33,7 +33,7 @@ import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue
 import static io.trino.metadata.MetadataListing.listCatalogNames;
 import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class SchemaJdbcTable
@@ -42,8 +42,8 @@ public class SchemaJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "schemas");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("table_schem", createUnboundedVarcharType())
-            .column("table_catalog", createUnboundedVarcharType())
+            .column("table_schem", VARCHAR)
+            .column("table_catalog", VARCHAR)
             .build();
 
     private final Metadata metadata;

@@ -81,7 +81,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.TypeUtils.getDisplayLabel;
 import static java.lang.Math.min;
 import static java.util.Locale.ENGLISH;
@@ -103,30 +103,30 @@ public class ColumnJdbcTable
     private static final ColumnHandle TABLE_NAME_COLUMN = new SystemColumnHandle("table_name");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("table_cat", createUnboundedVarcharType())
-            .column("table_schem", createUnboundedVarcharType())
-            .column("table_name", createUnboundedVarcharType())
-            .column("column_name", createUnboundedVarcharType())
+            .column("table_cat", VARCHAR)
+            .column("table_schem", VARCHAR)
+            .column("table_name", VARCHAR)
+            .column("column_name", VARCHAR)
             .column("data_type", BIGINT)
-            .column("type_name", createUnboundedVarcharType())
+            .column("type_name", VARCHAR)
             .column("column_size", BIGINT)
             .column("buffer_length", BIGINT)
             .column("decimal_digits", BIGINT)
             .column("num_prec_radix", BIGINT)
             .column("nullable", BIGINT)
-            .column("remarks", createUnboundedVarcharType())
-            .column("column_def", createUnboundedVarcharType())
+            .column("remarks", VARCHAR)
+            .column("column_def", VARCHAR)
             .column("sql_data_type", BIGINT)
             .column("sql_datetime_sub", BIGINT)
             .column("char_octet_length", BIGINT)
             .column("ordinal_position", BIGINT)
-            .column("is_nullable", createUnboundedVarcharType())
-            .column("scope_catalog", createUnboundedVarcharType())
-            .column("scope_schema", createUnboundedVarcharType())
-            .column("scope_table", createUnboundedVarcharType())
+            .column("is_nullable", VARCHAR)
+            .column("scope_catalog", VARCHAR)
+            .column("scope_schema", VARCHAR)
+            .column("scope_table", VARCHAR)
             .column("source_data_type", BIGINT)
-            .column("is_autoincrement", createUnboundedVarcharType())
-            .column("is_generatedcolumn", createUnboundedVarcharType())
+            .column("is_autoincrement", VARCHAR)
+            .column("is_generatedcolumn", VARCHAR)
             .build();
 
     private final Metadata metadata;
@@ -243,9 +243,9 @@ public class ColumnJdbcTable
         Optional<String> schemaFilter = tryGetSingleVarcharValue(constraint, 1);
         Optional<String> tableFilter = tryGetSingleVarcharValue(constraint, 2);
 
-        Domain catalogDomain = constraint.getDomains().get().getOrDefault(0, Domain.all(createUnboundedVarcharType()));
-        Domain schemaDomain = constraint.getDomains().get().getOrDefault(1, Domain.all(createUnboundedVarcharType()));
-        Domain tableDomain = constraint.getDomains().get().getOrDefault(2, Domain.all(createUnboundedVarcharType()));
+        Domain catalogDomain = constraint.getDomains().get().getOrDefault(0, Domain.all(VARCHAR));
+        Domain schemaDomain = constraint.getDomains().get().getOrDefault(1, Domain.all(VARCHAR));
+        Domain tableDomain = constraint.getDomains().get().getOrDefault(2, Domain.all(VARCHAR));
 
         if (isNonLowercase(schemaFilter) || isNonLowercase(tableFilter)) {
             // Non-lowercase predicate will never match a lowercase name (until TODO https://github.com/trinodb/trino/issues/17)
@@ -541,16 +541,16 @@ public class ColumnJdbcTable
 
     private static NullableValue toNullableValue(String varcharValue)
     {
-        return NullableValue.of(createUnboundedVarcharType(), utf8Slice(varcharValue));
+        return NullableValue.of(VARCHAR, utf8Slice(varcharValue));
     }
 
     private static Collector<String, ?, Domain> toVarcharDomain()
     {
         return Collectors.collectingAndThen(toImmutableSet(), set -> {
             if (set.isEmpty()) {
-                return Domain.none(createUnboundedVarcharType());
+                return Domain.none(VARCHAR);
             }
-            return Domain.multipleValues(createUnboundedVarcharType(), set.stream()
+            return Domain.multipleValues(VARCHAR, set.stream()
                     .map(Slices::utf8Slice)
                     .collect(toImmutableList()));
         });
