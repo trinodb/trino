@@ -267,6 +267,14 @@
                                     <oldVisibility>public</oldVisibility>
                                     <newVisibility>private</newVisibility>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.connector.ConnectorAccessControl::checkCanGrantExecuteFunctionPrivilege(io.trino.spi.connector.ConnectorSecurityContext, io.trino.spi.function.FunctionKind, io.trino.spi.connector.SchemaRoutineName, io.trino.spi.security.TrinoPrincipal, boolean)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.security.SystemAccessControl::checkCanGrantExecuteFunctionPrivilege(io.trino.spi.security.SystemSecurityContext, io.trino.spi.function.FunctionKind, io.trino.spi.connector.CatalogSchemaRoutineName, io.trino.spi.security.TrinoPrincipal, boolean)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

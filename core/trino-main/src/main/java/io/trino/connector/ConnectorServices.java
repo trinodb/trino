@@ -45,6 +45,7 @@ import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.function.table.ReturnTypeSpecification.DescribedTable;
 import io.trino.spi.function.table.TableArgumentSpecification;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.split.RecordPageSourceProvider;
 
@@ -385,6 +386,7 @@ public class ConnectorServices
     {
         if (accessControl != null) {
             mustNotDeclareMethod(accessControl.getClass(), "checkCanExecuteFunction", ConnectorSecurityContext.class, FunctionKind.class, SchemaRoutineName.class);
+            mustNotDeclareMethod(accessControl.getClass(), "checkCanGrantExecuteFunctionPrivilege", ConnectorSecurityContext.class, FunctionKind.class, SchemaRoutineName.class, TrinoPrincipal.class, boolean.class);
         }
     }
 
