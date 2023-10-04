@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.trino.plugins</groupId>
         <artifactId>starburst-trino-plugins</artifactId>
-        <version>427-SNAPSHOT</version>
+        <version>428-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -160,7 +160,7 @@
         <dependency>
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-jdbc</artifactId>
-            <version>3.13.33</version>
+            <version>3.14.2</version>
         </dependency>
 
         <dependency>
