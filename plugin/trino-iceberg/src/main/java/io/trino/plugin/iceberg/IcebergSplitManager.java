@@ -20,6 +20,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionHandle;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesSplitSource;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -68,7 +69,7 @@ public class IcebergSplitManager
             ConnectorSession session,
             ConnectorTableHandle handle,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
 

@@ -213,6 +213,150 @@
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
                                     <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter java.util.Optional&lt;io.trino.spi.connector.ConstraintApplicationResult&lt;io.trino.spi.connector.ConnectorTableHandle&gt;&gt; io.trino.spi.connector.ConnectorMetadata::applyFilter(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, ===io.trino.spi.connector.Constraint===)</old>
+                                    <new>parameter java.util.Optional&lt;io.trino.spi.connector.ConstraintApplicationResult&lt;io.trino.spi.connector.ConnectorTableHandle&gt;&gt; io.trino.spi.connector.ConnectorMetadata::applyFilter(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, ===io.trino.spi.connector.Constraint&lt;io.trino.spi.connector.ColumnHandle&gt;===)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter io.trino.spi.connector.ConnectorSplitSource io.trino.spi.connector.ConnectorSplitManager::getSplits(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.DynamicFilter, ===io.trino.spi.connector.Constraint===)</old>
+                                    <new>parameter io.trino.spi.connector.ConnectorSplitSource io.trino.spi.connector.ConnectorSplitManager::getSplits(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.DynamicFilter, ===io.trino.spi.connector.Constraint&lt;io.trino.spi.connector.ColumnHandle&gt;===)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.Constraint::&lt;init&gt;(===io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;===)</old>
+                                    <new>parameter void io.trino.spi.connector.Constraint&lt;T&gt;::&lt;init&gt;(===io.trino.spi.predicate.TupleDomain&lt;T&gt;===)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.Constraint::&lt;init&gt;(===io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;===, io.trino.spi.expression.ConnectorExpression, java.util.Map&lt;java.lang.String, io.trino.spi.connector.ColumnHandle&gt;)</old>
+                                    <new>parameter void io.trino.spi.connector.Constraint&lt;T&gt;::&lt;init&gt;(===io.trino.spi.predicate.TupleDomain&lt;T&gt;===, io.trino.spi.expression.ConnectorExpression, java.util.Map&lt;java.lang.String, T&gt;)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.Constraint::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.expression.ConnectorExpression, ===java.util.Map&lt;java.lang.String, io.trino.spi.connector.ColumnHandle&gt;===)</old>
+                                    <new>parameter void io.trino.spi.connector.Constraint&lt;T&gt;::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;T&gt;, io.trino.spi.expression.ConnectorExpression, ===java.util.Map&lt;java.lang.String, T&gt;===)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.Constraint::&lt;init&gt;(===io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;===, java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;, java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;)</old>
+                                    <new>parameter void io.trino.spi.connector.Constraint&lt;T&gt;::&lt;init&gt;(===io.trino.spi.predicate.TupleDomain&lt;T&gt;===, java.util.function.Predicate&lt;java.util.Map&lt;T, io.trino.spi.predicate.NullableValue&gt;&gt;, java.util.Set&lt;T&gt;)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.Constraint::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;, ===java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;===, java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;)</old>
+                                    <new>parameter void io.trino.spi.connector.Constraint&lt;T&gt;::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;T&gt;, ===java.util.function.Predicate&lt;java.util.Map&lt;T, io.trino.spi.predicate.NullableValue&gt;&gt;===, java.util.Set&lt;T&gt;)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.Constraint::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;, java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;, ===java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;===)</old>
+                                    <new>parameter void io.trino.spi.connector.Constraint&lt;T&gt;::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;T&gt;, java.util.function.Predicate&lt;java.util.Map&lt;T, io.trino.spi.predicate.NullableValue&gt;&gt;, ===java.util.Set&lt;T&gt;===)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.Constraint::&lt;init&gt;(===io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;===, io.trino.spi.expression.ConnectorExpression, java.util.Map&lt;java.lang.String, io.trino.spi.connector.ColumnHandle&gt;, java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;, java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;)</old>
+                                    <new>parameter void io.trino.spi.connector.Constraint&lt;T&gt;::&lt;init&gt;(===io.trino.spi.predicate.TupleDomain&lt;T&gt;===, io.trino.spi.expression.ConnectorExpression, java.util.Map&lt;java.lang.String, T&gt;, java.util.function.Predicate&lt;java.util.Map&lt;T, io.trino.spi.predicate.NullableValue&gt;&gt;, java.util.Set&lt;T&gt;)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.Constraint::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.expression.ConnectorExpression, ===java.util.Map&lt;java.lang.String, io.trino.spi.connector.ColumnHandle&gt;===, java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;, java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;)</old>
+                                    <new>parameter void io.trino.spi.connector.Constraint&lt;T&gt;::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;T&gt;, io.trino.spi.expression.ConnectorExpression, ===java.util.Map&lt;java.lang.String, T&gt;===, java.util.function.Predicate&lt;java.util.Map&lt;T, io.trino.spi.predicate.NullableValue&gt;&gt;, java.util.Set&lt;T&gt;)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.Constraint::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.expression.ConnectorExpression, java.util.Map&lt;java.lang.String, io.trino.spi.connector.ColumnHandle&gt;, ===java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;===, java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;)</old>
+                                    <new>parameter void io.trino.spi.connector.Constraint&lt;T&gt;::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;T&gt;, io.trino.spi.expression.ConnectorExpression, java.util.Map&lt;java.lang.String, T&gt;, ===java.util.function.Predicate&lt;java.util.Map&lt;T, io.trino.spi.predicate.NullableValue&gt;&gt;===, java.util.Set&lt;T&gt;)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.Constraint::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.expression.ConnectorExpression, java.util.Map&lt;java.lang.String, io.trino.spi.connector.ColumnHandle&gt;, java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;, ===java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;===)</old>
+                                    <new>parameter void io.trino.spi.connector.Constraint&lt;T&gt;::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;T&gt;, io.trino.spi.expression.ConnectorExpression, java.util.Map&lt;java.lang.String, T&gt;, java.util.function.Predicate&lt;java.util.Map&lt;T, io.trino.spi.predicate.NullableValue&gt;&gt;, ===java.util.Set&lt;T&gt;===)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method io.trino.spi.connector.Constraint io.trino.spi.connector.Constraint::alwaysFalse()</old>
+                                    <new>method &lt;T&gt; io.trino.spi.connector.Constraint&lt;T&gt; io.trino.spi.connector.Constraint&lt;T&gt;::alwaysFalse()</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.generics.elementNowParameterized</code>
+                                    <old>method io.trino.spi.connector.Constraint io.trino.spi.connector.Constraint::alwaysFalse()</old>
+                                    <new>method &lt;T&gt; io.trino.spi.connector.Constraint&lt;T&gt; io.trino.spi.connector.Constraint&lt;T&gt;::alwaysFalse()</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.generics.formalTypeParameterAdded</code>
+                                    <old>method io.trino.spi.connector.Constraint io.trino.spi.connector.Constraint::alwaysFalse()</old>
+                                    <new>method &lt;T&gt; io.trino.spi.connector.Constraint&lt;T&gt; io.trino.spi.connector.Constraint&lt;T&gt;::alwaysFalse()</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method io.trino.spi.connector.Constraint io.trino.spi.connector.Constraint::alwaysTrue()</old>
+                                    <new>method &lt;T&gt; io.trino.spi.connector.Constraint&lt;T&gt; io.trino.spi.connector.Constraint&lt;T&gt;::alwaysTrue()</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.generics.elementNowParameterized</code>
+                                    <old>method io.trino.spi.connector.Constraint io.trino.spi.connector.Constraint::alwaysTrue()</old>
+                                    <new>method &lt;T&gt; io.trino.spi.connector.Constraint&lt;T&gt; io.trino.spi.connector.Constraint&lt;T&gt;::alwaysTrue()</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.generics.formalTypeParameterAdded</code>
+                                    <old>method io.trino.spi.connector.Constraint io.trino.spi.connector.Constraint::alwaysTrue()</old>
+                                    <new>method &lt;T&gt; io.trino.spi.connector.Constraint&lt;T&gt; io.trino.spi.connector.Constraint&lt;T&gt;::alwaysTrue()</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.Map&lt;java.lang.String, io.trino.spi.connector.ColumnHandle&gt; io.trino.spi.connector.Constraint::getAssignments()</old>
+                                    <new>method java.util.Map&lt;java.lang.String, T&gt; io.trino.spi.connector.Constraint&lt;T&gt;::getAssignments()</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.Optional&lt;java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;&gt; io.trino.spi.connector.Constraint::getPredicateColumns()</old>
+                                    <new>method java.util.Optional&lt;java.util.Set&lt;T&gt;&gt; io.trino.spi.connector.Constraint&lt;T&gt;::getPredicateColumns()</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt; io.trino.spi.connector.Constraint::getSummary()</old>
+                                    <new>method io.trino.spi.predicate.TupleDomain&lt;T&gt; io.trino.spi.connector.Constraint&lt;T&gt;::getSummary()</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.Optional&lt;java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;&gt; io.trino.spi.connector.Constraint::predicate()</old>
+                                    <new>method java.util.Optional&lt;java.util.function.Predicate&lt;java.util.Map&lt;T, io.trino.spi.predicate.NullableValue&gt;&gt;&gt; io.trino.spi.connector.Constraint&lt;T&gt;::predicate()</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.generics.elementNowParameterized</code>
+                                    <old>class io.trino.spi.connector.Constraint</old>
+                                    <new>class io.trino.spi.connector.Constraint&lt;T&gt;</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.generics.formalTypeParameterAdded</code>
+                                    <old>class io.trino.spi.connector.Constraint</old>
+                                    <new>class io.trino.spi.connector.Constraint&lt;T&gt;</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
                                     <code>java.method.removed</code>
                                     <old>method java.util.Optional&lt;io.trino.spi.type.Type&gt; io.trino.spi.connector.ConnectorMetadata::getSupportedType(io.trino.spi.connector.ConnectorSession, io.trino.spi.type.Type)</old>
                                 </item>

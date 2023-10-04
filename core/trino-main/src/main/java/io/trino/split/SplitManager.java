@@ -23,6 +23,7 @@ import io.trino.execution.QueryManagerConfig;
 import io.trino.metadata.TableFunctionHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -54,7 +55,7 @@ public class SplitManager
             Span parentSpan,
             TableHandle table,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         CatalogHandle catalogHandle = table.getCatalogHandle();
         ConnectorSplitManager splitManager = splitManagerProvider.getService(catalogHandle);

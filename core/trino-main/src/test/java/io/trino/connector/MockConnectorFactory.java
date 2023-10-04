@@ -378,7 +378,7 @@ public class MockConnectorFactory
     @FunctionalInterface
     public interface ApplyFilter
     {
-        Optional<ConstraintApplicationResult<ConnectorTableHandle>> apply(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint);
+        Optional<ConstraintApplicationResult<ConnectorTableHandle>> apply(ConnectorSession session, ConnectorTableHandle handle, Constraint<ColumnHandle> constraint);
     }
 
     @FunctionalInterface

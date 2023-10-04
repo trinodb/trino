@@ -67,7 +67,7 @@ public class HivePartitionManager
         this.domainCompactionThreshold = domainCompactionThreshold;
     }
 
-    public HivePartitionResult getPartitions(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, Constraint constraint)
+    public HivePartitionResult getPartitions(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         TupleDomain<ColumnHandle> effectivePredicate = constraint.getSummary()
@@ -140,7 +140,7 @@ public class HivePartitionManager
         return new HivePartitionResult(partitionColumns, Optional.empty(), partitionList, TupleDomain.all(), TupleDomain.all(), bucketHandle, Optional.empty());
     }
 
-    public HiveTableHandle applyPartitionResult(HiveTableHandle handle, HivePartitionResult partitions, Constraint constraint)
+    public HiveTableHandle applyPartitionResult(HiveTableHandle handle, HivePartitionResult partitions, Constraint<ColumnHandle> constraint)
     {
         Optional<List<String>> partitionNames = partitions.getPartitionNames();
         TupleDomain<ColumnHandle> enforcedConstraint = handle.getEnforcedConstraint();
@@ -183,7 +183,7 @@ public class HivePartitionManager
         TupleDomain<ColumnHandle> summary = table.getEnforcedConstraint().intersect(
                 table.getCompactEffectivePredicate()
                         .transformKeys(ColumnHandle.class::cast));
-        return table.getPartitions().map(List::iterator).orElseGet(() -> getPartitions(metastore, table, new Constraint(summary)).getPartitions());
+        return table.getPartitions().map(List::iterator).orElseGet(() -> getPartitions(metastore, table, new Constraint<>(summary)).getPartitions());
     }
 
     public Optional<List<HivePartition>> tryLoadPartitions(HivePartitionResult partitionResult)

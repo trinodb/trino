@@ -21,6 +21,7 @@ import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.ErrorType;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -162,7 +163,7 @@ public class PinotSplitManager
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         PinotTableHandle pinotTableHandle = (PinotTableHandle) tableHandle;
         Supplier<TrinoException> errorSupplier = () -> new QueryNotAdequatelyPushedDownException(QueryNotAdequatelyPushedDownErrorCode.PQL_NOT_PRESENT, pinotTableHandle, "");

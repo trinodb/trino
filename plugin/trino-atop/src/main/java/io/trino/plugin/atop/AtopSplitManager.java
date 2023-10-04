@@ -16,6 +16,7 @@ package io.trino.plugin.atop;
 import com.google.inject.Inject;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -60,7 +61,7 @@ public class AtopSplitManager
             ConnectorSession session,
             ConnectorTableHandle table,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         AtopTableHandle tableHandle = (AtopTableHandle) table;
 

@@ -25,6 +25,7 @@ import io.trino.plugin.raptor.legacy.util.SynchronizedResultIterator;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -95,7 +96,7 @@ public class RaptorSplitManager
             ConnectorSession session,
             ConnectorTableHandle handle,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         RaptorTableHandle table = (RaptorTableHandle) handle;
         long tableId = table.getTableId();

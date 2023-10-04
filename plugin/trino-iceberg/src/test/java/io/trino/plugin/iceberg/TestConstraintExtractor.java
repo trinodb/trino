@@ -93,7 +93,7 @@ public class TestConstraintExtractor
     public void testExtractSummary()
     {
         assertThat(extract(
-                new Constraint(
+                new Constraint<>(
                         TupleDomain.withColumnDomains(Map.of(A_BIGINT, Domain.singleValue(BIGINT, 1L))),
                         Constant.TRUE,
                         Map.of(),
@@ -380,7 +380,7 @@ public class TestConstraintExtractor
                 Optional.empty());
     }
 
-    private static TupleDomain<IcebergColumnHandle> extract(Constraint constraint)
+    private static TupleDomain<IcebergColumnHandle> extract(Constraint<ColumnHandle> constraint)
     {
         ConstraintExtractor.ExtractionResult result = extractTupleDomain(constraint);
         assertThat(result.remainingExpression())
@@ -388,17 +388,17 @@ public class TestConstraintExtractor
         return result.tupleDomain();
     }
 
-    private static Constraint constraint(Expression expression, Map<String, IcebergColumnHandle> assignments)
+    private static Constraint<ColumnHandle> constraint(Expression expression, Map<String, IcebergColumnHandle> assignments)
     {
         return constraint(TupleDomain.all(), expression, assignments);
     }
 
-    private static Constraint constraint(TupleDomain<ColumnHandle> summary, Expression expression, Map<String, IcebergColumnHandle> assignments)
+    private static Constraint<ColumnHandle> constraint(TupleDomain<ColumnHandle> summary, Expression expression, Map<String, IcebergColumnHandle> assignments)
     {
         Map<String, Type> symbolTypes = assignments.entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getType()));
         ConnectorExpression connectorExpression = connectorExpression(expression, symbolTypes);
-        return new Constraint(summary, connectorExpression, ImmutableMap.copyOf(assignments));
+        return new Constraint<>(summary, connectorExpression, ImmutableMap.copyOf(assignments));
     }
 
     private static ConnectorExpression connectorExpression(Expression expression, Map<String, Type> symbolTypes)

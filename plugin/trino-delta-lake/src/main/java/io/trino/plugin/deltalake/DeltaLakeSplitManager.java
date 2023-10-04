@@ -110,7 +110,7 @@ public class DeltaLakeSplitManager
             ConnectorSession session,
             ConnectorTableHandle handle,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         DeltaLakeTableHandle deltaLakeTableHandle = (DeltaLakeTableHandle) handle;
         if (deltaLakeTableHandle.getEnforcedPartitionConstraint().isNone() || deltaLakeTableHandle.getNonPartitionConstraint().isNone()) {
@@ -147,7 +147,7 @@ public class DeltaLakeSplitManager
             ConnectorSession session,
             Optional<DataSize> maxScannedFileSize,
             Set<ColumnHandle> columnsCoveredByDynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         TableSnapshot tableSnapshot;
         try {

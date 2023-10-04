@@ -158,7 +158,7 @@ public class HudiMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
     {
         HudiTableHandle handle = (HudiTableHandle) tableHandle;
         HudiPredicates predicates = HudiPredicates.from(constraint.getSummary());

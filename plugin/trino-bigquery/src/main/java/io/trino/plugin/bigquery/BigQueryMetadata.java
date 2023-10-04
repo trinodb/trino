@@ -774,7 +774,7 @@ public class BigQueryMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(
             ConnectorSession session,
             ConnectorTableHandle handle,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         log.debug("applyFilter(session=%s, handle=%s, summary=%s, predicate=%s, columns=%s)",
                 session, handle, constraint.getSummary(), constraint.predicate(), constraint.getPredicateColumns());

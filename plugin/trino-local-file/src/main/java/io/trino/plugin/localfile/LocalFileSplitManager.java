@@ -15,6 +15,7 @@ package io.trino.plugin.localfile;
 
 import com.google.inject.Inject;
 import io.trino.spi.NodeManager;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -47,7 +48,7 @@ public class LocalFileSplitManager
             ConnectorSession session,
             ConnectorTableHandle table,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         List<ConnectorSplit> splits = nodeManager.getAllNodes().stream()
                 .map(node -> new LocalFileSplit(node.getHostAndPort()))

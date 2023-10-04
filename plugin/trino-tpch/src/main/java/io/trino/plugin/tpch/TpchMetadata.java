@@ -202,7 +202,7 @@ public class TpchMetadata
         return new TpchTableHandle(tableName.getSchemaName(), tableName.getTableName(), scaleFactor);
     }
 
-    private Set<NullableValue> filterValues(Set<NullableValue> nullableValues, TpchColumn<?> column, Constraint constraint)
+    private Set<NullableValue> filterValues(Set<NullableValue> nullableValues, TpchColumn<?> column, Constraint<ColumnHandle> constraint)
     {
         return nullableValues.stream()
                 .filter(convertToPredicate(constraint.getSummary(), toColumnHandle(column)))
@@ -470,7 +470,7 @@ public class TpchMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint)
     {
         TpchTableHandle handle = (TpchTableHandle) table;
 

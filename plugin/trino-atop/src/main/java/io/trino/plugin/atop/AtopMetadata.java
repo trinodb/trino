@@ -148,7 +148,7 @@ public class AtopMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint)
     {
         AtopTableHandle handle = (AtopTableHandle) table;
 

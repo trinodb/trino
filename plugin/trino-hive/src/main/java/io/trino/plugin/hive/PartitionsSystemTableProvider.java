@@ -110,7 +110,7 @@ public class PartitionsSystemTableProvider
         return Optional.of(createSystemTable(
                 new ConnectorTableMetadata(tableName, partitionSystemTableColumns),
                 constraint -> {
-                    Constraint targetConstraint = new Constraint(constraint.transformKeys(partitionColumns::get));
+                    Constraint targetConstraint = new Constraint<>(constraint.transformKeys(partitionColumns::get));
                     Iterable<List<Object>> records = () ->
                             stream(partitionManager.getPartitions(metadata.getMetastore(), sourceTableHandle, targetConstraint).getPartitions())
                                     .map(hivePartition ->

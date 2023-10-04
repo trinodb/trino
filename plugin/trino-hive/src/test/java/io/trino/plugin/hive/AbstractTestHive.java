@@ -1146,7 +1146,7 @@ public abstract class AbstractTestHive
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tablePartitionFormat);
-            Constraint constraint = new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(intColumn, Domain.singleValue(BIGINT, 5L))));
+            Constraint<ColumnHandle> constraint = new Constraint<>(TupleDomain.withColumnDomains(ImmutableMap.of(intColumn, Domain.singleValue(BIGINT, 5L))));
             tableHandle = applyFilter(metadata, tableHandle, constraint);
             ConnectorTableProperties properties = metadata.getTableProperties(newSession(), tableHandle);
             assertExpectedTableProperties(properties, tablePartitionFormatProperties);
@@ -1170,7 +1170,7 @@ public abstract class AbstractTestHive
             Domain integerNotNull = Domain.notNull(INTEGER);
 
             // all
-            assertThat(getPartitionNamesByFilter(metadata, tableHandle, new Constraint(TupleDomain.all())))
+            assertThat(getPartitionNamesByFilter(metadata, tableHandle, new Constraint<>(TupleDomain.all())))
                     .containsOnly(
                             "p_string=__HIVE_DEFAULT_PARTITION__/p_integer=__HIVE_DEFAULT_PARTITION__",
                             "p_string=abc/p_integer=123",
@@ -1216,10 +1216,10 @@ public abstract class AbstractTestHive
 
     private Set<String> getPartitionNamesByFilter(ConnectorMetadata metadata, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Domain domain)
     {
-        return getPartitionNamesByFilter(metadata, tableHandle, new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle, domain))));
+        return getPartitionNamesByFilter(metadata, tableHandle, new Constraint<>(TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle, domain))));
     }
 
-    private Set<String> getPartitionNamesByFilter(ConnectorMetadata metadata, ConnectorTableHandle tableHandle, Constraint constraint)
+    private Set<String> getPartitionNamesByFilter(ConnectorMetadata metadata, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
     {
         return applyFilter(metadata, tableHandle, constraint)
                 .getPartitions().orElseThrow(() -> new IllegalStateException("No partitions"))
@@ -2413,7 +2413,7 @@ public abstract class AbstractTestHive
             ConnectorTableHandle table = getTableHandle(metadata, tablePartitionSchemaChangeNonCanonical);
             ColumnHandle column = metadata.getColumnHandles(session, table).get("t_boolean");
 
-            Constraint constraint = new Constraint(TupleDomain.fromFixedValues(ImmutableMap.of(column, NullableValue.of(BOOLEAN, false))));
+            Constraint<ColumnHandle> constraint = new Constraint<>(TupleDomain.fromFixedValues(ImmutableMap.of(column, NullableValue.of(BOOLEAN, false))));
             table = applyFilter(metadata, table, constraint);
             HivePartition partition = getOnlyElement(((HiveTableHandle) table).getPartitions().orElseThrow(AssertionError::new));
             assertEquals(getPartitionId(partition), "t_boolean=0");
@@ -5010,7 +5010,7 @@ public abstract class AbstractTestHive
             // delete ds=2015-07-03
             session = newSession();
             TupleDomain<ColumnHandle> tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(dsColumnHandle, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2015-07-03"))));
-            Constraint constraint = new Constraint(tupleDomain, tupleDomain.asPredicate(), tupleDomain.getDomains().orElseThrow().keySet());
+            Constraint<ColumnHandle> constraint = new Constraint<>(tupleDomain, tupleDomain.asPredicate(), tupleDomain.getDomains().orElseThrow().keySet());
             tableHandle = applyFilter(metadata, tableHandle, constraint);
             tableHandle = metadata.applyDelete(session, tableHandle).get();
             metadata.executeDelete(session, tableHandle);
@@ -5045,7 +5045,7 @@ public abstract class AbstractTestHive
             session = newSession();
             TupleDomain<ColumnHandle> tupleDomain2 = TupleDomain.withColumnDomains(
                     ImmutableMap.of(dsColumnHandle, Domain.create(ValueSet.ofRanges(Range.range(createUnboundedVarcharType(), utf8Slice("2015-07-01"), true, utf8Slice("2015-07-02"), true)), false)));
-            Constraint constraint2 = new Constraint(tupleDomain2, tupleDomain2.asPredicate(), tupleDomain2.getDomains().orElseThrow().keySet());
+            Constraint<ColumnHandle> constraint2 = new Constraint<>(tupleDomain2, tupleDomain2.asPredicate(), tupleDomain2.getDomains().orElseThrow().keySet());
             tableHandle = applyFilter(metadata, tableHandle, constraint2);
             tableHandle = metadata.applyDelete(session, tableHandle).get();
             metadata.executeDelete(session, tableHandle);
@@ -5356,7 +5356,7 @@ public abstract class AbstractTestHive
         return handle;
     }
 
-    private HiveTableHandle applyFilter(ConnectorMetadata metadata, ConnectorTableHandle tableHandle, Constraint constraint)
+    private HiveTableHandle applyFilter(ConnectorMetadata metadata, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
     {
         return metadata.applyFilter(newSession(), tableHandle, constraint)
                 .map(ConstraintApplicationResult::getHandle)
@@ -5374,7 +5374,7 @@ public abstract class AbstractTestHive
             Optional<HiveStorageFormat> expectedStorageFormat)
             throws Exception
     {
-        tableHandle = applyFilter(transaction.getMetadata(), tableHandle, new Constraint(tupleDomain));
+        tableHandle = applyFilter(transaction.getMetadata(), tableHandle, new Constraint<>(tupleDomain));
         List<ConnectorSplit> splits = getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
         if (expectedSplitCount.isPresent()) {
             assertEquals(splits.size(), expectedSplitCount.getAsInt());
@@ -6094,7 +6094,7 @@ public abstract class AbstractTestHive
                 HiveColumnHandle dsColumnHandle = (HiveColumnHandle) metadata.getColumnHandles(session, tableHandle).get("pk2");
                 TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                         dsColumnHandle, domainToDrop));
-                Constraint constraint = new Constraint(tupleDomain, tupleDomain.asPredicate(), tupleDomain.getDomains().orElseThrow().keySet());
+                Constraint<ColumnHandle> constraint = new Constraint<>(tupleDomain, tupleDomain.asPredicate(), tupleDomain.getDomains().orElseThrow().keySet());
                 tableHandle = applyFilter(metadata, tableHandle, constraint);
                 tableHandle = metadata.applyDelete(session, tableHandle).get();
                 metadata.executeDelete(session, tableHandle);

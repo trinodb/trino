@@ -16,6 +16,7 @@ package io.trino.connector.informationschema;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.spi.HostAddress;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -46,7 +47,7 @@ public class InformationSchemaSplitManager
             ConnectorSession session,
             ConnectorTableHandle table,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         List<HostAddress> localAddress = ImmutableList.of(nodeManager.getCurrentNode().getHostAndPort());
         ConnectorSplit split = new InformationSchemaSplit(localAddress);

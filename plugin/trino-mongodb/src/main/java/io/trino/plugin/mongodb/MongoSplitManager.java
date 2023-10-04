@@ -15,6 +15,7 @@ package io.trino.plugin.mongodb;
 
 import com.google.inject.Inject;
 import io.trino.spi.HostAddress;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -43,7 +44,7 @@ public class MongoSplitManager
             ConnectorSession session,
             ConnectorTableHandle table,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         MongoSplit split = new MongoSplit(addresses);
 

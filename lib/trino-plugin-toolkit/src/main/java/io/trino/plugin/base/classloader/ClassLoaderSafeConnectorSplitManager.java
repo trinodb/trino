@@ -15,6 +15,7 @@ package io.trino.plugin.base.classloader;
 
 import com.google.inject.Inject;
 import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -45,7 +46,7 @@ public final class ClassLoaderSafeConnectorSplitManager
             ConnectorSession session,
             ConnectorTableHandle table,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getSplits(transaction, session, table, dynamicFilter, constraint);

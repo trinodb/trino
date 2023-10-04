@@ -14,6 +14,7 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -44,7 +45,7 @@ public class TestingSplitManager
             ConnectorSession session,
             ConnectorTableHandle table,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         return new FixedSplitSource(splits);
     }

@@ -25,6 +25,7 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.plugin.cassandra.util.HostAddressFactory;
 import io.trino.spi.HostAddress;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -80,7 +81,7 @@ public class CassandraSplitManager
             ConnectorSession session,
             ConnectorTableHandle connectorTableHandle,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         CassandraTableHandle tableHandle = (CassandraTableHandle) connectorTableHandle;
 

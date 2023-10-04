@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.inject.Inject;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -42,7 +43,7 @@ public class JdbcSplitManager
             ConnectorSession session,
             ConnectorTableHandle table,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         if (table instanceof JdbcProcedureHandle procedureHandle) {
             return jdbcClient.getSplits(session, procedureHandle);

@@ -363,7 +363,7 @@ The following is a simple example which only looks at `TupleDomain`:
 public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(
         ConnectorSession session,
         ConnectorTableHandle tableHandle,
-        Constraint constraint)
+        Constraint<ColumnHandle> constraint)
 {
     ExampleTableHandle handle = (ExampleTableHandle) tableHandle;
 
@@ -401,7 +401,7 @@ not available directly in the underlying data source, and must be mapped:
 public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(
         ConnectorSession session,
         ConnectorTableHandle table,
-        Constraint constraint)
+        Constraint<ColumnHandle> constraint)
 {
     JdbcTableHandle handle = (JdbcTableHandle) table;
 
@@ -488,7 +488,7 @@ The following example adds expression pushdown enabled by a session flag:
 public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(
         ConnectorSession session,
         ConnectorTableHandle table,
-        Constraint constraint)
+        Constraint<ColumnHandle> constraint)
 {
     JdbcTableHandle handle = (JdbcTableHandle) table;
 

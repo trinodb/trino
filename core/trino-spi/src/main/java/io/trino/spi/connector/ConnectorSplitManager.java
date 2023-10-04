@@ -23,7 +23,7 @@ public interface ConnectorSplitManager
             ConnectorSession session,
             ConnectorTableHandle table,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         throw new UnsupportedOperationException();
     }

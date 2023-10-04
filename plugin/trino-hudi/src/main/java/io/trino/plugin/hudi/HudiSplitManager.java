@@ -20,6 +20,7 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -83,7 +84,7 @@ public class HudiSplitManager
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         HudiTableHandle hudiTableHandle = (HudiTableHandle) tableHandle;
         HudiMetadata hudiMetadata = transactionManager.get(transaction, session.getIdentity());

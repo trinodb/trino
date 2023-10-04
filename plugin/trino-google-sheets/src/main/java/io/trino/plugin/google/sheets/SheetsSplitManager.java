@@ -14,6 +14,7 @@
 package io.trino.plugin.google.sheets;
 
 import com.google.inject.Inject;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -48,7 +49,7 @@ public class SheetsSplitManager
             ConnectorSession session,
             ConnectorTableHandle connectorTableHandle,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         SheetsConnectorTableHandle tableHandle = (SheetsConnectorTableHandle) connectorTableHandle;
         SheetsTable table = sheetsClient.getTable(tableHandle)

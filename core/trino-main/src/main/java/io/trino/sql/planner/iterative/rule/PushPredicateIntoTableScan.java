@@ -192,7 +192,7 @@ public class PushPredicateIntoTableScan
 
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
-        Constraint constraint;
+        Constraint<ColumnHandle> constraint;
         // use evaluator only when there is some predicate which could not be translated into tuple domain
         if (pruneWithPredicateExpression && !TRUE_LITERAL.equals(decomposedPredicate.getRemainingExpression())) {
             LayoutConstraintEvaluator evaluator = new LayoutConstraintEvaluator(
@@ -207,12 +207,12 @@ public class PushPredicateIntoTableScan
                             // Simplify the tuple domain to avoid creating an expression with too many nodes,
                             // which would be expensive to evaluate in the call to isCandidate below.
                             domainTranslator.toPredicate(newDomain.simplify().transformKeys(assignments::get))));
-            constraint = new Constraint(newDomain, expressionTranslation.connectorExpression(), connectorExpressionAssignments, evaluator::isCandidate, evaluator.getArguments());
+            constraint = new Constraint<>(newDomain, expressionTranslation.connectorExpression(), connectorExpressionAssignments, evaluator::isCandidate, evaluator.getArguments());
         }
         else {
             // Currently, invoking the expression interpreter is very expensive.
             // TODO invoke the interpreter unconditionally when the interpreter becomes cheap enough.
-            constraint = new Constraint(newDomain, expressionTranslation.connectorExpression(), connectorExpressionAssignments);
+            constraint = new Constraint<>(newDomain, expressionTranslation.connectorExpression(), connectorExpressionAssignments);
         }
 
         // check if new domain is wider than domain already provided by table scan

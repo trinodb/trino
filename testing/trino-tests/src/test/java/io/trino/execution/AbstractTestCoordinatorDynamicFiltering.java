@@ -492,7 +492,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         ConnectorSession session,
                         ConnectorTableHandle table,
                         DynamicFilter dynamicFilter,
-                        Constraint constraint)
+                        Constraint<ColumnHandle> constraint)
                 {
                     if (!isTaskRetryMode) {
                         // In task retry mode, dynamic filter collection is done outside the join stage,

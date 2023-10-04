@@ -177,10 +177,10 @@ public class SplitSourceFactory
                 dynamicFilter = dynamicFilterService.createDynamicFilter(session.getQueryId(), dynamicFilters, assignments, typeProvider);
             }
 
-            Constraint constraint = filterPredicate
+            Constraint<ColumnHandle> constraint = filterPredicate
                     .map(predicate -> filterConjuncts(plannerContext.getMetadata(), predicate, expression -> !DynamicFilters.isDynamicFilter(expression)))
                     .map(predicate -> new LayoutConstraintEvaluator(plannerContext, typeAnalyzer, session, typeProvider, assignments, predicate))
-                    .map(evaluator -> new Constraint(TupleDomain.all(), evaluator::isCandidate, evaluator.getArguments())) // we are interested only in functional predicate here, so we set the summary to ALL.
+                    .map(evaluator -> new Constraint<>(TupleDomain.all(), evaluator::isCandidate, evaluator.getArguments())) // we are interested only in functional predicate here, so we set the summary to ALL.
                     .orElse(alwaysTrue());
 
             // get dataSource for table

@@ -18,6 +18,7 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -66,7 +67,7 @@ public class JdbcDynamicFilteringSplitManager
             ConnectorSession session,
             ConnectorTableHandle table,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         // JdbcProcedureHandle doesn't support any pushdown operation, so we rely on delegateSplitManager
         if (table instanceof JdbcProcedureHandle) {
@@ -90,7 +91,7 @@ public class JdbcDynamicFilteringSplitManager
         private final ConnectorSession session;
         private final JdbcTableHandle table;
         private final DynamicFilter dynamicFilter;
-        private final Constraint constraint;
+        private final Constraint<ColumnHandle> constraint;
         private final long dynamicFilteringTimeoutNanos;
         private final long startNanos;
 
@@ -102,7 +103,7 @@ public class JdbcDynamicFilteringSplitManager
                 ConnectorSession session,
                 JdbcTableHandle table,
                 DynamicFilter dynamicFilter,
-                Constraint constraint)
+                Constraint<ColumnHandle> constraint)
         {
             this.transaction = requireNonNull(transaction, "transaction is null");
             this.session = requireNonNull(session, "session is null");

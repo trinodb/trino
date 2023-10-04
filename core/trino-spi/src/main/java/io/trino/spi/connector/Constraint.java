@@ -26,58 +26,60 @@ import java.util.function.Predicate;
 import static io.trino.spi.expression.Constant.TRUE;
 import static java.util.Objects.requireNonNull;
 
-public class Constraint
+public class Constraint<T>
 {
-    private static final Constraint ALWAYS_TRUE = new Constraint(TupleDomain.all());
-    private static final Constraint ALWAYS_FALSE = new Constraint(TupleDomain.none(), bindings -> false, Set.of());
+    private static final Constraint<?> ALWAYS_TRUE = new Constraint<>(TupleDomain.all());
+    private static final Constraint<?> ALWAYS_FALSE = new Constraint<>(TupleDomain.none(), bindings -> false, Set.of());
 
-    private final TupleDomain<ColumnHandle> summary;
+    private final TupleDomain<T> summary;
     private final ConnectorExpression expression;
-    private final Map<String, ColumnHandle> assignments;
-    private final Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate;
-    private final Optional<Set<ColumnHandle>> predicateColumns;
+    private final Map<String, T> assignments;
+    private final Optional<Predicate<Map<T, NullableValue>>> predicate;
+    private final Optional<Set<T>> predicateColumns;
 
-    public static Constraint alwaysTrue()
+    @SuppressWarnings("unchecked")
+    public static <T> Constraint<T> alwaysTrue()
     {
-        return ALWAYS_TRUE;
+        return (Constraint<T>) ALWAYS_TRUE;
     }
 
-    public static Constraint alwaysFalse()
+    @SuppressWarnings("unchecked")
+    public static <T> Constraint<T> alwaysFalse()
     {
-        return ALWAYS_FALSE;
+        return (Constraint<T>) ALWAYS_FALSE;
     }
 
-    public Constraint(TupleDomain<ColumnHandle> summary)
+    public Constraint(TupleDomain<T> summary)
     {
         this(summary, TRUE, Map.of(), Optional.empty(), Optional.empty());
     }
 
-    public Constraint(TupleDomain<ColumnHandle> summary, Predicate<Map<ColumnHandle, NullableValue>> predicate, Set<ColumnHandle> predicateColumns)
+    public Constraint(TupleDomain<T> summary, Predicate<Map<T, NullableValue>> predicate, Set<T> predicateColumns)
     {
         this(summary, TRUE, Map.of(), Optional.of(predicate), Optional.of(predicateColumns));
     }
 
-    public Constraint(TupleDomain<ColumnHandle> summary, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    public Constraint(TupleDomain<T> summary, ConnectorExpression expression, Map<String, T> assignments)
     {
         this(summary, expression, assignments, Optional.empty(), Optional.empty());
     }
 
     public Constraint(
-            TupleDomain<ColumnHandle> summary,
+            TupleDomain<T> summary,
             ConnectorExpression expression,
-            Map<String, ColumnHandle> assignments,
-            Predicate<Map<ColumnHandle, NullableValue>> predicate,
-            Set<ColumnHandle> predicateColumns)
+            Map<String, T> assignments,
+            Predicate<Map<T, NullableValue>> predicate,
+            Set<T> predicateColumns)
     {
         this(summary, expression, assignments, Optional.of(predicate), Optional.of(predicateColumns));
     }
 
     private Constraint(
-            TupleDomain<ColumnHandle> summary,
+            TupleDomain<T> summary,
             ConnectorExpression expression,
-            Map<String, ColumnHandle> assignments,
-            Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate,
-            Optional<Set<ColumnHandle>> predicateColumns)
+            Map<String, T> assignments,
+            Optional<Predicate<Map<T, NullableValue>>> predicate,
+            Optional<Set<T>> predicateColumns)
     {
         this.summary = requireNonNull(summary, "summary is null");
         this.expression = requireNonNull(expression, "expression is null");
@@ -96,7 +98,7 @@ public class Constraint
     /**
      * @return a predicate which is equivalent to, or looser than {@link #predicate} (if present), and should be AND-ed with, {@link #getExpression}.
      */
-    public TupleDomain<ColumnHandle> getSummary()
+    public TupleDomain<T> getSummary()
     {
         return summary;
     }
@@ -113,7 +115,7 @@ public class Constraint
      * @return mappings from variable names to table column handles
      * It is guaranteed that all the required mappings for {@link #getExpression} will be provided but not necessarily *all* the column handles of the table
      */
-    public Map<String, ColumnHandle> getAssignments()
+    public Map<String, T> getAssignments()
     {
         return assignments;
     }
@@ -126,7 +128,7 @@ public class Constraint
      *
      * @see #getPredicateColumns()
      */
-    public Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate()
+    public Optional<Predicate<Map<T, NullableValue>>> predicate()
     {
         return predicate;
     }
@@ -134,7 +136,7 @@ public class Constraint
     /**
      * Set of columns the {@link #predicate()} result depends on. It's present if and only if {@link #predicate()} is present.
      */
-    public Optional<Set<ColumnHandle>> getPredicateColumns()
+    public Optional<Set<T>> getPredicateColumns()
     {
         return predicateColumns;
     }

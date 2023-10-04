@@ -488,7 +488,7 @@ public class ElasticsearchMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint)
     {
         ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
 

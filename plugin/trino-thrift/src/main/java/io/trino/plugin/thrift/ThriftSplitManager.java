@@ -74,7 +74,7 @@ public class ThriftSplitManager
             ConnectorSession session,
             ConnectorTableHandle table,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         ThriftTableHandle tableHandle = (ThriftTableHandle) table;
         return new ThriftSplitSource(

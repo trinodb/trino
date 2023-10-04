@@ -182,7 +182,7 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint<ColumnHandle> constraint)
     {
         InformationSchemaTableHandle table = (InformationSchemaTableHandle) handle;
 
@@ -204,7 +204,7 @@ public class InformationSchemaMetadata
         return ImmutableSet.of(new QualifiedTablePrefix(catalogName));
     }
 
-    private Set<QualifiedTablePrefix> getPrefixes(ConnectorSession session, InformationSchemaTableHandle table, Constraint constraint)
+    private Set<QualifiedTablePrefix> getPrefixes(ConnectorSession session, InformationSchemaTableHandle table, Constraint<ColumnHandle> constraint)
     {
         if (constraint.getSummary().isNone()) {
             return ImmutableSet.of();

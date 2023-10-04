@@ -15,6 +15,7 @@ package io.trino.plugin.elasticsearch;
 
 import com.google.inject.Inject;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -48,7 +49,7 @@ public class ElasticsearchSplitManager
             ConnectorSession session,
             ConnectorTableHandle table,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         ElasticsearchTableHandle tableHandle = (ElasticsearchTableHandle) table;
 

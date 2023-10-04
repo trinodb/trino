@@ -894,7 +894,7 @@ public class HiveMetadata
 
         Map<String, Type> columnTypes = columns.entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> getColumnMetadata(session, tableHandle, entry.getValue()).getType()));
-        HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, tableHandle, new Constraint(hiveTableHandle.getEnforcedConstraint()));
+        HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, tableHandle, new Constraint<>(hiveTableHandle.getEnforcedConstraint()));
         // If partitions are not loaded, then don't generate table statistics.
         // Note that the computation is not persisted in the table handle, so can be redone many times
         // TODO: https://github.com/trinodb/trino/issues/10980.
@@ -2916,7 +2916,7 @@ public class HiveMetadata
                         // We load the partitions to compute the predicates enforced by the table.
                         // Note that the computation is not persisted in the table handle, so can be redone many times
                         // TODO: https://github.com/trinodb/trino/issues/10980.
-                        HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, table, new Constraint(hiveTable.getEnforcedConstraint()));
+                        HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, table, new Constraint<>(hiveTable.getEnforcedConstraint()));
                         return partitionManager.tryLoadPartitions(partitionResult);
                     });
 
@@ -2976,7 +2976,7 @@ public class HiveMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         checkArgument(handle.getAnalyzePartitionValues().isEmpty() || constraint.getSummary().isAll(), "Analyze should not have a constraint");

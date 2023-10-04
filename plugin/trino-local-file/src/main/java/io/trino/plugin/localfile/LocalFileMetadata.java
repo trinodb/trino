@@ -132,7 +132,7 @@ public class LocalFileMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint)
     {
         LocalFileTableHandle handle = (LocalFileTableHandle) table;
 

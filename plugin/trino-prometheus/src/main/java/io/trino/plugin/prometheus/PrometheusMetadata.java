@@ -154,7 +154,7 @@ public class PrometheusMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint<ColumnHandle> constraint)
     {
         PrometheusTableHandle tableHandle = ((PrometheusTableHandle) handle)
                 .withPredicate(constraint.getSummary());

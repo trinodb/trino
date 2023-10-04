@@ -169,7 +169,7 @@ public class TestRemoveEmptyUnionBranches
 
     // This method tries to detect whether we encountered a domain and a predicate that yields no values - and hence
     // results in a "none" domain effectively.
-    private boolean discoveredNonePredicateOnPushdownColumn(TupleDomain<ColumnHandle> domain, Constraint constraint)
+    private boolean discoveredNonePredicateOnPushdownColumn(TupleDomain<ColumnHandle> domain, Constraint<ColumnHandle> constraint)
     {
         if (domain.isNone() || constraint.predicate().isEmpty()) {
             // We're not discovering a new "none" domain if the domain is already none OR

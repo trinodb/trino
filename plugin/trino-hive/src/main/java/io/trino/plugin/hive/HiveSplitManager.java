@@ -33,6 +33,7 @@ import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -189,7 +190,7 @@ public class HiveSplitManager
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         HiveTableHandle hiveTable = (HiveTableHandle) tableHandle;
         SchemaTableName tableName = hiveTable.getSchemaTableName();

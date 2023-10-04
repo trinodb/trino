@@ -324,7 +324,7 @@ public class MockConnector
                     ConnectorSession session,
                     ConnectorTableHandle table,
                     DynamicFilter dynamicFilter,
-                    Constraint constraint)
+                    Constraint<ColumnHandle> constraint)
             {
                 return new FixedSplitSource(MOCK_CONNECTOR_SPLIT);
             }
@@ -466,7 +466,7 @@ public class MockConnector
         }
 
         @Override
-        public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
+        public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint<ColumnHandle> constraint)
         {
             return applyFilter.apply(session, handle, constraint);
         }

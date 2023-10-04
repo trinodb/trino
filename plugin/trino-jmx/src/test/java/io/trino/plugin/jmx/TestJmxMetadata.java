@@ -135,7 +135,7 @@ public class TestJmxMetadata
     public void testApplyFilterWithoutConstraint()
     {
         JmxTableHandle handle = metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "java.lang:*"));
-        Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = metadata.applyFilter(SESSION, handle, new Constraint(TupleDomain.all()));
+        Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = metadata.applyFilter(SESSION, handle, new Constraint<>(TupleDomain.all()));
 
         assertThat(result).isNotPresent();
     }
@@ -153,7 +153,7 @@ public class TestJmxMetadata
 
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(nodeColumnHandle, nodeColumnValue, objectNameColumnHandle, objectNameColumnValue));
 
-        Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = metadata.applyFilter(SESSION, handle, new Constraint(tupleDomain));
+        Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = metadata.applyFilter(SESSION, handle, new Constraint<>(tupleDomain));
 
         assertThat(result).isPresent();
         assertThat(result.get().getRemainingFilter())
@@ -172,7 +172,7 @@ public class TestJmxMetadata
 
         JmxTableHandle newTableHandle = new JmxTableHandle(handle.getTableName(), handle.getObjectNames(), handle.getColumnHandles(), handle.isLiveData(), nodeTupleDomain);
 
-        Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = metadata.applyFilter(SESSION, newTableHandle, new Constraint(nodeTupleDomain));
+        Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = metadata.applyFilter(SESSION, newTableHandle, new Constraint<>(nodeTupleDomain));
         assertThat(result).isNotPresent();
     }
 

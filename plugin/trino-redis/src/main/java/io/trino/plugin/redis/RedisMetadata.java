@@ -188,7 +188,7 @@ public class RedisMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint)
     {
         RedisTableHandle handle = (RedisTableHandle) table;
         TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();

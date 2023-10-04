@@ -307,7 +307,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint<ColumnHandle> constraint)
     {
         RaptorTableHandle table = (RaptorTableHandle) handle;
         TupleDomain<RaptorColumnHandle> newDomain = constraint.getSummary().transformKeys(RaptorColumnHandle.class::cast);

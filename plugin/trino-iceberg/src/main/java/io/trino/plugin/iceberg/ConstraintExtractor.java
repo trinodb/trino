@@ -66,7 +66,7 @@ public final class ConstraintExtractor
 {
     private ConstraintExtractor() {}
 
-    public static ExtractionResult extractTupleDomain(Constraint constraint)
+    public static ExtractionResult extractTupleDomain(Constraint<ColumnHandle> constraint)
     {
         TupleDomain<IcebergColumnHandle> result = constraint.getSummary()
                 .transformKeys(IcebergColumnHandle.class::cast);

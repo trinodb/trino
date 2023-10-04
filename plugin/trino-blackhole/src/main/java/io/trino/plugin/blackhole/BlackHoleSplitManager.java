@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.blackhole;
 
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -33,7 +34,7 @@ public final class BlackHoleSplitManager
             ConnectorSession session,
             ConnectorTableHandle table,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         int splitCount = ((BlackHoleTableHandle) table).getSplitCount();
         return new FixedSplitSource(nCopies(splitCount, BlackHoleSplit.INSTANCE));

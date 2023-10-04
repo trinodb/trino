@@ -58,7 +58,7 @@ public class JmxSplitManager
             ConnectorSession session,
             ConnectorTableHandle table,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         JmxTableHandle tableHandle = (JmxTableHandle) table;
 

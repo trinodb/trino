@@ -79,7 +79,7 @@ public class PrometheusSplitManager
             ConnectorSession session,
             ConnectorTableHandle connectorTableHandle,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         PrometheusTableHandle tableHandle = (PrometheusTableHandle) connectorTableHandle;
         PrometheusTable table = prometheusClient.getTable(tableHandle.getSchemaName(), tableHandle.getTableName());

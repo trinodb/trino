@@ -14,6 +14,7 @@
 package io.trino.plugin.kudu;
 
 import com.google.inject.Inject;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -49,7 +50,7 @@ public class KuduSplitManager
             ConnectorSession session,
             ConnectorTableHandle table,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         long timeoutMillis = getDynamicFilteringWaitTimeout(session).toMillis();
         if (timeoutMillis == 0 || !dynamicFilter.isAwaitable()) {

@@ -59,7 +59,7 @@ public class SystemSplitManager
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         SystemTableHandle table = (SystemTableHandle) tableHandle;
         TupleDomain<ColumnHandle> tableConstraint = table.getConstraint();

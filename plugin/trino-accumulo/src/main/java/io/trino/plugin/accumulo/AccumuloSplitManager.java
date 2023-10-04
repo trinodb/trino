@@ -58,7 +58,7 @@ public class AccumuloSplitManager
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         AccumuloTableHandle handle = (AccumuloTableHandle) tableHandle;
 

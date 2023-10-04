@@ -15,6 +15,7 @@ package io.trino.plugin.memory;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -53,7 +54,7 @@ public final class MemorySplitManager
             ConnectorSession session,
             ConnectorTableHandle handle,
             DynamicFilter dynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         MemoryTableHandle table = (MemoryTableHandle) handle;
 

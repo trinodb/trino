@@ -313,7 +313,7 @@ public class TestDefaultJdbcMetadata
         ConnectorTableHandle aggregatedTable = applyCountAggregation(session, baseTableHandle, ImmutableList.of(ImmutableList.of(groupByColumn)));
 
         Domain domain = Domain.singleValue(VARCHAR, utf8Slice("one"));
-        JdbcTableHandle tableHandleWithFilter = applyFilter(session, aggregatedTable, new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(groupByColumn, domain))));
+        JdbcTableHandle tableHandleWithFilter = applyFilter(session, aggregatedTable, new Constraint<>(TupleDomain.withColumnDomains(ImmutableMap.of(groupByColumn, domain))));
 
         assertThat(tableHandleWithFilter.getConstraint().getDomains()).isEqualTo(Optional.of(ImmutableMap.of(groupByColumn, domain)));
     }
@@ -328,12 +328,12 @@ public class TestDefaultJdbcMetadata
         ConnectorTableHandle baseTableHandle = metadata.getTableHandle(session, new SchemaTableName("example", "numbers"));
 
         Domain firstDomain = Domain.multipleValues(VARCHAR, ImmutableList.of(utf8Slice("one"), utf8Slice("two")));
-        JdbcTableHandle filterResult = applyFilter(session, baseTableHandle, new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(groupByColumn, firstDomain))));
+        JdbcTableHandle filterResult = applyFilter(session, baseTableHandle, new Constraint<>(TupleDomain.withColumnDomains(ImmutableMap.of(groupByColumn, firstDomain))));
 
         ConnectorTableHandle aggregatedTable = applyCountAggregation(session, filterResult, ImmutableList.of(ImmutableList.of(groupByColumn)));
 
         Domain secondDomain = Domain.multipleValues(VARCHAR, ImmutableList.of(utf8Slice("one"), utf8Slice("three")));
-        JdbcTableHandle tableHandleWithFilter = applyFilter(session, aggregatedTable, new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(groupByColumn, secondDomain))));
+        JdbcTableHandle tableHandleWithFilter = applyFilter(session, aggregatedTable, new Constraint<>(TupleDomain.withColumnDomains(ImmutableMap.of(groupByColumn, secondDomain))));
         assertThat(tableHandleWithFilter.getConstraint().getDomains())
                 .isEqualTo(
                     // The query effectively intersects firstDomain and secondDomain, but this is not visible in JdbcTableHandle.constraint,
@@ -363,7 +363,7 @@ public class TestDefaultJdbcMetadata
         JdbcTableHandle tableHandleWithFilter = applyFilter(
                 session,
                 aggregatedTable,
-                new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(nonGroupByColumn, domain))));
+                new Constraint<>(TupleDomain.withColumnDomains(ImmutableMap.of(nonGroupByColumn, domain))));
         assertThat(tableHandleWithFilter.getConstraint().getDomains()).isEqualTo(Optional.of(ImmutableMap.of(nonGroupByColumn, domain)));
         assertThat(((JdbcQueryRelationHandle) tableHandleWithFilter.getRelationHandle()).getPreparedQuery().getQuery())
                 .isEqualTo("SELECT \"TEXT\", count(*) AS \"_pfgnrtd_0\" " +
@@ -389,7 +389,7 @@ public class TestDefaultJdbcMetadata
         JdbcTableHandle tableHandleWithFilter = applyFilter(
                 session,
                 aggregatedTable,
-                new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(valueColumn, domain))));
+                new Constraint<>(TupleDomain.withColumnDomains(ImmutableMap.of(valueColumn, domain))));
         assertThat(tableHandleWithFilter.getConstraint().getDomains()).isEqualTo(Optional.of(ImmutableMap.of(valueColumn, domain)));
         assertThat(((JdbcQueryRelationHandle) tableHandleWithFilter.getRelationHandle()).getPreparedQuery().getQuery())
                 .isEqualTo("SELECT \"TEXT\", \"VALUE\", count(*) AS \"_pfgnrtd_0\" " +
@@ -437,7 +437,7 @@ public class TestDefaultJdbcMetadata
         return (JdbcTableHandle) aggResult.get().getHandle();
     }
 
-    private JdbcTableHandle applyFilter(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
+    private JdbcTableHandle applyFilter(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
     {
         Optional<ConstraintApplicationResult<ConnectorTableHandle>> filterResult = metadata.applyFilter(
                 session,

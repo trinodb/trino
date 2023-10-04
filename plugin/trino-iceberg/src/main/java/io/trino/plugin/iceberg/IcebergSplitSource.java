@@ -107,7 +107,7 @@ public class IcebergSplitSource
     private final DynamicFilter dynamicFilter;
     private final long dynamicFilteringWaitTimeoutMillis;
     private final Stopwatch dynamicFilterWaitStopwatch;
-    private final Constraint constraint;
+    private final Constraint<ColumnHandle> constraint;
     private final TypeManager typeManager;
     private final Closer closer = Closer.create();
     private final double minimumAssignedSplitWeight;
@@ -135,7 +135,7 @@ public class IcebergSplitSource
             Optional<DataSize> maxScannedFileSize,
             DynamicFilter dynamicFilter,
             Duration dynamicFilteringWaitTimeout,
-            Constraint constraint,
+            Constraint<ColumnHandle> constraint,
             TypeManager typeManager,
             boolean recordScannedFiles,
             double minimumAssignedSplitWeight)
@@ -422,7 +422,7 @@ public class IcebergSplitSource
     static boolean partitionMatchesConstraint(
             Set<IcebergColumnHandle> identityPartitionColumns,
             Supplier<Map<ColumnHandle, NullableValue>> partitionValues,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         // We use Constraint just to pass functional predicate here from DistributedExecutionPlanner
         verify(constraint.getSummary().isAll());
