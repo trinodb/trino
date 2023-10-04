@@ -36,7 +36,7 @@ public final class PinotTransformFunctionTypeResolver
     {
         Map<String, TransformFunctionType> builder = new HashMap<>();
         for (TransformFunctionType transformFunctionType : TransformFunctionType.values()) {
-            for (String alias : transformFunctionType.getAliases()) {
+            for (String alias : transformFunctionType.getAlternativeNames()) {
                 TransformFunctionType previousValue = builder.put(canonicalize(alias), transformFunctionType);
                 checkState(previousValue == null || previousValue == transformFunctionType, "Duplicate key with different values for alias '%s', transform function type '%s' and previous value '%s'", canonicalize(alias), transformFunctionType, previousValue);
             }
