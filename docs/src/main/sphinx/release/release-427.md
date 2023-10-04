@@ -65,11 +65,11 @@
 
 ## Ignite connector
 
-* Add support for pushing down `UPDATE` statements to Ignite. ({issue}`16445`)
+* Add support for `UPDATE`. ({issue}`16445`)
 
 ## MariaDB connector
 
-* Add support for pushing down `UPDATE` statements to MariaDB. ({issue}`16445`)
+* Add support for `UPDATE`. ({issue}`16445`)
 
 ## MongoDB connector
 
@@ -77,30 +77,30 @@
 
 ## MySQL connector
 
-* Add support for pushing down `UPDATE` statements to MySQL. ({issue}`16445`)
+* Add support for `UPDATE`. ({issue}`16445`)
 * Change mapping for MySQL `TIMESTAMP` types from `timestamp(n)` to
   `timestamp(n) with time zone`. ({issue}`18470`)
 
 ## Oracle connector
 
-* Add support for pushing down `UPDATE` statements to Oracle. ({issue}`16445`)
+* Add support for `UPDATE`. ({issue}`16445`)
 * Fix potential query failure when joins are pushed down to Oracle. ({issue}`18924`)
 
 ## PostgreSQL connector
 
-* Add support for pushing down `UPDATE` statements to PostgreSQL. ({issue}`16445`)
+* Add support for `UPDATE`. ({issue}`16445`)
 
 ## Redshift connector
 
-* Add support for pushing down `UPDATE` statements to Redshift. ({issue}`16445`)
+* Add support for `UPDATE`. ({issue}`16445`)
 
 ## SingleStore connector
 
-* Add support for pushing down `UPDATE` statements to SingleStore. ({issue}`16445`)
+* Add support for `UPDATE`. ({issue}`16445`)
 
 ## SQL Server connector
 
-* Add support for pushing down `UPDATE` statements to SQL Server. ({issue}`16445`)
+* Add support for `UPDATE`. ({issue}`16445`)
 
 ## SPI
 

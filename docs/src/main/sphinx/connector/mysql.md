@@ -327,6 +327,7 @@ MySQL database. In addition to the {ref}`globally available <sql-globally-availa
 the following statements:
 
 - {doc}`/sql/insert`
+- {doc}`/sql/update`
 - {doc}`/sql/delete`
 - {doc}`/sql/truncate`
 - {doc}`/sql/create-table`
