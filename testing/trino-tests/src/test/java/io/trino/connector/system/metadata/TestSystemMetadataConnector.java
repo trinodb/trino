@@ -157,7 +157,8 @@ public class TestSystemMetadataConnector
                 "SELECT count(DISTINCT schema_name), count(DISTINCT table_name), count(comment), count(*) FROM system.metadata.table_comments WHERE catalog_name = 'test_catalog' AND schema_name IN ('test_schema1', 'test_schema2')",
                 "VALUES (2, 2000, 3000, 3000)",
                 ImmutableMultiset.<String>builder()
-                        .add("ConnectorMetadata.streamRelationComments")
+                        .add("ConnectorMetadata.streamRelationComments(schema=test_schema1)")
+                        .add("ConnectorMetadata.streamRelationComments(schema=test_schema2)")
                         .build());
 
         // Multiple schemas
@@ -171,7 +172,11 @@ public class TestSystemMetadataConnector
                                 .collect(joining(",", "(", ")")),
                 "VALUES (2, 2000, 3000, 3000)",
                 ImmutableMultiset.<String>builder()
-                        .add("ConnectorMetadata.streamRelationComments")
+                        .add("ConnectorMetadata.streamRelationComments(schema=test_schema1)")
+                        .add("ConnectorMetadata.streamRelationComments(schema=test_schema2)")
+                        .addAll(IntStream.range(1, MAX_PREFIXES_COUNT + 1)
+                                .mapToObj("ConnectorMetadata.streamRelationComments(schema=bogus_schema%s)"::formatted)
+                                .toList())
                         .build());
 
         // Small LIMIT
