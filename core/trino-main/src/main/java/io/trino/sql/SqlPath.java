@@ -15,65 +15,72 @@ package io.trino.sql;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import io.trino.connector.system.GlobalSystemConnector;
+import io.trino.metadata.GlobalFunctionCatalog;
+import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.PathElement;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public final class SqlPath
 {
-    private List<SqlPathElement> parsedPath;
-    private final Optional<String> rawPath;
+    public static final SqlPath EMPTY_PATH = buildPath("", Optional.empty());
 
-    public SqlPath(String path)
+    private final List<CatalogSchemaName> path;
+    private final String rawPath;
+
+    public static SqlPath buildPath(String rawPath, Optional<String> defaultCatalog)
     {
-        requireNonNull(path, "path is null");
-        this.rawPath = Optional.of(path);
+        ImmutableList.Builder<CatalogSchemaName> path = ImmutableList.builder();
+        path.add(new CatalogSchemaName(GlobalSystemConnector.NAME, GlobalFunctionCatalog.BUILTIN_SCHEMA));
+        for (SqlPathElement pathElement : parsePath(rawPath)) {
+            pathElement.getCatalog()
+                    .map(Identifier::getValue).or(() -> defaultCatalog)
+                    .ifPresent(catalog -> path.add(new CatalogSchemaName(catalog, pathElement.getSchema().getValue())));
+        }
+        return new SqlPath(path.build(), rawPath);
     }
 
     @JsonCreator
-    public SqlPath(@JsonProperty("rawPath") Optional<String> path)
+    public SqlPath(@JsonProperty List<CatalogSchemaName> path, @JsonProperty String rawPath)
     {
-        requireNonNull(path, "path is null");
-        this.rawPath = path;
-        if (rawPath.isEmpty()) {
-            parsedPath = ImmutableList.of();
-        }
+        this.path = ImmutableList.copyOf(path);
+        this.rawPath = requireNonNull(rawPath, "rawPath is null");
     }
 
     @JsonProperty
-    public Optional<String> getRawPath()
+    public String getRawPath()
     {
         return rawPath;
     }
 
-    public List<SqlPathElement> getParsedPath()
+    @JsonProperty
+    public List<CatalogSchemaName> getPath()
     {
-        if (parsedPath == null) {
-            parsePath();
-        }
-
-        return parsedPath;
+        return path;
     }
 
-    private void parsePath()
+    public static List<SqlPathElement> parsePath(String rawPath)
     {
-        checkState(rawPath.isPresent(), "rawPath must be present to parse");
+        if (rawPath.isBlank()) {
+            return ImmutableList.of();
+        }
 
         SqlParser parser = new SqlParser();
-        List<PathElement> pathSpecification = parser.createPathSpecification(rawPath.get()).getPath();
+        List<PathElement> pathSpecification = parser.createPathSpecification(rawPath).getPath();
 
-        this.parsedPath = pathSpecification.stream()
+        List<SqlPathElement> pathElements = pathSpecification.stream()
                 .map(pathElement -> new SqlPathElement(pathElement.getCatalog(), pathElement.getSchema()))
                 .collect(toImmutableList());
+        return pathElements;
     }
 
     @Override
@@ -86,22 +93,18 @@ public final class SqlPath
             return false;
         }
         SqlPath that = (SqlPath) obj;
-        return Objects.equals(parsedPath, that.parsedPath);
+        return Objects.equals(path, that.path);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(parsedPath);
+        return Objects.hash(path);
     }
 
     @Override
     public String toString()
     {
-        if (rawPath.isPresent()) {
-            return Joiner.on(", ").join(getParsedPath());
-        }
-        //empty string is only used for an uninitialized path, as an empty path would be \"\"
-        return "";
+        return rawPath;
     }
 }

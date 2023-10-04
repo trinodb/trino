@@ -61,7 +61,7 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
                         .setCatalog(Optional.empty())
                         .setSchema(Optional.empty())
-                        .setPath(new SqlPath("mock.function"))
+                        .setPath(SqlPath.buildPath("mock.function", Optional.empty()))
                         .build())
                 .setNodeCount(1)
                 .setSystemAccessControl("file", Map.of(SECURITY_CONFIG_FILE, securityConfigFile))
@@ -181,7 +181,7 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
     {
         return testSessionBuilder()
                 .setIdentity(Identity.ofUser(user))
-                .setPath(new SqlPath("mock.function"))
+                .setPath(SqlPath.buildPath("mock.function", Optional.empty()))
                 .build();
     }
 }

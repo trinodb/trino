@@ -136,7 +136,7 @@ public class TestAccessControl
                 .setSource("test")
                 .setCatalog("blackhole")
                 .setSchema("default")
-                .setPath(new SqlPath("mock.function"))
+                .setPath(SqlPath.buildPath("mock.function", Optional.empty()))
                 .build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setAdditionalModule(binder -> {
@@ -553,7 +553,7 @@ public class TestAccessControl
                 .setIdentity(Identity.ofUser("test_view_access_owner"))
                 .setCatalog(getSession().getCatalog())
                 .setSchema(getSession().getSchema())
-                .setPath(new SqlPath("mock.function"))
+                .setPath(SqlPath.buildPath("mock.function", Optional.empty()))
                 .build();
 
         // TEST FUNCTION PRIVILEGES
