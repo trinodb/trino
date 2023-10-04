@@ -106,11 +106,9 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.SqlPathElement;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.planner.ConnectorExpressions;
 import io.trino.sql.planner.PartitioningHandle;
-import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
@@ -158,7 +156,6 @@ import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
-import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
@@ -2255,12 +2252,10 @@ public final class MetadataManager
     {
         ImmutableList.Builder<FunctionMetadata> functions = ImmutableList.builder();
         functions.addAll(this.functions.listFunctions());
-        for (SqlPathElement sqlPathElement : session.getPath().getParsedPath()) {
-            String catalog = sqlPathElement.getCatalog().map(Identifier::getValue).or(session::getCatalog)
-                    .orElseThrow(() -> new TrinoException(MISSING_CATALOG_NAME, "Session default catalog must be set to resolve a partial function name: " + sqlPathElement));
-            getOptionalCatalogMetadata(session, catalog).ifPresent(metadata -> {
+        for (CatalogSchemaName element : session.getPath().getPath()) {
+            getOptionalCatalogMetadata(session, element.getCatalogName()).ifPresent(metadata -> {
                 ConnectorSession connectorSession = session.toConnectorSession(metadata.getCatalogHandle());
-                functions.addAll(metadata.getMetadata(session).listFunctions(connectorSession, sqlPathElement.getSchema().getValue().toLowerCase(ENGLISH)));
+                functions.addAll(metadata.getMetadata(session).listFunctions(connectorSession, element.getSchemaName()));
             });
         }
         return functions.build();

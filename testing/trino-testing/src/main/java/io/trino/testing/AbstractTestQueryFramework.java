@@ -495,6 +495,15 @@ public abstract class AbstractTestQueryFramework
         assertException(session, sql, ".*Access Denied: " + exceptionsMessageRegExp, deniedPrivileges);
     }
 
+    protected void assertFunctionNotFound(
+            Session session,
+            @Language("SQL") String sql,
+            String functionName,
+            TestingPrivilege... deniedPrivileges)
+    {
+        assertException(session, sql, ".*[Ff]unction '" + functionName + "' not registered", deniedPrivileges);
+    }
+
     private void assertException(Session session, @Language("SQL") String sql, @Language("RegExp") String exceptionsMessageRegExp, TestingPrivilege[] deniedPrivileges)
     {
         assertThatThrownBy(() -> executeExclusively(session, sql, deniedPrivileges))
