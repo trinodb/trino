@@ -413,6 +413,7 @@ and {ref}`read operation <sql-read-operations>` statements, the connector
 supports the following statements:
 
 - {doc}`/sql/insert`
+- {doc}`/sql/update`
 - {doc}`/sql/delete`
 - {doc}`/sql/truncate`
 - {doc}`/sql/create-table`
