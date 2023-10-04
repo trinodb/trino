@@ -24,6 +24,7 @@ import io.trino.memory.MemoryInfo;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.memory.MemoryPoolInfo;
+import io.trino.sql.planner.PlanFragment;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.assertj.core.util.VisibleForTesting;
@@ -37,10 +38,13 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultCoordinatorTaskMemory;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultTaskMemory;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryEstimationQuantile;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryGrowthFactor;
 import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
 import static io.trino.execution.scheduler.ErrorCodes.isWorkerCrashAssociatedError;
+import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
@@ -113,34 +117,53 @@ public class ExponentialGrowthPartitionMemoryEstimator
         }
 
         @Override
-        public PartitionMemoryEstimator createPartitionMemoryEstimator()
+        public PartitionMemoryEstimator createPartitionMemoryEstimator(Session session, PlanFragment planFragment)
         {
-            return new ExponentialGrowthPartitionMemoryEstimator(memoryRequirementIncreaseOnWorkerCrashEnabled, maxNodePoolSize::get);
+            DataSize defaultInitialMemoryLimit = planFragment.getPartitioning().equals(COORDINATOR_DISTRIBUTION) ?
+                    getFaultTolerantExecutionDefaultCoordinatorTaskMemory(session) :
+                    getFaultTolerantExecutionDefaultTaskMemory(session);
+
+            return new ExponentialGrowthPartitionMemoryEstimator(
+                    defaultInitialMemoryLimit,
+                    memoryRequirementIncreaseOnWorkerCrashEnabled,
+                    getFaultTolerantExecutionTaskMemoryGrowthFactor(session),
+                    getFaultTolerantExecutionTaskMemoryEstimationQuantile(session),
+                    maxNodePoolSize::get);
         }
     }
 
+    private final DataSize defaultInitialMemoryLimit;
     private final boolean memoryRequirementIncreaseOnWorkerCrashEnabled;
+    private final double growthFactor;
+    private final double estimationQuantile;
+
     private final Supplier<Optional<DataSize>> maxNodePoolSizeSupplier;
     private final TDigest memoryUsageDistribution = new TDigest();
 
     private ExponentialGrowthPartitionMemoryEstimator(
+            DataSize defaultInitialMemoryLimit,
             boolean memoryRequirementIncreaseOnWorkerCrashEnabled,
+            double growthFactor,
+            double estimationQuantile,
             Supplier<Optional<DataSize>> maxNodePoolSizeSupplier)
     {
+        this.defaultInitialMemoryLimit = requireNonNull(defaultInitialMemoryLimit, "defaultInitialMemoryLimit is null");
         this.memoryRequirementIncreaseOnWorkerCrashEnabled = memoryRequirementIncreaseOnWorkerCrashEnabled;
+        this.growthFactor = growthFactor;
+        this.estimationQuantile = estimationQuantile;
         this.maxNodePoolSizeSupplier = requireNonNull(maxNodePoolSizeSupplier, "maxNodePoolSizeSupplier is null");
     }
 
     @Override
-    public MemoryRequirements getInitialMemoryRequirements(Session session, DataSize defaultMemoryLimit)
+    public MemoryRequirements getInitialMemoryRequirements()
     {
-        DataSize memory = Ordering.natural().max(defaultMemoryLimit, getEstimatedMemoryUsage(session));
+        DataSize memory = Ordering.natural().max(defaultInitialMemoryLimit, getEstimatedMemoryUsage());
         memory = capMemoryToMaxNodeSize(memory);
         return new MemoryRequirements(memory);
     }
 
     @Override
-    public MemoryRequirements getNextRetryMemoryRequirements(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode)
+    public MemoryRequirements getNextRetryMemoryRequirements(MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode)
     {
         DataSize previousMemory = previousMemoryRequirements.getRequiredMemory();
 
@@ -148,12 +171,12 @@ public class ExponentialGrowthPartitionMemoryEstimator
         DataSize newMemory = Ordering.natural().max(peakMemoryUsage, previousMemory);
         if (shouldIncreaseMemoryRequirement(errorCode)) {
             // multiply if we hit an oom error
-            double growthFactor = getFaultTolerantExecutionTaskMemoryGrowthFactor(session);
+
             newMemory = DataSize.of((long) (newMemory.toBytes() * growthFactor), DataSize.Unit.BYTE);
         }
 
         // if we are still below current estimate for new partition let's bump further
-        newMemory = Ordering.natural().max(newMemory, getEstimatedMemoryUsage(session));
+        newMemory = Ordering.natural().max(newMemory, getEstimatedMemoryUsage());
 
         newMemory = capMemoryToMaxNodeSize(newMemory);
         return new MemoryRequirements(newMemory);
@@ -169,13 +192,12 @@ public class ExponentialGrowthPartitionMemoryEstimator
     }
 
     @Override
-    public synchronized void registerPartitionFinished(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, boolean success, Optional<ErrorCode> errorCode)
+    public synchronized void registerPartitionFinished(MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, boolean success, Optional<ErrorCode> errorCode)
     {
         if (success) {
             memoryUsageDistribution.add(peakMemoryUsage.toBytes());
         }
         if (!success && errorCode.isPresent() && shouldIncreaseMemoryRequirement(errorCode.get())) {
-            double growthFactor = getFaultTolerantExecutionTaskMemoryGrowthFactor(session);
             // take previousRequiredBytes into account when registering failure on oom. It is conservative hence safer (and in-line with getNextRetryMemoryRequirements)
             long previousRequiredBytes = previousMemoryRequirements.getRequiredMemory().toBytes();
             long previousPeakBytes = peakMemoryUsage.toBytes();
@@ -183,9 +205,8 @@ public class ExponentialGrowthPartitionMemoryEstimator
         }
     }
 
-    private synchronized DataSize getEstimatedMemoryUsage(Session session)
+    private synchronized DataSize getEstimatedMemoryUsage()
     {
-        double estimationQuantile = getFaultTolerantExecutionTaskMemoryEstimationQuantile(session);
         double estimation = memoryUsageDistribution.valueAt(estimationQuantile);
         if (Double.isNaN(estimation)) {
             return DataSize.ofBytes(0);

@@ -14,7 +14,6 @@
 package io.trino.execution.scheduler;
 
 import io.airlift.units.DataSize;
-import io.trino.Session;
 import io.trino.spi.ErrorCode;
 
 import java.util.Optional;
@@ -23,17 +22,17 @@ public class NoMemoryPartitionMemoryEstimator
         implements PartitionMemoryEstimator
 {
     @Override
-    public MemoryRequirements getInitialMemoryRequirements(Session session, DataSize defaultMemoryLimit)
+    public MemoryRequirements getInitialMemoryRequirements()
     {
         return new MemoryRequirements(DataSize.ofBytes(0));
     }
 
     @Override
-    public MemoryRequirements getNextRetryMemoryRequirements(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode)
+    public MemoryRequirements getNextRetryMemoryRequirements(MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode)
     {
         return new MemoryRequirements(DataSize.ofBytes(0));
     }
 
     @Override
-    public void registerPartitionFinished(Session session, MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, boolean success, Optional<ErrorCode> errorCode) {}
+    public void registerPartitionFinished(MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, boolean success, Optional<ErrorCode> errorCode) {}
 }
