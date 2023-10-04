@@ -15,9 +15,15 @@ package io.trino.execution.scheduler;
 
 import io.trino.Session;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.plan.PlanFragmentId;
+
+import java.util.function.Function;
 
 @FunctionalInterface
 public interface PartitionMemoryEstimatorFactory
 {
-    PartitionMemoryEstimator createPartitionMemoryEstimator(Session session, PlanFragment planFragment);
+    PartitionMemoryEstimator createPartitionMemoryEstimator(
+            Session session,
+            PlanFragment planFragment,
+            Function<PlanFragmentId, PlanFragment> sourceFragmentLookup);
 }

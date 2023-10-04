@@ -1198,6 +1198,12 @@ public class EventDrivenFaultTolerantQueryScheduler
                 if (eager) {
                     sourceExchanges.values().forEach(sourceExchange -> sourceExchange.setSourceHandlesDeliveryMode(EAGER));
                 }
+
+                Function<PlanFragmentId, PlanFragment> planFragmentLookup = planFragmentId -> {
+                    StageExecution stageExecution = stageExecutions.get(getStageId(planFragmentId));
+                    checkArgument(stageExecution != null, "stage for fragment %s not started yet", planFragmentId);
+                    return stageExecution.getStageInfo().getPlan();
+                };
                 StageExecution execution = new StageExecution(
                         queryStateMachine,
                         taskDescriptorStorage,
@@ -1206,7 +1212,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         sinkPartitioningScheme,
                         exchange,
                         noMemoryFragment,
-                        noMemoryFragment ? new NoMemoryPartitionMemoryEstimator() : memoryEstimatorFactory.createPartitionMemoryEstimator(session, fragment),
+                        noMemoryFragment ? new NoMemoryPartitionMemoryEstimator() : memoryEstimatorFactory.createPartitionMemoryEstimator(session, fragment, planFragmentLookup),
                         // do not retry coordinator only tasks
                         coordinatorStage ? 1 : maxTaskExecutionAttempts,
                         schedulingPriority,
