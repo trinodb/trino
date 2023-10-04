@@ -30,14 +30,20 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.stream.Collectors.joining;
 
 @Test(singleThreaded = true)
 public class TestInformationSchemaConnector
         extends AbstractTestQueryFramework
 {
+    private static final int MAX_PREFIXES_COUNT = 10;
+
     private CountingMockConnector countingMockConnector;
 
     @Override
@@ -48,6 +54,7 @@ public class TestInformationSchemaConnector
         Session session = testSessionBuilder().build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setNodeCount(1)
+                .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
                 .build();
         try {
             queryRunner.installPlugin(new TpchPlugin());
@@ -193,6 +200,19 @@ public class TestInformationSchemaConnector
                         .add("ConnectorMetadata.listViews(schema=test_schema1)")
                         .add("ConnectorMetadata.listTables(schema=test_schema2)")
                         .add("ConnectorMetadata.listViews(schema=test_schema2)")
+                        .build());
+        assertMetadataCalls(
+                "SELECT count(table_name), count(table_type) from test_catalog.information_schema.tables WHERE table_schema IN " +
+                        Stream.concat(
+                                        Stream.of("test_schema1", "test_schema2"),
+                                        IntStream.range(1, MAX_PREFIXES_COUNT + 1)
+                                                .mapToObj(i -> "bogus_schema" + i))
+                                .map("'%s'"::formatted)
+                                .collect(joining(",", "(", ")")),
+                "VALUES (3000, 3000)",
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listTables")
+                        .add("ConnectorMetadata.listViews")
                         .build());
         assertMetadataCalls(
                 "SELECT count(table_name), count(table_type) from test_catalog.information_schema.tables WHERE table_name = 'test_table1'",
