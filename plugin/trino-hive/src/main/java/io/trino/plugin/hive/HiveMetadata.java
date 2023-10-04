@@ -3853,8 +3853,11 @@ public class HiveMetadata
         Optional<CatalogSchemaTableName> catalogSchemaTableName = tableRedirectionsProvider.redirectTable(session, tableNameWithoutSuffix, table);
 
         // stitch back the suffix we cut off.
-        String suffix = tableNameSplit.getSuffix().orElse("");
-        return catalogSchemaTableName.map(name -> appendSuffixToTableName(name, suffix));
+        return catalogSchemaTableName.map(name -> new CatalogSchemaTableName(
+                name.getCatalogName(),
+                new SchemaTableName(
+                        name.getSchemaTableName().getSchemaName(),
+                        name.getSchemaTableName().getTableName() + tableNameSplit.getSuffix().orElse(""))));
     }
 
     @Override
@@ -3916,14 +3919,5 @@ public class HiveMetadata
         // If query_partition_filter_required_schemas is empty then we would apply partition filter for all tables.
         return isQueryPartitionFilterRequired(session) &&
                 requiredSchemas.isEmpty() || requiredSchemas.contains(schemaTableName.getSchemaName());
-    }
-
-    private static CatalogSchemaTableName appendSuffixToTableName(CatalogSchemaTableName name, String suffix)
-    {
-        return new CatalogSchemaTableName(
-                name.getCatalogName(),
-                new SchemaTableName(
-                        name.getSchemaTableName().getSchemaName(),
-                        name.getSchemaTableName().getTableName() + suffix));
     }
 }
