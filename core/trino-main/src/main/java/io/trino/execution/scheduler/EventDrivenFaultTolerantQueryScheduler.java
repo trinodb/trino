@@ -135,8 +135,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin;
-import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultCoordinatorTaskMemory;
-import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultTaskMemory;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMinSourceStageProgress;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize;
@@ -1208,7 +1206,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         sinkPartitioningScheme,
                         exchange,
                         noMemoryFragment,
-                        noMemoryFragment ? new NoMemoryPartitionMemoryEstimator() : memoryEstimatorFactory.createPartitionMemoryEstimator(),
+                        noMemoryFragment ? new NoMemoryPartitionMemoryEstimator() : memoryEstimatorFactory.createPartitionMemoryEstimator(session, fragment),
                         // do not retry coordinator only tasks
                         coordinatorStage ? 1 : maxTaskExecutionAttempts,
                         schedulingPriority,
@@ -1716,12 +1714,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private MemoryRequirements computeCurrentInitialMemoryRequirements()
         {
-            Session session = queryStateMachine.getSession();
-            DataSize defaultTaskMemory = stage.getFragment().getPartitioning().equals(COORDINATOR_DISTRIBUTION) ?
-                    getFaultTolerantExecutionDefaultCoordinatorTaskMemory(session) :
-                    getFaultTolerantExecutionDefaultTaskMemory(session);
-
-            return partitionMemoryEstimator.getInitialMemoryRequirements(session, defaultTaskMemory);
+            return partitionMemoryEstimator.getInitialMemoryRequirements();
         }
 
         private void updateMemoryRequirements()
@@ -2070,7 +2063,6 @@ public class EventDrivenFaultTolerantQueryScheduler
             updateOutputSize(outputStats);
 
             partitionMemoryEstimator.registerPartitionFinished(
-                    queryStateMachine.getSession(),
                     partition.getMemoryRequirements(),
                     taskStatus.getPeakMemoryReservation(),
                     true,
@@ -2117,7 +2109,6 @@ public class EventDrivenFaultTolerantQueryScheduler
             RuntimeException failure = failureInfo.toException();
             ErrorCode errorCode = failureInfo.getErrorCode();
             partitionMemoryEstimator.registerPartitionFinished(
-                    queryStateMachine.getSession(),
                     partition.getMemoryRequirements(),
                     taskStatus.getPeakMemoryReservation(),
                     false,
@@ -2126,7 +2117,6 @@ public class EventDrivenFaultTolerantQueryScheduler
             // update memory limits for next attempt
             MemoryRequirements currentMemoryLimits = partition.getMemoryRequirements();
             MemoryRequirements newMemoryLimits = partitionMemoryEstimator.getNextRetryMemoryRequirements(
-                    queryStateMachine.getSession(),
                     partition.getMemoryRequirements(),
                     taskStatus.getPeakMemoryReservation(),
                     errorCode);
