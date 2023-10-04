@@ -25,11 +25,9 @@ import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.ConnectorIdentity;
-import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
@@ -75,7 +73,6 @@ import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
-import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
@@ -430,13 +427,6 @@ public class SqlStandardAccessControl
         if (!isTableOwner(context, viewName)) {
             denyRenameMaterializedView(viewName.toString(), newViewName.toString());
         }
-    }
-
-    @Override
-    public void checkCanGrantExecuteFunctionPrivilege(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
-    {
-        // there is no way to grant execute function privilege in Hive
-        denyGrantExecuteFunctionPrivilege(functionName.toString(), Identity.ofUser(context.getIdentity().getUser()), grantee);
     }
 
     @Override

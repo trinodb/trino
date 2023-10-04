@@ -17,7 +17,6 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
@@ -352,12 +351,6 @@ public abstract class ForwardingAccessControl
     public void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Optional<Object>> properties)
     {
         delegate().checkCanSetMaterializedViewProperties(context, materializedViewName, properties);
-    }
-
-    @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, TrinoPrincipal grantee, boolean grantOption)
-    {
-        delegate().checkCanGrantExecuteFunctionPrivilege(context, functionKind, functionName, grantee, grantOption);
     }
 
     @Override

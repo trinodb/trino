@@ -18,7 +18,6 @@ import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.EventListener;
-import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.type.Type;
 
@@ -55,7 +54,6 @@ import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteQuery;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
-import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
@@ -637,16 +635,6 @@ public interface SystemAccessControl
     default void checkCanRenameMaterializedView(SystemSecurityContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
     {
         denyRenameMaterializedView(view.toString(), newView.toString());
-    }
-
-    /**
-     * Check if identity is allowed to grant an access to the function execution to grantee.
-     *
-     * @throws AccessDeniedException if not allowed
-     */
-    default void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, FunctionKind functionKind, CatalogSchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
-    {
-        denyGrantExecuteFunctionPrivilege(functionName.toString(), context.getIdentity(), grantee);
     }
 
     /**
