@@ -125,7 +125,7 @@ public class CountingMockConnector
     {
         MockConnectorFactory mockConnectorFactory = MockConnectorFactory.builder()
                 .withMetadataWrapper(connectorMetadata -> new TracingConnectorMetadata(tracerProvider.get("test"), "mock", connectorMetadata))
-                .withListSchemaNames(connectorSession -> ImmutableList.of("test_schema1", "test_schema2"))
+                .withListSchemaNames(connectorSession -> ImmutableList.of("test_schema1", "test_schema2", "test_schema3_empty", "test_schema4_empty"))
                 .withListTables((connectorSession, schemaName) -> {
                     if (schemaName.equals("test_schema1")) {
                         return ImmutableList.copyOf(tablesTestSchema1);
