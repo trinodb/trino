@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.druid;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -25,6 +27,7 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import org.intellij.lang.annotations.Language;
@@ -37,6 +40,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 
 import static io.trino.plugin.druid.DruidQueryRunner.copyAndIngestTpchData;
+import static io.trino.plugin.druid.DruidQueryRunner.createDruidQueryRunnerTpch;
 import static io.trino.plugin.druid.DruidTpchTables.SELECT_FROM_ORDERS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -44,15 +48,33 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.LINE_ITEM;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.PART;
+import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 
-public abstract class BaseDruidConnectorTest
+public class TestDruidConnectorTest
         extends BaseJdbcConnectorTest
 {
     protected TestingDruidServer druidServer;
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        druidServer = new TestingDruidServer();
+        return createDruidQueryRunnerTpch(
+                druidServer,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableList.of(ORDERS, LINE_ITEM, NATION, REGION, PART, CUSTOMER));
+    }
 
     @AfterClass(alwaysRun = true)
     public void destroy()
