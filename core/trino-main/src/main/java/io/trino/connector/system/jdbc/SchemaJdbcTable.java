@@ -28,10 +28,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 
-import java.util.Optional;
-
 import static io.trino.connector.system.jdbc.FilterUtil.isImpossibleObjectName;
-import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.trino.metadata.MetadataListing.listCatalogNames;
 import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
@@ -77,9 +74,7 @@ public class SchemaJdbcTable
             return table.build().cursor();
         }
 
-        Optional<String> catalogFilter = tryGetSingleVarcharValue(catalogDomain);
-
-        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogFilter)) {
+        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogDomain)) {
             for (String schema : listSchemas(session, metadata, accessControl, catalog)) {
                 table.addRow(schema, catalog);
             }

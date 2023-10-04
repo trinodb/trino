@@ -172,7 +172,6 @@ public class ColumnJdbcTable
             return TupleDomain.none();
         }
 
-        Optional<String> catalogFilter = tryGetSingleVarcharValue(catalogDomain);
         Optional<String> schemaFilter = tryGetSingleVarcharValue(schemaDomain);
         Optional<String> tableFilter = tryGetSingleVarcharValue(tableDomain);
 
@@ -181,7 +180,7 @@ public class ColumnJdbcTable
             return tupleDomain;
         }
 
-        List<String> catalogs = listCatalogNames(session, metadata, accessControl, catalogFilter).stream()
+        List<String> catalogs = listCatalogNames(session, metadata, accessControl, catalogDomain).stream()
                 .filter(catalogName -> predicate.test(ImmutableMap.of(TABLE_CATALOG_COLUMN, toNullableValue(catalogName))))
                 .collect(toImmutableList());
 
@@ -256,11 +255,10 @@ public class ColumnJdbcTable
             return table.build().cursor();
         }
 
-        Optional<String> catalogFilter = tryGetSingleVarcharValue(catalogDomain);
         Optional<String> schemaFilter = tryGetSingleVarcharValue(schemaDomain);
         Optional<String> tableFilter = tryGetSingleVarcharValue(tableDomain);
 
-        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogFilter)) {
+        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogDomain)) {
             if (!catalogDomain.includesNullableValue(utf8Slice(catalog))) {
                 continue;
             }
