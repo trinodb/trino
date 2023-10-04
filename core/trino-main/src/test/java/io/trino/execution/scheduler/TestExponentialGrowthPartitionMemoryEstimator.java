@@ -36,6 +36,7 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -50,6 +51,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExponentialGrowthPartitionMemoryEstimator
 {
+    private static final Function<PlanFragmentId, PlanFragment> THROWING_PLAN_FRAGMENT_LOOKUP = planFragmentId -> {
+        throw new RuntimeException("should not be used");
+    };
+
     @Test
     public void testDefaultInitialEstimation()
     {
@@ -63,10 +68,10 @@ public class TestExponentialGrowthPartitionMemoryEstimator
                 .setSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_MEMORY, "113MB")
                 .build();
 
-        assertThat(estimatorFactory.createPartitionMemoryEstimator(session, getPlanFragment(COORDINATOR_DISTRIBUTION)).getInitialMemoryRequirements())
+        assertThat(estimatorFactory.createPartitionMemoryEstimator(session, getPlanFragment(COORDINATOR_DISTRIBUTION), THROWING_PLAN_FRAGMENT_LOOKUP).getInitialMemoryRequirements())
                 .isEqualTo(new MemoryRequirements(DataSize.of(107, MEGABYTE)));
 
-        assertThat(estimatorFactory.createPartitionMemoryEstimator(session, getPlanFragment(SINGLE_DISTRIBUTION)).getInitialMemoryRequirements())
+        assertThat(estimatorFactory.createPartitionMemoryEstimator(session, getPlanFragment(SINGLE_DISTRIBUTION), THROWING_PLAN_FRAGMENT_LOOKUP).getInitialMemoryRequirements())
                 .isEqualTo(new MemoryRequirements(DataSize.of(113, MEGABYTE)));
     }
 
@@ -82,7 +87,7 @@ public class TestExponentialGrowthPartitionMemoryEstimator
                 .setSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_MEMORY, "107MB")
                 .build();
 
-        PartitionMemoryEstimator estimator = estimatorFactory.createPartitionMemoryEstimator(session, getPlanFragment(SINGLE_DISTRIBUTION));
+        PartitionMemoryEstimator estimator = estimatorFactory.createPartitionMemoryEstimator(session, getPlanFragment(SINGLE_DISTRIBUTION), THROWING_PLAN_FRAGMENT_LOOKUP);
 
         assertThat(estimator.getInitialMemoryRequirements())
                 .isEqualTo(new MemoryRequirements(DataSize.of(107, MEGABYTE)));
@@ -207,7 +212,7 @@ public class TestExponentialGrowthPartitionMemoryEstimator
                 .setSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_MEMORY, defaultInitialTaskMemory.toString())
                 .build();
 
-        PartitionMemoryEstimator estimator = estimatorFactory.createPartitionMemoryEstimator(session, getPlanFragment(SINGLE_DISTRIBUTION));
+        PartitionMemoryEstimator estimator = estimatorFactory.createPartitionMemoryEstimator(session, getPlanFragment(SINGLE_DISTRIBUTION), THROWING_PLAN_FRAGMENT_LOOKUP);
 
         for (int i = 0; i < recordedPartitionsCount; i++) {
             estimator.registerPartitionFinished(new MemoryRequirements(recordedMemoryUsage), recordedMemoryUsage, true, Optional.empty());

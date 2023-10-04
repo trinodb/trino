@@ -25,6 +25,7 @@ import io.trino.memory.MemoryManagerConfig;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.memory.MemoryPoolInfo;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.plan.PlanFragmentId;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.assertj.core.util.VisibleForTesting;
@@ -34,6 +35,7 @@ import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -117,7 +119,10 @@ public class ExponentialGrowthPartitionMemoryEstimator
         }
 
         @Override
-        public PartitionMemoryEstimator createPartitionMemoryEstimator(Session session, PlanFragment planFragment)
+        public PartitionMemoryEstimator createPartitionMemoryEstimator(
+                Session session,
+                PlanFragment planFragment,
+                Function<PlanFragmentId, PlanFragment> sourceFragmentLookup)
         {
             DataSize defaultInitialMemoryLimit = planFragment.getPartitioning().equals(COORDINATOR_DISTRIBUTION) ?
                     getFaultTolerantExecutionDefaultCoordinatorTaskMemory(session) :
