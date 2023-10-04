@@ -207,6 +207,7 @@ public class SnowflakeJdbcClientModule
         properties.setProperty("TIMESTAMP_LTZ_OUTPUT_FORMAT", TIMESTAMP_FORMAT);
         properties.setProperty("TIME_OUTPUT_FORMAT", TIME_FORMAT);
         properties.setProperty("JSON_INDENT", "0");
+        properties.setProperty("CLIENT_OUT_OF_BAND_TELEMETRY_ENABLED", "false");
 
         return properties;
     }
