@@ -306,6 +306,8 @@ public class TestTrinoDatabaseMetaData
         countingCatalog.add(list(COUNTING_CATALOG, "information_schema"));
         countingCatalog.add(list(COUNTING_CATALOG, "test_schema1"));
         countingCatalog.add(list(COUNTING_CATALOG, "test_schema2"));
+        countingCatalog.add(list(COUNTING_CATALOG, "test_schema3_empty"));
+        countingCatalog.add(list(COUNTING_CATALOG, "test_schema4_empty"));
 
         List<List<String>> system = new ArrayList<>();
         system.add(list("system", "information_schema"));
@@ -1035,7 +1037,9 @@ public class TestTrinoDatabaseMetaData
                 list(
                         list(COUNTING_CATALOG, "information_schema"),
                         list(COUNTING_CATALOG, "test_schema1"),
-                        list(COUNTING_CATALOG, "test_schema2")),
+                        list(COUNTING_CATALOG, "test_schema2"),
+                        list(COUNTING_CATALOG, "test_schema3_empty"),
+                        list(COUNTING_CATALOG, "test_schema4_empty")),
                 ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
 
         // Equality predicate on schema name
@@ -1046,7 +1050,9 @@ public class TestTrinoDatabaseMetaData
                         list("TABLE_CATALOG", "TABLE_SCHEM")),
                 list(
                         list(COUNTING_CATALOG, "test_schema1"),
-                        list(COUNTING_CATALOG, "test_schema2")),
+                        list(COUNTING_CATALOG, "test_schema2"),
+                        list(COUNTING_CATALOG, "test_schema3_empty"),
+                        list(COUNTING_CATALOG, "test_schema4_empty")),
                 ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
 
         // LIKE predicate on schema name
@@ -1366,6 +1372,8 @@ public class TestTrinoDatabaseMetaData
                         .addCopies("ConnectorMetadata.listSchemaNames", 5)
                         .add("ConnectorMetadata.listTables(schema=test_schema1)")
                         .add("ConnectorMetadata.listTables(schema=test_schema2)")
+                        .add("ConnectorMetadata.listTables(schema=test_schema3_empty)")
+                        .add("ConnectorMetadata.listTables(schema=test_schema4_empty)")
                         .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 20)
                         .addCopies("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)", 5)
                         .addCopies("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)", 5)
