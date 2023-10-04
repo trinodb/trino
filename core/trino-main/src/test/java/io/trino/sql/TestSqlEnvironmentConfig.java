@@ -14,7 +14,6 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.parser.ParsingException;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -22,7 +21,6 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSqlEnvironmentConfig
 {
@@ -30,7 +28,7 @@ public class TestSqlEnvironmentConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SqlEnvironmentConfig.class)
-                .setPath(null)
+                .setPath("")
                 .setDefaultCatalog(null)
                 .setDefaultSchema(null)
                 .setForcedSessionTimeZone(null));
@@ -53,14 +51,5 @@ public class TestSqlEnvironmentConfig
                 .setForcedSessionTimeZone("UTC");
 
         assertFullMapping(properties, expected);
-    }
-
-    @Test
-    public void testInvalidPath()
-    {
-        SqlEnvironmentConfig config = new SqlEnvironmentConfig().setPath("too.many.qualifiers");
-        assertThatThrownBy(() -> new SqlPath(config.getPath()).getParsedPath())
-                .isInstanceOf(ParsingException.class)
-                .hasMessageMatching("\\Qline 1:9: mismatched input '.'. Expecting: ',', <EOF>\\E");
     }
 }

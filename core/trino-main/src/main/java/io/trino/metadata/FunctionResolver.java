@@ -25,6 +25,7 @@ import io.trino.security.SecurityContext;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionDependencyDeclaration.CastDependency;
@@ -35,9 +36,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.SqlPathElement;
 import io.trino.sql.analyzer.TypeSignatureProvider;
-import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
 
 import java.util.Collection;
@@ -50,7 +49,6 @@ import java.util.function.Function;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.metadata.FunctionBinder.functionNotFound;
-import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.SignatureBinder.applyBoundVariables;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
@@ -279,16 +277,9 @@ public class FunctionResolver
 
         ImmutableList.Builder<CatalogSchemaFunctionName> names = ImmutableList.builder();
 
-        // global namespace
-        names.add(builtinFunctionName(parts.get(0)));
-
         // add resolved path items
-        for (SqlPathElement sqlPathElement : session.getPath().getParsedPath()) {
-            String catalog = sqlPathElement.getCatalog().map(Identifier::getCanonicalValue).or(session::getCatalog)
-                    .orElseThrow(() -> new TrinoException(MISSING_CATALOG_NAME, "Session default catalog must be set to resolve a partial function name: " + name));
-
-            // start with CatalogSchemaFunctionName as it handles lower casing, and QualifiedObjectName does not
-            names.add(new CatalogSchemaFunctionName(catalog, sqlPathElement.getSchema().getCanonicalValue(), parts.get(0)));
+        for (CatalogSchemaName element : session.getPath().getPath()) {
+            names.add(new CatalogSchemaFunctionName(element.getCatalogName(), element.getSchemaName(), parts.get(0)));
         }
         return names.build();
     }

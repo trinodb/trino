@@ -357,6 +357,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
+import static io.trino.sql.SqlPath.EMPTY_PATH;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
 import static io.trino.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
@@ -4745,7 +4746,7 @@ class StatementAnalyzer
                                 .build())
                         .orElseGet(session::getIdentity);
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        createViewSession(filter.getCatalog(), filter.getSchema(), filterIdentity, session.getPath()), // TODO: path should be included in row filter
+                        createViewSession(filter.getCatalog(), filter.getSchema(), filterIdentity, EMPTY_PATH), // TODO: path should be included in row filter
                         plannerContext,
                         statementAnalyzerFactory,
                         accessControl,
@@ -4798,7 +4799,7 @@ class StatementAnalyzer
                             .build())
                         .orElseGet(session::getIdentity);
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        createViewSession(constraint.getCatalog(), constraint.getSchema(), constraintIdentity, session.getPath()),
+                        createViewSession(constraint.getCatalog(), constraint.getSchema(), constraintIdentity, EMPTY_PATH),
                         plannerContext,
                         statementAnalyzerFactory,
                         accessControl,
@@ -4863,7 +4864,7 @@ class StatementAnalyzer
                                 .build())
                         .orElseGet(session::getIdentity);
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        createViewSession(mask.getCatalog(), mask.getSchema(), maskIdentity, session.getPath()), // TODO: path should be included in row filter
+                        createViewSession(mask.getCatalog(), mask.getSchema(), maskIdentity, EMPTY_PATH), // TODO: path should be included in row filter
                         plannerContext,
                         statementAnalyzerFactory,
                         accessControl,
