@@ -27,6 +27,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.tracing.TracingConnectorMetadata;
 import io.trino.util.AutoCloseableCloser;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -154,6 +155,7 @@ public class CountingMockConnector
                     return defaultGetTableHandle().apply(connectorSession, schemaTableName);
                 })
                 .withGetColumns(schemaTableName -> defaultGetColumns().apply(schemaTableName))
+                .withGetComment(schemaTableName -> Optional.of("comment for " + schemaTableName))
                 .withListRoleGrants((connectorSession, roles, grantees, limit) -> roleGrants)
                 .build();
 
