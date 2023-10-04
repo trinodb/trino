@@ -24,7 +24,9 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableColumnsMetadata;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.security.GrantInfo;
+import io.trino.spi.type.VarcharType;
 
 import java.util.List;
 import java.util.Map;
@@ -32,10 +34,14 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedSet;
+import java.util.function.Predicate;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
 
@@ -43,13 +49,9 @@ public final class MetadataListing
 {
     private MetadataListing() {}
 
-    public static SortedSet<String> listCatalogNames(Session session, Metadata metadata, AccessControl accessControl)
+    public static SortedSet<String> listCatalogNames(Session session, Metadata metadata, AccessControl accessControl, Domain catalogDomain)
     {
-        return listCatalogNames(session, metadata, accessControl, Optional.empty());
-    }
-
-    public static SortedSet<String> listCatalogNames(Session session, Metadata metadata, AccessControl accessControl, Optional<String> catalogName)
-    {
+        Optional<String> catalogName = tryGetSingleVarcharValue(catalogDomain);
         Set<String> catalogs;
         if (catalogName.isPresent()) {
             Optional<CatalogHandle> catalogHandle = metadata.getCatalogHandle(session, catalogName.get());
@@ -61,6 +63,7 @@ public final class MetadataListing
         else {
             catalogs = metadata.listCatalogs(session).stream()
                     .map(CatalogInfo::getCatalogName)
+                    .filter(stringFilter(catalogDomain))
                     .collect(toImmutableSet());
         }
         return ImmutableSortedSet.copyOf(accessControl.filterCatalogs(session.toSecurityContext(), catalogs));
@@ -332,5 +335,14 @@ public final class MetadataListing
                 result,
                 "Error listing %s for catalog %s: %s".formatted(type, catalogName, exception.getMessage()),
                 exception);
+    }
+
+    private static Predicate<String> stringFilter(Domain varcharDomain)
+    {
+        checkArgument(varcharDomain.getType() instanceof VarcharType, "Invalid domain type: %s", varcharDomain.getType());
+        if (varcharDomain.isAll()) {
+            return value -> true;
+        }
+        return value -> varcharDomain.includesNullableValue(value == null ? null : utf8Slice(value));
     }
 }
