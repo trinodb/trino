@@ -92,7 +92,6 @@ public class TableJdbcTable
             return table.build().cursor();
         }
 
-        Optional<String> catalogFilter = tryGetSingleVarcharValue(catalogDomain);
         Optional<String> schemaFilter = tryGetSingleVarcharValue(schemaDomain);
         Optional<String> tableFilter = tryGetSingleVarcharValue(tableDomain);
 
@@ -102,7 +101,7 @@ public class TableJdbcTable
             return table.build().cursor();
         }
 
-        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogFilter)) {
+        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogDomain)) {
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
             Set<SchemaTableName> views = listViews(session, metadata, accessControl, prefix);

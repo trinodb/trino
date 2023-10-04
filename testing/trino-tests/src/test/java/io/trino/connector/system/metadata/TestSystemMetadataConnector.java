@@ -137,9 +137,12 @@ public class TestSystemMetadataConnector
                         .build());
 
         // Two catalogs
-        assertQueryFails(
+        assertMetadataCalls(
                 "SELECT count(DISTINCT schema_name), count(DISTINCT table_name), count(comment), count(*) FROM system.metadata.table_comments WHERE catalog_name IN ('test_catalog', 'tpch')",
-                "Catalog is broken");
+                "VALUES (12, 2016, 3000, 3088)",
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.streamRelationComments")
+                        .build());
 
         // Whole schema
         assertMetadataCalls(
@@ -247,10 +250,13 @@ public class TestSystemMetadataConnector
                         .build());
 
         // Specific relation in a schema that does not exist across existing and non-existing catalogs
-        assertQueryFails(
+        assertMetadataCalls(
                 // TODO should succeed, the broken_catalog is not one of the selected catalogs
                 "SELECT comment FROM system.metadata.materialized_views WHERE catalog_name IN ('wrong', 'test_catalog') AND schema_name = 'wrong_schema1' AND name = 'test_table1'",
-                "Error listing materialized views for catalog broken_catalog: Catalog is broken");
+                "SELECT '' WHERE false",
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.getMaterializedView(schema=wrong_schema1, table=test_table1)")
+                        .build());
 
         // Whole catalog
         assertMetadataCalls(
@@ -271,9 +277,13 @@ public class TestSystemMetadataConnector
                         .build());
 
         // Two catalogs
-        assertQueryFails(
+        assertMetadataCalls(
                 "SELECT count(DISTINCT schema_name), count(DISTINCT name), count(comment), count(*) FROM system.metadata.materialized_views WHERE catalog_name IN ('test_catalog', 'tpch')",
-                "Error listing materialized views for catalog broken_catalog: Catalog is broken");
+                // TODO introduce materialized views in CountingMockConnector
+                "VALUES (0, 0, 0, 0)",
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.getMaterializedViews")
+                        .build());
 
         // Whole schema
         assertMetadataCalls(
