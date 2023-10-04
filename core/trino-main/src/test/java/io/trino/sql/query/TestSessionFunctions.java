@@ -47,7 +47,7 @@ public class TestSessionFunctions
     public void testCurrentPath()
     {
         Session session = testSessionBuilder()
-                .setPath(new SqlPath(Optional.of("testPath")))
+                .setPath(SqlPath.buildPath("testPath", Optional.empty()))
                 .build();
 
         try (QueryAssertions queryAssertions = new QueryAssertions(session)) {
@@ -55,7 +55,7 @@ public class TestSessionFunctions
         }
 
         Session emptyPathSession = testSessionBuilder()
-                .setPath(new SqlPath(Optional.empty()))
+                .setPath(SqlPath.EMPTY_PATH)
                 .build();
 
         try (QueryAssertions queryAssertions = new QueryAssertions(emptyPathSession)) {
