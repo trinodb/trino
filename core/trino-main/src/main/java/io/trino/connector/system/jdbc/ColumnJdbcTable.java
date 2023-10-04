@@ -65,6 +65,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SystemSessionProperties.isOmitDateTimeTypePrecision;
+import static io.trino.connector.system.jdbc.FilterUtil.isImpossibleObjectName;
 import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.trino.metadata.MetadataListing.listCatalogNames;
@@ -84,7 +85,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.TypeUtils.getDisplayLabel;
 import static java.lang.Math.min;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnJdbcTable
@@ -164,9 +164,17 @@ public class ColumnJdbcTable
 
         Session session = ((FullConnectorSession) connectorSession).getSession();
 
-        Optional<String> catalogFilter = tryGetSingleVarcharValue(tupleDomain, TABLE_CATALOG_COLUMN);
-        Optional<String> schemaFilter = tryGetSingleVarcharValue(tupleDomain, TABLE_SCHEMA_COLUMN);
-        Optional<String> tableFilter = tryGetSingleVarcharValue(tupleDomain, TABLE_NAME_COLUMN);
+        Domain catalogDomain = tupleDomain.getDomain(TABLE_CATALOG_COLUMN, VARCHAR);
+        Domain schemaDomain = tupleDomain.getDomain(TABLE_SCHEMA_COLUMN, VARCHAR);
+        Domain tableDomain = tupleDomain.getDomain(TABLE_NAME_COLUMN, VARCHAR);
+
+        if (isImpossibleObjectName(catalogDomain) || isImpossibleObjectName(schemaDomain) || isImpossibleObjectName(tableDomain)) {
+            return TupleDomain.none();
+        }
+
+        Optional<String> catalogFilter = tryGetSingleVarcharValue(catalogDomain);
+        Optional<String> schemaFilter = tryGetSingleVarcharValue(schemaDomain);
+        Optional<String> tableFilter = tryGetSingleVarcharValue(tableDomain);
 
         if (schemaFilter.isPresent() && tableFilter.isPresent()) {
             // No need to narrow down the domain.
@@ -239,18 +247,18 @@ public class ColumnJdbcTable
 
         Session session = ((FullConnectorSession) connectorSession).getSession();
         boolean omitDateTimeTypePrecision = isOmitDateTimeTypePrecision(session);
-        Optional<String> catalogFilter = tryGetSingleVarcharValue(constraint, 0);
-        Optional<String> schemaFilter = tryGetSingleVarcharValue(constraint, 1);
-        Optional<String> tableFilter = tryGetSingleVarcharValue(constraint, 2);
 
-        Domain catalogDomain = constraint.getDomains().get().getOrDefault(0, Domain.all(VARCHAR));
-        Domain schemaDomain = constraint.getDomains().get().getOrDefault(1, Domain.all(VARCHAR));
-        Domain tableDomain = constraint.getDomains().get().getOrDefault(2, Domain.all(VARCHAR));
+        Domain catalogDomain = constraint.getDomain(0, VARCHAR);
+        Domain schemaDomain = constraint.getDomain(1, VARCHAR);
+        Domain tableDomain = constraint.getDomain(2, VARCHAR);
 
-        if (isNonLowercase(schemaFilter) || isNonLowercase(tableFilter)) {
-            // Non-lowercase predicate will never match a lowercase name (until TODO https://github.com/trinodb/trino/issues/17)
+        if (isImpossibleObjectName(catalogDomain) || isImpossibleObjectName(schemaDomain) || isImpossibleObjectName(tableDomain)) {
             return table.build().cursor();
         }
+
+        Optional<String> catalogFilter = tryGetSingleVarcharValue(catalogDomain);
+        Optional<String> schemaFilter = tryGetSingleVarcharValue(schemaDomain);
+        Optional<String> tableFilter = tryGetSingleVarcharValue(tableDomain);
 
         for (String catalog : listCatalogNames(session, metadata, accessControl, catalogFilter)) {
             if (!catalogDomain.includesNullableValue(utf8Slice(catalog))) {
@@ -286,11 +294,6 @@ public class ColumnJdbcTable
             }
         }
         return table.build().cursor();
-    }
-
-    private static boolean isNonLowercase(Optional<String> filter)
-    {
-        return filter.filter(value -> !value.equals(value.toLowerCase(ENGLISH))).isPresent();
     }
 
     private static void addColumnsRow(Builder builder, String catalog, Map<SchemaTableName, List<ColumnMetadata>> columns, boolean isOmitTimestampPrecision)

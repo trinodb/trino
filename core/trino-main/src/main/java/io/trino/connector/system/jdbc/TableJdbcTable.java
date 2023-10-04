@@ -14,6 +14,7 @@
 package io.trino.connector.system.jdbc;
 
 import com.google.inject.Inject;
+import io.airlift.slice.Slices;
 import io.trino.FullConnectorSession;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
@@ -26,12 +27,13 @@ import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.InMemoryRecordSet.Builder;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.connector.system.jdbc.FilterUtil.emptyOrEquals;
+import static io.trino.connector.system.jdbc.FilterUtil.isImpossibleObjectName;
 import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.trino.metadata.MetadataListing.listCatalogNames;
@@ -39,7 +41,6 @@ import static io.trino.metadata.MetadataListing.listTables;
 import static io.trino.metadata.MetadataListing.listViews;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class TableJdbcTable
@@ -79,22 +80,25 @@ public class TableJdbcTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
-        Session session = ((FullConnectorSession) connectorSession).getSession();
-        Optional<String> catalogFilter = tryGetSingleVarcharValue(constraint, 0);
-        Optional<String> schemaFilter = tryGetSingleVarcharValue(constraint, 1);
-        Optional<String> tableFilter = tryGetSingleVarcharValue(constraint, 2);
-        Optional<String> typeFilter = tryGetSingleVarcharValue(constraint, 3);
-
-        boolean includeTables = emptyOrEquals(typeFilter, "TABLE");
-        boolean includeViews = emptyOrEquals(typeFilter, "VIEW");
         Builder table = InMemoryRecordSet.builder(METADATA);
+        Session session = ((FullConnectorSession) connectorSession).getSession();
 
-        if (!includeTables && !includeViews) {
+        Domain catalogDomain = constraint.getDomain(0, VARCHAR);
+        Domain schemaDomain = constraint.getDomain(1, VARCHAR);
+        Domain tableDomain = constraint.getDomain(2, VARCHAR);
+        Domain typeDomain = constraint.getDomain(3, VARCHAR);
+
+        if (isImpossibleObjectName(catalogDomain) || isImpossibleObjectName(schemaDomain) || isImpossibleObjectName(tableDomain)) {
             return table.build().cursor();
         }
 
-        if (isNonLowercase(schemaFilter) || isNonLowercase(tableFilter)) {
-            // Non-lowercase predicate will never match a lowercase name (until TODO https://github.com/trinodb/trino/issues/17)
+        Optional<String> catalogFilter = tryGetSingleVarcharValue(catalogDomain);
+        Optional<String> schemaFilter = tryGetSingleVarcharValue(schemaDomain);
+        Optional<String> tableFilter = tryGetSingleVarcharValue(tableDomain);
+
+        boolean includeTables = typeDomain.includesNullableValue(Slices.utf8Slice("TABLE"));
+        boolean includeViews = typeDomain.includesNullableValue(Slices.utf8Slice("VIEW"));
+        if (!includeTables && !includeViews) {
             return table.build().cursor();
         }
 
@@ -110,11 +114,6 @@ public class TableJdbcTable
             }
         }
         return table.build().cursor();
-    }
-
-    private static boolean isNonLowercase(Optional<String> filter)
-    {
-        return filter.filter(value -> !value.equals(value.toLowerCase(ENGLISH))).isPresent();
     }
 
     private static Object[] tableRow(String catalog, SchemaTableName name, String type)

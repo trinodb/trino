@@ -34,17 +34,20 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.connector.system.jdbc.FilterUtil.isImpossibleObjectName;
 import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.trino.metadata.MetadataListing.listCatalogNames;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -87,12 +90,21 @@ public class TableCommentSystemTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
-        Optional<String> catalogFilter = tryGetSingleVarcharValue(constraint, 0);
-        Optional<String> schemaFilter = tryGetSingleVarcharValue(constraint, 1);
-        Optional<String> tableFilter = tryGetSingleVarcharValue(constraint, 2);
+        Builder table = InMemoryRecordSet.builder(COMMENT_TABLE);
+
+        Domain catalogDomain = constraint.getDomain(0, VARCHAR);
+        Domain schemaDomain = constraint.getDomain(1, VARCHAR);
+        Domain tableDomain = constraint.getDomain(2, VARCHAR);
+
+        if (isImpossibleObjectName(catalogDomain) || isImpossibleObjectName(schemaDomain) || isImpossibleObjectName(tableDomain)) {
+            return table.build().cursor();
+        }
+
+        Optional<String> catalogFilter = tryGetSingleVarcharValue(catalogDomain);
+        Optional<String> schemaFilter = tryGetSingleVarcharValue(schemaDomain);
+        Optional<String> tableFilter = tryGetSingleVarcharValue(tableDomain);
 
         Session session = ((FullConnectorSession) connectorSession).getSession();
-        Builder table = InMemoryRecordSet.builder(COMMENT_TABLE);
 
         for (String catalog : listCatalogNames(session, metadata, accessControl, catalogFilter)) {
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
