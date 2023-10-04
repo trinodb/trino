@@ -23,7 +23,6 @@ import io.trino.security.SecurityContext;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
@@ -507,15 +506,6 @@ public class TracingAccessControl
         Span span = startSpan("checkCanSetMaterializedViewProperties");
         try (var ignored = scopedSpan(span)) {
             delegate.checkCanSetMaterializedViewProperties(context, materializedViewName, properties);
-        }
-    }
-
-    @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, TrinoPrincipal grantee, boolean grantOption)
-    {
-        Span span = startSpan("checkCanGrantExecuteFunctionPrivilege");
-        try (var ignored = scopedSpan(span)) {
-            delegate.checkCanGrantExecuteFunctionPrivilege(context, functionKind, functionName, grantee, grantOption);
         }
     }
 
