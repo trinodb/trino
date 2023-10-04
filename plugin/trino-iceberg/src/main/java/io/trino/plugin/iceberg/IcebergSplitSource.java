@@ -53,7 +53,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -79,9 +78,9 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
-import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -251,18 +250,7 @@ public class IcebergSplitSource
                     .map(fieldId -> getColumnHandle(fileSchema.findField(fieldId), typeManager))
                     .collect(toImmutableSet());
 
-            Supplier<Map<ColumnHandle, NullableValue>> partitionValues = memoize(() -> {
-                Map<ColumnHandle, NullableValue> bindings = new HashMap<>();
-                for (IcebergColumnHandle partitionColumn : identityPartitionColumns) {
-                    Object partitionValue = deserializePartitionValue(
-                            partitionColumn.getType(),
-                            partitionKeys.get(partitionColumn.getId()).orElse(null),
-                            partitionColumn.getName());
-                    NullableValue bindingValue = new NullableValue(partitionColumn.getType(), partitionValue);
-                    bindings.put(partitionColumn, bindingValue);
-                }
-                return bindings;
-            });
+            Supplier<Map<ColumnHandle, NullableValue>> partitionValues = memoize(() -> getPartitionValues(identityPartitionColumns, partitionKeys));
 
             if (!dynamicFilterPredicate.isAll() && !dynamicFilterPredicate.equals(pushedDownDynamicFilterPredicate)) {
                 if (!partitionMatchesPredicate(
