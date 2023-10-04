@@ -26,6 +26,7 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.CountingMockConnector;
 import io.trino.testing.DistributedQueryRunner;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -342,7 +343,7 @@ public class TestInformationSchemaConnector
                 "Error listing table columns for catalog broken_catalog: Catalog is broken");
     }
 
-    private void assertMetadataCalls(String actualSql, String expectedSql, Multiset<String> expectedMetadataCallsCount)
+    private void assertMetadataCalls(@Language("SQL") String actualSql, @Language("SQL") String expectedSql, Multiset<String> expectedMetadataCallsCount)
     {
         expectedMetadataCallsCount = ImmutableMultiset.<String>builder()
                 // Every query involves beginQuery and cleanupQuery, so expect them implicitly.
