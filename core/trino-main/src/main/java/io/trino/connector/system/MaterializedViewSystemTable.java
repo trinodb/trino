@@ -107,11 +107,10 @@ public class MaterializedViewSystemTable
             return displayTable.build().cursor();
         }
 
-        Optional<String> catalogFilter = tryGetSingleVarcharValue(catalogDomain);
         Optional<String> schemaFilter = tryGetSingleVarcharValue(schemaDomain);
         Optional<String> tableFilter = tryGetSingleVarcharValue(tableDomain);
 
-        listCatalogNames(session, metadata, accessControl, catalogFilter).forEach(catalogName -> {
+        listCatalogNames(session, metadata, accessControl, catalogDomain).forEach(catalogName -> {
             QualifiedTablePrefix tablePrefix = tablePrefix(catalogName, schemaFilter, tableFilter);
 
             addMaterializedViewForCatalog(session, displayTable, tablePrefix);

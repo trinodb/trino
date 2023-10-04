@@ -100,13 +100,12 @@ public class TableCommentSystemTable
             return table.build().cursor();
         }
 
-        Optional<String> catalogFilter = tryGetSingleVarcharValue(catalogDomain);
         Optional<String> schemaFilter = tryGetSingleVarcharValue(schemaDomain);
         Optional<String> tableFilter = tryGetSingleVarcharValue(tableDomain);
 
         Session session = ((FullConnectorSession) connectorSession).getSession();
 
-        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogFilter)) {
+        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogDomain)) {
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
             addTableCommentForCatalog(session, table, catalog, prefix);
