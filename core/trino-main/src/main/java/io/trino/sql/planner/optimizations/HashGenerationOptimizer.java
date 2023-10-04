@@ -85,6 +85,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
+import static io.trino.plugin.base.util.MoreLists.containsAll;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
@@ -781,7 +782,7 @@ public class HashGenerationOptimizer
         {
             PlanWithProperties result = node.accept(this, parentPreference);
             checkState(
-                    result.getNode().getOutputSymbols().containsAll(result.getHashSymbols().values()),
+                    containsAll(result.getNode().getOutputSymbols(), result.getHashSymbols().values()),
                     "Node %s declares hash symbols not in the output",
                     result.getNode().getClass().getSimpleName());
             return result;

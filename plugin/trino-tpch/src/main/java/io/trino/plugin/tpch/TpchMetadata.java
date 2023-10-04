@@ -77,6 +77,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.asMap;
+import static io.trino.plugin.base.util.MoreLists.containsAll;
 import static io.trino.plugin.tpch.util.PredicateUtils.convertToPredicate;
 import static io.trino.plugin.tpch.util.PredicateUtils.filterOutColumnFromPredicate;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
@@ -305,7 +306,7 @@ public class TpchMetadata
 
     private static Map<TpchColumn<?>, List<Object>> avoidTrivialOrderStatusRestriction(List<Object> allowedValues)
     {
-        if (allowedValues.containsAll(ORDER_STATUS_VALUES)) {
+        if (containsAll(allowedValues, ORDER_STATUS_VALUES)) {
             return emptyMap();
         }
         return ImmutableMap.of(OrderColumn.ORDER_STATUS, allowedValues);

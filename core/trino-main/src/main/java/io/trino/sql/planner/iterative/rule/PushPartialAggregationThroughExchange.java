@@ -47,6 +47,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.preferPartialAggregation;
+import static io.trino.plugin.base.util.MoreLists.containsAll;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -123,7 +124,7 @@ public class PushPartialAggregationThroughExchange
                     .map(Partitioning.ArgumentBinding::getColumn)
                     .collect(Collectors.toList());
 
-            if (!aggregationNode.getGroupingKeys().containsAll(partitioningColumns)) {
+            if (!containsAll(aggregationNode.getGroupingKeys(), partitioningColumns)) {
                 return Result.empty();
             }
         }

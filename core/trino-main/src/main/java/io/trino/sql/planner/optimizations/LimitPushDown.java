@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.trino.plugin.base.util.MoreLists.containsAll;
 import static java.util.Objects.requireNonNull;
 
 public class LimitPushDown
@@ -152,7 +153,7 @@ public class LimitPushDown
                     node.getAggregations().isEmpty() &&
                     !node.getGroupingKeys().isEmpty() &&
                     node.getOutputSymbols().size() == node.getGroupingKeys().size() &&
-                    node.getOutputSymbols().containsAll(node.getGroupingKeys())) {
+                    containsAll(node.getOutputSymbols(), node.getGroupingKeys())) {
                 PlanNode rewrittenSource = context.rewrite(node.getSource());
                 return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, limit.getCount(), false, rewrittenSource.getOutputSymbols(), Optional.empty());
             }

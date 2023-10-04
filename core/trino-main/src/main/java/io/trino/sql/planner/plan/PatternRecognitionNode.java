@@ -39,6 +39,7 @@ import java.util.Set;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.concat;
+import static io.trino.plugin.base.util.MoreLists.containsAll;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
@@ -100,7 +101,7 @@ public class PatternRecognitionNode
         requireNonNull(source, "source is null");
         requireNonNull(specification, "specification is null");
         requireNonNull(hashSymbol, "hashSymbol is null");
-        checkArgument(specification.getPartitionBy().containsAll(prePartitionedInputs), "prePartitionedInputs must be contained in partitionBy");
+        checkArgument(containsAll(specification.getPartitionBy(), prePartitionedInputs), "prePartitionedInputs must be contained in partitionBy");
         Optional<OrderingScheme> orderingScheme = specification.getOrderingScheme();
         checkArgument(preSortedOrderPrefix == 0 || (orderingScheme.isPresent() && preSortedOrderPrefix <= orderingScheme.get().getOrderBy().size()), "Cannot have sorted more symbols than those requested");
         checkArgument(preSortedOrderPrefix == 0 || ImmutableSet.copyOf(prePartitionedInputs).equals(ImmutableSet.copyOf(specification.getPartitionBy())), "preSortedOrderPrefix can only be greater than zero if all partition symbols are pre-partitioned");

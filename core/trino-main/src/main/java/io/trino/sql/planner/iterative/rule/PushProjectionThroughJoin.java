@@ -37,6 +37,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.base.util.MoreLists.containsAll;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
@@ -77,11 +78,11 @@ public final class PushProjectionThroughJoin
         for (Map.Entry<Symbol, Expression> assignment : projectNode.getAssignments().entrySet()) {
             Expression expression = assignment.getValue();
             Set<Symbol> symbols = extractUnique(expression);
-            if (leftChild.getOutputSymbols().containsAll(symbols)) {
+            if (containsAll(leftChild.getOutputSymbols(), symbols)) {
                 // expression is satisfied with left child symbols
                 leftAssignmentsBuilder.put(assignment.getKey(), expression);
             }
-            else if (rightChild.getOutputSymbols().containsAll(symbols)) {
+            else if (containsAll(rightChild.getOutputSymbols(), symbols)) {
                 // expression is satisfied with right child symbols
                 rightAssignmentsBuilder.put(assignment.getKey(), expression);
             }

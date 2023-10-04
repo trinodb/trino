@@ -162,6 +162,7 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
+import static io.trino.plugin.base.util.MoreLists.containsAll;
 import static io.trino.plugin.hive.HiveAnalyzeProperties.getColumnNames;
 import static io.trino.plugin.hive.HiveAnalyzeProperties.getPartitionList;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.find;
@@ -3639,7 +3640,7 @@ public class HiveMetadata
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        if (!allColumns.containsAll(partitionedBy)) {
+        if (!containsAll(allColumns, partitionedBy)) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, format("Partition columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(partitionedBy), ImmutableSet.copyOf(allColumns))));
         }
 

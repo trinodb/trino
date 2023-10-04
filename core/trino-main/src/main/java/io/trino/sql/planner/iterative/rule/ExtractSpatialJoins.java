@@ -80,6 +80,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.SystemSessionProperties.getSpatialPartitioningTableName;
 import static io.trino.SystemSessionProperties.isSpatialJoinEnabled;
 import static io.trino.matching.Capture.newCapture;
+import static io.trino.plugin.base.util.MoreLists.containsAll;
 import static io.trino.spi.StandardErrorCode.INVALID_SPATIAL_PARTITIONING;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -312,7 +313,7 @@ public class ExtractSpatialJoins
             // ST_Distance(a, b) <= r
             radius = spatialComparison.getRight();
             Set<Symbol> radiusSymbols = extractUnique(radius);
-            if (radiusSymbols.isEmpty() || (rightSymbols.containsAll(radiusSymbols) && containsNone(leftSymbols, radiusSymbols))) {
+            if (radiusSymbols.isEmpty() || containsAll(rightSymbols, radiusSymbols) && containsNone(leftSymbols, radiusSymbols)) {
                 newRadiusSymbol = newRadiusSymbol(context, radius);
                 newComparison = new ComparisonExpression(spatialComparison.getOperator(), spatialComparison.getLeft(), toExpression(newRadiusSymbol, radius));
             }
@@ -324,7 +325,7 @@ public class ExtractSpatialJoins
             // r >= ST_Distance(a, b)
             radius = spatialComparison.getLeft();
             Set<Symbol> radiusSymbols = extractUnique(radius);
-            if (radiusSymbols.isEmpty() || (rightSymbols.containsAll(radiusSymbols) && containsNone(leftSymbols, radiusSymbols))) {
+            if (radiusSymbols.isEmpty() || containsAll(rightSymbols, radiusSymbols) && containsNone(leftSymbols, radiusSymbols)) {
                 newRadiusSymbol = newRadiusSymbol(context, radius);
                 newComparison = new ComparisonExpression(spatialComparison.getOperator().flip(), spatialComparison.getRight(), toExpression(newRadiusSymbol, radius));
             }
@@ -538,16 +539,16 @@ public class ExtractSpatialJoins
         List<Symbol> leftSymbols = joinNode.getLeft().getOutputSymbols();
         List<Symbol> rightSymbols = joinNode.getRight().getOutputSymbols();
 
-        if (leftSymbols.containsAll(maybeLeftSymbols)
+        if (containsAll(leftSymbols, maybeLeftSymbols)
                 && containsNone(leftSymbols, maybeRightSymbols)
-                && rightSymbols.containsAll(maybeRightSymbols)
+                && containsAll(rightSymbols, maybeRightSymbols)
                 && containsNone(rightSymbols, maybeLeftSymbols)) {
             return 1;
         }
 
-        if (leftSymbols.containsAll(maybeRightSymbols)
+        if (containsAll(leftSymbols, maybeRightSymbols)
                 && containsNone(leftSymbols, maybeLeftSymbols)
-                && rightSymbols.containsAll(maybeLeftSymbols)
+                && containsAll(rightSymbols, maybeLeftSymbols)
                 && containsNone(rightSymbols, maybeRightSymbols)) {
             return -1;
         }

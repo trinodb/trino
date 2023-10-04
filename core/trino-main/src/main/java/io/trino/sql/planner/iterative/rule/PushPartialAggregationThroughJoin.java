@@ -37,6 +37,7 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
 import static io.trino.SystemSessionProperties.isPushPartialAggregationThroughJoin;
+import static io.trino.plugin.base.util.MoreLists.containsAll;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -105,7 +106,7 @@ public class PushPartialAggregationThroughJoin
                 .map(SymbolsExtractor::extractAll)
                 .flatMap(List::stream)
                 .collect(toImmutableSet());
-        return symbols.containsAll(inputs);
+        return containsAll(symbols, inputs);
     }
 
     private PlanNode pushPartialToLeftChild(AggregationNode node, JoinNode child, Context context)
