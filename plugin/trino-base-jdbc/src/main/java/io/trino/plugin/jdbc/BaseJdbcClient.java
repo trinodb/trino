@@ -619,17 +619,30 @@ public abstract class BaseJdbcClient
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
 
+        ConnectorIdentity identity = session.getIdentity();
         if (!getSchemaNames(session).contains(schemaTableName.getSchemaName())) {
             throw new SchemaNotFoundException(schemaTableName.getSchemaName());
         }
 
         try (Connection connection = connectionFactory.openConnection(session)) {
+            verify(connection.getAutoCommit());
+            RemoteIdentifiers remoteIdentifiers = getRemoteIdentifiers(connection);
+            String remoteSchema = identifierMapping.toRemoteSchemaName(remoteIdentifiers, identity, schemaTableName.getSchemaName());
+            String remoteTable = identifierMapping.toRemoteTableName(remoteIdentifiers, identity, remoteSchema, schemaTableName.getTableName());
+            String remoteTargetTableName = identifierMapping.toRemoteTableName(remoteIdentifiers, identity, remoteSchema, targetTableName);
+            String catalog = connection.getCatalog();
+
+            verifyTableName(connection.getMetaData(), remoteTargetTableName);
+
             return createTable(
                     session,
                     connection,
                     tableMetadata,
-                    schemaTableName,
-                    targetTableName,
+                    remoteIdentifiers,
+                    catalog,
+                    remoteSchema,
+                    remoteTable,
+                    remoteTargetTableName,
                     pageSinkIdColumn);
         }
     }
@@ -638,21 +651,14 @@ public abstract class BaseJdbcClient
             ConnectorSession session,
             Connection connection,
             ConnectorTableMetadata tableMetadata,
-            SchemaTableName schemaTableName,
-            String targetTableName,
+            RemoteIdentifiers remoteIdentifiers,
+            String catalog,
+            String remoteSchema,
+            String remoteTable,
+            String remoteTargetTableName,
             Optional<ColumnMetadata> pageSinkIdColumn)
             throws SQLException
     {
-        ConnectorIdentity identity = session.getIdentity();
-        verify(connection.getAutoCommit());
-        RemoteIdentifiers remoteIdentifiers = getRemoteIdentifiers(connection);
-        String remoteSchema = identifierMapping.toRemoteSchemaName(remoteIdentifiers, identity, schemaTableName.getSchemaName());
-        String remoteTable = identifierMapping.toRemoteTableName(remoteIdentifiers, identity, remoteSchema, schemaTableName.getTableName());
-        String remoteTargetTableName = identifierMapping.toRemoteTableName(remoteIdentifiers, identity, remoteSchema, targetTableName);
-        String catalog = connection.getCatalog();
-
-        verifyTableName(connection.getMetaData(), remoteTargetTableName);
-
         List<ColumnMetadata> columns = tableMetadata.getColumns();
         ImmutableList.Builder<String> columnNames = ImmutableList.builderWithExpectedSize(columns.size());
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builderWithExpectedSize(columns.size());
@@ -725,13 +731,23 @@ public abstract class BaseJdbcClient
     public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
     {
         SchemaTableName schemaTableName = tableHandle.asPlainTable().getSchemaTableName();
+        ConnectorIdentity identity = session.getIdentity();
+
         verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(tableHandle));
         try (Connection connection = connectionFactory.openConnection(session)) {
+            verify(connection.getAutoCommit());
+            RemoteIdentifiers remoteIdentifiers = getRemoteIdentifiers(connection);
+            String remoteSchema = identifierMapping.toRemoteSchemaName(remoteIdentifiers, identity, schemaTableName.getSchemaName());
+            String remoteTable = identifierMapping.toRemoteTableName(remoteIdentifiers, identity, remoteSchema, schemaTableName.getTableName());
+            String catalog = connection.getCatalog();
+
             return beginInsertTable(
                     session,
                     connection,
-                    schemaTableName,
-                    tableHandle,
+                    remoteIdentifiers,
+                    catalog,
+                    remoteSchema,
+                    remoteTable,
                     columns);
         }
         catch (SQLException e) {
@@ -739,16 +755,17 @@ public abstract class BaseJdbcClient
         }
     }
 
-    protected JdbcOutputTableHandle beginInsertTable(ConnectorSession session, Connection connection, SchemaTableName schemaTableName, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
+    protected JdbcOutputTableHandle beginInsertTable(
+            ConnectorSession session,
+            Connection connection,
+            RemoteIdentifiers remoteIdentifiers,
+            String catalog,
+            String remoteSchema,
+            String remoteTable,
+            List<JdbcColumnHandle> columns)
             throws SQLException
     {
         ConnectorIdentity identity = session.getIdentity();
-        verify(connection.getAutoCommit());
-        RemoteIdentifiers remoteIdentifiers = getRemoteIdentifiers(connection);
-        String remoteSchema = identifierMapping.toRemoteSchemaName(remoteIdentifiers, identity, schemaTableName.getSchemaName());
-        String remoteTable = identifierMapping.toRemoteTableName(remoteIdentifiers, identity, remoteSchema, schemaTableName.getTableName());
-        String catalog = connection.getCatalog();
-
         ImmutableList.Builder<String> columnNames = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
         ImmutableList.Builder<JdbcTypeHandle> jdbcColumnTypes = ImmutableList.builder();
