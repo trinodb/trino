@@ -56,7 +56,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
-public class TestSystemConnector
+public class TestSystemRuntimeConnector
         extends AbstractTestQueryFramework
 {
     private static final Function<SchemaTableName, List<ColumnMetadata>> DEFAULT_GET_COLUMNS = table -> ImmutableList.of(new ColumnMetadata("c", VARCHAR));
@@ -64,7 +64,7 @@ public class TestSystemConnector
 
     private static Function<SchemaTableName, List<ColumnMetadata>> getColumns = DEFAULT_GET_COLUMNS;
 
-    private final ExecutorService executor = Executors.newSingleThreadScheduledExecutor(threadsNamed(TestSystemConnector.class.getSimpleName()));
+    private final ExecutorService executor = Executors.newSingleThreadScheduledExecutor(threadsNamed(TestSystemRuntimeConnector.class.getSimpleName()));
 
     @Override
     protected QueryRunner createQueryRunner()
