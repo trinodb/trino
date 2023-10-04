@@ -669,6 +669,13 @@ public class MockConnector
         public void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting) {}
 
         @Override
+        public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)
+        {
+            return ImmutableList.copyOf(getMaterializedViews.apply(session, schemaName.map(SchemaTablePrefix::new).orElseGet(SchemaTablePrefix::new))
+                    .keySet());
+        }
+
+        @Override
         public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
         {
             return Optional.ofNullable(getMaterializedViews.apply(session, viewName.toSchemaTablePrefix()).get(viewName));
