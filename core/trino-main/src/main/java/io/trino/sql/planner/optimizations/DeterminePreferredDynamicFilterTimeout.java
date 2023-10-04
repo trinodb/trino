@@ -28,10 +28,12 @@ import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.DynamicFilterId;
+import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.UnionNode;
@@ -45,6 +47,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.getSmallDynamicFilterMaxRowCount;
@@ -93,7 +96,7 @@ public class DeterminePreferredDynamicFilterTimeout
             return plan;
         }
 
-        Map<DynamicFilterId, JoinNode> dynamicFilters = getDynamicFilterSources(plan);
+        Map<DynamicFilterId, PlanNode> dynamicFilters = getDynamicFilterSources(plan);
 
         if (dynamicFilters.isEmpty()) {
             return plan;
@@ -110,24 +113,32 @@ public class DeterminePreferredDynamicFilterTimeout
                 dynamicFilters);
     }
 
-    private static Map<DynamicFilterId, JoinNode> getDynamicFilterSources(PlanNode plan)
+    private static Map<DynamicFilterId, PlanNode> getDynamicFilterSources(PlanNode plan)
     {
         return PlanNodeSearcher.searchFrom(plan)
-                .where(planNode -> {
-                    if (planNode instanceof JoinNode joinNode) {
-                        return !joinNode.getDynamicFilters().isEmpty();
-                    }
-                    return false;
-                }).findAll().stream()
-                .map(JoinNode.class::cast)
-                .flatMap(
-                        joinNode -> joinNode.getDynamicFilters().keySet().stream()
-                                .map(dynamicFilterId -> new SimpleEntry<>(dynamicFilterId, joinNode)))
+                .findAll().stream()
+                .flatMap(DeterminePreferredDynamicFilterTimeout::getDynamicFiltersMapping)
                 .collect(toImmutableMap(SimpleEntry::getKey, SimpleEntry::getValue));
     }
 
+    private static Stream<SimpleEntry<DynamicFilterId, PlanNode>> getDynamicFiltersMapping(PlanNode planNode)
+    {
+        if (planNode instanceof JoinNode joinNode) {
+            return joinNode.getDynamicFilters().keySet().stream()
+                    .map(dynamicFilterId -> new SimpleEntry<>(dynamicFilterId, planNode));
+        }
+        if (planNode instanceof DynamicFilterSourceNode dynamicFilterSourceNode) {
+            return dynamicFilterSourceNode.getDynamicFilters().keySet().stream()
+                    .map(dynamicFilterId -> new SimpleEntry<>(dynamicFilterId, planNode));
+        }
+        if (planNode instanceof SemiJoinNode semiJoinNode && semiJoinNode.getDynamicFilterId().isPresent()) {
+            return Stream.of(new SimpleEntry<>(semiJoinNode.getDynamicFilterId().get(), planNode));
+        }
+        return Stream.of();
+    }
+
     private static class Rewriter
-            extends SimplePlanRewriter<Map<DynamicFilterId, JoinNode>>
+            extends SimplePlanRewriter<Map<DynamicFilterId, PlanNode>>
     {
         private final PlannerContext plannerContext;
         private final StatsProvider statsProvider;
@@ -148,14 +159,14 @@ public class DeterminePreferredDynamicFilterTimeout
         }
 
         @Override
-        public PlanNode visitFilter(FilterNode node, SimplePlanRewriter.RewriteContext<Map<DynamicFilterId, JoinNode>> rewriteContext)
+        public PlanNode visitFilter(FilterNode node, SimplePlanRewriter.RewriteContext<Map<DynamicFilterId, PlanNode>> rewriteContext)
         {
             if (!(node.getSource() instanceof TableScanNode)) {
                 // SimplePlanRewriter is visiting all filter nodes, not only ones with dynamic filters.
                 return visitPlan(node, rewriteContext);
             }
 
-            Map<DynamicFilterId, JoinNode> dynamicFiltersContext = rewriteContext.get();
+            Map<DynamicFilterId, PlanNode> dynamicFiltersContext = rewriteContext.get();
             List<Expression> conjuncts = extractConjuncts(node.getPredicate());
             boolean rewritten = false;
 
@@ -167,9 +178,9 @@ public class DeterminePreferredDynamicFilterTimeout
                     continue;
                 }
                 DynamicFilterId dynamicFilterId = descriptor.get().getId();
-                JoinNode joinNode = dynamicFiltersContext.get(dynamicFilterId);
+                PlanNode planNode = dynamicFiltersContext.get(dynamicFilterId);
 
-                Boolean isSmallOutput = dynamicFilterEstimations.computeIfAbsent(dynamicFilterId, ignore -> isSmallOutputRowCount(joinNode.getRight()));
+                Boolean isSmallOutput = dynamicFilterEstimations.computeIfAbsent(dynamicFilterId, ignore -> isSmallOutputRowCount(getBuildSide(planNode)));
                 if (isSmallOutput) {
                     rewritten = true;
                     expressionBuilder.add(replaceDynamicFilterTimeout((FunctionCall) conjunct, smallDynamicFilterWaitTimeoutMillis));
@@ -187,6 +198,20 @@ public class DeterminePreferredDynamicFilterTimeout
                     node.getId(),
                     node.getSource(),
                     combineConjuncts(plannerContext.getMetadata(), expressionBuilder.build()));
+        }
+
+        private static PlanNode getBuildSide(PlanNode planNode)
+        {
+            if (planNode instanceof JoinNode joinNode) {
+                return joinNode.getRight();
+            }
+            else if (planNode instanceof SemiJoinNode semiJoinNode) {
+                return semiJoinNode.getFilteringSource();
+            }
+            else if (planNode instanceof DynamicFilterSourceNode dynamicFilterSourceNode) {
+                return dynamicFilterSourceNode.getSource();
+            }
+            throw new IllegalArgumentException("Plan node unsupported " + planNode.getClass().getSimpleName());
         }
 
         private boolean isSmallOutputRowCount(PlanNode planNode)
