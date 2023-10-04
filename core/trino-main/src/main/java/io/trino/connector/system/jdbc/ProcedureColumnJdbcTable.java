@@ -23,7 +23,7 @@ import io.trino.spi.predicate.TupleDomain;
 
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class ProcedureColumnJdbcTable
         extends JdbcTable
@@ -31,26 +31,26 @@ public class ProcedureColumnJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "procedure_columns");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("procedure_cat", createUnboundedVarcharType())
-            .column("procedure_schem", createUnboundedVarcharType())
-            .column("procedure_name", createUnboundedVarcharType())
-            .column("column_name", createUnboundedVarcharType())
+            .column("procedure_cat", VARCHAR)
+            .column("procedure_schem", VARCHAR)
+            .column("procedure_name", VARCHAR)
+            .column("column_name", VARCHAR)
             .column("column_type", BIGINT)
             .column("data_type", BIGINT)
-            .column("type_name", createUnboundedVarcharType())
+            .column("type_name", VARCHAR)
             .column("precision", BIGINT)
             .column("length", BIGINT)
             .column("scale", BIGINT)
             .column("radix", BIGINT)
             .column("nullable", BIGINT)
-            .column("remarks", createUnboundedVarcharType())
-            .column("column_def", createUnboundedVarcharType())
+            .column("remarks", VARCHAR)
+            .column("column_def", VARCHAR)
             .column("sql_data_type", BIGINT)
             .column("sql_datetime_sub", BIGINT)
             .column("char_octet_length", BIGINT)
             .column("ordinal_position", BIGINT)
-            .column("is_nullable", createUnboundedVarcharType())
-            .column("specific_name", createUnboundedVarcharType())
+            .column("is_nullable", VARCHAR)
+            .column("specific_name", VARCHAR)
             .build();
 
     @Override

@@ -38,7 +38,7 @@ import static io.trino.metadata.MetadataListing.listCatalogNames;
 import static io.trino.metadata.MetadataListing.listTables;
 import static io.trino.metadata.MetadataListing.listViews;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -48,16 +48,16 @@ public class TableJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "tables");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("table_cat", createUnboundedVarcharType())
-            .column("table_schem", createUnboundedVarcharType())
-            .column("table_name", createUnboundedVarcharType())
-            .column("table_type", createUnboundedVarcharType())
-            .column("remarks", createUnboundedVarcharType())
-            .column("type_cat", createUnboundedVarcharType())
-            .column("type_schem", createUnboundedVarcharType())
-            .column("type_name", createUnboundedVarcharType())
-            .column("self_referencing_col_name", createUnboundedVarcharType())
-            .column("ref_generation", createUnboundedVarcharType())
+            .column("table_cat", VARCHAR)
+            .column("table_schem", VARCHAR)
+            .column("table_name", VARCHAR)
+            .column("table_type", VARCHAR)
+            .column("remarks", VARCHAR)
+            .column("type_cat", VARCHAR)
+            .column("type_schem", VARCHAR)
+            .column("type_name", VARCHAR)
+            .column("self_referencing_col_name", VARCHAR)
+            .column("ref_generation", VARCHAR)
             .build();
 
     private final Metadata metadata;
