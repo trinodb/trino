@@ -18,7 +18,6 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
@@ -401,13 +400,6 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Optional<Object>> properties);
-
-    /**
-     * Check if identity is allowed to create a view that executes the function.
-     *
-     * @throws AccessDeniedException if not allowed
-     */
-    void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, TrinoPrincipal grantee, boolean grantOption);
 
     /**
      * Check if identity is allowed to grant a privilege to the grantee on the specified schema.

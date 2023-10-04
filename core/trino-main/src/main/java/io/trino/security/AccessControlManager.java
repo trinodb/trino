@@ -937,31 +937,6 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext securityContext, FunctionKind functionKind, QualifiedObjectName functionName, TrinoPrincipal grantee, boolean grantOption)
-    {
-        requireNonNull(securityContext, "securityContext is null");
-        requireNonNull(functionKind, "functionKind is null");
-        requireNonNull(functionName, "functionName is null");
-
-        systemAuthorizationCheck(control -> control.checkCanGrantExecuteFunctionPrivilege(
-                securityContext.toSystemSecurityContext(),
-                functionKind,
-                functionName.asCatalogSchemaRoutineName(),
-                grantee,
-                grantOption));
-
-        catalogAuthorizationCheck(
-                functionName.getCatalogName(),
-                securityContext,
-                (control, context) -> control.checkCanGrantExecuteFunctionPrivilege(
-                        context,
-                        functionKind,
-                        functionName.asSchemaRoutineName(),
-                        grantee,
-                        grantOption));
-    }
-
-    @Override
     public void checkCanGrantSchemaPrivilege(SecurityContext securityContext, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal grantee, boolean grantOption)
     {
         requireNonNull(securityContext, "securityContext is null");
@@ -1533,6 +1508,7 @@ public class AccessControlManager
         mustNotDeclareMethod(clazz, "checkCanGrantExecuteFunctionPrivilege", SystemSecurityContext.class, String.class, TrinoPrincipal.class, boolean.class);
         mustNotDeclareMethod(clazz, "checkCanExecuteFunction", SystemSecurityContext.class, String.class);
         mustNotDeclareMethod(clazz, "checkCanExecuteFunction", SystemSecurityContext.class, FunctionKind.class, CatalogSchemaRoutineName.class);
+        mustNotDeclareMethod(clazz, "checkCanGrantExecuteFunctionPrivilege", SystemSecurityContext.class, FunctionKind.class, CatalogSchemaRoutineName.class, TrinoPrincipal.class, boolean.class);
     }
 
     private static void mustNotDeclareMethod(Class<?> clazz, String name, Class<?>... parameterTypes)

@@ -20,7 +20,6 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
@@ -57,7 +56,6 @@ import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteQuery;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
-import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
@@ -399,12 +397,6 @@ public class DenyAllAccessControl
     public void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Optional<Object>> properties)
     {
         denySetMaterializedViewProperties(materializedViewName.toString());
-    }
-
-    @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, TrinoPrincipal grantee, boolean grantOption)
-    {
-        denyGrantExecuteFunctionPrivilege(functionName.toString(), context.getIdentity(), grantee);
     }
 
     @Override
