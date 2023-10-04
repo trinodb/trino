@@ -20,7 +20,6 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.CountingMockConnector;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.QueryFailedException;
 import io.trino.tests.FailingMockConnectorPlugin;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -33,7 +32,6 @@ import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.stream.Collectors.joining;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSystemMetadataConnector
         extends AbstractTestQueryFramework
@@ -207,15 +205,17 @@ public class TestSystemMetadataConnector
                 "SELECT '' WHERE false",
                 ImmutableMultiset.of());
 
-        // Empty table schema TODO should not fail
-        assertThatThrownBy(() -> computeActual("SELECT count(comment) FROM system.metadata.table_comments WHERE schema_name = ''"))
-                .isInstanceOf(QueryFailedException.class)
-                .hasMessage("schemaName is empty");
+        // Empty table schema
+        assertMetadataCalls(
+                "SELECT count(comment) FROM system.metadata.table_comments WHERE schema_name = ''",
+                "VALUES 0",
+                ImmutableMultiset.of());
 
-        // Empty table name TODO should not fail
-        assertQueryFails(
+        // Empty table name
+        assertMetadataCalls(
                 "SELECT count(comment) FROM system.metadata.table_comments WHERE table_name = ''",
-                "Catalog is broken");
+                "VALUES 0",
+                ImmutableMultiset.of());
     }
 
     @Test
@@ -338,20 +338,23 @@ public class TestSystemMetadataConnector
                 "SELECT '' WHERE false",
                 ImmutableMultiset.of());
 
-        // Empty table schema and table name TODO should not fail
-        assertQueryFails(
+        // Empty table schema and table name
+        assertMetadataCalls(
                 "SELECT comment FROM system.metadata.materialized_views WHERE schema_name = '' AND name = ''",
-                "Error listing materialized views for catalog \\w+: schemaName is empty");
+                "SELECT '' WHERE false",
+                ImmutableMultiset.of());
 
-        // Empty table schema TODO should not fail
-        assertThatThrownBy(() -> computeActual("SELECT count(comment) FROM system.metadata.materialized_views WHERE schema_name = ''"))
-                .isInstanceOf(QueryFailedException.class)
-                .hasMessageMatching("Error listing materialized views for catalog \\w+: schemaName is empty");
+        // Empty table schema
+        assertMetadataCalls(
+                "SELECT count(comment) FROM system.metadata.materialized_views WHERE schema_name = ''",
+                "VALUES 0",
+                ImmutableMultiset.of());
 
         // Empty table name
-        assertQueryFails(
+        assertMetadataCalls(
                 "SELECT count(comment) FROM system.metadata.materialized_views WHERE name = ''",
-                "Error listing materialized views for catalog broken_catalog: Catalog is broken");
+                "VALUES 0",
+                ImmutableMultiset.of());
     }
 
     @Test
