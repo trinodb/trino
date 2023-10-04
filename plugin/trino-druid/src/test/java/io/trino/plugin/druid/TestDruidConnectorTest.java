@@ -86,8 +86,6 @@ public class TestDruidConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            // TODO: at the moment, truncate doesn't work in Druid, but testTruncateTable doesn't fail as CREATE TABLE is not supported
-            case SUPPORTS_TRUNCATE -> true;
             case SUPPORTS_ADD_COLUMN,
                     SUPPORTS_AGGREGATION_PUSHDOWN,
                     SUPPORTS_COMMENT_ON_COLUMN,
