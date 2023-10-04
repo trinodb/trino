@@ -14,6 +14,7 @@
 package io.trino.connector.system;
 
 import com.google.inject.Inject;
+import io.airlift.slice.Slice;
 import io.trino.FullConnectorSession;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
@@ -107,13 +108,23 @@ public class MaterializedViewSystemTable
             return displayTable.build().cursor();
         }
 
-        Optional<String> schemaFilter = tryGetSingleVarcharValue(schemaDomain);
         Optional<String> tableFilter = tryGetSingleVarcharValue(tableDomain);
 
         listCatalogNames(session, metadata, accessControl, catalogDomain).forEach(catalogName -> {
-            QualifiedTablePrefix tablePrefix = tablePrefix(catalogName, schemaFilter, tableFilter);
-
-            addMaterializedViewForCatalog(session, displayTable, tablePrefix);
+            // TODO A connector may be able to pull information from multiple schemas at once, so pass the schema filter to the connector instead.
+            // TODO Support LIKE predicates on schema name (or any other functional predicates), so pass the schema filter as Constraint-like to the connector.
+            if (schemaDomain.isNullableDiscreteSet()) {
+                for (Object slice : schemaDomain.getNullableDiscreteSet().getNonNullValues()) {
+                    String schemaName = ((Slice) slice).toStringUtf8();
+                    if (isImpossibleObjectName(schemaName)) {
+                        continue;
+                    }
+                    addMaterializedViewForCatalog(session, displayTable, tablePrefix(catalogName, Optional.of(schemaName), tableFilter));
+                }
+            }
+            else {
+                addMaterializedViewForCatalog(session, displayTable, tablePrefix(catalogName, Optional.empty(), tableFilter));
+            }
         });
 
         return displayTable.build().cursor();
