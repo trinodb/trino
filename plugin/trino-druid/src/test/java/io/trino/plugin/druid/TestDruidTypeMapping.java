@@ -15,13 +15,19 @@ package io.trino.plugin.druid;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.druid.ingestion.IndexTaskBuilder;
+import io.trino.plugin.druid.ingestion.TimestampSpec;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.util.List;
+import java.util.Optional;
 
 import static io.trino.plugin.druid.DruidQueryRunner.createDruidQueryRunnerTpch;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -29,6 +35,10 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDruidTypeMapping
@@ -170,50 +180,78 @@ public class TestDruidTypeMapping
                 .execute(getQueryRunner(), druidCreateAndInsert("test_unbounded_varchar"));
     }
 
-    @Test(dataProvider = "timestampValuesProvider")
-    public void testTimestamp(String inputLiteral, String expectedLiteral)
+    @Test
+    public void testTimestamp()
+            throws Exception
     {
-        SqlDataTypeTest.create()
-                .addRoundTrip("__time", "timestamp", inputLiteral, TIMESTAMP_MILLIS, expectedLiteral)
-                .addRoundTrip("col_0", "long", "0", BIGINT, "BIGINT '0'")
-                .execute(getQueryRunner(), druidCreateAndInsert("test_timestamp"));
+        int id = 1;
+        List<TimestampCase> rows = ImmutableList.<TimestampCase>builder()
+                // before epoch
+                .add(new TimestampCase("1958-01-01 13:18:03.123", "TIMESTAMP '1958-01-01 13:18:03.123'", id++))
+                // after epoch
+                .add(new TimestampCase("2019-03-18 10:01:17.987", "TIMESTAMP '2019-03-18 10:01:17.987'", id++))
+                // time doubled in JVM zone
+                .add(new TimestampCase("2018-10-28 01:33:17.456", "TIMESTAMP '2018-10-28 01:33:17.456'", id++))
+                // time doubled in JVM zone
+                .add(new TimestampCase("2018-10-28 03:33:33.333", "TIMESTAMP '2018-10-28 03:33:33.333'", id++))
+                // epoch
+                .add(new TimestampCase("1970-01-01 00:00:00.000", "TIMESTAMP '1970-01-01 00:00:00.000'", id++))
+                // time gap in JVM zone
+                .add(new TimestampCase("1970-01-01 00:13:42.000", "TIMESTAMP '1970-01-01 00:13:42.000'", id++))
+                .add(new TimestampCase("2018-04-01 02:13:55.123", "TIMESTAMP '2018-04-01 02:13:55.123'", id++))
+                // time gap in Vilnius
+                .add(new TimestampCase("2018-03-25 03:17:17.000", "TIMESTAMP '2018-03-25 03:17:17.000'", id++))
+                // time gap in Kathmandu
+                .add(new TimestampCase("1986-01-01 00:13:07.000", "TIMESTAMP '1986-01-01 00:13:07.000'", id++))
+                // test arbitrary time for all supported precisions
+                .add(new TimestampCase("1970-01-01 00:00:01", "TIMESTAMP '1970-01-01 00:00:01.000'", id++))
+                .add(new TimestampCase("1970-01-01 00:00:02.1", "TIMESTAMP '1970-01-01 00:00:02.100'", id++))
+                .add(new TimestampCase("1970-01-01 00:00:03.12", "TIMESTAMP '1970-01-01 00:00:03.120'", id++))
+                .add(new TimestampCase("1970-01-01 00:00:04.123", "TIMESTAMP '1970-01-01 00:00:04.123'", id++))
+                .add(new TimestampCase("1970-01-01 00:00:05.1239", "TIMESTAMP '1970-01-01 00:00:05.123'", id++))
+                .add(new TimestampCase("1970-01-01 00:00:06.12399", "TIMESTAMP '1970-01-01 00:00:06.123'", id++))
+                .add(new TimestampCase("1970-01-01 00:00:07.123999", "TIMESTAMP '1970-01-01 00:00:07.123'", id++))
+                .add(new TimestampCase("1970-01-01 00:00:08.1239999", "TIMESTAMP '1970-01-01 00:00:08.123'", id++))
+                .add(new TimestampCase("1970-01-01 00:00:09.12399999", "TIMESTAMP '1970-01-01 00:00:09.123'", id++))
+                .add(new TimestampCase("1970-01-01 00:00:00.123999999", "TIMESTAMP '1970-01-01 00:00:00.123'", id++))
+                // before epoch with second fraction
+                .add(new TimestampCase("1969-12-31 23:59:59.1230000", "TIMESTAMP '1969-12-31 23:59:59.123'", id))
+                .build();
+
+        try (DruidTable testTable = new DruidTable("test_timestamp")) {
+            String dataFilePath = format("%s/%s.tsv", druidServer.getHostWorkingDirectory(), testTable.getName());
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(dataFilePath, UTF_8))) {
+                for (TimestampCase row : rows) {
+                    writer.write("%s\t%s".formatted(row.inputLiteral, row.id));
+                    writer.newLine();
+                }
+            }
+            String dataSource = testTable.getName();
+            IndexTaskBuilder builder = new IndexTaskBuilder();
+            builder.setDatasource(dataSource);
+            TimestampSpec timestampSpec = new TimestampSpec("dummy_druid_ts", "auto");
+            builder.setTimestampSpec(timestampSpec);
+            builder.addColumn("id", "long");
+            druidServer.ingestData(testTable.getName(), Optional.empty(), builder.build(), dataFilePath);
+
+            for (TimestampCase row : rows) {
+                assertThat(query("SELECT __time FROM druid.druid." + testTable.getName() + " WHERE id = " + row.id))
+                        .as("input: %s, expected: %s, id: %s", row.inputLiteral, row.expectedLiteral, row.id)
+                        .matches("VALUES " + row.expectedLiteral);
+                assertThat(query("SELECT id FROM druid.druid." + testTable.getName() + " WHERE __time = " + row.expectedLiteral))
+                        .as("input: %s, expected: %s, id: %s", row.inputLiteral, row.expectedLiteral, row.id)
+                        .matches("VALUES BIGINT '" + row.id + "'");
+            }
+        }
     }
 
-    @DataProvider
-    public Object[][] timestampValuesProvider()
+    private record TimestampCase(String inputLiteral, String expectedLiteral, int id)
     {
-        return new Object[][] {
-                //before epoch
-                {"1958-01-01 13:18:03.123", "TIMESTAMP '1958-01-01 13:18:03.123'"},
-                // after epoch
-                {"2019-03-18 10:01:17.987", "TIMESTAMP '2019-03-18 10:01:17.987'"},
-                // time doubled in JVM zone
-                {"2018-10-28 01:33:17.456", "TIMESTAMP '2018-10-28 01:33:17.456'"},
-                // time doubled in JVM zone
-                {"2018-10-28 03:33:33.333", "TIMESTAMP '2018-10-28 03:33:33.333'"},
-                // epoch
-                {"1970-01-01 00:00:00.000", "TIMESTAMP '1970-01-01 00:00:00.000'"},
-                // time gap in JVM zone
-                {"1970-01-01 00:13:42.000", "TIMESTAMP '1970-01-01 00:13:42.000'"},
-                {"2018-04-01 02:13:55.123", "TIMESTAMP '2018-04-01 02:13:55.123'"},
-                // time gap in Vilnius
-                {"2018-03-25 03:17:17.000", "TIMESTAMP '2018-03-25 03:17:17.000'"},
-                // time gap in Kathmandu
-                {"1986-01-01 00:13:07.000", "TIMESTAMP '1986-01-01 00:13:07.000'"},
-                // test arbitrary time for all supported precisions
-                {"1970-01-01 00:00:00", "TIMESTAMP '1970-01-01 00:00:00.000'"},
-                {"1970-01-01 00:00:00.1", "TIMESTAMP '1970-01-01 00:00:00.100'"},
-                {"1970-01-01 00:00:00.12", "TIMESTAMP '1970-01-01 00:00:00.120'"},
-                {"1970-01-01 00:00:00.123", "TIMESTAMP '1970-01-01 00:00:00.123'"},
-                {"1970-01-01 00:00:00.1239", "TIMESTAMP '1970-01-01 00:00:00.123'"},
-                {"1970-01-01 00:00:00.12399", "TIMESTAMP '1970-01-01 00:00:00.123'"},
-                {"1970-01-01 00:00:00.123999", "TIMESTAMP '1970-01-01 00:00:00.123'"},
-                {"1970-01-01 00:00:00.1239999", "TIMESTAMP '1970-01-01 00:00:00.123'"},
-                {"1970-01-01 00:00:00.12399999", "TIMESTAMP '1970-01-01 00:00:00.123'"},
-                {"1970-01-01 00:00:00.123999999", "TIMESTAMP '1970-01-01 00:00:00.123'"},
-                // before epoch with second fraction
-                {"1969-12-31 23:59:59.1230000", "TIMESTAMP '1969-12-31 23:59:59.123'"}
-        };
+        private TimestampCase
+        {
+            requireNonNull(inputLiteral, "inputLiteral is null");
+            requireNonNull(expectedLiteral, "expectedLiteral is null");
+        }
     }
 
     private DataSetup druidCreateAndInsert(String dataSourceName)
