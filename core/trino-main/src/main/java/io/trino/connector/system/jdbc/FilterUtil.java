@@ -56,7 +56,7 @@ public final class FilterUtil
                 .allMatch(element -> isImpossibleObjectName(((Slice) element).toStringUtf8()));
     }
 
-    private static boolean isImpossibleObjectName(String candidate)
+    public static boolean isImpossibleObjectName(String candidate)
     {
         return candidate.equals("") ||
                 // TODO (https://github.com/trinodb/trino/issues/17) Currently all object names are lowercase in Trino

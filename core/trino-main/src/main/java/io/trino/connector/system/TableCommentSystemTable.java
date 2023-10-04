@@ -16,6 +16,7 @@ package io.trino.connector.system;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import io.trino.FullConnectorSession;
 import io.trino.Session;
 import io.trino.metadata.MaterializedViewDefinition;
@@ -100,15 +101,25 @@ public class TableCommentSystemTable
             return table.build().cursor();
         }
 
-        Optional<String> schemaFilter = tryGetSingleVarcharValue(schemaDomain);
         Optional<String> tableFilter = tryGetSingleVarcharValue(tableDomain);
 
         Session session = ((FullConnectorSession) connectorSession).getSession();
 
         for (String catalog : listCatalogNames(session, metadata, accessControl, catalogDomain)) {
-            QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
-
-            addTableCommentForCatalog(session, table, catalog, prefix);
+            // TODO A connector may be able to pull information from multiple schemas at once, so pass the schema filter to the connector instead.
+            // TODO Support LIKE predicates on schema name (or any other functional predicates), so pass the schema filter as Constraint-like to the connector.
+            if (schemaDomain.isNullableDiscreteSet()) {
+                for (Object slice : schemaDomain.getNullableDiscreteSet().getNonNullValues()) {
+                    String schemaName = ((Slice) slice).toStringUtf8();
+                    if (isImpossibleObjectName(schemaName)) {
+                        continue;
+                    }
+                    addTableCommentForCatalog(session, table, catalog, tablePrefix(catalog, Optional.of(schemaName), tableFilter));
+                }
+            }
+            else {
+                addTableCommentForCatalog(session, table, catalog, tablePrefix(catalog, Optional.empty(), tableFilter));
+            }
         }
 
         return table.build().cursor();
