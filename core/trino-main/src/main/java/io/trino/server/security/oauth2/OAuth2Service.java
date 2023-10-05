@@ -167,16 +167,15 @@ public class OAuth2Service
             // fetch access token
             OAuth2Client.Response oauth2Response = client.getOAuth2Response(code, callbackUri, nonce);
 
+            Instant cookieExpirationTime = tokenExpiration
+                    .map(expiration -> Instant.now().plus(expiration))
+                    .orElse(oauth2Response.getExpiration());
+
             if (handlerState.isEmpty()) {
                 return Response
                         .seeOther(URI.create(UI_LOCATION))
                         .cookie(
-                                OAuthWebUiCookie.create(
-                                        tokenPairSerializer.serialize(
-                                                fromOAuth2Response(oauth2Response)),
-                                                tokenExpiration
-                                                        .map(expiration -> Instant.now().plus(expiration))
-                                                        .orElse(oauth2Response.getExpiration())),
+                                OAuthWebUiCookie.create(tokenPairSerializer.serialize(fromOAuth2Response(oauth2Response)), cookieExpirationTime),
                                 NonceCookie.delete())
                         .build();
             }
@@ -186,10 +185,7 @@ public class OAuth2Service
             Response.ResponseBuilder builder = Response.ok(getSuccessHtml());
             if (webUiOAuthEnabled) {
                 builder.cookie(
-                        OAuthWebUiCookie.create(
-                                tokenPairSerializer.serialize(fromOAuth2Response(oauth2Response)),
-                                tokenExpiration.map(expiration -> Instant.now().plus(expiration))
-                                        .orElse(oauth2Response.getExpiration())));
+                        OAuthWebUiCookie.create(tokenPairSerializer.serialize(fromOAuth2Response(oauth2Response)), cookieExpirationTime));
             }
             return builder.cookie(NonceCookie.delete()).build();
         }
