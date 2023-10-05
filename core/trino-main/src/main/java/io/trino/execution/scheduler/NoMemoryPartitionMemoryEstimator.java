@@ -21,6 +21,10 @@ import java.util.Optional;
 public class NoMemoryPartitionMemoryEstimator
         implements PartitionMemoryEstimator
 {
+    public static final NoMemoryPartitionMemoryEstimator INSTANCE = new NoMemoryPartitionMemoryEstimator();
+
+    private NoMemoryPartitionMemoryEstimator() {}
+
     @Override
     public MemoryRequirements getInitialMemoryRequirements()
     {
