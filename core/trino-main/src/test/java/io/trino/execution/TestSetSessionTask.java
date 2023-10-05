@@ -55,6 +55,7 @@ import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.TestingSession.testSession;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -203,7 +204,7 @@ public class TestSetSessionTask
                 Optional.empty(),
                 format("set %s = 'old_value'", qualifiedPropName),
                 Optional.empty(),
-                TEST_SESSION,
+                testSession(),
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),
                 false,

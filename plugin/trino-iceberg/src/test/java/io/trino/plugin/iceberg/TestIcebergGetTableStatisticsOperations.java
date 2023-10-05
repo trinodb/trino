@@ -46,7 +46,6 @@ import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.transaction.TransactionBuilder.transaction;
 import static org.assertj.core.api.Assertions.assertThat;
 
 // Cost-based optimizers' behaviors are affected by the statistics returned by the Connectors. Here is to count the getTableStatistics calls
@@ -135,10 +134,13 @@ public class TestIcebergGetTableStatisticsOperations
 
     private void planDistributedQuery(@Language("SQL") String sql)
     {
-        transaction(localQueryRunner.getTransactionManager(), localQueryRunner.getAccessControl())
-                .execute(localQueryRunner.getDefaultSession(), transactionSession -> {
-                    localQueryRunner.createPlan(transactionSession, sql, localQueryRunner.getPlanOptimizers(false), OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
-                });
+        localQueryRunner.inTransaction(transactionSession -> localQueryRunner.createPlan(
+                transactionSession,
+                sql,
+                localQueryRunner.getPlanOptimizers(false),
+                OPTIMIZED_AND_VALIDATED,
+                NOOP,
+                createPlanOptimizersStatsCollector()));
     }
 
     private long getTableStatisticsMethodInvocations()

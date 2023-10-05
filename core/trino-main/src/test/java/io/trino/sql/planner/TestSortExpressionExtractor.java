@@ -17,9 +17,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.type.Type;
 import io.trino.sql.ExpressionTestUtils;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SymbolReference;
+import io.trino.transaction.TestingTransactionManager;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -32,11 +34,15 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
-import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static org.testng.Assert.assertEquals;
 
 public class TestSortExpressionExtractor
 {
+    private static final TestingTransactionManager TRANSACTION_MANAGER = new TestingTransactionManager();
+    private static final PlannerContext PLANNER_CONTEXT = plannerContextBuilder()
+            .withTransactionManager(TRANSACTION_MANAGER)
+            .build();
     private static final TypeProvider TYPE_PROVIDER = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("b1"), DOUBLE)
             .put(new Symbol("b2"), DOUBLE)
@@ -89,7 +95,7 @@ public class TestSortExpressionExtractor
 
     private Expression expression(String sql)
     {
-        return ExpressionTestUtils.planExpression(PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, PlanBuilder.expression(sql));
+        return ExpressionTestUtils.planExpression(TRANSACTION_MANAGER, PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, PlanBuilder.expression(sql));
     }
 
     private void assertNoSortExpression(String expression)

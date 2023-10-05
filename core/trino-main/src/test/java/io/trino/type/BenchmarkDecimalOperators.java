@@ -23,6 +23,7 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.planner.Symbol;
@@ -31,6 +32,7 @@ import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
 import io.trino.sql.tree.Expression;
+import io.trino.transaction.TestingTransactionManager;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
@@ -61,7 +63,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.ExpressionTestUtils.createExpression;
-import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
@@ -83,6 +85,11 @@ import static org.openjdk.jmh.annotations.Scope.Thread;
 @Measurement(iterations = 50, timeUnit = TimeUnit.MILLISECONDS)
 public class BenchmarkDecimalOperators
 {
+    private static final TestingTransactionManager TRANSACTION_MANAGER = new TestingTransactionManager();
+    private static final PlannerContext PLANNER_CONTEXT = plannerContextBuilder()
+            .withTransactionManager(TRANSACTION_MANAGER)
+            .build();
+
     private static final int PAGE_SIZE = 30000;
 
     private static final DecimalType SHORT_DECIMAL_TYPE = createDecimalType(10, 0);
@@ -613,7 +620,7 @@ public class BenchmarkDecimalOperators
 
         private RowExpression rowExpression(String value)
         {
-            Expression expression = createExpression(value, PLANNER_CONTEXT, TypeProvider.copyOf(symbolTypes));
+            Expression expression = createExpression(value, TRANSACTION_MANAGER, PLANNER_CONTEXT, TypeProvider.copyOf(symbolTypes));
 
             return SqlToRowExpressionTranslator.translate(
                     expression,

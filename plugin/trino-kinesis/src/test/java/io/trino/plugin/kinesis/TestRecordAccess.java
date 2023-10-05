@@ -151,7 +151,7 @@ public class TestRecordAccess
     {
         QualifiedObjectName name = new QualifiedObjectName("kinesis", "default", dummyStreamName);
 
-        transaction(queryRunner.getTransactionManager(), new AllowAllAccessControl())
+        transaction(queryRunner.getTransactionManager(), queryRunner.getMetadata(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(SESSION, session -> {
                     Optional<TableHandle> handle = queryRunner.getServer().getMetadata().getTableHandle(session, name);

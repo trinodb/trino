@@ -150,7 +150,7 @@ public class TestingFunctionResolution
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
     {
-        return transaction(transactionManager, new AllowAllAccessControl())
+        return transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(TEST_SESSION, session -> {
                     // metadata.getCatalogHandle() registers the catalog for the transaction

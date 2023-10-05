@@ -441,16 +441,10 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void beginQuery(Session session)
-    {
-        throw new UnsupportedOperationException();
-    }
+    public void beginQuery(Session session) {}
 
     @Override
-    public void cleanupQuery(Session session)
-    {
-        throw new UnsupportedOperationException();
-    }
+    public void cleanupQuery(Session session) {}
 
     @Override
     public InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<ColumnHandle> columns)
