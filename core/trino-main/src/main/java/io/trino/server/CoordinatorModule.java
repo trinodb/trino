@@ -221,7 +221,7 @@ public class CoordinatorModule
         // node allocator
         binder.bind(BinPackingNodeAllocatorService.class).in(Scopes.SINGLETON);
         binder.bind(NodeAllocatorService.class).to(BinPackingNodeAllocatorService.class);
-        binder.bind(PartitionMemoryEstimatorFactory.class).to(ExponentialGrowthPartitionMemoryEstimator.Factory.class);
+        binder.bind(PartitionMemoryEstimatorFactory.class).to(ExponentialGrowthPartitionMemoryEstimator.Factory.class).in(Scopes.SINGLETON);
 
         // node monitor
         binder.bind(ClusterSizeMonitor.class).in(Scopes.SINGLETON);
