@@ -165,7 +165,7 @@
         <dep.oracle.version>21.9.0.0</dep.oracle.version>
         <dep.drift.version>1.21</dep.drift.version>
         <dep.tempto.version>201</dep.tempto.version>
-        <dep.gcs.version>2.2.8</dep.gcs.version>
+        <dep.gcs.version>2.2.17</dep.gcs.version>
         <dep.swagger.version>1.6.11</dep.swagger.version>
         <dep.kotlin.version>1.9.10</dep.kotlin.version>
         <dep.google.http.client.version>1.43.3</dep.google.http.client.version>
