@@ -16,6 +16,8 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.MetadataManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
@@ -49,6 +51,7 @@ import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.TestingTransactionManager;
+import io.trino.transaction.TransactionManager;
 import io.trino.type.LikeFunctions;
 import org.junit.jupiter.api.Test;
 
@@ -318,7 +321,9 @@ public class TestConnectorExpressionTranslator
     @Test
     public void testTranslateLike()
     {
-        transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+        TransactionManager transactionManager = new TestingTransactionManager();
+        Metadata metadata = MetadataManager.testMetadataManagerBuilder().withTransactionManager(transactionManager).build();
+        transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .readOnly()
                 .execute(TEST_SESSION, transactionSession -> {
                     String pattern = "%pattern%";
@@ -399,7 +404,9 @@ public class TestConnectorExpressionTranslator
     @Test
     public void testTranslateResolvedFunction()
     {
-        transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+        TransactionManager transactionManager = new TestingTransactionManager();
+        Metadata metadata = MetadataManager.testMetadataManagerBuilder().withTransactionManager(transactionManager).build();
+        transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .readOnly()
                 .execute(TEST_SESSION, transactionSession -> {
                     assertTranslationRoundTrips(
@@ -420,7 +427,9 @@ public class TestConnectorExpressionTranslator
         // Regular expression types (JoniRegexpType, Re2JRegexpType) are considered implementation detail of the engine
         // and are not exposed to connectors within ConnectorExpression. Instead, they are replaced with a varchar pattern.
 
-        transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+        TransactionManager transactionManager = new TestingTransactionManager();
+        Metadata metadata = MetadataManager.testMetadataManagerBuilder().withTransactionManager(transactionManager).build();
+        transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .readOnly()
                 .execute(TEST_SESSION, transactionSession -> {
                     FunctionCall input = BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())

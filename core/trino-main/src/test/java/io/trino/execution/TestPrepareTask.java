@@ -52,6 +52,7 @@ import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.table;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
+import static io.trino.testing.TestingSession.testSession;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -114,7 +115,7 @@ public class TestPrepareTask
                 Optional.empty(),
                 sqlString,
                 Optional.empty(),
-                session,
+                testSession(session),
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),
                 false,

@@ -275,7 +275,7 @@ public class TestOverridePartitionCountRecursively
     private SubPlan getSubPlan(Session session, @Language("SQL") String sql)
     {
         QueryRunner queryRunner = getDistributedQueryRunner();
-        return transaction(queryRunner.getTransactionManager(), new AllowAllAccessControl())
+        return transaction(queryRunner.getTransactionManager(), queryRunner.getMetadata(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
                     Plan plan = queryRunner.createPlan(transactionSession, sql);

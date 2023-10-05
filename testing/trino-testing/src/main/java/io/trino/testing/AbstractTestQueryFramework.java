@@ -292,7 +292,7 @@ public abstract class AbstractTestQueryFramework
 
     protected TransactionBuilder newTransaction()
     {
-        return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl());
+        return transaction(queryRunner.getTransactionManager(), queryRunner.getMetadata(), queryRunner.getAccessControl());
     }
 
     protected void inTransaction(Consumer<Session> callback)
@@ -732,7 +732,7 @@ public abstract class AbstractTestQueryFramework
 
     private <T> T inTransaction(Session session, Function<Session, T> transactionSessionConsumer)
     {
-        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getMetadata(), getQueryRunner().getAccessControl())
                 .singleStatement()
                 .execute(session, transactionSessionConsumer);
     }

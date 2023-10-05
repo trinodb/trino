@@ -148,7 +148,7 @@ public class TestPlanFragmentPartitionCount
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
     {
-        return transaction(localQueryRunner.getTransactionManager(), new AllowAllAccessControl())
+        return transaction(localQueryRunner.getTransactionManager(), localQueryRunner.getMetadata(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, session -> {
                     // metadata.getCatalogHandle() registers the catalog for the transaction

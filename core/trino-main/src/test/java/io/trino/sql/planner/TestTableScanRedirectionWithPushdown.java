@@ -69,7 +69,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tests.BogusType.BOGUS;
-import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -284,19 +283,19 @@ public class TestTableScanRedirectionWithPushdown
             // After 'source_col_d = 1' is pushed into source table scan, it's possible for 'source_col_c' table scan assignment to be pruned
             // Redirection results in Project('dest_col_b') -> Filter('dest_col_d = 1') -> TableScan for such case
             // but dest_col_d has mismatched type compared to source domain
-            transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
-                    .execute(MOCK_SESSION, transactionSession -> {
-                        assertThatThrownBy(() ->
-                                queryRunner.createPlan(
-                                        transactionSession,
-                                        "SELECT source_col_b FROM test_table WHERE source_col_c = 'foo'",
-                                        queryRunner.getPlanOptimizers(true),
-                                        OPTIMIZED_AND_VALIDATED,
-                                        NOOP,
-                                        createPlanOptimizersStatsCollector()))
-                                .isInstanceOf(TrinoException.class)
-                                .hasMessageMatching("Cast not possible from redirected column mock_catalog.target_schema.target_table.destination_col_d with type Bogus to source column .*mock_catalog.test_schema.test_table.*source_col_c.* with type: varchar");
-                    });
+            queryRunner.inTransaction(MOCK_SESSION, transactionSession -> {
+                assertThatThrownBy(() ->
+                        queryRunner.createPlan(
+                                transactionSession,
+                                "SELECT source_col_b FROM test_table WHERE source_col_c = 'foo'",
+                                queryRunner.getPlanOptimizers(true),
+                                OPTIMIZED_AND_VALIDATED,
+                                NOOP,
+                                createPlanOptimizersStatsCollector()))
+                        .isInstanceOf(TrinoException.class)
+                        .hasMessageMatching("Cast not possible from redirected column mock_catalog.target_schema.target_table.destination_col_d with type Bogus to source column .*mock_catalog.test_schema.test_table.*source_col_c.* with type: varchar");
+                return null;
+            });
         }
     }
 
