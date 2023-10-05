@@ -31,7 +31,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.operator.scalar.FormatFunction;
 import io.trino.security.AccessControl;
-import io.trino.security.SecurityContext;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
@@ -217,7 +216,6 @@ import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.SUBSCRIPT;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
-import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -1315,8 +1313,6 @@ public class ExpressionAnalyzer
                     coerceType(expression, actualType, expectedType, format("Function %s argument %d", function, i));
                 }
             }
-            checkCanExecuteFunction(function);
-
             resolvedFunctions.put(NodeRef.of(node), function);
 
             Type type = signature.getReturnType();
@@ -2025,9 +2021,6 @@ public class ExpressionAnalyzer
                 Type expectedTrimCharType = expectedTypes.get(1);
                 coerceType(node.getTrimCharacter().get(), actualTrimCharType, expectedTrimCharType, "trim character argument of trim function");
             }
-
-            checkCanExecuteFunction(function);
-
             resolvedFunctions.put(NodeRef.of(node), function);
 
             return setExpressionType(node, function.getSignature().getReturnType());
@@ -2529,7 +2522,6 @@ public class ExpressionAnalyzer
                 }
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
-            checkCanExecuteFunction(function);
             resolvedFunctions.put(NodeRef.of(node), function);
             Type type = function.getSignature().getReturnType();
 
@@ -2613,8 +2605,6 @@ public class ExpressionAnalyzer
                 }
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
-
-            checkCanExecuteFunction(function);
             resolvedFunctions.put(NodeRef.of(node), function);
             Type type = function.getSignature().getReturnType();
 
@@ -2651,7 +2641,6 @@ public class ExpressionAnalyzer
                 }
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
-            checkCanExecuteFunction(function);
             resolvedFunctions.put(NodeRef.of(node), function);
 
             // analyze returned type and format
@@ -2957,7 +2946,6 @@ public class ExpressionAnalyzer
                 }
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
-            checkCanExecuteFunction(function);
             resolvedFunctions.put(NodeRef.of(node), function);
 
             // analyze returned type and format
@@ -3068,7 +3056,6 @@ public class ExpressionAnalyzer
                 }
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
-            checkCanExecuteFunction(function);
             resolvedFunctions.put(NodeRef.of(node), function);
 
             // analyze returned type and format
@@ -3232,16 +3219,6 @@ public class ExpressionAnalyzer
             }
             else {
                 typeOnlyCoercions.removeAll(expressions);
-            }
-        }
-
-        private void checkCanExecuteFunction(ResolvedFunction function)
-        {
-            CatalogSchemaFunctionName name = function.getSignature().getName();
-            if (!accessControl.canExecuteFunction(
-                    SecurityContext.of(session),
-                    new QualifiedObjectName(name.getCatalogName(), name.getSchemaName(), name.getFunctionName()))) {
-                denyExecuteFunction(name.getFunctionName());
             }
         }
     }
