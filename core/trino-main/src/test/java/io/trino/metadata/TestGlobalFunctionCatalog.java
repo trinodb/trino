@@ -73,7 +73,6 @@ public class TestGlobalFunctionCatalog
     public void testExactMatchBeforeCoercion()
     {
         TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-        Metadata metadata = functionResolution.getMetadata();
         boolean foundOperator = false;
         for (FunctionMetadata function : listOperators(functionResolution)) {
             OperatorType operatorType = unmangleOperator(function.getCanonicalName());
