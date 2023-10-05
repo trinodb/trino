@@ -99,6 +99,7 @@ with Parquet files performed by supported object storage connectors:
         supported by the Delta Lake, Hive, and Iceberg connectors.
       - ``8192``
     * - ``parquet.small-file-threshold``
-      - Size below which a parquet file will be read entirely. The equivalent
-        catalog session property is named ``parquet_small_file_threshold``.
+      - :ref:`Data size <prop-type-data-size>` below which a Parquet file is
+        read entirely. The equivalent catalog session property is named
+        ``parquet_small_file_threshold``.
       - ``3MB``
