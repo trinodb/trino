@@ -138,8 +138,7 @@ public final class SqlToRowExpressionTranslator
         Visitor visitor = new Visitor(
                 metadata,
                 types,
-                layout,
-                session);
+                layout);
         RowExpression result = visitor.process(expression, null);
 
         requireNonNull(result, "result is null");
@@ -158,20 +157,17 @@ public final class SqlToRowExpressionTranslator
         private final Metadata metadata;
         private final Map<NodeRef<Expression>, Type> types;
         private final Map<Symbol, Integer> layout;
-        private final Session session;
         private final StandardFunctionResolution standardFunctionResolution;
 
         private Visitor(
                 Metadata metadata,
                 Map<NodeRef<Expression>, Type> types,
-                Map<Symbol, Integer> layout,
-                Session session)
+                Map<Symbol, Integer> layout)
         {
             this.metadata = metadata;
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
             this.layout = layout;
-            this.session = session;
-            standardFunctionResolution = new StandardFunctionResolution(session, metadata);
+            standardFunctionResolution = new StandardFunctionResolution(metadata);
         }
 
         private Type getType(Expression node)
