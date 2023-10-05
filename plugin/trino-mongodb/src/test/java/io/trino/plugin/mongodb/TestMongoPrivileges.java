@@ -83,6 +83,12 @@ public class TestMongoPrivileges
         assertQuery("SHOW TABLES FROM %s.%s".formatted(getCatalogName(database), database), "VALUES '%s'".formatted(TEST_COLLECTION.toLowerCase(ENGLISH)));
     }
 
+    @Test(dataProvider = "databases")
+    public void testSelectFromTable(String database)
+    {
+        assertQuery("SELECT * from %s.%s.%s".formatted(getCatalogName(database), database, TEST_COLLECTION), "VALUES ('abc', 1)");
+    }
+
     private static AuthenticatedMongoServer setupMongoServer()
     {
         AuthenticatedMongoServer mongoServer = new AuthenticatedMongoServer("4.2.0");
@@ -99,7 +105,7 @@ public class TestMongoPrivileges
         runCommand(testDatabase, createTestRole(database));
         runCommand(testDatabase, createTestUser(database));
         testDatabase.createCollection("_schema");
-        testDatabase.createCollection(TEST_COLLECTION);
+        testDatabase.getCollection(TEST_COLLECTION).insertOne(new Document(ImmutableMap.of("Name", "abc", "Value", 1)));
         testDatabase.createCollection("anotherCollection"); // this collection/table should not be visible
     }
 
@@ -117,10 +123,10 @@ public class TestMongoPrivileges
                 ImmutableList.of(
                         privilege(
                                 resource(database, "_schema"),
-                                ImmutableList.of("find")),
+                                ImmutableList.of("find", "listIndexes", "createIndex", "insert")),
                         privilege(
                                 resource(database, TEST_COLLECTION),
-                                ImmutableList.of("find"))),
+                                ImmutableList.of("find", "listIndexes"))),
                 ImmutableList.of());
     }
 
