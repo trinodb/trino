@@ -25,6 +25,7 @@ import io.trino.transaction.TransactionId;
 import java.util.function.Function;
 
 import static io.trino.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
+import static io.trino.testing.TestingSession.testSession;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class StatsCalculatorTester
@@ -63,10 +64,13 @@ public class StatsCalculatorTester
 
     public StatsCalculatorAssertion assertStatsFor(Session session, Function<PlanBuilder, PlanNode> planProvider)
     {
-        // Unlike RuleTester, this class uses multiple final check statements, so there is not way to actually clean up transactions
-        // so they will leak for the scope of the query runner.
+        // Unlike RuleTester, this class uses multiple final check statements, so there is no way to actually clean up transactions.
+        // Generate a new query id for each test to avoid collisions due to the leak
+        session = testSession(session);
+        // start a transaction to allow catalog access
         TransactionId transactionId = queryRunner.getTransactionManager().beginTransaction(READ_UNCOMMITTED, false, false);
         Session transactionSession = session.beginTransactionId(transactionId, queryRunner.getTransactionManager(), queryRunner.getAccessControl());
+        queryRunner.getMetadata().beginQuery(transactionSession);
         try {
             PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), queryRunner.getPlannerContext(), transactionSession);
             PlanNode planNode = planProvider.apply(planBuilder);

@@ -125,7 +125,7 @@ public class TestMetadataManager
     @Test
     public void testMetadataListTablesReturnsQualifiedView()
     {
-        TransactionBuilder.transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+        TransactionBuilder.transaction(queryRunner.getTransactionManager(), metadataManager, queryRunner.getAccessControl())
                 .execute(
                         TEST_SESSION,
                         transactionSession -> {
@@ -169,7 +169,7 @@ public class TestMetadataManager
     @Test
     public void testUpperCaseSchemaIsChangedToLowerCase()
     {
-        TransactionBuilder.transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+        TransactionBuilder.transaction(queryRunner.getTransactionManager(), metadataManager, queryRunner.getAccessControl())
                 .execute(
                         TEST_SESSION,
                         transactionSession -> {

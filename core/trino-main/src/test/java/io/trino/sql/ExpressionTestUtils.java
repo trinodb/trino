@@ -32,6 +32,7 @@ import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.NodeRef;
 import io.trino.transaction.TestingTransactionManager;
+import io.trino.transaction.TransactionManager;
 
 import java.util.Map;
 
@@ -75,23 +76,23 @@ public final class ExpressionTestUtils
         throw new AssertionError(formatted + ASSERT_LEFT + expected + ASSERT_MIDDLE + actual + ASSERT_RIGHT);
     }
 
-    public static Expression createExpression(Session session, String expression, PlannerContext plannerContext, TypeProvider symbolTypes)
+    public static Expression createExpression(Session session, String expression, TransactionManager transactionManager, PlannerContext plannerContext, TypeProvider symbolTypes)
     {
         Expression parsedExpression = SQL_PARSER.createExpression(expression);
-        return planExpression(plannerContext, session, symbolTypes, parsedExpression);
+        return planExpression(transactionManager, plannerContext, session, symbolTypes, parsedExpression);
     }
 
-    public static Expression createExpression(String expression, PlannerContext plannerContext, TypeProvider symbolTypes)
+    public static Expression createExpression(String expression, TransactionManager transactionManager, PlannerContext plannerContext, TypeProvider symbolTypes)
     {
-        return createExpression(TEST_SESSION, expression, plannerContext, symbolTypes);
+        return createExpression(TEST_SESSION, expression, transactionManager, plannerContext, symbolTypes);
     }
 
-    public static Expression planExpression(PlannerContext plannerContext, Session session, TypeProvider typeProvider, Expression expression)
+    public static Expression planExpression(TransactionManager transactionManager, PlannerContext plannerContext, Session session, TypeProvider typeProvider, Expression expression)
     {
         if (session.getTransactionId().isPresent()) {
             return planExpressionInExistingTx(plannerContext, typeProvider, expression, session);
         }
-        return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+        return transaction(transactionManager, plannerContext.getMetadata(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
                     return planExpressionInExistingTx(plannerContext, typeProvider, expression, transactionSession);
@@ -173,7 +174,7 @@ public final class ExpressionTestUtils
         if (session.getTransactionId().isPresent()) {
             return createTestingTypeAnalyzer(plannerContext).getTypes(session, typeProvider, expression);
         }
-        return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+        return transaction(new TestingTransactionManager(), plannerContext.getMetadata(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
                     return createTestingTypeAnalyzer(plannerContext).getTypes(transactionSession, typeProvider, expression);

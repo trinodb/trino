@@ -48,6 +48,7 @@ import static io.trino.sql.tree.IntervalLiteral.IntervalField.HOUR;
 import static io.trino.sql.tree.IntervalLiteral.IntervalField.MINUTE;
 import static io.trino.sql.tree.IntervalLiteral.Sign.NEGATIVE;
 import static io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE;
+import static io.trino.testing.TestingSession.testSession;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -252,7 +253,7 @@ public class TestSetTimeZoneTask
                 Optional.empty(),
                 query,
                 Optional.empty(),
-                TEST_SESSION,
+                testSession(),
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),
                 false,
