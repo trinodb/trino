@@ -608,6 +608,11 @@ public class TestAccessControl
                 "Cannot execute function my_function",
                 new TestingPrivilege(Optional.empty(), "mock.function.my_function", EXECUTE_FUNCTION));
 
+        // builtin functions are always allowed, and there are no security checks
+        TestingPrivilege denyAllFunctionCalls = new TestingPrivilege(Optional.empty(), name -> true, EXECUTE_FUNCTION);
+        assertAccessAllowed("SELECT abs(42)", denyAllFunctionCalls);
+        assertAccessDenied("SELECT my_function(42)", "Cannot execute function my_function", denyAllFunctionCalls);
+
         TestingPrivilege denyNonMyFunctionCalls = new TestingPrivilege(Optional.empty(), name -> !name.equals("mock.function.my_function"), EXECUTE_FUNCTION);
         assertAccessAllowed("SELECT my_function(42)", denyNonMyFunctionCalls);
         assertAccessDenied("SELECT other_function(42)", "Cannot execute function other_function", denyNonMyFunctionCalls);
