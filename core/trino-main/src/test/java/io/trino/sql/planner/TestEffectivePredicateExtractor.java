@@ -760,7 +760,7 @@ public class TestEffectivePredicateExtractor
 
     private Expression extract(TypeProvider types, PlanNode node)
     {
-        return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+        return transaction(new TestingTransactionManager(), metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(SESSION, transactionSession -> {
                     return effectivePredicateExtractor.extract(transactionSession, node, types, typeAnalyzer);
