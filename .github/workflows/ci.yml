@@ -51,7 +51,7 @@ concurrency:
 
 jobs:
   maven-checks:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sep-cicd, gha-fleet-small]
     strategy:
       fail-fast: false
       matrix:
@@ -85,7 +85,7 @@ jobs:
         run: rm -rf ~/.m2/repository/io/trino/trino-*
 
   artifact-checks:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sep-cicd, gha-fleet-nano]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -124,7 +124,7 @@ jobs:
         run: rm -rf ~/.m2/repository/io/trino/trino-*
 
   check-commits-dispatcher:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sep-cicd, gha-fleet-nano]
     if: github.event_name == 'pull_request'
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -154,7 +154,7 @@ jobs:
           echo "matrix=$(jq -c '.' commit-matrix.json)" >> $GITHUB_OUTPUT
 
   check-commit:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sep-cicd, gha-fleet-nano]
     needs: check-commits-dispatcher
     if: github.event_name == 'pull_request' && needs.check-commits-dispatcher.outputs.matrix != ''
     strategy:
@@ -176,7 +176,7 @@ jobs:
           base_ref: ${{ github.event.pull_request.base.ref }}
 
   error-prone-checks:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sep-cicd, gha-fleet-small]
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -201,7 +201,7 @@ jobs:
             -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
 
   web-ui-checks:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sep-cicd, gha-fleet-nano]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -215,7 +215,7 @@ jobs:
         run: core/trino-main/bin/check_webui.sh
 
   test-jdbc-compatibility:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sep-cicd, gha-fleet-large]
     timeout-minutes: 30
     env:
       SECRETS_PRESENT: ${{ secrets.SECRETS_PRESENT }}
@@ -276,7 +276,7 @@ jobs:
           retention-days: ${{ env.HEAP_DUMP_RETENTION_DAYS }}
 
   hive-tests:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sep-cicd, gha-fleet-small]
     strategy:
       fail-fast: false
       matrix:
@@ -423,7 +423,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
   test-other-modules:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sep-cicd, gha-fleet-large]
     timeout-minutes: 60
     env:
       SECRETS_PRESENT: ${{ secrets.SECRETS_PRESENT }}
@@ -522,7 +522,7 @@ jobs:
           retention-days: ${{ env.HEAP_DUMP_RETENTION_DAYS }}
 
   build-test-matrix:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sep-cicd, gha-fleet-nano]
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
@@ -585,7 +585,7 @@ jobs:
             - { modules: plugin/trino-druid }
             - { modules: plugin/trino-elasticsearch }
             - { modules: plugin/trino-google-sheets }
-            - { modules: plugin/trino-hive }
+            - { modules: plugin/trino-hive, runners: [ self-hosted, sep-cicd, gha-fleet-large ] }
             - { modules: plugin/trino-hive, profile: fte-tests }
             - { modules: plugin/trino-hive, profile: test-parquet }
             - { modules: plugin/trino-hudi }
@@ -615,14 +615,14 @@ jobs:
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
-            - { modules: testing/trino-tests }
+            - { modules: testing/trino-tests, runners: [ self-hosted, sep-cicd, gha-fleet-large ] }
           EOF
           ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json
           echo "Matrix: $(jq '.' matrix.json)"
           echo "matrix=$(jq -c '.' matrix.json)" >> $GITHUB_OUTPUT
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runners != null && matrix.runners || fromJSON('["self-hosted",  "sep-cicd", "gha-fleet-small" ]') }}
     needs: build-test-matrix
     if: needs.build-test-matrix.outputs.matrix != '{}'
     strategy:
@@ -860,7 +860,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
   build-pt:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sep-cicd, gha-fleet-nano]
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       product-tests-changed: ${{ steps.filter.outputs.product-tests }}
@@ -1039,7 +1039,7 @@ jobs:
           echo "matrix=$(cat matrix.json)" >> $GITHUB_OUTPUT
 
   pt:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sep-cicd, gha-fleet-small]
     # explicitly define the name to avoid adding the value of the `ignore exclusion if` matrix item
     name: pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})
     if: needs.build-pt.outputs.matrix != '{}'
