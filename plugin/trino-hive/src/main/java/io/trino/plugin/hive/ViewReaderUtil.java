@@ -242,7 +242,7 @@ public final class ViewReaderUtil
             try {
                 HiveToRelConverter hiveToRelConverter = new HiveToRelConverter(metastoreClient);
                 RelNode rel = hiveToRelConverter.convertView(table.getDatabaseName(), table.getTableName());
-                RelToTrinoConverter relToTrino = new RelToTrinoConverter();
+                RelToTrinoConverter relToTrino = new RelToTrinoConverter(metastoreClient);
                 String trinoSql = relToTrino.convert(rel);
                 RelDataType rowType = rel.getRowType();
                 List<ViewColumn> columns = rowType.getFieldList().stream()
