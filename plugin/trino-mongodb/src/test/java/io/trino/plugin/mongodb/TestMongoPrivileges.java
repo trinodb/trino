@@ -22,8 +22,10 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.bson.Document;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -32,6 +34,7 @@ import static io.trino.plugin.mongodb.AuthenticatedMongoServer.createUser;
 import static io.trino.plugin.mongodb.AuthenticatedMongoServer.privilege;
 import static io.trino.plugin.mongodb.AuthenticatedMongoServer.resource;
 import static io.trino.plugin.mongodb.AuthenticatedMongoServer.role;
+import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,10 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestMongoPrivileges
         extends AbstractTestQueryFramework
 {
-    private static final String TEST_USER = "testUser";
-    private static final String TEST_PASSWORD = "pass";
-    private static final String TEST_DATABASE = "test";
-    private static final String TEST_ROLE = "testRole";
+    private static final List<String> DATABASES = ImmutableList.of("db", "MixedCaseDB", "UPPERCASEDB");
     private static final String TEST_COLLECTION = "testCollection";
 
     @Override
@@ -57,10 +57,12 @@ public class TestMongoPrivileges
                 .build();
         try {
             queryRunner.installPlugin(new MongoPlugin());
-            String connectionUrl = mongoServer.testUserConnectionString(TEST_DATABASE, TEST_USER, TEST_PASSWORD).getConnectionString();
-            queryRunner.createCatalog("mongodb", "mongodb", ImmutableMap.of(
-                    "mongodb.case-insensitive-name-matching", "true",
-                    "mongodb.connection-url", connectionUrl));
+            DATABASES.forEach(database -> {
+                String connectionUrl = mongoServer.testUserConnectionString(database, getUsername(database), getPassword(database)).getConnectionString();
+                queryRunner.createCatalog(getCatalogName(database), "mongodb", ImmutableMap.of(
+                        "mongodb.case-insensitive-name-matching", "true",
+                        "mongodb.connection-url", connectionUrl));
+            });
             return queryRunner;
         }
         catch (Throwable e) {
@@ -69,31 +71,36 @@ public class TestMongoPrivileges
         }
     }
 
-    @Test
-    public void testSchemasVisibility()
+    @Test(dataProvider = "databases")
+    public void testSchemasVisibility(String database)
     {
-        assertQuery("SHOW SCHEMAS FROM mongodb", "VALUES 'information_schema','%s'".formatted(TEST_DATABASE));
+        assertQuery("SHOW SCHEMAS FROM " + getCatalogName(database), "VALUES 'information_schema','%s'".formatted(database.toLowerCase(ENGLISH)));
     }
 
-    @Test
-    public void testTablesVisibility()
+    @Test(dataProvider = "databases")
+    public void testTablesVisibility(String database)
     {
-        assertQuery("SHOW TABLES FROM mongodb." + TEST_DATABASE, "VALUES '%s'".formatted(TEST_COLLECTION.toLowerCase(ENGLISH)));
+        assertQuery("SHOW TABLES FROM %s.%s".formatted(getCatalogName(database), database), "VALUES '%s'".formatted(TEST_COLLECTION.toLowerCase(ENGLISH)));
     }
 
     private static AuthenticatedMongoServer setupMongoServer()
     {
         AuthenticatedMongoServer mongoServer = new AuthenticatedMongoServer("4.2.0");
         try (MongoClient client = MongoClients.create(mongoServer.rootUserConnectionString())) {
-            MongoDatabase testDatabase = client.getDatabase(TEST_DATABASE);
-            runCommand(testDatabase, createTestRole());
-            runCommand(testDatabase, createTestUser());
-            testDatabase.createCollection("_schema");
-            testDatabase.createCollection(TEST_COLLECTION);
-            testDatabase.createCollection("anotherCollection"); // this collection/table should not be visible
+            DATABASES.forEach(database -> createDatabase(client, database));
             client.getDatabase("another").createCollection("_schema"); // this database/schema should not be visible
         }
         return mongoServer;
+    }
+
+    private static void createDatabase(MongoClient client, String database)
+    {
+        MongoDatabase testDatabase = client.getDatabase(database);
+        runCommand(testDatabase, createTestRole(database));
+        runCommand(testDatabase, createTestUser(database));
+        testDatabase.createCollection("_schema");
+        testDatabase.createCollection(TEST_COLLECTION);
+        testDatabase.createCollection("anotherCollection"); // this collection/table should not be visible
     }
 
     private static void runCommand(MongoDatabase database, Document document)
@@ -103,25 +110,51 @@ public class TestMongoPrivileges
         assertThat(commandStatus).isEqualTo(1.0);
     }
 
-    private static Document createTestRole()
+    private static Document createTestRole(String database)
     {
         return createRole(
-                TEST_ROLE,
+                getRoleName(database),
                 ImmutableList.of(
                         privilege(
-                                resource(TEST_DATABASE, "_schema"),
+                                resource(database, "_schema"),
                                 ImmutableList.of("find")),
                         privilege(
-                                resource(TEST_DATABASE, TEST_COLLECTION),
+                                resource(database, TEST_COLLECTION),
                                 ImmutableList.of("find"))),
                 ImmutableList.of());
     }
 
-    private static Document createTestUser()
+    private static String getCatalogName(String database)
+    {
+        return "mongodb_" + database.toLowerCase(ENGLISH);
+    }
+
+    private static Document createTestUser(String database)
     {
         return createUser(
-                TEST_USER,
-                TEST_PASSWORD,
-                ImmutableList.of(role(TEST_DATABASE, TEST_ROLE)));
+                getUsername(database),
+                getPassword(database),
+                ImmutableList.of(role(database, getRoleName(database))));
+    }
+
+    private static String getRoleName(String database)
+    {
+        return database + "testRole";
+    }
+
+    private static String getUsername(String database)
+    {
+        return database + "testUser";
+    }
+
+    private static String getPassword(String database)
+    {
+        return database + "pass";
+    }
+
+    @DataProvider
+    public static Object[][] databases()
+    {
+        return DATABASES.stream().collect(toDataProvider());
     }
 }
