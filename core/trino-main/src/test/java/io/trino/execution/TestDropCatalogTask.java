@@ -35,6 +35,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
+import static io.trino.testing.TestingSession.testSession;
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
@@ -104,7 +105,7 @@ public class TestDropCatalogTask
                 Optional.empty(),
                 "test",
                 Optional.empty(),
-                queryRunner.getDefaultSession(),
+                testSession(queryRunner.getDefaultSession()),
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),
                 false,

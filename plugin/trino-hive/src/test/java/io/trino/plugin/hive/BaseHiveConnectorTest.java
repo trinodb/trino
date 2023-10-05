@@ -2621,7 +2621,7 @@ public abstract class BaseHiveConnectorTest
             assertUpdate(session, createSourceTable, "SELECT count(*) FROM orders");
             assertUpdate(session, createTargetTable, "SELECT count(*) FROM orders");
 
-            transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl()).execute(
+            transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getMetadata(), getQueryRunner().getAccessControl()).execute(
                     session,
                     transactionalSession -> {
                         assertUpdate(
@@ -3774,7 +3774,7 @@ public abstract class BaseHiveConnectorTest
         Session session = getSession();
         Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
 
-        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+        return transaction(getQueryRunner().getTransactionManager(), metadata, getQueryRunner().getAccessControl())
                 .readOnly()
                 .execute(session, transactionSession -> {
                     Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, schema, tableName));
@@ -3788,7 +3788,7 @@ public abstract class BaseHiveConnectorTest
         Session session = getSession();
         Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
 
-        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+        return transaction(getQueryRunner().getTransactionManager(), metadata, getQueryRunner().getAccessControl())
                 .readOnly()
                 .execute(session, transactionSession -> {
                     QualifiedObjectName name = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
@@ -4987,7 +4987,7 @@ public abstract class BaseHiveConnectorTest
                 .getMaterializedRows();
 
         try {
-            transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+            transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getMetadata(), getQueryRunner().getAccessControl())
                     .execute(session, transactionSession -> {
                         assertUpdate(transactionSession, "DELETE FROM tmp_delete_insert WHERE z >= 2");
                         assertUpdate(transactionSession, "INSERT INTO tmp_delete_insert VALUES (203, 2), (204, 2), (205, 2), (301, 2), (302, 3)", 5);
@@ -5005,7 +5005,7 @@ public abstract class BaseHiveConnectorTest
         MaterializedResult actualAfterRollback = computeActual(session, "SELECT * FROM tmp_delete_insert");
         assertEqualsIgnoreOrder(actualAfterRollback, expectedBefore);
 
-        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getMetadata(), getQueryRunner().getAccessControl())
                 .execute(session, transactionSession -> {
                     assertUpdate(transactionSession, "DELETE FROM tmp_delete_insert WHERE z >= 2");
                     assertUpdate(transactionSession, "INSERT INTO tmp_delete_insert VALUES (203, 2), (204, 2), (205, 2), (301, 2), (302, 3)", 5);
@@ -5033,7 +5033,7 @@ public abstract class BaseHiveConnectorTest
                 .build()
                 .getMaterializedRows();
 
-        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getMetadata(), getQueryRunner().getAccessControl())
                 .execute(session, transactionSession -> {
                     assertUpdate(
                             transactionSession,
@@ -7772,7 +7772,7 @@ public abstract class BaseHiveConnectorTest
     private HiveInsertTableHandle getHiveInsertTableHandle(Session session, String tableName)
     {
         Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
-        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getMetadata(), getQueryRunner().getAccessControl())
                 .execute(session, transactionSession -> {
                     QualifiedObjectName objectName = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
                     Optional<TableHandle> handle = metadata.getTableHandle(transactionSession, objectName);

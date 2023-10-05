@@ -53,7 +53,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tests.BogusType.BOGUS;
-import static io.trino.transaction.TransactionBuilder.transaction;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestApplyTableScanRedirection
@@ -175,19 +174,19 @@ public class TestApplyTableScanRedirection
         MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
             LocalQueryRunner runner = ruleTester.getQueryRunner();
-            transaction(runner.getTransactionManager(), runner.getAccessControl())
-                    .execute(MOCK_SESSION, transactionSession -> {
-                        assertThatThrownBy(() ->
-                                runner.createPlan(
-                                        transactionSession,
-                                        "SELECT source_col_a FROM test_table",
-                                        runner.getPlanOptimizers(true),
-                                        OPTIMIZED_AND_VALIDATED,
-                                        WarningCollector.NOOP,
-                                        createPlanOptimizersStatsCollector()))
-                                .isInstanceOf(TrinoException.class)
-                                .hasMessageMatching("Cast not possible from redirected column test-catalog.target_schema.target_table.destination_col_d with type Bogus to source column .*test-catalog.test_schema.test_table.*source_col_a.* with type: varchar");
-                    });
+            runner.inTransaction(MOCK_SESSION, transactionSession -> {
+                assertThatThrownBy(() ->
+                        runner.createPlan(
+                                transactionSession,
+                                "SELECT source_col_a FROM test_table",
+                                runner.getPlanOptimizers(true),
+                                OPTIMIZED_AND_VALIDATED,
+                                WarningCollector.NOOP,
+                                createPlanOptimizersStatsCollector()))
+                        .isInstanceOf(TrinoException.class)
+                        .hasMessageMatching("Cast not possible from redirected column test-catalog.target_schema.target_table.destination_col_d with type Bogus to source column .*test-catalog.test_schema.test_table.*source_col_a.* with type: varchar");
+                return null;
+            });
         }
     }
 

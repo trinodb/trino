@@ -405,7 +405,7 @@ public class QueryAssertions
         @CanIgnoreReturnValue
         public QueryAssert matches(PlanMatchPattern expectedPlan)
         {
-            transaction(runner.getTransactionManager(), runner.getAccessControl())
+            transaction(runner.getTransactionManager(), runner.getMetadata(), runner.getAccessControl())
                     .execute(session, session -> {
                         Plan plan = runner.createPlan(session, query);
                         assertPlan(
@@ -482,7 +482,7 @@ public class QueryAssertions
         {
             checkState(!(runner instanceof LocalQueryRunner), "isFullyPushedDown() currently does not work with LocalQueryRunner");
 
-            transaction(runner.getTransactionManager(), runner.getAccessControl())
+            transaction(runner.getTransactionManager(), runner.getMetadata(), runner.getAccessControl())
                     .execute(session, session -> {
                         Plan plan = runner.createPlan(session, query);
                         assertPlan(
@@ -567,7 +567,7 @@ public class QueryAssertions
 
         private QueryAssert hasPlan(PlanMatchPattern expectedPlan, Consumer<Plan> additionalPlanVerification)
         {
-            transaction(runner.getTransactionManager(), runner.getAccessControl())
+            transaction(runner.getTransactionManager(), runner.getMetadata(), runner.getAccessControl())
                     .execute(session, session -> {
                         Plan plan = runner.createPlan(session, query);
                         assertPlan(
@@ -589,7 +589,7 @@ public class QueryAssertions
 
         private QueryAssert verifyPlan(Consumer<Plan> planVerification)
         {
-            transaction(runner.getTransactionManager(), runner.getAccessControl())
+            transaction(runner.getTransactionManager(), runner.getMetadata(), runner.getAccessControl())
                     .execute(session, session -> {
                         Plan plan = runner.createPlan(session, query);
                         planVerification.accept(plan);

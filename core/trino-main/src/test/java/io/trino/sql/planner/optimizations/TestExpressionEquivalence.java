@@ -16,14 +16,18 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.MetadataManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.Expression;
 import io.trino.transaction.TestingTransactionManager;
+import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -35,7 +39,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.ExpressionTestUtils.planExpression;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
-import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
@@ -47,6 +51,10 @@ import static org.testng.Assert.assertTrue;
 public class TestExpressionEquivalence
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
+    private static final TestingTransactionManager TRANSACTION_MANAGER = new TestingTransactionManager();
+    private static final PlannerContext PLANNER_CONTEXT = plannerContextBuilder()
+            .withTransactionManager(TRANSACTION_MANAGER)
+            .build();
     private static final ExpressionEquivalence EQUIVALENCE = new ExpressionEquivalence(
             PLANNER_CONTEXT.getMetadata(),
             PLANNER_CONTEXT.getFunctionManager(),
@@ -128,8 +136,8 @@ public class TestExpressionEquivalence
 
     private static void assertEquivalent(@Language("SQL") String left, @Language("SQL") String right)
     {
-        Expression leftExpression = planExpression(PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(left));
-        Expression rightExpression = planExpression(PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(right));
+        Expression leftExpression = planExpression(TRANSACTION_MANAGER, PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(left));
+        Expression rightExpression = planExpression(TRANSACTION_MANAGER, PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(right));
 
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
         TypeProvider types = TypeProvider.copyOf(symbols.stream()
@@ -201,8 +209,8 @@ public class TestExpressionEquivalence
 
     private static void assertNotEquivalent(@Language("SQL") String left, @Language("SQL") String right)
     {
-        Expression leftExpression = planExpression(PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(left));
-        Expression rightExpression = planExpression(PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(right));
+        Expression leftExpression = planExpression(TRANSACTION_MANAGER, PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(left));
+        Expression rightExpression = planExpression(TRANSACTION_MANAGER, PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(right));
 
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
         TypeProvider types = TypeProvider.copyOf(symbols.stream()
@@ -218,7 +226,9 @@ public class TestExpressionEquivalence
 
     private static boolean areExpressionEquivalent(Expression leftExpression, Expression rightExpression, TypeProvider types)
     {
-        return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+        TransactionManager transactionManager = new TestingTransactionManager();
+        Metadata metadata = MetadataManager.testMetadataManagerBuilder().withTransactionManager(transactionManager).build();
+        return transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(TEST_SESSION, transactionSession -> {
                     return EQUIVALENCE.areExpressionsEquivalent(transactionSession, leftExpression, rightExpression, types);

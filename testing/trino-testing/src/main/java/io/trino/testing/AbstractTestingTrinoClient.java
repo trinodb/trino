@@ -196,7 +196,7 @@ public abstract class AbstractTestingTrinoClient<T>
 
     private <V> V inTransaction(Session session, Function<Session, V> callback)
     {
-        return transaction(trinoServer.getTransactionManager(), trinoServer.getAccessControl())
+        return transaction(trinoServer.getTransactionManager(), trinoServer.getMetadata(), trinoServer.getAccessControl())
                 .readOnly()
                 .singleStatement()
                 .execute(session, callback);

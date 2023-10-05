@@ -43,6 +43,16 @@ public final class TestingSession
 
     private TestingSession() {}
 
+    public static Session testSession()
+    {
+        return testSessionBuilder().build();
+    }
+
+    public static Session testSession(Session session)
+    {
+        return testSessionBuilder(session).build();
+    }
+
     public static SessionBuilder testSessionBuilder()
     {
         return testSessionBuilder(new SessionPropertyManager());
@@ -63,5 +73,11 @@ public final class TestingSession
                         .collect(toImmutableSet()))
                 .setRemoteUserAddress("address")
                 .setUserAgent("agent");
+    }
+
+    public static SessionBuilder testSessionBuilder(Session session)
+    {
+        return Session.builder(session)
+                .setQueryId(queryIdGenerator.createNextQueryId());
     }
 }

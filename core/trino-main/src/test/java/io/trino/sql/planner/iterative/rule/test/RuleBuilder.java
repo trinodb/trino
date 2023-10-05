@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 import static io.trino.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
+import static io.trino.testing.TestingSession.testSession;
 import static java.util.Objects.requireNonNull;
 
 public class RuleBuilder
@@ -72,8 +73,12 @@ public class RuleBuilder
 
     public RuleAssert on(Function<PlanBuilder, PlanNode> planProvider)
     {
+        // Generate a new random queryId in case the rule cleanup code is not executed
+        Session session = testSession(this.session);
+        // start a transaction to allow catalog access
         TransactionId transactionId = queryRunner.getTransactionManager().beginTransaction(READ_UNCOMMITTED, false, false);
         Session transactionSession = session.beginTransactionId(transactionId, queryRunner.getTransactionManager(), queryRunner.getAccessControl());
+        queryRunner.getMetadata().beginQuery(transactionSession);
         try {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             transactionSession.getCatalog().ifPresent(catalog -> queryRunner.getMetadata().getCatalogHandle(transactionSession, catalog));
@@ -85,6 +90,7 @@ public class RuleBuilder
             return new RuleAssert(rule, queryRunner, statsCalculator, transactionSession, idAllocator, plan, types);
         }
         catch (Throwable t) {
+            queryRunner.getMetadata().cleanupQuery(session);
             queryRunner.getTransactionManager().asyncAbort(transactionId);
             throw t;
         }
