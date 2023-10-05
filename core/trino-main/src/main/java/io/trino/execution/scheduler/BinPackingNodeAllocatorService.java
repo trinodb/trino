@@ -505,17 +505,17 @@ public class BinPackingNodeAllocatorService
             }
 
             Map<String, Long> preReservedMemory = new HashMap<>();
-            SetMultimap<String, BinPackingNodeLease> fulfilledAcquiresByNode = HashMultimap.create();
             speculativeMemoryReserved = new HashMap<>();
+            SetMultimap<String, BinPackingNodeLease> fulfilledAcquiresByNode = HashMultimap.create();
             for (BinPackingNodeLease fulfilledAcquire : fulfilledAcquires) {
                 InternalNode node = fulfilledAcquire.getAssignedNode();
                 long memoryLease = fulfilledAcquire.getMemoryLease();
                 if (ignoreAcquiredSpeculative && fulfilledAcquire.isSpeculative()) {
-                    speculativeMemoryReserved.compute(node.getNodeIdentifier(), (key, prev) -> (prev == null ? 0L : prev) + memoryLease);
+                    speculativeMemoryReserved.merge(node.getNodeIdentifier(), memoryLease, Long::sum);
                 }
                 else {
                     fulfilledAcquiresByNode.put(node.getNodeIdentifier(), fulfilledAcquire);
-                    preReservedMemory.compute(node.getNodeIdentifier(), (key, prev) -> (prev == null ? 0L : prev) + memoryLease);
+                    preReservedMemory.merge(node.getNodeIdentifier(), memoryLease, Long::sum);
                 }
             }
 
