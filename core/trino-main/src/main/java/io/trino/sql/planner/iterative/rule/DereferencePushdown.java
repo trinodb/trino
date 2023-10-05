@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
-import io.trino.spi.type.RowType;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -114,10 +113,6 @@ class DereferencePushdown
 
     private static boolean isRowSubscriptChain(SubscriptExpression expression, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
     {
-        if (!(typeAnalyzer.getType(session, types, expression.getBase()) instanceof RowType)) {
-            return false;
-        }
-
         return (expression.getBase() instanceof SymbolReference) ||
                 ((expression.getBase() instanceof SubscriptExpression) && isRowSubscriptChain((SubscriptExpression) (expression.getBase()), session, typeAnalyzer, types));
     }
