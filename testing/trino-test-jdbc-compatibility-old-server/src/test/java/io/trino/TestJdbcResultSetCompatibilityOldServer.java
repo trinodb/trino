@@ -16,6 +16,7 @@ package io.trino;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import io.trino.jdbc.BaseTestJdbcResultSet;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.TrinoContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testng.annotations.AfterClass;
@@ -121,7 +122,10 @@ public class TestJdbcResultSetCompatibilityOldServer
     {
         if (trinoContainer != null) {
             trinoContainer.stop();
+            String imageName = trinoContainer.getDockerImageName();
             trinoContainer = null;
+
+            removeDockerImage(imageName);
         }
     }
 
@@ -149,5 +153,10 @@ public class TestJdbcResultSetCompatibilityOldServer
     protected String getTestedTrinoVersion()
     {
         return testedTrinoVersion.orElseThrow(() -> new IllegalStateException("Trino version not set"));
+    }
+
+    private static void removeDockerImage(String imageName)
+    {
+        DockerClientFactory.lazyClient().removeImageCmd(imageName).exec();
     }
 }
