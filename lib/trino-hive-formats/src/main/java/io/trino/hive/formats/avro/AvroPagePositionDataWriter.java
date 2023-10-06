@@ -45,6 +45,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.avro.AvroTypeUtils.SimpleUnionNullIndex;
 import static io.trino.hive.formats.avro.AvroTypeUtils.getSimpleNullableUnionNullIndex;
 import static io.trino.hive.formats.avro.AvroTypeUtils.isSimpleNullableUnion;
+import static io.trino.hive.formats.avro.AvroTypeUtils.lowerCaseAllFieldsForWriter;
 import static io.trino.hive.formats.avro.AvroTypeUtils.unwrapNullableUnion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -74,7 +75,10 @@ public class AvroPagePositionDataWriter
     @Override
     public void setSchema(Schema schema)
     {
-        verify(this.schema == requireNonNull(schema, "schema is null"), "Unable to change schema for this data writer");
+        requireNonNull(schema, "schema is null");
+        if (this.schema != schema) {
+            verify(this.schema.equals(lowerCaseAllFieldsForWriter(schema)), "Unable to change schema for this data writer");
+        }
     }
 
     public void setPage(Page page)

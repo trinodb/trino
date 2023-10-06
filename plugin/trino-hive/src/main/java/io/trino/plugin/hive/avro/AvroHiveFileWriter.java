@@ -28,18 +28,22 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import org.apache.avro.Schema;
+import org.apache.avro.Schema.Field;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
+import static io.trino.plugin.hive.avro.AvroHiveFileUtils.getCanonicalToGivenFieldName;
 import static java.util.Objects.requireNonNull;
 
 public class AvroHiveFileWriter
@@ -71,24 +75,26 @@ public class AvroHiveFileWriter
         verify(requireNonNull(fileSchema, "fileSchema is null").getType() == Schema.Type.RECORD, "file schema must be record schema");
         verify(inputColumnNames.size() == inputColumnTypes.size(), "column names must be equal to column types");
         // file writer will reorder input columns to schema, we just need to impute nulls for schema fields without input columns
-        ImmutableList.Builder<String> outputColumnNames = ImmutableList.<String>builder().addAll(inputColumnNames);
+        ImmutableList.Builder<String> outputColumnNames = ImmutableList.<String>builder();
         ImmutableList.Builder<Type> outputColumnTypes = ImmutableList.<Type>builder().addAll(inputColumnTypes);
-        Map<String, Schema> fields = fileSchema.getFields().stream().collect(Collectors.toMap(Schema.Field::name, Schema.Field::schema));
+        Map<String, String> canonicalToGivenFieldName = getCanonicalToGivenFieldName(fileSchema);
+        Map<String, Field> fields = fileSchema.getFields().stream().collect(Collectors.toMap(Field::name, Function.identity()));
         for (String inputColumnName : inputColumnNames) {
-            Schema fieldSchema = fields.remove(inputColumnName);
-            if (fieldSchema == null) {
+            Field field = fields.remove(canonicalToGivenFieldName.get(inputColumnName));
+            if (field == null) {
                 throw new AvroTypeException("File schema doesn't have input field " + inputColumnName);
             }
+            outputColumnNames.add(field.name().toLowerCase(Locale.ENGLISH));
         }
         ImmutableList.Builder<Block> blocks = ImmutableList.builder();
-        for (Map.Entry<String, Schema> entry : fields.entrySet()) {
-            outputColumnNames.add(entry.getKey());
-            Type type = AvroTypeUtils.typeFromAvro(entry.getValue(), typeManager);
+        for (Map.Entry<String, Field> entry : fields.entrySet()) {
+            outputColumnNames.add(entry.getKey().toLowerCase(Locale.ENGLISH));
+            Type type = AvroTypeUtils.typeFromAvro(entry.getValue().schema(), typeManager);
             outputColumnTypes.add(type);
             blocks.add(type.createBlockBuilder(null, 1).appendNull().build());
         }
         typeCorrectNullBlocks = blocks.build();
-        fileWriter = new AvroFileWriter(countingOutputStream, fileSchema, typeManager, compressionKind, metadata, outputColumnNames.build(), outputColumnTypes.build());
+        fileWriter = new AvroFileWriter(countingOutputStream, fileSchema, typeManager, compressionKind, metadata, outputColumnNames.build(), outputColumnTypes.build(), true);
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction is null");
     }
 

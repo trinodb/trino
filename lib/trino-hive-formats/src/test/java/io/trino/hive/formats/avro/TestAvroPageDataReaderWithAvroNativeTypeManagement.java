@@ -248,7 +248,7 @@ public class TestAvroPageDataReaderWithAvroNativeTypeManagement
                 AvroCompressionKind.NULL,
                 ImmutableMap.of(),
                 ALL_SUPPORTED_TYPES_SCHEMA.getFields().stream().map(Schema.Field::name).collect(toImmutableList()),
-                AvroTypeUtils.typeFromAvro(ALL_SUPPORTED_TYPES_SCHEMA, new NativeLogicalTypesAvroTypeManager()).getTypeParameters())) {
+                AvroTypeUtils.typeFromAvro(ALL_SUPPORTED_TYPES_SCHEMA, new NativeLogicalTypesAvroTypeManager()).getTypeParameters(), false)) {
             fileWriter.write(ALL_SUPPORTED_PAGE);
         }
 
