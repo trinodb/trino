@@ -15,17 +15,11 @@ package io.trino.server.security.oauth2;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
-import io.airlift.http.client.HttpClientConfig;
-import io.airlift.http.client.jetty.JettyHttpClient;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
-import io.trino.server.security.jwt.JwkService;
-import io.trino.server.security.jwt.JwkSigningKeyResolver;
 
-import java.net.URI;
 import java.util.Map;
 
-import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOAuth2WebUiAuthenticationFilterWithJwt
@@ -68,13 +62,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithJwt
     protected void validateAccessToken(String cookieValue)
     {
         assertThat(cookieValue).isNotBlank();
-        Jws<Claims> jwt = newJwtParserBuilder()
-                .setSigningKeyResolver(new JwkSigningKeyResolver(new JwkService(
-                        URI.create("https://localhost:" + hydraIdP.getAuthPort() + "/.well-known/jwks.json"),
-                        new JettyHttpClient(new HttpClientConfig()
-                                .setTrustStorePath(Resources.getResource("cert/localhost.pem").getPath())))))
-                .build()
-                .parseClaimsJws(cookieValue);
+        Jws<Claims> jwt = parseJwsClaims(cookieValue);
         Claims claims = jwt.getBody();
         assertThat(claims.getSubject()).isEqualTo("foo@bar.com");
         assertThat(claims.get("client_id")).isEqualTo(TRINO_CLIENT_ID);
