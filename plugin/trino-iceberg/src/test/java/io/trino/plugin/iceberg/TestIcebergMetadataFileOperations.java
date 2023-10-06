@@ -33,6 +33,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -52,6 +53,8 @@ import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.SNAPSHOT;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.STATS;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.fromFilePath;
+import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.Scope.ALL_FILES;
+import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.Scope.METADATA_FILES;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -230,41 +233,49 @@ public class TestIcebergMetadataFileOperations
         // Read partition and data columns
         assertFileSystemAccesses(
                 "SELECT key, max(data) FROM test_read_part_key GROUP BY key",
+                ALL_FILES,
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 2)
                         .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(DATA, INPUT_FILE_NEW_STREAM), 4)
                         .build());
 
         // Read partition column only
         assertFileSystemAccesses(
                 "SELECT key, count(*) FROM test_read_part_key GROUP BY key",
+                ALL_FILES,
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 2)
                         .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(DATA, INPUT_FILE_NEW_STREAM), 4)
                         .build());
 
         // Read partition column only, one partition only
         assertFileSystemAccesses(
                 "SELECT count(*) FROM test_read_part_key WHERE key = 'p1'",
+                ALL_FILES,
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 2)
                         .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(DATA, INPUT_FILE_NEW_STREAM), 2)
                         .build());
 
         // Read partition and synthetic columns
         assertFileSystemAccesses(
                 "SELECT count(*), array_agg(\"$path\"), max(\"$file_modified_time\") FROM test_read_part_key GROUP BY key",
+                ALL_FILES,
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 2)
                         .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(DATA, INPUT_FILE_NEW_STREAM), 4)
                         .build());
 
         assertUpdate("DROP TABLE test_read_part_key");
@@ -624,16 +635,26 @@ public class TestIcebergMetadataFileOperations
 
     private void assertFileSystemAccesses(@Language("SQL") String query, Multiset<FileOperation> expectedAccesses)
     {
-        assertFileSystemAccesses(getSession(), query, expectedAccesses);
+        assertFileSystemAccesses(query, METADATA_FILES, expectedAccesses);
+    }
+
+    private void assertFileSystemAccesses(@Language("SQL") String query, Scope scope, Multiset<FileOperation> expectedAccesses)
+    {
+        assertFileSystemAccesses(getSession(), query, scope, expectedAccesses);
     }
 
     private void assertFileSystemAccesses(Session session, @Language("SQL") String query, Multiset<FileOperation> expectedAccesses)
+    {
+        assertFileSystemAccesses(session, query, METADATA_FILES, expectedAccesses);
+    }
+
+    private void assertFileSystemAccesses(Session session, @Language("SQL") String query, Scope scope, Multiset<FileOperation> expectedAccesses)
     {
         resetCounts();
         getDistributedQueryRunner().executeWithQueryId(session, query);
         assertMultisetsEqual(
                 getOperations().stream()
-                        .filter(operation -> operation.fileType() != DATA)
+                        .filter(scope)
                         .collect(toImmutableMultiset()),
                 expectedAccesses);
     }
@@ -673,6 +694,25 @@ public class TestIcebergMetadataFileOperations
             requireNonNull(fileType, "fileType is null");
             requireNonNull(operationType, "operationType is null");
         }
+    }
+
+    enum Scope
+            implements Predicate<FileOperation>
+    {
+        METADATA_FILES {
+            @Override
+            public boolean test(FileOperation fileOperation)
+            {
+                return fileOperation.fileType() != DATA;
+            }
+        },
+        ALL_FILES {
+            @Override
+            public boolean test(FileOperation fileOperation)
+            {
+                return true;
+            }
+        },
     }
 
     enum FileType
