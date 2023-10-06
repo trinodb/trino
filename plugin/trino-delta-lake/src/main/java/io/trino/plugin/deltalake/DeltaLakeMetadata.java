@@ -939,14 +939,32 @@ public class DeltaLakeMetadata
 
         Table table = buildTable(session, schemaTableName, location, external);
 
+        // Ensure the table has queryId set. This is relied on for exception handling
+        String queryId = session.getQueryId();
+        verify(
+                getQueryId(table).orElseThrow(() -> new IllegalArgumentException("Query id is not present")).equals(queryId),
+                "Table '%s' does not have correct query id set",
+                table);
+
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner().orElseThrow());
         // As a precaution, clear the caches
         statisticsAccess.invalidateCache(schemaTableName, Optional.of(location));
         transactionLogAccess.invalidateCache(schemaTableName, Optional.of(location));
-        metastore.createTable(
-                session,
-                table,
-                principalPrivileges);
+        try {
+            metastore.createTable(
+                    session,
+                    table,
+                    principalPrivileges);
+        }
+        catch (TableAlreadyExistsException e) {
+            // Ignore TableAlreadyExistsException when table looks like created by us.
+            // This may happen when an actually successful metastore create call is retried
+            // e.g. because of a timeout on our side.
+            Optional<Table> existingTable = metastore.getRawMetastoreTable(schemaName, tableName);
+            if (existingTable.isEmpty() || !isCreatedBy(existingTable.get(), queryId)) {
+                throw e;
+            }
+        }
     }
 
     public static Table buildTable(ConnectorSession session, SchemaTableName schemaTableName, String location, boolean isExternal)
