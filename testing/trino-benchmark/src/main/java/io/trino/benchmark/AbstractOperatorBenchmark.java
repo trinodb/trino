@@ -99,6 +99,7 @@ public abstract class AbstractOperatorBenchmark
         extends AbstractBenchmark
 {
     protected final LocalQueryRunner localQueryRunner;
+    protected final Session nonTransactionSession;
     protected final Session session;
 
     protected AbstractOperatorBenchmark(
@@ -118,6 +119,7 @@ public abstract class AbstractOperatorBenchmark
             int measuredIterations)
     {
         super(benchmarkName, warmupIterations, measuredIterations);
+        this.nonTransactionSession = requireNonNull(session, "session is null");
         this.localQueryRunner = requireNonNull(localQueryRunner, "localQueryRunner is null");
 
         TransactionId transactionId = localQueryRunner.getTransactionManager().beginTransaction(false);

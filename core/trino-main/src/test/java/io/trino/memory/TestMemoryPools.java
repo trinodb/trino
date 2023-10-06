@@ -83,12 +83,9 @@ public class TestMemoryPools
         Session session = testSessionBuilder()
                 .setCatalog("tpch")
                 .setSchema("tiny")
-                .setSystemProperty("task_default_concurrency", "1")
                 .build();
 
-        localQueryRunner = LocalQueryRunner.builder(session)
-                .withInitialTransaction()
-                .build();
+        localQueryRunner = LocalQueryRunner.create(session);
 
         // add tpch
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());

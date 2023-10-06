@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.sql.DynamicFilters;
@@ -57,6 +56,7 @@ import static io.trino.Session.SessionBuilder;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
+import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
@@ -218,7 +218,8 @@ public abstract class BaseCostBasedPlanTest
     {
         try {
             return getQueryRunner().inTransaction(transactionSession -> {
-                Plan plan = getQueryRunner().createPlan(transactionSession, query, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                LocalQueryRunner localQueryRunner = getQueryRunner();
+                Plan plan = localQueryRunner.createPlan(transactionSession, query, localQueryRunner.getPlanOptimizers(false), OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
                 JoinOrderPrinter joinOrderPrinter = new JoinOrderPrinter(transactionSession);
                 plan.getRoot().accept(joinOrderPrinter, 0);
                 return joinOrderPrinter.result();

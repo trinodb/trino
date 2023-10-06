@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.tpch.TpchConnectorFactory;
@@ -30,8 +29,6 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.LocalQueryRunner;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
@@ -39,7 +36,9 @@ import org.junit.jupiter.api.Timeout;
 import java.util.Optional;
 
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
+import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
+import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -51,44 +50,13 @@ import static org.testng.Assert.assertTrue;
 @TestInstance(PER_CLASS)
 public class TestIterativeOptimizer
 {
-    private LocalQueryRunner queryRunner;
-
-    @BeforeAll
-    public void setUp()
-    {
-        Session.SessionBuilder sessionBuilder = testSessionBuilder()
-                .setCatalog(TEST_CATALOG_NAME)
-                .setSchema("tiny")
-                .setSystemProperty("task_concurrency", "1")
-                .setSystemProperty("iterative_optimizer_timeout", "1ms");
-
-        queryRunner = LocalQueryRunner.create(sessionBuilder.build());
-
-        queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
-                new TpchConnectorFactory(1),
-                ImmutableMap.of());
-    }
-
-    @AfterAll
-    public void tearDown()
-    {
-        if (queryRunner != null) {
-            queryRunner.close();
-            queryRunner = null;
-        }
-    }
-
     @Test
     @Timeout(10)
     public void optimizerQueryRulesStatsCollect()
     {
-        LocalQueryRunner queryRunner = null;
-        try {
-            Session.SessionBuilder sessionBuilder = testSessionBuilder()
-                    .setSystemProperty("iterative_optimizer_timeout", "5s");
-
-            queryRunner = LocalQueryRunner.create(sessionBuilder.build());
-
+        Session.SessionBuilder sessionBuilder = testSessionBuilder()
+                .setSystemProperty("iterative_optimizer_timeout", "5s");
+        try (LocalQueryRunner queryRunner = LocalQueryRunner.create(sessionBuilder.build())) {
             PlanOptimizersStatsCollector planOptimizersStatsCollector = new PlanOptimizersStatsCollector(10);
             PlanOptimizer optimizer = new IterativeOptimizer(
                     queryRunner.getPlannerContext(),
@@ -97,7 +65,9 @@ public class TestIterativeOptimizer
                     queryRunner.getCostCalculator(),
                     ImmutableSet.of(new AddIdentityOverTableScan(), new RemoveRedundantIdentityProjections()));
 
-            queryRunner.createPlan(sessionBuilder.build(), "SELECT 1", ImmutableList.of(optimizer), WarningCollector.NOOP, planOptimizersStatsCollector);
+            Session session = sessionBuilder.build();
+            queryRunner.inTransaction(session, transactionSession ->
+                    queryRunner.createPlan(transactionSession, "SELECT 1", ImmutableList.of(optimizer), OPTIMIZED_AND_VALIDATED, NOOP, planOptimizersStatsCollector));
             Optional<QueryPlanOptimizerStatistics> queryRuleStats = planOptimizersStatsCollector.getTopRuleStats().stream().findFirst();
 
             assertTrue(queryRuleStats.isPresent());
@@ -107,27 +77,41 @@ public class TestIterativeOptimizer
             assertEquals(queryRuleStat.applied(), 3);
             assertEquals(queryRuleStat.failures(), 0);
         }
-        finally {
-            if (queryRunner != null) {
-                queryRunner.close();
-            }
-        }
     }
 
     @Test
     @Timeout(10)
     public void optimizerTimeoutsOnNonConvergingPlan()
     {
-        PlanOptimizer optimizer = new IterativeOptimizer(
-                queryRunner.getPlannerContext(),
-                new RuleStatsRecorder(),
-                queryRunner.getStatsCalculator(),
-                queryRunner.getCostCalculator(),
-                ImmutableSet.of(new AddIdentityOverTableScan(), new RemoveRedundantIdentityProjections()));
+        Session.SessionBuilder sessionBuilder = testSessionBuilder()
+                .setCatalog(TEST_CATALOG_NAME)
+                .setSchema("tiny")
+                .setSystemProperty("task_concurrency", "1")
+                .setSystemProperty("iterative_optimizer_timeout", "1ms");
 
-        assertTrinoExceptionThrownBy(() -> queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, "SELECT nationkey FROM nation", ImmutableList.of(optimizer), WarningCollector.NOOP, createPlanOptimizersStatsCollector())))
-                .hasErrorCode(OPTIMIZER_TIMEOUT)
-                .hasMessageMatching("The optimizer exhausted the time limit of 1 ms: (no rules invoked|(?s)Top rules:.*(RemoveRedundantIdentityProjections|AddIdentityOverTableScan).*)");
+        try (LocalQueryRunner queryRunner = LocalQueryRunner.create(sessionBuilder.build())) {
+            queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
+                    new TpchConnectorFactory(1),
+                    ImmutableMap.of());
+
+            PlanOptimizer optimizer = new IterativeOptimizer(
+                    queryRunner.getPlannerContext(),
+                    new RuleStatsRecorder(),
+                    queryRunner.getStatsCalculator(),
+                    queryRunner.getCostCalculator(),
+                    ImmutableSet.of(new AddIdentityOverTableScan(), new RemoveRedundantIdentityProjections()));
+
+            assertTrinoExceptionThrownBy(() -> queryRunner.inTransaction(queryRunner.getDefaultSession(), transactionSession ->
+                    queryRunner.createPlan(
+                            transactionSession,
+                            "SELECT nationkey FROM nation",
+                            ImmutableList.of(optimizer),
+                            OPTIMIZED_AND_VALIDATED,
+                            NOOP,
+                            createPlanOptimizersStatsCollector())))
+                    .hasErrorCode(OPTIMIZER_TIMEOUT)
+                    .hasMessageMatching("The optimizer exhausted the time limit of 1 ms: (no rules invoked|(?s)Top rules:.*(RemoveRedundantIdentityProjections|AddIdentityOverTableScan).*)");
+        }
     }
 
     private static class AddIdentityOverTableScan
