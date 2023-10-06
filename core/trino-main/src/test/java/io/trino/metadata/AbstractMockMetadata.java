@@ -441,6 +441,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void beginQuery(Session session)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void cleanupQuery(Session session)
     {
         throw new UnsupportedOperationException();
