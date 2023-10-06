@@ -125,7 +125,6 @@ public class TestTrinoS3FileSystemAccessOperations
                 ImmutableMultiset.<String>builder()
                         .add("S3.GetObject")
                         .add("S3.ListObjectsV2")
-                        .addCopies("S3.GetObjectMetadata", occurrences(format, 1, 0))
                         .build());
 
         assertFileSystemAccesses(
@@ -134,7 +133,6 @@ public class TestTrinoS3FileSystemAccessOperations
                 ImmutableMultiset.<String>builder()
                         .addCopies("S3.GetObject", occurrences(format, 3, 2))
                         .add("S3.ListObjectsV2")
-                        .addCopies("S3.GetObjectMetadata", occurrences(format, 1, 0))
                         .build());
 
         assertUpdate("DROP TABLE test_select_from_where");
@@ -154,14 +152,12 @@ public class TestTrinoS3FileSystemAccessOperations
                 ImmutableMultiset.<String>builder()
                         .addCopies("S3.GetObject", 2)
                         .addCopies("S3.ListObjectsV2", 2)
-                        .addCopies("S3.GetObjectMetadata", occurrences(format, 2, 0))
                         .build());
 
         assertFileSystemAccesses("SELECT * FROM test_select_from_partition WHERE key = 'part1'",
                 ImmutableMultiset.<String>builder()
                         .add("S3.GetObject")
                         .add("S3.ListObjectsV2")
-                        .addCopies("S3.GetObjectMetadata", occurrences(format, 1, 0))
                         .build());
 
         assertUpdate("INSERT INTO test_select_from_partition VALUES (11, 'part1')", 1);
@@ -169,7 +165,6 @@ public class TestTrinoS3FileSystemAccessOperations
                 ImmutableMultiset.<String>builder()
                         .addCopies("S3.GetObject", 2)
                         .addCopies("S3.ListObjectsV2", 1)
-                        .addCopies("S3.GetObjectMetadata", occurrences(format, 2, 0))
                         .build());
 
         assertUpdate("DROP TABLE test_select_from_partition");
