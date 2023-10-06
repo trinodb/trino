@@ -127,7 +127,8 @@ public class TestDeltaLakeCreateTableInternalRetry
         String tableLocation = getTableLocation("test_register_table_internal_retry");
         assertUpdate("CALL system.unregister_table(current_schema, 'test_register_table_internal_retry')");
 
-        assertQueryFails("CALL system.register_table(current_schema, 'test_register_table_internal_retry', '" + tableLocation + "')", "Table already exists: .*");
+        assertQuerySucceeds("CALL system.register_table(current_schema, 'test_register_table_internal_retry', '" + tableLocation + "')");
+        assertQuery("SHOW TABLES LIKE 'test_register_table_internal_retry'", "VALUES 'test_register_table_internal_retry'");
     }
 
     @Test
