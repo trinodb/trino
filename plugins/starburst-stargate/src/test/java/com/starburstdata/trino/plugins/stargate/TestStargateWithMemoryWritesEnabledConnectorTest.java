@@ -9,12 +9,14 @@
  */
 package com.starburstdata.trino.plugins.stargate;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static com.starburstdata.trino.plugins.stargate.StargateQueryRunner.createRemoteStarburstQueryRunnerWithMemory;
@@ -152,14 +154,11 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "largeInValuesCount")
-    @Override // skip larger inputs to go faster
-    public void testLargeIn(int size)
+    @Override
+    // skip larger inputs to go faster
+    protected List<Integer> largeInValuesCountData()
     {
-        if (size > 500) {
-            throw new SkipException("skipped to save time");
-        }
-        super.testLargeIn(size);
+        return ImmutableList.of(200);
     }
 
     @Override

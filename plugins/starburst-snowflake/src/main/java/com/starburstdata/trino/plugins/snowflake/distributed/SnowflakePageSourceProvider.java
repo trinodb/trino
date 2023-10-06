@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.stream.IntStream;
 
 import static com.amazonaws.services.s3.internal.crypto.JceEncryptionConstants.SYMMETRIC_CIPHER_BLOCK_SIZE;
@@ -157,7 +158,8 @@ public class SnowflakePageSourceProvider
                         .withUseColumnIndex(isParquetUseColumnIndex(session))
                         .withBatchColumnReaders(isOptimizedParquetReaderEnabled),
                 Optional.empty(),
-                100);
+                100,
+                OptionalLong.empty());
 
         verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");
 

@@ -39,7 +39,7 @@ import static com.starburstdata.trino.plugins.oracle.OracleParallelismType.PARTI
 import static com.starburstdata.trino.plugins.oracle.StarburstOracleSessionProperties.MAX_SPLITS_PER_SCAN;
 import static com.starburstdata.trino.plugins.oracle.StarburstOracleSessionProperties.PARALLELISM_TYPE;
 import static java.lang.String.format;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOracleParallelQueries
         extends AbstractTestQueryFramework
