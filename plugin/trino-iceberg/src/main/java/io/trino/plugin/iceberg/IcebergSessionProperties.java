@@ -54,6 +54,7 @@ import static java.lang.String.format;
 public final class IcebergSessionProperties
         implements SessionPropertiesProvider
 {
+    public static final String SPLIT_SIZE = "experimental_split_size";
     private static final String COMPRESSION_CODEC = "compression_codec";
     private static final String USE_FILE_SIZE_FROM_METADATA = "use_file_size_from_metadata";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
@@ -103,6 +104,13 @@ public final class IcebergSessionProperties
             ParquetWriterConfig parquetWriterConfig)
     {
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
+                .add(dataSizeProperty(
+                        SPLIT_SIZE,
+                        "Target split size",
+                        // Note: this is null by default & hidden, currently mainly for tests.
+                        // See https://github.com/trinodb/trino/issues/9018#issuecomment-1752929193 for further discussion.
+                        null,
+                        true))
                 .add(enumProperty(
                         COMPRESSION_CODEC,
                         "Compression codec to use when writing files",
@@ -402,6 +410,11 @@ public final class IcebergSessionProperties
     public static DataSize getOrcWriterMaxDictionaryMemory(ConnectorSession session)
     {
         return session.getProperty(ORC_WRITER_MAX_DICTIONARY_MEMORY, DataSize.class);
+    }
+
+    public static Optional<DataSize> getSplitSize(ConnectorSession session)
+    {
+        return Optional.ofNullable(session.getProperty(SPLIT_SIZE, DataSize.class));
     }
 
     public static HiveCompressionCodec getCompressionCodec(ConnectorSession session)
