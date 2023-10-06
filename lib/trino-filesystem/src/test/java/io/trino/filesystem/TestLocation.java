@@ -80,6 +80,15 @@ class TestLocation
 
         assertLocation("scheme://host///path//", "scheme", Optional.empty(), "host", "//path//");
 
+        assertLocationWithoutUriTesting("scheme://userInfo@host/some/path#fragment", "scheme", Optional.of("userInfo"), "host", "some/path#fragment");
+        assertLocationWithoutUriTesting("scheme://userInfo@ho#st/some/path", "scheme", Optional.of("userInfo"), "ho#st", "some/path");
+        assertLocationWithoutUriTesting("scheme://user#Info@host/some/path", "scheme", Optional.of("user#Info"), "host", "some/path");
+        assertLocationWithoutUriTesting("sc#heme://userInfo@host/some/path", "sc#heme", Optional.of("userInfo"), "host", "some/path");
+        assertLocationWithoutUriTesting("scheme://userInfo@host/some/path?fragment", "scheme", Optional.of("userInfo"), "host", "some/path?fragment");
+        assertLocationWithoutUriTesting("scheme://userInfo@ho?st/some/path", "scheme", Optional.of("userInfo"), "ho?st", "some/path");
+        assertLocationWithoutUriTesting("scheme://user?Info@host/some/path", "scheme", Optional.of("user?Info"), "host", "some/path");
+        assertLocationWithoutUriTesting("sc?heme://userInfo@host/some/path", "sc?heme", Optional.of("userInfo"), "host", "some/path");
+
         // the path can be empty
         assertLocation("scheme://", Optional.of("scheme"), Optional.empty(), Optional.empty(), OptionalInt.empty(), "", Set.of("Expected authority at index 9: scheme://"));
         assertLocation("scheme://host/", "scheme", Optional.empty(), "host", "");
@@ -169,34 +178,12 @@ class TestLocation
         assertThatThrownBy(() -> Location.of("scheme://:"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Invalid port in file system location: scheme://:");
+    }
 
-        // fragment is not allowed
-        assertThatThrownBy(() -> Location.of("scheme://userInfo@host/some/path#fragement"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Fragment is not allowed in a file system location: scheme://userInfo@host/some/path#fragement");
-        assertThatThrownBy(() -> Location.of("scheme://userInfo@ho#st/some/path"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Fragment is not allowed in a file system location: scheme://userInfo@ho#st/some/path");
-        assertThatThrownBy(() -> Location.of("scheme://user#Info@host/some/path"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Fragment is not allowed in a file system location: scheme://user#Info@host/some/path");
-        assertThatThrownBy(() -> Location.of("sc#heme://userInfo@host/some/path"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Fragment is not allowed in a file system location: sc#heme://userInfo@host/some/path");
-
-        // query component is not allowed
-        assertThatThrownBy(() -> Location.of("scheme://userInfo@host/some/path?fragement"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("URI query component is not allowed in a file system location: scheme://userInfo@host/some/path?fragement");
-        assertThatThrownBy(() -> Location.of("scheme://userInfo@ho?st/some/path"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("URI query component is not allowed in a file system location: scheme://userInfo@ho?st/some/path");
-        assertThatThrownBy(() -> Location.of("scheme://user?Info@host/some/path"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("URI query component is not allowed in a file system location: scheme://user?Info@host/some/path");
-        assertThatThrownBy(() -> Location.of("sc?heme://userInfo@host/some/path"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("URI query component is not allowed in a file system location: sc?heme://userInfo@host/some/path");
+    private static void assertLocationWithoutUriTesting(String locationString, String scheme, Optional<String> userInfo, String host, String path)
+    {
+        Optional<String> expectedHost = host.isEmpty() ? Optional.empty() : Optional.of(host);
+        assertLocation(Location.of(locationString), locationString, Optional.of(scheme), userInfo, expectedHost, OptionalInt.empty(), path, true, Set.of("skipped"));
     }
 
     private static void assertLocation(String locationString, String scheme, Optional<String> userInfo, String host, String path)
