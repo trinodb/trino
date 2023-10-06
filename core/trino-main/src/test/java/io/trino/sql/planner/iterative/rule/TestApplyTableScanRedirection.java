@@ -45,6 +45,7 @@ import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createP
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -175,8 +176,15 @@ public class TestApplyTableScanRedirection
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
             LocalQueryRunner runner = ruleTester.getQueryRunner();
             transaction(runner.getTransactionManager(), runner.getAccessControl())
-                    .execute(MOCK_SESSION, session -> {
-                        assertThatThrownBy(() -> runner.createPlan(session, "SELECT source_col_a FROM test_table", WarningCollector.NOOP, createPlanOptimizersStatsCollector()))
+                    .execute(MOCK_SESSION, transactionSession -> {
+                        assertThatThrownBy(() ->
+                                runner.createPlan(
+                                        transactionSession,
+                                        "SELECT source_col_a FROM test_table",
+                                        runner.getPlanOptimizers(true),
+                                        OPTIMIZED_AND_VALIDATED,
+                                        WarningCollector.NOOP,
+                                        createPlanOptimizersStatsCollector()))
                                 .isInstanceOf(TrinoException.class)
                                 .hasMessageMatching("Cast not possible from redirected column test-catalog.target_schema.target_table.destination_col_d with type Bogus to source column .*test-catalog.test_schema.test_table.*source_col_a.* with type: varchar");
                     });
