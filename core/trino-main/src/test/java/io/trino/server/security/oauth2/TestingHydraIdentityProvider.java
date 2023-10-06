@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import com.google.common.net.InetAddresses;
 import com.google.inject.Key;
 import com.nimbusds.oauth2.sdk.GrantType;
 import io.airlift.http.server.HttpServerConfig;
@@ -26,6 +27,7 @@ import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.log.Level;
 import io.airlift.log.Logging;
+import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.server.ui.OAuth2WebUiAuthenticationFilter;
@@ -54,6 +56,7 @@ import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
@@ -219,7 +222,9 @@ public class TestingHydraIdentityProvider
     private TestingHttpServer createTestingLoginAndConsentServer()
             throws IOException
     {
-        NodeInfo nodeInfo = new NodeInfo("test");
+        NodeInfo nodeInfo = new NodeInfo(new NodeConfig()
+                .setEnvironment("test")
+                .setNodeInternalAddress(InetAddresses.toAddrString(InetAddress.getLocalHost())));
         HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
         HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
         return new TestingHttpServer(httpServerInfo, nodeInfo, config, new AcceptAllLoginsAndConsentsServlet(), ImmutableMap.of());
