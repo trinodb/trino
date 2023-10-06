@@ -225,6 +225,13 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
     }
 
     @Override
+    public void testDropMaterializedViewWithMissingMetadataFile() throws Exception
+    {
+        assertThatThrownBy(super::testDropMaterializedViewWithMissingMetadataFile)
+                .hasMessageMatching("createMaterializedView is not supported for Iceberg Nessie catalogs");
+    }
+
+    @Override
     public void testDropTableWithMissingSnapshotFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)

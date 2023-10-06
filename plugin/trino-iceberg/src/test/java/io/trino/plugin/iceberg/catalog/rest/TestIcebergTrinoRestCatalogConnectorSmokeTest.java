@@ -235,6 +235,13 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     }
 
     @Override
+    public void testDropMaterializedViewWithMissingMetadataFile() throws Exception
+    {
+        assertThatThrownBy(super::testDropMaterializedViewWithMissingMetadataFile)
+                .hasMessageMatching("createMaterializedView is not supported for Iceberg REST catalog");
+    }
+
+    @Override
     public void testDropTableWithMissingSnapshotFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)

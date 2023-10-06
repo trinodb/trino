@@ -24,6 +24,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -80,9 +82,14 @@ public class TestIcebergConnectorSmokeTest
     @Override
     protected String getMetadataLocation(String tableName)
     {
-        return metastore
+        Map<String, String> parameters = metastore
                 .getTable(getSession().getSchema().orElseThrow(), tableName).orElseThrow()
-                .getParameters().get("metadata_location");
+                .getParameters();
+        return Optional.ofNullable(parameters.get("storage_table"))
+                // this is a materialized view:
+                .map(this::getMetadataLocation)
+                // this is a plain table:
+                .orElseGet(() -> parameters.get("metadata_location"));
     }
 
     @Override

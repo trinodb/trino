@@ -182,4 +182,11 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
         }
         return checkOrcFileSorting(fileSystem, path, sortColumnName);
     }
+
+    @Override
+    public void testDropMaterializedViewWithMissingMetadataFile()
+    {
+        assertThatThrownBy(super::testDropMaterializedViewWithMissingMetadataFile)
+                .hasMessageMatching("createMaterializedView is not supported for Iceberg JDBC catalogs");
+    }
 }
