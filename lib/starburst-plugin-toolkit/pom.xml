@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.trino.plugins</groupId>
         <artifactId>starburst-trino-plugins</artifactId>
-        <version>427-SNAPSHOT</version>
+        <version>428-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -17,6 +17,11 @@
     </properties>
 
     <dependencies>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-jdbc</artifactId>
@@ -26,11 +31,6 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
         </dependency>
 
         <dependency>
