@@ -344,6 +344,11 @@ public interface Metadata
     void finishStatisticsCollection(Session session, AnalyzeTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics);
 
     /**
+     * Initialize before query begins
+     */
+    void beginQuery(Session session);
+
+    /**
      * Cleanup after a query. This is the very last notification after the query finishes, regardless if it succeeds or fails.
      * An exception thrown in this method will not affect the result of the query.
      */
