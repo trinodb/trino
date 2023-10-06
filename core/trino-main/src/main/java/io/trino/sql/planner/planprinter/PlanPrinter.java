@@ -1356,11 +1356,11 @@ public class PlanPrinter
         {
             if (nodeStats.getPlanNodePhysicalInputDataSize().toBytes() > 0) {
                 buildFormatString(inputDetailBuilder, argsBuilder, ", Physical input: %s", nodeStats.getPlanNodePhysicalInputDataSize().toString());
-                buildFormatString(inputDetailBuilder, argsBuilder, ", Physical input time: %s", nodeStats.getPlanNodePhysicalInputReadTime().toString());
+                buildFormatString(inputDetailBuilder, argsBuilder, ", Physical input time: %s", nodeStats.getPlanNodePhysicalInputReadTime().convertToMostSuccinctTimeUnit().toString());
             }
             // Some connectors may report physical input time but not physical input data size
             else if (nodeStats.getPlanNodePhysicalInputReadTime().getValue() > 0) {
-                buildFormatString(inputDetailBuilder, argsBuilder, ", Physical input time: %s", nodeStats.getPlanNodePhysicalInputReadTime().toString());
+                buildFormatString(inputDetailBuilder, argsBuilder, ", Physical input time: %s", nodeStats.getPlanNodePhysicalInputReadTime().convertToMostSuccinctTimeUnit().toString());
             }
         }
 
