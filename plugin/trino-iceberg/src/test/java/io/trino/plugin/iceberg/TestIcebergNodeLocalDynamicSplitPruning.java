@@ -160,6 +160,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 0,
                 inputFile.length(),
                 inputFile.length(),
+                -1, // invalid; normally known
                 ORC,
                 PartitionSpecParser.toJson(PartitionSpec.unpartitioned()),
                 PartitionData.toJson(new PartitionData(new Object[] {})),

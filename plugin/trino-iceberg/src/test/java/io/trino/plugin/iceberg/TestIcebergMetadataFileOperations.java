@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import com.google.inject.Key;
 import io.trino.Session;
+import io.trino.SystemSessionProperties;
 import io.trino.filesystem.TrackingFileSystemFactory;
 import io.trino.filesystem.TrackingFileSystemFactory.OperationType;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
@@ -251,7 +252,6 @@ public class TestIcebergMetadataFileOperations
                         .add(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM))
                         .add(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH))
                         .add(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM))
-                        .addCopies(new FileOperation(DATA, INPUT_FILE_NEW_STREAM), 4)
                         .build());
 
         // Read partition column only, one partition only
@@ -263,7 +263,6 @@ public class TestIcebergMetadataFileOperations
                         .add(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM))
                         .add(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH))
                         .add(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM))
-                        .addCopies(new FileOperation(DATA, INPUT_FILE_NEW_STREAM), 2)
                         .build());
 
         // Read partition and synthetic columns
@@ -275,10 +274,70 @@ public class TestIcebergMetadataFileOperations
                         .add(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM))
                         .add(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH))
                         .add(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM))
+                        // TODO return synthetic columns without opening the data files
                         .addCopies(new FileOperation(DATA, INPUT_FILE_NEW_STREAM), 4)
                         .build());
 
+        // Read only row count
+        assertFileSystemAccesses(
+                "SELECT count(*) FROM test_read_part_key",
+                ALL_FILES,
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 2)
+                        .add(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH))
+                        .add(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM))
+                        .build());
+
         assertUpdate("DROP TABLE test_read_part_key");
+    }
+
+    @Test
+    public void testReadWholePartitionSplittableFile()
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+
+        assertUpdate("DROP TABLE IF EXISTS test_read_whole_splittable_file");
+        assertUpdate("CREATE TABLE test_read_whole_splittable_file(key varchar, data varchar) WITH (partitioning=ARRAY['key'])");
+
+        assertUpdate(
+                Session.builder(getSession())
+                        .setSystemProperty(SystemSessionProperties.WRITER_SCALING_MIN_DATA_PROCESSED, "1PB")
+                        .setCatalogSessionProperty(catalog, "parquet_writer_block_size", "1kB")
+                        .setCatalogSessionProperty(catalog, "orc_writer_max_stripe_size", "1kB")
+                        .setCatalogSessionProperty(catalog, "orc_writer_max_stripe_rows", "1000")
+                        .build(),
+                "INSERT INTO test_read_whole_splittable_file SELECT 'single partition', comment FROM tpch.tiny.orders", 15000);
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, IcebergSessionProperties.SPLIT_SIZE, "1kB")
+                .build();
+
+        // Read partition column only
+        assertFileSystemAccesses(
+                session,
+                "SELECT key, count(*) FROM test_read_whole_splittable_file GROUP BY key",
+                ALL_FILES,
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH))
+                        .add(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM))
+                        .build());
+
+        // Read only row count
+        assertFileSystemAccesses(
+                session,
+                "SELECT count(*) FROM test_read_whole_splittable_file",
+                ALL_FILES,
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH))
+                        .add(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM))
+                        .build());
+
+        assertUpdate("DROP TABLE test_read_whole_splittable_file");
     }
 
     @Test
