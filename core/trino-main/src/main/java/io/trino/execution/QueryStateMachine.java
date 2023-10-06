@@ -353,6 +353,8 @@ public class QueryStateMachine
             }
         });
 
+        metadata.beginQuery(session);
+
         return queryStateMachine;
     }
 

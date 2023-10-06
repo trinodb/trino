@@ -637,6 +637,15 @@ public class TracingMetadata
     }
 
     @Override
+    public void beginQuery(Session session)
+    {
+        Span span = startSpan("beginQuery");
+        try (var ignored = scopedSpan(span)) {
+            delegate.beginQuery(session);
+        }
+    }
+
+    @Override
     public void cleanupQuery(Session session)
     {
         Span span = startSpan("cleanupQuery");
