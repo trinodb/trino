@@ -65,7 +65,10 @@ import io.trino.plugin.iceberg.delete.EqualityDeleteFilter;
 import io.trino.plugin.iceberg.delete.PositionDeleteFilter;
 import io.trino.plugin.iceberg.delete.RowPredicate;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
+import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -75,6 +78,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
@@ -136,6 +140,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -177,6 +182,7 @@ import static io.trino.plugin.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static io.trino.plugin.iceberg.delete.EqualityDeleteFilter.readEqualityDeletes;
 import static io.trino.plugin.iceberg.delete.PositionDeleteFilter.readPositionDeletes;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -185,6 +191,8 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -204,6 +212,12 @@ public class IcebergPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private static final String AVRO_FIELD_ID = "field-id";
+
+    // This is used whenever a query doesn't reference any data columns.
+    // We need to limit the number of rows per page in case there are projections
+    // in the query that can cause page sizes to explode. For example: SELECT rand() FROM some_table
+    // TODO (https://github.com/trinodb/trino/issues/16824) allow connector to return pages of arbitrary row count and handle this gracefully in engine
+    private static final int MAX_RLE_PAGE_SIZE = DEFAULT_MAX_PAGE_SIZE_IN_BYTES / SIZE_OF_LONG;
 
     private final TrinoFileSystemFactory fileSystemFactory;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
@@ -259,6 +273,7 @@ public class IcebergPageSourceProvider
                 split.getStart(),
                 split.getLength(),
                 split.getFileSize(),
+                split.getFileRecordCount(),
                 split.getPartitionDataJson(),
                 split.getFileFormat(),
                 tableHandle.getNameMappingJson().map(NameMappingParser::fromJson));
@@ -277,6 +292,7 @@ public class IcebergPageSourceProvider
             long start,
             long length,
             long fileSize,
+            long fileRecordCount,
             String partitionDataJson,
             IcebergFileFormat fileFormat,
             Optional<NameMapping> nameMapping)
@@ -329,6 +345,21 @@ public class IcebergPageSourceProvider
         TrinoInputFile inputfile = isUseFileSizeFromMetadata(session)
                 ? fileSystem.newInputFile(Location.of(path), fileSize)
                 : fileSystem.newInputFile(Location.of(path));
+
+        try {
+            if (effectivePredicate.isAll() &&
+                    start == 0 && length == inputfile.length() &&
+                    deletes.isEmpty() &&
+                    icebergColumns.stream().allMatch(column -> partitionKeys.containsKey(column.getId()))) {
+                return generatePages(
+                        fileRecordCount,
+                        icebergColumns,
+                        partitionKeys);
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
 
         ReaderPageSourceWithRowPositions readerPageSourceWithRowPositions = createDataPageSource(
                 session,
@@ -573,6 +604,41 @@ public class IcebergPageSourceProvider
             default:
                 throw new TrinoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
         }
+    }
+
+    private static ConnectorPageSource generatePages(
+            long totalRowCount,
+            List<IcebergColumnHandle> icebergColumns,
+            Map<Integer, Optional<String>> partitionKeys)
+    {
+        int maxPageSize = MAX_RLE_PAGE_SIZE;
+        Block[] pageBlocks = new Block[icebergColumns.size()];
+        for (int i = 0; i < icebergColumns.size(); i++) {
+            IcebergColumnHandle column = icebergColumns.get(i);
+            Type trinoType = column.getType();
+            Object partitionValue = deserializePartitionValue(trinoType, partitionKeys.get(column.getId()).orElse(null), column.getName());
+            pageBlocks[i] = RunLengthEncodedBlock.create(nativeValueToBlock(trinoType, partitionValue), maxPageSize);
+        }
+        Page maxPage = new Page(maxPageSize, pageBlocks);
+
+        return new FixedPageSource(
+                new AbstractIterator<>()
+                {
+                    private long rowIndex;
+
+                    @Override
+                    protected Page computeNext()
+                    {
+                        if (rowIndex == totalRowCount) {
+                            return endOfData();
+                        }
+                        int pageSize = toIntExact(min(maxPageSize, totalRowCount - rowIndex));
+                        Page page = maxPage.getRegion(0, pageSize);
+                        rowIndex += pageSize;
+                        return page;
+                    }
+                },
+                maxPage.getRetainedSizeInBytes());
     }
 
     private static ReaderPageSourceWithRowPositions createOrcPageSource(

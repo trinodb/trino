@@ -124,6 +124,7 @@ public class TableChangesFunctionProcessor
                 split.start(),
                 split.length(),
                 split.fileSize(),
+                split.fileRecordCount(),
                 split.partitionDataJson(),
                 split.fileFormat(),
                 functionHandle.nameMappingJson().map(NameMappingParser::fromJson));
