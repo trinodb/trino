@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.cost.PlanNodeStatsEstimate;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.OutputNode;
@@ -29,7 +28,6 @@ import java.util.OptionalDouble;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
@@ -64,7 +62,7 @@ final class MetricComparator
     private static List<OptionalDouble> getEstimatedValuesInternal(List<Metric> metrics, String query, QueryRunner runner, Session session)
     // TODO inline back this method
     {
-        Plan queryPlan = runner.createPlan(session, query, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+        Plan queryPlan = runner.createPlan(session, query);
         OutputNode outputNode = (OutputNode) queryPlan.getRoot();
         PlanNodeStatsEstimate outputNodeStats = queryPlan.getStatsAndCosts().getStats().getOrDefault(queryPlan.getRoot().getId(), PlanNodeStatsEstimate.unknown());
         StatsContext statsContext = buildStatsContext(queryPlan, outputNode);

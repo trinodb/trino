@@ -102,8 +102,8 @@ public class TestGetTableStatisticsOperations
     private void planDistributedQuery(@Language("SQL") String sql)
     {
         transaction(localQueryRunner.getTransactionManager(), localQueryRunner.getAccessControl())
-                .execute(localQueryRunner.getDefaultSession(), session -> {
-                    localQueryRunner.createPlan(session, sql, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                .execute(localQueryRunner.getDefaultSession(), transactionSession -> {
+                    localQueryRunner.createPlan(transactionSession, sql, localQueryRunner.getPlanOptimizers(false), OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 });
     }
 
