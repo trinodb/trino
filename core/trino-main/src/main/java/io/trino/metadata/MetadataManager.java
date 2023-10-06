@@ -1019,9 +1019,15 @@ public final class MetadataManager
                 });
     }
 
+    private final Map<QueryId, Session> registeredQueries = new ConcurrentHashMap<>();
+
     @Override
     public void beginQuery(Session session)
     {
+        boolean alreadyRegistered = registeredQueries.putIfAbsent(session.getQueryId(), session) != null;
+        if (alreadyRegistered) {
+            throw new IllegalStateException("Query already registered: " + session.getQueryId());
+        }
     }
 
     @Override
@@ -1031,6 +1037,7 @@ public final class MetadataManager
         if (queryCatalogs != null) {
             queryCatalogs.finish();
         }
+        registeredQueries.remove(session.getQueryId(), session);
     }
 
     @Override
