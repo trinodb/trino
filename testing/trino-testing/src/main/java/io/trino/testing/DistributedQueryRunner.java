@@ -29,7 +29,6 @@ import io.trino.Session.SessionBuilder;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryManager;
-import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AllNodes;
 import io.trino.metadata.FunctionBundle;
@@ -85,7 +84,6 @@ import static io.airlift.log.Level.WARN;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.System.getenv;
 import static java.util.Objects.requireNonNull;
@@ -529,15 +527,10 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public Plan createPlan(Session session, String sql, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
+    public Plan createPlan(Session session, String sql)
     {
-        if (session.getTransactionId().isEmpty()) {
-            return transaction(getTransactionManager(), getAccessControl())
-                    .singleStatement()
-                    .execute(session, transactionSession -> {
-                        return createPlan(transactionSession, sql, warningCollector, planOptimizersStatsCollector);
-                    });
-        }
+        // session must be in a transaction registered with the transaction manager in this query runner
+        getTransactionManager().getTransactionInfo(session.getRequiredTransactionId());
 
         SqlParser sqlParser = coordinator.getInstance(Key.get(SqlParser.class));
         Statement statement = sqlParser.createStatement(sql);
