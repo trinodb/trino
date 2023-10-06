@@ -110,7 +110,8 @@ public class TestDeltaLakeCreateTableInternalRetry
     @Test
     public void testCreateTableInternalRetry()
     {
-        assertQueryFails("CREATE TABLE test_ct_internal_retry(a int)", "Table already exists: .*");
+        assertQuerySucceeds("CREATE TABLE test_ct_internal_retry(a int)");
+        assertQuery("SHOW TABLES LIKE 'test_ct_internal_retry'", "VALUES 'test_ct_internal_retry'");
     }
 
     @Test
