@@ -43,6 +43,7 @@ import java.util.AbstractCollection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -57,6 +58,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
+import static io.trino.plugin.hive.avro.AvroHiveFileUtils.getCanonicalToGivenFieldName;
 import static io.trino.plugin.hive.avro.AvroHiveFileUtils.wrapInUnionWithNull;
 import static io.trino.plugin.hive.util.HiveClassNames.AVRO_SERDE_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
@@ -191,11 +193,15 @@ public class AvroPageSourceFactory
                 .record(tableSchema.getName())
                 .namespace(tableSchema.getNamespace())
                 .fields();
+        Map<String, String> lowerToGivenName = getCanonicalToGivenFieldName(tableSchema);
 
         for (String columnName : maskedColumns) {
             Schema.Field field = tableSchema.getField(columnName);
             if (Objects.isNull(field)) {
-                continue;
+                if (!lowerToGivenName.containsKey(columnName)) {
+                    throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "Unable to find column %s in table Avro schema %s".formatted(columnName, tableSchema.getFullName()));
+                }
+                field = tableSchema.getField(lowerToGivenName.get(columnName));
             }
             if (field.hasDefaultValue()) {
                 try {
