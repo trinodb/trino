@@ -17,6 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import it.unimi.dsi.fastutil.ints.Int2IntArrayMap;
+import it.unimi.dsi.fastutil.ints.Int2IntMaps;
 
 import java.util.Map;
 import java.util.Objects;
@@ -25,6 +27,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -44,6 +47,7 @@ public class TableToPartitionMapping
     private static final int INSTANCE_SIZE = instanceSize(TableToPartitionMapping.class);
     private static final int INTEGER_INSTANCE_SIZE = instanceSize(Integer.class);
     private static final int OPTIONAL_INSTANCE_SIZE = instanceSize(Optional.class);
+    private static final int INT_2_INT_ARRAY_MAP_INSTANCE_SIZE = instanceSize(Int2IntArrayMap.class);
 
     private final Optional<Map<Integer, Integer>> tableToPartitionColumns;
     private final Map<Integer, HiveTypeName> partitionColumnCoercions;
@@ -57,7 +61,8 @@ public class TableToPartitionMapping
             this.tableToPartitionColumns = Optional.empty();
         }
         else {
-            this.tableToPartitionColumns = tableToPartitionColumns.map(ImmutableMap::copyOf);
+            // we use Int2IntArrayMap due to much lower memory footprint than ImmutableMap<Integer, Integer>
+            this.tableToPartitionColumns = tableToPartitionColumns.map(mapping -> Int2IntMaps.unmodifiable(new Int2IntArrayMap(mapping)));
         }
         this.partitionColumnCoercions = ImmutableMap.copyOf(requireNonNull(partitionColumnCoercions, "partitionColumnCoercions is null"));
     }
@@ -106,7 +111,7 @@ public class TableToPartitionMapping
                 estimatedSizeOf(partitionColumnCoercions, (Integer key) -> INTEGER_INSTANCE_SIZE, HiveTypeName::getEstimatedSizeInBytes) +
                 OPTIONAL_INSTANCE_SIZE +
                 tableToPartitionColumns
-                        .map(tableToPartitionColumns -> estimatedSizeOf(tableToPartitionColumns, (Integer key) -> INTEGER_INSTANCE_SIZE, (Integer value) -> INTEGER_INSTANCE_SIZE))
+                        .map(tableToPartitionColumns -> INT_2_INT_ARRAY_MAP_INSTANCE_SIZE + 2 * sizeOfIntArray(tableToPartitionColumns.size()))
                         .orElse(0L);
         return toIntExact(result);
     }
