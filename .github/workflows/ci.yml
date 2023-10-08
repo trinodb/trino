@@ -457,6 +457,7 @@ jobs:
             !:trino-filesystem-azure,
             !:trino-filesystem-manager,
             !:trino-filesystem-s3,
+            !:trino-google-sheets,
             !:trino-hdfs,
             !:trino-hive,
             !:trino-hudi,
@@ -579,6 +580,7 @@ jobs:
             - { modules: plugin/trino-delta-lake, profile: fte-tests }
             - { modules: plugin/trino-druid }
             - { modules: plugin/trino-elasticsearch }
+            - { modules: plugin/trino-google-sheets }
             - { modules: plugin/trino-hive }
             - { modules: plugin/trino-hive, profile: fte-tests }
             - { modules: plugin/trino-hive, profile: test-parquet }
