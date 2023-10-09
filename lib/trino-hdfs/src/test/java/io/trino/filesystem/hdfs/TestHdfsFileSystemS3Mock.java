@@ -109,7 +109,7 @@ public class TestHdfsFileSystemS3Mock
     }
 
     @Override
-    protected final boolean supportsCreateWithoutOverwrite()
+    protected final boolean supportsCreateExclusive()
     {
         return false;
     }

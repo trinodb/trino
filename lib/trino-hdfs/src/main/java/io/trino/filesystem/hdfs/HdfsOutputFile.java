@@ -21,6 +21,7 @@ import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.MemoryAwareFileSystem;
 import io.trino.hdfs.authentication.GenericExceptionAction;
+import io.trino.hdfs.s3.TrinoS3FileSystem;
 import io.trino.memory.context.AggregatedMemoryContext;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -64,6 +65,18 @@ class HdfsOutputFile
             throws IOException
     {
         return create(true, memoryContext);
+    }
+
+    @Override
+    public OutputStream createExclusive(AggregatedMemoryContext memoryContext)
+            throws IOException
+    {
+        Path file = hadoopPath(location);
+        FileSystem fileSystem = getRawFileSystem(environment.getFileSystem(context, file));
+        if (fileSystem instanceof TrinoS3FileSystem) {
+            throw new IOException("S3 does not support exclusive create");
+        }
+        return create(memoryContext);
     }
 
     private OutputStream create(boolean overwrite, AggregatedMemoryContext memoryContext)

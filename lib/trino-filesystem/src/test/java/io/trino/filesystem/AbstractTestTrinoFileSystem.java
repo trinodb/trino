@@ -59,7 +59,7 @@ public abstract class AbstractTestTrinoFileSystem
 
     protected abstract void verifyFileSystemIsEmpty();
 
-    protected boolean supportsCreateWithoutOverwrite()
+    protected boolean supportsCreateExclusive()
     {
         return true;
     }
@@ -475,9 +475,17 @@ public abstract class AbstractTestTrinoFileSystem
                 outputStream.write("initial".getBytes(UTF_8));
             }
 
-            if (supportsCreateWithoutOverwrite()) {
+            if (supportsCreateExclusive()) {
                 // re-create without overwrite is an error
                 assertThatThrownBy(outputFile::create)
+                        .isInstanceOf(FileAlreadyExistsException.class)
+                        .hasMessageContaining(tempBlob.location().toString());
+
+                // verify nothing changed
+                assertThat(tempBlob.read()).isEqualTo("initial");
+
+                // re-create exclusive is an error
+                assertThatThrownBy(outputFile::createExclusive)
                         .isInstanceOf(FileAlreadyExistsException.class)
                         .hasMessageContaining(tempBlob.location().toString());
 
@@ -492,6 +500,11 @@ public abstract class AbstractTestTrinoFileSystem
 
                 // verify contents changed
                 assertThat(tempBlob.read()).isEqualTo("replaced");
+
+                // create exclusive is an error
+                assertThatThrownBy(outputFile::createExclusive)
+                        .isInstanceOf(IOException.class)
+                        .hasMessageContaining("does not support exclusive create");
             }
 
             // overwrite file
