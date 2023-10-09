@@ -58,7 +58,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
@@ -629,13 +628,6 @@ public abstract class AbstractTestQueryFramework
                 .execute(queryRunner.getDefaultSession(), session -> {
                     return explainer.getGraphvizPlan(session, SQL_PARSER.createStatement(query), planType, emptyList(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 });
-    }
-
-    protected static void skipTestUnless(boolean requirement)
-    {
-        if (!requirement) {
-            throw new SkipException("requirement not met");
-        }
     }
 
     protected final QueryRunner getQueryRunner()
