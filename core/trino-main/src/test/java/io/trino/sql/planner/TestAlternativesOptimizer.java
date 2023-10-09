@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.cache.CommonPlanAdaptation.PlanSignatureWithPredicate;
 import io.trino.cost.CachingTableStatsProvider;
+import io.trino.cost.StaticRuntimeInfoProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.matching.Capture;
@@ -310,7 +311,8 @@ public class TestAlternativesOptimizer
                         new PlanNodeIdAllocator(),
                         WarningCollector.NOOP,
                         createPlanOptimizersStatsCollector(),
-                        new CachingTableStatsProvider(getPlanTester().getPlannerContext().getMetadata(), session)));
+                        new CachingTableStatsProvider(getPlanTester().getPlannerContext().getMetadata(), session),
+                        new StaticRuntimeInfoProvider(ImmutableMap.of(), ImmutableMap.of())));
     }
 
     private void assertPlan(PlanNode actual, PlanMatchPattern pattern, TypeProvider types)

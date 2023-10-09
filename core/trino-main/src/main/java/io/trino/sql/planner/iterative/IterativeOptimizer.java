@@ -22,6 +22,7 @@ import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.CostProvider;
+import io.trino.cost.RuntimeInfoProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
@@ -119,7 +120,8 @@ public class IterativeOptimizer
                 timeout.toMillis(),
                 context.session(),
                 context.warningCollector(),
-                context.tableStatsProvider());
+                context.tableStatsProvider(),
+                context.runtimeInfoProvider());
         exploreGroup(memo.getRootGroup(), optimizerContext);
         context.planOptimizersStatsCollector().add(optimizerContext.getIterativeOptimizerStatsCollector());
         return memo.extract();
@@ -265,7 +267,7 @@ public class IterativeOptimizer
 
     private Rule.Context ruleContext(Context context)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(context.memo), context.lookup, context.session, context.symbolAllocator.getTypes(), context.tableStatsProvider);
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(context.memo), context.lookup, context.session, context.symbolAllocator.getTypes(), context.tableStatsProvider, context.runtimeStatsProvider);
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(context.memo), context.session, context.symbolAllocator.getTypes());
 
         return new Rule.Context()
@@ -331,6 +333,7 @@ public class IterativeOptimizer
         private final Session session;
         private final WarningCollector warningCollector;
         private final TableStatsProvider tableStatsProvider;
+        private final RuntimeInfoProvider runtimeStatsProvider;
 
         private final PlanOptimizersStatsCollector iterativeOptimizerStatsCollector;
 
@@ -343,7 +346,8 @@ public class IterativeOptimizer
                 long timeoutInMilliseconds,
                 Session session,
                 WarningCollector warningCollector,
-                TableStatsProvider tableStatsProvider)
+                TableStatsProvider tableStatsProvider,
+                RuntimeInfoProvider runtimeStatsProvider)
         {
             checkArgument(timeoutInMilliseconds >= 0, "Timeout has to be a non-negative number [milliseconds]");
 
@@ -357,6 +361,7 @@ public class IterativeOptimizer
             this.warningCollector = warningCollector;
             this.iterativeOptimizerStatsCollector = createPlanOptimizersStatsCollector();
             this.tableStatsProvider = tableStatsProvider;
+            this.runtimeStatsProvider = runtimeStatsProvider;
         }
 
         public void checkTimeoutNotExhausted()

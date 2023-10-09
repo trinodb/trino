@@ -370,7 +370,14 @@ public class AlternativesOptimizer
     // Copied from io.trino.sql.planner.iterative.IterativeOptimizer
     private Rule.Context ruleContext(Context context)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(context.memo), context.lookup, context.optimizerContext.session(), context.optimizerContext.symbolAllocator().getTypes(), context.optimizerContext.tableStatsProvider());
+        StatsProvider statsProvider = new CachingStatsProvider(
+                statsCalculator,
+                Optional.of(context.memo),
+                context.lookup,
+                context.optimizerContext.session(),
+                context.optimizerContext.symbolAllocator().getTypes(),
+                context.optimizerContext.tableStatsProvider(),
+                context.optimizerContext.runtimeInfoProvider());
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(context.memo), context.optimizerContext.session(), context.optimizerContext.symbolAllocator().getTypes());
 
         return new Rule.Context()
