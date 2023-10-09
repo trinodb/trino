@@ -243,6 +243,11 @@ public final class Patterns
         return typeOf(ExceptNode.class);
     }
 
+    public static Pattern<RemoteSourceNode> remoteSourceNode()
+    {
+        return typeOf(RemoteSourceNode.class);
+    }
+
     public static Property<PlanNode, Lookup, PlanNode> source()
     {
         return optionalProperty(
