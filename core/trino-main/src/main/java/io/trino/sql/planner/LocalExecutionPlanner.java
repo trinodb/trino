@@ -1980,7 +1980,7 @@ public class LocalExecutionPlanner
 
             if (node.getSource() instanceof TableScanNode && getStaticFilter(node.getPredicate()).isEmpty()) {
                 // filter node contains only dynamic filter, fallback to normal table scan
-                return visitTableScan((TableScanNode) node.getSource(), node.getPredicate(), context);
+                return visitTableScan(node.getId(), (TableScanNode) node.getSource(), node.getPredicate(), context);
             }
 
             Expression filterExpression = node.getPredicate();
@@ -2137,10 +2137,10 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableScan(TableScanNode node, LocalExecutionPlanContext context)
         {
-            return visitTableScan(node, TRUE_LITERAL, context);
+            return visitTableScan(node.getId(), node, TRUE_LITERAL, context);
         }
 
-        private PhysicalOperation visitTableScan(TableScanNode node, Expression filterExpression, LocalExecutionPlanContext context)
+        private PhysicalOperation visitTableScan(PlanNodeId planNodeId, TableScanNode node, Expression filterExpression, LocalExecutionPlanContext context)
         {
             List<ColumnHandle> columns = new ArrayList<>();
             for (Symbol symbol : node.getOutputSymbols()) {
@@ -2148,7 +2148,7 @@ public class LocalExecutionPlanner
             }
 
             DynamicFilter dynamicFilter = getDynamicFilter(node, filterExpression, context);
-            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), node.getId(), pageSourceProvider, node.getTable(), columns, dynamicFilter);
+            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), planNodeId, node.getId(), pageSourceProvider, node.getTable(), columns, dynamicFilter);
             return new PhysicalOperation(operatorFactory, makeLayout(node), context);
         }
 
