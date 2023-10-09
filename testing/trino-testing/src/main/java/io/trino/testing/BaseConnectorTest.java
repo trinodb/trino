@@ -6499,6 +6499,13 @@ public abstract class BaseConnectorTest
         }
     }
 
+    protected static void skipTestUnless(boolean requirement)
+    {
+        if (!requirement) {
+            throw new SkipException("requirement not met");
+        }
+    }
+
     protected Consumer<Plan> assertPartialLimitWithPreSortedInputsCount(Session session, int expectedCount)
     {
         return plan -> {
