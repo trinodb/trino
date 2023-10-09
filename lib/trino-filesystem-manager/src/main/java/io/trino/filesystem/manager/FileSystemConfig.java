@@ -18,6 +18,7 @@ import io.airlift.configuration.Config;
 public class FileSystemConfig
 {
     private boolean hadoopEnabled = true;
+    private boolean nativeAzureEnabled;
     private boolean nativeS3Enabled;
 
     public boolean isHadoopEnabled()
@@ -29,6 +30,18 @@ public class FileSystemConfig
     public FileSystemConfig setHadoopEnabled(boolean hadoopEnabled)
     {
         this.hadoopEnabled = hadoopEnabled;
+        return this;
+    }
+
+    public boolean isNativeAzureEnabled()
+    {
+        return nativeAzureEnabled;
+    }
+
+    @Config("fs.native-azure.enabled")
+    public FileSystemConfig setNativeAzureEnabled(boolean nativeAzureEnabled)
+    {
+        this.nativeAzureEnabled = nativeAzureEnabled;
         return this;
     }
 
