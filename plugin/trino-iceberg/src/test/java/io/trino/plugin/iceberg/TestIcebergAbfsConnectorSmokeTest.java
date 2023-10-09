@@ -20,8 +20,8 @@ import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.Test;
 import org.testng.annotations.Parameters;
-import org.testng.annotations.Test;
 
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;

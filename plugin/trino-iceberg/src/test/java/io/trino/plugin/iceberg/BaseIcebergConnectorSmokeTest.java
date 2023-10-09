@@ -28,8 +28,11 @@ import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.io.FileIO;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -54,9 +57,11 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public abstract class BaseIcebergConnectorSmokeTest
         extends BaseConnectorSmokeTest
 {
@@ -68,7 +73,7 @@ public abstract class BaseIcebergConnectorSmokeTest
         this.format = requireNonNull(format, "format is null");
     }
 
-    @BeforeClass
+    @BeforeAll
     public void initFileSystem()
     {
         fileSystem = getFileSystemFactory(getDistributedQueryRunner()).create(SESSION);
@@ -117,7 +122,8 @@ public abstract class BaseIcebergConnectorSmokeTest
     }
 
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
-    @Test(timeOut = 120_000, invocationCount = 4)
+    @RepeatedTest(4)
+    @Timeout(120)
     public void testDeleteRowsConcurrently()
             throws Exception
     {
