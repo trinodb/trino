@@ -18,6 +18,7 @@ import io.trino.filesystem.TrinoOutputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
 import software.amazon.awssdk.services.s3.S3Client;
 
+import java.io.IOException;
 import java.io.OutputStream;
 
 import static java.util.Objects.requireNonNull;
@@ -48,6 +49,13 @@ final class S3OutputFile
     public OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
     {
         return new S3OutputStream(memoryContext, client, context, location);
+    }
+
+    @Override
+    public OutputStream createExclusive(AggregatedMemoryContext memoryContext)
+            throws IOException
+    {
+        throw new IOException("S3 does not support exclusive create");
     }
 
     @Override
