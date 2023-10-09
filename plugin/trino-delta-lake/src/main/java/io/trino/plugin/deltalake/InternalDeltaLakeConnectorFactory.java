@@ -28,7 +28,6 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.hdfs.HdfsModule;
 import io.trino.hdfs.authentication.HdfsAuthenticationModule;
-import io.trino.hdfs.azure.HiveAzureModule;
 import io.trino.hdfs.gcs.HiveGcsModule;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.CatalogNameModule;
@@ -90,7 +89,6 @@ public final class InternalDeltaLakeConnectorFactory
                     new MBeanServerModule(),
                     new HdfsModule(),
                     new DeltaLakeS3Module(),
-                    new HiveAzureModule(),
                     new DeltaLakeAzureModule(),
                     new HiveGcsModule(),
                     new DeltaLakeGcsModule(),

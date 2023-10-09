@@ -20,11 +20,14 @@ import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.azure.AzureFileSystemFactory;
+import io.trino.filesystem.azure.AzureFileSystemModule;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemModule;
 import io.trino.filesystem.s3.S3FileSystemFactory;
 import io.trino.filesystem.s3.S3FileSystemModule;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
+import io.trino.hdfs.azure.HiveAzureModule;
 import io.trino.hdfs.s3.HiveS3Module;
 
 import java.util.Map;
@@ -48,6 +51,15 @@ public class FileSystemModule
         }
 
         var factories = newMapBinder(binder, String.class, TrinoFileSystemFactory.class);
+
+        if (config.isNativeAzureEnabled()) {
+            install(new AzureFileSystemModule());
+            factories.addBinding("abfs").to(AzureFileSystemFactory.class);
+            factories.addBinding("abfss").to(AzureFileSystemFactory.class);
+        }
+        else {
+            install(new HiveAzureModule());
+        }
 
         if (config.isNativeS3Enabled()) {
             install(new S3FileSystemModule());

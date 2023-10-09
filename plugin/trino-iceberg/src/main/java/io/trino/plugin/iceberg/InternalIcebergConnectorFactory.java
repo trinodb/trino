@@ -27,7 +27,6 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.hdfs.HdfsModule;
 import io.trino.hdfs.authentication.HdfsAuthenticationModule;
-import io.trino.hdfs.azure.HiveAzureModule;
 import io.trino.hdfs.gcs.HiveGcsModule;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
@@ -92,7 +91,6 @@ public final class InternalIcebergConnectorFactory
                     icebergCatalogModule.orElse(new IcebergCatalogModule()),
                     new HdfsModule(),
                     new HiveGcsModule(),
-                    new HiveAzureModule(),
                     new HdfsAuthenticationModule(),
                     new MBeanServerModule(),
                     fileSystemFactory
