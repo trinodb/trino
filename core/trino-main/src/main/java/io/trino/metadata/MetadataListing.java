@@ -34,9 +34,11 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedSet;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -246,10 +248,21 @@ public final class MetadataListing
 
     private static Map<SchemaTableName, List<ColumnMetadata>> doListTableColumns(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
+        AtomicInteger filteredCount = new AtomicInteger();
         List<TableColumnsMetadata> catalogColumns = metadata.listTableColumns(
                 session,
                 prefix,
-                relationNames -> accessControl.filterTables(session.toSecurityContext(), prefix.getCatalogName(), relationNames));
+                relationNames -> {
+                    Set<SchemaTableName> filtered = accessControl.filterTables(session.toSecurityContext(), prefix.getCatalogName(), relationNames);
+                    filteredCount.addAndGet(filtered.size());
+                    return filtered;
+                });
+        checkState(
+                // Inequality because relationFilter can be invoked more than once on a set of names.
+                filteredCount.get() >= catalogColumns.size(),
+                "relationFilter is mandatory, but it has not been called for some of returned relations: returned %s relations, %s passed the filter",
+                catalogColumns.size(),
+                filteredCount.get());
 
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> result = ImmutableMap.builder();
 
