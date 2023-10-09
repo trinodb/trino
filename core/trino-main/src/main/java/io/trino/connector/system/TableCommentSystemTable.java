@@ -40,8 +40,11 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.connector.system.jdbc.FilterUtil.isImpossibleObjectName;
 import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
@@ -146,11 +149,22 @@ public class TableCommentSystemTable
             }
         }
         else {
+            AtomicInteger filteredCount = new AtomicInteger();
             List<RelationCommentMetadata> relationComments = metadata.listRelationComments(
                     session,
                     prefix.getCatalogName(),
                     prefix.getSchemaName(),
-                    relationNames -> accessControl.filterTables(session.toSecurityContext(), catalog, relationNames));
+                    relationNames -> {
+                        Set<SchemaTableName> filtered = accessControl.filterTables(session.toSecurityContext(), catalog, relationNames);
+                        filteredCount.addAndGet(filtered.size());
+                        return filtered;
+                    });
+            checkState(
+                    // Inequality because relationFilter can be invoked more than once on a set of names.
+                    filteredCount.get() >= relationComments.size(),
+                    "relationFilter is mandatory, but it has not been called for some of returned relations: returned %s relations, %s passed the filter",
+                    relationComments.size(),
+                    filteredCount.get());
 
             for (RelationCommentMetadata commentMetadata : relationComments) {
                 SchemaTableName name = commentMetadata.name();
