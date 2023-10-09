@@ -15,6 +15,7 @@ package io.trino.plugin.hudi;
 
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -50,6 +51,7 @@ public abstract class BaseHudiConnectorSmokeTest
         }
     }
 
+    @Test
     @Override
     public void testShowCreateTable()
     {

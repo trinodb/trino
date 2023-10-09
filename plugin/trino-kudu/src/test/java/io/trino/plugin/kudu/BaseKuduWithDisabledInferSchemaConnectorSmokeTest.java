@@ -57,6 +57,7 @@ public abstract class BaseKuduWithDisabledInferSchemaConnectorSmokeTest
                 .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
     }
 
+    @Test
     @Override
     public void testCreateSchemaWithNonLowercaseOwnerName()
     {

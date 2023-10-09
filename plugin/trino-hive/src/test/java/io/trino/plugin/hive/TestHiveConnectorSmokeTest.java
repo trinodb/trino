@@ -16,7 +16,7 @@ package io.trino.plugin.hive;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,6 +48,7 @@ public class TestHiveConnectorSmokeTest
         };
     }
 
+    @Test
     @Override
     public void testRowLevelDelete()
     {
@@ -55,6 +56,7 @@ public class TestHiveConnectorSmokeTest
                 .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @Test
     @Override
     public void testRowLevelUpdate()
     {
@@ -62,6 +64,7 @@ public class TestHiveConnectorSmokeTest
                 .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @Test
     @Override
     public void testUpdate()
     {
@@ -69,6 +72,7 @@ public class TestHiveConnectorSmokeTest
                 .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @Test
     @Override
     public void testMerge()
     {
@@ -92,6 +96,7 @@ public class TestHiveConnectorSmokeTest
                         ")");
     }
 
+    @Test
     @Override
     public void testCreateSchemaWithNonLowercaseOwnerName()
     {

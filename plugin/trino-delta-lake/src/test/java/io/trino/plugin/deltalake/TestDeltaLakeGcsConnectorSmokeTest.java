@@ -30,8 +30,8 @@ import io.trino.hdfs.gcs.HiveGcsConfig;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.testing.QueryRunner;
 import org.apache.hadoop.conf.Configuration;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Parameters;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -53,6 +53,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.regex.Matcher.quoteReplacement;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testcontainers.containers.Network.newNetwork;
 
 /**
@@ -61,6 +62,7 @@ import static org.testcontainers.containers.Network.newNetwork;
  * - gcp-credentials-key: A base64 encoded copy of the JSON authentication file for the service account used to connect to GCP.
  *   For example, `cat service-account-key.json | base64`
  */
+@TestInstance(PER_CLASS)
 public class TestDeltaLakeGcsConnectorSmokeTest
         extends BaseDeltaLakeConnectorSmokeTest
 {
@@ -74,11 +76,10 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     private String gcpCredentials;
     private TrinoFileSystem fileSystem;
 
-    @Parameters({"testing.gcp-storage-bucket", "testing.gcp-credentials-key"})
-    public TestDeltaLakeGcsConnectorSmokeTest(String gcpStorageBucket, String gcpCredentialKey)
+    public TestDeltaLakeGcsConnectorSmokeTest()
     {
-        this.gcpStorageBucket = requireNonNull(gcpStorageBucket, "gcpStorageBucket is null");
-        this.gcpCredentialKey = requireNonNull(gcpCredentialKey, "gcpCredentialKey is null");
+        this.gcpStorageBucket = requireNonNull(System.getProperty("testing.gcp-storage-bucket"), "GCP storage bucket is null");
+        this.gcpCredentialKey = requireNonNull(System.getProperty("testing.gcp-credentials-key"), "GCP credential key is null");
     }
 
     @Override
@@ -99,7 +100,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
         }
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void removeTestData()
     {
         if (fileSystem != null) {

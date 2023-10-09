@@ -55,7 +55,7 @@ import org.apache.pinot.spi.data.DateTimeFormatSpec;
 import org.apache.pinot.spi.data.readers.GenericRow;
 import org.apache.pinot.spi.data.readers.RecordReader;
 import org.apache.pinot.spi.utils.builder.TableNameBuilder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.InputStream;
@@ -968,6 +968,7 @@ public abstract class BasePinotConnectorSmokeTest
         }
     }
 
+    @Test
     @Override
     public void testShowCreateTable()
     {
@@ -983,6 +984,7 @@ public abstract class BasePinotConnectorSmokeTest
                         getSession().getSchema().orElseThrow());
     }
 
+    @Test
     @Override
     public void testSelectInformationSchemaColumns()
     {
@@ -992,6 +994,7 @@ public abstract class BasePinotConnectorSmokeTest
                 .matches("VALUES 'regionkey', 'name', 'comment', 'updated_at_seconds'");
     }
 
+    @Test
     @Override
     public void testTopN()
     {
@@ -1000,6 +1003,7 @@ public abstract class BasePinotConnectorSmokeTest
                 format("Segment query returned '%2$s' rows per split, maximum allowed is '%1$s' rows. with query \"SELECT \"regionkey\", \"name\" FROM nation_REALTIME  LIMIT 12\"", MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
     }
 
+    @Test
     @Override
     public void testJoin()
     {
