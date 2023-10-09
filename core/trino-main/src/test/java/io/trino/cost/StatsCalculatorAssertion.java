@@ -40,6 +40,7 @@ public class StatsCalculatorAssertion
     private final TypeProvider types;
 
     private final Map<PlanNode, PlanNodeStatsEstimate> sourcesStats;
+    private RuntimeInfoProvider runtimeInfoProvider = RuntimeInfoProvider.noImplementation();
 
     private Optional<TableStatsProvider> tableStatsProvider = Optional.empty();
 
@@ -86,6 +87,12 @@ public class StatsCalculatorAssertion
         return this;
     }
 
+    public StatsCalculatorAssertion withRuntimeInfoProvider(RuntimeInfoProvider runtimeInfoProvider)
+    {
+        this.runtimeInfoProvider = runtimeInfoProvider;
+        return this;
+    }
+
     public StatsCalculatorAssertion check(Consumer<PlanNodeStatsAssertion> statisticsAssertionConsumer)
     {
         PlanNodeStatsEstimate statsEstimate = queryRunner.getStatsCalculator().calculateStats(
@@ -95,7 +102,8 @@ public class StatsCalculatorAssertion
                         noLookup(),
                         session,
                         types,
-                        tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(queryRunner.getPlannerContext().getMetadata(), session))));
+                        tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(queryRunner.getPlannerContext().getMetadata(), session)),
+                        runtimeInfoProvider));
         statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate));
         return this;
     }
@@ -110,7 +118,8 @@ public class StatsCalculatorAssertion
                         noLookup(),
                         session,
                         types,
-                        tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(queryRunner.getPlannerContext().getMetadata(), session))));
+                        tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(queryRunner.getPlannerContext().getMetadata(), session)),
+                        runtimeInfoProvider));
         checkState(statsEstimate.isPresent(), "Expected stats estimates to be present");
         statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate.get()));
         return this;

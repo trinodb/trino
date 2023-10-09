@@ -40,7 +40,8 @@ public interface StatsCalculator
             Lookup lookup,
             Session session,
             TypeProvider types,
-            TableStatsProvider tableStatsProvider)
+            TableStatsProvider tableStatsProvider,
+            RuntimeInfoProvider runtimeInfoProvider)
     {
         public Context
         {
@@ -49,6 +50,7 @@ public interface StatsCalculator
             requireNonNull(session, "session is null");
             requireNonNull(types, "types is null");
             requireNonNull(tableStatsProvider, "tableStatsProvider is null");
+            requireNonNull(runtimeInfoProvider, "runtimeInfoProvider is null");
         }
     }
 }
