@@ -186,6 +186,7 @@
         <dep.parquet.version>1.13.1</dep.parquet.version>
         <dep.antlr.version>4.13.1</dep.antlr.version>
         <dep.asm.version>9.6</dep.asm.version>
+        <dep.opentelemetry.version>1.31.0</dep.opentelemetry.version>
 
         <dep.docker.images.version>86</dep.docker.images.version>
 
