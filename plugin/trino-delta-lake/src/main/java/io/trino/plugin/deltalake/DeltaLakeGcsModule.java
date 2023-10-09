@@ -27,7 +27,6 @@ public class DeltaLakeGcsModule
     @Override
     protected void setup(Binder binder)
     {
-        binder.bind(GcsStorageFactory.class).in(Scopes.SINGLETON);
         newMapBinder(binder, String.class, TransactionLogSynchronizer.class).addBinding("gs").to(GcsTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
     }
 }

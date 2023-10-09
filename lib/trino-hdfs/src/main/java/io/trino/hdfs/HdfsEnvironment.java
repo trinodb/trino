@@ -13,6 +13,7 @@
  */
 package io.trino.hdfs;
 
+import com.google.cloud.hadoop.repackaged.gcs.com.google.api.services.storage.Storage;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
@@ -20,6 +21,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.trino.hadoop.HadoopNative;
 import io.trino.hdfs.authentication.GenericExceptionAction;
 import io.trino.hdfs.authentication.HdfsAuthentication;
+import io.trino.hdfs.gcs.GcsStorageFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
@@ -51,11 +53,12 @@ public class HdfsEnvironment
     private final Optional<FsPermission> newDirectoryPermissions;
     private final boolean newFileInheritOwnership;
     private final boolean verifyChecksum;
+    private final Optional<GcsStorageFactory> gcsStorageFactory;
 
     @VisibleForTesting
     public HdfsEnvironment(HdfsConfiguration hdfsConfiguration, HdfsConfig config, HdfsAuthentication hdfsAuthentication)
     {
-        this(OpenTelemetry.noop(), hdfsConfiguration, config, hdfsAuthentication);
+        this(OpenTelemetry.noop(), hdfsConfiguration, config, hdfsAuthentication, Optional.empty());
     }
 
     @Inject
@@ -63,7 +66,8 @@ public class HdfsEnvironment
             OpenTelemetry openTelemetry,
             HdfsConfiguration hdfsConfiguration,
             HdfsConfig config,
-            HdfsAuthentication hdfsAuthentication)
+            HdfsAuthentication hdfsAuthentication,
+            Optional<GcsStorageFactory> gcsStorageFactory)
     {
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.hdfsConfiguration = requireNonNull(hdfsConfiguration, "hdfsConfiguration is null");
@@ -71,6 +75,7 @@ public class HdfsEnvironment
         this.verifyChecksum = config.isVerifyChecksum();
         this.hdfsAuthentication = requireNonNull(hdfsAuthentication, "hdfsAuthentication is null");
         this.newDirectoryPermissions = config.getNewDirectoryFsPermissions();
+        this.gcsStorageFactory = requireNonNull(gcsStorageFactory, "gcsStorageFactory is null");
     }
 
     @PreDestroy
@@ -123,6 +128,13 @@ public class HdfsEnvironment
             throws E
     {
         return hdfsAuthentication.doAs(identity, action);
+    }
+
+    public Storage createGcsStorage(HdfsContext context, Path path)
+    {
+        return gcsStorageFactory
+                .orElseThrow(() -> new IllegalStateException("GcsStorageFactory not set"))
+                .create(this, context, path);
     }
 
     private static void stopFileSystemStatsThread()
