@@ -11,9 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.deltalake;
+package io.trino.hdfs.gcs;
 
-import com.google.cloud.hadoop.fs.gcs.TrinoGoogleHadoopFileSystemConfiguration;
 import com.google.cloud.hadoop.repackaged.gcs.com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.cloud.hadoop.repackaged.gcs.com.google.api.client.http.HttpTransport;
 import com.google.cloud.hadoop.repackaged.gcs.com.google.api.client.json.jackson2.JacksonFactory;
@@ -25,9 +24,7 @@ import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.Retry
 import com.google.inject.Inject;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.gcs.HiveGcsConfig;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.Path;
 
 import java.io.ByteArrayInputStream;
@@ -37,25 +34,24 @@ import java.io.InputStream;
 import java.time.Duration;
 import java.util.Optional;
 
+import static com.google.cloud.hadoop.fs.gcs.TrinoGoogleHadoopFileSystemConfiguration.getGcsOptionsBuilder;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.hdfs.gcs.GcsConfigurationProvider.GCS_OAUTH_KEY;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
 
+@SuppressWarnings("deprecation")
 public class GcsStorageFactory
 {
-    private static final String APPLICATION_NAME = "Trino-Delta-Lake";
+    private static final String APPLICATION_NAME = "Trino";
 
-    private final HdfsEnvironment hdfsEnvironment;
     private final boolean useGcsAccessToken;
     private final Optional<GoogleCredential> jsonGoogleCredential;
 
     @Inject
-    public GcsStorageFactory(HdfsEnvironment hdfsEnvironment, HiveGcsConfig hiveGcsConfig)
+    public GcsStorageFactory(HiveGcsConfig hiveGcsConfig)
             throws IOException
     {
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         hiveGcsConfig.validate();
         this.useGcsAccessToken = hiveGcsConfig.isUseGcsAccessToken();
         String jsonKey = hiveGcsConfig.getJsonKey();
@@ -75,10 +71,10 @@ public class GcsStorageFactory
         }
     }
 
-    public Storage create(ConnectorSession session, String path)
+    public Storage create(HdfsEnvironment environment, HdfsContext context, Path path)
     {
         try {
-            GoogleCloudStorageOptions gcsOptions = TrinoGoogleHadoopFileSystemConfiguration.getGcsOptionsBuilder(hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(path))).build();
+            GoogleCloudStorageOptions gcsOptions = getGcsOptionsBuilder(environment.getConfiguration(context, path)).build();
             HttpTransport httpTransport = HttpTransportFactory.createHttpTransport(
                     gcsOptions.getTransportType(),
                     gcsOptions.getProxyAddress(),
@@ -87,7 +83,7 @@ public class GcsStorageFactory
                     Duration.ofMillis(gcsOptions.getHttpRequestReadTimeout()));
             GoogleCredential credential;
             if (useGcsAccessToken) {
-                String accessToken = nullToEmpty(session.getIdentity().getExtraCredentials().get(GCS_OAUTH_KEY));
+                String accessToken = nullToEmpty(context.getIdentity().getExtraCredentials().get(GCS_OAUTH_KEY));
                 try (ByteArrayInputStream inputStream = new ByteArrayInputStream(accessToken.getBytes(UTF_8))) {
                     credential = GoogleCredential.fromStream(inputStream).createScoped(CredentialFactory.DEFAULT_SCOPES);
                 }

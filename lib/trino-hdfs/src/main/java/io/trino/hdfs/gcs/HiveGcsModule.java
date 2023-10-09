@@ -38,5 +38,7 @@ public class HiveGcsModule
             checkArgument(!buildConfigObject(RubixEnabledConfig.class).isCacheEnabled(), "Use of GCS access token is not compatible with Hive caching");
             newSetBinder(binder, DynamicConfigurationProvider.class).addBinding().to(GcsConfigurationProvider.class).in(Scopes.SINGLETON);
         }
+
+        binder.bind(GcsStorageFactory.class).in(Scopes.SINGLETON);
     }
 }

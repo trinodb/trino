@@ -21,7 +21,7 @@ import org.apache.hadoop.conf.Configuration;
  * convert {@link Configuration} to gcs hadoop-connectors specific
  * configuration instances.
  */
-public class TrinoGoogleHadoopFileSystemConfiguration
+public final class TrinoGoogleHadoopFileSystemConfiguration
 {
     private TrinoGoogleHadoopFileSystemConfiguration() {}
 
