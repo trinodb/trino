@@ -139,6 +139,8 @@ import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABL
 import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.hive.HiveQueryRunner.createBucketedSession;
+import static io.trino.plugin.hive.HiveStorageFormat.ORC;
+import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveStorageFormat.REGEX;
 import static io.trino.plugin.hive.HiveTableProperties.AUTO_PURGE;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
@@ -5585,6 +5587,97 @@ public abstract class BaseHiveConnectorTest
         finally {
             assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
         }
+    }
+
+    @Test
+    public void testReadWithPartitionSchemaMismatch()
+    {
+        testWithAllStorageFormats(this::testReadWithPartitionSchemaMismatch);
+
+        // test ORC in non-default configuration with by-name column mapping
+        Session orcUsingColumnNames = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "orc_use_column_names", "true")
+                .build();
+        testWithStorageFormat(new TestingHiveStorageFormat(orcUsingColumnNames, ORC), this::testReadWithPartitionSchemaMismatchByName);
+
+        // test PARQUET in non-default configuration with by-index column mapping
+        Session parquetUsingColumnIndex = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "parquet_use_column_names", "false")
+                .build();
+        testWithStorageFormat(new TestingHiveStorageFormat(parquetUsingColumnIndex, PARQUET), this::testReadWithPartitionSchemaMismatchByIndex);
+    }
+
+    private void testReadWithPartitionSchemaMismatch(Session session, HiveStorageFormat format)
+    {
+        if (isMappingByName(session, format)) {
+            testReadWithPartitionSchemaMismatchByName(session, format);
+        }
+        else {
+            testReadWithPartitionSchemaMismatchByIndex(session, format);
+        }
+    }
+
+    private boolean isMappingByName(Session session, HiveStorageFormat format)
+    {
+        return switch(format) {
+            case PARQUET -> true;
+            case AVRO -> true;
+            case JSON -> true;
+            case ORC -> false;
+            case RCBINARY -> false;
+            case RCTEXT -> false;
+            case SEQUENCEFILE -> false;
+            case OPENX_JSON -> false;
+            case TEXTFILE -> false;
+            case CSV -> false;
+            case REGEX -> false;
+        };
+    }
+
+    private void testReadWithPartitionSchemaMismatchByName(Session session, HiveStorageFormat format)
+    {
+        String tableName = testReadWithPartitionSchemaMismatchAddedColumns(session, format);
+
+        // with mapping by name also test behavior with dropping columns
+        // start with table with a, b, c, _part
+        // drop b
+        assertUpdate(session, "ALTER TABLE " + tableName + " DROP COLUMN b");
+        // create new partition
+        assertUpdate(session, "INSERT INTO " + tableName + " values (21, 22, 20)", 1); // a, c, _part
+        assertQuery(session, "SELECT a, c, _part FROM " + tableName, "VALUES (1, null, 0), (11, 13, 10), (21, 22, 20)");
+        assertQuery(session, "SELECT a, _part FROM " + tableName, "VALUES (1,  0), (11, 10), (21, 20)");
+        // add d
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN d bigint");
+        // create new partition
+        assertUpdate(session, "INSERT INTO " + tableName + " values (31, 32, 33, 30)", 1); // a, c, d, _part
+        assertQuery(session, "SELECT a, c, d, _part FROM " + tableName, "VALUES (1, null, null, 0), (11, 13, null, 10), (21, 22, null, 20), (31, 32, 33, 30)");
+        assertQuery(session, "SELECT a, d, _part FROM " + tableName, "VALUES (1, null, 0), (11, null, 10), (21, null, 20), (31, 33, 30)");
+    }
+
+    private void testReadWithPartitionSchemaMismatchByIndex(Session session, HiveStorageFormat format)
+    {
+        // we are not dropping columns for format which use index based mapping as logic is confusing and not consistent between different formats
+        testReadWithPartitionSchemaMismatchAddedColumns(session, format);
+    }
+
+    private String testReadWithPartitionSchemaMismatchAddedColumns(Session session, HiveStorageFormat format)
+    {
+        String tableName = "read_with_partition_schema_mismatch_by_name_" + randomNameSuffix();
+        // create table with a, b, _part
+        assertUpdate(session, "CREATE TABLE " + tableName + " (a bigint, b bigint, _part bigint) with (format = '" + format + "', partitioned_by=array['_part'])");
+        // create new partition
+        assertUpdate(session, "INSERT INTO " + tableName + " values (1, 2, 0)", 1); // a, b, _part
+        assertQuery(session, "SELECT a, b, _part FROM " + tableName, "VALUES (1, 2, 0)");
+        assertQuery(session, "SELECT a, _part FROM " + tableName, "VALUES (1, 0)");
+        // add column c
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN c bigint");
+        // create new partition
+        assertUpdate(session, "INSERT INTO " + tableName + " values (11, 12, 13, 10)", 1); // a, b, c, _part
+        assertQuery(session, "SELECT a, b, c, _part FROM " + tableName, "VALUES (1, 2, null, 0), (11, 12, 13, 10)");
+        assertQuery(session, "SELECT a, c, _part FROM " + tableName, "VALUES (1, null, 0), (11, 13, 10)");
+        assertQuery(session, "SELECT c, _part FROM " + tableName + " WHERE a < 7", "VALUES (null, 0)"); // common column used in WHERE but not in FROM
+        assertQuery(session, "SELECT a, _part FROM " + tableName + " WHERE c > 7", "VALUES (11, 10)"); // missing column used in WHERE but not in FROM
+        return tableName;
     }
 
     @Test
