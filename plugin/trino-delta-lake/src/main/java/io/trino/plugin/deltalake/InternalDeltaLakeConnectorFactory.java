@@ -88,15 +88,13 @@ public final class InternalDeltaLakeConnectorFactory
                     new JsonModule(),
                     new MBeanServerModule(),
                     new HdfsModule(),
-                    new DeltaLakeS3Module(),
-                    new DeltaLakeAzureModule(),
                     new HiveGcsModule(),
-                    new DeltaLakeGcsModule(),
                     new HdfsAuthenticationModule(),
                     new CatalogNameModule(catalogName),
                     metastoreModule.orElse(new DeltaLakeMetastoreModule()),
                     new DeltaLakeModule(),
                     new DeltaLakeSecurityModule(),
+                    new DeltaLakeSynchronizerModule(),
                     fileSystemFactory
                             .map(factory -> (Module) binder -> binder.bind(TrinoFileSystemFactory.class).toInstance(factory))
                             .orElseGet(FileSystemModule::new),

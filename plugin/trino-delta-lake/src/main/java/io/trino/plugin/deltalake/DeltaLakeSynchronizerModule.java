@@ -16,23 +16,33 @@ package io.trino.plugin.deltalake;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import com.google.inject.multibindings.MapBinder;
+import io.trino.plugin.deltalake.transactionlog.writer.AzureTransactionLogSynchronizer;
+import io.trino.plugin.deltalake.transactionlog.writer.GcsTransactionLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.S3NativeTransactionLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizer;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 
-public class DeltaLakeS3Module
+public class DeltaLakeSynchronizerModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
-        MapBinder<String, TransactionLogSynchronizer> logSynchronizerMapBinder = newMapBinder(binder, String.class, TransactionLogSynchronizer.class);
+        var synchronizerBinder = newMapBinder(binder, String.class, TransactionLogSynchronizer.class);
+
+        // Azure
+        synchronizerBinder.addBinding("abfs").to(AzureTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
+        synchronizerBinder.addBinding("abfss").to(AzureTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
+
+        // GCS
+        synchronizerBinder.addBinding("gs").to(GcsTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
+
+        // S3
         jsonCodecBinder(binder).bindJsonCodec(S3NativeTransactionLogSynchronizer.LockFileContents.class);
-        logSynchronizerMapBinder.addBinding("s3").to(S3NativeTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
-        logSynchronizerMapBinder.addBinding("s3a").to(S3NativeTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
-        logSynchronizerMapBinder.addBinding("s3n").to(S3NativeTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
+        synchronizerBinder.addBinding("s3").to(S3NativeTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
+        synchronizerBinder.addBinding("s3a").to(S3NativeTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
+        synchronizerBinder.addBinding("s3n").to(S3NativeTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
     }
 }
