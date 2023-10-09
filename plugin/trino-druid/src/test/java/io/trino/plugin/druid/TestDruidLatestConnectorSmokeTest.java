@@ -17,15 +17,20 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import io.trino.testng.services.ManageTestResources;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.plugin.druid.DruidQueryRunner.createDruidQueryRunnerTpch;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestDruidLatestConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
 {
+    @ManageTestResources.Suppress(because = "Not a TestNG test class")
     private TestingDruidServer druidServer;
 
     @Override
@@ -40,7 +45,7 @@ public class TestDruidLatestConnectorSmokeTest
                 REQUIRED_TPCH_TABLES);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void destroy()
     {
         druidServer = null; // closed by closeAfterClass
