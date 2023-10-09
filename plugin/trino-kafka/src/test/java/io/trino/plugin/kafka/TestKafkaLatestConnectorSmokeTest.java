@@ -17,7 +17,8 @@ import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.kafka.TestingKafka;
-import org.testng.SkipException;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -51,11 +52,12 @@ public class TestKafkaLatestConnectorSmokeTest
     }
 
     @Override
+    @Test
     public void testInsert()
     {
         assertThatThrownBy(super::testInsert)
                 .hasMessage("Cannot test INSERT without CREATE TABLE, the test needs to be implemented in a connector-specific way");
         // TODO implement the test for Kafka
-        throw new SkipException("TODO");
+        Assumptions.abort();
     }
 }
