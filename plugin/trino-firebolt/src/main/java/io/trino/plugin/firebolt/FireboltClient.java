@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.firebolt;
 
-import com.firebolt.shadow.com.google.common.collect.ImmutableList;
-import com.firebolt.shadow.com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
@@ -65,7 +65,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
-import static com.firebolt.shadow.com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.plugin.firebolt.FireboltTableProperties.getTableType;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;

@@ -71,6 +71,7 @@
         <module>plugin/trino-example-jdbc</module>
         <module>plugin/trino-exchange-filesystem</module>
         <module>plugin/trino-exchange-hdfs</module>
+        <module>plugin/trino-firebolt</module>
         <module>plugin/trino-geospatial</module>
         <module>plugin/trino-google-sheets</module>
         <module>plugin/trino-hive</module>

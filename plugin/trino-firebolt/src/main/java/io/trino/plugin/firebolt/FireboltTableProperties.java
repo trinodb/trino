@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.firebolt;
 
-import com.firebolt.shadow.com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList;
 import io.trino.plugin.jdbc.TablePropertiesProvider;
 import io.trino.spi.session.PropertyMetadata;
 
