@@ -17,9 +17,11 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.trino.Session;
+import io.trino.SystemSessionProperties;
 import io.trino.filesystem.TrackingFileSystemFactory;
 import io.trino.filesystem.TrackingFileSystemFactory.OperationType;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -82,6 +84,9 @@ public class TestDeltaLakeFileOperations
         try {
             String metastoreDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_metastore").toFile().getAbsoluteFile().toURI().toString();
             trackingFileSystemFactory = new TrackingFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS));
+
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog("tpch", "tpch");
 
             queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.empty(), Optional.of(trackingFileSystemFactory), EMPTY_MODULE));
             queryRunner.createCatalog(
@@ -270,7 +275,66 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", INPUT_FILE_NEW_STREAM))
                         .build());
 
+        // Read only row count
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'test_read_part_key')");
+        assertFileSystemAccesses(
+                "SELECT count(*) FROM test_read_part_key",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM))
+                        .build());
+
         assertUpdate("DROP TABLE test_read_part_key");
+    }
+
+    @Test
+    public void testReadWholePartitionSplittableFile()
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+
+        assertUpdate("DROP TABLE IF EXISTS test_read_whole_splittable_file");
+        assertUpdate("CREATE TABLE test_read_whole_splittable_file(key varchar, data varchar) WITH (partitioned_by=ARRAY['key'])");
+
+        assertUpdate(
+                Session.builder(getSession())
+                        .setSystemProperty(SystemSessionProperties.WRITER_SCALING_MIN_DATA_PROCESSED, "1PB")
+                        .build(),
+                "INSERT INTO test_read_whole_splittable_file SELECT 'single partition', comment FROM tpch.tiny.orders", 15000);
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, DeltaLakeSessionProperties.MAX_SPLIT_SIZE, "1kB")
+                .setCatalogSessionProperty(catalog, DeltaLakeSessionProperties.MAX_INITIAL_SPLIT_SIZE, "1kB")
+                .build();
+
+        // Read partition column only
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'test_read_whole_splittable_file')");
+        assertFileSystemAccesses(
+                session,
+                "SELECT key, count(*) FROM test_read_whole_splittable_file GROUP BY key",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", INPUT_FILE_NEW_STREAM))
+                        .build());
+
+        // Read only row count
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'test_read_whole_splittable_file')");
+        assertFileSystemAccesses(
+                session,
+                "SELECT count(*) FROM test_read_whole_splittable_file",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM))
+                        .build());
+
+        assertUpdate("DROP TABLE test_read_whole_splittable_file");
     }
 
     @Test
