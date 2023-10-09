@@ -386,12 +386,12 @@ public class AzureFileSystem
             if (!directoryClient.getProperties().isDirectory()) {
                 throw new IOException("Location is not a directory: " + location);
             }
-            pathItems = directoryClient.listPaths(true, false, null, null);
+            pathItems = directoryClient.listPaths(false, false, null, null);
         }
         Location baseLocation = location.baseLocation();
         return pathItems.stream()
                 .filter(PathItem::isDirectory)
-                .map(item -> baseLocation.appendPath(item.getName()))
+                .map(item -> baseLocation.appendPath(item.getName() + "/"))
                 .collect(toImmutableSet());
     }
 
@@ -401,10 +401,11 @@ public class AzureFileSystem
         if (!path.isEmpty() && !path.endsWith("/")) {
             path += "/";
         }
+        Location baseLocation = location.baseLocation();
         return createBlobContainerClient(location)
                 .listBlobsByHierarchy(path).stream()
                 .filter(BlobItem::isPrefix)
-                .map(item -> Location.of(location + "/" + item.getName()))
+                .map(item -> baseLocation.appendPath(item.getName()))
                 .collect(toImmutableSet());
     }
 
