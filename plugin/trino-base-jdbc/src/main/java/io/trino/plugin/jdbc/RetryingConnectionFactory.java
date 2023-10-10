@@ -18,6 +18,7 @@ import com.google.inject.Inject;
 import dev.failsafe.Failsafe;
 import dev.failsafe.FailsafeException;
 import dev.failsafe.RetryPolicy;
+import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 
@@ -40,10 +41,10 @@ public class RetryingConnectionFactory
             .abortOn(TrinoException.class)
             .build();
 
-    private final ConnectionFactory delegate;
+    private final StatisticsAwareConnectionFactory delegate;
 
     @Inject
-    public RetryingConnectionFactory(@StatsCollecting ConnectionFactory delegate)
+    public RetryingConnectionFactory(StatisticsAwareConnectionFactory delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
     }

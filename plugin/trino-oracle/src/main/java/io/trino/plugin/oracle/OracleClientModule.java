@@ -28,6 +28,7 @@ import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.RetryingConnectionFactory;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import oracle.jdbc.OracleConnection;
@@ -76,11 +77,11 @@ public class OracleClientModule
                     openTelemetry);
         }
 
-        return new RetryingConnectionFactory(new DriverConnectionFactory(
+        return new RetryingConnectionFactory(new StatisticsAwareConnectionFactory(new DriverConnectionFactory(
                 new OracleDriver(),
                 config.getConnectionUrl(),
                 connectionProperties,
                 credentialProvider,
-                openTelemetry));
+                openTelemetry)));
     }
 }

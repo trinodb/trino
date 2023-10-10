@@ -23,6 +23,7 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.RetryingConnectionFactory;
 import io.trino.plugin.jdbc.credential.StaticCredentialProvider;
+import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.trino.testing.ResourcePresence;
 import oracle.jdbc.OracleDriver;
 import org.testcontainers.containers.OracleContainer;
@@ -125,10 +126,10 @@ public class TestingOracleServer
 
     private ConnectionFactory getConnectionFactory(String connectionUrl, String username, String password)
     {
-        DriverConnectionFactory connectionFactory = new DriverConnectionFactory(
+        StatisticsAwareConnectionFactory connectionFactory = new StatisticsAwareConnectionFactory(new DriverConnectionFactory(
                 new OracleDriver(),
                 new BaseJdbcConfig().setConnectionUrl(connectionUrl),
-                StaticCredentialProvider.of(username, password));
+                StaticCredentialProvider.of(username, password)));
         return new RetryingConnectionFactory(connectionFactory);
     }
 
