@@ -187,6 +187,9 @@ statements, the connector supports the following features:
 - {doc}`/sql/drop-table`
 - {doc}`/sql/alter-table`
 
+```{include} sql-update-limitation.fragment
+```
+
 ```{include} alter-table-limitation.fragment
 ```
 
