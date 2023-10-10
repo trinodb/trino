@@ -834,7 +834,7 @@ public class IcebergMetadata
     }
 
     @Override
-    public Optional<io.trino.spi.type.Type> getSupportedType(ConnectorSession session, io.trino.spi.type.Type type)
+    public Optional<io.trino.spi.type.Type> getSupportedType(ConnectorSession session, Map<String, Object> tableProperties, io.trino.spi.type.Type type)
     {
         if (type instanceof TimestampWithTimeZoneType) {
             return Optional.of(TIMESTAMP_TZ_MICROS);
