@@ -210,7 +210,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
                                         .put("exp", now + 60L)
                                         .put("iat", now)
                                         .put("iss", "https://hydra:4444/")
-                                        .put("jti", UUID.randomUUID())
+                                        .put("jti", UUID.randomUUID().toString())
                                         .put("nbf", now)
                                         .put("scp", ImmutableList.of("openid"))
                                         .put("sub", "foo@bar.com")
@@ -349,7 +349,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
         Jws<Claims> jwt = parseJwsClaims(idToken);
         Claims claims = jwt.getBody();
         assertThat(claims.getSubject()).isEqualTo("foo@bar.com");
-        assertThat(claims.getAudience()).isEqualTo(ImmutableSet.of(TRINO_CLIENT_ID).toString());
+        assertThat(claims.getAudience()).isEqualTo(ImmutableSet.of(TRINO_CLIENT_ID));
         assertThat(claims.getIssuer()).isEqualTo("https://localhost:4444/");
     }
 
