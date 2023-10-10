@@ -100,6 +100,15 @@ public abstract class BaseClickHouseTypeMapping
         verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
     }
 
+    // Override to prevent the class from being recognized as JUnit test class
+    // TODO remove override once the class itself is migrated
+    @Test
+    @Override
+    public void ensureTestNamingConvention()
+    {
+        super.ensureTestNamingConvention();
+    }
+
     @Test
     public void testTinyint()
     {

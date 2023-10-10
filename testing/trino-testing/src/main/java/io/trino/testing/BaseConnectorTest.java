@@ -220,7 +220,7 @@ public abstract class BaseConnectorTest
         return connectorBehavior.hasBehaviorByDefault(this::hasBehavior);
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void ensureTestNamingConvention()
     {

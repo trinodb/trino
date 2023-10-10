@@ -56,6 +56,15 @@ public abstract class BaseJdbcConnectionCreationTest
         connectionFactory = null;
     }
 
+    // Override to prevent the class from being recognized as JUnit test class
+    // TODO remove override once the class itself is migrated
+    @Test
+    @Override
+    public void ensureTestNamingConvention()
+    {
+        super.ensureTestNamingConvention();
+    }
+
     protected void assertJdbcConnections(@Language("SQL") String query, int expectedJdbcConnectionsCount, Optional<String> errorMessage)
     {
         int before = connectionFactory.openConnections.get();

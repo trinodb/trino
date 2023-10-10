@@ -69,6 +69,15 @@ public abstract class BaseDeltaLakeCompatibility
         return queryRunner;
     }
 
+    // Override to prevent the class from being recognized as JUnit test class
+    // TODO remove override once the class itself is migrated
+    @Test
+    @Override
+    public void ensureTestNamingConvention()
+    {
+        super.ensureTestNamingConvention();
+    }
+
     @Test(dataProvider = "tpchTablesDataProvider")
     public void testSelectAll(String tableName)
     {

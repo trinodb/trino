@@ -21,6 +21,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseComplexTypesPredicatePushDownTest
         extends AbstractTestQueryFramework
 {
+    // Override to prevent the class from being recognized as JUnit test class
+    // TODO remove override once the class itself is migrated
+    @Test
+    @Override
+    public void ensureTestNamingConvention()
+    {
+        super.ensureTestNamingConvention();
+    }
+
     @Test
     public void testRowTypeOnlyNullsRowGroupPruning()
     {

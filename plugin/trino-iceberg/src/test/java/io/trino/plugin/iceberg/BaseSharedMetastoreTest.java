@@ -36,6 +36,15 @@ public abstract class BaseSharedMetastoreTest
 
     protected abstract String getExpectedIcebergCreateSchema(String catalogName);
 
+    // Override to prevent the class from being recognized as JUnit test class
+    // TODO remove override once the class itself is migrated
+    @Test
+    @Override
+    public void ensureTestNamingConvention()
+    {
+        super.ensureTestNamingConvention();
+    }
+
     @Test
     public void testSelect()
     {

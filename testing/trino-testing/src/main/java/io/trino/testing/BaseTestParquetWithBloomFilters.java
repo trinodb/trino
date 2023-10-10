@@ -34,6 +34,15 @@ public abstract class BaseTestParquetWithBloomFilters
     private static final List<Integer> TEST_VALUES = Arrays.asList(Integer.MIN_VALUE, Integer.MAX_VALUE, 1, 3, 7, 10, 15);
     private static final int MISSING_VALUE = 0;
 
+    // Override to prevent the class from being recognized as JUnit test class
+    // TODO remove override once the class itself is migrated
+    @Test
+    @Override
+    public void ensureTestNamingConvention()
+    {
+        super.ensureTestNamingConvention();
+    }
+
     @Test
     public void verifyBloomFilterEnabled()
     {

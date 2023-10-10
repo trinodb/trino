@@ -121,6 +121,15 @@ public class TestHiveThriftMetastoreWithS3
         assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
     }
 
+    // Override to prevent the class from being recognized as JUnit test class
+    // TODO remove override once the class itself is migrated
+    @Test
+    @Override
+    public void ensureTestNamingConvention()
+    {
+        super.ensureTestNamingConvention();
+    }
+
     @Test
     public void testRecreateTable()
     {

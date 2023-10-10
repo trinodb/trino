@@ -69,6 +69,15 @@ public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
 
     protected abstract boolean isCached(C directoryLister, Location location);
 
+    // Override to prevent the class from being recognized as JUnit test class
+    // TODO remove override once the class itself is migrated
+    @Test
+    @Override
+    public void ensureTestNamingConvention()
+    {
+        super.ensureTestNamingConvention();
+    }
+
     @Test
     public void testCacheInvalidationIsAppliedSpecificallyOnTheNonPartitionedTableBeingChanged()
     {

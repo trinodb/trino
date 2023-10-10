@@ -83,6 +83,15 @@ public abstract class BaseS3AndGlueMetastoreTest
         }
     }
 
+    // Override to prevent the class from being recognized as JUnit test class
+    // TODO remove override once the class itself is migrated
+    @Test
+    @Override
+    public void ensureTestNamingConvention()
+    {
+        super.ensureTestNamingConvention();
+    }
+
     @DataProvider
     public Object[][] locationPatternsDataProvider()
     {

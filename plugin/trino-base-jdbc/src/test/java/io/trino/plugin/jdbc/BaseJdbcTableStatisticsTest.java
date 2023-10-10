@@ -65,6 +65,14 @@ public abstract class BaseJdbcTableStatisticsTest
         }
     }
 
+    // Override to prevent the class from being recognized as JUnit test class
+    // TODO remove override once the class itself is migrated
+    @Test@Override
+    public void ensureTestNamingConvention()
+    {
+        super.ensureTestNamingConvention();
+    }
+
     @Test
     public abstract void testNotAnalyzed();
 

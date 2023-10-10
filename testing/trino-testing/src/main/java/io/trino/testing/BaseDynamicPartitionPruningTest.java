@@ -95,6 +95,15 @@ public abstract class BaseDynamicPartitionPruningTest
                 .build();
     }
 
+    // Override to prevent the class from being recognized as JUnit test class
+    // TODO remove override once the class itself is migrated
+    @Test
+    @Override
+    public void ensureTestNamingConvention()
+    {
+        super.ensureTestNamingConvention();
+    }
+
     @Test(timeOut = 30_000)
     public void testJoinWithEmptyBuildSide()
     {

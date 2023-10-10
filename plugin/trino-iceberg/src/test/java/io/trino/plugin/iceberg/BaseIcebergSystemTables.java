@@ -101,6 +101,15 @@ public abstract class BaseIcebergSystemTables
         assertUpdate("DROP SCHEMA IF EXISTS test_schema");
     }
 
+    // Override to prevent the class from being recognized as JUnit test class
+    // TODO remove override once the class itself is migrated
+    @Test
+    @Override
+    public void ensureTestNamingConvention()
+    {
+        super.ensureTestNamingConvention();
+    }
+
     @Test
     public void testPartitionTable()
     {

@@ -50,13 +50,13 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
-import io.trino.testng.services.ReportBadTestAnnotations;
 import io.trino.transaction.TransactionBuilder;
 import io.trino.util.AutoCloseableCloser;
 import org.assertj.core.api.AssertProvider;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -270,8 +270,7 @@ public abstract class AbstractTestQueryFramework
         }
     }
 
-    // TODO @Test - Temporarily disabled to avoid test classes running twice. Re-enable once all tests migrated to JUnit.
-    @ReportBadTestAnnotations.Suppress
+    @Test
     public void ensureTestNamingConvention()
     {
         // Enforce a naming convention to make code navigation easier.
