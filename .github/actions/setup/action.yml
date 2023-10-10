@@ -7,6 +7,9 @@ inputs:
   cache:
     description: "Cache Maven repo (true/false/restore)"
     default: true
+  cleanup-node:
+    description: "Clean up node (true/false) to increase free disk space"
+    default: false # Disabled by default as it adds ~4 minutes of test runtime. Should be enabled case by case.
   download_dependencies:
     description: "Download all Maven dependencies so Maven can work in offline mode"
     default: true
@@ -33,6 +36,10 @@ runs:
       - name: Fetch base ref to find merge-base for GIB
         shell: bash
         run: .github/bin/git-fetch-base-ref.sh
+      - name: Free additional disk space
+        if: ${{ format('{0}', inputs.cleanup-node) == 'true' }}
+        shell: bash
+        run: ./.github/bin/free-disk-space.sh
       - uses: actions/setup-java@v3
         if: ${{ inputs.java-version != '' }}
         with:
