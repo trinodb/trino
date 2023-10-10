@@ -14,7 +14,9 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.base.VerifyException;
+import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Table;
 import com.google.common.math.Stats;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
@@ -36,11 +38,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -197,25 +197,25 @@ public class TaskDescriptorStorage
     @NotThreadSafe
     private class TaskDescriptors
     {
-        private final Map<TaskDescriptorKey, TaskDescriptor> descriptors = new HashMap<>();
+        private final Table<StageId, Integer /* partitionId */, TaskDescriptor> descriptors = HashBasedTable.create();
+
         private long reservedBytes;
         private RuntimeException failure;
 
         public void put(StageId stageId, int partitionId, TaskDescriptor descriptor)
         {
             throwIfFailed();
-            TaskDescriptorKey key = new TaskDescriptorKey(stageId, partitionId);
-            checkState(descriptors.putIfAbsent(key, descriptor) == null, "task descriptor is already present for key %s ", key);
+            checkState(!descriptors.contains(stageId, partitionId), "task descriptor is already present for key %s/%s ", stageId, partitionId);
+            descriptors.put(stageId, partitionId, descriptor);
             reservedBytes += descriptor.getRetainedSizeInBytes();
         }
 
         public TaskDescriptor get(StageId stageId, int partitionId)
         {
             throwIfFailed();
-            TaskDescriptorKey key = new TaskDescriptorKey(stageId, partitionId);
-            TaskDescriptor descriptor = descriptors.get(key);
+            TaskDescriptor descriptor = descriptors.get(stageId, partitionId);
             if (descriptor == null) {
-                throw new NoSuchElementException(format("descriptor not found for key %s", key));
+                throw new NoSuchElementException(format("descriptor not found for key %s/%s", stageId, partitionId));
             }
             return descriptor;
         }
@@ -223,10 +223,9 @@ public class TaskDescriptorStorage
         public void remove(StageId stageId, int partitionId)
         {
             throwIfFailed();
-            TaskDescriptorKey key = new TaskDescriptorKey(stageId, partitionId);
-            TaskDescriptor descriptor = descriptors.remove(key);
+            TaskDescriptor descriptor = descriptors.remove(stageId, partitionId);
             if (descriptor == null) {
-                throw new NoSuchElementException(format("descriptor not found for key %s", key));
+                throw new NoSuchElementException(format("descriptor not found for key %s/%s", stageId, partitionId));
             }
             reservedBytes -= descriptor.getRetainedSizeInBytes();
         }
@@ -238,10 +237,10 @@ public class TaskDescriptorStorage
 
         private String getDebugInfo()
         {
-            Multimap<StageId, TaskDescriptor> descriptorsByStageId = descriptors.entrySet().stream()
+            Multimap<StageId, TaskDescriptor> descriptorsByStageId = descriptors.cellSet().stream()
                     .collect(toImmutableSetMultimap(
-                            entry -> entry.getKey().getStageId(),
-                            Map.Entry::getValue));
+                            Table.Cell::getRowKey,
+                            Table.Cell::getValue));
 
             Map<StageId, String> debugInfoByStageId = descriptorsByStageId.asMap().entrySet().stream()
                     .collect(toImmutableMap(
@@ -298,56 +297,6 @@ public class TaskDescriptorStorage
             if (failure != null) {
                 throw failure;
             }
-        }
-    }
-
-    private static class TaskDescriptorKey
-    {
-        private final StageId stageId;
-        private final int partitionId;
-
-        private TaskDescriptorKey(StageId stageId, int partitionId)
-        {
-            this.stageId = requireNonNull(stageId, "stageId is null");
-            this.partitionId = partitionId;
-        }
-
-        public StageId getStageId()
-        {
-            return stageId;
-        }
-
-        public int getPartitionId()
-        {
-            return partitionId;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            TaskDescriptorKey key = (TaskDescriptorKey) o;
-            return partitionId == key.partitionId && Objects.equals(stageId, key.stageId);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(stageId, partitionId);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("stageId", stageId)
-                    .add("partitionId", partitionId)
-                    .toString();
         }
     }
 }
