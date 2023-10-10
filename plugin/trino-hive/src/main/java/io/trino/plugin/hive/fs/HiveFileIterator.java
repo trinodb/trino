@@ -145,7 +145,7 @@ public class HiveFileIterator
     }
 
     private static class FileStatusIterator
-            implements Iterator<TrinoFileStatus>
+            extends AbstractIterator<TrinoFileStatus>
     {
         private final Location location;
         private final HdfsNamenodeStats namenodeStats;
@@ -179,21 +179,17 @@ public class HiveFileIterator
         }
 
         @Override
-        public boolean hasNext()
+        protected TrinoFileStatus computeNext()
         {
             try {
-                return fileStatusIterator.hasNext();
-            }
-            catch (IOException e) {
-                throw processException(e);
-            }
-        }
-
-        @Override
-        public TrinoFileStatus next()
-        {
-            try {
-                return fileStatusIterator.next();
+                if (!fileStatusIterator.hasNext()) {
+                    return endOfData();
+                }
+                TrinoFileStatus trinoFileStatus = fileStatusIterator.next();
+                if (trinoFileStatus == null) {
+                    return endOfData();
+                }
+                return trinoFileStatus;
             }
             catch (IOException e) {
                 throw processException(e);
