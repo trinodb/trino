@@ -140,7 +140,7 @@ public class TestRetryingConnectionFactory
         return Guice.createInjector(binder -> {
             binder.bind(MockConnectorFactory.Action[].class).toInstance(actions);
             binder.bind(MockConnectorFactory.class).in(Scopes.SINGLETON);
-            binder.bind(ConnectionFactory.class).annotatedWith(StatsCollecting.class).to(Key.get(MockConnectorFactory.class));
+            binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(Key.get(MockConnectorFactory.class));
         });
     }
 

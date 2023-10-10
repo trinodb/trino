@@ -88,10 +88,6 @@ public class JdbcModule
 
         newSetBinder(binder, ConnectorTableFunction.class);
 
-        binder.bind(ConnectionFactory.class)
-                .annotatedWith(ForLazyConnectionFactory.class)
-                .to(Key.get(ConnectionFactory.class, StatsCollecting.class))
-                .in(Scopes.SINGLETON);
         install(conditionalModule(
                 QueryConfig.class,
                 QueryConfig::isReuseConnection,
