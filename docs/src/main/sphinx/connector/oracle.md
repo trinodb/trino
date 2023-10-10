@@ -422,6 +422,9 @@ supports the following statements:
 - {doc}`/sql/alter-table`
 - {doc}`/sql/comment`
 
+```{include} sql-update-limitation.fragment
+```
+
 ```{include} sql-delete-limitation.fragment
 ```
 

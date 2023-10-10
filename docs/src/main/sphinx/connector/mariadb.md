@@ -293,6 +293,9 @@ statements, the connector supports the following features:
 - {doc}`/sql/create-schema`
 - {doc}`/sql/drop-schema`
 
+```{include} sql-update-limitation.fragment
+```
+
 ```{include} sql-delete-limitation.fragment
 ```
 
