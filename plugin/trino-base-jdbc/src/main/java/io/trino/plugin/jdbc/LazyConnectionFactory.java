@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
+import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.trino.spi.connector.ConnectorSession;
 import jakarta.annotation.Nullable;
 
@@ -29,10 +30,10 @@ import static java.util.Objects.requireNonNull;
 public final class LazyConnectionFactory
         implements ConnectionFactory
 {
-    private final ConnectionFactory delegate;
+    private final StatisticsAwareConnectionFactory delegate;
 
     @Inject
-    public LazyConnectionFactory(@ForLazyConnectionFactory ConnectionFactory delegate)
+    public LazyConnectionFactory(StatisticsAwareConnectionFactory delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
