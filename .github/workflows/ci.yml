@@ -642,10 +642,7 @@ jobs:
         with:
           cache: restore
           java-version: ${{ matrix.jdk != '' && matrix.jdk || '17' }}
-      - name: Cleanup node
-        # This is required as a virtual environment update 20210219.1 left too little space for MemSQL to work
-        if: matrix.modules == 'plugin/trino-singlestore'
-        run: .github/bin/cleanup-node.sh
+          cleanup-node: ${{ format('{0}', matrix.modules == 'plugin/trino-singlestore') }}
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
