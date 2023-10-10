@@ -22,11 +22,11 @@ import okhttp3.Response;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
 
 import static jakarta.ws.rs.core.HttpHeaders.AUTHORIZATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
-import static org.assertj.core.api.InstanceOfAssertFactories.list;
 
 public class TestOAuth2WebUiAuthenticationFilterWithOpaque
         extends BaseOAuth2WebUiAuthenticationFilterTest
@@ -76,7 +76,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithOpaque
             assertThat(response.body()).isNotNull();
             DefaultClaims claims = new DefaultClaims(JsonCodec.mapJsonCodec(String.class, Object.class).fromJson(response.body().bytes()));
             assertThat(claims.getSubject()).isEqualTo("foo@bar.com");
-            assertThat(claims.get("aud")).asInstanceOf(list(String.class)).contains(TRINO_CLIENT_ID);
+            assertThat(claims.get("aud")).isEqualTo(Set.of(TRINO_CLIENT_ID));
         }
         catch (IOException e) {
             fail("Exception while calling /userinfo", e);

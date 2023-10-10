@@ -28,6 +28,7 @@ import io.airlift.node.NodeInfo;
 import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwsHeader;
+import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.impl.DefaultClaims;
 import io.trino.security.AccessControl;
 import io.trino.server.HttpRequestSessionContextFactory;
@@ -1293,8 +1294,10 @@ public class TestWebUi
 
         public OAuth2ClientStub(Map<String, String> additionalClaims, Duration accessTokenValidity, boolean issueIdToken, boolean supportsEndsessionEnpoint)
         {
-            claims = new DefaultClaims(createClaims());
-            claims.putAll(requireNonNull(additionalClaims, "additionalClaims is null"));
+            claims = Jwts.claims()
+                    .add(createClaims())
+                    .add(requireNonNull(additionalClaims, "additionalClaims is null"))
+                    .build();
             this.accessTokenValidity = requireNonNull(accessTokenValidity, "accessTokenValidity is null");
             accessToken = issueToken(claims);
             if (issueIdToken) {
@@ -1381,11 +1384,13 @@ public class TestWebUi
 
         private static Claims createClaims()
         {
-            return new DefaultClaims()
-                    .setIssuer(TOKEN_ISSUER)
-                    .setAudience(OAUTH_CLIENT_ID)
-                    .setSubject("test-user")
-                    .setExpiration(Date.from(Instant.now().plus(Duration.ofMinutes(5))));
+            return Jwts.claims()
+                .issuer(TOKEN_ISSUER)
+                .audience().add(OAUTH_CLIENT_ID)
+                .and()
+                .subject("test-user")
+                .expiration(Date.from(Instant.now().plus(Duration.ofMinutes(5))))
+                .build();
         }
 
         public static String randomNonce()
