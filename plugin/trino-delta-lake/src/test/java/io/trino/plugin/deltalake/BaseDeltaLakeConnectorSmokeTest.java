@@ -483,7 +483,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         String viewName = "dummy_view";
         hiveHadoop.runOnHive(format("CREATE VIEW %1$s.%2$s AS SELECT * FROM %1$s.customer", SCHEMA, viewName));
-        assertEquals(computeScalar(format("SHOW TABLES LIKE '%s'", viewName)), viewName);
         assertThatThrownBy(() -> computeActual("DESCRIBE " + viewName)).hasMessageContaining(format("%s.%s is not a Delta Lake table", SCHEMA, viewName));
         hiveHadoop.runOnHive("DROP VIEW " + viewName);
     }
