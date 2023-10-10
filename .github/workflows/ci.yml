@@ -9,6 +9,7 @@ on:
       - 'docs/**'
   repository_dispatch:
     types: [test-with-secrets-command]
+  workflow_dispatch:
 
 defaults:
   run:
