@@ -128,13 +128,13 @@ public class NimbusOAuth2Client
     public void load()
     {
         OAuth2ServerConfig config = serverConfigurationProvider.get();
-        this.authUrl = config.getAuthUrl();
-        this.tokenUrl = config.getTokenUrl();
-        this.userinfoUrl = config.getUserinfoUrl();
+        this.authUrl = config.authUrl();
+        this.tokenUrl = config.tokenUrl();
+        this.userinfoUrl = config.userinfoUrl();
         try {
             jwsKeySelector = new JWSVerificationKeySelector<>(
                     Stream.concat(JWSAlgorithm.Family.RSA.stream(), JWSAlgorithm.Family.EC.stream()).collect(toImmutableSet()),
-                    JWKSourceBuilder.create(config.getJwksUrl().toURL(), httpClient).build());
+                    JWKSourceBuilder.create(config.jwksUrl().toURL(), httpClient).build());
         }
         catch (MalformedURLException e) {
             throw new RuntimeException(e);
@@ -148,7 +148,7 @@ public class NimbusOAuth2Client
         DefaultJWTClaimsVerifier<SecurityContext> accessTokenVerifier = new DefaultJWTClaimsVerifier<>(
                 accessTokenAudiences,
                 new JWTClaimsSet.Builder()
-                        .issuer(config.getAccessTokenIssuer().orElse(issuer.getValue()))
+                        .issuer(config.accessTokenIssuer().orElse(issuer.getValue()))
                         .build(),
                 ImmutableSet.of(principalField),
                 ImmutableSet.of());
