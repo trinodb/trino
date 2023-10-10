@@ -150,6 +150,9 @@ statements, the connector supports the following features:
 - {doc}`/sql/truncate`
 - {ref}`sql-schema-table-management`
 
+```{include} sql-update-limitation.fragment
+```
+
 ```{include} sql-delete-limitation.fragment
 ```
 
