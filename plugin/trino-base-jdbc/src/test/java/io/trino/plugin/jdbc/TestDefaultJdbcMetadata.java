@@ -404,20 +404,35 @@ public class TestDefaultJdbcMetadata
     @Test
     public void testColumnAliasTruncation()
     {
-        assertThat(createSyntheticJoinProjectionColumn(column("column_0"), 999, OptionalInt.of(30)).getColumnName())
-                .isEqualTo("column_0_999");
-        assertThat(createSyntheticJoinProjectionColumn(column("column_with_over_twenty_characters"), 100, OptionalInt.of(30)).getColumnName())
-                .isEqualTo("column_with_over_twenty_ch_100");
-        assertThat(createSyntheticJoinProjectionColumn(column("column_with_over_twenty_characters"), Integer.MAX_VALUE, OptionalInt.of(30)).getColumnName())
-                .isEqualTo("column_with_over_tw_2147483647");
+        OptionalInt maxLength = OptionalInt.of(30);
+        assertThat(createSyntheticJoinProjectionColumn(column("no_truncation"), 123, maxLength).getColumnName())
+                .isEqualTo("no_truncation_123");
+        assertThat(createSyntheticJoinProjectionColumn(column("long_column_name_gets_truncated"), 123, maxLength).getColumnName())
+                .isEqualTo("long_column_name_gets_trun_123");
+        assertThat(createSyntheticJoinProjectionColumn(column("long_id_causes_truncation"), Integer.MAX_VALUE, maxLength).getColumnName())
+                .isEqualTo("long_id_causes_trun_2147483647");
+
+        assertThat(createSyntheticJoinProjectionColumn(column("id_equals_max_length"), 1234, OptionalInt.of(4)).getColumnName())
+                .isEqualTo("1234");
+        assertThat(createSyntheticJoinProjectionColumn(column("id_and_separator_equals_max_length"), 1234, OptionalInt.of(5)).getColumnName())
+                .isEqualTo("_1234");
+    }
+
+    @Test
+    public void testSyntheticIdExceedsLength()
+    {
+        assertThatThrownBy(() -> createSyntheticJoinProjectionColumn(column("id_exceeds_max_length"), 1234, OptionalInt.of(3)))
+                .isInstanceOf(VerifyException.class)
+                .hasMessage("Maximum allowed column name length is 3 but next synthetic id has length 4");
     }
 
     @Test
     public void testNegativeSyntheticId()
     {
-        JdbcColumnHandle column = column("column_0");
-
-        assertThatThrownBy(() -> createSyntheticJoinProjectionColumn(column, -2147483648, OptionalInt.of(30))).isInstanceOf(VerifyException.class);
+        //noinspection NumericOverflow
+        assertThatThrownBy(() -> createSyntheticJoinProjectionColumn(column("negative_id"), Integer.MAX_VALUE + 1, OptionalInt.of(30)))
+                .isInstanceOf(VerifyException.class)
+                .hasMessage("nextSyntheticColumnId rolled over and is not monotonically increasing any more");
     }
 
     @Test
