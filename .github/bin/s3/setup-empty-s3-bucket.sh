@@ -38,6 +38,9 @@ echo "The AWS S3 bucket ${S3_BUCKET_IDENTIFIER} in the region ${AWS_REGION} exis
 
 echo "Tagging the AWS S3 bucket ${S3_BUCKET_IDENTIFIER} with TTL tags"
 
+# "test" environment tag is needed so that the bucket gets cleaned up by the daily AWS resource cleanup job in case the
+# temporary bucket is not properly cleaned up by delete-s3-bucket.sh. The ttl tag tells the AWS resource cleanup job
+# when the bucket is expired and should be cleaned up
 aws s3api put-bucket-tagging \
   --bucket "${S3_BUCKET_IDENTIFIER}" \
-  --tagging "TagSet=[{Key=ttl,Value=${S3_BUCKET_TTL}}]"
+  --tagging "TagSet=[{Key=environment,Value=test},{Key=ttl,Value=${S3_BUCKET_TTL}}]"
