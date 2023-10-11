@@ -89,6 +89,7 @@ import java.time.temporal.ChronoField;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.BiFunction;
 
@@ -214,6 +215,8 @@ public class OracleClient
     private final boolean synonymsEnabled;
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
+
+    private Integer maxColumnNameLength;
 
     @Inject
     public OracleClient(
@@ -346,6 +349,27 @@ public class OracleClient
     public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
+    }
+
+    @Override
+    public OptionalInt getMaxColumnNameLength(ConnectorSession session)
+    {
+        if (maxColumnNameLength != null) {
+            // According to JavaDoc of DatabaseMetaData#getMaxColumnNameLength a value of 0 signifies that the limit is unknown
+            if (maxColumnNameLength == 0) {
+                return OptionalInt.empty();
+            }
+
+            return OptionalInt.of(maxColumnNameLength);
+        }
+
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            maxColumnNameLength = connection.getMetaData().getMaxColumnNameLength();
+            return OptionalInt.of(maxColumnNameLength);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     @Override
