@@ -4128,38 +4128,38 @@ public abstract class BaseConnectorTest
             throw new AssertionError("Cannot test INSERT without CTAS, the test needs to be implemented in a connector-specific way");
         }
 
-        String query = "SELECT phone, custkey, acctbal FROM customer";
+        String query = "SELECT name, nationkey, regionkey FROM nation";
 
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", "AS " + query + " WITH NO DATA")) {
             assertQuery("SELECT count(*) FROM " + table.getName() + "", "SELECT 0");
 
-            assertUpdate("INSERT INTO " + table.getName() + " " + query, "SELECT count(*) FROM customer");
+            assertUpdate("INSERT INTO " + table.getName() + " " + query, 25);
 
             assertQuery("SELECT * FROM " + table.getName() + "", query);
 
-            assertUpdate("INSERT INTO " + table.getName() + " (custkey) VALUES (-1)", 1);
-            assertUpdate("INSERT INTO " + table.getName() + " (custkey) VALUES (null)", 1);
-            assertUpdate("INSERT INTO " + table.getName() + " (phone) VALUES ('3283-2001-01-01')", 1);
-            assertUpdate("INSERT INTO " + table.getName() + " (custkey, phone) VALUES (-2, '3283-2001-01-02')", 1);
-            assertUpdate("INSERT INTO " + table.getName() + " (phone, custkey) VALUES ('3283-2001-01-03', -3)", 1);
-            assertUpdate("INSERT INTO " + table.getName() + " (acctbal) VALUES (1234)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (nationkey) VALUES (-1)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (nationkey) VALUES (null)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (name) VALUES ('name-dummy-1')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (nationkey, name) VALUES (-2, 'name-dummy-2')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (name, nationkey) VALUES ('name-dummy-3', -3)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (regionkey) VALUES (1234)", 1);
 
             assertQuery("SELECT * FROM " + table.getName() + "", query
                     + " UNION ALL SELECT null, -1, null"
                     + " UNION ALL SELECT null, null, null"
-                    + " UNION ALL SELECT '3283-2001-01-01', null, null"
-                    + " UNION ALL SELECT '3283-2001-01-02', -2, null"
-                    + " UNION ALL SELECT '3283-2001-01-03', -3, null"
+                    + " UNION ALL SELECT 'name-dummy-1', null, null"
+                    + " UNION ALL SELECT 'name-dummy-2', -2, null"
+                    + " UNION ALL SELECT 'name-dummy-3', -3, null"
                     + " UNION ALL SELECT null, null, 1234");
 
             // UNION query produces columns in the opposite order
             // of how they are declared in the table schema
             assertUpdate(
-                    "INSERT INTO " + table.getName() + " (custkey, phone, acctbal) " +
-                            "SELECT custkey, phone, acctbal FROM customer " +
+                    "INSERT INTO " + table.getName() + " (nationkey, name, regionkey) " +
+                            "SELECT nationkey, name, regionkey FROM nation " +
                             "UNION ALL " +
-                            "SELECT custkey, phone, acctbal FROM customer",
-                    "SELECT 2 * count(*) FROM customer");
+                            "SELECT nationkey, name, regionkey FROM nation",
+                    50);
         }
     }
 
