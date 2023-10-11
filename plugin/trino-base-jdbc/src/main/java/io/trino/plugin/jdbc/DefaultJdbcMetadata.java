@@ -107,8 +107,6 @@ import static java.util.Objects.requireNonNull;
 public class DefaultJdbcMetadata
         implements JdbcMetadata
 {
-    public static final int DEFAULT_COLUMN_ALIAS_LENGTH = 30;
-
     private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_pfgnrtd_";
     private static final String DELETE_ROW_ID = "_trino_artificial_column_handle_for_delete_row_id_";
     private static final String MERGE_ROW_ID = "$merge_row_id";
@@ -466,15 +464,16 @@ public class DefaultJdbcMetadata
         int nextSyntheticColumnId = max(leftHandle.getNextSyntheticColumnId(), rightHandle.getNextSyntheticColumnId());
 
         ImmutableMap.Builder<JdbcColumnHandle, JdbcColumnHandle> newLeftColumnsBuilder = ImmutableMap.builder();
+        OptionalInt maxColumnNameLength = jdbcClient.getMaxColumnNameLength(session);
         for (JdbcColumnHandle column : jdbcClient.getColumns(session, leftHandle)) {
-            newLeftColumnsBuilder.put(column, createSyntheticJoinProjectionColumn(column, nextSyntheticColumnId));
+            newLeftColumnsBuilder.put(column, createSyntheticJoinProjectionColumn(column, nextSyntheticColumnId, maxColumnNameLength));
             nextSyntheticColumnId++;
         }
         Map<JdbcColumnHandle, JdbcColumnHandle> newLeftColumns = newLeftColumnsBuilder.buildOrThrow();
 
         ImmutableMap.Builder<JdbcColumnHandle, JdbcColumnHandle> newRightColumnsBuilder = ImmutableMap.builder();
         for (JdbcColumnHandle column : jdbcClient.getColumns(session, rightHandle)) {
-            newRightColumnsBuilder.put(column, createSyntheticJoinProjectionColumn(column, nextSyntheticColumnId));
+            newRightColumnsBuilder.put(column, createSyntheticJoinProjectionColumn(column, nextSyntheticColumnId, maxColumnNameLength));
             nextSyntheticColumnId++;
         }
         Map<JdbcColumnHandle, JdbcColumnHandle> newRightColumns = newRightColumnsBuilder.buildOrThrow();
@@ -532,12 +531,17 @@ public class DefaultJdbcMetadata
     }
 
     @VisibleForTesting
-    static JdbcColumnHandle createSyntheticJoinProjectionColumn(JdbcColumnHandle column, int nextSyntheticColumnId)
+    static JdbcColumnHandle createSyntheticJoinProjectionColumn(JdbcColumnHandle column, int nextSyntheticColumnId, OptionalInt optionalMaxColumnNameLength)
     {
         verify(nextSyntheticColumnId >= 0, "nextSyntheticColumnId rolled over and is not monotonically increasing any more");
+        if (optionalMaxColumnNameLength.isEmpty()) {
+            return JdbcColumnHandle.builderFrom(column)
+                    .setColumnName(column.getColumnName() + "_" + nextSyntheticColumnId)
+                    .build();
+        }
 
         int sequentialNumberLength = String.valueOf(nextSyntheticColumnId).length();
-        int originalColumnNameLength = DEFAULT_COLUMN_ALIAS_LENGTH - sequentialNumberLength - "_".length();
+        int originalColumnNameLength = optionalMaxColumnNameLength.getAsInt() - sequentialNumberLength - "_".length();
 
         String columnNameTruncated = fixedLength(originalColumnNameLength)
                 .split(column.getColumnName())

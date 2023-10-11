@@ -41,6 +41,7 @@ import org.junit.jupiter.api.TestInstance;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -403,11 +404,11 @@ public class TestDefaultJdbcMetadata
     @Test
     public void testColumnAliasTruncation()
     {
-        assertThat(createSyntheticJoinProjectionColumn(column("column_0"), 999).getColumnName())
+        assertThat(createSyntheticJoinProjectionColumn(column("column_0"), 999, OptionalInt.of(30)).getColumnName())
                 .isEqualTo("column_0_999");
-        assertThat(createSyntheticJoinProjectionColumn(column("column_with_over_twenty_characters"), 100).getColumnName())
+        assertThat(createSyntheticJoinProjectionColumn(column("column_with_over_twenty_characters"), 100, OptionalInt.of(30)).getColumnName())
                 .isEqualTo("column_with_over_twenty_ch_100");
-        assertThat(createSyntheticJoinProjectionColumn(column("column_with_over_twenty_characters"), Integer.MAX_VALUE).getColumnName())
+        assertThat(createSyntheticJoinProjectionColumn(column("column_with_over_twenty_characters"), Integer.MAX_VALUE, OptionalInt.of(30)).getColumnName())
                 .isEqualTo("column_with_over_tw_2147483647");
     }
 
@@ -416,7 +417,7 @@ public class TestDefaultJdbcMetadata
     {
         JdbcColumnHandle column = column("column_0");
 
-        assertThatThrownBy(() -> createSyntheticJoinProjectionColumn(column, -2147483648)).isInstanceOf(VerifyException.class);
+        assertThatThrownBy(() -> createSyntheticJoinProjectionColumn(column, -2147483648, OptionalInt.of(30))).isInstanceOf(VerifyException.class);
     }
 
     @Test
