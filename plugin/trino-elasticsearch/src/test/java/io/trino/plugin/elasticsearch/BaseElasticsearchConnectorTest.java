@@ -56,12 +56,12 @@ import static org.testng.Assert.assertTrue;
 public abstract class BaseElasticsearchConnectorTest
         extends BaseConnectorTest
 {
-    private final String image;
-    private final String catalogName;
-    private ElasticsearchServer elasticsearch;
+    protected final String image;
+    protected final String catalogName;
+    protected ElasticsearchServer elasticsearch;
     protected RestHighLevelClient client;
 
-    BaseElasticsearchConnectorTest(String image, String catalogName)
+    public BaseElasticsearchConnectorTest(String image, String catalogName)
     {
         this.image = image;
         this.catalogName = catalogName;

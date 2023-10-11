@@ -91,7 +91,7 @@ public class BackpressureRestClient
     private static boolean isBackpressure(Throwable throwable)
     {
         return (throwable instanceof ResponseException) &&
-                (((ResponseException) throwable).getResponse().getStatusLine().getStatusCode() == RestStatus.TOO_MANY_REQUESTS.getStatus());
+               (((ResponseException) throwable).getResponse().getStatusLine().getStatusCode() == RestStatus.TOO_MANY_REQUESTS.getStatus());
     }
 
     private void onComplete(ExecutionCompletedEvent<Response> executionCompletedEvent)
@@ -126,3 +126,4 @@ public class BackpressureRestClient
         }
     }
 }
+

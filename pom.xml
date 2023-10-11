@@ -903,6 +903,13 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-elasticsearch</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-example-http</artifactId>
                 <version>${project.version}</version>
                 <type>zip</type>

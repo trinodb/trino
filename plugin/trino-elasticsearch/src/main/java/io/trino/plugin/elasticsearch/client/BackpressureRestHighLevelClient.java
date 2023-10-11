@@ -23,7 +23,6 @@ import dev.failsafe.function.CheckedSupplier;
 import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
 import io.trino.plugin.elasticsearch.ElasticsearchConfig;
-import org.apache.http.Header;
 import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.search.ClearScrollRequest;
@@ -31,7 +30,7 @@ import org.elasticsearch.action.search.ClearScrollResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchScrollRequest;
-import org.elasticsearch.client.RestClientBuilder;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.rest.RestStatus;
 
@@ -55,10 +54,10 @@ public class BackpressureRestHighLevelClient
     private final TimeStat backpressureStats;
     private final ThreadLocal<Stopwatch> stopwatch = ThreadLocal.withInitial(Stopwatch::createUnstarted);
 
-    public BackpressureRestHighLevelClient(RestClientBuilder restClientBuilder, ElasticsearchConfig config, TimeStat backpressureStats)
+    public BackpressureRestHighLevelClient(RestHighLevelClient delegate, ElasticsearchConfig config, TimeStat backpressureStats)
     {
         this.backpressureStats = requireNonNull(backpressureStats, "backpressureStats is null");
-        delegate = new RestHighLevelClient(requireNonNull(restClientBuilder, "restClientBuilder is null"));
+        this.delegate = requireNonNull(delegate, "delegate is null");
         backpressureRestClient = new BackpressureRestClient(delegate.getLowLevelClient(), config, backpressureStats);
         retryPolicy = RetryPolicy.<ActionResponse>builder()
                 .withMaxAttempts(-1)
@@ -84,28 +83,46 @@ public class BackpressureRestHighLevelClient
         delegate.close();
     }
 
-    public SearchResponse search(SearchRequest searchRequest, Header... headers)
+    public SearchResponse search(SearchRequest searchRequest)
             throws IOException
     {
-        return executeWithRetries(() -> delegate.search(searchRequest, headers));
+        return search(searchRequest, RequestOptions.DEFAULT);
     }
 
-    public SearchResponse searchScroll(SearchScrollRequest searchScrollRequest, Header... headers)
+    public SearchResponse search(SearchRequest searchRequest, RequestOptions options)
             throws IOException
     {
-        return executeWithRetries(() -> delegate.searchScroll(searchScrollRequest, headers));
+        return executeWithRetries(() -> delegate.search(searchRequest, options));
     }
 
-    public ClearScrollResponse clearScroll(ClearScrollRequest clearScrollRequest, Header... headers)
+    public SearchResponse searchScroll(SearchScrollRequest searchScrollRequest)
             throws IOException
     {
-        return executeWithRetries(() -> delegate.clearScroll(clearScrollRequest, headers));
+        return searchScroll(searchScrollRequest, RequestOptions.DEFAULT);
+    }
+
+    public SearchResponse searchScroll(SearchScrollRequest searchScrollRequest, RequestOptions requestOptions)
+            throws IOException
+    {
+        return executeWithRetries(() -> delegate.scroll(searchScrollRequest, requestOptions));
+    }
+
+    public ClearScrollResponse clearScroll(ClearScrollRequest clearScrollRequest)
+            throws IOException
+    {
+        return clearScroll(clearScrollRequest, RequestOptions.DEFAULT);
+    }
+
+    public ClearScrollResponse clearScroll(ClearScrollRequest clearScrollRequest, RequestOptions requestOptions)
+            throws IOException
+    {
+        return executeWithRetries(() -> delegate.clearScroll(clearScrollRequest, requestOptions));
     }
 
     private static boolean isBackpressure(Throwable throwable)
     {
         return (throwable instanceof ElasticsearchStatusException) &&
-                (((ElasticsearchStatusException) throwable).status() == RestStatus.TOO_MANY_REQUESTS);
+               (((ElasticsearchStatusException) throwable).status() == RestStatus.TOO_MANY_REQUESTS);
     }
 
     private void onComplete(ExecutionCompletedEvent<ActionResponse> executionCompletedEvent)

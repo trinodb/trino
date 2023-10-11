@@ -16,7 +16,10 @@ package io.trino.plugin.elasticsearch;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.elasticsearch.client.AuthRestClientConfigurator;
+import io.trino.plugin.elasticsearch.client.ElasticRestClientConfigurator;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
+import io.trino.plugin.elasticsearch.client.ElasticsearchRestClientFactory;
 import io.trino.plugin.elasticsearch.ptf.RawQuery;
 import io.trino.spi.function.table.ConnectorTableFunction;
 
@@ -39,6 +42,7 @@ public class ElasticsearchConnectorModule
         binder.bind(ElasticsearchMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchPageSourceProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ElasticsearchRestClientFactory.class).to(ElasticsearchRestClientFactory.class);
         binder.bind(ElasticsearchClient.class).in(Scopes.SINGLETON);
         binder.bind(NodesSystemTable.class).in(Scopes.SINGLETON);
 
@@ -64,5 +68,7 @@ public class ElasticsearchConnectorModule
                         .filter(isEqual(PASSWORD))
                         .isPresent(),
                 conditionalBinder -> configBinder(conditionalBinder).bindConfig(PasswordConfig.class)));
+
+        newSetBinder(binder, ElasticRestClientConfigurator.class).addBinding().to(AuthRestClientConfigurator.class).in(Scopes.SINGLETON);
     }
 }
