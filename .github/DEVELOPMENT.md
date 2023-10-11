@@ -26,24 +26,26 @@ A typical pull request should strive to contain a single logical change (but not
 necessarily a single commit). Unrelated changes should generally be extracted
 into their own PRs.
 
-If a pull request does consist of multiple commits, it is expected that
-every prefix of it is correct. That is, there might be preparatory
-commits at the bottom of the stack that don't bring any value by
-themselves, but none of the commits should introduce an error that is
-fixed by some future commit. Every commit should build and pass all
-tests.
+If a pull request contains a stack of more than one commit, then
+popping any number of commits from the top of the stack, should not
+break the PR, ie. every commit should build and pass all tests.
 
-Commit messages and history are also important, as they are used by
-other developers to keep track of the motivation behind changes. Keep
-logical diffs grouped together in separate commits, and order commits
-in a way that explains the progress of the changes. Rewriting and
-reordering commits may be a necessary part of the PR review process as
-the code changes. Mechanical changes (like refactoring and
-renaming)should be separated from logical and functional changes. E.g.
-deduplicating code or extracting helper methods should happen in a
-separate commit from the commit where new features or behavior is
-introduced.  This makes reviewing the code much easier and reduces the
-chance of introducing unintended changes in behavior.
+Commit messages and history are important as well, because they are
+used by other developers to keep track of the motivation behind
+changes. Keep logical diffs grouped together in separate commits and
+order commits in a way that explains by itself the evolution of the
+change. Rewriting and reordering commits is a natural part of the
+review process. Mechanical changes like refactoring, renaming, removing
+duplication, extracting helper methods, static imports should be kept
+separated from logical and functional changes like adding a new feature
+or modifying code behaviour. This makes reviewing the code much easier
+and reduces the chance of introducing unintended changes in behavior.
+
+Whenever in doubt on splitting a change into a separate commit, ask
+yourself the following question: if all other work in the PR needs to
+be reverted after merging to master for some objective reason (eg. a
+bug has been discovered), is it worth keeping that commit still in
+master.
 
 ## Code Style
 
