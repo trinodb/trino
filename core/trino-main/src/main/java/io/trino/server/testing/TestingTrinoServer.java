@@ -72,6 +72,7 @@ import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.GracefulShutdownHandler;
 import io.trino.server.PluginInstaller;
+import io.trino.server.PrefixObjectNameGeneratorModule;
 import io.trino.server.Server;
 import io.trino.server.ServerMainModule;
 import io.trino.server.SessionPropertyDefaults;
@@ -267,6 +268,7 @@ public class TestingTrinoServer
                 .add(new JsonModule())
                 .add(new JaxrsModule())
                 .add(new MBeanModule())
+                .add(new PrefixObjectNameGeneratorModule("io.trino"))
                 .add(new TestingJmxModule())
                 .add(new JmxOpenMetricsModule())
                 .add(new EventModule())
