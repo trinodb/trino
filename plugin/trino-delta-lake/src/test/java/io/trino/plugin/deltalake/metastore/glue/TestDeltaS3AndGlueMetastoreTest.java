@@ -21,6 +21,7 @@ import io.trino.testing.QueryRunner;
 
 import java.nio.file.Path;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -61,7 +62,7 @@ public class TestDeltaS3AndGlueMetastoreTest
         {
             String locationDirectory = location.endsWith("/") ? location : location + "/";
             String partitionPart = partitionColumn.isEmpty() ? "" : partitionColumn + "=[a-z0-9]+/";
-            assertThat(dataFile).matches("^" + locationDirectory + partitionPart + "[a-zA-Z0-9_-]+$");
+            assertThat(dataFile).matches("^" + Pattern.quote(locationDirectory) + partitionPart + "[a-zA-Z0-9_-]+$");
             verifyPathExist(dataFile);
         });
     }
@@ -72,11 +73,11 @@ public class TestDeltaS3AndGlueMetastoreTest
         String locationDirectory = location.endsWith("/") ? location : location + "/";
         getAllMetadataDataFilesFromTableDirectory(location).forEach(metadataFile ->
         {
-            assertThat(metadataFile).matches("^" + locationDirectory + "_delta_log/[0-9]+.json$");
+            assertThat(metadataFile).matches("^" + Pattern.quote(locationDirectory) + "_delta_log/[0-9]+.json$");
             verifyPathExist(metadataFile);
         });
 
-        assertThat(getExtendedStatisticsFileFromTableDirectory(location)).matches("^" + locationDirectory + "_delta_log/_trino_meta/extended_stats.json$");
+        assertThat(getExtendedStatisticsFileFromTableDirectory(location)).matches("^" + Pattern.quote(locationDirectory) + "_delta_log/_trino_meta/extended_stats.json$");
     }
 
     @Override
