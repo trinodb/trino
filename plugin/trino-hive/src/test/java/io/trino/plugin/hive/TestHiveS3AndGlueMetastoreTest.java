@@ -25,6 +25,7 @@ import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.DOUBLE_SLASH;
 import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.TRIPLE_SLASH;
@@ -89,7 +90,7 @@ public class TestHiveS3AndGlueMetastoreTest
         {
             String locationDirectory = location.endsWith("/") ? location : location + "/";
             String partitionPart = partitionColumn.isEmpty() ? "" : partitionColumn + "=[a-z0-9]+/";
-            assertThat(dataFile).matches("^" + locationDirectory + partitionPart + "[a-zA-Z0-9_-]+$");
+            assertThat(dataFile).matches("^" + Pattern.quote(locationDirectory) + partitionPart + "[a-zA-Z0-9_-]+$");
             verifyPathExist(dataFile);
         });
     }
@@ -186,7 +187,7 @@ public class TestHiveS3AndGlueMetastoreTest
 
             assertUpdate("CREATE TABLE " + qualifiedTableName + "(col_str varchar, col_int int)" + partitionQueryPart);
             try (UncheckedCloseable ignoredDropTable = onClose("DROP TABLE " + qualifiedTableName)) {
-                String expectedTableLocation = ((schemaLocation.endsWith("/") ? schemaLocation : schemaLocation + "/") + tableName)
+                String expectedTableLocation = Pattern.quote((schemaLocation.endsWith("/") ? schemaLocation : schemaLocation + "/") + tableName)
                         // Hive normalizes repeated slashes
                         .replaceAll("(?<!(s3:))/+", "/");
 
@@ -276,30 +277,6 @@ public class TestHiveS3AndGlueMetastoreTest
                         (null, null, null, null, 4.0, null, null)""");
             }
         }
-    }
-
-    @Test
-    public void testCreateTableWithIncorrectLocation()
-    {
-        String tableName = "test_create_table_with_incorrect_location_" + randomNameSuffix();
-        String location = "s3://%s/%s/a#hash/%s".formatted(bucketName, schemaName, tableName);
-
-        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + tableName + "(col_str varchar, col_int integer) WITH (external_location = '" + location + "')"))
-                .hasMessageContaining("External location is not a valid file system URI")
-                .hasStackTraceContaining("Fragment is not allowed in a file system location");
-    }
-
-    @Test
-    public void testCtasWithIncorrectLocation()
-    {
-        String tableName = "test_ctas_with_incorrect_location_" + randomNameSuffix();
-        String location = "s3://%s/%s/a#hash/%s".formatted(bucketName, schemaName, tableName);
-
-        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + tableName + "(col_str, col_int)" +
-                " WITH (external_location = '" + location + "')" +
-                " AS VALUES ('str1', 1)"))
-                .hasMessageContaining("External location is not a valid file system URI")
-                .hasStackTraceContaining("Fragment is not allowed in a file system location");
     }
 
     @Test
