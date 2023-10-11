@@ -49,7 +49,7 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
         String databricksTestJdbcUrl = databricksTestJdbcUrl();
         String databricksTestLogin = requireNonNull(System.getenv("DATABRICKS_LOGIN"), "Environment DATABRICKS_LOGIN was not set");
         String databricksTestToken = requireNonNull(System.getenv("DATABRICKS_TOKEN"), "Environment DATABRICKS_TOKEN was not set");
-        String awsRegion = requireNonNull(System.getenv("AWS_REGION"), "Environment AWS_REGION was not set");
+        String awsRegion = requireNonNull(System.getenv("DATABRICKS_AWS_REGION"), "Environment DATABRICKS_AWS_REGION was not set");
         String s3Bucket = requireNonNull(System.getenv("S3_BUCKET"), "Environment S3_BUCKET was not set");
         DockerFiles.ResourceProvider configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-delta-lake-databricks");
 
