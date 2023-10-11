@@ -6573,7 +6573,7 @@ public abstract class BaseConnectorTest
 
     protected Session withoutSmallFileThreshold(Session session)
     {
-        return session;
+        throw new UnsupportedOperationException();
     }
 
     protected static final class DataMappingTestSetup
