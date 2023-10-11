@@ -171,7 +171,7 @@ public class TestCassandraConnectorTest
         return "tmp_trino_" + System.nanoTime();
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowColumns()
     {

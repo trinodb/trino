@@ -45,6 +45,7 @@ public class TestUnknownType
                 .isEmpty();
     }
 
+    @Test
     @Override
     public void testFlat()
             throws Throwable

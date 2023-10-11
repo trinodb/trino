@@ -127,6 +127,7 @@ public class TestDruidConnectorTest
                 .build();
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowColumns()
     {

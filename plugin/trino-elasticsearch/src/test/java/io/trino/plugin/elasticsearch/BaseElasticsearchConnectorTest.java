@@ -212,7 +212,7 @@ public abstract class BaseElasticsearchConnectorTest
                         ")");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowColumns()
     {

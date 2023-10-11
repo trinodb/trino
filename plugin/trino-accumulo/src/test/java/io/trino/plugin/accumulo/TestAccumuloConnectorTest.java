@@ -182,6 +182,7 @@ public class TestAccumuloConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testShowColumns()
     {
