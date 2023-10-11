@@ -164,6 +164,12 @@ public class HivePageSourceProvider
                 hiveSplit.getPath()));
     }
 
+    @Override
+    public boolean shouldPerformDynamicRowFiltering()
+    {
+        return true;
+    }
+
     public static Optional<ConnectorPageSource> createHivePageSource(
             Set<HivePageSourceFactory> pageSourceFactories,
             ConnectorSession session,

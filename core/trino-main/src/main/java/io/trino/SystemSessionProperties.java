@@ -214,6 +214,9 @@ public final class SystemSessionProperties
     public static final String USE_COST_BASED_PARTITIONING = "use_cost_based_partitioning";
     public static final String USE_SUB_PLAN_ALTERNATIVES = "use_sub_plan_alternatives";
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
+    public static final String DYNAMIC_ROW_FILTERING_ENABLED = "dynamic_row_filtering_enabled";
+    public static final String DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD = "dynamic_row_filtering_selectivity_threshold";
+    public static final String DYNAMIC_ROW_FILTERING_WAIT_TIMEOUT = "dynamic_row_filtering_wait_timeout";
     public static final String PAGE_PARTITIONING_BUFFER_POOL_SIZE = "page_partitioning_buffer_pool_size";
     public static final String COLUMNAR_FILTER_EVALUATION_ENABLED = "columnar_filter_evaluation_enabled";
 
@@ -1105,6 +1108,26 @@ public final class SystemSessionProperties
                         "Enables columnar evaluation of filters",
                         featuresConfig.isColumnarFilterEvaluationEnabled(),
                         false),
+                booleanProperty(
+                        DYNAMIC_ROW_FILTERING_ENABLED,
+                        "Enable dynamic row filtering on worker nodes",
+                        dynamicFilterConfig.isDynamicRowFilteringEnabled(),
+                        false),
+                doubleProperty(
+                        DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD,
+                        "Avoid using dynamic row filters when fraction of rows selected is above threshold",
+                        dynamicFilterConfig.getDynamicRowFilterSelectivityThreshold(),
+                        value -> {
+                            if (value < 0 || value > 1) {
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be in the range [0, 1]: %s", DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD, value));
+                            }
+                        },
+                        false),
+                durationProperty(
+                        DYNAMIC_ROW_FILTERING_WAIT_TIMEOUT,
+                        "Duration to wait for completion of dynamic filters",
+                        dynamicFilterConfig.getDynamicRowFilteringWaitTimeout(),
+                        false),
                 integerProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE,
                         "Maximum number of free buffers in the per task partitioned page buffer pool. Setting this to zero effectively disables the pool",
                         taskManagerConfig.getPagePartitioningBufferPoolSize(),
@@ -1987,6 +2010,21 @@ public final class SystemSessionProperties
     public static boolean isForceSpillingOperator(Session session)
     {
         return session.getSystemProperty(FORCE_SPILLING_JOIN, Boolean.class);
+    }
+
+    public static boolean isDynamicRowFilteringEnabled(Session session)
+    {
+        return session.getSystemProperty(DYNAMIC_ROW_FILTERING_ENABLED, Boolean.class);
+    }
+
+    public static double getDynamicRowFilterSelectivityThreshold(Session session)
+    {
+        return session.getSystemProperty(DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD, Double.class);
+    }
+
+    public static Duration getDynamicRowFilteringWaitTimeout(Session session)
+    {
+        return session.getSystemProperty(DYNAMIC_ROW_FILTERING_WAIT_TIMEOUT, Duration.class);
     }
 
     public static int getPagePartitioningBufferPoolSize(Session session)

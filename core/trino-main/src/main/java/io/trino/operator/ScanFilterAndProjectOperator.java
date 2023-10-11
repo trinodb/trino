@@ -26,6 +26,7 @@ import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.WorkProcessor.ProcessState;
 import io.trino.operator.WorkProcessor.TransformationState;
+import io.trino.operator.dynamicfiltering.DynamicRowFilteringPageSourceProvider;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.CursorProcessorOutput;
 import io.trino.operator.project.PageProcessor;
@@ -416,6 +417,7 @@ public class ScanFilterAndProjectOperator
         private final Supplier<PageProcessor> pageProcessor;
         private final PlanNodeId sourceId;
         private final PageSourceProvider pageSourceProvider;
+        private final DynamicRowFilteringPageSourceProvider dynamicRowFilteringPageSourceProvider;
         private final TableHandle table;
         private final List<ColumnHandle> columns;
         private final DynamicFilter dynamicFilter;
@@ -429,6 +431,7 @@ public class ScanFilterAndProjectOperator
                 PlanNodeId planNodeId,
                 PlanNodeId sourceId,
                 PageSourceProvider pageSourceProvider,
+                DynamicRowFilteringPageSourceProvider dynamicRowFilteringPageSourceProvider,
                 Supplier<CursorProcessor> cursorProcessor,
                 Supplier<PageProcessor> pageProcessor,
                 TableHandle table,
@@ -444,6 +447,7 @@ public class ScanFilterAndProjectOperator
             this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+            this.dynamicRowFilteringPageSourceProvider = requireNonNull(dynamicRowFilteringPageSourceProvider, "dynamicRowFilteringPageSourceProvider is null");
             this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.dynamicFilter = dynamicFilter;
@@ -496,7 +500,7 @@ public class ScanFilterAndProjectOperator
                     memoryTrackingContext,
                     yieldSignal,
                     splits,
-                    TableAwarePageSourceProvider.create(operatorContext, table, pageSourceProvider),
+                    TableAwarePageSourceProvider.create(operatorContext, table, pageSourceProvider, dynamicRowFilteringPageSourceProvider),
                     cursorProcessor.get(),
                     pageProcessor.get(),
                     columns,

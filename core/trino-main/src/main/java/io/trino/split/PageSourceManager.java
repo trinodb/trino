@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
+import io.trino.operator.dynamicfiltering.DynamicRowFilteringPageSourceProvider;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -36,11 +37,13 @@ public class PageSourceManager
         implements PageSourceProvider
 {
     private final CatalogServiceProvider<ConnectorPageSourceProvider> pageSourceProvider;
+    private final DynamicRowFilteringPageSourceProvider dynamicRowFilteringPageSourceProvider;
 
     @Inject
-    public PageSourceManager(CatalogServiceProvider<ConnectorPageSourceProvider> pageSourceProvider)
+    public PageSourceManager(CatalogServiceProvider<ConnectorPageSourceProvider> pageSourceProvider, DynamicRowFilteringPageSourceProvider dynamicRowFilteringPageSourceProvider)
     {
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.dynamicRowFilteringPageSourceProvider = requireNonNull(dynamicRowFilteringPageSourceProvider, "dynamicRowFilteringPageSourceProvider is null");
     }
 
     @Override
@@ -58,11 +61,19 @@ public class PageSourceManager
         if (!isAllowPushdownIntoConnectors(session)) {
             dynamicFilter = DynamicFilter.EMPTY;
         }
-        return provider.createPageSource(
+        ConnectorPageSource pageSource = provider.createPageSource(
                 table.getTransaction(),
                 session.toConnectorSession(catalogHandle),
                 split.getConnectorSplit(),
                 table.getConnectorHandle(),
+                columns,
+                dynamicFilter);
+        if (!provider.shouldPerformDynamicRowFiltering()) {
+            return pageSource;
+        }
+        return dynamicRowFilteringPageSourceProvider.createPageSource(
+                pageSource,
+                session,
                 columns,
                 dynamicFilter);
     }

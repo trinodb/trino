@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
+import io.trino.operator.dynamicfiltering.DynamicRowFilteringPageSourceProvider;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -53,6 +54,7 @@ public class TableScanOperator
         private final PlanNodeId planNodeId;
         private final PlanNodeId sourceId;
         private final PageSourceProvider pageSourceProvider;
+        private final DynamicRowFilteringPageSourceProvider dynamicRowFilteringPageSourceProvider;
         private final TableHandle table;
         private final List<ColumnHandle> columns;
         private final DynamicFilter dynamicFilter;
@@ -63,6 +65,7 @@ public class TableScanOperator
                 PlanNodeId planNodeId,
                 PlanNodeId sourceId,
                 PageSourceProvider pageSourceProvider,
+                DynamicRowFilteringPageSourceProvider dynamicRowFilteringPageSourceProvider,
                 TableHandle table,
                 Iterable<ColumnHandle> columns,
                 DynamicFilter dynamicFilter)
@@ -71,6 +74,7 @@ public class TableScanOperator
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+            this.dynamicRowFilteringPageSourceProvider = requireNonNull(dynamicRowFilteringPageSourceProvider, "dynamicRowFilteringPageSourceProvider is null");
             this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
@@ -90,7 +94,7 @@ public class TableScanOperator
             return new TableScanOperator(
                     operatorContext,
                     sourceId,
-                    TableAwarePageSourceProvider.create(operatorContext, table, pageSourceProvider),
+                    TableAwarePageSourceProvider.create(operatorContext, table, pageSourceProvider, dynamicRowFilteringPageSourceProvider),
                     columns,
                     dynamicFilter);
         }
@@ -126,13 +130,14 @@ public class TableScanOperator
             OperatorContext operatorContext,
             PlanNodeId sourceId,
             PageSourceProvider pageSourceProvider,
+            DynamicRowFilteringPageSourceProvider dynamicRowFilteringPageSourceProvider,
             TableHandle table,
             Iterable<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
         this(operatorContext,
                 sourceId,
-                TableAwarePageSourceProvider.create(operatorContext, table, pageSourceProvider),
+                TableAwarePageSourceProvider.create(operatorContext, table, pageSourceProvider, dynamicRowFilteringPageSourceProvider),
                 columns,
                 dynamicFilter);
     }

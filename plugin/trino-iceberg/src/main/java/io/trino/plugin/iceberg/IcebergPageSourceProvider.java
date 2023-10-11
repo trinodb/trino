@@ -536,6 +536,12 @@ public class IcebergPageSourceProvider
                 .get();
     }
 
+    @Override
+    public boolean shouldPerformDynamicRowFiltering()
+    {
+        return true;
+    }
+
     public ReaderPageSourceWithRowPositions createDataPageSource(
             ConnectorSession session,
             TrinoInputFile inputFile,

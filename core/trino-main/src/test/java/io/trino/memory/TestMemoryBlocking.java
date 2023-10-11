@@ -28,11 +28,14 @@ import io.trino.operator.DriverContext;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.TableScanOperator;
 import io.trino.operator.TaskContext;
+import io.trino.operator.dynamicfiltering.DynamicPageFilterCache;
+import io.trino.operator.dynamicfiltering.DynamicRowFilteringPageSourceProvider;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.split.TableAwarePageSourceProvider;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
@@ -111,7 +114,8 @@ public class TestMemoryBlocking
                                 .addSequencePage(10, 1)
                                 .addSequencePage(10, 1)
                                 .addSequencePage(10, 1)
-                                .build())),
+                                .build()),
+                        new DynamicRowFilteringPageSourceProvider(new DynamicPageFilterCache(new TypeOperators()))),
                 ImmutableList.of(),
                 DynamicFilter.EMPTY);
         PageConsumerOperator sink = createSinkOperator(types);

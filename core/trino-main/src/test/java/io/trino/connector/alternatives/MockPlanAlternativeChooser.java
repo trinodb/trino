@@ -67,6 +67,12 @@ public class MockPlanAlternativeChooser
                 createPageSource(transaction, session1, planAlternativeSplit, table, columns, dynamicFilter));
     }
 
+    @Override
+    public boolean shouldPerformDynamicRowFiltering()
+    {
+        return true;
+    }
+
     private ConnectorPageSource createPageSource(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,

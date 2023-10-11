@@ -20,6 +20,8 @@ import io.trino.SequencePageBuilder;
 import io.trino.Session;
 import io.trino.metadata.Split;
 import io.trino.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
+import io.trino.operator.dynamicfiltering.DynamicPageFilterCache;
+import io.trino.operator.dynamicfiltering.DynamicRowFilteringPageSourceProvider;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
@@ -27,6 +29,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
@@ -171,6 +174,7 @@ public class BenchmarkScanFilterAndProjectOperator
                     new PlanNodeId("test"),
                     new PlanNodeId("test_source"),
                     (session, split, table, columns, dynamicFilter) -> new FixedPageSource(inputPages),
+                    new DynamicRowFilteringPageSourceProvider(new DynamicPageFilterCache(new TypeOperators())),
                     () -> cursorProcessor,
                     () -> pageProcessor,
                     TEST_TABLE_HANDLE,

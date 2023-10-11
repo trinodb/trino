@@ -58,4 +58,10 @@ public class AlternativeChooserPageSourceProvider
             return provider.createPageSource(transaction, session, columns, dynamicFilter);
         }
     }
+
+    @Override
+    public boolean shouldPerformDynamicRowFiltering()
+    {
+        return alternativeChooser.shouldPerformDynamicRowFiltering();
+    }
 }
