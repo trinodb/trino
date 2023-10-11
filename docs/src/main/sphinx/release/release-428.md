@@ -5,7 +5,7 @@
 * Reduce memory usage for queries involving `GROUP BY` clauses. ({issue}`19187`)
 * Simplify writer count configuration. Add the new `task.min-writer-count`
   and `task.max-writer-count` configuration properties along with the
-  `task_min_writer_count` and `tax_max_writer_count` session properties, which
+  `task_min_writer_count` and `task_max_writer_count` session properties, which
   control the number of writers depending on scenario. Deprecate the
   `task.writer-count`, `task.scale-writers.max-writer-count`, and
   `task.partitioned-writer-count` configuration properties, which will be
