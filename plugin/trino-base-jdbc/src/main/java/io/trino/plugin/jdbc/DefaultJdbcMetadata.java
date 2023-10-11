@@ -534,22 +534,37 @@ public class DefaultJdbcMetadata
     static JdbcColumnHandle createSyntheticJoinProjectionColumn(JdbcColumnHandle column, int nextSyntheticColumnId, OptionalInt optionalMaxColumnNameLength)
     {
         verify(nextSyntheticColumnId >= 0, "nextSyntheticColumnId rolled over and is not monotonically increasing any more");
+
+        final String separator = "_";
         if (optionalMaxColumnNameLength.isEmpty()) {
             return JdbcColumnHandle.builderFrom(column)
-                    .setColumnName(column.getColumnName() + "_" + nextSyntheticColumnId)
+                    .setColumnName(column.getColumnName() + separator + nextSyntheticColumnId)
                     .build();
         }
 
-        int sequentialNumberLength = String.valueOf(nextSyntheticColumnId).length();
-        int originalColumnNameLength = optionalMaxColumnNameLength.getAsInt() - sequentialNumberLength - "_".length();
+        int maxColumnNameLength = optionalMaxColumnNameLength.getAsInt();
+        int nextSyntheticColumnIdLength = String.valueOf(nextSyntheticColumnId).length();
+        verify(maxColumnNameLength >= nextSyntheticColumnIdLength, "Maximum allowed column name length is %s but next synthetic id has length %s", maxColumnNameLength, nextSyntheticColumnIdLength);
 
-        String columnNameTruncated = fixedLength(originalColumnNameLength)
+        if (nextSyntheticColumnIdLength == maxColumnNameLength) {
+            return JdbcColumnHandle.builderFrom(column)
+                    .setColumnName(String.valueOf(nextSyntheticColumnId))
+                    .build();
+        }
+
+        if (nextSyntheticColumnIdLength + separator.length() == maxColumnNameLength) {
+            return JdbcColumnHandle.builderFrom(column)
+                    .setColumnName(separator + nextSyntheticColumnId)
+                    .build();
+        }
+
+        // fixedLength only accepts values > 0, so the cases where the value would be <= 0 are handled above explicitly
+        String truncatedColumnName = fixedLength(maxColumnNameLength - separator.length() - nextSyntheticColumnIdLength)
                 .split(column.getColumnName())
                 .iterator()
                 .next();
-        String columnName = columnNameTruncated + "_" + nextSyntheticColumnId;
         return JdbcColumnHandle.builderFrom(column)
-                .setColumnName(columnName)
+                .setColumnName(truncatedColumnName + separator + nextSyntheticColumnId)
                 .build();
     }
 
