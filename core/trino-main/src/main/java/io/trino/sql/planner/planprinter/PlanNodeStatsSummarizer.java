@@ -13,7 +13,9 @@
  */
 package io.trino.sql.planner.planprinter;
 
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ListMultimap;
 import io.airlift.units.Duration;
 import io.trino.execution.StageInfo;
 import io.trino.execution.TaskInfo;
@@ -51,15 +53,21 @@ public final class PlanNodeStatsSummarizer
 
     public static Map<PlanNodeId, PlanNodeStats> aggregateTaskStats(List<TaskInfo> taskInfos)
     {
-        Map<PlanNodeId, PlanNodeStats> aggregatedStats = new HashMap<>();
+        ListMultimap<PlanNodeId, PlanNodeStats> groupedStats = ArrayListMultimap.create();
         List<PlanNodeStats> planNodeStats = taskInfos.stream()
                 .map(TaskInfo::getStats)
                 .flatMap(taskStats -> getPlanNodeStats(taskStats).stream())
                 .collect(toList());
         for (PlanNodeStats stats : planNodeStats) {
-            aggregatedStats.merge(stats.getPlanNodeId(), stats, PlanNodeStats::mergeWith);
+            groupedStats.put(stats.getPlanNodeId(), stats);
         }
-        return aggregatedStats;
+
+        ImmutableMap.Builder<PlanNodeId, PlanNodeStats> aggregatedStatsBuilder = ImmutableMap.builder();
+        for (PlanNodeId planNodeId : groupedStats.keySet()) {
+            List<PlanNodeStats> groupedPlanNodeStats = groupedStats.get(planNodeId);
+            aggregatedStatsBuilder.put(planNodeId, groupedPlanNodeStats.get(0).mergeWith(groupedPlanNodeStats.subList(1, groupedPlanNodeStats.size())));
+        }
+        return aggregatedStatsBuilder.buildOrThrow();
     }
 
     private static List<PlanNodeStats> getPlanNodeStats(TaskStats taskStats)
