@@ -875,6 +875,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           cache: restore
+          cleanup-node: true
       - uses: dorny/paths-filter@v2
         id: filter
         with:
