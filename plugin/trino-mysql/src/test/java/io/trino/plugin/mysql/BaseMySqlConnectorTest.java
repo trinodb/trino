@@ -103,6 +103,7 @@ public abstract class BaseMySqlConnectorTest
                 "(one bigint, two decimal(50,0), three varchar(10))");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowColumns()
     {

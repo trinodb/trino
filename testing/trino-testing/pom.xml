@@ -196,6 +196,12 @@
             <scope>runtime</scope>
         </dependency>
 
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- for benchmarks -->
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
