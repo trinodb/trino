@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class TestingNodeManager
@@ -35,15 +36,26 @@ public class TestingNodeManager
     private final String environment;
     private final Node localNode;
     private final Set<Node> nodes = new CopyOnWriteArraySet<>();
+    private final boolean scheduleOnCoordinator;
 
     public TestingNodeManager()
     {
         this(TEST_ENVIRONMENT);
     }
 
+    public TestingNodeManager(boolean scheduleOnCoordinator)
+    {
+        this(TEST_ENVIRONMENT, scheduleOnCoordinator);
+    }
+
     public TestingNodeManager(String environment)
     {
-        this(environment, new InternalNode("local", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true), ImmutableSet.of());
+        this(environment, true);
+    }
+
+    public TestingNodeManager(String environment, boolean scheduleOnCoordinator)
+    {
+        this(environment, new InternalNode("local", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true), ImmutableSet.of(), scheduleOnCoordinator);
     }
 
     public TestingNodeManager(Node localNode)
@@ -58,13 +70,14 @@ public class TestingNodeManager
 
     public TestingNodeManager(Node localNode, Collection<Node> otherNodes)
     {
-        this(TEST_ENVIRONMENT, localNode, otherNodes);
+        this(TEST_ENVIRONMENT, localNode, otherNodes, true);
     }
 
-    public TestingNodeManager(String environment, Node localNode, Collection<Node> otherNodes)
+    public TestingNodeManager(String environment, Node localNode, Collection<Node> otherNodes, boolean scheduleOnCoordinator)
     {
         this.environment = environment;
         this.localNode = requireNonNull(localNode, "localNode is null");
+        this.scheduleOnCoordinator = scheduleOnCoordinator;
         nodes.add(localNode);
         nodes.addAll(otherNodes);
     }
@@ -72,6 +85,11 @@ public class TestingNodeManager
     public void addNode(Node node)
     {
         nodes.add(node);
+    }
+
+    public void removeNode(Node node)
+    {
+        nodes.remove(node);
     }
 
     @Override
@@ -83,7 +101,12 @@ public class TestingNodeManager
     @Override
     public Set<Node> getWorkerNodes()
     {
-        return nodes;
+        if (scheduleOnCoordinator) {
+            return nodes;
+        }
+        return nodes.stream()
+                .filter(node -> !node.isCoordinator())
+                .collect(toImmutableSet());
     }
 
     @Override
