@@ -16,12 +16,14 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.trino.filesystem.Location;
+import io.trino.junit.SystemPropertyParameterResolver;
+import io.trino.junit.SystemPropertyParameterResolver.SystemProperty;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
-import org.testng.annotations.Parameters;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
@@ -40,6 +42,7 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.assertj.core.api.Assertions.assertThat;
 
+@ExtendWith(SystemPropertyParameterResolver.class)
 public class TestIcebergAbfsConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
@@ -51,11 +54,10 @@ public class TestIcebergAbfsConnectorSmokeTest
 
     private HiveHadoop hiveHadoop;
 
-    @Parameters({
-            "hive.hadoop2.azure-abfs-container",
-            "hive.hadoop2.azure-abfs-account",
-            "hive.hadoop2.azure-abfs-access-key"})
-    public TestIcebergAbfsConnectorSmokeTest(String container, String account, String accessKey)
+    public TestIcebergAbfsConnectorSmokeTest(
+            @SystemProperty("hive.hadoop2.azure-abfs-container") String container,
+            @SystemProperty("hive.hadoop2.azure-abfs-account") String account,
+            @SystemProperty("hive.hadoop2.azure-abfs-access-key") String accessKey)
     {
         super(ORC);
         this.container = requireNonNull(container, "container is null");

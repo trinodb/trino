@@ -16,13 +16,15 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import io.trino.junit.SystemPropertyParameterResolver;
+import io.trino.junit.SystemPropertyParameterResolver.SystemProperty;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.testcontainers.containers.Network;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 import java.nio.file.Files;
@@ -44,6 +46,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 
+@ExtendWith(SystemPropertyParameterResolver.class)
 public class TestDeltaLakeAdlsStorage
         extends AbstractTestQueryFramework
 {
@@ -58,11 +61,10 @@ public class TestDeltaLakeAdlsStorage
 
     private HiveHadoop hiveHadoop;
 
-    @Parameters({
-            "hive.hadoop2.azure-abfs-container",
-            "hive.hadoop2.azure-abfs-account",
-            "hive.hadoop2.azure-abfs-access-key"})
-    public TestDeltaLakeAdlsStorage(String container, String account, String accessKey)
+    public TestDeltaLakeAdlsStorage(
+            @SystemProperty("hive.hadoop2.azure-abfs-container") String container,
+            @SystemProperty("hive.hadoop2.azure-abfs-account") String account,
+            @SystemProperty("hive.hadoop2.azure-abfs-access-key") String accessKey)
     {
         requireNonNull(container, "container is null");
         this.account = requireNonNull(account, "account is null");

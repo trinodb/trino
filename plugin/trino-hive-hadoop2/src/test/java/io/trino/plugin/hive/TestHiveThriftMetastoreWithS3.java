@@ -21,14 +21,16 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import io.trino.junit.SystemPropertyParameterResolver;
+import io.trino.junit.SystemPropertyParameterResolver.SystemProperty;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -42,6 +44,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
+@ExtendWith(SystemPropertyParameterResolver.class)
 public class TestHiveThriftMetastoreWithS3
         extends AbstractTestQueryFramework
 {
@@ -53,17 +56,11 @@ public class TestHiveThriftMetastoreWithS3
     private final Path hadoopCoreSiteXmlTempFile;
     private final AmazonS3 s3Client;
 
-    @Parameters({
-            "hive.hadoop2.s3.endpoint",
-            "hive.hadoop2.s3.awsAccessKey",
-            "hive.hadoop2.s3.awsSecretKey",
-            "hive.hadoop2.s3.writableBucket",
-    })
     public TestHiveThriftMetastoreWithS3(
-            String s3endpoint,
-            String awsAccessKey,
-            String awsSecretKey,
-            String writableBucket)
+            @SystemProperty("hive.hadoop2.s3.endpoint") String s3endpoint,
+            @SystemProperty("hive.hadoop2.s3.awsAccessKey") String awsAccessKey,
+            @SystemProperty("hive.hadoop2.s3.awsSecretKey") String awsSecretKey,
+            @SystemProperty("hive.hadoop2.s3.writableBucket") String writableBucket)
             throws IOException
     {
         this.s3endpoint = requireNonNull(s3endpoint, "s3endpoint is null");
