@@ -27,6 +27,7 @@ import io.trino.filesystem.TrinoOutputFile;
 import io.trino.hadoop.ConfigurationInstantiator;
 import io.trino.hdfs.gcs.GoogleGcsConfigurationInitializer;
 import io.trino.hdfs.gcs.HiveGcsConfig;
+import io.trino.junit.SystemPropertyParameterResolver.SystemProperty;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.testing.QueryRunner;
 import org.apache.hadoop.conf.Configuration;
@@ -76,10 +77,12 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     private String gcpCredentials;
     private TrinoFileSystem fileSystem;
 
-    public TestDeltaLakeGcsConnectorSmokeTest()
+    public TestDeltaLakeGcsConnectorSmokeTest(
+            @SystemProperty("testing.gcp-storage-bucket") String gcpStorageBucket,
+            @SystemProperty("testing.gcp-credentials-key") String gcpCredentialKey)
     {
-        this.gcpStorageBucket = requireNonNull(System.getProperty("testing.gcp-storage-bucket"), "GCP storage bucket is null");
-        this.gcpCredentialKey = requireNonNull(System.getProperty("testing.gcp-credentials-key"), "GCP credential key is null");
+        this.gcpStorageBucket = requireNonNull(gcpStorageBucket, "gcpStorageBucket is null");
+        this.gcpCredentialKey = requireNonNull(gcpCredentialKey, "gcpCredentialKey is null");
     }
 
     @Override

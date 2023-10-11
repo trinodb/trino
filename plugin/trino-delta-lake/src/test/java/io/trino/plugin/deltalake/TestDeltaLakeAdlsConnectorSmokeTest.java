@@ -22,10 +22,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteSource;
 import com.google.common.io.Resources;
 import com.google.common.reflect.ClassPath;
+import io.trino.junit.SystemPropertyParameterResolver;
+import io.trino.junit.SystemPropertyParameterResolver.SystemProperty;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -53,6 +56,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testcontainers.containers.Network.newNetwork;
 
 @TestInstance(PER_CLASS)
+@ExtendWith(SystemPropertyParameterResolver.class)
 public class TestDeltaLakeAdlsConnectorSmokeTest
         extends BaseDeltaLakeConnectorSmokeTest
 {
@@ -62,11 +66,14 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
     private final BlobContainerClient azureContainerClient;
     private final String adlsDirectory;
 
-    public TestDeltaLakeAdlsConnectorSmokeTest()
+    public TestDeltaLakeAdlsConnectorSmokeTest(
+            @SystemProperty("hive.hadoop2.azure-abfs-container") String container,
+            @SystemProperty("hive.hadoop2.azure-abfs-account") String account,
+            @SystemProperty("hive.hadoop2.azure-abfs-access-key") String accessKey)
     {
-        this.container = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-container"), "container is null");
-        this.account = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-account"), "account is null");
-        this.accessKey = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-access-key"), "accessKey is null");
+        this.container = requireNonNull(container, "container is null");
+        this.account = requireNonNull(account, "account is null");
+        this.accessKey = requireNonNull(accessKey, "accessKey is null");
 
         String connectionString = format("DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s;EndpointSuffix=core.windows.net", account, accessKey);
         BlobServiceClient blobServiceClient = new BlobServiceClientBuilder().connectionString(connectionString).buildClient();

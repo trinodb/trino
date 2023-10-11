@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
+import io.trino.junit.SystemPropertyParameterResolver;
+import io.trino.junit.SystemPropertyParameterResolver.SystemProperty;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
@@ -25,6 +27,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -46,6 +49,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
+@ExtendWith(SystemPropertyParameterResolver.class)
 public class TestIcebergGcsConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
@@ -58,11 +62,13 @@ public class TestIcebergGcsConnectorSmokeTest
 
     private HiveHadoop hiveHadoop;
 
-    public TestIcebergGcsConnectorSmokeTest()
+    public TestIcebergGcsConnectorSmokeTest(
+            @SystemProperty("testing.gcp-storage-bucket") String gcpStorageBucket,
+            @SystemProperty("testing.gcp-credentials-key") String gcpCredentialKey)
     {
         super(ORC);
-        this.gcpStorageBucket = requireNonNull(System.getProperty("testing.gcp-storage-bucket"), "gcpStorageBucket is null");
-        this.gcpCredentialKey = requireNonNull(System.getProperty("testing.gcp-credentials-key"), "gcpCredentialKey is null");
+        this.gcpStorageBucket = requireNonNull(gcpStorageBucket, "gcpStorageBucket is null");
+        this.gcpCredentialKey = requireNonNull(gcpCredentialKey, "gcpCredentialKey is null");
         this.schema = "test_iceberg_gcs_connector_smoke_test_" + randomNameSuffix();
     }
 

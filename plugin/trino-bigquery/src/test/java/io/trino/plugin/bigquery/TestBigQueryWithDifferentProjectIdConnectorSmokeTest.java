@@ -14,8 +14,11 @@
 package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.junit.SystemPropertyParameterResolver;
+import io.trino.junit.SystemPropertyParameterResolver.SystemProperty;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.util.Map;
 
@@ -23,6 +26,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
+@ExtendWith(SystemPropertyParameterResolver.class)
 public class TestBigQueryWithDifferentProjectIdConnectorSmokeTest
         extends BaseBigQueryConnectorSmokeTest
 {
@@ -31,12 +35,15 @@ public class TestBigQueryWithDifferentProjectIdConnectorSmokeTest
 
     protected String alternateProjectId;
 
+    public TestBigQueryWithDifferentProjectIdConnectorSmokeTest(@SystemProperty("testing.alternate-bq-project-id") String alternateProjectId)
+    {
+        this.alternateProjectId = requireNonNull(alternateProjectId, "alternateProjectId is null");
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.alternateProjectId = requireNonNull(System.getProperty("testing.alternate-bq-project-id"), "testing.alternate-bq-project-id system property not set");
-
         QueryRunner queryRunner = BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
                 ImmutableMap.of("bigquery.project-id", alternateProjectId),
