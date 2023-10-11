@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>429</version>
+    <version>430-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -134,7 +134,7 @@
 
     <scm>
         <connection>scm:git:git://github.com/trinodb/trino.git</connection>
-        <tag>429</tag>
+        <tag>HEAD</tag>
         <url>https://github.com/trinodb/trino</url>
     </scm>
 
