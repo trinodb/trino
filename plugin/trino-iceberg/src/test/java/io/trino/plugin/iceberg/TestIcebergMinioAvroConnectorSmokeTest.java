@@ -14,9 +14,10 @@
 package io.trino.plugin.iceberg;
 
 import io.trino.filesystem.Location;
-import org.testng.SkipException;
+import org.junit.jupiter.api.Test;
 
 import static org.apache.iceberg.FileFormat.AVRO;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestIcebergMinioAvroConnectorSmokeTest
         extends BaseIcebergMinioConnectorSmokeTest
@@ -26,16 +27,18 @@ public class TestIcebergMinioAvroConnectorSmokeTest
         super(AVRO);
     }
 
+    @Test
     @Override
     public void testSortedNationTable()
     {
-        throw new SkipException("Avro does not support file sorting");
+        abort("Avro does not support file sorting");
     }
 
+    @Test
     @Override
     public void testFileSortingWithLargerTable()
     {
-        throw new SkipException("Avro does not support file sorting");
+        abort("Avro does not support file sorting");
     }
 
     @Override

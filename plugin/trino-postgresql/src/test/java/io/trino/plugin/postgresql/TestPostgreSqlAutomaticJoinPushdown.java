@@ -16,6 +16,7 @@ package io.trino.plugin.postgresql;
 import io.trino.plugin.jdbc.BaseAutomaticJoinPushdownTest;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -39,6 +40,7 @@ public class TestPostgreSqlAutomaticJoinPushdown
                 List.of());
     }
 
+    @Test
     @Override
     @Disabled
     public void testJoinPushdownWithEmptyStatsInitially()

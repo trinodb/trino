@@ -19,6 +19,7 @@ import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -48,6 +49,7 @@ public class TestIcebergFaultTolerantExecutionTest
                 .build();
     }
 
+    @Test
     @Override
     public void testExecutePreferredWritePartitioningSkewMitigation()
     {
