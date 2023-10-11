@@ -22,7 +22,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import static io.trino.plugin.jdbc.DefaultJdbcMetadata.DEFAULT_COLUMN_ALIAS_LENGTH;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_SCHEMA;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
@@ -36,7 +35,8 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestOracleConnectorTest
         extends BaseOracleConnectorTest
 {
-    private static final String MAXIMUM_LENGTH_COLUMN_IDENTIFIER = "z".repeat(DEFAULT_COLUMN_ALIAS_LENGTH);
+    // older Oracle versions are limited to 30 character identifier names
+    private static final String MAXIMUM_LENGTH_COLUMN_IDENTIFIER = "z".repeat(30);
 
     private TestingOracleServer oracleServer;
 
