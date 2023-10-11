@@ -21,6 +21,7 @@ import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
@@ -66,6 +67,7 @@ public class TestDeltaFaultTolerantExecutionTest
         return runner;
     }
 
+    @Test
     @Override
     public void testExecutePreferredWritePartitioningSkewMitigation()
     {

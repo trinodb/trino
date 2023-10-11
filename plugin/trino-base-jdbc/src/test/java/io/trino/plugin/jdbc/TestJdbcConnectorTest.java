@@ -76,10 +76,10 @@ public class TestJdbcConnectorTest
     }
 
     @Override
-    @Test
+    @org.junit.jupiter.api.Test
     public void testLargeIn()
     {
-        throw new SkipException("This test should pass with H2, but takes too long (currently over a mninute) and is not that important");
+        // This test should pass with H2, but takes too long (currently over a mninute) and is not that important
     }
 
     @Override
