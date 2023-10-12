@@ -689,7 +689,8 @@ public class MySqlClient
 
     private LongWriteFunction mySqlDateWriteFunctionUsingLocalDate()
     {
-        return new LongWriteFunction() {
+        return new LongWriteFunction()
+        {
             @Override
             public String getBindExpression()
             {
