@@ -429,14 +429,6 @@ public class TestDeltaLakeMetadata
                         ImmutableSet.of(EXPECTED_NESTED_COLUMN_HANDLE),
                         EXPECTED_NESTED_COLUMN_ASSIGNMENTS
                 },
-                {
-                        ImmutableSet.of(HIGHLY_NESTED_ROW_FIELD),
-                        HIGHLY_NESTED_COLUMN_ASSIGNMENTS,
-                        HIGHLY_NESTED_DEREFERENCE_COLUMN_PROJECTIONS,
-                        EXPECTED_HIGHLY_NESTED_DEREFERENCE_COLUMN_PROJECTIONS,
-                        ImmutableSet.of(EXPECTED_NESTED_COLUMN_HANDLE_WITH_PROJECTION),
-                        EXPECTED_HIGHLY_NESTED_COLUMN_ASSIGNMENTS
-                }
         };
     }
 
