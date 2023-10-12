@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.mysql;
+package io.trino.plugin.mariadb;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseJdbcTableStatisticsTest;
@@ -33,7 +33,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
-import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static io.trino.plugin.mariadb.MariaDbQueryRunner.createMariaDbQueryRunner;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static io.trino.tpch.TpchTable.ORDERS;
@@ -46,15 +46,15 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 
-public abstract class BaseTestMySqlTableStatisticsTest
+public abstract class BaseMariaDbTableStatisticsTest
         extends BaseJdbcTableStatisticsTest
 {
     protected final String dockerImageName;
     protected final Function<Double, Double> nullFractionToExpected;
     protected final Function<Integer, Integer> varcharNdvToExpected;
-    protected TestingMySqlServer mysqlServer;
+    protected TestingMariaDbServer mariaDbServer;
 
-    protected BaseTestMySqlTableStatisticsTest(
+    protected BaseMariaDbTableStatisticsTest(
             String dockerImageName,
             Function<Double, Double> nullFractionToExpected,
             Function<Integer, Integer> varcharNdvToExpected)
@@ -68,24 +68,30 @@ public abstract class BaseTestMySqlTableStatisticsTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        mysqlServer = closeAfterClass(new TestingMySqlServer(dockerImageName, false));
+        mariaDbServer = closeAfterClass(new TestingMariaDbServer(dockerImageName));
 
-        return createMySqlQueryRunner(
-                mysqlServer,
+        return createMariaDbQueryRunner(
+                mariaDbServer,
                 Map.of(),
                 Map.of("case-insensitive-name-matching", "true"),
                 List.of(ORDERS));
     }
 
-    @Override
     @Test
+    @Override
     public void testNotAnalyzed()
     {
         String tableName = "test_not_analyzed_" + randomNameSuffix();
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
             MaterializedResult statsResult = computeActual("SHOW STATS FOR " + tableName);
+            Double cardinality = getTableCardinalityFromStats(statsResult);
+
+            if (cardinality != null) {
+                // TABLE_ROWS in INFORMATION_SCHEMA.TABLES can be estimated as a very small number
+                assertThat(cardinality).isBetween(1d, 15000 * 1.5);
+            }
+
             assertColumnStats(statsResult, new MapBuilder<String, Integer>()
                     .put("orderkey", null)
                     .put("custkey", null)
@@ -97,24 +103,17 @@ public abstract class BaseTestMySqlTableStatisticsTest
                     .put("shippriority", null)
                     .put("comment", null)
                     .build());
-
-            double cardinality = getTableCardinalityFromStats(statsResult);
-            // sometimes MySQL will return INFORMATION_SCHEMA.TABLES.TABLE_ROWS as 2 even after loading data
-            if (cardinality > 7) {
-                assertThat(cardinality).isCloseTo(15000, withinPercentage(50));
-            }
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
         }
     }
 
-    @Override
     @Test
+    @Override
     public void testBasic()
     {
         String tableName = "test_stats_orders_" + randomNameSuffix();
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
             gatherStats(tableName);
@@ -137,12 +136,11 @@ public abstract class BaseTestMySqlTableStatisticsTest
         }
     }
 
-    @Override
     @Test
+    @Override
     public void testAllNulls()
     {
         String tableName = "test_stats_table_all_nulls_" + randomNameSuffix();
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT orderkey, custkey, orderpriority, comment FROM tpch.tiny.orders WHERE false", tableName));
         try {
             computeActual(format("INSERT INTO %s (orderkey) VALUES NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL", tableName));
@@ -186,12 +184,11 @@ public abstract class BaseTestMySqlTableStatisticsTest
         }
     }
 
-    @Override
     @Test
+    @Override
     public void testNullsFraction()
     {
         String tableName = "test_stats_table_with_nulls_" + randomNameSuffix();
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
         assertUpdate("" +
                         "CREATE TABLE " + tableName + " AS " +
                         "SELECT " +
@@ -222,26 +219,26 @@ public abstract class BaseTestMySqlTableStatisticsTest
         }
     }
 
-    @Override
     @Test
+    @Override
     public void testAverageColumnLength()
     {
-        throw new SkipException("MySQL connector does not report average column length");
+        throw new SkipException("MariaDB connector does not report average column length");
     }
 
-    @Override
     @Test
+    @Override
     public void testPartitionedTable()
     {
         throw new SkipException("Not implemented"); // TODO
     }
 
-    @Override
     @Test
+    @Override
     public void testView()
     {
         String tableName = "test_stats_view_" + randomNameSuffix();
-        executeInMysql("CREATE OR REPLACE VIEW " + tableName + " AS SELECT orderkey, custkey, orderpriority, comment FROM orders");
+        executeInMariaDb("CREATE OR REPLACE VIEW " + tableName + " AS SELECT orderkey, custkey, orderpriority, comment FROM orders");
         try {
             assertQuery(
                     "SHOW STATS FOR " + tableName,
@@ -251,25 +248,25 @@ public abstract class BaseTestMySqlTableStatisticsTest
                             "('orderpriority', null, null, null, null, null, null)," +
                             "('comment', null, null, null, null, null, null)," +
                             "(null, null, null, null, null, null, null)");
-            // It's not possible to ANALYZE a VIEW in MySQL
+            // It's not possible to ANALYZE a VIEW in MariaDB
         }
         finally {
-            executeInMysql("DROP VIEW " + tableName);
+            executeInMariaDb("DROP VIEW " + tableName);
         }
     }
 
-    @Override
     @Test
+    @Override
     public void testMaterializedView()
     {
-        throw new SkipException(""); // TODO is there a concept like materialized view in MySQL?
+        throw new SkipException(""); // TODO is there a concept like materialized view in MariaDB?
     }
 
-    @Override
     @Test(dataProvider = "testCaseColumnNamesDataProvider")
+    @Override
     public void testCaseColumnNames(String tableName)
     {
-        executeInMysql(("" +
+        executeInMariaDb(("" +
                 "CREATE TABLE " + tableName + " " +
                 "AS SELECT " +
                 "  orderkey AS CASE_UNQUOTED_UPPER, " +
@@ -294,19 +291,19 @@ public abstract class BaseTestMySqlTableStatisticsTest
             assertThat(getTableCardinalityFromStats(statsResult)).isCloseTo(15000, withinPercentage(20));
         }
         finally {
-            executeInMysql("DROP TABLE " + tableName.replace("\"", "`"));
+            executeInMariaDb("DROP TABLE " + tableName.replace("\"", "`"));
         }
     }
 
-    @Override
     @Test
+    @Override
     public void testNumericCornerCases()
     {
         try (TestTable table = fromColumns(
                 getQueryRunner()::execute,
                 "test_numeric_corner_cases_",
                 ImmutableMap.<String, List<String>>builder()
-                        // TODO Infinity and NaNs not supported by MySQL
+                        // TODO Infinity and NaNs not supported by MySQL. Are they not supported in MariaDB as well?
 //                        .put("only_negative_infinity double", List.of("-infinity()", "-infinity()", "-infinity()", "-infinity()"))
 //                        .put("only_positive_infinity double", List.of("infinity()", "infinity()", "infinity()", "infinity()"))
 //                        .put("mixed_infinities double", List.of("-infinity()", "infinity()", "-infinity()", "infinity()"))
@@ -326,7 +323,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
             assertQuery(
                     "SHOW STATS FOR " + table.getName(),
                     "VALUES " +
-                            // TODO Infinity and NaNs not supported by MySQL
+                            // TODO Infinity and NaNs not supported by MySQL. Are they not supported in MariaDB as well?
 //                            "('only_negative_infinity', null, 1, 0, null, null, null)," +
 //                            "('only_positive_infinity', null, 1, 0, null, null, null)," +
 //                            "('mixed_infinities', null, 2, 0, null, null, null)," +
@@ -343,9 +340,9 @@ public abstract class BaseTestMySqlTableStatisticsTest
         }
     }
 
-    protected void executeInMysql(String sql)
+    protected void executeInMariaDb(String sql)
     {
-        mysqlServer.execute(sql);
+        mariaDbServer.execute(sql);
     }
 
     protected void assertColumnStats(MaterializedResult statsResult, Map<String, Integer> columnNdvs)
@@ -372,7 +369,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
         assertThat(reportedColumns)
                 .containsOnlyOnce(columnNdvs.keySet().toArray(new String[0]));
 
-        double tableCardinality = getTableCardinalityFromStats(statsResult);
+        Double tableCardinality = getTableCardinalityFromStats(statsResult);
         for (MaterializedRow row : statsResult) {
             if (row.getField(0) == null) {
                 continue;
@@ -414,7 +411,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
         }
     }
 
-    protected static double getTableCardinalityFromStats(MaterializedResult statsResult)
+    protected static Double getTableCardinalityFromStats(MaterializedResult statsResult)
     {
         MaterializedRow lastRow = statsResult.getMaterializedRows().get(statsResult.getRowCount() - 1);
         assertNull(lastRow.getField(0));
@@ -424,8 +421,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
         assertNull(lastRow.getField(5));
         assertNull(lastRow.getField(6));
         assertEquals(lastRow.getFieldCount(), 7);
-        assertNotNull(lastRow.getField(4));
-        return (Double) lastRow.getField(4);
+        return ((Double) lastRow.getField(4));
     }
 
     protected static class MapBuilder<K, V>
