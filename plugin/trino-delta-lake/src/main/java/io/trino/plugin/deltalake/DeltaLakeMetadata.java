@@ -185,6 +185,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.primitives.Ints.max;
 import static io.trino.filesystem.Locations.appendPath;
+import static io.trino.filesystem.Locations.areDirectoryLocationsEquivalent;
 import static io.trino.hive.formats.HiveClassNames.HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
 import static io.trino.hive.formats.HiveClassNames.SEQUENCEFILE_INPUT_FORMAT_CLASS;
@@ -276,6 +277,7 @@ import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
@@ -963,7 +965,7 @@ public class DeltaLakeMetadata
 
         boolean external = true;
         String location = getLocation(tableMetadata.getProperties());
-        ConnectorTableHandle connectorTableHandle = getTableHandle(session, tableMetadata.getTable());
+        ConnectorTableHandle connectorTableHandle = getTableHandle(session, tableMetadata.getTable(), Optional.empty(), Optional.empty());
         DeltaLakeTableHandle tableHandle = null;
         if (connectorTableHandle != null) {
             tableHandle = checkValidTableHandle(connectorTableHandle);
@@ -974,8 +976,8 @@ public class DeltaLakeMetadata
             validateTableForReplaceOperation(tableHandle, existingTableMetadata, tableMetadata);
 
             String currentLocation = getLocation(existingTableMetadata.getProperties());
-            if (location != null && !location.equals(currentLocation)) {
-                throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, format("The provided location '%s' does not match the existing table location '%s'", location, currentLocation));
+            if (location != null && !areDirectoryLocationsEquivalent(Location.of(location), Location.of(currentLocation))) {
+                throw new TrinoException(GENERIC_USER_ERROR, format("The provided location '%s' does not match the existing table location '%s'", location, currentLocation));
             }
             location = currentLocation;
             external = !tableHandle.isManaged();
@@ -1021,13 +1023,11 @@ public class DeltaLakeMetadata
             if (!replaceExistingTable && transactionLogFileExists) {
                 throw new TrinoException(
                         NOT_SUPPORTED,
-                        "Using CREATE TABLE with an existing table content is disallowed, instead use the system.register_table() procedure.");
+                        "Using CREATE [OR REPLACE] TABLE with an existing table content is disallowed, instead use the system.register_table() procedure.");
             }
             else {
                 long commitVersion = 0;
-                long writeTimestamp = Instant.now().toEpochMilli();
                 TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriterWithoutTransactionIsolation(session, location);
-                List<RemoveFileEntry> removeFileEntries;
                 ProtocolEntry protocolEntry;
                 if (replaceExistingTable) {
                     commitVersion = getMandatoryCurrentVersion(fileSystem, location, tableHandle.getReadVersion()) + 1;
@@ -1037,11 +1037,14 @@ public class DeltaLakeMetadata
                             getSnapshot(session, tableHandle),
                             tableHandle.getMetadataEntry(),
                             tableHandle.getProtocolEntry(),
-                            TupleDomain.all(),
-                            alwaysTrue())) {
-                        removeFileEntries = activeFiles
-                                .map(file -> new RemoveFileEntry(file.getPath(), file.getPartitionValues(), writeTimestamp, true))
-                                .collect(toImmutableList());
+                            tableHandle.getEnforcedPartitionConstraint(),
+                            tableHandle.getProjectedColumns().orElse(ImmutableSet.of()))) {
+                        Iterator<AddFileEntry> addFileEntryIterator = activeFiles.iterator();
+                        while (addFileEntryIterator.hasNext()) {
+                            long writeTimestamp = Instant.now().toEpochMilli();
+                            AddFileEntry addFileEntry = addFileEntryIterator.next();
+                            transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true));
+                        }
                     }
                     protocolEntry = protocolEntryForTable(tableHandle.getProtocolEntry(), containsTimestampType, tableMetadata.getProperties());
                     statisticsAccess.deleteExtendedStatistics(session, schemaTableName, location);
@@ -1049,7 +1052,6 @@ public class DeltaLakeMetadata
                 else {
                     setRollback(() -> deleteRecursivelyIfExists(fileSystem, deltaLogDirectory));
                     protocolEntry = protocolEntryForNewTable(containsTimestampType, tableMetadata.getProperties());
-                    removeFileEntries = ImmutableList.of();
                 }
 
                 appendTableEntries(
@@ -1064,7 +1066,6 @@ public class DeltaLakeMetadata
                         tableMetadata.getComment(),
                         protocolEntry);
 
-                removeFileEntries.forEach(transactionLogWriter::appendRemoveFileEntry);
                 transactionLogWriter.flush();
             }
         }
@@ -1144,7 +1145,7 @@ public class DeltaLakeMetadata
 
         Database schema = metastore.getDatabase(schemaName).orElseThrow(() -> new SchemaNotFoundException(schemaName));
 
-        ConnectorTableHandle connectorTableHandle = getTableHandle(session, tableMetadata.getTable());
+        ConnectorTableHandle connectorTableHandle = getTableHandle(session, tableMetadata.getTable(), Optional.empty(), Optional.empty());
         DeltaLakeTableHandle handle = null;
         if (connectorTableHandle != null) {
             handle = checkValidTableHandle(connectorTableHandle);
@@ -1160,8 +1161,8 @@ public class DeltaLakeMetadata
             validateTableForReplaceOperation(handle, existingTableMetadata, tableMetadata);
 
             String currentLocation = getLocation(existingTableMetadata.getProperties());
-            if (location != null && !location.equals(currentLocation)) {
-                throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, format("The provided location '%s' does not match the existing table location '%s'", location, currentLocation));
+            if (location != null && !areDirectoryLocationsEquivalent(Location.of(location), Location.of(currentLocation))) {
+                throw new TrinoException(GENERIC_USER_ERROR, format("The provided location '%s' does not match the existing table location '%s'", location, currentLocation));
             }
             location = currentLocation;
             external = !handle.isManaged();
@@ -1173,7 +1174,6 @@ public class DeltaLakeMetadata
         else {
             locationAccessControl.checkCanUseLocation(session.getIdentity(), location);
         }
-
         ColumnMappingMode columnMappingMode = DeltaLakeTableProperties.getColumnMappingMode(tableMetadata.getProperties());
         AtomicInteger fieldId = new AtomicInteger();
 
@@ -1219,12 +1219,7 @@ public class DeltaLakeMetadata
 
         if (replaceExistingTable) {
             protocolEntry = protocolEntryForTable(handle.getProtocolEntry(), containsTimestampType, tableMetadata.getProperties());
-            try {
-                readVersion = OptionalLong.of(getMandatoryCurrentVersion(fileSystemFactory.create(session), finalLocation.toString()));
-            }
-            catch (IOException e) {
-                throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Unable to access file system for: " + finalLocation, e);
-            }
+            readVersion = OptionalLong.of(handle.getReadVersion());
         }
         else {
             checkPathContainsNoFiles(session, finalLocation);
@@ -1401,7 +1396,7 @@ public class DeltaLakeMetadata
             }
             else {
                 TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-                commitVersion = getMandatoryCurrentVersion(fileSystem, handle.location(), handle.readVersion().orElseThrow()) + 1;
+                commitVersion = getMandatoryCurrentVersion(fileSystem, handle.location(), handle.readVersion().getAsLong()) + 1;
                 if (commitVersion != handle.readVersion().getAsLong() + 1) {
                     throw new TransactionConflictException(format("Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s",
                             handle.readVersion().getAsLong(),
@@ -1423,15 +1418,19 @@ public class DeltaLakeMetadata
             appendAddFileEntries(transactionLogWriter, dataFileInfos, physicalPartitionNames, columnNames, true);
             if (handle.readVersion().isPresent()) {
                 long writeTimestamp = Instant.now().toEpochMilli();
-                DeltaLakeTableHandle deltaLakeTableHandle = (DeltaLakeTableHandle) getTableHandle(session, schemaTableName);
+                DeltaLakeTableHandle deltaLakeTableHandle = (DeltaLakeTableHandle) getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty());
                 try (Stream<AddFileEntry> activeFiles = transactionLogAccess.getActiveFiles(
                         session,
                         getSnapshot(session, deltaLakeTableHandle),
                         deltaLakeTableHandle.getMetadataEntry(),
                         deltaLakeTableHandle.getProtocolEntry(),
-                        TupleDomain.all(),
-                        alwaysTrue())) {
-                    activeFiles.forEach(file -> transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(file.getPath(), file.getPartitionValues(), writeTimestamp, true)));
+                        deltaLakeTableHandle.getEnforcedPartitionConstraint(),
+                        deltaLakeTableHandle.getProjectedColumns().orElse(ImmutableSet.of()))) {
+                    Iterator<AddFileEntry> addFileEntryIterator = activeFiles.iterator();
+                    while (addFileEntryIterator.hasNext()) {
+                        AddFileEntry addFileEntry = addFileEntryIterator.next();
+                        transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true));
+                    }
                 }
             }
             transactionLogWriter.flush();
@@ -3766,13 +3765,6 @@ public class DeltaLakeMetadata
                     typeManager));
             case PROPERTIES -> Optional.of(new DeltaLakePropertiesTable(systemTableName, tableLocation, transactionLogAccess));
         };
-    }
-
-    @Override
-    public boolean isColumnarTableScan(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        // delta lake supports only a columnar (parquet) storage format
-        return true;
     }
 
     @Override

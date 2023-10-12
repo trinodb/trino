@@ -421,6 +421,37 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .build());
     }
 
+    @Test
+    public void testCreateOrReplaceTable()
+    {
+        assertFileSystemAccesses("CREATE OR REPLACE TABLE test_create_or_replace (id VARCHAR, age INT)", ImmutableMultiset.of());
+
+        assertFileSystemAccesses("CREATE OR REPLACE TABLE test_create_or_replace (id VARCHAR, age INT)",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 762))
+                        .add(new CacheOperation("Alluxio.readExternal", "00000000000000000000.json", 0, 762))
+                        .add(new CacheOperation("Alluxio.writeCache", "00000000000000000000.json", 0, 762))
+                        .build());
+        assertUpdate("DROP TABLE test_create_or_replace");
+    }
+
+    @Test
+    public void testCreateOrReplaceTableAsSelect()
+    {
+        assertFileSystemAccesses(
+                "CREATE OR REPLACE TABLE test_create_or_replace_as_select AS SELECT 1 col_name", ImmutableMultiset.of());
+
+        assertFileSystemAccesses(
+                "CREATE OR REPLACE TABLE test_create_or_replace_as_select AS SELECT 1 col_name",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 1004))
+                        .add(new CacheOperation("Alluxio.readExternal", "00000000000000000000.json", 0, 1004))
+                        .add(new CacheOperation("Alluxio.writeCache", "00000000000000000000.json", 0, 1004))
+                        .build());
+
+        assertUpdate("DROP TABLE test_create_or_replace_as_select");
+    }
+
     private void assertFileSystemAccesses(@Language("SQL") String query, Multiset<CacheOperation> expectedCacheAccesses)
     {
         assertUpdate("CALL system.flush_metadata_cache()");

@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -34,6 +35,7 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDelta
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDeltaLakeCreateOrReplaceTableAsSelectCompatibility
         extends BaseTestDeltaLakeS3Storage
@@ -52,7 +54,7 @@ public class TestDeltaLakeCreateOrReplaceTableAsSelectCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    public void testCreateOrReplaceTableWithSchemaChange()
+    public void testCreateOrReplaceTableOnDeltaWithSchemaChange()
     {
         String tableName = "test_replace_table_with_schema_change_" + randomNameSuffix();
 
@@ -64,6 +66,25 @@ public class TestDeltaLakeCreateOrReplaceTableAsSelectCompatibility
             assertTransactionLogVersion(s3, bucketName, tableName, 12);
             onDelta().executeQuery("CREATE OR REPLACE TABLE " + tableName + " USING DELTA AS SELECT CAST(ts AS TIMESTAMP) FROM " + tableName);
             assertThat(onTrino().executeQuery("SELECT to_iso8601(ts) FROM delta.default." + tableName)).containsOnly(expectedRows);
+        }
+        finally {
+            dropDeltaTableWithRetry(tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testCreateOrReplaceTableOnTrinoWithSchemaChange()
+    {
+        String tableName = "test_replace_table_with_schema_change_" + randomNameSuffix();
+
+        onTrino().executeQuery("CREATE TABLE delta.default." + tableName + " (ts VARCHAR) " +
+                "with (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "', checkpoint_interval = 10)");
+        try {
+            List<Row> expectedRows = performInsert(onDelta(), tableName, 12);
+
+            assertTransactionLogVersion(s3, bucketName, tableName, 12);
+            onTrino().executeQuery("CREATE OR REPLACE TABLE delta.default." + tableName + " AS SELECT CAST(ts AS TIMESTAMP(6)) as ts FROM " + tableName);
+            assertThat(onDelta().executeQuery("SELECT date_format(ts, \"yyyy-MM-dd'T'HH:mm:ss.SSS'Z'\") FROM default." + tableName)).containsOnly(expectedRows);
         }
         finally {
             dropDeltaTableWithRetry(tableName);
@@ -88,6 +109,75 @@ public class TestDeltaLakeCreateOrReplaceTableAsSelectCompatibility
             assertTransactionLogVersion(s3, bucketName, tableName, 11);
 
             assertThat(onTrino().executeQuery("SELECT to_iso8601(ts) FROM delta.default." + tableName)).containsOnly(expected.build());
+        }
+        finally {
+            dropDeltaTableWithRetry(tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testCreateOrReplaceTableOnAppendOnlyTableFails()
+    {
+        String tableName = "test_replace_on_append_only_table_fails_" + randomNameSuffix();
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                "         (a INT, b INT)" +
+                "         USING delta " +
+                "         LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "' " +
+                "         TBLPROPERTIES ('delta.appendOnly' = true)");
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1,11), (2, 12)");
+            assertQueryFailure(() -> onDelta().executeQuery("" +
+                    "CREATE OR REPLACE TABLE default." + tableName +
+                    "         (a INT,c INT) " +
+                    "         USING delta " +
+                    "         LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "' " +
+                    "         TBLPROPERTIES ('delta.appendOnly' = true)"))
+                    .hasMessageContaining("This table is configured to only allow appends");
+
+            // Try setting `delta.appendOnly` to false
+            assertQueryFailure(() -> onDelta().executeQuery("" +
+                    "CREATE OR REPLACE TABLE default." + tableName +
+                    "         (a INT,b INT) " +
+                    "         USING delta " +
+                    "         LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "' " +
+                    "         TBLPROPERTIES ('delta.appendOnly' = false)"))
+                    .hasMessageContaining("This table is configured to only allow appends");
+
+            assertQueryFailure(() -> onTrino().executeQuery("" +
+                    "CREATE OR REPLACE TABLE delta.default." + tableName + " (a INT,c INT)" +
+                    " WITH (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "')"))
+                    .hasMessageContaining("Cannot replace a table when 'delta.appendOnly' is set to true");
+        }
+        finally {
+            dropDeltaTableWithRetry(tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testCreateOrReplaceTableAsSelectOnAppendOnlyTableFails()
+    {
+        String tableName = "test_replace_on_append_only_table_fails_" + randomNameSuffix();
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                "         (a INT, b INT)" +
+                "         USING delta " +
+                "         LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "' " +
+                "         TBLPROPERTIES ('delta.appendOnly' = true)");
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1,11), (2, 12)");
+            assertThatThrownBy(() -> onDelta().executeQuery("" +
+                    "CREATE OR REPLACE TABLE default." + tableName +
+                    "         USING delta " +
+                    "         LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "' " +
+                    "         TBLPROPERTIES ('delta.appendOnly' = true)" +
+                    "         AS SELECT 1 as e"))
+                    .hasMessageContaining("This table is configured to only allow appends");
+
+            assertThatThrownBy(() -> onTrino().executeQuery("" +
+                    "CREATE OR REPLACE TABLE delta.default." + tableName +
+                    " WITH (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "') AS SELECT 1 as e"))
+                    .hasMessageContaining("Cannot replace a table when 'delta.appendOnly' is set to true");
         }
         finally {
             dropDeltaTableWithRetry(tableName);

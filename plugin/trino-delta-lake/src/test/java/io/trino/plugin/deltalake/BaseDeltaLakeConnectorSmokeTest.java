@@ -45,7 +45,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.Timeout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -2291,6 +2290,14 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         }
     }
 
+    @RepeatedTest(3)
+    public void testConcurrentInsertsReconciliationForBlindInserts()
+            throws Exception
+    {
+        testConcurrentInsertsReconciliationForBlindInserts(false);
+        testConcurrentInsertsReconciliationForBlindInserts(true);
+    }
+
     @Test
     public void testCreateOrReplaceTable()
     {
@@ -2301,7 +2308,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             assertUpdate("CREATE OR REPLACE TABLE %s (a bigint, b double)".formatted(table.getName()));
             assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName());
 
-            assertThat(getTableVersion(table.getName())).isEqualTo(1);
+            assertTableVersion(table.getName(), 1L);
             assertTableOperation(table.getName(), 1, CREATE_OR_REPLACE_TABLE_OPERATION);
         }
     }
@@ -2317,7 +2324,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches("VALUES (BIGINT '-53', 496e-1)");
 
-            assertThat(getTableVersion(table.getName())).isEqualTo(1L);
+            assertTableVersion(table.getName(), 1L);
             assertTableOperation(table.getName(), 1, CREATE_OR_REPLACE_TABLE_AS_OPERATION);
         }
     }
@@ -2333,19 +2340,18 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             assertThat(query("SELECT c, d FROM " + table.getName()))
                     .matches("VALUES (VARCHAR 'test', VARCHAR 'test2')");
 
-            assertThat(getTableVersion(table.getName())).isEqualTo(1L);
+            assertTableVersion(table.getName(), 1L);
             assertTableOperation(table.getName(), 1, CREATE_OR_REPLACE_TABLE_AS_OPERATION);
         }
     }
 
-    @Timeout(60)
-    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
-    @RepeatedTest(4)
-    // Test fromm BaseConnectorTest
+    @RepeatedTest(3)
+    // Test from BaseConnectorTest
     public void testCreateOrReplaceTableConcurrently()
             throws Exception
     {
         int threads = 4;
+        int numOfCreateOrReplaceStatements = 4;
         int numOfReads = 16;
         CyclicBarrier barrier = new CyclicBarrier(threads + 1);
         ExecutorService executor = newFixedThreadPool(threads + 1);
@@ -2356,23 +2362,24 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             getQueryRunner().execute("CREATE OR REPLACE TABLE " + tableName + " AS SELECT 1 a");
             assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1");
 
-            /// One thread submits a CREATE OR REPLACE statement
+            // One thread submits some CREATE OR REPLACE statements
             futures.add(executor.submit(() -> {
                 barrier.await(30, SECONDS);
-                try {
-                    getQueryRunner().execute("CREATE OR REPLACE TABLE " + tableName + " AS SELECT * FROM (VALUES (1), (2)) AS t(a) ");
-                } catch (Exception e) {
-                    RuntimeException trinoException = getTrinoExceptionCause(e);
+                IntStream.range(0, numOfCreateOrReplaceStatements).forEach(index -> {
                     try {
-                        throw new AssertionError("Unexpected concurrent CREATE OR REPLACE failure", trinoException);
-                    }
-                    catch (Throwable verifyFailure) {
-                        if (verifyFailure != e) {
-                            verifyFailure.addSuppressed(e);
+                        getQueryRunner().execute("CREATE OR REPLACE TABLE " + tableName + " AS SELECT * FROM (VALUES (1), (2)) AS t(a) ");
+                    } catch (Exception e) {
+                        RuntimeException trinoException = getTrinoExceptionCause(e);
+                        try {
+                            throw new AssertionError("Unexpected concurrent CREATE OR REPLACE failure", trinoException);
+                        } catch (Throwable verifyFailure) {
+                            if (verifyFailure != e) {
+                                verifyFailure.addSuppressed(e);
+                            }
+                            throw verifyFailure;
                         }
-                        throw verifyFailure;
                     }
-                }
+                });
                 return null;
             }));
             // Other 4 threads continue try to read the same table, none of the reads should fail.
@@ -2414,23 +2421,15 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         }
     }
 
-    private long getTableVersion(String tableName)
+    private void assertTableVersion(String tableName, long version)
     {
-        return (Long) computeActual(format("SELECT max(version) FROM \"%s$history\"", tableName)).getOnlyValue();
+        assertThat(computeScalar(format("SELECT max(version) FROM \"%s$history\"", tableName))).isEqualTo(version);
     }
 
     private void assertTableOperation(String tableName, long version, String operation)
     {
         assertQuery("SELECT operation FROM \"%s$history\" WHERE version = %s".formatted(tableName, version),
                 "VALUES '%s'".formatted(operation));
-    }
-
-    @RepeatedTest(3)
-    public void testConcurrentInsertsReconciliationForBlindInserts()
-            throws Exception
-    {
-        testConcurrentInsertsReconciliationForBlindInserts(false);
-        testConcurrentInsertsReconciliationForBlindInserts(true);
     }
 
     private void testConcurrentInsertsReconciliationForBlindInserts(boolean partitioned)

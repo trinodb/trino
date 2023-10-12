@@ -1213,7 +1213,7 @@ public class TestDeltaLakeColumnMappingMode
     {
         assertThat(getTablePropertyOnDelta(schemaName, tableName, "delta.minReaderVersion"))
                 .isEqualTo(minReaderVersion);
-        assertThat(getTablePropertyOnDelta("default", tableName, "delta.minWriterVersion"))
+        assertThat(getTablePropertyOnDelta(schemaName, tableName, "delta.minWriterVersion"))
                 .isEqualTo(minWriterVersion);
     }
 
