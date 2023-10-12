@@ -170,7 +170,7 @@ public final class DeltaLakeQueryRunner
                         .put("s3.endpoint", minioAddress)
                         .put("s3.path-style-access", "true")
                         .put("s3.streaming.part-size", "5MB") // minimize memory usage
-                        .put("hive.metastore-timeout", "1m") // read timed out sometimes happens with the default timeout
+                        .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
                         .putAll(connectorProperties)
                         .buildOrThrow(),
                 testingHadoop,

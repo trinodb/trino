@@ -23,6 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertDeprecatedEquivalence;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
@@ -37,7 +38,8 @@ public class TestThriftMetastoreConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ThriftMetastoreConfig.class)
-                .setMetastoreTimeout(new Duration(10, SECONDS))
+                .setConnectTimeout(new Duration(10, SECONDS))
+                .setReadTimeout(new Duration(10, SECONDS))
                 .setSocksProxy(null)
                 .setMaxRetries(9)
                 .setBackoffScaleFactor(2.0)
@@ -68,7 +70,8 @@ public class TestThriftMetastoreConfig
         Path truststoreFile = Files.createTempFile(null, null);
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("hive.metastore-timeout", "20s")
+                .put("hive.metastore.thrift.client.connect-timeout", "22s")
+                .put("hive.metastore.thrift.client.read-timeout", "44s")
                 .put("hive.metastore.thrift.client.socks-proxy", "localhost:1234")
                 .put("hive.metastore.thrift.client.max-retries", "15")
                 .put("hive.metastore.thrift.client.backoff-scale-factor", "3.0")
@@ -92,7 +95,8 @@ public class TestThriftMetastoreConfig
                 .buildOrThrow();
 
         ThriftMetastoreConfig expected = new ThriftMetastoreConfig()
-                .setMetastoreTimeout(new Duration(20, SECONDS))
+                .setConnectTimeout(new Duration(22, SECONDS))
+                .setReadTimeout(new Duration(44, SECONDS))
                 .setSocksProxy(HostAndPort.fromParts("localhost", 1234))
                 .setMaxRetries(15)
                 .setBackoffScaleFactor(3.0)
@@ -115,5 +119,19 @@ public class TestThriftMetastoreConfig
                 .setBatchMetadataFetchEnabled(false);
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testLegacyPropertyMappings()
+    {
+        assertDeprecatedEquivalence(
+                ThriftMetastoreConfig.class,
+                Map.of(
+                        "hive.metastore.thrift.client.connect-timeout", "42s",
+                        "hive.metastore.thrift.client.read-timeout", "42s",
+                        "hive.metastore.thrift.impersonation.enabled", "true"),
+                Map.of(
+                        "hive.metastore-timeout", "42s",
+                        "hive.metastore.impersonation-enabled", "true"));
     }
 }
