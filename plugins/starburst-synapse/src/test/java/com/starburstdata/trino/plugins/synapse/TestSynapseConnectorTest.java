@@ -870,7 +870,7 @@ public class TestSynapseConnectorTest
     {
         assertThatThrownBy(super::testSelectFromProcedureFunction)
                 .hasMessageMatching("^Execution of 'actual' query \\w+ failed:.*")
-                .cause().hasMessageMatching("line \\d+:\\d+: Table function system.procedure not registered");
+                .cause().hasMessageMatching("line \\d+:\\d+: Table function 'system.procedure' not registered");
         throw new SkipException("procedure() PTF not registered");
     }
 
@@ -879,7 +879,7 @@ public class TestSynapseConnectorTest
     {
         assertThatThrownBy(super::testSelectFromProcedureFunctionWithInputParameter)
                 .hasMessageMatching("^Execution of 'actual' query \\w+ failed:.*")
-                .cause().hasMessageMatching("line \\d+:\\d+: Table function system.procedure not registered");
+                .cause().hasMessageMatching("line \\d+:\\d+: Table function 'system.procedure' not registered");
         throw new SkipException("procedure() PTF not registered");
     }
 
@@ -895,7 +895,7 @@ public class TestSynapseConnectorTest
     public void testFilterPushdownRestrictedForProcedureFunction()
     {
         assertThatThrownBy(super::testFilterPushdownRestrictedForProcedureFunction)
-                .hasMessageMatching("line \\d+:\\d+: Table function system.procedure not registered");
+                .hasMessageMatching("line \\d+:\\d+: Table function 'system.procedure' not registered");
         throw new SkipException("procedure() PTF not registered");
     }
 
@@ -903,7 +903,7 @@ public class TestSynapseConnectorTest
     public void testAggregationPushdownRestrictedForProcedureFunction()
     {
         assertThatThrownBy(super::testAggregationPushdownRestrictedForProcedureFunction)
-                .hasMessageMatching("line \\d+:\\d+: Table function system.procedure not registered");
+                .hasMessageMatching("line \\d+:\\d+: Table function 'system.procedure' not registered");
         throw new SkipException("procedure() PTF not registered");
     }
 
@@ -911,7 +911,7 @@ public class TestSynapseConnectorTest
     public void testJoinPushdownRestrictedForProcedureFunction()
     {
         assertThatThrownBy(super::testJoinPushdownRestrictedForProcedureFunction)
-                .hasMessageMatching("line \\d+:\\d+: Table function system.procedure not registered");
+                .hasMessageMatching("line \\d+:\\d+: Table function 'system.procedure' not registered");
         throw new SkipException("procedure() PTF not registered");
     }
 
@@ -920,7 +920,7 @@ public class TestSynapseConnectorTest
     {
         assertThatThrownBy(super::testProcedureWithSingleIfStatement)
                 .hasMessageMatching("^Execution of 'actual' query \\w+ failed:.*")
-                .cause().hasMessageMatching("line \\d+:\\d+: Table function system.procedure not registered");
+                .cause().hasMessageMatching("line \\d+:\\d+: Table function 'system.procedure' not registered");
         throw new SkipException("procedure() PTF not registered");
     }
 
@@ -931,7 +931,7 @@ public class TestSynapseConnectorTest
                 .hasMessageStartingWith("""
 
                         Expecting message:
-                          "line 1:21: Table function system.procedure not registered"
+                          "line 1:21: Table function 'system.procedure' not registered"
                         to match regex:
                           "Procedure has multiple ResultSets for query: .*"
                         but did not.""");
@@ -945,7 +945,7 @@ public class TestSynapseConnectorTest
                 .hasMessageStartingWith("""
 
                         Expecting message:
-                          "line 1:21: Table function system.procedure not registered"
+                          "line 1:21: Table function 'system.procedure' not registered"
                         to match regex:
                           "Procedure has multiple ResultSets for query: .*"
                         but did not.""");
@@ -959,7 +959,7 @@ public class TestSynapseConnectorTest
                 .hasMessageStartingWith("""
 
                         Expecting message:
-                          "line 1:21: Table function system.procedure not registered"
+                          "line 1:21: Table function 'system.procedure' not registered"
                         to match regex:
                           "Failed to get table handle for procedure query. The statement did not return a result set."
                         but did not.""");
@@ -973,7 +973,7 @@ public class TestSynapseConnectorTest
                 .hasMessageStartingWith("""
 
                         Expecting message:
-                          "line 1:21: Table function system.procedure not registered"
+                          "line 1:21: Table function 'system.procedure' not registered"
                         to match regex:
                           "Failed to get table handle for procedure query. The statement did not return a result set."
                         but did not.""");
@@ -987,7 +987,7 @@ public class TestSynapseConnectorTest
                 .hasMessageStartingWith("""
 
                         Expecting message:
-                          "line 1:21: Table function system.procedure not registered"
+                          "line 1:21: Table function 'system.procedure' not registered"
                         to match regex:
                           "Failed to get table handle for procedure query. The statement did not return a result set."
                         but did not.""");
@@ -1001,7 +1001,7 @@ public class TestSynapseConnectorTest
                 .hasMessageStartingWith("""
 
                         Expecting message:
-                          "line 1:21: Table function system.procedure not registered"
+                          "line 1:21: Table function 'system.procedure' not registered"
                         to match regex:
                           "Failed to get table handle for procedure query. The statement did not return a result set."
                         but did not.""");
@@ -1015,7 +1015,7 @@ public class TestSynapseConnectorTest
                 .hasMessageStartingWith("""
 
                         Expecting message:
-                          "line 1:21: Table function system.procedure not registered"
+                          "line 1:21: Table function 'system.procedure' not registered"
                         to match regex:
                           "Failed to get table handle for procedure query. The statement did not return a result set."
                         but did not.""");
@@ -1029,7 +1029,7 @@ public class TestSynapseConnectorTest
                 .hasMessageStartingWith("""
 
                         Expecting message:
-                          "line 1:21: Table function system.procedure not registered"
+                          "line 1:21: Table function 'system.procedure' not registered"
                         to match regex:
                           "Failed to get table handle for procedure query. The statement did not return a result set."
                         but did not.""");

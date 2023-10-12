@@ -34,7 +34,6 @@ public class SnowflakeDistributedSessionProperties
     private static final String PARTITION_USE_COLUMN_NAMES = "partition_use_column_names";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_USE_COLUMN_INDEX = "parquet_use_column_index";
-    private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
     private static final String RETRY_CANCELED_QUERIES = "retry_canceled_queries";
     private static final String VALIDATE_BUCKETING = "validate_bucketing";
     private static final String OPTIMIZE_SYMLINK_LISTING = "optimize_symlink_listing";
@@ -72,11 +71,6 @@ public class SnowflakeDistributedSessionProperties
                         PARQUET_USE_COLUMN_INDEX,
                         "Parquet: Use Parquet column index",
                         snowflakeConfig.isUseColumnIndex(),
-                        false),
-                booleanProperty(
-                        PARQUET_OPTIMIZED_READER_ENABLED,
-                        "Use optimized Parquet reader",
-                        snowflakeConfig.isOptimizedReaderEnabled(),
                         false),
                 booleanProperty(
                         RETRY_CANCELED_QUERIES,
@@ -135,11 +129,6 @@ public class SnowflakeDistributedSessionProperties
     public static boolean isParquetUseColumnIndex(ConnectorSession session)
     {
         return session.getProperty(PARQUET_USE_COLUMN_INDEX, Boolean.class);
-    }
-
-    public static boolean isParquetOptimizedReaderEnabled(ConnectorSession session)
-    {
-        return session.getProperty(PARQUET_OPTIMIZED_READER_ENABLED, Boolean.class);
     }
 
     public static boolean retryCanceledQueries(ConnectorSession session)

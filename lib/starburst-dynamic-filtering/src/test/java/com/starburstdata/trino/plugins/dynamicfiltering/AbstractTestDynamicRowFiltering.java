@@ -204,7 +204,7 @@ public abstract class AbstractTestDynamicRowFiltering
                 })
                 .findOnlyElement();
 
-        return extractOperatorStatsForNodeId(getDistributedQueryRunner(), queryId, planNode.getSource().getId());
+        return extractOperatorStatsForNodeId(getDistributedQueryRunner(), queryId, planNode.getId());
     }
 
     public static OperatorStats extractOperatorStatsForNodeId(DistributedQueryRunner queryRunner, QueryId queryId, PlanNodeId nodeId)

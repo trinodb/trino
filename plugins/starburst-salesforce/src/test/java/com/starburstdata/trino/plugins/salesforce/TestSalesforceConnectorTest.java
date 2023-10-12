@@ -3063,4 +3063,11 @@ public class TestSalesforceConnectorTest
     {
         return tableName + "_plugins";
     }
+
+    protected static void skipTestUnless(boolean requirement)
+    {
+        if (!requirement) {
+            throw new SkipException("requirement not met");
+        }
+    }
 }
