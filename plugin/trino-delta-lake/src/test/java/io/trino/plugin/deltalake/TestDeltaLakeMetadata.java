@@ -92,6 +92,7 @@ import static io.trino.plugin.deltalake.DeltaLakeTableProperties.PARTITIONED_BY_
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
+import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -309,7 +310,7 @@ public class TestDeltaLakeMetadata
                 ImmutableList.of(BIGINT_COLUMN_1, BIGINT_COLUMN_2),
                 ImmutableList.of(BIGINT_COLUMN_1));
 
-        deltaLakeMetadata.createTable(SESSION, tableMetadata, false);
+        deltaLakeMetadata.createTable(SESSION, tableMetadata, FAIL);
 
         Optional<ConnectorTableLayout> insertLayout = deltaLakeMetadata
                 .getInsertLayout(
@@ -347,7 +348,7 @@ public class TestDeltaLakeMetadata
                 ImmutableList.of(BIGINT_COLUMN_1),
                 ImmutableList.of());
 
-        deltaLakeMetadata.createTable(SESSION, tableMetadata, false);
+        deltaLakeMetadata.createTable(SESSION, tableMetadata, FAIL);
 
         // should return empty insert layout since table exists but is unpartitioned
         assertThat(deltaLakeMetadata.getInsertLayout(
@@ -476,7 +477,7 @@ public class TestDeltaLakeMetadata
         ConnectorTableMetadata tableMetadata = newTableMetadata(
                 ImmutableList.of(BIGINT_COLUMN_1, BIGINT_COLUMN_2),
                 ImmutableList.of(BIGINT_COLUMN_1));
-        deltaLakeMetadata.createTable(SESSION, tableMetadata, false);
+        deltaLakeMetadata.createTable(SESSION, tableMetadata, FAIL);
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable(), Optional.empty(), Optional.empty());
         assertThat(deltaLakeMetadata.getInfo(tableHandle)).isEqualTo(Optional.of(new DeltaLakeInputInfo(true, 0)));
         deltaLakeMetadata.cleanupQuery(SESSION);
@@ -489,7 +490,7 @@ public class TestDeltaLakeMetadata
         ConnectorTableMetadata tableMetadata = newTableMetadata(
                 ImmutableList.of(BIGINT_COLUMN_1, BIGINT_COLUMN_2),
                 ImmutableList.of());
-        deltaLakeMetadata.createTable(SESSION, tableMetadata, false);
+        deltaLakeMetadata.createTable(SESSION, tableMetadata, FAIL);
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable(), Optional.empty(), Optional.empty());
         assertThat(deltaLakeMetadata.getInfo(tableHandle)).isEqualTo(Optional.of(new DeltaLakeInputInfo(false, 0)));
         deltaLakeMetadata.cleanupQuery(SESSION);
