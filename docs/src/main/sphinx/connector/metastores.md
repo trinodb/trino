@@ -74,9 +74,6 @@ are also available. They are discussed later in this topic.
     * - ``hive.metastore-refresh-max-threads``
       - Maximum threads used to refresh cached metastore data.
       - ``10``
-    * - ``hive.metastore-timeout``
-      - Timeout for Hive metastore requests.
-      - ``10s``
     * - ``hive.hide-delta-lake-tables``
       - Controls whether to hide Delta Lake tables in table listings. Currently
         applies only when using the AWS Glue metastore.
@@ -113,6 +110,12 @@ properties:
      - Hive metastore authentication type. Possible values are ``NONE`` or
        ``KERBEROS``.
      - ``NONE``
+   * - ``hive.metastore.thrift.client.connect-timeout``
+     - Socket connect timeout for metastore client.
+     - ``10s``
+   * - ``hive.metastore.thrift.client.read-timeout``
+     - Socket read timeout for metastore client.
+     - ``10s``
    * - ``hive.metastore.thrift.impersonation.enabled``
      - Enable Hive metastore end user impersonation.
      -
