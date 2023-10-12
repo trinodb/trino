@@ -121,6 +121,40 @@ public class TestRedshiftConnectorTest
         }
     }
 
+    @Test
+    public void testVarcharZero()
+    {
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                format("%s.test_table_with_varchar_zero", TEST_SCHEMA),
+                """
+                                (id integer,
+                                name varchar(256),
+                                pivotal_study varchar(65535))""")) {
+
+            String tableName = table.getName().replace("_table_","_table2_");
+            String viewName = table.getName().replace("_table_","_view_");
+
+            onRemoteDatabase().execute("CREATE TABLE " + tableName
+                + " (id int, name varchar,pivotal_study VARCHAR(65535)  DEFAULT 'UNKNOWN'::character varying ENCODE lzo)");
+
+            onRemoteDatabase().execute("CREATE VIEW " + viewName + " AS SELECT SPLIT_PART("
+                + tableName + ".pivotal_study,',',1) AS PIVOTAL_STUDY from " + tableName);
+            assertUpdate("INSERT INTO " + tableName + " (id, name, pivotal_study) VALUES (1, 'test', 'test')", 1);
+
+            int i = 1;
+
+            String query = "SELECT * FROM " + viewName;
+            assertQuery(query, "VALUES ('test')");
+
+            onRemoteDatabase().execute("DROP VIEW " + viewName);
+            onRemoteDatabase().execute("DROP TABLE " + tableName);
+        } catch (Error ex) {
+            int i = 1;
+            throw ex;
+        }
+    }
+
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
