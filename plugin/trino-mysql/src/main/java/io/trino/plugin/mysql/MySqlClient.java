@@ -1180,10 +1180,11 @@ public class MySqlClient
         Long getRowCount(JdbcTableHandle table)
         {
             RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
-            return handle.createQuery("" +
-                            "SELECT TABLE_ROWS FROM INFORMATION_SCHEMA.TABLES " +
-                            "WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name " +
-                            "AND TABLE_TYPE = 'BASE TABLE' ")
+            return handle.createQuery("""
+                        SELECT TABLE_ROWS FROM INFORMATION_SCHEMA.TABLES
+                        WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name
+                        AND TABLE_TYPE = 'BASE TABLE'
+                        """)
                     .bind("schema", remoteTableName.getCatalogName().orElse(null))
                     .bind("table_name", remoteTableName.getTableName())
                     .mapTo(Long.class)
@@ -1194,17 +1195,18 @@ public class MySqlClient
         Map<String, ColumnIndexStatistics> getColumnIndexStatistics(JdbcTableHandle table)
         {
             RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
-            return handle.createQuery("" +
-                            "SELECT " +
-                            "  COLUMN_NAME, " +
-                            "  MAX(NULLABLE) AS NULLABLE, " +
-                            "  MAX(CARDINALITY) AS CARDINALITY " +
-                            "FROM INFORMATION_SCHEMA.STATISTICS " +
-                            "WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name " +
-                            "AND SEQ_IN_INDEX = 1 " + // first column in the index
-                            "AND SUB_PART IS NULL " + // ignore cases where only a column prefix is indexed
-                            "AND CARDINALITY IS NOT NULL " + // CARDINALITY might be null (https://stackoverflow.com/a/42242729/65458)
-                            "GROUP BY COLUMN_NAME") // there might be multiple indexes on a column
+            return handle.createQuery("""
+                        SELECT
+                            COLUMN_NAME,
+                            MAX(NULLABLE) AS NULLABLE,
+                            MAX(CARDINALITY) AS CARDINALITY
+                        FROM INFORMATION_SCHEMA.STATISTICS
+                        WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name
+                        AND SEQ_IN_INDEX = 1 -- first column in the index
+                        AND SUB_PART IS NULL -- ignore cases where only a column prefix is indexed
+                        AND CARDINALITY IS NOT NULL -- CARDINALITY might be null (https://stackoverflow.com/a/42242729/65458)
+                        GROUP BY COLUMN_NAME -- there might be multiple indexes on a column
+                        """)
                     .bind("schema", remoteTableName.getCatalogName().orElse(null))
                     .bind("table_name", remoteTableName.getTableName())
                     .map((rs, ctx) -> {
@@ -1235,9 +1237,10 @@ public class MySqlClient
             }
 
             RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
-            return handle.createQuery("" +
-                            "SELECT COLUMN_NAME, HISTOGRAM FROM INFORMATION_SCHEMA.COLUMN_STATISTICS " +
-                            "WHERE SCHEMA_NAME = :schema AND TABLE_NAME = :table_name")
+            return handle.createQuery("""
+                        SELECT COLUMN_NAME, HISTOGRAM FROM INFORMATION_SCHEMA.COLUMN_STATISTICS
+                        WHERE SCHEMA_NAME = :schema AND TABLE_NAME = :table_name
+                        """)
                     .bind("schema", remoteTableName.getCatalogName().orElse(null))
                     .bind("table_name", remoteTableName.getTableName())
                     .map((rs, ctx) -> new SimpleEntry<>(rs.getString("COLUMN_NAME"), rs.getString("HISTOGRAM")))
