@@ -19,11 +19,11 @@ import com.google.common.io.Resources;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.Network;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Parameters;
-import org.testng.annotations.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -43,7 +43,9 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestDeltaLakeAdlsStorage
         extends AbstractTestQueryFramework
 {
@@ -58,15 +60,12 @@ public class TestDeltaLakeAdlsStorage
 
     private HiveHadoop hiveHadoop;
 
-    @Parameters({
-            "hive.hadoop2.azure-abfs-container",
-            "hive.hadoop2.azure-abfs-account",
-            "hive.hadoop2.azure-abfs-access-key"})
-    public TestDeltaLakeAdlsStorage(String container, String account, String accessKey)
+    public TestDeltaLakeAdlsStorage()
     {
+        String container = System.getProperty("hive.hadoop2.azure-abfs-container");
         requireNonNull(container, "container is null");
-        this.account = requireNonNull(account, "account is null");
-        this.accessKey = requireNonNull(accessKey, "accessKey is null");
+        this.account = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-account"), "account is null");
+        this.accessKey = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-access-key"), "accessKey is null");
 
         String directoryBase = format("abfs://%s@%s.dfs.core.windows.net", container, account);
         adlsDirectory = format("%s/tpch-tiny-%s/", directoryBase, randomUUID());
@@ -108,7 +107,7 @@ public class TestDeltaLakeAdlsStorage
         return coreSiteXml;
     }
 
-    @BeforeClass(alwaysRun = true)
+    @BeforeAll
     public void setUp()
     {
         hiveHadoop.executeInContainerFailOnError("hadoop", "fs", "-mkdir", "-p", adlsDirectory);
@@ -118,7 +117,7 @@ public class TestDeltaLakeAdlsStorage
         });
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         if (adlsDirectory != null && hiveHadoop != null) {

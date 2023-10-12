@@ -24,7 +24,7 @@ import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
 import io.trino.testing.QueryRunner;
 import org.h2.Driver;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.Properties;
@@ -36,7 +36,6 @@ import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.REGION;
 import static java.util.Objects.requireNonNull;
 
-@Test(singleThreaded = true) // inherited from BaseJdbcConnectionCreationTest
 public class TestJdbcConnectionCreation
         extends BaseJdbcConnectionCreationTest
 {

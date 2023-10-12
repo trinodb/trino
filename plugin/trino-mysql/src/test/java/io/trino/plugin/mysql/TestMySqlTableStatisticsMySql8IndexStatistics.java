@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.mysql;
 
-import org.testng.SkipException;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestMySqlTableStatisticsMySql8IndexStatistics
         extends BaseMySqlTableStatisticsIndexStatisticsTest
@@ -23,9 +25,10 @@ public class TestMySqlTableStatisticsMySql8IndexStatistics
         super("mysql:8.0.30");
     }
 
+    @Test
     @Override
     public void testNotAnalyzed()
     {
-        throw new SkipException("MySql8 automatically calculates stats - https://dev.mysql.com/doc/refman/8.0/en/innodb-parameters.html#sysvar_innodb_stats_auto_recalc");
+        abort("MySql8 automatically calculates stats - https://dev.mysql.com/doc/refman/8.0/en/innodb-parameters.html#sysvar_innodb_stats_auto_recalc");
     }
 }

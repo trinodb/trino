@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Base64;
 import java.util.List;

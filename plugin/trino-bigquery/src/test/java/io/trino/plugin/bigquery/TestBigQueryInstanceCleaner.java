@@ -19,8 +19,8 @@ import com.google.common.collect.Streams;
 import io.airlift.log.Logger;
 import io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Collection;
@@ -53,7 +53,7 @@ public class TestBigQueryInstanceCleaner
 
     private BigQuerySqlExecutor bigQuerySqlExecutor;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
