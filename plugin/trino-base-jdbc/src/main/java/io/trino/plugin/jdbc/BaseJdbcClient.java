@@ -879,7 +879,7 @@ public abstract class BaseJdbcClient
                 quoted(catalogName, newRemoteSchemaName, newRemoteTableName)));
     }
 
-    private RemoteTableName constructPageSinkIdsTable(ConnectorSession session, Connection connection, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
+    private RemoteTableName constructPageSinkIdsTable(ConnectorSession session, Connection connection, JdbcOutputTableHandle handle, Set<Long> pageSinkIds, Closer closer)
             throws SQLException
     {
         verify(handle.getPageSinkIdColumnName().isPresent(), "Output table handle's pageSinkIdColumn is empty");
@@ -903,6 +903,7 @@ public abstract class BaseJdbcClient
         LongWriteFunction pageSinkIdWriter = (LongWriteFunction) toWriteMapping(session, TRINO_PAGE_SINK_ID_COLUMN_TYPE).getWriteFunction();
 
         execute(session, connection, pageSinkTableSql);
+        closer.register(() -> dropTable(session, pageSinkTable, true));
 
         try (PreparedStatement statement = connection.prepareStatement(pageSinkInsertSql)) {
             int batchSize = 0;
@@ -959,8 +960,7 @@ public abstract class BaseJdbcClient
                     quoted(temporaryTable));
 
             if (handle.getPageSinkIdColumnName().isPresent()) {
-                RemoteTableName pageSinkTable = constructPageSinkIdsTable(session, connection, handle, pageSinkIds);
-                closer.register(() -> dropTable(session, pageSinkTable, true));
+                RemoteTableName pageSinkTable = constructPageSinkIdsTable(session, connection, handle, pageSinkIds, closer);
 
                 insertSql += format(" WHERE EXISTS (SELECT 1 FROM %s page_sink_table WHERE page_sink_table.%s = temp_table.%s)",
                         quoted(pageSinkTable),
