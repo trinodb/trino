@@ -77,6 +77,7 @@ public class QueryManagerConfig
     private int queryManagerExecutorPoolSize = 5;
     private int queryExecutorPoolSize = 1000;
     private int maxStateMachineCallbackThreads = 5;
+    private int maxSplitManagerCallbackThreads = 100;
 
     /**
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}
@@ -391,6 +392,20 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxStateMachineCallbackThreads(int maxStateMachineCallbackThreads)
     {
         this.maxStateMachineCallbackThreads = maxStateMachineCallbackThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxSplitManagerCallbackThreads()
+    {
+        return maxSplitManagerCallbackThreads;
+    }
+
+    @Config("query.max-split-manager-callback-threads")
+    @ConfigDescription("The maximum number of threads allowed to run splits generation callbacks concurrently")
+    public QueryManagerConfig setMaxSplitManagerCallbackThreads(int maxSplitManagerCallbackThreads)
+    {
+        this.maxSplitManagerCallbackThreads = maxSplitManagerCallbackThreads;
         return this;
     }
 
