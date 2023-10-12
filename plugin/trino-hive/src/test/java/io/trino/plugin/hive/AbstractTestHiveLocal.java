@@ -36,10 +36,10 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.testing.MaterializedResult;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
-import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.File;
 import java.io.IOException;
@@ -69,8 +69,11 @@ import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING
 import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
 import static java.nio.file.Files.copy;
 import static java.util.Objects.requireNonNull;
+import static org.junit.jupiter.api.Assumptions.abort;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 
+@TestInstance(PER_CLASS)
 public abstract class AbstractTestHiveLocal
         extends AbstractTestHive
 {
@@ -92,7 +95,7 @@ public abstract class AbstractTestHiveLocal
 
     protected abstract HiveMetastore createMetastore(File tempDir);
 
-    @BeforeClass(alwaysRun = true)
+    @BeforeAll
     public void initialize()
             throws Exception
     {
@@ -170,7 +173,7 @@ public abstract class AbstractTestHiveLocal
         metastoreClient.createTable(table, NO_PRIVILEGES);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
             throws IOException
     {
@@ -191,31 +194,35 @@ public abstract class AbstractTestHiveLocal
         if (tableName.getTableName().startsWith(TEMPORARY_TABLE_PREFIX)) {
             return super.getTableHandle(metadata, tableName);
         }
-        throw new SkipException("tests using existing tables are not supported");
+        return abort("tests using existing tables are not supported");
     }
 
+    @Test
     @Override
     public void testGetAllTableColumns()
     {
-        throw new SkipException("Test disabled for this subclass");
+        abort("Test disabled for this subclass");
     }
 
+    @Test
     @Override
     public void testGetAllTableColumnsInSchema()
     {
-        throw new SkipException("Test disabled for this subclass");
+        abort("Test disabled for this subclass");
     }
 
+    @Test
     @Override
     public void testGetTableNames()
     {
-        throw new SkipException("Test disabled for this subclass");
+        abort("Test disabled for this subclass");
     }
 
+    @Test
     @Override
     public void testGetTableSchemaOffline()
     {
-        throw new SkipException("Test disabled for this subclass");
+        abort("Test disabled for this subclass");
     }
 
     @Test

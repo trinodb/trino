@@ -14,10 +14,10 @@
 package io.trino.plugin.mariadb;
 
 import io.trino.testing.MaterializedRow;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static java.lang.String.format;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseMariaDbTableIndexStatisticsTest
         extends BaseMariaDbTableStatisticsTest
@@ -49,7 +49,7 @@ public abstract class BaseMariaDbTableIndexStatisticsTest
     public void testStatsWithPredicatePushdownWithStatsPrecalculationDisabled()
     {
         // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MariaDB, with permissive approximate assertions
-        throw new SkipException("Test to be implemented");
+        abort("Test to be implemented");
     }
 
     @Test
@@ -57,7 +57,7 @@ public abstract class BaseMariaDbTableIndexStatisticsTest
     public void testStatsWithPredicatePushdown()
     {
         // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MariaDB, with permissive approximate assertions
-        throw new SkipException("Test to be implemented");
+        abort("Test to be implemented");
     }
 
     @Test
@@ -65,7 +65,7 @@ public abstract class BaseMariaDbTableIndexStatisticsTest
     public void testStatsWithVarcharPredicatePushdown()
     {
         // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MariaDB, with permissive approximate assertions
-        throw new SkipException("Test to be implemented");
+        abort("Test to be implemented");
     }
 
     @Test
@@ -73,7 +73,7 @@ public abstract class BaseMariaDbTableIndexStatisticsTest
     public void testStatsWithLimitPushdown()
     {
         // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MariaDB, with permissive approximate assertions
-        throw new SkipException("Test to be implemented");
+        abort("Test to be implemented");
     }
 
     @Test
@@ -81,7 +81,7 @@ public abstract class BaseMariaDbTableIndexStatisticsTest
     public void testStatsWithTopNPushdown()
     {
         // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MariaDB, with permissive approximate assertions
-        throw new SkipException("Test to be implemented");
+        abort("Test to be implemented");
     }
 
     @Test
@@ -89,7 +89,7 @@ public abstract class BaseMariaDbTableIndexStatisticsTest
     public void testStatsWithDistinctPushdown()
     {
         // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MariaDB, with permissive approximate assertions
-        throw new SkipException("Test to be implemented");
+        abort("Test to be implemented");
     }
 
     @Test
@@ -97,7 +97,7 @@ public abstract class BaseMariaDbTableIndexStatisticsTest
     public void testStatsWithDistinctLimitPushdown()
     {
         // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MariaDB, with permissive approximate assertions
-        throw new SkipException("Test to be implemented");
+        abort("Test to be implemented");
     }
 
     @Test
@@ -105,7 +105,7 @@ public abstract class BaseMariaDbTableIndexStatisticsTest
     public void testStatsWithAggregationPushdown()
     {
         // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MariaDB, with permissive approximate assertions
-        throw new SkipException("Test to be implemented");
+        abort("Test to be implemented");
     }
 
     @Test
@@ -113,7 +113,7 @@ public abstract class BaseMariaDbTableIndexStatisticsTest
     public void testStatsWithSimpleJoinPushdown()
     {
         // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MariaDB, with permissive approximate assertions
-        throw new SkipException("Test to be implemented");
+        abort("Test to be implemented");
     }
 
     @Test
@@ -121,6 +121,6 @@ public abstract class BaseMariaDbTableIndexStatisticsTest
     public void testStatsWithJoinPushdown()
     {
         // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MariaDB, with permissive approximate assertions
-        throw new SkipException("Test to be implemented");
+        abort("Test to be implemented");
     }
 }

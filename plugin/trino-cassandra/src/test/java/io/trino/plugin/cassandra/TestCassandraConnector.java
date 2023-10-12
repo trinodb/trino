@@ -35,7 +35,6 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.RecordCursor;
-import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.predicate.Domain;
@@ -48,9 +47,11 @@ import io.trino.spi.type.VarcharType;
 import io.trino.testing.TestingConnectorContext;
 import io.trino.testing.TestingConnectorSession;
 import io.trino.type.IpAddressType;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -86,11 +87,13 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+@TestInstance(PER_CLASS)
 public class TestCassandraConnector
 {
     protected static final String INVALID_DATABASE = "totally_invalid_database";
@@ -108,7 +111,7 @@ public class TestCassandraConnector
     private ConnectorSplitManager splitManager;
     private ConnectorRecordSetProvider recordSetProvider;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
             throws Exception
     {
@@ -142,7 +145,7 @@ public class TestCassandraConnector
         tableUdt = new SchemaTableName(database, TABLE_USER_DEFINED_TYPE.toLowerCase(ENGLISH));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         server.close();
@@ -162,8 +165,8 @@ public class TestCassandraConnector
         assertTrue(tables.contains(table));
     }
 
-    // disabled until metadata manager is updated to handle invalid catalogs and schemas
-    @Test(enabled = false, expectedExceptions = SchemaNotFoundException.class)
+    @Test
+    @Disabled // disabled until metadata manager is updated to handle invalid catalogs and schemas
     public void testGetTableNamesException()
     {
         metadata.listTables(SESSION, Optional.of(INVALID_DATABASE));

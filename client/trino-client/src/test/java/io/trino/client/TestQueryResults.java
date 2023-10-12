@@ -16,7 +16,7 @@ package io.trino.client;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.google.common.base.Strings;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.client.JsonCodec.jsonCodec;
 import static java.lang.String.format;

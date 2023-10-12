@@ -66,8 +66,8 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.MaterializedResult;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -134,7 +134,6 @@ import static org.testng.Assert.assertTrue;
  * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
  * on ways to set your AWS credentials which will be needed to run this test.
  */
-@Test(singleThreaded = true)
 public class TestHiveGlueMetastore
         extends AbstractTestHiveLocal
 {
@@ -204,7 +203,7 @@ public class TestHiveGlueMetastore
         return glueClient;
     }
 
-    @BeforeClass(alwaysRun = true)
+    @BeforeAll
     @Override
     public void initialize()
             throws Exception
@@ -215,7 +214,7 @@ public class TestHiveGlueMetastore
 //        logging.setLevel("com.amazonaws.request", Level.DEBUG);
     }
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         metastore = new HiveMetastoreClosure(metastoreClient);
@@ -275,12 +274,14 @@ public class TestHiveGlueMetastore
         });
     }
 
+    @Test
     @Override
     public void testRenameTable()
     {
         // rename table is not yet supported by Glue
     }
 
+    @Test
     @Override
     public void testUpdateTableColumnStatisticsEmptyOptionalFields()
     {
@@ -289,6 +290,7 @@ public class TestHiveGlueMetastore
         // in order to avoid incorrect data we skip writes for statistics with min/max = null
     }
 
+    @Test
     @Override
     public void testUpdatePartitionColumnStatisticsEmptyOptionalFields()
     {
@@ -297,6 +299,7 @@ public class TestHiveGlueMetastore
         // in order to avoid incorrect data we skip writes for statistics with min/max = null
     }
 
+    @Test
     @Override
     public void testUpdateBasicPartitionStatistics()
             throws Exception
@@ -315,6 +318,7 @@ public class TestHiveGlueMetastore
         }
     }
 
+    @Test
     @Override
     public void testUpdatePartitionColumnStatistics()
             throws Exception
@@ -336,6 +340,7 @@ public class TestHiveGlueMetastore
         }
     }
 
+    @Test
     @Override
     public void testStorePartitionWithStatistics()
             throws Exception
@@ -346,6 +351,7 @@ public class TestHiveGlueMetastore
         testStorePartitionWithStatistics(STATISTICS_PARTITIONED_TABLE_COLUMNS, BASIC_STATISTICS_1, BASIC_STATISTICS_2, BASIC_STATISTICS_1, EMPTY_ROWCOUNT_STATISTICS);
     }
 
+    @Test
     @Override
     public void testGetPartitions()
             throws Exception

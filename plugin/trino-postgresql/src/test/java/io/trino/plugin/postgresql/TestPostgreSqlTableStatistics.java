@@ -20,7 +20,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Properties;
@@ -53,8 +53,8 @@ public class TestPostgreSqlTableStatistics
                 ImmutableList.of(ORDERS));
     }
 
-    @Override
     @Test
+    @Override
     public void testNotAnalyzed()
     {
         String tableName = "test_stats_not_analyzed";

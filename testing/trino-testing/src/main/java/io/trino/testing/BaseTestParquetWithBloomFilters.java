@@ -16,7 +16,7 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.spi.connector.CatalogSchemaTableName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.util.Arrays;

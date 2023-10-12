@@ -16,7 +16,7 @@ package io.trino.plugin.deltalake.transactionlog.checkpoint;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
