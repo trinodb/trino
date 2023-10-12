@@ -13,8 +13,10 @@
  */
 package io.trino.plugin.mariadb;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
@@ -27,6 +29,7 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcSortItem;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongWriteFunction;
@@ -56,6 +59,9 @@ import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.statistics.ColumnStatistics;
+import io.trino.spi.statistics.Estimate;
+import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -63,6 +69,8 @@ import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -75,13 +83,18 @@ import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.emptyToNull;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
@@ -137,12 +150,15 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 public class MariaDbClient
         extends BaseJdbcClient
 {
+    private static final Logger log = Logger.get(MariaDbClient.class);
+
     private static final int MAX_SUPPORTED_DATE_TIME_PRECISION = 6;
     // MariaDB driver returns width of time types instead of precision.
     private static final int ZERO_PRECISION_TIME_COLUMN_SIZE = 10;
@@ -156,10 +172,17 @@ public class MariaDbClient
     // MariaDB Error Codes https://mariadb.com/kb/en/mariadb-error-codes/
     private static final int PARSE_ERROR = 1064;
 
+    private final boolean statisticsEnabled;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
 
     @Inject
-    public MariaDbClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping, RemoteQueryModifier queryModifier)
+    public MariaDbClient(
+            BaseJdbcConfig config,
+            JdbcStatisticsConfig statisticsConfig,
+            ConnectionFactory connectionFactory,
+            QueryBuilder queryBuilder,
+            IdentifierMapping identifierMapping,
+            RemoteQueryModifier queryModifier)
     {
         super("`", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
 
@@ -167,6 +190,7 @@ public class MariaDbClient
         ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
                 .build();
+        this.statisticsEnabled = statisticsConfig.isEnabled();
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 connectorExpressionRewriter,
                 ImmutableSet.<AggregateFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
@@ -623,6 +647,102 @@ public class MariaDbClient
                 .noneMatch(type -> type instanceof CharType || type instanceof VarcharType);
     }
 
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
+    {
+        if (!statisticsEnabled) {
+            return TableStatistics.empty();
+        }
+        if (!handle.isNamedRelation()) {
+            return TableStatistics.empty();
+        }
+        try {
+            return readTableStatistics(session, handle);
+        }
+        catch (SQLException | RuntimeException e) {
+            throwIfInstanceOf(e, TrinoException.class);
+            throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
+        }
+    }
+
+    private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
+            throws SQLException
+    {
+        checkArgument(table.isNamedRelation(), "Relation is not a table: %s", table);
+
+        log.debug("Reading statistics for %s", table);
+        try (Connection connection = connectionFactory.openConnection(session);
+                Handle handle = Jdbi.open(connection)) {
+            StatisticsDao statisticsDao = new StatisticsDao(handle);
+
+            Long rowCount = statisticsDao.getTableRowCount(table);
+            Long indexMaxCardinality = statisticsDao.getTableMaxColumnIndexCardinality(table);
+            log.debug("Estimated row count of table %s is %s, and max index cardinality is %s", table, rowCount, indexMaxCardinality);
+
+            if (rowCount != null && rowCount == 0) {
+                // MariaDB may report 0 row count until a table is analyzed for the first time.
+                rowCount = null;
+            }
+
+            if (rowCount == null && indexMaxCardinality == null) {
+                // Table not found, or is a view, or has no usable statistics
+                return TableStatistics.empty();
+            }
+            rowCount = max(firstNonNull(rowCount, 0L), firstNonNull(indexMaxCardinality, 0L));
+
+            TableStatistics.Builder tableStatistics = TableStatistics.builder();
+            tableStatistics.setRowCount(Estimate.of(rowCount));
+
+            // TODO statistics from ANALYZE TABLE (https://mariadb.com/kb/en/engine-independent-table-statistics/)
+            // Map<String, AnalyzeColumnStatistics> columnStatistics = statisticsDao.getColumnStatistics(table);
+            Map<String, AnalyzeColumnStatistics> columnStatistics = ImmutableMap.of();
+
+            // TODO add support for histograms https://mariadb.com/kb/en/histogram-based-statistics/
+
+            // statistics based on existing indexes
+            Map<String, ColumnIndexStatistics> columnStatisticsFromIndexes = statisticsDao.getColumnIndexStatistics(table);
+
+            if (columnStatistics.isEmpty() && columnStatisticsFromIndexes.isEmpty()) {
+                log.debug("No column and index statistics read");
+                // No more information to work on
+                return tableStatistics.build();
+            }
+
+            for (JdbcColumnHandle column : getColumns(session, table)) {
+                ColumnStatistics.Builder columnStatisticsBuilder = ColumnStatistics.builder();
+
+                String columnName = column.getColumnName();
+                AnalyzeColumnStatistics analyzeColumnStatistics = columnStatistics.get(columnName);
+                if (analyzeColumnStatistics != null) {
+                    log.debug("Reading column statistics for %s, %s from analayze's column statistics: %s", table, columnName, analyzeColumnStatistics);
+                    columnStatisticsBuilder.setNullsFraction(Estimate.of(analyzeColumnStatistics.nullsRatio()));
+                }
+
+                ColumnIndexStatistics columnIndexStatistics = columnStatisticsFromIndexes.get(columnName);
+                if (columnIndexStatistics != null) {
+                    log.debug("Reading column statistics for %s, %s from index statistics: %s", table, columnName, columnIndexStatistics);
+                    columnStatisticsBuilder.setDistinctValuesCount(Estimate.of(columnIndexStatistics.cardinality()));
+
+                    if (!columnIndexStatistics.nullable()) {
+                        double knownNullFraction = columnStatisticsBuilder.build().getNullsFraction().getValue();
+                        if (knownNullFraction > 0) {
+                            log.warn("Inconsistent statistics, null fraction for a column %s, %s, that is not nullable according to index statistics: %s", table, columnName, knownNullFraction);
+                        }
+                        columnStatisticsBuilder.setNullsFraction(Estimate.zero());
+                    }
+
+                    // row count from INFORMATION_SCHEMA.TABLES may be very inaccurate
+                    rowCount = max(rowCount, columnIndexStatistics.cardinality());
+                }
+
+                tableStatistics.setColumnStatistics(column, columnStatisticsBuilder.build());
+            }
+
+            tableStatistics.setRowCount(Estimate.of(rowCount));
+            return tableStatistics.build();
+        }
+    }
+
     private static LongWriteFunction dateWriteFunction()
     {
         return (statement, index, day) -> statement.setString(index, DATE_FORMATTER.format(LocalDate.ofEpochDay(day)));
@@ -650,4 +770,101 @@ public class MariaDbClient
 
         return Optional.empty();
     }
+
+    private static class StatisticsDao
+    {
+        private final Handle handle;
+
+        public StatisticsDao(Handle handle)
+        {
+            this.handle = requireNonNull(handle, "handle is null");
+        }
+
+        Long getTableRowCount(JdbcTableHandle table)
+        {
+            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
+            return handle.createQuery("""
+                        SELECT TABLE_ROWS FROM INFORMATION_SCHEMA.TABLES
+                        WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name
+                        AND TABLE_TYPE = 'BASE TABLE'
+                        """)
+                    .bind("schema", remoteTableName.getCatalogName().orElse(null))
+                    .bind("table_name", remoteTableName.getTableName())
+                    .mapTo(Long.class)
+                    .findOne()
+                    .orElse(null);
+        }
+
+        Long getTableMaxColumnIndexCardinality(JdbcTableHandle table)
+        {
+            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
+            return handle.createQuery("""
+                        SELECT max(CARDINALITY) AS row_count FROM INFORMATION_SCHEMA.STATISTICS
+                        WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name
+                        """)
+                    .bind("schema", remoteTableName.getCatalogName().orElse(null))
+                    .bind("table_name", remoteTableName.getTableName())
+                    .mapTo(Long.class)
+                    .findOne()
+                    .orElse(null);
+        }
+
+        Map<String, AnalyzeColumnStatistics> getColumnStatistics(JdbcTableHandle table)
+        {
+            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
+            return handle.createQuery("""
+                                SELECT
+                                    column_name,
+                                    -- TODO min_value, max_value,
+                                    nulls_ratio
+                                FROM mysql.column_stats
+                                WHERE db_name = :database AND TABLE_NAME = :table_name
+                                AND nulls_ratio IS NOT NULL
+                            """)
+                    .bind("database", remoteTableName.getCatalogName().orElse(null))
+                    .bind("table_name", remoteTableName.getTableName())
+                    .map((rs, ctx) -> {
+                        String columnName = rs.getString("column_name");
+                        double nullsRatio = rs.getDouble("nulls_ratio");
+                        return entry(columnName, new AnalyzeColumnStatistics(nullsRatio));
+                    })
+                    .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+        }
+
+        Map<String, ColumnIndexStatistics> getColumnIndexStatistics(JdbcTableHandle table)
+        {
+            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
+            return handle.createQuery("""
+                                SELECT
+                                    COLUMN_NAME,
+                                    MAX(NULLABLE) AS NULLABLE,
+                                    MAX(CARDINALITY) AS CARDINALITY
+                                FROM INFORMATION_SCHEMA.STATISTICS
+                                WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name
+                                AND SEQ_IN_INDEX = 1 -- first column in the index
+                                AND SUB_PART IS NULL -- ignore cases where only a column prefix is indexed
+                                AND CARDINALITY IS NOT NULL -- CARDINALITY might be null (https://stackoverflow.com/a/42242729/65458)
+                                AND CARDINALITY != 0 -- CARDINALITY is initially 0 until analyzed
+                                GROUP BY COLUMN_NAME -- there might be multiple indexes on a column
+                            """)
+                    .bind("schema", remoteTableName.getCatalogName().orElse(null))
+                    .bind("table_name", remoteTableName.getTableName())
+                    .map((rs, ctx) -> {
+                        String columnName = rs.getString("COLUMN_NAME");
+
+                        boolean nullable = rs.getString("NULLABLE").equalsIgnoreCase("YES");
+                        checkState(!rs.wasNull(), "NULLABLE is null");
+
+                        long cardinality = rs.getLong("CARDINALITY");
+                        checkState(!rs.wasNull(), "CARDINALITY is null");
+
+                        return entry(columnName, new ColumnIndexStatistics(nullable, cardinality));
+                    })
+                    .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+        }
+    }
+
+    private record AnalyzeColumnStatistics(double nullsRatio) {}
+
+    private record ColumnIndexStatistics(boolean nullable, long cardinality) {}
 }
