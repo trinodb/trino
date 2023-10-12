@@ -28,13 +28,11 @@ import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
@@ -46,7 +44,6 @@ import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
-import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.ORDERS;
@@ -382,19 +379,21 @@ public abstract class BaseDynamicPartitionPruningTest
                 .isEqualTo(getSimplifiedDomainString(1L, 100L, 100, BIGINT));
     }
 
-    @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
-    public void testJoinDynamicFilteringMultiJoinOnPartitionedTables(JoinDistributionType joinDistributionType)
+    @Test(timeOut = 30_000)
+    public void testJoinDynamicFilteringMultiJoinOnPartitionedTables()
     {
-        assertUpdate("DROP TABLE IF EXISTS t0_part");
-        assertUpdate("DROP TABLE IF EXISTS t1_part");
-        assertUpdate("DROP TABLE IF EXISTS t2_part");
-        createPartitionedTable("t0_part", ImmutableList.of("v0 real", "k0 integer"), ImmutableList.of("k0"));
-        createPartitionedTable("t1_part", ImmutableList.of("v1 real", "i1 integer"), ImmutableList.of());
-        createPartitionedTable("t2_part", ImmutableList.of("v2 real", "i2 integer", "k2 integer"), ImmutableList.of("k2"));
-        assertUpdate("INSERT INTO t0_part VALUES (1.0, 1), (1.0, 2)", 2);
-        assertUpdate("INSERT INTO t1_part VALUES (2.0, 10), (2.0, 20)", 2);
-        assertUpdate("INSERT INTO t2_part VALUES (3.0, 1, 1), (3.0, 2, 2)", 2);
-        testJoinDynamicFilteringMultiJoin(joinDistributionType, "t0_part", "t1_part", "t2_part");
+        for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
+            assertUpdate("DROP TABLE IF EXISTS t0_part");
+            assertUpdate("DROP TABLE IF EXISTS t1_part");
+            assertUpdate("DROP TABLE IF EXISTS t2_part");
+            createPartitionedTable("t0_part", ImmutableList.of("v0 real", "k0 integer"), ImmutableList.of("k0"));
+            createPartitionedTable("t1_part", ImmutableList.of("v1 real", "i1 integer"), ImmutableList.of());
+            createPartitionedTable("t2_part", ImmutableList.of("v2 real", "i2 integer", "k2 integer"), ImmutableList.of("k2"));
+            assertUpdate("INSERT INTO t0_part VALUES (1.0, 1), (1.0, 2)", 2);
+            assertUpdate("INSERT INTO t1_part VALUES (2.0, 10), (2.0, 20)", 2);
+            assertUpdate("INSERT INTO t2_part VALUES (3.0, 1, 1), (3.0, 2, 2)", 2);
+            testJoinDynamicFilteringMultiJoin(joinDistributionType, "t0_part", "t1_part", "t2_part");
+        }
     }
 
     // TODO: use joinDistributionTypeProvider when https://github.com/trinodb/trino/issues/4713 is done as currently waiting for BROADCAST DFs doesn't work for bucketed tables
@@ -455,13 +454,6 @@ public abstract class BaseDynamicPartitionPruningTest
         QueryId queryId = result.getQueryId();
         QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
         return stats.getPhysicalInputPositions();
-    }
-
-    @DataProvider
-    public Object[][] joinDistributionTypes()
-    {
-        return Stream.of(JoinDistributionType.values())
-                .collect(toDataProvider());
     }
 
     private Session withDynamicFilteringDisabled()

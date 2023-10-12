@@ -275,8 +275,7 @@ public class TestSqlServerTableStatistics
     }
 
     @Override
-    @Test(dataProvider = "testCaseColumnNamesDataProvider")
-    public void testCaseColumnNames(String tableName)
+    protected void testCaseColumnNames(String tableName)
     {
         sqlServer.execute("" +
                 "SELECT " +

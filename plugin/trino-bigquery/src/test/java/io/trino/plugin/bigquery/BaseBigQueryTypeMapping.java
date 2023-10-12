@@ -30,7 +30,6 @@ import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.ZoneId;
@@ -110,8 +109,19 @@ public abstract class BaseBigQueryTypeMapping
                 .execute(getQueryRunner(), trinoCreateAndInsert("test.varbinary"));
     }
 
-    @Test(dataProvider = "bigqueryIntegerTypeProvider")
-    public void testInt64(String inputType)
+    @Test
+    public void testInt64()
+    {
+        testInt64("BYTEINT");
+        testInt64("TINYINT");
+        testInt64("SMALLINT");
+        testInt64("INTEGER");
+        testInt64("INT64");
+        testInt64("INT");
+        testInt64("BIGINT");
+    }
+
+    private void testInt64(String inputType)
     {
         SqlDataTypeTest.create()
                 .addRoundTrip(inputType, "-9223372036854775808", BIGINT, "-9223372036854775808")
@@ -120,21 +130,6 @@ public abstract class BaseBigQueryTypeMapping
                 .addRoundTrip(inputType, "NULL", BIGINT, "CAST(NULL AS BIGINT)")
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.integer"))
                 .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.integer"));
-    }
-
-    @DataProvider
-    public Object[][] bigqueryIntegerTypeProvider()
-    {
-        // BYTEINT, TINYINT, SMALLINT, INTEGER, INT and BIGINT are aliases for INT64 in BigQuery
-        return new Object[][] {
-                {"BYTEINT"},
-                {"TINYINT"},
-                {"SMALLINT"},
-                {"INTEGER"},
-                {"INT64"},
-                {"INT"},
-                {"BIGINT"},
-        };
     }
 
     @Test
@@ -383,23 +378,20 @@ public abstract class BaseBigQueryTypeMapping
                 .hasMessageContaining("SELECT * not allowed from relation that has no columns");
     }
 
-    @Test(dataProvider = "bigqueryUnsupportedBigNumericTypeProvider")
-    public void testUnsupportedBigNumericMapping(String unsupportedTypeName)
+    @Test
+    public void testUnsupportedBigNumericMapping()
+    {
+        testUnsupportedBigNumericMapping("BIGNUMERIC");
+        testUnsupportedBigNumericMapping("BIGNUMERIC(40,2)");
+    }
+
+    private void testUnsupportedBigNumericMapping(String unsupportedTypeName)
     {
         try (TestTable table = new TestTable(getBigQuerySqlExecutor(), "test.unsupported_bignumeric", format("(supported_column INT64, unsupported_column %s)", unsupportedTypeName))) {
             assertQuery(
                     "DESCRIBE " + table.getName(),
                     "VALUES ('supported_column', 'bigint', '', '')");
         }
-    }
-
-    @DataProvider
-    public Object[][] bigqueryUnsupportedBigNumericTypeProvider()
-    {
-        return new Object[][] {
-                {"BIGNUMERIC"},
-                {"BIGNUMERIC(40,2)"},
-        };
     }
 
     @Test
@@ -533,8 +525,19 @@ public abstract class BaseBigQueryTypeMapping
                 .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.time"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimestampWithTimeZone(ZoneId zoneId)
+    @Test
+    public void testTimestampWithTimeZone()
+    {
+        testTimestampWithTimeZone(UTC);
+        testTimestampWithTimeZone(jvmZone);
+
+        // using two non-JVM zones so that we don't need to worry what BigQuery system zone is
+        testTimestampWithTimeZone(vilnius);
+        testTimestampWithTimeZone(kathmandu);
+        testTimestampWithTimeZone(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimestampWithTimeZone(ZoneId zoneId)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(zoneId.getId()))
@@ -623,19 +626,6 @@ public abstract class BaseBigQueryTypeMapping
                 // max value in BigQuery
                 .addRoundTrip(inputType, "TIMESTAMP '9999-12-31 23:59:59.999999 UTC'",
                         TIMESTAMP_TZ_MICROS, "TIMESTAMP '9999-12-31 23:59:59.999999 UTC'");
-    }
-
-    @DataProvider
-    public Object[][] sessionZonesDataProvider()
-    {
-        return new Object[][] {
-                {UTC},
-                {jvmZone},
-                // using two non-JVM zones so that we don't need to worry what BigQuery system zone is
-                {vilnius},
-                {kathmandu},
-                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
-        };
     }
 
     @Test
