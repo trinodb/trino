@@ -57,7 +57,7 @@ jobs:
       matrix:
         java-version:
           - 17
-          - 20
+          - 21
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
