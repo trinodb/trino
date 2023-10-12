@@ -592,7 +592,7 @@ The following table properties are available for use:
   * - ``partitioned_by``
     - Set partition columns.
   * - ``checkpoint_interval``
-    - Set the checkpoint interval in seconds.
+    - Set the checkpoint interval in number of table writes.
   * - ``change_data_feed_enabled``
     - Enables storing change data feed entries.
   * - ``column_mapping_mode``
