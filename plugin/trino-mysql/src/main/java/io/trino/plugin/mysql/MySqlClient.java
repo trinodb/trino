@@ -224,10 +224,6 @@ public class MySqlClient
     // MySQL driver returns width of time types instead of precision, same as the above timestamp type.
     private static final int ZERO_PRECISION_TIME_COLUMN_SIZE = 8;
 
-    // MySQL TIMESTAMP has a range of '1970-01-01 00:00:01' UTC to '2038-01-19 03:14:07' UTC
-    private static final Instant MYSQL_TIMESTAMP_MIN_VALUE = Instant.parse("1970-01-01T00:00:01.000000Z");
-    private static final Instant MYSQL_TIMESTAMP_MAX_VALUE = Instant.parse("2038-01-19T03:14:07.499999Z");
-
     // An empty character means that the table doesn't have a comment in MySQL
     private static final String NO_COMMENT = "";
 
