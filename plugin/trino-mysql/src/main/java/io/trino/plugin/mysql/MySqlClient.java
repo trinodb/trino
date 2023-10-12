@@ -117,7 +117,6 @@ import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.emptyToNull;
@@ -1109,7 +1108,7 @@ public class MySqlClient
                     updateColumnStatisticsFromIndexStatistics(table, columnName, columnStatisticsBuilder, columnIndexStatistics);
 
                     // row count from INFORMATION_SCHEMA.TABLES is very inaccurate
-                    rowCount = max(rowCount, columnIndexStatistics.getCardinality());
+                    rowCount = max(rowCount, columnIndexStatistics.cardinality());
                 }
 
                 tableStatistics.setColumnStatistics(column, columnStatisticsBuilder.build());
@@ -1138,9 +1137,9 @@ public class MySqlClient
     {
         // Prefer CARDINALITY from index statistics over NDV from a histogram.
         // Index column might be NULLABLE. Then CARDINALITY includes all
-        columnStatistics.setDistinctValuesCount(Estimate.of(columnIndexStatistics.getCardinality()));
+        columnStatistics.setDistinctValuesCount(Estimate.of(columnIndexStatistics.cardinality()));
 
-        if (!columnIndexStatistics.nullable) {
+        if (!columnIndexStatistics.nullable()) {
             double knownNullFraction = columnStatistics.build().getNullsFraction().getValue();
             if (knownNullFraction > 0) {
                 log.warn("Inconsistent statistics, null fraction for a column %s, %s, that is not nullable according to index statistics: %s", table, columnName, knownNullFraction);
@@ -1250,31 +1249,7 @@ public class MySqlClient
         }
     }
 
-    private static class ColumnIndexStatistics
-    {
-        private final boolean nullable;
-        private final long cardinality;
-
-        public ColumnIndexStatistics(boolean nullable, long cardinality)
-        {
-            this.cardinality = cardinality;
-            this.nullable = nullable;
-        }
-
-        public long getCardinality()
-        {
-            return cardinality;
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("cardinality", getCardinality())
-                    .add("nullable", nullable)
-                    .toString();
-        }
-    }
+    private record ColumnIndexStatistics(boolean nullable, long cardinality) {}
 
     // See https://dev.mysql.com/doc/refman/8.0/en/optimizer-statistics.html
     public static class ColumnHistogram
