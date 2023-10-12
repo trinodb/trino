@@ -14,7 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <mongo-java.version>4.10.2</mongo-java.version>
+        <mongo-java.version>4.11.0</mongo-java.version>
     </properties>
 
     <dependencies>
