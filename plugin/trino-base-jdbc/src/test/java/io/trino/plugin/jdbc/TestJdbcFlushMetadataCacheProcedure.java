@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.JdbcSqlExecutor;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -27,7 +27,6 @@ import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 import static io.trino.tpch.TpchTable.NATION;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@Test(singleThreaded = true) // some test assertions rely on `flush_metadata_cache()` being not executed yet, so cannot run concurrently
 public class TestJdbcFlushMetadataCacheProcedure
         extends AbstractTestQueryFramework
 {

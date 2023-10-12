@@ -31,8 +31,8 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
+import org.junit.jupiter.api.Test;
 import org.postgresql.Driver;
-import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.Properties;
@@ -47,7 +47,6 @@ import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.REGION;
 import static java.util.Objects.requireNonNull;
 
-@Test(singleThreaded = true) // inherited from BaseJdbcConnectionCreationTest
 public class TestPostgreSqlJdbcConnectionCreation
         extends BaseJdbcConnectionCreationTest
 {

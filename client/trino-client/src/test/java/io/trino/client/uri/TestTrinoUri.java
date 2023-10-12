@@ -13,7 +13,7 @@
  */
 package io.trino.client.uri;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.sql.SQLException;
@@ -184,11 +184,12 @@ public class TestTrinoUri
                 "Connection property assumeLiteralNamesInMetadataCallsForNonConformingClients cannot be set if assumeLiteralUnderscoreInMetadataCallsForNonConformingClients is enabled");
     }
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Connection property user value is empty")
+    @Test
     public void testEmptyUser()
-            throws Exception
     {
-        TrinoUri.create("trino://localhost:8080?user=", new Properties());
+        assertThatThrownBy(() -> TrinoUri.create("trino://localhost:8080?user=", new Properties()))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property user value is empty");
     }
 
     @Test

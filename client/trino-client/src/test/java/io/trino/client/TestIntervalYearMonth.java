@@ -13,7 +13,7 @@
  */
 package io.trino.client;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.client.IntervalYearMonth.formatMonths;
 import static io.trino.client.IntervalYearMonth.parseMonths;

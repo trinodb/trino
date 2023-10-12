@@ -63,9 +63,10 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.TestingConnectorContext;
 import io.trino.tests.BogusType;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.File;
 import java.io.IOException;
@@ -95,7 +96,9 @@ import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestDeltaLakeMetadata
 {
     private static final String DATABASE_NAME = "mock_database";
@@ -203,7 +206,7 @@ public class TestDeltaLakeMetadata
     private File temporaryCatalogDirectory;
     private DeltaLakeMetadataFactory deltaLakeMetadataFactory;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
             throws IOException
     {
@@ -258,7 +261,7 @@ public class TestDeltaLakeMetadata
                         .build());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws Exception
     {

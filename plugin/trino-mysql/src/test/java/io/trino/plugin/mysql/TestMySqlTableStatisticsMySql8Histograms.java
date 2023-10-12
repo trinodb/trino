@@ -15,8 +15,7 @@ package io.trino.plugin.mysql;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.sql.TestTable;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.function.Function;
@@ -26,6 +25,7 @@ import static com.google.common.collect.Streams.stream;
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestMySqlTableStatisticsMySql8Histograms
         extends BaseTestMySqlTableStatisticsTest
@@ -82,10 +82,11 @@ public class TestMySqlTableStatisticsMySql8Histograms
         }
     }
 
+    @Test
     @Override
     public void testNotAnalyzed()
     {
-        throw new SkipException("MySql8 automatically calculates stats - https://dev.mysql.com/doc/refman/8.0/en/innodb-parameters.html#sysvar_innodb_stats_auto_recalc");
+        abort("MySql8 automatically calculates stats - https://dev.mysql.com/doc/refman/8.0/en/innodb-parameters.html#sysvar_innodb_stats_auto_recalc");
     }
 
     @Override

@@ -29,8 +29,7 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.ZoneId;
 import java.util.Optional;
@@ -56,16 +55,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public abstract class BaseBigQueryTypeMapping
         extends AbstractTestQueryFramework
 {
-    private BigQueryQueryRunner.BigQuerySqlExecutor bigQuerySqlExecutor;
+    private final BigQueryQueryRunner.BigQuerySqlExecutor bigQuerySqlExecutor = new BigQueryQueryRunner.BigQuerySqlExecutor();
     private final ZoneId jvmZone = ZoneId.systemDefault();
     private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
     private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
-
-    @BeforeClass(alwaysRun = true)
-    public void initBigQueryExecutor()
-    {
-        bigQuerySqlExecutor = new BigQueryQueryRunner.BigQuerySqlExecutor();
-    }
 
     @Test
     public void testBoolean()

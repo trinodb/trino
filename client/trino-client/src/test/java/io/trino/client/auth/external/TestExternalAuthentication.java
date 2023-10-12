@@ -14,7 +14,7 @@
 package io.trino.client.auth.external;
 
 import io.trino.client.ClientException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

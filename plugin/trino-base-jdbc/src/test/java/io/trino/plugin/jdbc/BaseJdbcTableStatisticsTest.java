@@ -17,8 +17,9 @@ import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Locale;
 
@@ -26,14 +27,16 @@ import static com.google.common.base.Throwables.getStackTraceAsString;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public abstract class BaseJdbcTableStatisticsTest
         extends AbstractTestQueryFramework
 {
     // Currently this class serves as a common "interface" to define cases that should be covered.
     //  TODO extend it to provide reusable blocks to reduce boiler-plate.
 
-    @BeforeClass
+    @BeforeAll
     public void setUpTables()
     {
         setUpTableFromTpch("region");

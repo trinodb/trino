@@ -21,8 +21,10 @@ import okhttp3.Request;
 import okhttp3.Response;
 import org.assertj.core.api.ListAssert;
 import org.assertj.core.api.ThrowableAssert;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -51,13 +53,14 @@ import static java.net.URI.create;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
 public class TestExternalAuthenticator
 {
     private static final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(TestExternalAuthenticator.class.getName() + "-%d"));
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void shutDownThreadPool()
     {
         executor.shutdownNow();
@@ -158,7 +161,8 @@ public class TestExternalAuthenticator
                 .containsExactly("Bearer second-token");
     }
 
-    @Test(timeOut = 2000)
+    @Test
+    @Timeout(2)
     public void testAuthenticationFromMultipleThreadsWithLocallyStoredToken()
     {
         MockTokenPoller tokenPoller = new MockTokenPoller()
@@ -184,7 +188,8 @@ public class TestExternalAuthenticator
         assertThat(redirectHandler.getRedirectionCount()).isEqualTo(4);
     }
 
-    @Test(timeOut = 2000)
+    @Test
+    @Timeout(2)
     public void testAuthenticationFromMultipleThreadsWithCachedToken()
     {
         MockTokenPoller tokenPoller = new MockTokenPoller()
@@ -208,7 +213,8 @@ public class TestExternalAuthenticator
         assertThat(redirectHandler.getRedirectionCount()).isEqualTo(1);
     }
 
-    @Test(timeOut = 2000)
+    @Test
+    @Timeout(2)
     public void testAuthenticationFromMultipleThreadsWithCachedTokenAfterAuthenticateFails()
     {
         MockTokenPoller tokenPoller = new MockTokenPoller()
@@ -235,7 +241,8 @@ public class TestExternalAuthenticator
         assertThat(redirectHandler.getRedirectionCount()).isEqualTo(2);
     }
 
-    @Test(timeOut = 2000)
+    @Test
+    @Timeout(2)
     public void testAuthenticationFromMultipleThreadsWithCachedTokenAfterAuthenticateTimesOut()
     {
         MockRedirectHandler redirectHandler = new MockRedirectHandler()
@@ -255,7 +262,8 @@ public class TestExternalAuthenticator
         assertThat(redirectHandler.getRedirectionCount()).isEqualTo(1);
     }
 
-    @Test(timeOut = 2000)
+    @Test
+    @Timeout(2)
     public void testAuthenticationFromMultipleThreadsWithCachedTokenAfterAuthenticateIsInterrupted()
             throws Exception
     {
