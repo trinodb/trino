@@ -223,7 +223,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         .put("delta.metadata.live-files.cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
                         .put("hive.metastore-cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
                         .put("delta.register-table-procedure.enabled", "true")
-                        .put("hive.metastore-timeout", "1m") // read timed out sometimes happens with the default timeout
+                        .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
                         .putAll(deltaStorageConfiguration())
                         .buildOrThrow(),
                 hiveHadoop,
