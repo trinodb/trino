@@ -14,6 +14,7 @@
 package io.trino.split;
 
 import com.google.inject.Inject;
+import io.airlift.concurrent.BoundedExecutor;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
@@ -31,15 +32,19 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.tracing.TrinoAttributes;
 
 import java.util.Optional;
+import java.util.concurrent.Executor;
 
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class SplitManager
 {
     private final CatalogServiceProvider<ConnectorSplitManager> splitManagerProvider;
     private final Tracer tracer;
     private final int minScheduleSplitBatchSize;
+    private final Executor executor;
 
     @Inject
     public SplitManager(CatalogServiceProvider<ConnectorSplitManager> splitManagerProvider, Tracer tracer, QueryManagerConfig config)
@@ -47,6 +52,7 @@ public class SplitManager
         this.splitManagerProvider = requireNonNull(splitManagerProvider, "splitManagerProvider is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.minScheduleSplitBatchSize = config.getMinScheduleSplitBatchSize();
+        this.executor = new BoundedExecutor(newCachedThreadPool(daemonThreadsNamed("splits-manager-callback-%s")), config.getMaxSplitManagerCallbackThreads());
     }
 
     public SplitSource getSplits(
@@ -77,7 +83,7 @@ public class SplitManager
 
         if (minScheduleSplitBatchSize > 1) {
             splitSource = new TracingSplitSource(splitSource, tracer, Optional.empty(), "split-batch");
-            splitSource = new BufferingSplitSource(splitSource, minScheduleSplitBatchSize);
+            splitSource = new BufferingSplitSource(splitSource, executor, minScheduleSplitBatchSize);
             splitSource = new TracingSplitSource(splitSource, tracer, Optional.of(span), "split-buffer");
         }
         else {
