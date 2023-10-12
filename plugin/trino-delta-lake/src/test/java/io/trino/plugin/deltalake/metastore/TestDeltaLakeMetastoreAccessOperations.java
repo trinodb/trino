@@ -40,6 +40,7 @@ import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_TABLES_FROM_DATABASE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_DATABASE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_TABLE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.REPLACE_TABLE;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
@@ -102,6 +103,23 @@ public class TestDeltaLakeMetastoreAccessOperations
     }
 
     @Test
+    public void testCreateOrReplaceTable()
+    {
+        assertMetastoreInvocations("CREATE OR REPLACE TABLE test_create_or_replace (id VARCHAR, age INT)",
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .add(GET_TABLE)
+                        .add(CREATE_TABLE)
+                        .build());
+        assertMetastoreInvocations("CREATE OR REPLACE TABLE test_create_or_replace (id VARCHAR, age INT)",
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .add(GET_TABLE)
+                        .add(REPLACE_TABLE)
+                        .build());
+    }
+
+    @Test
     public void testCreateTableAsSelect()
     {
         assertMetastoreInvocations("CREATE TABLE test_ctas AS SELECT 1 AS age",
@@ -109,6 +127,26 @@ public class TestDeltaLakeMetastoreAccessOperations
                         .add(GET_DATABASE)
                         .add(CREATE_TABLE)
                         .add(GET_TABLE)
+                        .build());
+    }
+
+    @Test
+    public void testCreateOrReplaceTableAsSelect()
+    {
+        assertMetastoreInvocations(
+                "CREATE OR REPLACE TABLE test_cortas AS SELECT 1 AS age",
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .add(GET_TABLE)
+                        .add(CREATE_TABLE)
+                        .build());
+
+        assertMetastoreInvocations(
+                "CREATE OR REPLACE TABLE test_cortas AS SELECT 1 AS age",
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .add(GET_TABLE)
+                        .add(REPLACE_TABLE)
                         .build());
     }
 

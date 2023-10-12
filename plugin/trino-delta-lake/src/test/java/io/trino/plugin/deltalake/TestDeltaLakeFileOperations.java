@@ -142,6 +142,57 @@ public class TestDeltaLakeFileOperations
     }
 
     @Test
+    public void testCreateOrReplaceTable()
+    {
+        assertFileSystemAccesses("CREATE OR REPLACE TABLE test_create_or_replace (id VARCHAR, age INT)",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", OUTPUT_FILE_CREATE))
+                        .build());
+
+        assertFileSystemAccesses("CREATE OR REPLACE TABLE test_create_or_replace (id VARCHAR, age INT)",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", OUTPUT_FILE_CREATE_OR_OVERWRITE))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_EXISTS))
+                        .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", INPUT_FILE_EXISTS))
+                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM), 2)
+                        .build());
+        assertUpdate("DROP TABLE test_create_or_replace");
+    }
+
+    @Test
+    public void testCreateOrReplaceTableAsSelect()
+    {
+        assertFileSystemAccesses(
+                "CREATE OR REPLACE TABLE test_create_or_replace_as_select AS SELECT 1 col_name",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(STARBURST_EXTENDED_STATS_JSON, "extendeded_stats.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(STARBURST_EXTENDED_STATS_JSON, "extendeded_stats.json", INPUT_FILE_EXISTS))
+                        .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", OUTPUT_FILE_CREATE_OR_OVERWRITE))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", OUTPUT_FILE_CREATE))
+                        .add(new FileOperation(DATA, "no partition", OUTPUT_FILE_CREATE))
+                        .build());
+
+        assertFileSystemAccesses(
+                "CREATE OR REPLACE TABLE test_create_or_replace_as_select AS SELECT 1 col_name",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(STARBURST_EXTENDED_STATS_JSON, "extendeded_stats.json", INPUT_FILE_EXISTS))
+                        .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", OUTPUT_FILE_CREATE_OR_OVERWRITE))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", OUTPUT_FILE_CREATE_OR_OVERWRITE))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM))
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_EXISTS), 2)
+                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM), 3)
+                        .add(new FileOperation(DATA, "no partition", OUTPUT_FILE_CREATE))
+                        .build());
+
+        assertUpdate("DROP TABLE test_create_or_replace_as_select");
+    }
+
+    @Test
     public void testReadUnpartitionedTable()
     {
         assertUpdate("DROP TABLE IF EXISTS test_read_unpartitioned");
