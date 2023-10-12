@@ -262,9 +262,8 @@ public abstract class BaseMariaDbTableStatisticsTest
         throw new SkipException(""); // TODO is there a concept like materialized view in MariaDB?
     }
 
-    @Test(dataProvider = "testCaseColumnNamesDataProvider")
     @Override
-    public void testCaseColumnNames(String tableName)
+    protected void testCaseColumnNames(String tableName)
     {
         executeInMariaDb(("" +
                 "CREATE TABLE " + tableName + " " +

@@ -24,7 +24,6 @@ import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -42,7 +41,6 @@ import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
-import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -60,22 +58,31 @@ public class TestDeltaLakeColumnMapping
         return createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(), ImmutableMap.of("delta.enable-non-concurrent-writes", "true"));
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testCreateTableWithColumnMappingMode(String columnMappingMode)
+    @Test
+    public void testCreateTableWithColumnMappingMode()
             throws Exception
     {
         testCreateTableColumnMappingMode(tableName -> {
-            assertUpdate("CREATE TABLE " + tableName + "(a_int integer, a_row row(x integer)) WITH (column_mapping_mode='" + columnMappingMode + "')");
+            assertUpdate("CREATE TABLE " + tableName + "(a_int integer, a_row row(x integer)) WITH (column_mapping_mode='id')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, row(11))", 1);
+        });
+
+        testCreateTableColumnMappingMode(tableName -> {
+            assertUpdate("CREATE TABLE " + tableName + "(a_int integer, a_row row(x integer)) WITH (column_mapping_mode='name')");
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, row(11))", 1);
         });
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testCreateTableAsSelectWithColumnMappingMode(String columnMappingMode)
+    @Test
+    public void testCreateTableAsSelectWithColumnMappingMode()
             throws Exception
     {
         testCreateTableColumnMappingMode(tableName ->
-                assertUpdate("CREATE TABLE " + tableName + " WITH (column_mapping_mode='" + columnMappingMode + "')" +
+                assertUpdate("CREATE TABLE " + tableName + " WITH (column_mapping_mode='id')" +
+                        " AS SELECT 1 AS a_int, CAST(row(11) AS row(x integer)) AS a_row", 1));
+
+        testCreateTableColumnMappingMode(tableName ->
+                assertUpdate("CREATE TABLE " + tableName + " WITH (column_mapping_mode='name')" +
                         " AS SELECT 1 AS a_int, CAST(row(11) AS row(x integer)) AS a_row", 1));
     }
 
@@ -114,13 +121,6 @@ public class TestDeltaLakeColumnMapping
         assertThat(nestedInt.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
 
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @DataProvider
-    public Object[][] columnMappingModeDataProvider()
-    {
-        return ImmutableList.of("id", "name").stream()
-                .collect(toDataProvider());
     }
 
     private String getTableLocation(String tableName)

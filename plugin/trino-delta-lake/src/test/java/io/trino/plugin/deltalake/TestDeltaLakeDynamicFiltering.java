@@ -37,7 +37,6 @@ import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -46,7 +45,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
@@ -56,7 +54,6 @@ import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
-import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.ORDERS;
@@ -97,24 +94,19 @@ public class TestDeltaLakeDynamicFiltering
         return queryRunner;
     }
 
-    @DataProvider
-    public Object[][] joinDistributionTypes()
+    @Test(timeOut = 60_000)
+    public void testDynamicFiltering()
     {
-        return Stream.of(JoinDistributionType.values())
-                .collect(toDataProvider());
-    }
+        for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
+            String query = "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice > 59995 AND orders.totalprice < 60000";
+            MaterializedResultWithQueryId filteredResult = getDistributedQueryRunner().executeWithQueryId(sessionWithDynamicFiltering(true, joinDistributionType), query);
+            MaterializedResultWithQueryId unfilteredResult = getDistributedQueryRunner().executeWithQueryId(sessionWithDynamicFiltering(false, joinDistributionType), query);
+            assertEqualsIgnoreOrder(filteredResult.getResult().getMaterializedRows(), unfilteredResult.getResult().getMaterializedRows());
 
-    @Test(timeOut = 60_000, dataProvider = "joinDistributionTypes")
-    public void testDynamicFiltering(JoinDistributionType joinDistributionType)
-    {
-        String query = "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice > 59995 AND orders.totalprice < 60000";
-        MaterializedResultWithQueryId filteredResult = getDistributedQueryRunner().executeWithQueryId(sessionWithDynamicFiltering(true, joinDistributionType), query);
-        MaterializedResultWithQueryId unfilteredResult = getDistributedQueryRunner().executeWithQueryId(sessionWithDynamicFiltering(false, joinDistributionType), query);
-        assertEqualsIgnoreOrder(filteredResult.getResult().getMaterializedRows(), unfilteredResult.getResult().getMaterializedRows());
-
-        QueryInputStats filteredStats = getQueryInputStats(filteredResult.getQueryId());
-        QueryInputStats unfilteredStats = getQueryInputStats(unfilteredResult.getQueryId());
-        assertGreaterThan(unfilteredStats.inputPositions, filteredStats.inputPositions);
+            QueryInputStats filteredStats = getQueryInputStats(filteredResult.getQueryId());
+            QueryInputStats unfilteredStats = getQueryInputStats(unfilteredResult.getQueryId());
+            assertGreaterThan(unfilteredStats.inputPositions, filteredStats.inputPositions);
+        }
     }
 
     @Test(timeOut = 30_000)

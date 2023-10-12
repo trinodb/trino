@@ -65,7 +65,6 @@ import io.trino.testing.TestingConnectorContext;
 import io.trino.tests.BogusType;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -374,66 +373,57 @@ public class TestDeltaLakeMetadata
                 .isNotPresent();
     }
 
-    @DataProvider
-    public Object[][] testApplyProjectionProvider()
+    @Test
+    public void testApplyProjection()
     {
-        return new Object[][] {
-                {
-                        ImmutableSet.of(),
-                        SYNTHETIC_COLUMN_ASSIGNMENTS,
-                        SIMPLE_COLUMN_PROJECTIONS,
-                        SIMPLE_COLUMN_PROJECTIONS,
-                        ImmutableSet.of(BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
-                        SYNTHETIC_COLUMN_ASSIGNMENTS
-                },
-                {
-                        // table handle already contains subset of expected projected columns
-                        ImmutableSet.of(BOGUS_COLUMN_HANDLE),
-                        SYNTHETIC_COLUMN_ASSIGNMENTS,
-                        SIMPLE_COLUMN_PROJECTIONS,
-                        SIMPLE_COLUMN_PROJECTIONS,
-                        ImmutableSet.of(BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
-                        SYNTHETIC_COLUMN_ASSIGNMENTS
-                },
-                {
-                        // table handle already contains superset of expected projected columns
-                        ImmutableSet.of(DOUBLE_COLUMN_HANDLE, BOOLEAN_COLUMN_HANDLE, DATE_COLUMN_HANDLE, BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
-                        SYNTHETIC_COLUMN_ASSIGNMENTS,
-                        SIMPLE_COLUMN_PROJECTIONS,
-                        SIMPLE_COLUMN_PROJECTIONS,
-                        ImmutableSet.of(BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
-                        SYNTHETIC_COLUMN_ASSIGNMENTS
-                },
-                {
-                        // table handle has empty assignments
-                        ImmutableSet.of(DOUBLE_COLUMN_HANDLE, BOOLEAN_COLUMN_HANDLE, DATE_COLUMN_HANDLE, BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
-                        ImmutableMap.of(),
-                        SIMPLE_COLUMN_PROJECTIONS,
-                        SIMPLE_COLUMN_PROJECTIONS,
-                        ImmutableSet.of(),
-                        ImmutableMap.of()
-                },
-                {
-                        ImmutableSet.of(DOUBLE_COLUMN_HANDLE, BOOLEAN_COLUMN_HANDLE, DATE_COLUMN_HANDLE, BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
-                        ImmutableMap.of(),
-                        DEREFERENCE_COLUMN_PROJECTIONS,
-                        DEREFERENCE_COLUMN_PROJECTIONS,
-                        ImmutableSet.of(),
-                        ImmutableMap.of()
-                },
-                {
-                        ImmutableSet.of(NESTED_COLUMN_HANDLE),
-                        NESTED_COLUMN_ASSIGNMENTS,
-                        NESTED_DEREFERENCE_COLUMN_PROJECTIONS,
-                        EXPECTED_NESTED_DEREFERENCE_COLUMN_PROJECTIONS,
-                        ImmutableSet.of(EXPECTED_NESTED_COLUMN_HANDLE),
-                        EXPECTED_NESTED_COLUMN_ASSIGNMENTS
-                },
-        };
+        testApplyProjection(
+                ImmutableSet.of(),
+                SYNTHETIC_COLUMN_ASSIGNMENTS,
+                SIMPLE_COLUMN_PROJECTIONS,
+                SIMPLE_COLUMN_PROJECTIONS,
+                ImmutableSet.of(BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
+                SYNTHETIC_COLUMN_ASSIGNMENTS);
+        testApplyProjection(
+                // table handle already contains subset of expected projected columns
+                ImmutableSet.of(BOGUS_COLUMN_HANDLE),
+                SYNTHETIC_COLUMN_ASSIGNMENTS,
+                SIMPLE_COLUMN_PROJECTIONS,
+                SIMPLE_COLUMN_PROJECTIONS,
+                ImmutableSet.of(BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
+                SYNTHETIC_COLUMN_ASSIGNMENTS);
+        testApplyProjection(
+                // table handle already contains superset of expected projected columns
+                ImmutableSet.of(DOUBLE_COLUMN_HANDLE, BOOLEAN_COLUMN_HANDLE, DATE_COLUMN_HANDLE, BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
+                SYNTHETIC_COLUMN_ASSIGNMENTS,
+                SIMPLE_COLUMN_PROJECTIONS,
+                SIMPLE_COLUMN_PROJECTIONS,
+                ImmutableSet.of(BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
+                SYNTHETIC_COLUMN_ASSIGNMENTS);
+        testApplyProjection(
+                // table handle has empty assignments
+                ImmutableSet.of(DOUBLE_COLUMN_HANDLE, BOOLEAN_COLUMN_HANDLE, DATE_COLUMN_HANDLE, BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
+                ImmutableMap.of(),
+                SIMPLE_COLUMN_PROJECTIONS,
+                SIMPLE_COLUMN_PROJECTIONS,
+                ImmutableSet.of(),
+                ImmutableMap.of());
+        testApplyProjection(
+                ImmutableSet.of(DOUBLE_COLUMN_HANDLE, BOOLEAN_COLUMN_HANDLE, DATE_COLUMN_HANDLE, BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
+                ImmutableMap.of(),
+                DEREFERENCE_COLUMN_PROJECTIONS,
+                DEREFERENCE_COLUMN_PROJECTIONS,
+                ImmutableSet.of(),
+                ImmutableMap.of());
+        testApplyProjection(
+                ImmutableSet.of(NESTED_COLUMN_HANDLE),
+                NESTED_COLUMN_ASSIGNMENTS,
+                NESTED_DEREFERENCE_COLUMN_PROJECTIONS,
+                EXPECTED_NESTED_DEREFERENCE_COLUMN_PROJECTIONS,
+                ImmutableSet.of(EXPECTED_NESTED_COLUMN_HANDLE),
+                EXPECTED_NESTED_COLUMN_ASSIGNMENTS);
     }
 
-    @Test(dataProvider = "testApplyProjectionProvider")
-    public void testApplyProjection(
+    private void testApplyProjection(
             Set<DeltaLakeColumnHandle> inputProjectedColumns,
             Map<String, ColumnHandle> inputAssignments,
             List<ConnectorExpression> inputProjections,
