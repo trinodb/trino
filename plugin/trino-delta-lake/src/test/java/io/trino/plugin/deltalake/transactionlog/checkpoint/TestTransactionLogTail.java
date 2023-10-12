@@ -16,7 +16,6 @@ package io.trino.plugin.deltalake.transactionlog.checkpoint;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -31,22 +30,20 @@ import static org.testng.Assert.assertTrue;
 
 public class TestTransactionLogTail
 {
-    @Test(dataProvider = "dataSource")
-    public void testTail(String dataSource)
+    @Test
+    public void testTail()
+            throws Exception
+    {
+        testTail("databricks73");
+        testTail("deltalake");
+    }
+
+    private void testTail(String dataSource)
             throws Exception
     {
         String tableLocation = getClass().getClassLoader().getResource(format("%s/person", dataSource)).toURI().toString();
         assertEquals(readJsonTransactionLogTails(tableLocation).size(), 7);
         assertEquals(updateJsonTransactionLogTails(tableLocation).size(), 7);
-    }
-
-    @DataProvider
-    public Object[][] dataSource()
-    {
-        return new Object[][] {
-                {"databricks73"},
-                {"deltalake"}
-        };
     }
 
     private List<DeltaLakeTransactionLogEntry> updateJsonTransactionLogTails(String tableLocation)

@@ -18,7 +18,6 @@ import io.trino.SystemSessionProperties;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Locale;
@@ -115,21 +114,18 @@ public abstract class BaseJdbcTableStatisticsTest
     @Test
     public abstract void testMaterializedView();
 
-    @Test(dataProvider = "testCaseColumnNamesDataProvider")
-    public abstract void testCaseColumnNames(String tableName);
-
-    @DataProvider
-    public Object[][] testCaseColumnNamesDataProvider()
+    @Test
+    public void testCaseColumnNames()
     {
-        return new Object[][] {
-                {"TEST_STATS_MIXED_UNQUOTED_UPPER"},
-                {"test_stats_mixed_unquoted_lower"},
-                {"test_stats_mixed_uNQuoTeD_miXED"},
-                {"\"TEST_STATS_MIXED_QUOTED_UPPER\""},
-                {"\"test_stats_mixed_quoted_lower\""},
-                {"\"test_stats_mixed_QuoTeD_miXED\""},
-        };
+        testCaseColumnNames("TEST_STATS_MIXED_UNQUOTED_UPPER");
+        testCaseColumnNames("test_stats_mixed_unquoted_lower");
+        testCaseColumnNames("test_stats_mixed_uNQuoTeD_miXED");
+        testCaseColumnNames("\"TEST_STATS_MIXED_QUOTED_UPPER\"");
+        testCaseColumnNames("\"test_stats_mixed_quoted_lower\"");
+        testCaseColumnNames("\"test_stats_mixed_QuoTeD_miXED\"");
     }
+
+    protected abstract void testCaseColumnNames(String tableName);
 
     @Test
     public abstract void testNumericCornerCases();

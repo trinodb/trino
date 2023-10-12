@@ -64,11 +64,9 @@ import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.MaterializedResult;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -949,12 +947,36 @@ public class TestHiveGlueMetastore
                 ImmutableList.of(ImmutableList.of("100")));
     }
 
-    @Test(dataProvider = "unsupportedNullPushdownTypes")
-    public void testGetPartitionsFilterUnsupportedIsNull(List<ColumnMetadata> columnMetadata, Type type, String partitionValue)
+    @Test
+    public void testGetPartitionsFilterUnsupported()
+            throws Exception
+    {
+        // Numeric types are unsupported for IS (NOT) NULL predicate pushdown
+        testGetPartitionsFilterUnsupported(CREATE_TABLE_COLUMNS_PARTITIONED_TINYINT, Domain.onlyNull(TinyintType.TINYINT), "127");
+        testGetPartitionsFilterUnsupported(CREATE_TABLE_COLUMNS_PARTITIONED_SMALLINT, Domain.onlyNull(SmallintType.SMALLINT), "32767");
+        testGetPartitionsFilterUnsupported(CREATE_TABLE_COLUMNS_PARTITIONED_INTEGER, Domain.onlyNull(IntegerType.INTEGER), "2147483647");
+        testGetPartitionsFilterUnsupported(CREATE_TABLE_COLUMNS_PARTITIONED_BIGINT, Domain.onlyNull(BigintType.BIGINT), "9223372036854775807");
+        testGetPartitionsFilterUnsupported(CREATE_TABLE_COLUMNS_PARTITIONED_DECIMAL, Domain.onlyNull(DECIMAL_TYPE), "12345.12345");
+
+        testGetPartitionsFilterUnsupported(CREATE_TABLE_COLUMNS_PARTITIONED_TINYINT, Domain.notNull(TinyintType.TINYINT), "127");
+        testGetPartitionsFilterUnsupported(CREATE_TABLE_COLUMNS_PARTITIONED_SMALLINT, Domain.notNull(SmallintType.SMALLINT), "32767");
+        testGetPartitionsFilterUnsupported(CREATE_TABLE_COLUMNS_PARTITIONED_INTEGER, Domain.notNull(IntegerType.INTEGER), "2147483647");
+        testGetPartitionsFilterUnsupported(CREATE_TABLE_COLUMNS_PARTITIONED_BIGINT, Domain.notNull(BigintType.BIGINT), "9223372036854775807");
+        testGetPartitionsFilterUnsupported(CREATE_TABLE_COLUMNS_PARTITIONED_DECIMAL, Domain.notNull(DECIMAL_TYPE), "12345.12345");
+
+        // Date and timestamp aren't numeric types, but the pushdown is unsupported because of GlueExpressionUtil.canConvertSqlTypeToStringForGlue
+        testGetPartitionsFilterUnsupported(CREATE_TABLE_COLUMNS_PARTITIONED_DATE, Domain.onlyNull(DateType.DATE), "2022-07-11");
+        testGetPartitionsFilterUnsupported(CREATE_TABLE_COLUMNS_PARTITIONED_TIMESTAMP, Domain.onlyNull(TimestampType.TIMESTAMP_MILLIS), "2022-07-11 01:02:03.123");
+
+        testGetPartitionsFilterUnsupported(CREATE_TABLE_COLUMNS_PARTITIONED_DATE, Domain.notNull(DateType.DATE), "2022-07-11");
+        testGetPartitionsFilterUnsupported(CREATE_TABLE_COLUMNS_PARTITIONED_TIMESTAMP, Domain.notNull(TimestampType.TIMESTAMP_MILLIS), "2022-07-11 01:02:03.123");
+    }
+
+    private void testGetPartitionsFilterUnsupported(List<ColumnMetadata> columnMetadata, Domain domain, String partitionValue)
             throws Exception
     {
         TupleDomain<String> isNullFilter = new PartitionFilterBuilder()
-                .addDomain(PARTITION_KEY, Domain.onlyNull(type))
+                .addDomain(PARTITION_KEY, domain)
                 .build();
         List<String> partitionList = new ArrayList<>();
         partitionList.add(partitionValue);
@@ -966,45 +988,8 @@ public class TestHiveGlueMetastore
                 partitionList,
                 ImmutableList.of(isNullFilter),
                 // Currently, we get NULL partition from Glue and filter it in our side because
-                // (column = '__HIVE_DEFAULT_PARTITION__') on numeric types causes exception on Glue. e.g. 'input string: "__HIVE_D" is not an integer'
+                // (column <op> '__HIVE_DEFAULT_PARTITION__') on numeric types causes exception on Glue. e.g. 'input string: "__HIVE_D" is not an integer'
                 ImmutableList.of(ImmutableList.of(partitionValue, GlueExpressionUtil.NULL_STRING)));
-    }
-
-    @Test(dataProvider = "unsupportedNullPushdownTypes")
-    public void testGetPartitionsFilterUnsupportedIsNotNull(List<ColumnMetadata> columnMetadata, Type type, String partitionValue)
-            throws Exception
-    {
-        TupleDomain<String> isNotNullFilter = new PartitionFilterBuilder()
-                .addDomain(PARTITION_KEY, Domain.notNull(type))
-                .build();
-        List<String> partitionList = new ArrayList<>();
-        partitionList.add(partitionValue);
-        partitionList.add(null);
-
-        doGetPartitionsFilterTest(
-                columnMetadata,
-                PARTITION_KEY,
-                partitionList,
-                ImmutableList.of(isNotNullFilter),
-                // Currently, we get NULL partition from Glue and filter it in our side because
-                // (column <> '__HIVE_DEFAULT_PARTITION__') on numeric types causes exception on Glue. e.g. 'input string: "__HIVE_D" is not an integer'
-                ImmutableList.of(ImmutableList.of(partitionValue, GlueExpressionUtil.NULL_STRING)));
-    }
-
-    @DataProvider
-    public Object[][] unsupportedNullPushdownTypes()
-    {
-        return new Object[][] {
-                // Numeric types are unsupported for IS (NOT) NULL predicate pushdown
-                {CREATE_TABLE_COLUMNS_PARTITIONED_TINYINT, TinyintType.TINYINT, "127"},
-                {CREATE_TABLE_COLUMNS_PARTITIONED_SMALLINT, SmallintType.SMALLINT, "32767"},
-                {CREATE_TABLE_COLUMNS_PARTITIONED_INTEGER, IntegerType.INTEGER, "2147483647"},
-                {CREATE_TABLE_COLUMNS_PARTITIONED_BIGINT, BigintType.BIGINT, "9223372036854775807"},
-                {CREATE_TABLE_COLUMNS_PARTITIONED_DECIMAL, DECIMAL_TYPE, "12345.12345"},
-                // Date and timestamp aren't numeric types, but the pushdown is unsupported because of GlueExpressionUtil.canConvertSqlTypeToStringForGlue
-                {CREATE_TABLE_COLUMNS_PARTITIONED_DATE, DateType.DATE, "2022-07-11"},
-                {CREATE_TABLE_COLUMNS_PARTITIONED_TIMESTAMP, TimestampType.TIMESTAMP_MILLIS, "2022-07-11 01:02:03.123"},
-        };
     }
 
     @Test

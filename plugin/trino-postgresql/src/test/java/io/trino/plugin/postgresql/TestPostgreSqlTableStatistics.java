@@ -343,8 +343,7 @@ public class TestPostgreSqlTableStatistics
     }
 
     @Override
-    @Test(dataProvider = "testCaseColumnNamesDataProvider")
-    public void testCaseColumnNames(String tableName)
+    protected void testCaseColumnNames(String tableName)
     {
         executeInPostgres("" +
                 "CREATE TABLE " + tableName + " " +

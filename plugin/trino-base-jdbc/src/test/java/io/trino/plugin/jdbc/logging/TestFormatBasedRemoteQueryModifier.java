@@ -16,8 +16,7 @@ package io.trino.plugin.jdbc.logging;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.TestingConnectorSession;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -150,8 +149,22 @@ public class TestFormatBasedRemoteQueryModifier
                 .isEqualTo("SELECT * FROM USERS /*ttoken=valid-value*/");
     }
 
-    @Test(dataProvider = "validValues")
-    public void testFormatWithValidValues(String value)
+    @Test
+    public void testFormatWithValidValues()
+    {
+        testFormatWithValidValues("trino");
+        testFormatWithValidValues("123");
+        testFormatWithValidValues("1t2r3i4n0");
+        testFormatWithValidValues("trino-cli");
+        testFormatWithValidValues("trino_cli");
+        testFormatWithValidValues("trino-cli_123");
+        testFormatWithValidValues("123_trino-cli");
+        testFormatWithValidValues("123-trino_cli");
+        testFormatWithValidValues("-trino-cli");
+        testFormatWithValidValues("_trino_cli");
+    }
+
+    private void testFormatWithValidValues(String value)
     {
         TestingConnectorSession connectorSession = TestingConnectorSession.builder()
                 .setIdentity(ConnectorIdentity.ofUser("Alice"))
@@ -165,23 +178,6 @@ public class TestFormatBasedRemoteQueryModifier
 
         assertThat(modifiedQuery)
                 .isEqualTo("SELECT * FROM USERS /*source=%1$s ttoken=%1$s*/".formatted(value));
-    }
-
-    @DataProvider
-    public Object[][] validValues()
-    {
-        return new Object[][] {
-                {"trino"},
-                {"123"},
-                {"1t2r3i4n0"},
-                {"trino-cli"},
-                {"trino_cli"},
-                {"trino-cli_123"},
-                {"123_trino-cli"},
-                {"123-trino_cli"},
-                {"-trino-cli"},
-                {"_trino_cli"}
-        };
     }
 
     private static FormatBasedRemoteQueryModifier createRemoteQueryModifier(String commentFormat)
