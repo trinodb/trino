@@ -35,7 +35,6 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.StatefulSleepingSum.STATEFUL_SLEEPING_SUM;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.REGION;
@@ -49,7 +48,7 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestQueries
         extends AbstractTestQueryFramework
 {
-    protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION);
+    protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(NATION, ORDERS, REGION);
 
     // We can just use the default type registry, since we don't use any parametric types
     protected static final FunctionBundle CUSTOM_FUNCTIONS = InternalFunctionBundle.builder()
@@ -364,8 +363,8 @@ public abstract class AbstractTestQueries
                 "SELECT table_name FROM information_schema.tables WHERE table_name = 'orders' LIMIT 1",
                 "SELECT 'orders' table_name");
         assertQuery(
-                "SELECT table_name FROM information_schema.columns WHERE data_type = 'bigint' AND table_name = 'customer' and column_name = 'custkey' LIMIT 1",
-                "SELECT 'customer' table_name");
+                "SELECT table_name FROM information_schema.columns WHERE data_type = 'bigint' AND table_name = 'nation' and column_name = 'nationkey' LIMIT 1",
+                "SELECT 'nation' table_name");
     }
 
     @Test
