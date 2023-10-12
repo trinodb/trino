@@ -27,8 +27,10 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.List;
 import java.util.Map;
@@ -51,9 +53,11 @@ import static io.trino.tpch.TpchTable.SUPPLIER;
 import static io.trino.util.DynamicFiltersTestUtil.getSimplifiedDomainString;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public abstract class BaseDynamicPartitionPruningTest
         extends AbstractTestQueryFramework
 {
@@ -67,7 +71,7 @@ public abstract class BaseDynamicPartitionPruningTest
             // disable semi join to inner join rewrite to test semi join operators explicitly
             "optimizer.rewrite-filtering-semi-join-to-inner-join", "false");
 
-    @BeforeClass
+    @BeforeAll
     public void initTables()
             throws Exception
     {
@@ -92,7 +96,8 @@ public abstract class BaseDynamicPartitionPruningTest
                 .build();
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testJoinWithEmptyBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey AND supplier.name = 'abc'";
@@ -113,7 +118,8 @@ public abstract class BaseDynamicPartitionPruningTest
         assertTrue(domainStats.getCollectionDuration().isPresent());
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testJoinWithSelectiveBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey " +
@@ -134,7 +140,8 @@ public abstract class BaseDynamicPartitionPruningTest
         assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testJoinWithNonSelectiveBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey";
@@ -155,7 +162,8 @@ public abstract class BaseDynamicPartitionPruningTest
                 .isEqualTo(getSimplifiedDomainString(1L, 100L, 100, BIGINT));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testJoinLargeBuildSideRangeDynamicFiltering()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN orders ON partitioned_lineitem.orderkey = orders.orderkey";
@@ -178,7 +186,8 @@ public abstract class BaseDynamicPartitionPruningTest
                         .toString(getSession().toConnectorSession()));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testJoinWithMultipleDynamicFiltersOnProbe()
     {
         // supplier names Supplier#000000001 and Supplier#000000002 match suppkey 1 and 2
@@ -205,7 +214,8 @@ public abstract class BaseDynamicPartitionPruningTest
                         getSimplifiedDomainString(2L, 2L, 1, BIGINT));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testJoinWithImplicitCoercion()
     {
         // setup partitioned fact table with integer suppkey
@@ -234,7 +244,8 @@ public abstract class BaseDynamicPartitionPruningTest
         assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testSemiJoinWithEmptyBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'abc')";
@@ -254,7 +265,8 @@ public abstract class BaseDynamicPartitionPruningTest
         assertEquals(domainStats.getSimplifiedDomain(), none(BIGINT).toString(getSession().toConnectorSession()));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testSemiJoinWithSelectiveBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'Supplier#000000001')";
@@ -274,7 +286,8 @@ public abstract class BaseDynamicPartitionPruningTest
         assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testSemiJoinWithNonSelectiveBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier)";
@@ -295,7 +308,8 @@ public abstract class BaseDynamicPartitionPruningTest
                 .isEqualTo(getSimplifiedDomainString(1L, 100L, 100, BIGINT));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testSemiJoinLargeBuildSideRangeDynamicFiltering()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem WHERE orderkey IN (SELECT orderkey FROM orders)";
@@ -318,7 +332,8 @@ public abstract class BaseDynamicPartitionPruningTest
                         .toString(getSession().toConnectorSession()));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testRightJoinWithEmptyBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey WHERE name = 'abc'";
@@ -338,7 +353,8 @@ public abstract class BaseDynamicPartitionPruningTest
         assertEquals(domainStats.getSimplifiedDomain(), none(BIGINT).toString(getSession().toConnectorSession()));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testRightJoinWithSelectiveBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey WHERE name = 'Supplier#000000001'";
@@ -358,7 +374,8 @@ public abstract class BaseDynamicPartitionPruningTest
         assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testRightJoinWithNonSelectiveBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey";
@@ -379,7 +396,8 @@ public abstract class BaseDynamicPartitionPruningTest
                 .isEqualTo(getSimplifiedDomainString(1L, 100L, 100, BIGINT));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testJoinDynamicFilteringMultiJoinOnPartitionedTables()
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
@@ -397,7 +415,8 @@ public abstract class BaseDynamicPartitionPruningTest
     }
 
     // TODO: use joinDistributionTypeProvider when https://github.com/trinodb/trino/issues/4713 is done as currently waiting for BROADCAST DFs doesn't work for bucketed tables
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testJoinDynamicFilteringMultiJoinOnBucketedTables()
     {
         assertUpdate("DROP TABLE IF EXISTS t0_bucketed");

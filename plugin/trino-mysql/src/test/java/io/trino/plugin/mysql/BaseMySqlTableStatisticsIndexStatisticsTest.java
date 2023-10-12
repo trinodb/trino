@@ -14,9 +14,10 @@
 package io.trino.plugin.mysql;
 
 import io.trino.testing.MaterializedRow;
-import org.testng.SkipException;
+import org.junit.jupiter.api.Test;
 
 import static java.lang.String.format;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseMySqlTableStatisticsIndexStatisticsTest
         extends BaseTestMySqlTableStatisticsTest
@@ -42,73 +43,83 @@ public abstract class BaseMySqlTableStatisticsIndexStatisticsTest
         executeInMysql("ANALYZE TABLE " + tableName.replace("\"", "`"));
     }
 
+    @Test
     @Override
     public void testStatsWithPredicatePushdownWithStatsPrecalculationDisabled()
     {
         // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MySQL, with permissive approximate assertions
-        throw new SkipException("Test to be implemented");
+        abort("Test to be implemented");
     }
 
+    @Test
     @Override
     public void testStatsWithPredicatePushdown()
     {
         // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MySQL, with permissive approximate assertions
-        throw new SkipException("Test to be implemented");
+        abort("Test to be implemented");
     }
 
+    @Test
     @Override
     public void testStatsWithVarcharPredicatePushdown()
     {
         // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MySQL, with permissive approximate assertions
-        throw new SkipException("Test to be implemented");
+        abort("Test to be implemented");
     }
 
+    @Test
     @Override
     public void testStatsWithLimitPushdown()
     {
         // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MySQL, with permissive approximate assertions
-        throw new SkipException("Test to be implemented");
+        abort("Test to be implemented");
     }
 
+    @Test
     @Override
     public void testStatsWithTopNPushdown()
     {
         // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MySQL, with permissive approximate assertions
-        throw new SkipException("Test to be implemented");
+        abort("Test to be implemented");
     }
 
+    @Test
     @Override
     public void testStatsWithDistinctPushdown()
     {
         // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MySQL, with permissive approximate assertions
-        throw new SkipException("Test to be implemented");
+        abort("Test to be implemented");
     }
 
+    @Test
     @Override
     public void testStatsWithDistinctLimitPushdown()
     {
         // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MySQL, with permissive approximate assertions
-        throw new SkipException("Test to be implemented");
+        abort("Test to be implemented");
     }
 
+    @Test
     @Override
     public void testStatsWithAggregationPushdown()
     {
         // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MySQL, with permissive approximate assertions
-        throw new SkipException("Test to be implemented");
+        abort("Test to be implemented");
     }
 
+    @Test
     @Override
     public void testStatsWithSimpleJoinPushdown()
     {
         // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MySQL, with permissive approximate assertions
-        throw new SkipException("Test to be implemented");
+        abort("Test to be implemented");
     }
 
+    @Test
     @Override
     public void testStatsWithJoinPushdown()
     {
         // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MySQL, with permissive approximate assertions
-        throw new SkipException("Test to be implemented");
+        abort("Test to be implemented");
     }
 }

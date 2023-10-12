@@ -144,9 +144,11 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.joda.time.DateTime;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -328,6 +330,7 @@ import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.joda.time.DateTimeZone.UTC;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -336,7 +339,7 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 // staging directory is shared mutable state
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
 public abstract class AbstractTestHive
 {
     private static final Logger log = Logger.get(AbstractTestHive.class);
@@ -671,7 +674,7 @@ public abstract class AbstractTestHive
 
     protected final Set<SchemaTableName> materializedViews = Sets.newConcurrentHashSet();
 
-    @BeforeClass(alwaysRun = true)
+    @BeforeAll
     public void setupClass()
             throws Exception
     {
@@ -681,7 +684,7 @@ public abstract class AbstractTestHive
         temporaryStagingDirectory = createTempDirectory("trino-staging-");
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         if (executor != null) {
@@ -1645,12 +1648,14 @@ public abstract class AbstractTestHive
         }
     }
 
-    @Test(expectedExceptions = TableNotFoundException.class)
+    @Test
     public void testGetPartitionSplitsBatchInvalidTable()
     {
-        try (Transaction transaction = newTransaction()) {
-            getSplits(splitManager, transaction, newSession(), invalidTableHandle);
-        }
+        assertThatThrownBy(() -> {
+            try (Transaction transaction = newTransaction()) {
+                getSplits(splitManager, transaction, newSession(), invalidTableHandle);
+            }
+        }).isInstanceOf(TableNotFoundException.class);
     }
 
     @Test
@@ -2390,21 +2395,25 @@ public abstract class AbstractTestHive
         }
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = ".*The column 't_data' in table '.*\\.trino_test_partition_schema_change' is declared as type 'double', but partition 'ds=2012-12-29' declared column 't_data' as type 'string'.")
+    @Test
     public void testPartitionSchemaMismatch()
-            throws Exception
     {
-        try (Transaction transaction = newTransaction()) {
-            ConnectorMetadata metadata = transaction.getMetadata();
-            ConnectorTableHandle table = getTableHandle(metadata, tablePartitionSchemaChange);
-            ConnectorSession session = newSession();
-            metadata.beginQuery(session);
-            readTable(transaction, table, ImmutableList.of(dsColumn), session, TupleDomain.all(), OptionalInt.empty(), Optional.empty());
-        }
+        assertThatThrownBy(() -> {
+            try (Transaction transaction = newTransaction()) {
+                ConnectorMetadata metadata = transaction.getMetadata();
+                ConnectorTableHandle table = getTableHandle(metadata, tablePartitionSchemaChange);
+                ConnectorSession session = newSession();
+                metadata.beginQuery(session);
+                readTable(transaction, table, ImmutableList.of(dsColumn), session, TupleDomain.all(), OptionalInt.empty(), Optional.empty());
+            }
+        })
+                .isInstanceOf(TrinoException.class)
+                .hasMessageMatching(".*The column 't_data' in table '.*\\.trino_test_partition_schema_change' is declared as type 'double', but partition 'ds=2012-12-29' declared column 't_data' as type 'string'.");
     }
 
     // TODO coercion of non-canonical values should be supported
-    @Test(enabled = false)
+    @Test
+    @Disabled
     public void testPartitionSchemaNonCanonical()
             throws Exception
     {

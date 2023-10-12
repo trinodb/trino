@@ -37,7 +37,8 @@ import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -94,7 +95,8 @@ public class TestDeltaLakeDynamicFiltering
         return queryRunner;
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testDynamicFiltering()
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
@@ -109,7 +111,8 @@ public class TestDeltaLakeDynamicFiltering
         }
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testIncompleteDynamicFilterTimeout()
             throws Exception
     {

@@ -20,8 +20,9 @@ import io.trino.plugin.base.mapping.SchemaMappingRule;
 import io.trino.plugin.base.mapping.TableMappingRule;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.sql.SqlExecutor;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -35,9 +36,10 @@ import static io.trino.plugin.base.mapping.RuleBasedIdentifierMappingUtils.updat
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 // Tests are using JSON based identifier mapping which is one for all tests
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
 public abstract class BaseCaseInsensitiveMappingTest
         extends AbstractTestQueryFramework
 {
@@ -45,7 +47,7 @@ public abstract class BaseCaseInsensitiveMappingTest
 
     protected abstract SqlExecutor onRemoteDatabase();
 
-    @BeforeClass
+    @BeforeAll
     public void disableMappingRefreshVerboseLogging()
     {
         Logging logging = Logging.initialize();

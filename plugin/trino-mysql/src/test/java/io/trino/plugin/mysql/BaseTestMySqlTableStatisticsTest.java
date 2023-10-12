@@ -20,8 +20,7 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.assertj.core.api.AbstractDoubleAssert;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.List;
@@ -42,6 +41,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.withinPercentage;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -226,14 +226,14 @@ public abstract class BaseTestMySqlTableStatisticsTest
     @Test
     public void testAverageColumnLength()
     {
-        throw new SkipException("MySQL connector does not report average column length");
+        abort("MySQL connector does not report average column length");
     }
 
     @Override
     @Test
     public void testPartitionedTable()
     {
-        throw new SkipException("Not implemented"); // TODO
+        abort("Not implemented"); // TODO
     }
 
     @Override
@@ -262,7 +262,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
     @Test
     public void testMaterializedView()
     {
-        throw new SkipException(""); // TODO is there a concept like materialized view in MySQL?
+        abort(""); // TODO is there a concept like materialized view in MySQL?
     }
 
     @Override
