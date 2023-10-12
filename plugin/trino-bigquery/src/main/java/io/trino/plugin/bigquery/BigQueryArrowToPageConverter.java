@@ -13,12 +13,10 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
@@ -28,7 +26,6 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.arrow.memory.ArrowBuf;
@@ -57,10 +54,8 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.bigquery.BigQueryUtil.toBigQueryColumnName;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -83,8 +78,6 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.arrow.compression.CommonsCompressionFactory.INSTANCE;
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
 import static org.apache.arrow.vector.types.Types.MinorType.DECIMAL256;
-import static org.apache.arrow.vector.types.Types.MinorType.LIST;
-import static org.apache.arrow.vector.types.Types.MinorType.STRUCT;
 
 public class BigQueryArrowToPageConverter
         implements AutoCloseable
@@ -170,8 +163,11 @@ public class BigQueryArrowToPageConverter
             else if (javaType == LongTimestampWithTimeZone.class) {
                 writeVectorValues(output, vector, index -> writeObjectTimestampWithTimezone(output, type, vector, index), offset, length);
             }
-            else if (javaType == Block.class) {
-                writeVectorValues(output, vector, index -> writeBlock(output, type, vector, index), offset, length);
+            else if (type instanceof ArrayType arrayType) {
+                writeVectorValues(output, vector, index -> writeArrayBlock(output, arrayType, vector, index), offset, length);
+            }
+            else if (type instanceof RowType rowType) {
+                writeVectorValues(output, vector, index -> writeRowBlock(output, rowType, vector, index), offset, length);
             }
             else {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
@@ -237,24 +233,10 @@ public class BigQueryArrowToPageConverter
         type.writeObject(output, fromEpochMillisAndFraction(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND), picosOfMillis, UTC_KEY));
     }
 
-    private void writeBlock(BlockBuilder output, Type type, FieldVector vector, int index)
+    private void writeArrayBlock(BlockBuilder output, ArrayType arrayType, FieldVector vector, int index)
     {
-        if (type instanceof ArrayType && vector.getMinorType() == LIST) {
-            writeArrayBlock(output, type, vector, index);
-            return;
-        }
-        if (type instanceof RowType && vector.getMinorType() == STRUCT) {
-            writeRowBlock(output, type, vector, index);
-            return;
-        }
-        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Block: " + type.getTypeSignature());
-    }
-
-    private void writeArrayBlock(BlockBuilder output, Type type, FieldVector vector, int index)
-    {
+        Type elementType = arrayType.getElementType();
         ((ArrayBlockBuilder) output).buildEntry(elementBuilder -> {
-            Type elementType = getOnlyElement(type.getTypeParameters());
-
             ArrowBuf offsetBuffer = vector.getOffsetBuffer();
 
             int start = offsetBuffer.getInt((long) index * OFFSET_WIDTH);
@@ -270,20 +252,14 @@ public class BigQueryArrowToPageConverter
         });
     }
 
-    private void writeRowBlock(BlockBuilder output, Type type, FieldVector vector, int index)
+    private void writeRowBlock(BlockBuilder output, RowType rowType, FieldVector vector, int index)
     {
+        List<RowType.Field> fields = rowType.getFields();
         ((RowBlockBuilder) output).buildEntry(fieldBuilders -> {
-            ImmutableList.Builder<String> fieldNamesBuilder = ImmutableList.builder();
-            for (int i = 0; i < type.getTypeSignature().getParameters().size(); i++) {
-                TypeSignatureParameter parameter = type.getTypeSignature().getParameters().get(i);
-                fieldNamesBuilder.add(parameter.getNamedTypeSignature().getName().orElse("field" + i));
-            }
-            List<String> fieldNames = fieldNamesBuilder.build();
-            checkState(fieldNames.size() == type.getTypeParameters().size(), "fieldNames size differs from type %s type parameters size", type);
-
-            for (int i = 0; i < type.getTypeParameters().size(); i++) {
-                FieldVector innerVector = ((StructVector) vector).getChild(fieldNames.get(i));
-                convertType(fieldBuilders.get(i), type.getTypeParameters().get(i), innerVector, index, 1);
+            for (int i = 0; i < fields.size(); i++) {
+                RowType.Field field = fields.get(i);
+                FieldVector innerVector = ((StructVector) vector).getChild(field.getName().orElse("field" + i));
+                convertType(fieldBuilders.get(i), field.getType(), innerVector, index, 1);
             }
         });
     }
