@@ -21,7 +21,6 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
-import org.testng.annotations.Parameters;
 
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
@@ -51,16 +50,12 @@ public class TestIcebergAbfsConnectorSmokeTest
 
     private HiveHadoop hiveHadoop;
 
-    @Parameters({
-            "hive.hadoop2.azure-abfs-container",
-            "hive.hadoop2.azure-abfs-account",
-            "hive.hadoop2.azure-abfs-access-key"})
-    public TestIcebergAbfsConnectorSmokeTest(String container, String account, String accessKey)
+    public TestIcebergAbfsConnectorSmokeTest()
     {
         super(ORC);
-        this.container = requireNonNull(container, "container is null");
-        this.account = requireNonNull(account, "account is null");
-        this.accessKey = requireNonNull(accessKey, "accessKey is null");
+        this.container = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-container"), "container is null");
+        this.account = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-account"), "account is null");
+        this.accessKey = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-access-key"), "accessKey is null");
         this.schemaName = "tpch_" + format.name().toLowerCase(ENGLISH);
         this.bucketName = "test-iceberg-smoke-test-" + randomNameSuffix();
     }
