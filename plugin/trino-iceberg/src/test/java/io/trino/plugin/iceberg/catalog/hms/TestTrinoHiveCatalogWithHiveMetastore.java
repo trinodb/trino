@@ -99,7 +99,7 @@ public class TestTrinoHiveCatalogWithHiveMetastore
         ThriftMetastore thriftMetastore = testingThriftHiveMetastoreBuilder()
                 .thriftMetastoreConfig(new ThriftMetastoreConfig()
                         // Read timed out sometimes happens with the default timeout
-                        .setMetastoreTimeout(new Duration(1, MINUTES)))
+                        .setReadTimeout(new Duration(1, MINUTES)))
                 .metastoreClient(dataLake.getHiveHadoop().getHiveMetastoreEndpoint())
                 .build();
         CachingHiveMetastore metastore = memoizeMetastore(new BridgingHiveMetastore(thriftMetastore), 1000);
