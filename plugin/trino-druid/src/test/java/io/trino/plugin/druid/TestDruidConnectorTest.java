@@ -33,7 +33,6 @@ import io.trino.testing.sql.SqlExecutor;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.DatabaseMetaData;
@@ -528,8 +527,21 @@ public class TestDruidConnectorTest
                 .isNotFullyPushedDown(FilterNode.class);
     }
 
-    @Test(dataProvider = "timestampValuesProvider")
-    public void testPredicatePushdownForTimestampWithHigherPrecision(String timestamp)
+    @Test
+    public void testPredicatePushdownForTimestampWithHigherPrecision()
+    {
+        testPredicatePushdownForTimestampWithHigherPrecision("1992-01-04 00:00:00.1234");
+        testPredicatePushdownForTimestampWithHigherPrecision("1992-01-04 00:00:00.12345");
+        testPredicatePushdownForTimestampWithHigherPrecision("1992-01-04 00:00:00.123456");
+        testPredicatePushdownForTimestampWithHigherPrecision("1992-01-04 00:00:00.1234567");
+        testPredicatePushdownForTimestampWithHigherPrecision("1992-01-04 00:00:00.12345678");
+        testPredicatePushdownForTimestampWithHigherPrecision("1992-01-04 00:00:00.123456789");
+        testPredicatePushdownForTimestampWithHigherPrecision("1992-01-04 00:00:00.1234567891");
+        testPredicatePushdownForTimestampWithHigherPrecision("1992-01-04 00:00:00.12345678912");
+        testPredicatePushdownForTimestampWithHigherPrecision("1992-01-04 00:00:00.123456789123");
+    }
+
+    private void testPredicatePushdownForTimestampWithHigherPrecision(String timestamp)
     {
         // timestamp equality
         assertThat(query(format("SELECT linenumber, partkey, shipmode FROM lineitem WHERE __time = TIMESTAMP '%s'", timestamp)))
@@ -567,21 +579,5 @@ public class TestDruidConnectorTest
                         "(BIGINT '3', BIGINT '1673', CAST('RAIL' AS varchar)), " +
                         "(BIGINT '1', BIGINT '574', CAST('AIR' AS varchar))")
                 .isNotFullyPushedDown(FilterNode.class);
-    }
-
-    @DataProvider
-    public Object[][] timestampValuesProvider()
-    {
-        return new Object[][] {
-                {"1992-01-04 00:00:00.1234"},
-                {"1992-01-04 00:00:00.12345"},
-                {"1992-01-04 00:00:00.123456"},
-                {"1992-01-04 00:00:00.1234567"},
-                {"1992-01-04 00:00:00.12345678"},
-                {"1992-01-04 00:00:00.123456789"},
-                {"1992-01-04 00:00:00.1234567891"},
-                {"1992-01-04 00:00:00.12345678912"},
-                {"1992-01-04 00:00:00.123456789123"}
-        };
     }
 }

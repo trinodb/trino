@@ -21,10 +21,9 @@ import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DataProviders;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.URI;
@@ -766,8 +765,14 @@ public class TestDeltaLakeAnalyze
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
-    public void testCollectStatsAfterColumnAdded(boolean collectOnWrite)
+    @Test
+    public void testCollectStatsAfterColumnAdded()
+    {
+        testCollectStatsAfterColumnAdded(false);
+        testCollectStatsAfterColumnAdded(true);
+    }
+
+    private void testCollectStatsAfterColumnAdded(boolean collectOnWrite)
     {
         String tableName = "test_collect_stats_after_column_added_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (col_int_1 bigint, col_varchar_1 varchar)");

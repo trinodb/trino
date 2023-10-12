@@ -266,8 +266,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
     }
 
     @Override
-    @Test(dataProvider = "testCaseColumnNamesDataProvider")
-    public void testCaseColumnNames(String tableName)
+    protected void testCaseColumnNames(String tableName)
     {
         executeInMysql(("" +
                 "CREATE TABLE " + tableName + " " +
