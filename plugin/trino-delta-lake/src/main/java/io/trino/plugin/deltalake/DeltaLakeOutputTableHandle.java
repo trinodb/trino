@@ -21,6 +21,7 @@ import io.trino.spi.connector.ConnectorOutputTableHandle;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
@@ -38,6 +39,8 @@ public record DeltaLakeOutputTableHandle(
         String schemaString,
         ColumnMappingMode columnMappingMode,
         OptionalInt maxColumnId,
+        boolean replace,
+        OptionalLong readVersion,
         ProtocolEntry protocolEntry)
         implements ConnectorOutputTableHandle
 {
@@ -53,6 +56,7 @@ public record DeltaLakeOutputTableHandle(
         requireNonNull(schemaString, "schemaString is null");
         requireNonNull(columnMappingMode, "columnMappingMode is null");
         requireNonNull(maxColumnId, "maxColumnId is null");
+        requireNonNull(readVersion, "readVersion is null");
         requireNonNull(protocolEntry, "protocolEntry is null");
     }
 
