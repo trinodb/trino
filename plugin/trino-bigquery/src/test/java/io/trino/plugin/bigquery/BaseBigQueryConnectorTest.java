@@ -86,8 +86,8 @@ public abstract class BaseBigQueryConnectorTest
         };
     }
 
-    @Test
     @Override
+    @org.junit.jupiter.api.Test
     public void testShowColumns()
     {
         assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
