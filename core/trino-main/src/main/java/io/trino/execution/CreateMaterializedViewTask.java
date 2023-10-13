@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
@@ -155,6 +156,10 @@ public class CreateMaterializedViewTask
                 gracePeriod,
                 statement.getComment(),
                 session.getIdentity(),
+                session.getPath().getPath().stream()
+                        // system path elements are not stored
+                        .filter(element -> !element.getCatalogName().equals(GlobalSystemConnector.NAME))
+                        .collect(toImmutableList()),
                 Optional.empty(),
                 properties);
 

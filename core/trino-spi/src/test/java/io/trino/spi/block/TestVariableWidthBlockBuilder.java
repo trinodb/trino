@@ -23,8 +23,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.ceil;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestVariableWidthBlockBuilder
 {
@@ -55,18 +54,18 @@ public class TestVariableWidthBlockBuilder
 
         long actualArrayBytes = sizeOf(new int[(int) ceil(resetSkew * (entries + 1))]) + sizeOf(new boolean[(int) ceil(resetSkew * entries)]);
         long actualSliceBytes = SLICE_INSTANCE_SIZE + sizeOf(new byte[(int) ceil(resetSkew * entries)]);
-        assertEquals(blockBuilder.getRetainedSizeInBytes(), BLOCK_BUILDER_INSTANCE_SIZE + actualSliceBytes + actualArrayBytes);
+        assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(BLOCK_BUILDER_INSTANCE_SIZE + actualSliceBytes + actualArrayBytes);
     }
 
     private void testIsFull(PageBuilderStatus pageBuilderStatus)
     {
         BlockBuilder blockBuilder = new VariableWidthBlockBuilder(pageBuilderStatus.createBlockBuilderStatus(), 32, 1024);
-        assertTrue(pageBuilderStatus.isEmpty());
+        assertThat(pageBuilderStatus.isEmpty()).isTrue();
         while (!pageBuilderStatus.isFull()) {
             VARCHAR.writeSlice(blockBuilder, Slices.allocate(VARCHAR_VALUE_SIZE));
         }
-        assertEquals(blockBuilder.getPositionCount(), EXPECTED_ENTRY_COUNT);
-        assertEquals(pageBuilderStatus.isFull(), true);
+        assertThat(blockBuilder.getPositionCount()).isEqualTo(EXPECTED_ENTRY_COUNT);
+        assertThat(pageBuilderStatus.isFull()).isEqualTo(true);
     }
 
     @Test
@@ -89,16 +88,16 @@ public class TestVariableWidthBlockBuilder
 
     private static void assertIsAllNulls(Block block, int expectedPositionCount)
     {
-        assertEquals(block.getPositionCount(), expectedPositionCount);
+        assertThat(block.getPositionCount()).isEqualTo(expectedPositionCount);
         if (expectedPositionCount <= 1) {
-            assertEquals(block.getClass(), VariableWidthBlock.class);
+            assertThat(block.getClass()).isEqualTo(VariableWidthBlock.class);
         }
         else {
-            assertEquals(block.getClass(), RunLengthEncodedBlock.class);
-            assertEquals(((RunLengthEncodedBlock) block).getValue().getClass(), VariableWidthBlock.class);
+            assertThat(block.getClass()).isEqualTo(RunLengthEncodedBlock.class);
+            assertThat(((RunLengthEncodedBlock) block).getValue().getClass()).isEqualTo(VariableWidthBlock.class);
         }
         if (expectedPositionCount > 0) {
-            assertTrue(block.isNull(0));
+            assertThat(block.isNull(0)).isTrue();
         }
     }
 }

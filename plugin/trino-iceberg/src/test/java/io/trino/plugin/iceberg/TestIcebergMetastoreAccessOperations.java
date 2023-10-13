@@ -397,6 +397,14 @@ public class TestIcebergMetastoreAccessOperations
                         .addCopies(GET_TABLES_WITH_PARAMETER, 2)
                         .build());
 
+        // Bulk retrieval for two schemas
+        assertMetastoreInvocations(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name IN (CURRENT_SCHEMA, 'non_existent') AND table_name LIKE 'test_select_s_m_t_comments%'",
+                ImmutableMultiset.builder()
+                        .addCopies(GET_ALL_TABLES_FROM_DATABASE, 2)
+                        .addCopies(GET_TABLES_WITH_PARAMETER, 4)
+                        .addCopies(GET_TABLE, tables * 2)
+                        .build());
+
         // Pointed lookup
         assertMetastoreInvocations(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name = 'test_select_s_m_t_comments0'",
                 ImmutableMultiset.builder()
@@ -417,6 +425,16 @@ public class TestIcebergMetastoreAccessOperations
                 {MAX_PREFIXES_COUNT},
                 {MAX_PREFIXES_COUNT + 3},
         };
+    }
+
+    @Test
+    public void testShowTables()
+    {
+        assertMetastoreInvocations("SHOW TABLES",
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .add(GET_ALL_TABLES_FROM_DATABASE)
+                        .build());
     }
 
     private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<?> expectedInvocations)

@@ -349,6 +349,7 @@ public abstract class AbstractTrinoCatalog
                 definition.getGracePeriod(),
                 definition.getComment(),
                 owner,
+                definition.getPath(),
                 ImmutableMap.<String, Object>builder()
                         .putAll(getIcebergTableProperties(icebergTable))
                         .put(STORAGE_SCHEMA, storageTableName.getSchemaName())

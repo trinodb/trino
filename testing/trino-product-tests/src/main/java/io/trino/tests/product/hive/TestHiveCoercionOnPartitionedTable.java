@@ -119,6 +119,16 @@ public class TestHiveCoercionOnPartitionedTable
                         "    shortdecimal_to_longdecimal           DECIMAL(10,2)," +
                         "    longdecimal_to_shortdecimal           DECIMAL(20,12)," +
                         "    longdecimal_to_longdecimal            DECIMAL(20,12)," +
+                        "    longdecimal_to_tinyint                DECIMAL(20,12)," +
+                        "    shortdecimal_to_tinyint               DECIMAL(10,2)," +
+                        "    longdecimal_to_smallint               DECIMAL(20,12)," +
+                        "    shortdecimal_to_smallint              DECIMAL(10,2)," +
+                        "    too_big_shortdecimal_to_smallint      DECIMAL(10,2)," +
+                        "    longdecimal_to_int                    DECIMAL(20,12)," +
+                        "    shortdecimal_to_int                   DECIMAL(10,2)," +
+                        "    shortdecimal_with_0_scale_to_int      DECIMAL(10,0)," +
+                        "    longdecimal_to_bigint                 DECIMAL(20,4)," +
+                        "    shortdecimal_to_bigint                DECIMAL(10,2)," +
                         "    float_to_decimal           " + floatType + "," +
                         "    double_to_decimal          DOUBLE," +
                         "    decimal_to_float                   DECIMAL(10,5)," +
@@ -129,6 +139,8 @@ public class TestHiveCoercionOnPartitionedTable
                         "    long_decimal_to_bounded_varchar    DECIMAL(20,12)," +
                         "    varchar_to_bigger_varchar          VARCHAR(3)," +
                         "    varchar_to_smaller_varchar         VARCHAR(3)," +
+                        "    varchar_to_date                    VARCHAR(10)," +
+                        "    varchar_to_distant_date            VARCHAR(12)," +
                         "    char_to_bigger_char                CHAR(3)," +
                         "    char_to_smaller_char               CHAR(3)," +
                         "    timestamp_to_string                TIMESTAMP," +

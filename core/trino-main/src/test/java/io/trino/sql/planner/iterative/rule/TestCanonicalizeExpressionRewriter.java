@@ -134,7 +134,7 @@ public class TestCanonicalizeExpressionRewriter
     private static void assertRewritten(Expression from, String to)
     {
         assertExpressionEquals(
-                transaction(TRANSACTION_MANAGER, ACCESS_CONTROL).execute(TEST_SESSION, transactedSession -> {
+                transaction(TRANSACTION_MANAGER, PLANNER_CONTEXT.getMetadata(), ACCESS_CONTROL).execute(TEST_SESSION, transactedSession -> {
                     return rewrite(
                             from,
                             transactedSession,

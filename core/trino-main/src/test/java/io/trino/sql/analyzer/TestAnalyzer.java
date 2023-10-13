@@ -6225,7 +6225,7 @@ public class TestAnalyzer
     {
         assertFails("SELECT * FROM TABLE(non_existent_table_function())")
                 .hasErrorCode(FUNCTION_NOT_FOUND)
-                .hasMessage("line 1:21: Table function non_existent_table_function not registered");
+                .hasMessage("line 1:21: Table function 'non_existent_table_function' not registered");
     }
 
     @Test
@@ -6808,6 +6808,7 @@ public class TestAnalyzer
                 Optional.of(Duration.ZERO),
                 Optional.of("comment"),
                 Identity.ofUser("user"),
+                ImmutableList.of(),
                 Optional.empty(),
                 ImmutableMap.of());
         inSetupTransaction(session -> metadata.createMaterializedView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "mv1"), materializedViewData1, false, true));
@@ -6819,7 +6820,8 @@ public class TestAnalyzer
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
-                Optional.of(Identity.ofUser("user")));
+                Optional.of(Identity.ofUser("user")),
+                ImmutableList.of());
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, false));
 
         // stale view (different column type)
@@ -6829,7 +6831,8 @@ public class TestAnalyzer
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", VARCHAR.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
-                Optional.of(Identity.ofUser("user")));
+                Optional.of(Identity.ofUser("user")),
+                ImmutableList.of());
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, false));
 
         // valid view with uppercase column name
@@ -6839,7 +6842,8 @@ public class TestAnalyzer
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
-                Optional.of(Identity.ofUser("user")));
+                Optional.of(Identity.ofUser("user")),
+                ImmutableList.of());
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, false));
 
         // recursive view referencing to itself
@@ -6849,7 +6853,8 @@ public class TestAnalyzer
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
-                Optional.of(Identity.ofUser("user")));
+                Optional.of(Identity.ofUser("user")),
+                ImmutableList.of());
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, false));
 
         // type analysis for INSERT
@@ -6927,6 +6932,7 @@ public class TestAnalyzer
                         Optional.of(Duration.ZERO),
                         Optional.empty(),
                         Identity.ofUser("some user"),
+                        ImmutableList.of(),
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t1")),
                         ImmutableMap.of()),
                 false,
@@ -6937,7 +6943,8 @@ public class TestAnalyzer
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableList.of());
         inSetupTransaction(session -> metadata.createView(
                 session,
                 tableViewAndMaterializedView,
@@ -6977,6 +6984,7 @@ public class TestAnalyzer
                         Optional.empty(),
                         Optional.empty(),
                         Identity.ofUser("some user"),
+                        ImmutableList.of(),
                         // t3 has a, b column and hidden column x
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3")),
                         ImmutableMap.of()),
@@ -6996,6 +7004,7 @@ public class TestAnalyzer
                         Optional.empty(),
                         Optional.empty(),
                         Identity.ofUser("some user"),
+                        ImmutableList.of(),
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         ImmutableMap.of()),
                 false,
@@ -7014,6 +7023,7 @@ public class TestAnalyzer
                         Optional.empty(),
                         Optional.empty(),
                         Identity.ofUser("some user"),
+                        ImmutableList.of(),
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         ImmutableMap.of()),
                 false,
@@ -7032,6 +7042,7 @@ public class TestAnalyzer
                         Optional.empty(),
                         Optional.empty(),
                         Identity.ofUser("some user"),
+                        ImmutableList.of(),
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         ImmutableMap.of()),
                 false,
@@ -7070,7 +7081,7 @@ public class TestAnalyzer
 
     private void inSetupTransaction(Consumer<Session> consumer)
     {
-        transaction(transactionManager, accessControl)
+        transaction(transactionManager, plannerContext.getMetadata(), accessControl)
                 .singleStatement()
                 .readUncommitted()
                 .execute(SETUP_SESSION, consumer);
@@ -7114,7 +7125,6 @@ public class TestAnalyzer
                         new PolymorphicStaticReturnTypeFunction(),
                         new PassThroughFunction(),
                         new RequiredColumnsFunction()))),
-                new SessionPropertyManager(),
                 tablePropertyManager,
                 analyzePropertyManager,
                 new TableProceduresPropertyManager(CatalogServiceProvider.fail("procedures are not supported in testing analyzer")));
@@ -7139,7 +7149,7 @@ public class TestAnalyzer
 
     private Analysis analyze(Session clientSession, @Language("SQL") String query, AccessControl accessControl)
     {
-        return transaction(transactionManager, accessControl)
+        return transaction(transactionManager, plannerContext.getMetadata(), accessControl)
                 .singleStatement()
                 .readUncommitted()
                 .execute(clientSession, session -> {

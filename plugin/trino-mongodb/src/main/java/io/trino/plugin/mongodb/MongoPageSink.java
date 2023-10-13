@@ -22,6 +22,8 @@ import io.trino.spi.Page;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.type.ArrayType;
@@ -214,41 +216,46 @@ public class MongoPageSink
             Type keyType = mapType.getKeyType();
             Type valueType = mapType.getValueType();
 
-            Block mapBlock = block.getObject(position, Block.class);
+            SqlMap sqlMap = block.getObject(position, SqlMap.class);
+            int size = sqlMap.getSize();
+            int rawOffset = sqlMap.getRawOffset();
+            Block rawKeyBlock = sqlMap.getRawKeyBlock();
+            Block rawValueBlock = sqlMap.getRawValueBlock();
 
             // map type is converted into list of fixed keys document
-            List<Object> values = new ArrayList<>(mapBlock.getPositionCount() / 2);
-            for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
+            List<Object> values = new ArrayList<>(size);
+            for (int i = 0; i < size; i++) {
                 Map<String, Object> mapValue = new HashMap<>();
-                mapValue.put("key", getObjectValue(keyType, mapBlock, i));
-                mapValue.put("value", getObjectValue(valueType, mapBlock, i + 1));
+                mapValue.put("key", getObjectValue(keyType, rawKeyBlock, rawOffset + i));
+                mapValue.put("value", getObjectValue(valueType, rawValueBlock, rawOffset + i));
                 values.add(mapValue);
             }
 
             return unmodifiableList(values);
         }
         if (type instanceof RowType rowType) {
-            Block rowBlock = block.getObject(position, Block.class);
+            SqlRow sqlRow = rowType.getObject(block, position);
+            int rawIndex = sqlRow.getRawIndex();
 
             List<Type> fieldTypes = rowType.getTypeParameters();
-            if (fieldTypes.size() != rowBlock.getPositionCount()) {
+            if (fieldTypes.size() != sqlRow.getFieldCount()) {
                 throw new TrinoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Expected row value field count does not match type field count");
             }
 
             if (isImplicitRowType(rowType)) {
                 List<Object> rowValue = new ArrayList<>();
-                for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-                    Object element = getObjectValue(fieldTypes.get(i), rowBlock, i);
+                for (int i = 0; i < sqlRow.getFieldCount(); i++) {
+                    Object element = getObjectValue(fieldTypes.get(i), sqlRow.getRawFieldBlock(i), rawIndex);
                     rowValue.add(element);
                 }
                 return unmodifiableList(rowValue);
             }
 
             Map<String, Object> rowValue = new HashMap<>();
-            for (int i = 0; i < rowBlock.getPositionCount(); i++) {
+            for (int i = 0; i < sqlRow.getFieldCount(); i++) {
                 rowValue.put(
                         rowType.getTypeSignature().getParameters().get(i).getNamedTypeSignature().getName().orElse("field" + i),
-                        getObjectValue(fieldTypes.get(i), rowBlock, i));
+                        getObjectValue(fieldTypes.get(i), sqlRow.getRawFieldBlock(i), rawIndex));
             }
             return unmodifiableMap(rowValue);
         }

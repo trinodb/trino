@@ -42,7 +42,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 public class TestGeoFunctions
@@ -130,7 +129,7 @@ public class TestGeoFunctions
         GEOMETRY.writeSlice(builder, GeoFunctions.stPoint(1.2, 3.4));
         Block block = builder.build();
 
-        assertEquals("POINT (1.2 3.4)", GEOMETRY.getObjectValue(null, block, 0));
+        assertThat("POINT (1.2 3.4)").isEqualTo(GEOMETRY.getObjectValue(null, block, 0));
     }
 
     @Test
@@ -2236,22 +2235,16 @@ public class TestGeoFunctions
         assertValidGeometryJson(
                 "{\"type\":\"MultiLineString\", \"coordinates\":[[[0.0,0.0],[1,10]],[[10,10],[20,30]],[[123,123],[456,789]]]}",
                 "MULTILINESTRING ((0 0, 1 10), (10 10, 20 30), (123 123, 456 789))");
+        assertValidGeometryJson("{\"type\":\"Point\"}", "POINT EMPTY");
+        assertValidGeometryJson("{\"type\":\"LineString\",\"coordinates\":null}", "LINESTRING EMPTY");
+        assertValidGeometryJson("{\"type\":\"MultiPoint\",\"invalidField\":[[10,10],[20,30]]}", "MULTIPOINT EMPTY");
+        assertValidGeometryJson("{\"type\":\"FeatureCollection\",\"features\":[]}", "GEOMETRYCOLLECTION EMPTY");
 
         // Valid JSON with invalid Geometry definition
-        assertInvalidGeometryJson("{\"type\":\"Point\"}",
-                "Invalid GeoJSON: Could not parse Point from GeoJson string.");
-        assertInvalidGeometryJson("{\"type\":\"LineString\",\"coordinates\":null}",
-                "Invalid GeoJSON: Could not parse LineString from GeoJson string.");
         assertInvalidGeometryJson("{ \"data\": {\"type\":\"Point\",\"coordinates\":[0,0]}}",
                 "Invalid GeoJSON: Could not parse Geometry from Json string.  No 'type' property found.");
-        assertInvalidGeometryJson("{\"type\":\"MultiPoint\",\"invalidField\":[[10,10],[20,30]]}",
-                "Invalid GeoJSON: Could not parse MultiPoint from GeoJson string.");
         assertInvalidGeometryJson("{\"type\":\"Feature\",\"geometry\":[],\"property\":\"foo\"}",
-                "Invalid GeoJSON: Could not parse Geometry from GeoJson string.  Unsupported 'type':Feature");
-        assertInvalidGeometryJson("{\"type\":\"FeatureCollection\",\"features\":[]}",
-                "Invalid GeoJSON: Could not parse Geometry from GeoJson string.  Unsupported 'type':FeatureCollection");
-        assertInvalidGeometryJson("{\"type\":\"MultiPoint\",\"missingCoordinates\":[]}",
-                "Invalid GeoJSON: Could not parse MultiPoint from GeoJson string.");
+                "Invalid GeoJSON: Could not parse Feature from GeoJson string.");
         assertInvalidGeometryJson("{\"coordinates\":[[[0.0,0.0],[1,10]],[[10,10],[20,30]],[[123,123],[456,789]]]}",
                 "Invalid GeoJSON: Could not parse Geometry from Json string.  No 'type' property found.");
 

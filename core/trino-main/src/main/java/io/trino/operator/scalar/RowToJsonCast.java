@@ -22,6 +22,7 @@ import io.airlift.slice.SliceOutput;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
@@ -53,7 +54,7 @@ public class RowToJsonCast
 {
     public static final RowToJsonCast ROW_TO_JSON = new RowToJsonCast();
 
-    private static final MethodHandle METHOD_HANDLE = methodHandle(RowToJsonCast.class, "toJsonObject", List.class, List.class, Block.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(RowToJsonCast.class, "toJsonObject", List.class, List.class, SqlRow.class);
 
     private static final JsonFactory JSON_FACTORY = createJsonFactory();
 
@@ -98,15 +99,17 @@ public class RowToJsonCast
     }
 
     @UsedByGeneratedCode
-    public static Slice toJsonObject(List<String> fieldNames, List<JsonGeneratorWriter> fieldWriters, Block block)
+    public static Slice toJsonObject(List<String> fieldNames, List<JsonGeneratorWriter> fieldWriters, SqlRow sqlRow)
     {
         try {
+            int rawIndex = sqlRow.getRawIndex();
             SliceOutput output = new DynamicSliceOutput(40);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
                 jsonGenerator.writeStartObject();
-                for (int i = 0; i < block.getPositionCount(); i++) {
+                for (int i = 0; i < sqlRow.getFieldCount(); i++) {
                     jsonGenerator.writeFieldName(fieldNames.get(i));
-                    fieldWriters.get(i).writeJsonValue(jsonGenerator, block, i);
+                    Block fieldBlock = sqlRow.getRawFieldBlock(i);
+                    fieldWriters.get(i).writeJsonValue(jsonGenerator, fieldBlock, rawIndex);
                 }
                 jsonGenerator.writeEndObject();
             }

@@ -21,7 +21,7 @@ import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.SingleRowBlock;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -411,9 +411,12 @@ public class EffectivePredicateExtractor
                     if (evaluated instanceof Expression) {
                         return TRUE_LITERAL;
                     }
+                    SqlRow sqlRow = (SqlRow) evaluated;
+                    int rawIndex = sqlRow.getRawIndex();
                     for (int i = 0; i < node.getOutputSymbols().size(); i++) {
                         Type type = types.get(node.getOutputSymbols().get(i));
-                        Object item = readNativeValue(type, (SingleRowBlock) evaluated, i);
+                        Block fieldBlock = sqlRow.getRawFieldBlock(i);
+                        Object item = readNativeValue(type, fieldBlock, rawIndex);
                         if (item == null) {
                             hasNull[i] = true;
                         }
@@ -473,11 +476,12 @@ public class EffectivePredicateExtractor
         private boolean hasNestedNulls(Type type, Object value)
         {
             if (type instanceof RowType rowType) {
-                Block container = (Block) value;
+                SqlRow sqlRow = (SqlRow) value;
+                int rawIndex = sqlRow.getRawIndex();
                 for (int i = 0; i < rowType.getFields().size(); i++) {
                     Type elementType = rowType.getFields().get(i).getType();
-
-                    if (container.isNull(i) || elementHasNulls(elementType, container, i)) {
+                    Block fieldBlock = sqlRow.getRawFieldBlock(i);
+                    if (fieldBlock.isNull(rawIndex) || elementHasNulls(elementType, fieldBlock, rawIndex)) {
                         return true;
                     }
                 }
@@ -498,7 +502,11 @@ public class EffectivePredicateExtractor
 
         private boolean elementHasNulls(Type elementType, Block container, int position)
         {
-            if (elementType instanceof RowType || elementType instanceof ArrayType) {
+            if (elementType instanceof RowType rowType) {
+                SqlRow element = rowType.getObject(container, position);
+                return hasNestedNulls(elementType, element);
+            }
+            if (elementType instanceof ArrayType) {
                 Block element = (Block) elementType.getObject(container, position);
                 return hasNestedNulls(elementType, element);
             }

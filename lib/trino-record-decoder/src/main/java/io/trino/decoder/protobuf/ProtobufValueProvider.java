@@ -25,6 +25,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -132,7 +134,7 @@ public class ProtobufValueProvider
     }
 
     @Override
-    public Block getBlock()
+    public Object getObject()
     {
         return serializeObject(null, value, columnType, columnName);
     }
@@ -156,7 +158,7 @@ public class ProtobufValueProvider
     }
 
     @Nullable
-    private Block serializeObject(BlockBuilder builder, Object value, Type type, String columnName)
+    private Object serializeObject(BlockBuilder builder, Object value, Type type, String columnName)
     {
         if (type instanceof ArrayType) {
             return serializeList(builder, value, type, columnName);
@@ -243,7 +245,7 @@ public class ProtobufValueProvider
     }
 
     @Nullable
-    private Block serializeMap(BlockBuilder parentBlockBuilder, @Nullable Object value, MapType type, String columnName)
+    private SqlMap serializeMap(BlockBuilder parentBlockBuilder, @Nullable Object value, MapType type, String columnName)
     {
         if (value == null) {
             checkState(parentBlockBuilder != null, "parentBlockBuilder is null");
@@ -275,7 +277,7 @@ public class ProtobufValueProvider
     }
 
     @Nullable
-    private Block serializeRow(BlockBuilder blockBuilder, @Nullable Object value, Type type, String columnName)
+    private SqlRow serializeRow(BlockBuilder blockBuilder, @Nullable Object value, Type type, String columnName)
     {
         if (value == null) {
             checkState(blockBuilder != null, "parent block builder is null");

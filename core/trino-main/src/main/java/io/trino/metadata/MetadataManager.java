@@ -106,11 +106,9 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.SqlPathElement;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.planner.ConnectorExpressions;
 import io.trino.sql.planner.PartitioningHandle;
-import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
@@ -149,6 +147,7 @@ import static io.trino.client.NodeVersion.UNKNOWN;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.CONNECTOR;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.SYSTEM;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
+import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.metadata.RedirectionAwareTableHandle.withRedirectionTo;
@@ -157,7 +156,6 @@ import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
-import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
@@ -1008,17 +1006,22 @@ public final class MetadataManager
     }
 
     @Override
-    public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Type type)
+    public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Map<String, Object> tableProperties, Type type)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogHandle);
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
-        return metadata.getSupportedType(session.toConnectorSession(catalogHandle), type)
+        return metadata.getSupportedType(session.toConnectorSession(catalogHandle), tableProperties, type)
                 .map(newType -> {
                     if (!typeCoercion.isCompatible(newType, type)) {
                         throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, format("Type '%s' is not compatible with the supplied type '%s' in getSupportedType", type, newType));
                     }
                     return newType;
                 });
+    }
+
+    @Override
+    public void beginQuery(Session session)
+    {
     }
 
     @Override
@@ -1362,13 +1365,34 @@ public final class MetadataManager
     {
         Optional<ConnectorViewDefinition> connectorView = getViewInternal(session, viewName);
         if (connectorView.isEmpty() || connectorView.get().isRunAsInvoker() || isCatalogManagedSecurity(session, viewName.getCatalogName())) {
-            return connectorView.map(view -> new ViewDefinition(viewName, view));
+            return connectorView.map(view -> createViewDefinition(viewName, view, view.getOwner().map(Identity::ofUser)));
         }
 
         Identity runAsIdentity = systemSecurityMetadata.getViewRunAsIdentity(session, viewName.asCatalogSchemaTableName())
                 .or(() -> connectorView.get().getOwner().map(Identity::ofUser))
                 .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Catalog does not support run-as DEFINER views: " + viewName));
-        return Optional.of(new ViewDefinition(viewName, connectorView.get(), runAsIdentity));
+        return Optional.of(createViewDefinition(viewName, connectorView.get(), Optional.of(runAsIdentity)));
+    }
+
+    private static ViewDefinition createViewDefinition(QualifiedObjectName viewName, ConnectorViewDefinition view, Optional<Identity> runAsIdentity)
+    {
+        if (view.isRunAsInvoker() && runAsIdentity.isPresent()) {
+            throw new TrinoException(INVALID_VIEW, "Run-as identity cannot be set for a run-as invoker view: " + viewName);
+        }
+        if (!view.isRunAsInvoker() && runAsIdentity.isEmpty()) {
+            throw new TrinoException(INVALID_VIEW, "Run-as identity must be set for a run-as definer view: " + viewName);
+        }
+
+        return new ViewDefinition(
+                view.getOriginalSql(),
+                view.getCatalog(),
+                view.getSchema(),
+                view.getColumns().stream()
+                        .map(column -> new ViewColumn(column.getName(), column.getType(), column.getComment()))
+                        .collect(toImmutableList()),
+                view.getComment(),
+                runAsIdentity,
+                view.getPath());
     }
 
     private Optional<ConnectorViewDefinition> getViewInternal(Session session, QualifiedObjectName viewName)
@@ -1566,14 +1590,31 @@ public final class MetadataManager
         if (connectorView.isEmpty() || isCatalogManagedSecurity(session, viewName.getCatalogName())) {
             return connectorView.map(view -> {
                 String runAsUser = view.getOwner().orElseThrow(() -> new TrinoException(INVALID_VIEW, "Owner not set for a run-as invoker view: " + viewName));
-                return new MaterializedViewDefinition(view, Identity.ofUser(runAsUser));
+                return createMaterializedViewDefinition(view, Identity.ofUser(runAsUser));
             });
         }
 
         Identity runAsIdentity = systemSecurityMetadata.getViewRunAsIdentity(session, viewName.asCatalogSchemaTableName())
                 .or(() -> connectorView.get().getOwner().map(Identity::ofUser))
                 .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Materialized view does not have an owner: " + viewName));
-        return Optional.of(new MaterializedViewDefinition(connectorView.get(), runAsIdentity));
+        return Optional.of(createMaterializedViewDefinition(connectorView.get(), runAsIdentity));
+    }
+
+    private static MaterializedViewDefinition createMaterializedViewDefinition(ConnectorMaterializedViewDefinition view, Identity runAsIdentity)
+    {
+        return new MaterializedViewDefinition(
+                view.getOriginalSql(),
+                view.getCatalog(),
+                view.getSchema(),
+                view.getColumns().stream()
+                        .map(column -> new ViewColumn(column.getName(), column.getType(), Optional.empty()))
+                        .collect(toImmutableList()),
+                view.getGracePeriod(),
+                view.getComment(),
+                runAsIdentity,
+                view.getPath(),
+                view.getStorageTable(),
+                view.getProperties());
     }
 
     private Optional<ConnectorMaterializedViewDefinition> getMaterializedViewInternal(Session session, QualifiedObjectName viewName)
@@ -2250,18 +2291,20 @@ public final class MetadataManager
     //
 
     @Override
-    public Collection<FunctionMetadata> listFunctions(Session session)
+    public Collection<FunctionMetadata> listGlobalFunctions(Session session)
+    {
+        return functions.listFunctions();
+    }
+
+    @Override
+    public Collection<FunctionMetadata> listFunctions(Session session, CatalogSchemaName schema)
     {
         ImmutableList.Builder<FunctionMetadata> functions = ImmutableList.builder();
-        functions.addAll(this.functions.listFunctions());
-        for (SqlPathElement sqlPathElement : session.getPath().getParsedPath()) {
-            String catalog = sqlPathElement.getCatalog().map(Identifier::getValue).or(session::getCatalog)
-                    .orElseThrow(() -> new TrinoException(MISSING_CATALOG_NAME, "Session default catalog must be set to resolve a partial function name: " + sqlPathElement));
-            getOptionalCatalogMetadata(session, catalog).ifPresent(metadata -> {
-                ConnectorSession connectorSession = session.toConnectorSession(metadata.getCatalogHandle());
-                functions.addAll(metadata.getMetadata(session).listFunctions(connectorSession, sqlPathElement.getSchema().getValue().toLowerCase(ENGLISH)));
-            });
-        }
+        getOptionalCatalogMetadata(session, schema.getCatalogName()).ifPresent(catalogMetadata -> {
+            ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogHandle());
+            ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+            functions.addAll(metadata.listFunctions(connectorSession, schema.getSchemaName()));
+        });
         return functions.build();
     }
 
@@ -2295,7 +2338,7 @@ public final class MetadataManager
     public ResolvedFunction getCoercion(CatalogSchemaFunctionName name, Type fromType, Type toType)
     {
         // coercion can only be resolved for builtin functions
-        if (!isBuiltinFunction(name)) {
+        if (!isBuiltinFunctionName(name)) {
             throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", name));
         }
 
@@ -2316,7 +2359,7 @@ public final class MetadataManager
     @Override
     public Collection<CatalogFunctionMetadata> getFunctions(Session session, CatalogSchemaFunctionName name)
     {
-        if (isBuiltinFunction(name)) {
+        if (isBuiltinFunctionName(name)) {
             return getBuiltinFunctions(name.getFunctionName());
         }
 
@@ -2377,11 +2420,6 @@ public final class MetadataManager
                 functionId,
                 functionSignature,
                 boundSignature);
-    }
-
-    private static boolean isBuiltinFunction(CatalogSchemaFunctionName name)
-    {
-        return name.getCatalogName().equals(GlobalSystemConnector.NAME) && name.getSchemaFunctionName().getSchemaName().equals(BUILTIN_SCHEMA);
     }
 
     //

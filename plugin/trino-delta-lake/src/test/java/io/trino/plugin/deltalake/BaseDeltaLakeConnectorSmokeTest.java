@@ -40,10 +40,10 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -84,10 +84,12 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public abstract class BaseDeltaLakeConnectorSmokeTest
         extends BaseConnectorSmokeTest
 {
@@ -228,7 +230,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 queryRunner -> {});
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanUp()
     {
         hiveHadoop = null; // closed by closeAfterClass
@@ -481,7 +483,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         String viewName = "dummy_view";
         hiveHadoop.runOnHive(format("CREATE VIEW %1$s.%2$s AS SELECT * FROM %1$s.customer", SCHEMA, viewName));
-        assertEquals(computeScalar(format("SHOW TABLES LIKE '%s'", viewName)), viewName);
         assertThatThrownBy(() -> computeActual("DESCRIBE " + viewName)).hasMessageContaining(format("%s.%s is not a Delta Lake table", SCHEMA, viewName));
         hiveHadoop.runOnHive("DROP VIEW " + viewName);
     }
@@ -729,6 +730,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertThat((String) materializedRows.get(0).getField(0)).matches(format("%s/%s.*", schemaLocation, tableName));
     }
 
+    @Test
     @Override
     public void testRenameTable()
     {
@@ -763,6 +765,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertUpdate("DROP TABLE " + newTable);
     }
 
+    @Test
     @Override
     public void testRenameTableAcrossSchemas()
     {
@@ -1331,8 +1334,28 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "testCheckpointWriteStatsAsStructDataProvider")
-    public void testCheckpointWriteStatsAsStruct(String type, String sampleValue, String highValue, String nullsFraction, String minValue, String maxValue)
+    @Test
+    public void testCheckpointWriteStatsAsStruct()
+    {
+        testCheckpointWriteStatsAsStruct("boolean", "true", "false", "0.0", "null", "null");
+        testCheckpointWriteStatsAsStruct("integer", "1", "2147483647", "0.0", "1", "2147483647");
+        testCheckpointWriteStatsAsStruct("tinyint", "2", "127", "0.0", "2", "127");
+        testCheckpointWriteStatsAsStruct("smallint", "3", "32767", "0.0", "3", "32767");
+        testCheckpointWriteStatsAsStruct("bigint", "1000", "9223372036854775807", "0.0", "1000", "9223372036854775807");
+        testCheckpointWriteStatsAsStruct("real", "0.1", "999999.999", "0.0", "0.1", "1000000.0");
+        testCheckpointWriteStatsAsStruct("double", "1.0", "9999999999999.999", "0.0", "1.0", "'1.0E13'");
+        testCheckpointWriteStatsAsStruct("decimal(3,2)", "3.14", "9.99", "0.0", "3.14", "9.99");
+        testCheckpointWriteStatsAsStruct("decimal(30,1)", "12345", "99999999999999999999999999999.9", "0.0", "12345.0", "'1.0E29'");
+        testCheckpointWriteStatsAsStruct("varchar", "'test'", "'ŻŻŻŻŻŻŻŻŻŻ'", "0.0", "null", "null");
+        testCheckpointWriteStatsAsStruct("varbinary", "X'65683F'", "X'ffffffffffffffffffff'", "0.0", "null", "null");
+        testCheckpointWriteStatsAsStruct("date", "date '2021-02-03'", "date '9999-12-31'", "0.0", "'2021-02-03'", "'9999-12-31'");
+        testCheckpointWriteStatsAsStruct("timestamp(3) with time zone", "timestamp '2001-08-22 03:04:05.321 -08:00'", "timestamp '9999-12-31 23:59:59.999 +12:00'", "0.0", "'2001-08-22 11:04:05.321 UTC'", "'9999-12-31 11:59:59.999 UTC'");
+        testCheckpointWriteStatsAsStruct("array(int)", "array[1]", "array[2147483647]", "null", "null", "null");
+        testCheckpointWriteStatsAsStruct("map(varchar,int)", "map(array['foo', 'bar'], array[1, 2])", "map(array['foo', 'bar'], array[-2147483648, 2147483647])", "null", "null", "null");
+        testCheckpointWriteStatsAsStruct("row(x bigint)", "cast(row(1) as row(x bigint))", "cast(row(9223372036854775807) as row(x bigint))", "null", "null", "null");
+    }
+
+    private void testCheckpointWriteStatsAsStruct(String type, String sampleValue, String highValue, String nullsFraction, String minValue, String maxValue)
     {
         String tableName = "test_checkpoint_write_stats_as_struct_" + randomNameSuffix();
 
@@ -1357,30 +1380,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         "(null, null, null, null, 2.0, null, null)");
 
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @DataProvider
-    public Object[][] testCheckpointWriteStatsAsStructDataProvider()
-    {
-        // type, sampleValue, highValue, nullsFraction, minValue, maxValue
-        return new Object[][] {
-                {"boolean", "true", "false", "0.0", "null", "null"},
-                {"integer", "1", "2147483647", "0.0", "1", "2147483647"},
-                {"tinyint", "2", "127", "0.0", "2", "127"},
-                {"smallint", "3", "32767", "0.0", "3", "32767"},
-                {"bigint", "1000", "9223372036854775807", "0.0", "1000", "9223372036854775807"},
-                {"real", "0.1", "999999.999", "0.0", "0.1", "1000000.0"},
-                {"double", "1.0", "9999999999999.999", "0.0", "1.0", "'1.0E13'"},
-                {"decimal(3,2)", "3.14", "9.99", "0.0", "3.14", "9.99"},
-                {"decimal(30,1)", "12345", "99999999999999999999999999999.9", "0.0", "12345.0", "'1.0E29'"},
-                {"varchar", "'test'", "'ŻŻŻŻŻŻŻŻŻŻ'", "0.0", "null", "null"},
-                {"varbinary", "X'65683F'", "X'ffffffffffffffffffff'", "0.0", "null", "null"},
-                {"date", "date '2021-02-03'", "date '9999-12-31'", "0.0", "'2021-02-03'", "'9999-12-31'"},
-                {"timestamp(3) with time zone", "timestamp '2001-08-22 03:04:05.321 -08:00'", "timestamp '9999-12-31 23:59:59.999 +12:00'", "0.0", "'2001-08-22 11:04:05.321 UTC'", "'9999-12-31 11:59:59.999 UTC'"},
-                {"array(int)", "array[1]", "array[2147483647]", "null", "null", "null"},
-                {"map(varchar,int)", "map(array['foo', 'bar'], array[1, 2])", "map(array['foo', 'bar'], array[-2147483648, 2147483647])", "null", "null", "null"},
-                {"row(x bigint)", "cast(row(1) as row(x bigint))", "cast(row(9223372036854775807) as row(x bigint))", "null", "null", "null"},
-        };
     }
 
     @Test
@@ -1419,21 +1418,13 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         testDeltaLakeTableLocationChanged(false, false, false);
     }
 
-    @Test(dataProvider = "testDeltaLakeTableLocationChangedPartitionedDataProvider")
-    public void testDeltaLakeTableLocationChangedPartitioned(boolean firstPartitioned, boolean secondPartitioned)
+    @Test
+    public void testDeltaLakeTableLocationChangedPartitioned()
             throws Exception
     {
-        testDeltaLakeTableLocationChanged(true, firstPartitioned, secondPartitioned);
-    }
-
-    @DataProvider
-    public Object[][] testDeltaLakeTableLocationChangedPartitionedDataProvider()
-    {
-        return new Object[][] {
-                {true, false},
-                {false, true},
-                {true, true},
-        };
+        testDeltaLakeTableLocationChanged(true, true, false);
+        testDeltaLakeTableLocationChanged(true, false, true);
+        testDeltaLakeTableLocationChanged(true, true, true);
     }
 
     private void testDeltaLakeTableLocationChanged(boolean fewerEntries, boolean firstPartitioned, boolean secondPartitioned)

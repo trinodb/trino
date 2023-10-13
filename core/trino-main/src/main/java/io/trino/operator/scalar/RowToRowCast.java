@@ -23,14 +23,13 @@ import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
-import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
-import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
@@ -47,7 +46,6 @@ import io.trino.sql.gen.CallSiteBinder;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
@@ -59,8 +57,8 @@ import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
+import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -151,7 +149,7 @@ public class RowToRowCast
             throw new TrinoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "the size of fromType and toType must match");
         }
         Class<?> castOperatorClass = generateRowCast(fromType, toType, functionDependencies);
-        MethodHandle methodHandle = methodHandle(castOperatorClass, "castRow", ConnectorSession.class, Block.class);
+        MethodHandle methodHandle = methodHandle(castOperatorClass, "castRow", ConnectorSession.class, SqlRow.class);
         return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
@@ -177,22 +175,22 @@ public class RowToRowCast
         definition.declareDefaultConstructor(a(PRIVATE));
 
         Parameter session = arg("session", ConnectorSession.class);
-        Parameter row = arg("row", Block.class);
+        Parameter row = arg("row", SqlRow.class);
 
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC, STATIC),
                 "castRow",
-                type(Block.class),
+                type(SqlRow.class),
                 session,
                 row);
 
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
 
-        Variable fieldBlocks = scope.createTempVariable(Block[].class);
-        body.append(fieldBlocks.set(newArray(type(Block[].class), toTypes.size())));
+        Variable fieldBlocks = scope.declareVariable("fieldBlocks", body, newArray(type(Block[].class), toTypes.size()));
+        Variable rawIndex = scope.declareVariable("rawIndex", body, row.invoke("getRawIndex", int.class));
 
-        Variable fieldBuilder = scope.createTempVariable(BlockBuilder.class);
+        Variable fieldBuilder = scope.declareVariable(BlockBuilder.class, "fieldBuilder");
         for (int i = 0; i < toTypes.size(); i++) {
             Type fromElementType = fromTypes.get(i);
             Type toElementType = toTypes.get(i);
@@ -217,25 +215,13 @@ public class RowToRowCast
                         castAndWrite.type(),
                         fieldBuilder,
                         session,
-                        row,
-                        constantInt(i)));
+                        row.invoke("getRawFieldBlock", Block.class, constantInt(i)),
+                        rawIndex));
             }
             body.append(fieldBlocks.setElement(i, fieldBuilder.invoke("build", Block.class)));
         }
 
-        BytecodeExpression rowBlock = invokeStatic(
-                RowBlock.class,
-                "fromFieldBlocks",
-                Block.class,
-                constantInt(1),
-                invokeStatic(Optional.class, "empty", Optional.class),
-                fieldBlocks);
-
-        body.append(constantType(binder, toType)
-                .invoke("getObject", Object.class, rowBlock, constantInt(0))
-                .cast(Block.class)
-                .ret());
-
+        body.append(newInstance(SqlRow.class, constantInt(0), fieldBlocks).ret());
         return defineClass(definition, Object.class, binder.getBindings(), RowToRowCast.class.getClassLoader());
     }
 

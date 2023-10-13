@@ -22,7 +22,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlockBuilder;
-import io.trino.spi.block.SingleRowBlock;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.ArrayType;
 
@@ -221,10 +221,10 @@ public abstract class AbstractListaggAggregationState
     @Override
     public void merge(ListaggAggregationState other)
     {
-        SingleRowBlock serializedState = ((SingleListaggAggregationState) other).removeTempSerializedState();
+        SqlRow sqlRow = ((SingleListaggAggregationState) other).removeTempSerializedState();
 
-        List<Block> fields = serializedState.getChildren();
-        int index = serializedState.getRowIndex();
+        List<Block> fields = sqlRow.getRawFieldBlocks();
+        int index = sqlRow.getRawIndex();
         Slice separator = VARCHAR.getSlice(fields.get(0), index);
         boolean overflowError = BOOLEAN.getBoolean(fields.get(1), index);
         Slice overflowFiller = VARCHAR.getSlice(fields.get(2), index);

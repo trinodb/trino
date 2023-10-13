@@ -32,10 +32,10 @@ import io.trino.operator.TaskStats;
 import io.trino.spi.QueryId;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -48,11 +48,12 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
 public class TestMemoryTracking
 {
     private static final DataSize queryMaxMemory = DataSize.of(1, GIGABYTE);
@@ -70,14 +71,7 @@ public class TestMemoryTracking
     private ExecutorService notificationExecutor;
     private ScheduledExecutorService yieldExecutor;
 
-    @BeforeClass
-    public void setUp()
-    {
-        notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
-        yieldExecutor = newScheduledThreadPool(2, daemonThreadsNamed("local-query-runner-scheduler-%s"));
-    }
-
-    @AfterClass(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         notificationExecutor.shutdownNow();
@@ -90,9 +84,12 @@ public class TestMemoryTracking
         memoryPool = null;
     }
 
-    @BeforeMethod
+    @BeforeEach
     public void setUpTest()
     {
+        notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
+        yieldExecutor = newScheduledThreadPool(2, daemonThreadsNamed("local-query-runner-scheduler-%s"));
+
         memoryPool = new MemoryPool(memoryPoolSize);
         queryContext = new QueryContext(
                 new QueryId("test_query"),

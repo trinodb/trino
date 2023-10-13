@@ -20,7 +20,6 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -55,6 +54,7 @@ import static io.trino.connector.MockConnectorFactory.ApplyFilter;
 import static io.trino.connector.MockConnectorFactory.ApplyProjection;
 import static io.trino.connector.MockConnectorFactory.ApplyTableScanRedirect;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
+import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -69,7 +69,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tests.BogusType.BOGUS;
-import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -284,12 +283,19 @@ public class TestTableScanRedirectionWithPushdown
             // After 'source_col_d = 1' is pushed into source table scan, it's possible for 'source_col_c' table scan assignment to be pruned
             // Redirection results in Project('dest_col_b') -> Filter('dest_col_d = 1') -> TableScan for such case
             // but dest_col_d has mismatched type compared to source domain
-            transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
-                    .execute(MOCK_SESSION, session -> {
-                        assertThatThrownBy(() -> queryRunner.createPlan(session, "SELECT source_col_b FROM test_table WHERE source_col_c = 'foo'", WarningCollector.NOOP, createPlanOptimizersStatsCollector()))
-                                .isInstanceOf(TrinoException.class)
-                                .hasMessageMatching("Cast not possible from redirected column mock_catalog.target_schema.target_table.destination_col_d with type Bogus to source column .*mock_catalog.test_schema.test_table.*source_col_c.* with type: varchar");
-                    });
+            queryRunner.inTransaction(MOCK_SESSION, transactionSession -> {
+                assertThatThrownBy(() ->
+                        queryRunner.createPlan(
+                                transactionSession,
+                                "SELECT source_col_b FROM test_table WHERE source_col_c = 'foo'",
+                                queryRunner.getPlanOptimizers(true),
+                                OPTIMIZED_AND_VALIDATED,
+                                NOOP,
+                                createPlanOptimizersStatsCollector()))
+                        .isInstanceOf(TrinoException.class)
+                        .hasMessageMatching("Cast not possible from redirected column mock_catalog.target_schema.target_table.destination_col_d with type Bogus to source column .*mock_catalog.test_schema.test_table.*source_col_c.* with type: varchar");
+                return null;
+            });
         }
     }
 
@@ -486,7 +492,7 @@ public class TestTableScanRedirectionWithPushdown
         List<PlanOptimizer> optimizers = queryRunner.getPlanOptimizers(true);
 
         queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
             return null;
         });

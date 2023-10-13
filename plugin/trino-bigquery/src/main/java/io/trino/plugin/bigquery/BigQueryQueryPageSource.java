@@ -24,7 +24,6 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -208,8 +207,22 @@ public class BigQueryQueryPageSource
             else if (javaType == Slice.class) {
                 writeSlice(output, type, value);
             }
-            else if (javaType == Block.class) {
-                writeBlock(output, type, value);
+            else if (type instanceof ArrayType arrayType) {
+                ((ArrayBlockBuilder) output).buildEntry(elementBuilder -> {
+                    Type elementType = arrayType.getElementType();
+                    for (FieldValue element : value.getRepeatedValue()) {
+                        appendTo(elementType, element, elementBuilder);
+                    }
+                });
+            }
+            else if (type instanceof RowType rowType) {
+                FieldValueList record = value.getRecordValue();
+                List<RowType.Field> fields = rowType.getFields();
+                ((RowBlockBuilder) output).buildEntry(fieldBuilders -> {
+                    for (int index = 0; index < fields.size(); index++) {
+                        appendTo(fields.get(index).getType(), record.get(index), fieldBuilders.get(index));
+                    }
+                });
             }
             else {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
@@ -231,28 +244,6 @@ public class BigQueryQueryPageSource
         else {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
         }
-    }
-
-    private void writeBlock(BlockBuilder output, Type type, FieldValue value)
-    {
-        if (type instanceof ArrayType) {
-            ((ArrayBlockBuilder) output).buildEntry(elementBuilder -> {
-                for (FieldValue element : value.getRepeatedValue()) {
-                    appendTo(type.getTypeParameters().get(0), element, elementBuilder);
-                }
-            });
-            return;
-        }
-        if (type instanceof RowType) {
-            FieldValueList record = value.getRecordValue();
-            ((RowBlockBuilder) output).buildEntry(fieldBuilders -> {
-                for (int index = 0; index < type.getTypeParameters().size(); index++) {
-                    appendTo(type.getTypeParameters().get(index), record.get(index), fieldBuilders.get(index));
-                }
-            });
-            return;
-        }
-        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Block: " + type.getTypeSignature());
     }
 
     @Override

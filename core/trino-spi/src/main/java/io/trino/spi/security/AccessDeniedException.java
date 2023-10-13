@@ -425,12 +425,7 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("View owner '%s' cannot create view that selects from %s%s", identity.getUser(), sourceName, formatExtraInfo(extraInfo)));
     }
 
-    public static void denyGrantExecuteFunctionPrivilege(String functionName, Identity identity, Identity grantee)
-    {
-        denyGrantExecuteFunctionPrivilege(functionName, identity, format("user '%s'", grantee.getUser()));
-    }
-
-    public static void denyGrantExecuteFunctionPrivilege(String functionName, Identity identity, String grantee)
+    public static void denyGrantExecuteFunctionPrivilege(String functionName, Identity identity, TrinoPrincipal grantee)
     {
         throw new AccessDeniedException(format("'%s' cannot grant '%s' execution to %s", identity.getUser(), functionName, grantee));
     }
@@ -698,6 +693,16 @@ public class AccessDeniedException
     public static void denyExecuteTableProcedure(String tableName, String procedureName)
     {
         throw new AccessDeniedException(format("Cannot execute table procedure %s on %s", procedureName, tableName));
+    }
+
+    public static void denyShowFunctions(String schemaName)
+    {
+        denyShowFunctions(schemaName, null);
+    }
+
+    public static void denyShowFunctions(String schemaName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot show functions of schema %s%s", schemaName, formatExtraInfo(extraInfo)));
     }
 
     private static Object formatExtraInfo(String extraInfo)

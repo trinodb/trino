@@ -18,7 +18,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.MapBlock;
 import io.trino.spi.block.MapBlockBuilder;
-import io.trino.spi.block.SingleMapBlock;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorMethodHandle;
@@ -83,15 +83,15 @@ public class MapType
         try {
             Lookup lookup = MethodHandles.lookup();
             NOT = lookup.findStatic(MapType.class, "not", methodType(boolean.class, boolean.class));
-            READ_FLAT = lookup.findStatic(MapType.class, "readFlat", methodType(Block.class, MapType.class, MethodHandle.class, MethodHandle.class, int.class, int.class, byte[].class, int.class, byte[].class));
+            READ_FLAT = lookup.findStatic(MapType.class, "readFlat", methodType(SqlMap.class, MapType.class, MethodHandle.class, MethodHandle.class, int.class, int.class, byte[].class, int.class, byte[].class));
             READ_FLAT_TO_BLOCK = lookup.findStatic(MapType.class, "readFlatToBlock", methodType(void.class, MethodHandle.class, MethodHandle.class, int.class, int.class, byte[].class, int.class, byte[].class, BlockBuilder.class));
-            WRITE_FLAT = lookup.findStatic(MapType.class, "writeFlat", methodType(void.class, Type.class, Type.class, MethodHandle.class, MethodHandle.class, int.class, int.class, boolean.class, boolean.class, Block.class, byte[].class, int.class, byte[].class, int.class));
-            EQUAL = lookup.findStatic(MapType.class, "equalOperator", methodType(Boolean.class, MethodHandle.class, MethodHandle.class, Block.class, Block.class));
-            HASH_CODE = lookup.findStatic(MapType.class, "hashOperator", methodType(long.class, MethodHandle.class, MethodHandle.class, Block.class));
-            DISTINCT_FROM = lookup.findStatic(MapType.class, "distinctFromOperator", methodType(boolean.class, MethodHandle.class, MethodHandle.class, Block.class, Block.class));
-            INDETERMINATE = lookup.findStatic(MapType.class, "indeterminate", methodType(boolean.class, MethodHandle.class, Block.class, boolean.class));
+            WRITE_FLAT = lookup.findStatic(MapType.class, "writeFlat", methodType(void.class, Type.class, Type.class, MethodHandle.class, MethodHandle.class, int.class, int.class, boolean.class, boolean.class, SqlMap.class, byte[].class, int.class, byte[].class, int.class));
+            EQUAL = lookup.findStatic(MapType.class, "equalOperator", methodType(Boolean.class, MethodHandle.class, MethodHandle.class, SqlMap.class, SqlMap.class));
+            HASH_CODE = lookup.findStatic(MapType.class, "hashOperator", methodType(long.class, MethodHandle.class, MethodHandle.class, SqlMap.class));
+            DISTINCT_FROM = lookup.findStatic(MapType.class, "distinctFromOperator", methodType(boolean.class, MethodHandle.class, MethodHandle.class, SqlMap.class, SqlMap.class));
+            INDETERMINATE = lookup.findStatic(MapType.class, "indeterminate", methodType(boolean.class, MethodHandle.class, SqlMap.class, boolean.class));
             SEEK_KEY = lookup.findVirtual(
-                    SingleMapBlock.class,
+                    SqlMap.class,
                     "seekKey",
                     methodType(int.class, MethodHandle.class, MethodHandle.class, Block.class, int.class));
         }
@@ -122,7 +122,7 @@ public class MapType
                         StandardTypes.MAP,
                         TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
                         TypeSignatureParameter.typeParameter(valueType.getTypeSignature())),
-                Block.class);
+                SqlMap.class);
         if (!keyType.isComparable()) {
             throw new IllegalArgumentException(format("key type must be comparable, got %s", keyType));
         }
@@ -246,7 +246,8 @@ public class MapType
                 typeOperators.getHashCodeOperator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL)));
 
         MethodHandle valueDistinctFromOperator = typeOperators.getDistinctFromOperator(valueType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
-        return new OperatorMethodHandle(DISTINCT_FROM_CONVENTION, DISTINCT_FROM.bindTo(seekKey).bindTo(valueDistinctFromOperator));
+        MethodHandle methodHandle = DISTINCT_FROM.bindTo(seekKey).bindTo(valueDistinctFromOperator);
+        return new OperatorMethodHandle(DISTINCT_FROM_CONVENTION, methodHandle);
     }
 
     private static OperatorMethodHandle getIndeterminateOperatorInvoker(TypeOperators typeOperators, Type valueType)
@@ -290,13 +291,14 @@ public class MapType
             return null;
         }
 
-        Block singleMapBlock = block.getObject(position, Block.class);
-        if (!(singleMapBlock instanceof SingleMapBlock)) {
-            throw new UnsupportedOperationException("Map is encoded with legacy block representation");
-        }
+        SqlMap sqlMap = block.getObject(position, SqlMap.class);
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+
         Map<Object, Object> map = new HashMap<>();
-        for (int i = 0; i < singleMapBlock.getPositionCount(); i += 2) {
-            map.put(keyType.getObjectValue(session, singleMapBlock, i), valueType.getObjectValue(session, singleMapBlock, i + 1));
+        for (int i = 0; i < sqlMap.getSize(); i++) {
+            map.put(keyType.getObjectValue(session, rawKeyBlock, rawOffset + i), valueType.getObjectValue(session, rawValueBlock, rawOffset + i));
         }
 
         return Collections.unmodifiableMap(map);
@@ -314,22 +316,26 @@ public class MapType
     }
 
     @Override
-    public Block getObject(Block block, int position)
+    public SqlMap getObject(Block block, int position)
     {
-        return block.getObject(position, Block.class);
+        return block.getObject(position, SqlMap.class);
     }
 
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        if (!(value instanceof SingleMapBlock singleMapBlock)) {
-            throw new IllegalArgumentException("Maps must be represented with SingleMapBlock");
+        if (!(value instanceof SqlMap sqlMap)) {
+            throw new IllegalArgumentException("Maps must be represented with SqlMap");
         }
 
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+
         ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
-            for (int i = 0; i < singleMapBlock.getPositionCount(); i += 2) {
-                keyType.appendTo(singleMapBlock, i, keyBuilder);
-                valueType.appendTo(singleMapBlock, i + 1, valueBuilder);
+            for (int i = 0; i < sqlMap.getSize(); i++) {
+                keyType.appendTo(rawKeyBlock, rawOffset + i, keyBuilder);
+                valueType.appendTo(rawValueBlock, rawOffset + i, valueBuilder);
             }
         });
     }
@@ -372,25 +378,28 @@ public class MapType
     @Override
     public int getFlatVariableWidthSize(Block block, int position)
     {
-        Block map = getObject(block, position);
+        SqlMap sqlMap = getObject(block, position);
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
 
-        long size = map.getPositionCount() / 2 * (keyType.getFlatFixedSize() + valueType.getFlatFixedSize() + 2L);
+        long flatSize = sqlMap.getSize() * (keyType.getFlatFixedSize() + valueType.getFlatFixedSize() + 2L);
 
         if (keyType.isFlatVariableWidth()) {
-            for (int index = 0; index < map.getPositionCount(); index += 2) {
-                if (!map.isNull(index)) {
-                    size += keyType.getFlatVariableWidthSize(map, index);
+            for (int index = 0; index < sqlMap.getSize(); index++) {
+                if (!rawKeyBlock.isNull(rawOffset + index)) {
+                    flatSize += keyType.getFlatVariableWidthSize(rawKeyBlock, rawOffset + index);
                 }
             }
         }
         if (valueType.isFlatVariableWidth()) {
-            for (int index = 1; index < map.getPositionCount(); index += 2) {
-                if (!map.isNull(index)) {
-                    size += valueType.getFlatVariableWidthSize(map, index);
+            for (int index = 0; index < sqlMap.getSize(); index++) {
+                if (!rawValueBlock.isNull(rawOffset + index)) {
+                    flatSize += valueType.getFlatVariableWidthSize(rawValueBlock, rawOffset + index);
                 }
             }
         }
-        return toIntExact(size);
+        return toIntExact(flatSize);
     }
 
     @Override
@@ -398,23 +407,23 @@ public class MapType
     {
         INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset + Integer.BYTES, variableSizeOffset);
 
-        int positionCount = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
+        int size = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
         int keyFixedSize = keyType.getFlatFixedSize();
         int valueFixedSize = valueType.getFlatFixedSize();
         if (!keyType.isFlatVariableWidth() && !valueType.isFlatVariableWidth()) {
-            return positionCount / 2 * (2 + keyFixedSize + valueFixedSize);
+            return size * (2 + keyFixedSize + valueFixedSize);
         }
 
-        return relocateVariableWidthData(positionCount, keyFixedSize, valueFixedSize, variableSizeSlice, variableSizeOffset);
+        return relocateVariableWidthData(size, keyFixedSize, valueFixedSize, variableSizeSlice, variableSizeOffset);
     }
 
-    private int relocateVariableWidthData(int positionCount, int keyFixedSize, int valueFixedSize, byte[] slice, int offset)
+    private int relocateVariableWidthData(int size, int keyFixedSize, int valueFixedSize, byte[] slice, int offset)
     {
         int writeFixedOffset = offset;
         // variable width data starts after fixed width data for the keys and values
         // there is one extra byte per key and value for a null flag
-        int writeVariableWidthOffset = offset + (positionCount / 2 * (2 + keyFixedSize + valueFixedSize));
-        for (int index = 0; index < positionCount; index += 2) {
+        int writeVariableWidthOffset = offset + (size * (2 + keyFixedSize + valueFixedSize));
+        for (int index = 0; index < size; index++) {
             if (!keyType.isFlatVariableWidth() || slice[writeFixedOffset] != 0) {
                 writeFixedOffset++;
             }
@@ -512,26 +521,30 @@ public class MapType
         return keyBlockNotDistinctFrom;
     }
 
-    private static long hashOperator(MethodHandle keyOperator, MethodHandle valueOperator, Block block)
+    private static long hashOperator(MethodHandle keyOperator, MethodHandle valueOperator, SqlMap sqlMap)
             throws Throwable
     {
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+
         long result = 0;
-        for (int i = 0; i < block.getPositionCount(); i += 2) {
-            result += invokeHashOperator(keyOperator, block, i) ^ invokeHashOperator(valueOperator, block, i + 1);
+        for (int i = 0; i < sqlMap.getSize(); i++) {
+            result += invokeHashOperator(keyOperator, rawKeyBlock, rawOffset + i) ^ invokeHashOperator(valueOperator, rawValueBlock, rawOffset + i);
         }
         return result;
     }
 
-    private static long invokeHashOperator(MethodHandle keyOperator, Block block, int position)
+    private static long invokeHashOperator(MethodHandle hashOperator, Block block, int position)
             throws Throwable
     {
         if (block.isNull(position)) {
             return NULL_HASH_CODE;
         }
-        return (long) keyOperator.invokeExact(block, position);
+        return (long) hashOperator.invokeExact((Block) block, position);
     }
 
-    private static Block readFlat(
+    private static SqlMap readFlat(
             MapType mapType,
             MethodHandle keyReadOperator,
             MethodHandle valueReadOperator,
@@ -542,15 +555,15 @@ public class MapType
             byte[] variableWidthSlice)
             throws Throwable
     {
-        int positionCount = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
+        int size = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
         int variableWidthOffset = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset + Integer.BYTES);
-        return buildMapValue(mapType, positionCount, (keyBuilder, valueBuilder) ->
+        return buildMapValue(mapType, size, (keyBuilder, valueBuilder) ->
                 readFlatEntries(
                         keyReadOperator,
                         valueReadOperator,
                         keyFixedSize,
                         valueFixedSize,
-                        positionCount,
+                        size,
                         variableWidthSlice,
                         variableWidthOffset,
                         keyBuilder,
@@ -568,7 +581,7 @@ public class MapType
             BlockBuilder blockBuilder)
             throws Throwable
     {
-        int positionCount = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
+        int size = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
         int variableWidthOffset = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset + Integer.BYTES);
         ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) ->
                 readFlatEntries(
@@ -576,7 +589,7 @@ public class MapType
                         valueReadOperator,
                         keyFixedSize,
                         valueFixedSize,
-                        positionCount,
+                        size,
                         variableWidthSlice,
                         variableWidthOffset,
                         keyBuilder,
@@ -588,14 +601,14 @@ public class MapType
             MethodHandle valueReadFlat,
             int keyFixedSize,
             int valueFixedSize,
-            int positionCount,
+            int size,
             byte[] slice,
             int offset,
             BlockBuilder keyBuilder,
             BlockBuilder valueBuilder)
             throws Throwable
     {
-        for (int index = 0; index < positionCount; index += 2) {
+        for (int index = 0; index < size; index++) {
             boolean keyIsNull = slice[offset] != 0;
             offset++;
             if (keyIsNull) {
@@ -635,14 +648,14 @@ public class MapType
             int valueFixedSize,
             boolean keyVariableWidth,
             boolean valueVariableWidth,
-            Block map,
+            SqlMap map,
             byte[] fixedSizeSlice,
             int fixedSizeOffset,
             byte[] variableSizeSlice,
             int variableSizeOffset)
             throws Throwable
     {
-        INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset, map.getPositionCount());
+        INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset, map.getSize());
         INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset + Integer.BYTES, variableSizeOffset);
 
         writeFlatEntries(keyType, valueType, keyWriteFlat, valueWriteFlat, keyFixedSize, valueFixedSize, keyVariableWidth, valueVariableWidth, map, variableSizeSlice, variableSizeOffset);
@@ -657,16 +670,21 @@ public class MapType
             int valueFixedSize,
             boolean keyVariableWidth,
             boolean valueVariableWidth,
-            Block map,
+            SqlMap sqlMap,
             byte[] slice,
             int offset)
             throws Throwable
     {
+        int size = sqlMap.getSize();
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+
         // variable width data starts after fixed width data for the keys and values
         // there is one extra byte per key and value for a null flag
-        int writeVariableWidthOffset = offset + (map.getPositionCount() / 2 * (2 + keyFixedSize + valueFixedSize));
-        for (int index = 0; index < map.getPositionCount(); index += 2) {
-            if (map.isNull(index)) {
+        int writeVariableWidthOffset = offset + (size * (2 + keyFixedSize + valueFixedSize));
+        for (int index = 0; index < size; index++) {
+            if (rawKeyBlock.isNull(rawOffset + index)) {
                 slice[offset] = 1;
                 offset++;
             }
@@ -676,11 +694,11 @@ public class MapType
 
                 int keyVariableSize = 0;
                 if (keyVariableWidth) {
-                    keyVariableSize = keyType.getFlatVariableWidthSize(map, index);
+                    keyVariableSize = keyType.getFlatVariableWidthSize(rawKeyBlock, rawOffset + index);
                 }
                 keyWriteFlat.invokeExact(
-                        map,
-                        index,
+                        rawKeyBlock,
+                        rawOffset + index,
                         slice,
                         offset,
                         slice,
@@ -689,7 +707,7 @@ public class MapType
             }
             offset += keyFixedSize;
 
-            if (map.isNull(index + 1)) {
+            if (rawValueBlock.isNull(rawOffset + index)) {
                 slice[offset] = 1;
                 offset++;
             }
@@ -699,11 +717,11 @@ public class MapType
 
                 int valueVariableSize = 0;
                 if (valueVariableWidth) {
-                    valueVariableSize = valueType.getFlatVariableWidthSize(map, index + 1);
+                    valueVariableSize = valueType.getFlatVariableWidthSize(rawValueBlock, rawOffset + index);
                 }
                 valueWriteFlat.invokeExact(
-                        map,
-                        index + 1,
+                        rawValueBlock,
+                        rawOffset + index,
                         slice,
                         offset,
                         slice,
@@ -717,27 +735,32 @@ public class MapType
     private static Boolean equalOperator(
             MethodHandle seekKey,
             MethodHandle valueEqualOperator,
-            Block leftBlock,
-            Block rightBlock)
+            SqlMap leftMap,
+            SqlMap rightMap)
             throws Throwable
     {
-        if (leftBlock.getPositionCount() != rightBlock.getPositionCount()) {
+        if (leftMap.getSize() != rightMap.getSize()) {
             return false;
         }
 
+        int leftRawOffset = leftMap.getRawOffset();
+        Block leftRawKeyBlock = leftMap.getRawKeyBlock();
+        Block leftRawValueBlock = leftMap.getRawValueBlock();
+        int rightRawOffset = rightMap.getRawOffset();
+        Block rightRawValueBlock = rightMap.getRawValueBlock();
+
         boolean unknown = false;
-        for (int position = 0; position < leftBlock.getPositionCount(); position += 2) {
-            int leftPosition = position + 1;
-            int rightPosition = (int) seekKey.invokeExact((SingleMapBlock) rightBlock, leftBlock, position);
-            if (rightPosition == -1) {
+        for (int leftIndex = 0; leftIndex < leftMap.getSize(); leftIndex++) {
+            int rightIndex = (int) seekKey.invokeExact(rightMap, leftRawKeyBlock, leftRawOffset + leftIndex);
+            if (rightIndex == -1) {
                 return false;
             }
 
-            if (leftBlock.isNull(leftPosition) || rightBlock.isNull(rightPosition)) {
+            if (leftRawValueBlock.isNull(leftRawOffset + leftIndex) || rightRawValueBlock.isNull(rightRawOffset + rightIndex)) {
                 unknown = true;
             }
             else {
-                Boolean result = (Boolean) valueEqualOperator.invokeExact(leftBlock, leftPosition, rightBlock, rightPosition);
+                Boolean result = (Boolean) valueEqualOperator.invokeExact(leftRawValueBlock, leftRawOffset + leftIndex, rightRawValueBlock, rightRawOffset + rightIndex);
                 if (result == null) {
                     unknown = true;
                 }
@@ -756,28 +779,33 @@ public class MapType
     private static boolean distinctFromOperator(
             MethodHandle seekKey,
             MethodHandle valueDistinctFromOperator,
-            Block leftBlock,
-            Block rightBlock)
+            SqlMap leftMap,
+            SqlMap rightMap)
             throws Throwable
     {
-        boolean leftIsNull = leftBlock == null;
-        boolean rightIsNull = rightBlock == null;
+        boolean leftIsNull = leftMap == null;
+        boolean rightIsNull = rightMap == null;
         if (leftIsNull || rightIsNull) {
             return leftIsNull != rightIsNull;
         }
 
-        if (leftBlock.getPositionCount() != rightBlock.getPositionCount()) {
+        if (leftMap.getSize() != rightMap.getSize()) {
             return true;
         }
 
-        for (int position = 0; position < leftBlock.getPositionCount(); position += 2) {
-            int leftPosition = position + 1;
-            int rightPosition = (int) seekKey.invokeExact((SingleMapBlock) rightBlock, leftBlock, position);
-            if (rightPosition == -1) {
+        int leftRawOffset = leftMap.getRawOffset();
+        Block leftRawKeyBlock = leftMap.getRawKeyBlock();
+        Block leftRawValueBlock = leftMap.getRawValueBlock();
+        int rightRawOffset = rightMap.getRawOffset();
+        Block rightRawValueBlock = rightMap.getRawValueBlock();
+
+        for (int leftIndex = 0; leftIndex < leftMap.getSize(); leftIndex++) {
+            int rightIndex = (int) seekKey.invokeExact(rightMap, leftRawKeyBlock, leftRawOffset + leftIndex);
+            if (rightIndex == -1) {
                 return true;
             }
 
-            boolean result = (boolean) valueDistinctFromOperator.invokeExact(leftBlock, leftPosition, rightBlock, rightPosition);
+            boolean result = (boolean) valueDistinctFromOperator.invokeExact(leftRawValueBlock, leftRawOffset + leftIndex, rightRawValueBlock, rightRawOffset + rightIndex);
             if (result) {
                 return true;
             }
@@ -786,18 +814,22 @@ public class MapType
         return false;
     }
 
-    private static boolean indeterminate(MethodHandle valueIndeterminateFunction, Block block, boolean isNull)
+    private static boolean indeterminate(MethodHandle valueIndeterminateFunction, SqlMap sqlMap, boolean isNull)
             throws Throwable
     {
         if (isNull) {
             return true;
         }
-        for (int i = 0; i < block.getPositionCount(); i += 2) {
+
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+
+        for (int i = 0; i < sqlMap.getSize(); i++) {
             // since maps are not allowed to have indeterminate keys we only check values here
-            if (block.isNull(i + 1)) {
+            if (rawValueBlock.isNull(rawOffset + i)) {
                 return true;
             }
-            if ((boolean) valueIndeterminateFunction.invokeExact(block, i + 1)) {
+            if ((boolean) valueIndeterminateFunction.invokeExact(rawValueBlock, rawOffset + i)) {
                 return true;
             }
         }

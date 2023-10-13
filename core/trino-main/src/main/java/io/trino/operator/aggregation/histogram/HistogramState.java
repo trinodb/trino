@@ -15,7 +15,7 @@ package io.trino.operator.aggregation.histogram;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.MapBlockBuilder;
-import io.trino.spi.block.SingleMapBlock;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateMetadata;
 
@@ -33,9 +33,13 @@ public interface HistogramState
 
     default void merge(HistogramState other)
     {
-        SingleMapBlock serializedState = ((SingleHistogramState) other).removeTempSerializedState();
-        for (int i = 0; i < serializedState.getPositionCount(); i += 2) {
-            add(serializedState, i, BIGINT.getLong(serializedState, i + 1));
+        SqlMap serializedState = ((SingleHistogramState) other).removeTempSerializedState();
+        int rawOffset = serializedState.getRawOffset();
+        Block rawKeyBlock = serializedState.getRawKeyBlock();
+        Block rawValueBlock = serializedState.getRawValueBlock();
+
+        for (int i = 0; i < serializedState.getSize(); i++) {
+            add(rawKeyBlock, rawOffset + i, BIGINT.getLong(rawValueBlock, rawOffset + i));
         }
     }
 

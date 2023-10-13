@@ -130,9 +130,6 @@
             "user": "alice",
             "catalog": "ptf-catalog",
             "schema": "ptf_schema",
-            "function_kinds": [
-                "TABLE"
-            ],
             "function": "some_table_function",
             "privileges": [
                 "EXECUTE",
@@ -141,11 +138,7 @@
         },
         {
             "user": "bob",
-            "function_kinds": [
-                "SCALAR",
-                "AGGREGATE",
-                "WINDOW"
-            ],
+            "catalog": "specific-catalog",
             "function": "some_function",
             "privileges": [
                 "EXECUTE",

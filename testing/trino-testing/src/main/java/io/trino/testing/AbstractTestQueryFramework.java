@@ -57,7 +57,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
-import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -292,7 +291,7 @@ public abstract class AbstractTestQueryFramework
 
     protected TransactionBuilder newTransaction()
     {
-        return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl());
+        return transaction(queryRunner.getTransactionManager(), queryRunner.getMetadata(), queryRunner.getAccessControl());
     }
 
     protected void inTransaction(Consumer<Session> callback)
@@ -495,6 +494,15 @@ public abstract class AbstractTestQueryFramework
         assertException(session, sql, ".*Access Denied: " + exceptionsMessageRegExp, deniedPrivileges);
     }
 
+    protected void assertFunctionNotFound(
+            Session session,
+            @Language("SQL") String sql,
+            String functionName,
+            TestingPrivilege... deniedPrivileges)
+    {
+        assertException(session, sql, ".*[Ff]unction '" + functionName + "' not registered", deniedPrivileges);
+    }
+
     private void assertException(Session session, @Language("SQL") String sql, @Language("RegExp") String exceptionsMessageRegExp, TestingPrivilege[] deniedPrivileges)
     {
         assertThatThrownBy(() -> executeExclusively(session, sql, deniedPrivileges))
@@ -622,13 +630,6 @@ public abstract class AbstractTestQueryFramework
                 });
     }
 
-    protected static void skipTestUnless(boolean requirement)
-    {
-        if (!requirement) {
-            throw new SkipException("requirement not met");
-        }
-    }
-
     protected final QueryRunner getQueryRunner()
     {
         checkState(queryRunner != null, "queryRunner not set");
@@ -723,7 +724,7 @@ public abstract class AbstractTestQueryFramework
 
     private <T> T inTransaction(Session session, Function<Session, T> transactionSessionConsumer)
     {
-        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getMetadata(), getQueryRunner().getAccessControl())
                 .singleStatement()
                 .execute(session, transactionSessionConsumer);
     }

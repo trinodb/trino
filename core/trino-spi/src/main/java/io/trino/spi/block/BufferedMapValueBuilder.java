@@ -16,8 +16,6 @@ package io.trino.spi.block;
 import io.trino.spi.block.MapHashTables.HashBuildMode;
 import io.trino.spi.type.MapType;
 
-import java.util.Optional;
-
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -61,7 +59,7 @@ public class BufferedMapValueBuilder
         return INSTANCE_SIZE + keyBlockBuilder.getRetainedSizeInBytes() + valueBlockBuilder.getRetainedSizeInBytes();
     }
 
-    public <E extends Throwable> Block build(int entryCount, MapValueBuilder<E> builder)
+    public <E extends Throwable> SqlMap build(int entryCount, MapValueBuilder<E> builder)
             throws E
     {
         if (keyBlockBuilder.getPositionCount() != valueBlockBuilder.getPositionCount()) {
@@ -98,18 +96,7 @@ public class BufferedMapValueBuilder
         // build the map block
         Block keyBlock = keyBlockBuilder.build().getRegion(startSize, endSize - startSize);
         Block valueBlock = valueBlockBuilder.build().getRegion(startSize, endSize - startSize);
-        MapHashTables hashTables = MapHashTables.create(hashBuildMode, mapType, 1, keyBlock, new int[]{0, keyBlock.getPositionCount()}, null);
-        MapBlock mapBlock = MapBlock.createMapBlockInternal(
-                mapType,
-                0,
-                1,
-                Optional.empty(),
-                new int[] {0, keyBlock.getPositionCount()},
-                keyBlock,
-                valueBlock,
-                hashTables);
-
-        return new SingleMapBlock(0, keyBlock.getPositionCount() * 2, mapBlock);
+        return new SqlMap(mapType, hashBuildMode, keyBlock, valueBlock);
     }
 
     private boolean equalizeBlockBuilders()

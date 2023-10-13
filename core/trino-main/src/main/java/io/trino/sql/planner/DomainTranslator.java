@@ -25,7 +25,6 @@ import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
@@ -330,7 +329,6 @@ public final class DomainTranslator
                         user -> ImmutableSet.of(),
                         new TableProceduresRegistry(CatalogServiceProvider.fail("procedures are not supported in domain translator")),
                         new TableFunctionRegistry(CatalogServiceProvider.fail("table functions are not supported in domain translator")),
-                        new SessionPropertyManager(),
                         new TablePropertyManager(CatalogServiceProvider.fail("table properties not supported in domain translator")),
                         new AnalyzePropertyManager(CatalogServiceProvider.fail("analyze properties not supported in domain translator")),
                         new TableProceduresPropertyManager(CatalogServiceProvider.fail("procedures are not supported in domain translator"))));

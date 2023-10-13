@@ -16,6 +16,8 @@ package io.trino.spi.connector;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
@@ -299,6 +301,12 @@ public class InMemoryRecordSet
             }
             else if (value instanceof Block) {
                 completedBytes += ((Block) value).getSizeInBytes();
+            }
+            else if (value instanceof SqlMap map) {
+                completedBytes += map.getSizeInBytes();
+            }
+            else if (value instanceof SqlRow row) {
+                completedBytes += row.getSizeInBytes();
             }
             else if (value instanceof Slice) {
                 completedBytes += ((Slice) value).length();

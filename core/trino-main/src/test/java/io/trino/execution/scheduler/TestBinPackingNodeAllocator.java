@@ -109,7 +109,6 @@ public class TestBinPackingNodeAllocator
                 nodeManager,
                 () -> workerMemoryInfos,
                 false,
-                false,
                 Duration.of(1, MINUTES),
                 taskRuntimeMemoryEstimationOverhead,
                 DataSize.of(10, GIGABYTE), // allow overcommit of 10GB for EAGER_SPECULATIVE tasks
@@ -798,6 +797,40 @@ public class TestBinPackingNodeAllocator
             // acquireStandard4 can be acquired despite acquireEagerSpeculative* tasks scheduled
             NodeAllocator.NodeLease acquireStandard4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
             assertAcquired(acquireStandard4, NODE_2);
+        }
+    }
+
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
+    public void testChangeMemoryRequirement()
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
+        setupNodeAllocatorService(nodeManager);
+
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
+            // Allocate 32GB on each noe
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            assertAcquired(acquire1, NODE_1);
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            assertAcquired(acquire2, NODE_2);
+
+            // Try to allocate 40GB more - will not fit
+            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(40, GIGABYTE), STANDARD);
+            assertNotAcquired(acquire3);
+
+            // lower memory requirements for acquire3 to 32GB; it should fit now
+            acquire3.setMemoryRequirement(DataSize.of(32, GIGABYTE));
+            assertAcquired(acquire3, NODE_1);
+
+            // Try to allocate another 40GB more - will not fit
+            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(40, GIGABYTE), STANDARD);
+            assertNotAcquired(acquire4);
+
+            // Lower memory requirements for leases already on NODE_1
+            acquire1.setMemoryRequirement(DataSize.of(10, GIGABYTE));
+            assertNotAcquired(acquire4); //  still not enough
+            acquire3.setMemoryRequirement(DataSize.of(10, GIGABYTE));
+            assertAcquired(acquire4, NODE_1); // we are good
         }
     }
 

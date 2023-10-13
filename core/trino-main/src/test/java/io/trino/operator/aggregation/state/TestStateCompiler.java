@@ -26,9 +26,13 @@ import io.trino.array.IntBigArray;
 import io.trino.array.LongBigArray;
 import io.trino.array.ReferenceCountMap;
 import io.trino.array.SliceBigArray;
+import io.trino.array.SqlMapBigArray;
+import io.trino.array.SqlRowBigArray;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.MapValueBuilder;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
@@ -49,12 +53,11 @@ import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.util.StructuralTestUtil.mapBlockOf;
 import static io.trino.util.StructuralTestUtil.mapType;
+import static io.trino.util.StructuralTestUtil.sqlMapOf;
+import static io.trino.util.StructuralTestUtil.sqlRowOf;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -201,7 +204,8 @@ public class TestStateCompiler
     {
         Type arrayType = new ArrayType(BIGINT);
         Type mapType = mapType(BIGINT, VARCHAR);
-        Map<String, Type> fieldMap = ImmutableMap.of("Block", arrayType, "AnotherBlock", mapType);
+        Type rowType = RowType.anonymousRow(VARCHAR, BIGINT, VARCHAR);
+        Map<String, Type> fieldMap = ImmutableMap.of("Block", arrayType, "SqlMap", mapType, "SqlRow", rowType);
         AccumulatorStateFactory<TestComplexState> factory = StateCompiler.generateStateFactory(TestComplexState.class, fieldMap);
         AccumulatorStateSerializer<TestComplexState> serializer = StateCompiler.generateStateSerializer(TestComplexState.class, fieldMap);
         TestComplexState singleState = factory.createSingleState();
@@ -217,10 +221,10 @@ public class TestStateCompiler
         singleState.setYetAnotherSlice(null);
         Block array = createLongsBlock(45);
         singleState.setBlock(array);
-        singleState.setAnotherBlock(mapBlockOf(BIGINT, VARCHAR, ImmutableMap.of(123L, "testBlock")));
+        singleState.setSqlMap(sqlMapOf(BIGINT, VARCHAR, ImmutableMap.of(123L, "testBlock")));
+        singleState.setSqlRow(sqlRowOf(RowType.anonymousRow(VARCHAR, BIGINT, VARCHAR), "a", 777, "b"));
 
-        BlockBuilder builder = RowType.anonymous(ImmutableList.of(mapType, VARBINARY, arrayType, BOOLEAN, TINYINT, DOUBLE, INTEGER, BIGINT, VARBINARY, VARBINARY))
-                .createBlockBuilder(null, 1);
+        BlockBuilder builder = serializer.getSerializedType().createBlockBuilder(null, 1);
         serializer.serialize(singleState, builder);
 
         Block block = builder.build();
@@ -235,8 +239,22 @@ public class TestStateCompiler
         assertEquals(deserializedState.getAnotherSlice(), singleState.getAnotherSlice());
         assertEquals(deserializedState.getYetAnotherSlice(), singleState.getYetAnotherSlice());
         assertEquals(deserializedState.getBlock().getLong(0, 0), singleState.getBlock().getLong(0, 0));
-        assertEquals(deserializedState.getAnotherBlock().getLong(0, 0), singleState.getAnotherBlock().getLong(0, 0));
-        assertEquals(deserializedState.getAnotherBlock().getSlice(1, 0, 9), singleState.getAnotherBlock().getSlice(1, 0, 9));
+
+        SqlMap deserializedMap = deserializedState.getSqlMap();
+        SqlMap expectedMap = singleState.getSqlMap();
+        assertEquals(deserializedMap.getRawKeyBlock().getLong(deserializedMap.getRawOffset(), 0),
+                expectedMap.getRawKeyBlock().getLong(expectedMap.getRawOffset(), 0));
+        assertEquals(deserializedMap.getRawValueBlock().getSlice(deserializedMap.getRawOffset(), 0, 9),
+                expectedMap.getRawValueBlock().getSlice(expectedMap.getRawOffset(), 0, 9));
+
+        SqlRow sqlRow = deserializedState.getSqlRow();
+        SqlRow expectedSqlRow = singleState.getSqlRow();
+        assertEquals(VARCHAR.getSlice(sqlRow.getRawFieldBlock(0), sqlRow.getRawIndex()),
+                VARCHAR.getSlice(expectedSqlRow.getRawFieldBlock(0), expectedSqlRow.getRawIndex()));
+        assertEquals(BIGINT.getLong(sqlRow.getRawFieldBlock(1), sqlRow.getRawIndex()),
+                BIGINT.getLong(expectedSqlRow.getRawFieldBlock(1), expectedSqlRow.getRawIndex()));
+        assertEquals(VARCHAR.getSlice(sqlRow.getRawFieldBlock(2), sqlRow.getRawIndex()),
+                VARCHAR.getSlice(expectedSqlRow.getRawFieldBlock(2), expectedSqlRow.getRawIndex()));
     }
 
     private static long getComplexStateRetainedSize(TestComplexState state)
@@ -248,7 +266,7 @@ public class TestStateCompiler
             for (Field field : fields) {
                 Class<?> type = field.getType();
                 field.setAccessible(true);
-                if (type == BlockBigArray.class || type == BooleanBigArray.class || type == SliceBigArray.class ||
+                if (type == BlockBigArray.class || type == SqlMapBigArray.class || type == SqlRowBigArray.class || type == BooleanBigArray.class || type == SliceBigArray.class ||
                         type == ByteBigArray.class || type == DoubleBigArray.class || type == LongBigArray.class || type == IntBigArray.class) {
                     MethodHandle sizeOf = Reflection.methodHandle(type, "sizeOf");
                     retainedSize += (long) sizeOf.invokeWithArguments(field.get(state));
@@ -268,7 +286,7 @@ public class TestStateCompiler
         Field[] stateFields = state.getClass().getDeclaredFields();
         try {
             for (Field stateField : stateFields) {
-                if (stateField.getType() != BlockBigArray.class && stateField.getType() != SliceBigArray.class) {
+                if (stateField.getType() != BlockBigArray.class && stateField.getType() != SqlMapBigArray.class && stateField.getType() != SqlRowBigArray.class && stateField.getType() != SliceBigArray.class) {
                     continue;
                 }
                 stateField.setAccessible(true);
@@ -292,7 +310,7 @@ public class TestStateCompiler
     @Test
     public void testComplexStateEstimatedSize()
     {
-        Map<String, Type> fieldMap = ImmutableMap.of("Block", new ArrayType(BIGINT), "AnotherBlock", mapType(BIGINT, VARCHAR));
+        Map<String, Type> fieldMap = ImmutableMap.of("Block", new ArrayType(BIGINT), "SqlMap", mapType(BIGINT, VARCHAR));
         AccumulatorStateFactory<TestComplexState> factory = StateCompiler.generateStateFactory(TestComplexState.class, fieldMap);
 
         TestComplexState groupedState = factory.createGroupedState();
@@ -319,14 +337,15 @@ public class TestStateCompiler
             Block array = createLongsBlock(45);
             retainedSize += array.getRetainedSizeInBytes();
             groupedState.setBlock(array);
-            MapBlockBuilder mapBlockBuilder = mapType(BIGINT, VARCHAR).createBlockBuilder(null, 1);
-            mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+            SqlMap sqlMap = MapValueBuilder.buildMapValue(mapType(BIGINT, VARCHAR), 1, (keyBuilder, valueBuilder) -> {
                 BIGINT.writeLong(keyBuilder, 123L);
                 VARCHAR.writeSlice(valueBuilder, utf8Slice("testBlock"));
             });
-            Block map = mapBlockBuilder.build();
-            retainedSize += map.getRetainedSizeInBytes();
-            groupedState.setAnotherBlock(map);
+            retainedSize += sqlMap.getRetainedSizeInBytes();
+            groupedState.setSqlMap(sqlMap);
+            SqlRow sqlRow = sqlRowOf(RowType.anonymousRow(VARCHAR, BIGINT, VARCHAR), "a", 777, "b");
+            retainedSize += sqlRow.getRetainedSizeInBytes();
+            groupedState.setSqlRow(sqlRow);
             assertEquals(groupedState.getEstimatedSize(), initialRetainedSize + retainedSize * (i + 1) + getReferenceCountMapOverhead(groupedState));
         }
 
@@ -348,14 +367,15 @@ public class TestStateCompiler
             Block array = createLongsBlock(45);
             retainedSize += array.getRetainedSizeInBytes();
             groupedState.setBlock(array);
-            MapBlockBuilder mapBlockBuilder = mapType(BIGINT, VARCHAR).createBlockBuilder(null, 1);
-            mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+            SqlMap sqlMap = MapValueBuilder.buildMapValue(mapType(BIGINT, VARCHAR), 1, (keyBuilder, valueBuilder) -> {
                 BIGINT.writeLong(keyBuilder, 123L);
                 VARCHAR.writeSlice(valueBuilder, utf8Slice("testBlock"));
             });
-            Block map = mapBlockBuilder.build();
-            retainedSize += map.getRetainedSizeInBytes();
-            groupedState.setAnotherBlock(map);
+            retainedSize += sqlMap.getRetainedSizeInBytes();
+            groupedState.setSqlMap(sqlMap);
+            SqlRow sqlRow = sqlRowOf(RowType.anonymousRow(VARCHAR, BIGINT, VARCHAR), "a", 777, "b");
+            retainedSize += sqlRow.getRetainedSizeInBytes();
+            groupedState.setSqlRow(sqlRow);
             assertEquals(groupedState.getEstimatedSize(), initialRetainedSize + retainedSize * 1000 + getReferenceCountMapOverhead(groupedState));
         }
     }
@@ -409,9 +429,13 @@ public class TestStateCompiler
 
         void setBlock(Block block);
 
-        Block getAnotherBlock();
+        SqlMap getSqlMap();
 
-        void setAnotherBlock(Block block);
+        void setSqlMap(SqlMap sqlMap);
+
+        SqlRow getSqlRow();
+
+        void setSqlRow(SqlRow sqlRow);
     }
 
     public interface BooleanState

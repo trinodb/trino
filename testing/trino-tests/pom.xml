@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>428-SNAPSHOT</version>
+        <version>430-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -137,6 +137,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>bootstrap</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>junit-extensions</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -413,6 +419,28 @@
                         <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <dependencies>
+                    <!-- allow both JUnit and TestNG -->
+                    <!--                    <dependency>-->
+                    <!--                        <groupId>org.apache.maven.surefire</groupId>-->
+                    <!--                        <artifactId>surefire-junit-platform</artifactId>-->
+                    <!--                        <version>${dep.plugin.surefire.version}</version>-->
+                    <!--                    </dependency>-->
+                    <dependency>
+                        <groupId>org.apache.maven.surefire</groupId>
+                        <artifactId>surefire-testng</artifactId>
+                        <version>${dep.plugin.surefire.version}</version>
+                    </dependency>
+                    <!--                    <dependency>-->
+                    <!--                        <groupId>org.junit.jupiter</groupId>-->
+                    <!--                        <artifactId>junit-jupiter-engine</artifactId>-->
+                    <!--                        <version>${dep.junit.version}</version>-->
+                    <!--                    </dependency>-->
+                </dependencies>
             </plugin>
         </plugins>
     </build>

@@ -19,12 +19,13 @@ import com.google.common.io.Resources;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.plugin.tpch.ColumnNaming;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.planner.LogicalPlanner.Stage;
+import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.tpch.Customer;
 import org.junit.jupiter.api.Test;
@@ -52,6 +53,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
+import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -123,11 +125,12 @@ public class BenchmarkPlanner
     @Benchmark
     public List<Plan> plan(BenchmarkData benchmarkData)
     {
-        return benchmarkData.queryRunner.inTransaction(transactionSession -> {
-            return benchmarkData.queries.getQueries().stream()
-                    .map(query -> benchmarkData.queryRunner.createPlan(transactionSession, query, benchmarkData.stage, false, WarningCollector.NOOP, createPlanOptimizersStatsCollector()))
-                    .collect(toImmutableList());
-        });
+        LocalQueryRunner queryRunner = benchmarkData.queryRunner;
+        List<PlanOptimizer> planOptimizers = queryRunner.getPlanOptimizers(false);
+        PlanOptimizersStatsCollector planOptimizersStatsCollector = createPlanOptimizersStatsCollector();
+        return queryRunner.inTransaction(transactionSession -> benchmarkData.queries.getQueries().stream()
+                .map(query -> queryRunner.createPlan(transactionSession, query, planOptimizers, benchmarkData.stage, NOOP, planOptimizersStatsCollector))
+                .collect(toImmutableList()));
     }
 
     @Test

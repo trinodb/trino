@@ -15,8 +15,7 @@ swap. The table metadata file tracks the table schema, partitioning
 configuration, custom properties, and snapshots of the table contents.
 
 Iceberg data files are stored in either Parquet, ORC, or Avro format, as
-determined by the `format` property in the table definition.  The default
-`format` value is `PARQUET`.
+determined by the `format` property in the table definition.
 
 Iceberg is designed to improve on the known scalability limitations of Hive,
 which stores table metadata in a metastore that is backed by a relational
@@ -156,6 +155,10 @@ implementation is used:
     - Empty
   * - ``iceberg.register-table-procedure.enabled``
     - Enable to allow user to call ``register_table`` procedure.
+    - ``false``
+  * - ``iceberg.query-partition-filter-required``
+    - Set to ``true`` to force a query to use a partition filter. 
+      You can use the ``query_partition_filter_required`` catalog session property for temporary, catalog specific use. 
     - ``false``
 ```
 
@@ -564,33 +567,7 @@ partitioning change.
 The connector supports the following commands for use with {ref}`ALTER TABLE
 EXECUTE <alter-table-execute>`.
 
-##### optimize
-
-The `optimize` command is used for rewriting the active content of the
-specified table so that it is merged into fewer but larger files. In case that
-the table is partitioned, the data compaction acts separately on each partition
-selected for optimization. This operation improves read performance.
-
-All files with a size below the optional `file_size_threshold` parameter
-(default value for the threshold is `100MB`) are merged:
-
-```sql
-ALTER TABLE test_table EXECUTE optimize
-```
-
-The following statement merges the files in a table that are under 10 megabytes
-in size:
-
-```sql
-ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '10MB')
-```
-
-You can use a `WHERE` clause with the columns used to partition the table, to
-apply `optimize` only on the partitions corresponding to the filter:
-
-```sql
-ALTER TABLE test_partitioned_table EXECUTE optimize
-WHERE partition_key = 1
+```{include} optimize.fragment
 ```
 
 ##### expire_snapshots
@@ -681,13 +658,8 @@ TABLE </sql/show-create-table>`.
 
 Table properties supply or set metadata for the underlying tables. This is key
 for {doc}`/sql/create-table-as` statements. Table properties are passed to the
-connector using a {doc}`WITH </sql/create-table-as>` clause:
+connector using a {doc}`WITH </sql/create-table-as>` clause.
 
-```
-CREATE TABLE tablename
-WITH (format='CSV',
-      csv_escape = '"')
-```
 
 ```{eval-rst}
 .. list-table:: Iceberg table properties
@@ -698,7 +670,8 @@ WITH (format='CSV',
     - Description
   * - ``format``
     - Optionally specifies the format of table data files; either ``PARQUET``,
-      ``ORC`, or ``AVRO``.  Defaults to ``ORC``.
+      ``ORC`, or ``AVRO``. Defaults to the value of the ``iceberg.file-format``
+      catalog configuration property, which defaults to ``PARQUET``.
   * - ``partitioning``
     - Optionally specifies table partitioning. If a table is partitioned by
       columns ``c1`` and ``c2``, the partitioning property is ``partitioning =
@@ -718,7 +691,7 @@ WITH (format='CSV',
       Defaults to ``0.05``.
 ```
 
-The table definition below specifies format Parquet, partitioning by columns
+The table definition below specifies to use Parquet files, partitioning by columns
 `c1` and `c2`, and a file system location of
 `/var/example_tables/test_table`:
 
@@ -733,7 +706,7 @@ WITH (
     location = '/var/example_tables/test_table')
 ```
 
-The table definition below specifies format ORC, bloom filter index by columns
+The table definition below specifies to use ORC files, bloom filter index by columns
 `c1` and `c2`, fpp is 0.05, and a file system location of
 `/var/example_tables/test_table`:
 

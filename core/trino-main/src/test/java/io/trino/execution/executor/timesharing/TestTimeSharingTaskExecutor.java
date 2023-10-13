@@ -55,7 +55,6 @@ import static org.testng.Assert.assertTrue;
 
 public class TestTimeSharingTaskExecutor
 {
-    @Test
     @RepeatedTest(100)
     public void testTasksComplete()
             throws Exception
@@ -157,7 +156,6 @@ public class TestTimeSharingTaskExecutor
         }
     }
 
-    @Test
     @RepeatedTest(100)
     public void testQuantaFairness()
     {
@@ -192,7 +190,6 @@ public class TestTimeSharingTaskExecutor
         }
     }
 
-    @Test
     @RepeatedTest(100)
     public void testLevelMovement()
     {
@@ -231,7 +228,6 @@ public class TestTimeSharingTaskExecutor
         }
     }
 
-    @Test
     @RepeatedTest(100)
     public void testLevelMultipliers()
             throws Exception

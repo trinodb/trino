@@ -61,6 +61,7 @@ import com.nimbusds.openid.connect.sdk.validators.InvalidHashException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.server.security.oauth2.OAuth2ServerConfigProvider.OAuth2ServerConfig;
+import jakarta.ws.rs.core.UriBuilder;
 
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -101,6 +102,7 @@ public class NimbusOAuth2Client
     private URI authUrl;
     private URI tokenUrl;
     private Optional<URI> userinfoUrl;
+    private Optional<URI> endSessionUrl;
     private JWSKeySelector<SecurityContext> jwsKeySelector;
     private JWTProcessor<SecurityContext> accessTokenProcessor;
     private AuthorizationCodeFlow flow;
@@ -128,13 +130,14 @@ public class NimbusOAuth2Client
     public void load()
     {
         OAuth2ServerConfig config = serverConfigurationProvider.get();
-        this.authUrl = config.getAuthUrl();
-        this.tokenUrl = config.getTokenUrl();
-        this.userinfoUrl = config.getUserinfoUrl();
+        this.authUrl = config.authUrl();
+        this.tokenUrl = config.tokenUrl();
+        this.userinfoUrl = config.userinfoUrl();
+        this.endSessionUrl = config.endSessionUrl();
         try {
             jwsKeySelector = new JWSVerificationKeySelector<>(
                     Stream.concat(JWSAlgorithm.Family.RSA.stream(), JWSAlgorithm.Family.EC.stream()).collect(toImmutableSet()),
-                    JWKSourceBuilder.create(config.getJwksUrl().toURL(), httpClient).build());
+                    JWKSourceBuilder.create(config.jwksUrl().toURL(), httpClient).build());
         }
         catch (MalformedURLException e) {
             throw new RuntimeException(e);
@@ -148,7 +151,7 @@ public class NimbusOAuth2Client
         DefaultJWTClaimsVerifier<SecurityContext> accessTokenVerifier = new DefaultJWTClaimsVerifier<>(
                 accessTokenAudiences,
                 new JWTClaimsSet.Builder()
-                        .issuer(config.getAccessTokenIssuer().orElse(issuer.getValue()))
+                        .issuer(config.accessTokenIssuer().orElse(issuer.getValue()))
                         .build(),
                 ImmutableSet.of(principalField),
                 ImmutableSet.of());
@@ -187,6 +190,18 @@ public class NimbusOAuth2Client
     {
         checkState(loaded, "OAuth2 client not initialized");
         return flow.refreshTokens(refreshToken);
+    }
+
+    @Override
+    public Optional<URI> getLogoutEndpoint(Optional<String> idToken, URI callbackUrl)
+    {
+        if (endSessionUrl.isPresent()) {
+            UriBuilder builder = UriBuilder.fromUri(endSessionUrl.get());
+            idToken.ifPresent(token -> builder.queryParam("id_token_hint", token));
+            builder.queryParam("post_logout_redirect_uri", callbackUrl);
+            return Optional.of(builder.build());
+        }
+        return Optional.empty();
     }
 
     private interface AuthorizationCodeFlow

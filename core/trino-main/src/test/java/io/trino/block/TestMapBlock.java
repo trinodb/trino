@@ -20,7 +20,7 @@ import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.DuplicateMapKeyException;
 import io.trino.spi.block.MapBlock;
 import io.trino.spi.block.MapBlockBuilder;
-import io.trino.spi.block.SingleMapBlock;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.MapType;
 import org.junit.jupiter.api.Test;
 
@@ -306,35 +306,38 @@ public class TestMapBlock
         requireNonNull(map, "map is null");
 
         assertFalse(mapBlock.isNull(position));
-        SingleMapBlock elementBlock = (SingleMapBlock) mapType.getObject(mapBlock, position);
-        assertEquals(elementBlock.getPositionCount(), map.size() * 2);
+        SqlMap sqlMap = mapType.getObject(mapBlock, position);
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+        assertEquals(sqlMap.getSize(), map.size());
 
         // Test new/hash-index access: assert inserted keys
         for (Map.Entry<String, Long> entry : map.entrySet()) {
-            int pos = elementBlock.seekKey(utf8Slice(entry.getKey()));
-            assertNotEquals(pos, -1);
+            int index = sqlMap.seekKey(utf8Slice(entry.getKey()));
+            assertNotEquals(index, -1);
             if (entry.getValue() == null) {
-                assertTrue(elementBlock.isNull(pos));
+                assertTrue(rawValueBlock.isNull(rawOffset + index));
             }
             else {
-                assertFalse(elementBlock.isNull(pos));
-                assertEquals(BIGINT.getLong(elementBlock, pos), (long) entry.getValue());
+                assertFalse(rawValueBlock.isNull(rawOffset + index));
+                assertEquals(BIGINT.getLong(rawValueBlock, rawOffset + index), (long) entry.getValue());
             }
         }
         // Test new/hash-index access: assert non-existent keys
         for (int i = 0; i < 10; i++) {
-            assertEquals(elementBlock.seekKey(utf8Slice("not-inserted-" + i)), -1);
+            assertEquals(sqlMap.seekKey(utf8Slice("not-inserted-" + i)), -1);
         }
 
         // Test legacy/iterative access
-        for (int i = 0; i < elementBlock.getPositionCount(); i += 2) {
-            String actualKey = VARCHAR.getSlice(elementBlock, i).toStringUtf8();
+        for (int i = 0; i < sqlMap.getSize(); i++) {
+            String actualKey = VARCHAR.getSlice(rawKeyBlock, rawOffset + i).toStringUtf8();
             Long actualValue;
-            if (elementBlock.isNull(i + 1)) {
+            if (rawValueBlock.isNull(rawOffset + i)) {
                 actualValue = null;
             }
             else {
-                actualValue = BIGINT.getLong(elementBlock, i + 1);
+                actualValue = BIGINT.getLong(rawValueBlock, rawOffset + i);
             }
             assertTrue(map.containsKey(actualKey));
             assertEquals(actualValue, map.get(actualKey));

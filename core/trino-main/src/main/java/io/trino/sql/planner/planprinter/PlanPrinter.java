@@ -26,7 +26,6 @@ import io.airlift.stats.TDigest;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
-import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
@@ -161,8 +160,8 @@ import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctNanos;
 import static io.trino.execution.StageInfo.getAllStages;
-import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.trino.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
@@ -1357,11 +1356,11 @@ public class PlanPrinter
         {
             if (nodeStats.getPlanNodePhysicalInputDataSize().toBytes() > 0) {
                 buildFormatString(inputDetailBuilder, argsBuilder, ", Physical input: %s", nodeStats.getPlanNodePhysicalInputDataSize().toString());
-                buildFormatString(inputDetailBuilder, argsBuilder, ", Physical input time: %s", nodeStats.getPlanNodePhysicalInputReadTime().toString());
+                buildFormatString(inputDetailBuilder, argsBuilder, ", Physical input time: %s", nodeStats.getPlanNodePhysicalInputReadTime().convertToMostSuccinctTimeUnit().toString());
             }
             // Some connectors may report physical input time but not physical input data size
             else if (nodeStats.getPlanNodePhysicalInputReadTime().getValue() > 0) {
-                buildFormatString(inputDetailBuilder, argsBuilder, ", Physical input time: %s", nodeStats.getPlanNodePhysicalInputReadTime().toString());
+                buildFormatString(inputDetailBuilder, argsBuilder, ", Physical input time: %s", nodeStats.getPlanNodePhysicalInputReadTime().convertToMostSuccinctTimeUnit().toString());
             }
         }
 
@@ -2216,7 +2215,7 @@ public class PlanPrinter
     private static String formatFunctionName(ResolvedFunction function)
     {
         CatalogSchemaFunctionName name = function.getSignature().getName();
-        if (name.getCatalogName().equals(GlobalSystemConnector.NAME) && name.getSchemaName().equals(BUILTIN_SCHEMA)) {
+        if (isBuiltinFunctionName(name)) {
             return name.getFunctionName();
         }
         return name.toString();
@@ -2232,7 +2231,7 @@ public class PlanPrinter
                 FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
                 CatalogSchemaFunctionName name = extractFunctionName(node.getName());
                 QualifiedName qualifiedName;
-                if (name.getCatalogName().equals(GlobalSystemConnector.NAME) && name.getSchemaName().equals(BUILTIN_SCHEMA)) {
+                if (isBuiltinFunctionName(name)) {
                     qualifiedName = QualifiedName.of(name.getFunctionName());
                 }
                 else {

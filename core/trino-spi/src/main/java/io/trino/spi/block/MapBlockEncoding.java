@@ -22,6 +22,7 @@ import java.util.Optional;
 
 import static io.trino.spi.block.MapBlock.createMapBlockInternal;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
+import static io.trino.spi.block.MapHashTables.HashBuildMode.DUPLICATE_NOT_CHECKED;
 import static java.lang.String.format;
 
 public class MapBlockEncoding
@@ -38,7 +39,7 @@ public class MapBlockEncoding
     @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
-        AbstractMapBlock mapBlock = (AbstractMapBlock) block;
+        MapBlock mapBlock = (MapBlock) block;
 
         int positionCount = mapBlock.getPositionCount();
 
@@ -104,7 +105,7 @@ public class MapBlockEncoding
         int[] offsets = new int[positionCount + 1];
         sliceInput.readInts(offsets);
         Optional<boolean[]> mapIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
-        MapHashTables hashTables = new MapHashTables(mapType, positionCount, Optional.ofNullable(hashTable));
+        MapHashTables hashTables = new MapHashTables(mapType, DUPLICATE_NOT_CHECKED, positionCount, Optional.ofNullable(hashTable));
         return createMapBlockInternal(mapType, 0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTables);
     }
 }

@@ -14,6 +14,7 @@
 package io.trino;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -23,12 +24,14 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.trino.client.ProtocolHeaders;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
@@ -42,6 +45,7 @@ import io.trino.transaction.TransactionManager;
 import java.security.Principal;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -54,7 +58,9 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
+import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.sql.SqlPath.EMPTY_PATH;
 import static io.trino.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
 
@@ -578,6 +584,34 @@ public final class Session
         }
     }
 
+    public Session createViewSession(Optional<String> catalog, Optional<String> schema, Identity identity, List<CatalogSchemaName> path)
+    {
+        // For a view, we prepend the global function schema to the path, which should not be in the path
+        // We do not change the raw path, as that is use for the current_path function
+        SqlPath sqlPath = new SqlPath(
+                ImmutableList.<CatalogSchemaName>builder()
+                        .add(new CatalogSchemaName(GlobalSystemConnector.NAME, BUILTIN_SCHEMA))
+                        .addAll(path)
+                        .build(),
+                getPath().getRawPath());
+        return builder(sessionPropertyManager)
+                .setQueryId(getQueryId())
+                .setTransactionId(getTransactionId().orElse(null))
+                .setIdentity(identity)
+                .setOriginalIdentity(getOriginalIdentity())
+                .setSource(getSource().orElse(null))
+                .setCatalog(catalog)
+                .setSchema(schema)
+                .setPath(sqlPath)
+                .setTimeZoneKey(getTimeZoneKey())
+                .setLocale(getLocale())
+                .setRemoteUserAddress(getRemoteUserAddress().orElse(null))
+                .setUserAgent(getUserAgent().orElse(null))
+                .setClientInfo(getClientInfo().orElse(null))
+                .setStart(getStart())
+                .build();
+    }
+
     public static SessionBuilder builder(SessionPropertyManager sessionPropertyManager)
     {
         return new SessionBuilder(sessionPropertyManager);
@@ -605,7 +639,7 @@ public final class Session
         private String source;
         private String catalog;
         private String schema;
-        private SqlPath path;
+        private SqlPath path = EMPTY_PATH;
         private Optional<String> traceToken = Optional.empty();
         private TimeZoneKey timeZoneKey;
         private Locale locale;
@@ -739,13 +773,6 @@ public final class Session
         public SessionBuilder setPath(SqlPath path)
         {
             this.path = path;
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public SessionBuilder setPath(Optional<SqlPath> path)
-        {
-            this.path = path.orElse(null);
             return this;
         }
 
@@ -915,7 +942,7 @@ public final class Session
                     Optional.ofNullable(source),
                     Optional.ofNullable(catalog),
                     Optional.ofNullable(schema),
-                    path != null ? path : new SqlPath(Optional.empty()),
+                    path,
                     traceToken,
                     timeZoneKey != null ? timeZoneKey : TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID()),
                     locale != null ? locale : Locale.getDefault(),

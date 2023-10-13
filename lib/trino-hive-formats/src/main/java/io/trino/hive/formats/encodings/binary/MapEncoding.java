@@ -21,6 +21,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.Type;
 
 import static java.lang.Math.toIntExact;
@@ -41,16 +42,19 @@ public class MapEncoding
     @Override
     public void encodeValue(Block block, int position, SliceOutput output)
     {
-        Block map = block.getObject(position, Block.class);
+        SqlMap sqlMap = block.getObject(position, SqlMap.class);
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
 
         // write entry count
-        ReadWriteUtils.writeVInt(output, map.getPositionCount() / 2);
+        ReadWriteUtils.writeVInt(output, sqlMap.getSize());
 
         // write null bits
         int nullByte = 0b0101_0101;
         int bits = 0;
-        for (int elementIndex = 0; elementIndex < map.getPositionCount(); elementIndex += 2) {
-            if (map.isNull(elementIndex)) {
+        for (int elementIndex = 0; elementIndex < sqlMap.getSize(); elementIndex++) {
+            if (rawKeyBlock.isNull(rawOffset + elementIndex)) {
                 throw new TrinoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Map must never contain null keys");
             }
 
@@ -60,7 +64,7 @@ public class MapEncoding
                 bits = 0;
             }
 
-            if (!map.isNull(elementIndex + 1)) {
+            if (!rawValueBlock.isNull(rawOffset + elementIndex)) {
                 nullByte |= (1 << bits + 1);
             }
             bits += 2;
@@ -68,15 +72,15 @@ public class MapEncoding
         output.writeByte(nullByte);
 
         // write values
-        for (int elementIndex = 0; elementIndex < map.getPositionCount(); elementIndex += 2) {
-            if (map.isNull(elementIndex)) {
+        for (int elementIndex = 0; elementIndex < sqlMap.getSize(); elementIndex++) {
+            if (rawKeyBlock.isNull(rawOffset + elementIndex)) {
                 // skip null keys
                 continue;
             }
 
-            keyReader.encodeValueInto(map, elementIndex, output);
-            if (!map.isNull(elementIndex + 1)) {
-                valueReader.encodeValueInto(map, elementIndex + 1, output);
+            keyReader.encodeValueInto(rawKeyBlock, rawOffset + elementIndex, output);
+            if (!rawValueBlock.isNull(rawOffset + elementIndex)) {
+                valueReader.encodeValueInto(rawValueBlock, rawOffset + elementIndex, output);
             }
         }
     }

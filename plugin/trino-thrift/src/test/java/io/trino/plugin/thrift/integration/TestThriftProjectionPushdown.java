@@ -172,6 +172,7 @@ public class TestThriftProjectionPushdown
                 Optional.of(ImmutableSet.of(columnHandle)));
 
         tester().assertThat(pushProjectionIntoTableScan)
+                .withSession(SESSION)
                 .on(p -> {
                     Symbol orderStatusSymbol = p.symbol(columnName, VARCHAR);
                     return p.project(
@@ -183,7 +184,6 @@ public class TestThriftProjectionPushdown
                                     ImmutableList.of(orderStatusSymbol),
                                     ImmutableMap.of(orderStatusSymbol, columnHandle)));
                 })
-                .withSession(SESSION)
                 .matches(project(
                         ImmutableMap.of("expr_2", expression(new SymbolReference(columnName))),
                         tableScan(
@@ -201,6 +201,7 @@ public class TestThriftProjectionPushdown
         ThriftColumnHandle nameColumn = new ThriftColumnHandle("name", VARCHAR, "", false);
 
         tester().assertThat(rule)
+                .withSession(SESSION)
                 .on(p -> {
                     Symbol nationKey = p.symbol(nationKeyColumn.getColumnName(), VARCHAR);
                     Symbol name = p.symbol(nameColumn.getColumnName(), VARCHAR);
@@ -216,7 +217,6 @@ public class TestThriftProjectionPushdown
                                             .put(name, nameColumn)
                                             .buildOrThrow()));
                 })
-                .withSession(SESSION)
                 .matches(project(
                         ImmutableMap.of("expr", expression(new SymbolReference(nationKeyColumn.getColumnName()))),
                         tableScan(

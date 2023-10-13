@@ -276,6 +276,21 @@ this table:
 
 No other types are supported.
 
+### Timestamp type handling
+
+MySQL `TIMESTAMP` types are mapped to Trino `TIMESTAMP WITH TIME ZONE`.
+To preserve time instants, Trino sets the session time zone
+of the MySQL connection to match the JVM time zone.
+As a result, error messages similar to the following example occur when
+a timezone from the JVM does not exist on the MySQL server:
+
+```
+com.mysql.cj.exceptions.CJException: Unknown or incorrect time zone: 'UTC'
+```
+
+To avoid the errors, you must use a time zone that is known on both systems,
+or [install the missing time zone on the MySQL server](https://dev.mysql.com/doc/refman/8.0/en/time-zone-support.html#time-zone-installation).
+
 (mysql-decimal-handling)=
 
 ```{include} decimal-type-handling.fragment
@@ -327,6 +342,7 @@ MySQL database. In addition to the {ref}`globally available <sql-globally-availa
 the following statements:
 
 - {doc}`/sql/insert`
+- {doc}`/sql/update`
 - {doc}`/sql/delete`
 - {doc}`/sql/truncate`
 - {doc}`/sql/create-table`
@@ -334,6 +350,9 @@ the following statements:
 - {doc}`/sql/drop-table`
 - {doc}`/sql/create-schema`
 - {doc}`/sql/drop-schema`
+
+```{include} sql-update-limitation.fragment
+```
 
 ```{include} sql-delete-limitation.fragment
 ```

@@ -22,6 +22,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -210,26 +212,31 @@ public final class IcebergAvroDataConversion
             org.apache.iceberg.types.Type keyIcebergType = icebergType.asMapType().keyType();
             org.apache.iceberg.types.Type valueIcebergType = icebergType.asMapType().valueType();
 
-            Block mapBlock = block.getObject(position, Block.class);
+            SqlMap sqlMap = block.getObject(position, SqlMap.class);
+            int rawOffset = sqlMap.getRawOffset();
+            Block rawKeyBlock = sqlMap.getRawKeyBlock();
+            Block rawValueBlock = sqlMap.getRawValueBlock();
+
             Map<Object, Object> map = new HashMap<>();
-            for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-                Object key = toIcebergAvroObject(keyType, keyIcebergType, mapBlock, i);
-                Object value = toIcebergAvroObject(valueType, valueIcebergType, mapBlock, i + 1);
+            for (int i = 0; i < sqlMap.getSize(); i++) {
+                Object key = toIcebergAvroObject(keyType, keyIcebergType, rawKeyBlock, rawOffset + i);
+                Object value = toIcebergAvroObject(valueType, valueIcebergType, rawValueBlock, rawOffset + i);
                 map.put(key, value);
             }
 
             return Collections.unmodifiableMap(map);
         }
         if (type instanceof RowType rowType) {
-            Block rowBlock = block.getObject(position, Block.class);
+            SqlRow sqlRow = rowType.getObject(block, position);
 
             List<Type> fieldTypes = rowType.getTypeParameters();
-            checkArgument(fieldTypes.size() == rowBlock.getPositionCount(), "Expected row value field count does not match type field count");
+            checkArgument(fieldTypes.size() == sqlRow.getFieldCount(), "Expected row value field count does not match type field count");
             List<Types.NestedField> icebergFields = icebergType.asStructType().fields();
 
+            int rawIndex = sqlRow.getRawIndex();
             Record record = GenericRecord.create(icebergType.asStructType());
-            for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-                Object element = toIcebergAvroObject(fieldTypes.get(i), icebergFields.get(i).type(), rowBlock, i);
+            for (int i = 0; i < sqlRow.getFieldCount(); i++) {
+                Object element = toIcebergAvroObject(fieldTypes.get(i), icebergFields.get(i).type(), sqlRow.getRawFieldBlock(i), rawIndex);
                 record.set(i, element);
             }
 

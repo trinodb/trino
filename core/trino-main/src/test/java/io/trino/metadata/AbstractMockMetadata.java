@@ -393,7 +393,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Type type)
+    public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Map<String, Object> tableProperties, Type type)
     {
         throw new UnsupportedOperationException();
     }
@@ -441,10 +441,10 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void cleanupQuery(Session session)
-    {
-        throw new UnsupportedOperationException();
-    }
+    public void beginQuery(Session session) {}
+
+    @Override
+    public void cleanupQuery(Session session) {}
 
     @Override
     public InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<ColumnHandle> columns)
@@ -786,7 +786,13 @@ public abstract class AbstractMockMetadata
     //
 
     @Override
-    public Collection<FunctionMetadata> listFunctions(Session session)
+    public Collection<FunctionMetadata> listGlobalFunctions(Session session)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Collection<FunctionMetadata> listFunctions(Session session, CatalogSchemaName schema)
     {
         throw new UnsupportedOperationException();
     }

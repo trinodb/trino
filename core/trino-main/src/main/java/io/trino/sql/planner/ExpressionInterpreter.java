@@ -30,7 +30,7 @@ import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.SingleRowBlock;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionNullability;
@@ -385,7 +385,7 @@ public class ExpressionInterpreter
             }
 
             RowType rowType = (RowType) type;
-            Block row = (Block) base;
+            SqlRow row = (SqlRow) base;
             Type returnType = type(node);
             String fieldName = fieldIdentifier.getValue();
             List<Field> fields = rowType.getFields();
@@ -399,7 +399,7 @@ public class ExpressionInterpreter
             }
 
             checkState(index >= 0, "could not find field name: %s", fieldName);
-            return readNativeValue(returnType, row, index);
+            return readNativeValue(returnType, row.getRawFieldBlock(index), row.getRawIndex());
         }
 
         @Override
@@ -1518,7 +1518,7 @@ public class ExpressionInterpreter
                     .resolveBuiltinFunction(FormatFunction.NAME, TypeSignatureProvider.fromTypes(VARCHAR, rowType));
 
             // Construct a row with arguments [1..n] and invoke the underlying function
-            Block row = buildRowValue(rowType, fields -> {
+            SqlRow row = buildRowValue(rowType, fields -> {
                 for (int i = 0; i < arguments.size(); ++i) {
                     writeNativeValue(argumentTypes.get(i), fields.get(i), processedArguments.get(i));
                 }
@@ -1549,13 +1549,13 @@ public class ExpressionInterpreter
             }
 
             // Subscript on Row hasn't got a dedicated operator. It is interpreted by hand.
-            if (base instanceof SingleRowBlock row) {
-                int position = toIntExact((long) index - 1);
-                if (position < 0 || position >= row.getPositionCount()) {
-                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "ROW index out of bounds: " + (position + 1));
+            if (base instanceof SqlRow row) {
+                int fieldIndex = toIntExact((long) index - 1);
+                if (fieldIndex < 0 || fieldIndex >= row.getFieldCount()) {
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "ROW index out of bounds: " + (fieldIndex + 1));
                 }
-                Type returnType = type(node.getBase()).getTypeParameters().get(position);
-                return readNativeValue(returnType, row, position);
+                Type returnType = type(node.getBase()).getTypeParameters().get(fieldIndex);
+                return readNativeValue(returnType, row.getRawFieldBlock(fieldIndex), row.getRawIndex());
             }
 
             // Subscript on Array or Map is interpreted using operator.

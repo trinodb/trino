@@ -19,7 +19,7 @@ import io.trino.server.ResourceGroupInfo;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 

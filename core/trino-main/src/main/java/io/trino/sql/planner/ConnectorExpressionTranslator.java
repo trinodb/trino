@@ -77,8 +77,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.SystemSessionProperties.isComplexExpressionPushdown;
-import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
@@ -242,10 +242,12 @@ public final class ConnectorExpressionTranslator
             if (call.getFunctionName().getCatalogSchema().isPresent()) {
                 CatalogSchemaName catalogSchemaName = call.getFunctionName().getCatalogSchema().get();
                 checkArgument(!catalogSchemaName.getCatalogName().equals(GlobalSystemConnector.NAME), "System functions must not be fully qualified");
+                // this uses allow allow all access control because connector expressions are not allowed access any function
                 ResolvedFunction resolved = plannerContext.getFunctionResolver().resolveFunction(
                         session,
                         QualifiedName.of(catalogSchemaName.getCatalogName(), catalogSchemaName.getSchemaName(), call.getFunctionName().getName()),
-                        fromTypes(call.getArguments().stream().map(ConnectorExpression::getType).collect(toImmutableList())));
+                        fromTypes(call.getArguments().stream().map(ConnectorExpression::getType).collect(toImmutableList())),
+                        new AllowAllAccessControl());
 
                 return translateCall(call.getFunctionName().getName(), resolved, call.getArguments());
             }
@@ -697,7 +699,7 @@ public final class ConnectorExpressionTranslator
             }
 
             FunctionName name;
-            if (functionName.getCatalogName().equals(GlobalSystemConnector.NAME) && functionName.getSchemaName().equals(BUILTIN_SCHEMA)) {
+            if (isBuiltinFunctionName(functionName)) {
                 name = new FunctionName(functionName.getFunctionName());
             }
             else {

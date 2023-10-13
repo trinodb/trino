@@ -256,3 +256,50 @@ you need to match the used escape character as well, you can escape it.
 
 If you want to match for the chosen escape character, you simply escape itself.
 For example, you can use `\\` to match for `\`.
+
+(in-operator)=
+
+## Row comparison: IN
+
+The `IN` operator can be used in a `WHERE` clause to compare column values with 
+a list of values. The list of values can be supplied by a subquery or directly 
+as static values in an array:
+
+```sql
+... WHERE column [NOT] IN ('value1','value2');
+... WHERE column [NOT] IN ( subquery );
+```
+
+Use the optional `NOT` keyword to negate the condition.
+
+The following example shows a simple usage with a static array:
+
+```sql
+SELECT * FROM region WHERE name IN ('AMERICA', 'EUROPE');
+```
+
+The values in the clause are used for multiple comparisons that are combined as
+a logical `OR`. The preceding query is equivalent to the following query:
+
+```sql
+SELECT * FROM region WHERE name = 'AMERICA' OR name = 'EUROPE';
+```
+
+You can negate the comparisons by adding `NOT`, and get all other regions
+except the values in list:
+
+```sql
+SELECT * FROM region WHERE name NOT IN ('AMERICA', 'EUROPE');
+```
+
+When using a subquery to determine the values to use in the comparison, the
+subquery must return a single column and one or more rows.
+
+```sql
+SELECT name
+FROM nation
+WHERE regionkey IN (
+    SELECT starts_with(regionkey,"A") AS regionkey
+    FROM region
+);
+```

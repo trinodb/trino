@@ -139,6 +139,8 @@ import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABL
 import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.hive.HiveQueryRunner.createBucketedSession;
+import static io.trino.plugin.hive.HiveStorageFormat.ORC;
+import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveStorageFormat.REGEX;
 import static io.trino.plugin.hive.HiveTableProperties.AUTO_PURGE;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
@@ -625,11 +627,10 @@ public abstract class BaseHiveConnectorTest
     public void testCreateSchemaWithIncorrectLocation()
     {
         String schemaName = "test_create_schema_with_incorrect_location_" + randomNameSuffix();
-        String schemaLocation = "s3://testbucket/%s/a#hash/%s".formatted(schemaName, schemaName);
+        String schemaLocation = "s3://bucket";
 
         assertThatThrownBy(() -> assertUpdate("CREATE SCHEMA " + schemaName + " WITH (location = '" + schemaLocation + "')"))
-                .hasMessageContaining("Invalid location URI")
-                .hasStackTraceContaining("Fragment is not allowed in a file system location");
+                .hasMessageContaining("Invalid location URI");
     }
 
     @Test
@@ -2621,7 +2622,7 @@ public abstract class BaseHiveConnectorTest
             assertUpdate(session, createSourceTable, "SELECT count(*) FROM orders");
             assertUpdate(session, createTargetTable, "SELECT count(*) FROM orders");
 
-            transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl()).execute(
+            transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getMetadata(), getQueryRunner().getAccessControl()).execute(
                     session,
                     transactionalSession -> {
                         assertUpdate(
@@ -3774,7 +3775,7 @@ public abstract class BaseHiveConnectorTest
         Session session = getSession();
         Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
 
-        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+        return transaction(getQueryRunner().getTransactionManager(), metadata, getQueryRunner().getAccessControl())
                 .readOnly()
                 .execute(session, transactionSession -> {
                     Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, schema, tableName));
@@ -3788,7 +3789,7 @@ public abstract class BaseHiveConnectorTest
         Session session = getSession();
         Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
 
-        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+        return transaction(getQueryRunner().getTransactionManager(), metadata, getQueryRunner().getAccessControl())
                 .readOnly()
                 .execute(session, transactionSession -> {
                     QualifiedObjectName name = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
@@ -4987,7 +4988,7 @@ public abstract class BaseHiveConnectorTest
                 .getMaterializedRows();
 
         try {
-            transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+            transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getMetadata(), getQueryRunner().getAccessControl())
                     .execute(session, transactionSession -> {
                         assertUpdate(transactionSession, "DELETE FROM tmp_delete_insert WHERE z >= 2");
                         assertUpdate(transactionSession, "INSERT INTO tmp_delete_insert VALUES (203, 2), (204, 2), (205, 2), (301, 2), (302, 3)", 5);
@@ -5005,7 +5006,7 @@ public abstract class BaseHiveConnectorTest
         MaterializedResult actualAfterRollback = computeActual(session, "SELECT * FROM tmp_delete_insert");
         assertEqualsIgnoreOrder(actualAfterRollback, expectedBefore);
 
-        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getMetadata(), getQueryRunner().getAccessControl())
                 .execute(session, transactionSession -> {
                     assertUpdate(transactionSession, "DELETE FROM tmp_delete_insert WHERE z >= 2");
                     assertUpdate(transactionSession, "INSERT INTO tmp_delete_insert VALUES (203, 2), (204, 2), (205, 2), (301, 2), (302, 3)", 5);
@@ -5033,7 +5034,7 @@ public abstract class BaseHiveConnectorTest
                 .build()
                 .getMaterializedRows();
 
-        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getMetadata(), getQueryRunner().getAccessControl())
                 .execute(session, transactionSession -> {
                     assertUpdate(
                             transactionSession,
@@ -5586,6 +5587,97 @@ public abstract class BaseHiveConnectorTest
         finally {
             assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
         }
+    }
+
+    @Test
+    public void testReadWithPartitionSchemaMismatch()
+    {
+        testWithAllStorageFormats(this::testReadWithPartitionSchemaMismatch);
+
+        // test ORC in non-default configuration with by-name column mapping
+        Session orcUsingColumnNames = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "orc_use_column_names", "true")
+                .build();
+        testWithStorageFormat(new TestingHiveStorageFormat(orcUsingColumnNames, ORC), this::testReadWithPartitionSchemaMismatchByName);
+
+        // test PARQUET in non-default configuration with by-index column mapping
+        Session parquetUsingColumnIndex = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "parquet_use_column_names", "false")
+                .build();
+        testWithStorageFormat(new TestingHiveStorageFormat(parquetUsingColumnIndex, PARQUET), this::testReadWithPartitionSchemaMismatchByIndex);
+    }
+
+    private void testReadWithPartitionSchemaMismatch(Session session, HiveStorageFormat format)
+    {
+        if (isMappingByName(session, format)) {
+            testReadWithPartitionSchemaMismatchByName(session, format);
+        }
+        else {
+            testReadWithPartitionSchemaMismatchByIndex(session, format);
+        }
+    }
+
+    private boolean isMappingByName(Session session, HiveStorageFormat format)
+    {
+        return switch(format) {
+            case PARQUET -> true;
+            case AVRO -> true;
+            case JSON -> true;
+            case ORC -> false;
+            case RCBINARY -> false;
+            case RCTEXT -> false;
+            case SEQUENCEFILE -> false;
+            case OPENX_JSON -> false;
+            case TEXTFILE -> false;
+            case CSV -> false;
+            case REGEX -> false;
+        };
+    }
+
+    private void testReadWithPartitionSchemaMismatchByName(Session session, HiveStorageFormat format)
+    {
+        String tableName = testReadWithPartitionSchemaMismatchAddedColumns(session, format);
+
+        // with mapping by name also test behavior with dropping columns
+        // start with table with a, b, c, _part
+        // drop b
+        assertUpdate(session, "ALTER TABLE " + tableName + " DROP COLUMN b");
+        // create new partition
+        assertUpdate(session, "INSERT INTO " + tableName + " values (21, 22, 20)", 1); // a, c, _part
+        assertQuery(session, "SELECT a, c, _part FROM " + tableName, "VALUES (1, null, 0), (11, 13, 10), (21, 22, 20)");
+        assertQuery(session, "SELECT a, _part FROM " + tableName, "VALUES (1,  0), (11, 10), (21, 20)");
+        // add d
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN d bigint");
+        // create new partition
+        assertUpdate(session, "INSERT INTO " + tableName + " values (31, 32, 33, 30)", 1); // a, c, d, _part
+        assertQuery(session, "SELECT a, c, d, _part FROM " + tableName, "VALUES (1, null, null, 0), (11, 13, null, 10), (21, 22, null, 20), (31, 32, 33, 30)");
+        assertQuery(session, "SELECT a, d, _part FROM " + tableName, "VALUES (1, null, 0), (11, null, 10), (21, null, 20), (31, 33, 30)");
+    }
+
+    private void testReadWithPartitionSchemaMismatchByIndex(Session session, HiveStorageFormat format)
+    {
+        // we are not dropping columns for format which use index based mapping as logic is confusing and not consistent between different formats
+        testReadWithPartitionSchemaMismatchAddedColumns(session, format);
+    }
+
+    private String testReadWithPartitionSchemaMismatchAddedColumns(Session session, HiveStorageFormat format)
+    {
+        String tableName = "read_with_partition_schema_mismatch_by_name_" + randomNameSuffix();
+        // create table with a, b, _part
+        assertUpdate(session, "CREATE TABLE " + tableName + " (a bigint, b bigint, _part bigint) with (format = '" + format + "', partitioned_by=array['_part'])");
+        // create new partition
+        assertUpdate(session, "INSERT INTO " + tableName + " values (1, 2, 0)", 1); // a, b, _part
+        assertQuery(session, "SELECT a, b, _part FROM " + tableName, "VALUES (1, 2, 0)");
+        assertQuery(session, "SELECT a, _part FROM " + tableName, "VALUES (1, 0)");
+        // add column c
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN c bigint");
+        // create new partition
+        assertUpdate(session, "INSERT INTO " + tableName + " values (11, 12, 13, 10)", 1); // a, b, c, _part
+        assertQuery(session, "SELECT a, b, c, _part FROM " + tableName, "VALUES (1, 2, null, 0), (11, 12, 13, 10)");
+        assertQuery(session, "SELECT a, c, _part FROM " + tableName, "VALUES (1, null, 0), (11, 13, 10)");
+        assertQuery(session, "SELECT c, _part FROM " + tableName + " WHERE a < 7", "VALUES (null, 0)"); // common column used in WHERE but not in FROM
+        assertQuery(session, "SELECT a, _part FROM " + tableName + " WHERE c > 7", "VALUES (11, 10)"); // missing column used in WHERE but not in FROM
+        return tableName;
     }
 
     @Test
@@ -7650,6 +7742,67 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testCreateAvroTableWithCamelCaseFieldSchema()
+            throws Exception
+    {
+        String tableName = "test_create_avro_table_with_camelcase_schema_url_" + randomNameSuffix();
+        File schemaFile = createAvroCamelCaseSchemaFile();
+
+        String createTableSql = format("CREATE TABLE %s.%s.%s (\n" +
+                        "   stringCol varchar,\n" +
+                        "   a INT\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   avro_schema_url = '%s',\n" +
+                        "   format = 'AVRO'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                schemaFile);
+
+        assertUpdate(createTableSql);
+        try {
+            assertUpdate("INSERT INTO " + tableName + " VALUES ('hi', 1)", 1);
+            assertQuery("SELECT * FROM " + tableName, "SELECT 'hi', 1");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            verify(schemaFile.delete(), "cannot delete temporary file: %s", schemaFile);
+        }
+    }
+
+    @Test
+    public void testCreateAvroTableWithNestedCamelCaseFieldSchema()
+            throws Exception
+    {
+        String tableName = "test_create_avro_table_with_nested_camelcase_schema_url_" + randomNameSuffix();
+        File schemaFile = createAvroNestedCamelCaseSchemaFile();
+
+        String createTableSql = format("CREATE TABLE %s.%s.%s (\n" +
+                        "   nestedRow ROW(stringCol varchar, intCol int)\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   avro_schema_url = '%s',\n" +
+                        "   format = 'AVRO'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                schemaFile);
+
+        assertUpdate(createTableSql);
+        try {
+            assertUpdate("INSERT INTO " + tableName + " VALUES ROW(ROW('hi', 1))", 1);
+            assertQuery("SELECT nestedRow.stringCol FROM " + tableName, "SELECT 'hi'");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            verify(schemaFile.delete(), "cannot delete temporary file: %s", schemaFile);
+        }
+    }
+
+    @Test
     public void testAlterAvroTableWithSchemaUrl()
             throws Exception
     {
@@ -7708,6 +7861,50 @@ public abstract class BaseHiveConnectorTest
                 "  \"fields\": [\n" +
                 "    { \"name\":\"string_col\", \"type\":\"string\" }\n" +
                 "]}";
+        writeString(schemaFile.toPath(), schema);
+        return schemaFile;
+    }
+
+    private static File createAvroCamelCaseSchemaFile()
+            throws Exception
+    {
+        File schemaFile = File.createTempFile("avro_camelCamelCase_col-", ".avsc");
+        String schema = "{\n" +
+                "  \"namespace\": \"io.trino.test\",\n" +
+                "  \"name\": \"camelCase\",\n" +
+                "  \"type\": \"record\",\n" +
+                "  \"fields\": [\n" +
+                "    { \"name\":\"stringCol\", \"type\":\"string\" },\n" +
+                "    { \"name\":\"a\", \"type\":\"int\" }\n" +
+                "]}";
+        writeString(schemaFile.toPath(), schema);
+        return schemaFile;
+    }
+
+    private static File createAvroNestedCamelCaseSchemaFile()
+            throws Exception
+    {
+        File schemaFile = File.createTempFile("avro_camelCamelCase_col-", ".avsc");
+        String schema = """
+                {
+                    "namespace": "io.trino.test",
+                    "name": "camelCaseNested",
+                    "type": "record",
+                    "fields": [
+                        {
+                            "name":"nestedRow",
+                            "type": ["null", {
+                                "namespace": "io.trino.test",
+                                 "name": "nestedRecord",
+                                 "type": "record",
+                                 "fields": [
+                                    { "name":"stringCol", "type":"string"},
+                                    { "name":"intCol", "type":"int" }
+                                ]
+                            }]
+                        }
+                    ]
+                 }""";
         writeString(schemaFile.toPath(), schema);
         return schemaFile;
     }
@@ -7772,7 +7969,7 @@ public abstract class BaseHiveConnectorTest
     private HiveInsertTableHandle getHiveInsertTableHandle(Session session, String tableName)
     {
         Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
-        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getMetadata(), getQueryRunner().getAccessControl())
                 .execute(session, transactionSession -> {
                     QualifiedObjectName objectName = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
                     Optional<TableHandle> handle = metadata.getTableHandle(transactionSession, objectName);

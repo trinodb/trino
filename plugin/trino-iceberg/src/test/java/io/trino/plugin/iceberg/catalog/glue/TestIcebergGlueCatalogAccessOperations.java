@@ -580,6 +580,16 @@ public class TestIcebergGlueCatalogAccessOperations
         }
     }
 
+    @Test
+    public void testShowTables()
+    {
+        assertGlueMetastoreApiInvocations("SHOW TABLES",
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .add(GET_TABLES)
+                        .build());
+    }
+
     private void assertGlueMetastoreApiInvocations(@Language("SQL") String query, Multiset<?> expectedInvocations)
     {
         assertGlueMetastoreApiInvocations(getSession(), query, expectedInvocations);

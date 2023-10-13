@@ -135,8 +135,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin;
-import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultCoordinatorTaskMemory;
-import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultTaskMemory;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMinSourceStageProgress;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize;
@@ -748,6 +746,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             updateStageExecutions();
             scheduleTasks();
             processNodeAcquisitions();
+            updateMemoryRequirements();
             loadMoreTaskDescriptorsIfNecessary();
             return true;
         }
@@ -1207,7 +1206,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         sinkPartitioningScheme,
                         exchange,
                         noMemoryFragment,
-                        noMemoryFragment ? new NoMemoryPartitionMemoryEstimator() : memoryEstimatorFactory.createPartitionMemoryEstimator(),
+                        noMemoryFragment ? new NoMemoryPartitionMemoryEstimator() : memoryEstimatorFactory.createPartitionMemoryEstimator(session, fragment),
                         // do not retry coordinator only tasks
                         coordinatorStage ? 1 : maxTaskExecutionAttempts,
                         schedulingPriority,
@@ -1243,6 +1242,13 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private boolean isNoMemoryFragment(PlanFragment fragment)
         {
+            if (fragment.getRoot().getSources().stream()
+                    .anyMatch(planNode -> planNode instanceof RefreshMaterializedViewNode)) {
+                // REFRESH MATERIALIZED VIEW will issue other SQL commands under the hood. If its task memory is
+                // non-zero, then a deadlock scenario is possible if we only have a single node in the cluster.
+                return true;
+            }
+
             // If source fragments are not tagged as "no-memory" assume that they may produce significant amount of data.
             // We stay on the safe side an assume that we should use standard memory estimation for this fragment
             if (!fragment.getRemoteSourceNodes().stream().flatMap(node -> node.getSourceFragmentIds().stream())
@@ -1379,6 +1385,24 @@ public class EventDrivenFaultTolerantQueryScheduler
                         nodeLease.release();
                     }
                 }
+            }
+        }
+
+        private void updateMemoryRequirements()
+        {
+            // update memory requirements for stages
+            // it will update memory requirements regarding tasks which have node acquired and remote task created
+            for (StageExecution stageExecution : stageExecutions.values()) {
+                stageExecution.updateMemoryRequirements();
+            }
+
+            // update pending acquires
+            for (Map.Entry<ScheduledTask, PreSchedulingTaskContext> entry : preSchedulingTaskContexts.entrySet()) {
+                ScheduledTask scheduledTask = entry.getKey();
+                PreSchedulingTaskContext taskContext = entry.getValue();
+
+                MemoryRequirements currentPartitionMemoryRequirements = stageExecutions.get(scheduledTask.stageId()).getMemoryRequirements(scheduledTask.partitionId());
+                taskContext.getNodeLease().setMemoryRequirement(currentPartitionMemoryRequirements.getRequiredMemory());
             }
         }
 
@@ -1635,6 +1659,8 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final DataSize smallSizePartitionSizeEstimate;
         private final boolean smallStageRequireNoMorePartitions;
 
+        private MemoryRequirements initialMemoryRequirements;
+
         private StageExecution(
                 QueryStateMachine queryStateMachine,
                 TaskDescriptorStorage taskDescriptorStorage,
@@ -1683,6 +1709,30 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.smallStageSourceSizeMultiplier = smallStageSourceSizeMultiplier;
             this.smallSizePartitionSizeEstimate = requireNonNull(smallSizePartitionSizeEstimate, "smallSizePartitionSizeEstimate is null");
             this.smallStageRequireNoMorePartitions = smallStageRequireNoMorePartitions;
+            this.initialMemoryRequirements = computeCurrentInitialMemoryRequirements();
+        }
+
+        private MemoryRequirements computeCurrentInitialMemoryRequirements()
+        {
+            return partitionMemoryEstimator.getInitialMemoryRequirements();
+        }
+
+        private void updateMemoryRequirements()
+        {
+            MemoryRequirements newInitialMemoryRequirements = computeCurrentInitialMemoryRequirements();
+            if (initialMemoryRequirements.equals(newInitialMemoryRequirements)) {
+                return;
+            }
+
+            initialMemoryRequirements = newInitialMemoryRequirements;
+
+            for (StagePartition partition : partitions.values()) {
+                if (partition.isFinished()) {
+                    continue;
+                }
+
+                partition.updateInitialMemoryRequirements(initialMemoryRequirements);
+            }
         }
 
         public StageId getStageId()
@@ -1727,16 +1777,6 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
 
             ExchangeSinkHandle exchangeSinkHandle = exchange.addSink(partitionId);
-            Session session = queryStateMachine.getSession();
-            DataSize defaultTaskMemory = stage.getFragment().getPartitioning().equals(COORDINATOR_DISTRIBUTION) ?
-                    getFaultTolerantExecutionDefaultCoordinatorTaskMemory(session) :
-                    getFaultTolerantExecutionDefaultTaskMemory(session);
-            if (stage.getFragment().getRoot().getSources().stream()
-                    .anyMatch(planNode -> planNode instanceof RefreshMaterializedViewNode)) {
-                // REFRESH MATERIALIZED VIEW will issue other SQL commands under the hood. If its task memory is
-                // non-zero, then a deadlock scenario is possible if we only have a single node in the cluster.
-                defaultTaskMemory = DataSize.ofBytes(0);
-            }
             StagePartition partition = new StagePartition(
                     taskDescriptorStorage,
                     stage.getStageId(),
@@ -1744,7 +1784,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     exchangeSinkHandle,
                     remoteSourceIds,
                     nodeRequirements,
-                    partitionMemoryEstimator.getInitialMemoryRequirements(session, defaultTaskMemory),
+                    initialMemoryRequirements,
                     maxTaskExecutionAttempts);
             checkState(partitions.putIfAbsent(partitionId, partition) == null, "partition with id %s already exist in stage %s", partitionId, stage.getStageId());
             getSourceOutputSelectors().forEach((partition::updateExchangeSourceOutputSelector));
@@ -2023,7 +2063,6 @@ public class EventDrivenFaultTolerantQueryScheduler
             updateOutputSize(outputStats);
 
             partitionMemoryEstimator.registerPartitionFinished(
-                    queryStateMachine.getSession(),
                     partition.getMemoryRequirements(),
                     taskStatus.getPeakMemoryReservation(),
                     true,
@@ -2070,7 +2109,6 @@ public class EventDrivenFaultTolerantQueryScheduler
             RuntimeException failure = failureInfo.toException();
             ErrorCode errorCode = failureInfo.getErrorCode();
             partitionMemoryEstimator.registerPartitionFinished(
-                    queryStateMachine.getSession(),
                     partition.getMemoryRequirements(),
                     taskStatus.getPeakMemoryReservation(),
                     false,
@@ -2079,11 +2117,10 @@ public class EventDrivenFaultTolerantQueryScheduler
             // update memory limits for next attempt
             MemoryRequirements currentMemoryLimits = partition.getMemoryRequirements();
             MemoryRequirements newMemoryLimits = partitionMemoryEstimator.getNextRetryMemoryRequirements(
-                    queryStateMachine.getSession(),
                     partition.getMemoryRequirements(),
                     taskStatus.getPeakMemoryReservation(),
                     errorCode);
-            partition.setMemoryRequirements(newMemoryLimits);
+            partition.setPostFailureMemoryRequirements(newMemoryLimits);
             log.debug(
                     "Computed next memory requirements for task from stage %s; previous=%s; new=%s; peak=%s; estimator=%s",
                     stage.getStageId(),
@@ -2371,6 +2408,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         // empty when task descriptor is closed and stored in TaskDescriptorStorage
         private Optional<OpenTaskDescriptor> openTaskDescriptor;
         private MemoryRequirements memoryRequirements;
+        private boolean failureObserved;
         private int remainingAttempts;
 
         private final Map<TaskId, RemoteTask> tasks = new HashMap<>();
@@ -2503,7 +2541,26 @@ public class EventDrivenFaultTolerantQueryScheduler
             return memoryRequirements;
         }
 
-        public void setMemoryRequirements(MemoryRequirements memoryRequirements)
+        public void updateInitialMemoryRequirements(MemoryRequirements memoryRequirements)
+        {
+            if (failureObserved && memoryRequirements.getRequiredMemory().toBytes() < this.memoryRequirements.getRequiredMemory().toBytes()) {
+                // If observed failure for this partition we are ignoring updated general initial memory requirements if those are smaller than current.
+                // Memory requirements for retry task will be based on statistics specific to this partition.
+                //
+                // Conservatively we still use updated memoryRequirements if they are larger than currently computed even if we
+                // observed failure for this partition.
+                return;
+            }
+
+            this.memoryRequirements = memoryRequirements;
+
+            // update memory requirements for running tasks (typically it should be just one)
+            for (TaskId runningTaskId : runningTasks) {
+                taskNodeLeases.get(runningTaskId).setMemoryRequirement(memoryRequirements.getRequiredMemory());
+            }
+        }
+
+        public void setPostFailureMemoryRequirements(MemoryRequirements memoryRequirements)
         {
             this.memoryRequirements = requireNonNull(memoryRequirements, "memoryRequirements is null");
         }
@@ -2540,6 +2597,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         public void taskFailed(TaskId taskId)
         {
             runningTasks.remove(taskId);
+            failureObserved = true;
             remainingAttempts--;
         }
 

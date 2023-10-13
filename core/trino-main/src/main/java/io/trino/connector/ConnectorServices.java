@@ -32,25 +32,31 @@ import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.table.ArgumentSpecification;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.function.table.ReturnTypeSpecification.DescribedTable;
 import io.trino.spi.function.table.TableArgumentSpecification;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.split.RecordPageSourceProvider;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -175,6 +181,7 @@ public class ConnectorServices
         }
         catch (UnsupportedOperationException ignored) {
         }
+        verifyAccessControl(accessControl);
         this.accessControl = Optional.ofNullable(accessControl);
 
         Iterable<EventListener> eventListeners = connector.getEventListeners();
@@ -372,6 +379,26 @@ public class ConnectorServices
 
         if (tableFunction.getReturnTypeSpecification() instanceof DescribedTable describedTable) {
             checkArgument(describedTable.getDescriptor().isTyped(), "field types missing in returned type specification");
+        }
+    }
+
+    private static void verifyAccessControl(ConnectorAccessControl accessControl)
+    {
+        if (accessControl != null) {
+            mustNotDeclareMethod(accessControl.getClass(), "checkCanExecuteFunction", ConnectorSecurityContext.class, FunctionKind.class, SchemaRoutineName.class);
+            mustNotDeclareMethod(accessControl.getClass(), "checkCanGrantExecuteFunctionPrivilege", ConnectorSecurityContext.class, FunctionKind.class, SchemaRoutineName.class, TrinoPrincipal.class, boolean.class);
+        }
+    }
+
+    private static void mustNotDeclareMethod(Class<?> clazz, String name, Class<?>... parameterTypes)
+    {
+        try {
+            clazz.getMethod(name, parameterTypes);
+            throw new IllegalArgumentException(format("Access control %s must not implement removed method %s(%s)",
+                    clazz.getName(),
+                    name, Arrays.stream(parameterTypes).map(Class::getName).collect(Collectors.joining(", "))));
+        }
+        catch (ReflectiveOperationException ignored) {
         }
     }
 }

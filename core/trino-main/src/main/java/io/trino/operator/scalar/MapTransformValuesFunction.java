@@ -35,6 +35,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.block.MapValueBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
@@ -59,13 +60,11 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.add;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantString;
-import static io.airlift.bytecode.expression.BytecodeExpressions.divide;
 import static io.airlift.bytecode.expression.BytecodeExpressions.equal;
 import static io.airlift.bytecode.expression.BytecodeExpressions.getStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
-import static io.airlift.bytecode.instruction.VariableInstruction.incrementVariable;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -138,13 +137,13 @@ public final class MapTransformValuesFunction
 
         // define transform method
         Parameter state = arg("state", Object.class);
-        Parameter block = arg("block", Block.class);
+        Parameter map = arg("map", SqlMap.class);
         Parameter function = arg("function", BinaryFunctionInterface.class);
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC, STATIC),
                 "transform",
-                type(Block.class),
-                ImmutableList.of(state, block, function));
+                type(SqlMap.class),
+                ImmutableList.of(state, map, function));
 
         BytecodeBlock body = method.getBody();
         Scope scope = method.getScope();
@@ -152,17 +151,16 @@ public final class MapTransformValuesFunction
         Variable mapValueBuilder = scope.declareVariable(BufferedMapValueBuilder.class, "mapValueBuilder");
         body.append(mapValueBuilder.set(state.cast(BufferedMapValueBuilder.class)));
 
-        BytecodeExpression mapEntryBuilder = generateMetafactory(MapValueBuilder.class, transformMap, ImmutableList.of(block, function));
-        BytecodeExpression entryCount = divide(block.invoke("getPositionCount", int.class), constantInt(2));
-        body.append(mapValueBuilder.invoke("build", Block.class, entryCount, mapEntryBuilder).ret());
+        BytecodeExpression mapEntryBuilder = generateMetafactory(MapValueBuilder.class, transformMap, ImmutableList.of(map, function));
+        body.append(mapValueBuilder.invoke("build", SqlMap.class, map.invoke("getSize", int.class), mapEntryBuilder).ret());
 
         Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapTransformValuesFunction.class.getClassLoader());
-        return methodHandle(generatedClass, "transform", Object.class, Block.class, BinaryFunctionInterface.class);
+        return methodHandle(generatedClass, "transform", Object.class, SqlMap.class, BinaryFunctionInterface.class);
     }
 
     private static MethodDefinition generateTransformInner(ClassDefinition definition, CallSiteBinder binder, Type keyType, Type valueType, Type transformedValueType)
     {
-        Parameter block = arg("block", Block.class);
+        Parameter map = arg("map", SqlMap.class);
         Parameter function = arg("function", BinaryFunctionInterface.class);
         Parameter keyBuilder = arg("keyBuilder", BlockBuilder.class);
         Parameter valueBuilder = arg("valueBuilder", BlockBuilder.class);
@@ -170,7 +168,7 @@ public final class MapTransformValuesFunction
                 a(PRIVATE, STATIC),
                 "transform",
                 type(void.class),
-                ImmutableList.of(block, function, keyBuilder, valueBuilder));
+                ImmutableList.of(map, function, keyBuilder, valueBuilder));
 
         BytecodeBlock body = method.getBody();
         Scope scope = method.getScope();
@@ -179,14 +177,15 @@ public final class MapTransformValuesFunction
         Class<?> valueJavaType = Primitives.wrap(valueType.getJavaType());
         Class<?> transformedValueJavaType = Primitives.wrap(transformedValueType.getJavaType());
 
-        Variable positionCount = scope.declareVariable(int.class, "positionCount");
-        Variable position = scope.declareVariable(int.class, "position");
+        Variable size = scope.declareVariable("size", body, map.invoke("getSize", int.class));
+        Variable rawOffset = scope.declareVariable("rawOffset", body, map.invoke("getRawOffset", int.class));
+        Variable rawKeyBlock = scope.declareVariable("rawKeyBlock", body, map.invoke("getRawKeyBlock", Block.class));
+        Variable rawValueBlock = scope.declareVariable("rawValueBlock", body, map.invoke("getRawValueBlock", Block.class));
+
+        Variable index = scope.declareVariable(int.class, "index");
         Variable keyElement = scope.declareVariable(keyJavaType, "keyElement");
         Variable valueElement = scope.declareVariable(valueJavaType, "valueElement");
         Variable transformedValueElement = scope.declareVariable(transformedValueJavaType, "transformedValueElement");
-
-        // invoke block.getPositionCount()
-        body.append(positionCount.set(block.invoke("getPositionCount", int.class)));
 
         // throw null key exception block
         BytecodeNode throwNullKeyException = new BytecodeBlock()
@@ -199,7 +198,7 @@ public final class MapTransformValuesFunction
         SqlTypeBytecodeExpression keySqlType = constantType(binder, keyType);
         BytecodeNode loadKeyElement;
         if (!keyType.equals(UNKNOWN)) {
-            loadKeyElement = new BytecodeBlock().append(keyElement.set(keySqlType.getValue(block, position).cast(keyJavaType)));
+            loadKeyElement = keyElement.set(keySqlType.getValue(rawKeyBlock, add(index, rawOffset)).cast(keyJavaType));
         }
         else {
             // make sure invokeExact will not take uninitialized keys during compile time,
@@ -215,12 +214,12 @@ public final class MapTransformValuesFunction
         BytecodeNode loadValueElement;
         if (!valueType.equals(UNKNOWN)) {
             loadValueElement = new IfStatement()
-                    .condition(block.invoke("isNull", boolean.class, add(position, constantInt(1))))
+                    .condition(rawValueBlock.invoke("isNull", boolean.class, add(index, rawOffset)))
                     .ifTrue(valueElement.set(constantNull(valueJavaType)))
-                    .ifFalse(valueElement.set(valueSqlType.getValue(block, add(position, constantInt(1))).cast(valueJavaType)));
+                    .ifFalse(valueElement.set(valueSqlType.getValue(rawValueBlock, add(index, rawOffset)).cast(valueJavaType)));
         }
         else {
-            loadValueElement = new BytecodeBlock().append(valueElement.set(constantNull(valueJavaType)));
+            loadValueElement = valueElement.set(constantNull(valueJavaType));
         }
 
         BytecodeNode writeTransformedValueElement;
@@ -231,14 +230,14 @@ public final class MapTransformValuesFunction
                     .ifFalse(constantType(binder, transformedValueType).writeValue(valueBuilder, transformedValueElement.cast(transformedValueType.getJavaType())));
         }
         else {
-            writeTransformedValueElement = new BytecodeBlock().append(valueBuilder.invoke("appendNull", BlockBuilder.class).pop());
+            writeTransformedValueElement = valueBuilder.invoke("appendNull", BlockBuilder.class).pop();
         }
 
         Variable transformationException = scope.declareVariable(Throwable.class, "transformationException");
         body.append(new ForLoop()
-                .initialize(position.set(constantInt(0)))
-                .condition(lessThan(position, positionCount))
-                .update(incrementVariable(position, (byte) 2))
+                .initialize(index.set(constantInt(0)))
+                .condition(lessThan(index, size))
+                .update(index.increment())
                 .body(new BytecodeBlock()
                         .append(loadKeyElement)
                         .append(loadValueElement)
@@ -255,7 +254,7 @@ public final class MapTransformValuesFunction
                                                                 .append(newInstance(RuntimeException.class, transformationException))
                                                                 .throwObject(),
                                                         ImmutableList.of(type(Throwable.class))))))
-                        .append(keySqlType.invoke("appendTo", void.class, block, position, keyBuilder))
+                        .append(keySqlType.invoke("appendTo", void.class, rawKeyBlock, add(index, rawOffset), keyBuilder))
                         .append(writeTransformedValueElement)));
 
         body.ret();

@@ -306,6 +306,8 @@ public class TestTrinoDatabaseMetaData
         countingCatalog.add(list(COUNTING_CATALOG, "information_schema"));
         countingCatalog.add(list(COUNTING_CATALOG, "test_schema1"));
         countingCatalog.add(list(COUNTING_CATALOG, "test_schema2"));
+        countingCatalog.add(list(COUNTING_CATALOG, "test_schema3_empty"));
+        countingCatalog.add(list(COUNTING_CATALOG, "test_schema4_empty"));
 
         List<List<String>> system = new ArrayList<>();
         system.add(list("system", "information_schema"));
@@ -346,6 +348,10 @@ public class TestTrinoDatabaseMetaData
 
             try (ResultSet rs = connection.getMetaData().getSchemas("", null)) {
                 // all schemas in Trino have a catalog name
+                assertGetSchemasResult(rs, list());
+            }
+
+            try (ResultSet rs = connection.getMetaData().getSchemas(null, "")) {
                 assertGetSchemasResult(rs, list());
             }
 
@@ -1035,7 +1041,9 @@ public class TestTrinoDatabaseMetaData
                 list(
                         list(COUNTING_CATALOG, "information_schema"),
                         list(COUNTING_CATALOG, "test_schema1"),
-                        list(COUNTING_CATALOG, "test_schema2")),
+                        list(COUNTING_CATALOG, "test_schema2"),
+                        list(COUNTING_CATALOG, "test_schema3_empty"),
+                        list(COUNTING_CATALOG, "test_schema4_empty")),
                 ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
 
         // Equality predicate on schema name
@@ -1046,7 +1054,9 @@ public class TestTrinoDatabaseMetaData
                         list("TABLE_CATALOG", "TABLE_SCHEM")),
                 list(
                         list(COUNTING_CATALOG, "test_schema1"),
-                        list(COUNTING_CATALOG, "test_schema2")),
+                        list(COUNTING_CATALOG, "test_schema2"),
+                        list(COUNTING_CATALOG, "test_schema3_empty"),
+                        list(COUNTING_CATALOG, "test_schema4_empty")),
                 ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
 
         // LIKE predicate on schema name
@@ -1065,13 +1075,22 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getSchemas(COUNTING_CATALOG, ""),
                         list("TABLE_CATALOG", "TABLE_SCHEM")),
                 list(),
-                ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
+                ImmutableMultiset.of());
 
         // catalog does not exist
         assertMetadataCalls(
                 connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getSchemas("wrong", null),
+                        list("TABLE_CATALOG", "TABLE_SCHEM")),
+                list(),
+                ImmutableMultiset.of());
+
+        // empty catalog name (means null filter)
+        assertMetadataCalls(
+                connection,
+                readMetaData(
+                        databaseMetaData -> databaseMetaData.getSchemas("", null),
                         list("TABLE_CATALOG", "TABLE_SCHEM")),
                 list(),
                 ImmutableMultiset.of());
@@ -1199,6 +1218,15 @@ public class TestTrinoDatabaseMetaData
                 list(),
                 ImmutableMultiset.of());
 
+        // empty catalog name (means null filter)
+        assertMetadataCalls(
+                connection,
+                readMetaData(
+                        databaseMetaData -> databaseMetaData.getTables("", null, null, null),
+                        list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
+                list(),
+                ImmutableMultiset.of());
+
         // empty schema name
         assertMetadataCalls(
                 connection,
@@ -1206,10 +1234,7 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, "", null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
                 list(),
-                ImmutableMultiset.<String>builder()
-                        .add("ConnectorMetadata.listViews")
-                        .add("ConnectorMetadata.listTables")
-                        .build());
+                ImmutableMultiset.of());
 
         // empty table name
         assertMetadataCalls(
@@ -1218,10 +1243,7 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, null, "", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
                 list(),
-                ImmutableMultiset.<String>builder()
-                        .add("ConnectorMetadata.listViews")
-                        .add("ConnectorMetadata.listTables")
-                        .build());
+                ImmutableMultiset.of());
 
         // no table types selected
         assertMetadataCalls(
@@ -1366,6 +1388,8 @@ public class TestTrinoDatabaseMetaData
                         .addCopies("ConnectorMetadata.listSchemaNames", 5)
                         .add("ConnectorMetadata.listTables(schema=test_schema1)")
                         .add("ConnectorMetadata.listTables(schema=test_schema2)")
+                        .add("ConnectorMetadata.listTables(schema=test_schema3_empty)")
+                        .add("ConnectorMetadata.listTables(schema=test_schema4_empty)")
                         .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 20)
                         .addCopies("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)", 5)
                         .addCopies("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)", 5)
@@ -1407,6 +1431,15 @@ public class TestTrinoDatabaseMetaData
                 list(),
                 ImmutableMultiset.of());
 
+        // empty catalog name (means null filter)
+        assertMetadataCalls(
+                connection,
+                readMetaData(
+                        databaseMetaData -> databaseMetaData.getColumns("", null, null, null),
+                        list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
+                list(),
+                ImmutableMultiset.of());
+
         // schema does not exist
         assertMetadataCalls(
                 connection,
@@ -1438,7 +1471,7 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, "", null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(),
-                ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
+                ImmutableMultiset.of());
 
         // empty table name
         assertMetadataCalls(
@@ -1447,7 +1480,7 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, null, "", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(),
-                ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
+                ImmutableMultiset.of());
 
         // empty column name
         assertMetadataCalls(

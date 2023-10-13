@@ -16,6 +16,7 @@ package io.trino.plugin.hive.coercions;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.coercions.DateCoercer.VarcharToDateCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToLongTimestampCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToShortTimestampCoercer;
 import io.trino.plugin.hive.type.Category;
@@ -32,12 +33,17 @@ import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.BigintType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
+import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
@@ -53,6 +59,7 @@ import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveType.HIVE_SHORT;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToDecimalCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToDoubleCoercer;
+import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToInteger;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToRealCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToVarcharCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDoubleToDecimalCoercer;
@@ -105,6 +112,9 @@ public final class CoercionUtils
             }
             return Optional.empty();
         }
+        if (fromType instanceof VarcharType fromVarcharType && toType instanceof DateType toDateType) {
+            return Optional.of(new VarcharToDateCoercer(fromVarcharType, toDateType));
+        }
         if (fromType instanceof CharType fromCharType && toType instanceof CharType toCharType) {
             if (narrowerThan(toCharType, fromCharType)) {
                 return Optional.of(new CharCoercer(fromCharType, toCharType));
@@ -137,6 +147,13 @@ public final class CoercionUtils
         }
         if (fromType instanceof DecimalType fromDecimalType && toType instanceof VarcharType toVarcharType) {
             return Optional.of(createDecimalToVarcharCoercer(fromDecimalType, toVarcharType));
+        }
+        if (fromType instanceof DecimalType fromDecimalType &&
+                (toType instanceof TinyintType ||
+                        toType instanceof SmallintType ||
+                        toType instanceof IntegerType ||
+                        toType instanceof BigintType)) {
+            return Optional.of(createDecimalToInteger(fromDecimalType, toType));
         }
         if (fromType == DOUBLE && toType instanceof DecimalType toDecimalType) {
             return Optional.of(createDoubleToDecimalCoercer(toDecimalType));

@@ -15,7 +15,6 @@ package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionNullability;
@@ -34,7 +33,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
+import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.OperatorNameUtil.isOperatorName;
 import static io.trino.metadata.OperatorNameUtil.unmangleOperator;
 import static io.trino.spi.function.OperatorType.CAST;
@@ -193,18 +192,13 @@ public class InternalFunctionDependencies
     private static boolean isOperator(ResolvedFunction function)
     {
         CatalogSchemaFunctionName name = function.getSignature().getName();
-        return isBuiltin(name) && isOperatorName(name.getFunctionName()) && unmangleOperator(name.getFunctionName()) != CAST;
+        return isBuiltinFunctionName(name) && isOperatorName(name.getFunctionName()) && unmangleOperator(name.getFunctionName()) != CAST;
     }
 
     private static boolean isCast(ResolvedFunction function)
     {
         CatalogSchemaFunctionName name = function.getSignature().getName();
-        return isBuiltin(name) && isOperatorName(name.getFunctionName()) && unmangleOperator(name.getFunctionName()) == CAST;
-    }
-
-    private static boolean isBuiltin(CatalogSchemaFunctionName name)
-    {
-        return name.getCatalogName().equals(GlobalSystemConnector.NAME) && name.getSchemaName().equals(BUILTIN_SCHEMA);
+        return isBuiltinFunctionName(name) && isOperatorName(name.getFunctionName()) && unmangleOperator(name.getFunctionName()) == CAST;
     }
 
     public static final class FunctionKey

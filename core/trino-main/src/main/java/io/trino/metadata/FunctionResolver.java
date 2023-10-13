@@ -15,13 +15,17 @@ package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionBinder.CatalogFunctionBinding;
 import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
+import io.trino.security.AccessControl;
+import io.trino.security.SecurityContext;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionDependencyDeclaration.CastDependency;
@@ -32,27 +36,27 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.SqlPathElement;
 import io.trino.sql.analyzer.TypeSignatureProvider;
-import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.metadata.FunctionBinder.functionNotFound;
-import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.SignatureBinder.applyBoundVariables;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.connector.StandardWarningCode.DEPRECATED_FUNCTION;
 import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.spi.function.FunctionKind.WINDOW;
+import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static java.util.Objects.requireNonNull;
 
@@ -77,24 +81,24 @@ public class FunctionResolver
      * Is the named function an aggregation function?
      * This does not need type parameters because overloads between aggregation and other function types are not allowed.
      */
-    public boolean isAggregationFunction(Session session, QualifiedName name)
+    public boolean isAggregationFunction(Session session, QualifiedName name, AccessControl accessControl)
     {
-        return isFunctionKind(session, name, AGGREGATE);
+        return isFunctionKind(session, name, AGGREGATE, accessControl);
     }
 
-    public boolean isWindowFunction(Session session, QualifiedName name)
+    public boolean isWindowFunction(Session session, QualifiedName name, AccessControl accessControl)
     {
-        return isFunctionKind(session, name, WINDOW);
+        return isFunctionKind(session, name, WINDOW, accessControl);
     }
 
-    private boolean isFunctionKind(Session session, QualifiedName name, FunctionKind functionKind)
+    private boolean isFunctionKind(Session session, QualifiedName name, FunctionKind functionKind, AccessControl accessControl)
     {
         Optional<ResolvedFunction> resolvedFunction = functionDecoder.fromQualifiedName(name);
         if (resolvedFunction.isPresent()) {
             return resolvedFunction.get().getFunctionKind() == functionKind;
         }
 
-        for (CatalogSchemaFunctionName catalogSchemaFunctionName : toPath(session, name)) {
+        for (CatalogSchemaFunctionName catalogSchemaFunctionName : toPath(session, name, accessControl)) {
             Collection<CatalogFunctionMetadata> candidates = metadata.getFunctions(session, catalogSchemaFunctionName);
             if (!candidates.isEmpty()) {
                 return candidates.stream()
@@ -106,7 +110,7 @@ public class FunctionResolver
         return false;
     }
 
-    public ResolvedFunction resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    public ResolvedFunction resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes, AccessControl accessControl)
     {
         Optional<ResolvedFunction> resolvedFunction = functionDecoder.fromQualifiedName(name);
         if (resolvedFunction.isPresent()) {
@@ -117,7 +121,8 @@ public class FunctionResolver
                 session,
                 name,
                 parameterTypes,
-                catalogSchemaFunctionName -> metadata.getFunctions(session, catalogSchemaFunctionName));
+                catalogSchemaFunctionName -> metadata.getFunctions(session, catalogSchemaFunctionName),
+                accessControl);
 
         FunctionMetadata functionMetadata = catalogFunctionBinding.functionMetadata();
         if (functionMetadata.isDeprecated()) {
@@ -152,16 +157,26 @@ public class FunctionResolver
             Session session,
             QualifiedName name,
             List<TypeSignatureProvider> parameterTypes,
-            Function<CatalogSchemaFunctionName, Collection<CatalogFunctionMetadata>> candidateLoader)
+            Function<CatalogSchemaFunctionName, Collection<CatalogFunctionMetadata>> candidateLoader,
+            AccessControl accessControl)
     {
         ImmutableList.Builder<CatalogFunctionMetadata> allCandidates = ImmutableList.builder();
-        for (CatalogSchemaFunctionName catalogSchemaFunctionName : toPath(session, name)) {
+        List<CatalogSchemaFunctionName> fullPath = toPath(session, name, accessControl);
+        List<CatalogSchemaFunctionName> authorizedPath = fullPath.stream()
+                .filter(catalogSchemaFunctionName -> canExecuteFunction(session, accessControl, catalogSchemaFunctionName))
+                .collect(toImmutableList());
+        for (CatalogSchemaFunctionName catalogSchemaFunctionName : authorizedPath) {
             Collection<CatalogFunctionMetadata> candidates = candidateLoader.apply(catalogSchemaFunctionName);
             Optional<CatalogFunctionBinding> match = functionBinder.tryBindFunction(parameterTypes, candidates);
             if (match.isPresent()) {
                 return match.get();
             }
             allCandidates.addAll(candidates);
+        }
+
+        Set<CatalogSchemaFunctionName> unauthorizedPath = Sets.difference(ImmutableSet.copyOf(fullPath), ImmutableSet.copyOf(authorizedPath));
+        if (unauthorizedPath.stream().anyMatch(functionName -> !candidateLoader.apply(functionName).isEmpty())) {
+            denyExecuteFunction(name.toString());
         }
 
         List<CatalogFunctionMetadata> candidates = allCandidates.build();
@@ -244,7 +259,7 @@ public class FunctionResolver
     }
 
     // this is visible for the table function resolution, which should be merged into this class
-    public static List<CatalogSchemaFunctionName> toPath(Session session, QualifiedName name)
+    public static List<CatalogSchemaFunctionName> toPath(Session session, QualifiedName name, AccessControl accessControl)
     {
         List<String> parts = name.getParts();
         if (parts.size() > 3) {
@@ -262,15 +277,20 @@ public class FunctionResolver
 
         ImmutableList.Builder<CatalogSchemaFunctionName> names = ImmutableList.builder();
 
-        // global namespace
-        names.add(builtinFunctionName(parts.get(0)));
-
         // add resolved path items
-        for (SqlPathElement sqlPathElement : session.getPath().getParsedPath()) {
-            String catalog = sqlPathElement.getCatalog().map(Identifier::getCanonicalValue).or(session::getCatalog)
-                    .orElseThrow(() -> new TrinoException(MISSING_CATALOG_NAME, "Session default catalog must be set to resolve a partial function name: " + name));
-            names.add(new CatalogSchemaFunctionName(catalog, sqlPathElement.getSchema().getCanonicalValue(), parts.get(0)));
+        for (CatalogSchemaName element : session.getPath().getPath()) {
+            names.add(new CatalogSchemaFunctionName(element.getCatalogName(), element.getSchemaName(), parts.get(0)));
         }
         return names.build();
+    }
+
+    private static boolean canExecuteFunction(Session session, AccessControl accessControl, CatalogSchemaFunctionName functionName)
+    {
+        if (isBuiltinFunctionName(functionName)) {
+            return true;
+        }
+        return accessControl.canExecuteFunction(
+                SecurityContext.of(session),
+                new QualifiedObjectName(functionName.getCatalogName(), functionName.getSchemaName(), functionName.getFunctionName()));
     }
 }

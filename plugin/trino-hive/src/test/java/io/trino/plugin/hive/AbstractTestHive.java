@@ -890,8 +890,10 @@ public abstract class AbstractTestHive
                                 Optional.empty(),
                                 Optional.empty(),
                                 ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("abc", TypeId.of("type"))),
+                                Optional.of(java.time.Duration.ZERO),
                                 Optional.empty(),
                                 Optional.of("alice"),
+                                ImmutableList.of(),
                                 ImmutableMap.of()));
                     }
                 },
@@ -4148,7 +4150,8 @@ public abstract class AbstractTestHive
                 ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId(), Optional.empty())),
                 Optional.empty(),
                 Optional.empty(),
-                true);
+                true,
+                ImmutableList.of());
 
         try (Transaction transaction = newTransaction()) {
             transaction.getMetadata().createView(newSession(), viewName, definition, replace);

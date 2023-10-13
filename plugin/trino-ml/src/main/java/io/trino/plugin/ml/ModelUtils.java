@@ -22,6 +22,7 @@ import com.google.common.hash.Hashing;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -198,13 +199,17 @@ public final class ModelUtils
     }
 
     //TODO: instead of having this function, we should add feature extractors that extend Model and extract features from Strings
-    public static FeatureVector toFeatures(Block map)
+    public static FeatureVector toFeatures(SqlMap sqlMap)
     {
         Map<Integer, Double> features = new HashMap<>();
 
-        if (map != null) {
-            for (int position = 0; position < map.getPositionCount(); position += 2) {
-                features.put((int) BIGINT.getLong(map, position), DOUBLE.getDouble(map, position + 1));
+        if (sqlMap != null) {
+            int rawOffset = sqlMap.getRawOffset();
+            Block rawKeyBlock = sqlMap.getRawKeyBlock();
+            Block rawValueBlock = sqlMap.getRawValueBlock();
+
+            for (int i = 0; i < sqlMap.getSize(); i++) {
+                features.put((int) BIGINT.getLong(rawKeyBlock, rawOffset + i), DOUBLE.getDouble(rawValueBlock, rawOffset + i));
             }
         }
         return new FeatureVector(features);

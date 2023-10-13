@@ -73,9 +73,8 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.Math.cos;
 import static java.lang.Math.toRadians;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 @TestInstance(PER_CLASS)
 public class TestSpatialJoinPlanning
@@ -263,15 +262,15 @@ public class TestSpatialJoinPlanning
         LocalQueryRunner queryRunner = getQueryRunner();
         try {
             queryRunner.inTransaction(session, transactionSession -> {
-                queryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                queryRunner.createPlan(transactionSession, sql, queryRunner.getPlanOptimizers(false), OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 return null;
             });
-            fail(format("Expected query to fail: %s", sql));
+            throw new AssertionError(format("Expected query to fail: %s", sql));
         }
         catch (TrinoException ex) {
-            assertEquals(ex.getErrorCode(), INVALID_SPATIAL_PARTITIONING.toErrorCode());
+            assertThat(ex.getErrorCode()).isEqualTo(INVALID_SPATIAL_PARTITIONING.toErrorCode());
             if (!nullToEmpty(ex.getMessage()).matches(expectedMessageRegExp)) {
-                fail(format("Expected exception message '%s' to match '%s' for query: %s", ex.getMessage(), expectedMessageRegExp, sql), ex);
+                throw new AssertionError(format("Expected exception message '%s' to match '%s' for query: %s", ex.getMessage(), expectedMessageRegExp, sql), ex);
             }
         }
     }

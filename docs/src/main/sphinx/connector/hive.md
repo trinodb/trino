@@ -715,37 +715,10 @@ The following operations are not supported when `avro_schema_url` is set:
 
 #### ALTER TABLE EXECUTE
 
-The connector supports the `optimize` command for use with
-{ref}`ALTER TABLE EXECUTE <alter-table-execute>`.
+The connector supports the following commands for use with {ref}`ALTER TABLE
+EXECUTE <alter-table-execute>`.
 
-The `optimize` command is used for rewriting the content
-of the specified non-transactional table so that it is merged
-into fewer but larger files.
-In case that the table is partitioned, the data compaction
-acts separately on each partition selected for optimization.
-This operation improves read performance.
-
-All files with a size below the optional `file_size_threshold`
-parameter (default value for the threshold is `100MB`) are
-merged:
-
-```sql
-ALTER TABLE test_table EXECUTE optimize
-```
-
-The following statement merges files in a table that are
-under 10 megabytes in size:
-
-```sql
-ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '10MB')
-```
-
-You can use a `WHERE` clause with the columns used to partition the table,
-to filter which partitions are optimized:
-
-```sql
-ALTER TABLE test_partitioned_table EXECUTE optimize
-WHERE partition_key = 1
+```{include} optimize.fragment
 ```
 
 The `optimize` command is disabled by default, and can be enabled for a

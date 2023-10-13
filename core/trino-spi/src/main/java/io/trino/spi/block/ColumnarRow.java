@@ -15,6 +15,8 @@ package io.trino.spi.block;
 
 import jakarta.annotation.Nullable;
 
+import java.util.List;
+
 import static java.util.Objects.requireNonNull;
 
 public final class ColumnarRow
@@ -38,16 +40,17 @@ public final class ColumnarRow
             return toColumnarRow(runLengthEncodedBlock);
         }
 
-        if (!(block instanceof AbstractRowBlock rowBlock)) {
+        if (!(block instanceof RowBlock rowBlock)) {
             throw new IllegalArgumentException("Invalid row block: " + block.getClass().getName());
         }
 
         // get fields for visible region
         int firstRowPosition = rowBlock.getFieldBlockOffset(0);
         int totalRowCount = rowBlock.getFieldBlockOffset(block.getPositionCount()) - firstRowPosition;
-        Block[] fieldBlocks = new Block[rowBlock.numFields];
+        List<Block> rawFieldBlocks = rowBlock.getRawFieldBlocks();
+        Block[] fieldBlocks = new Block[rawFieldBlocks.size()];
         for (int i = 0; i < fieldBlocks.length; i++) {
-            fieldBlocks[i] = rowBlock.getRawFieldBlocks()[i].getRegion(firstRowPosition, totalRowCount);
+            fieldBlocks[i] = rawFieldBlocks.get(i).getRegion(firstRowPosition, totalRowCount);
         }
 
         return new ColumnarRow(block.getPositionCount(), block, fieldBlocks);

@@ -21,6 +21,7 @@ import io.trino.orc.OrcRecordReader;
 import io.trino.plugin.raptor.legacy.storage.OrcFileRewriter.OrcFileInfo;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.StandardTypes;
@@ -52,8 +53,8 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.StructuralTestUtil.arrayBlockOf;
 import static io.trino.testing.StructuralTestUtil.arrayBlocksEqual;
-import static io.trino.testing.StructuralTestUtil.mapBlockOf;
-import static io.trino.testing.StructuralTestUtil.mapBlocksEqual;
+import static io.trino.testing.StructuralTestUtil.sqlMapEqual;
+import static io.trino.testing.StructuralTestUtil.sqlMapOf;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.readAllBytes;
@@ -101,11 +102,11 @@ public class TestOrcFileRewriter
         File file = temporary.resolve(randomUUID().toString()).toFile();
         try (OrcFileWriter writer = new OrcFileWriter(TESTING_TYPE_MANAGER, columnIds, columnTypes, file)) {
             List<Page> pages = rowPagesBuilder(columnTypes)
-                    .row(123L, "hello", arrayBlockOf(BIGINT, 1, 2), mapBlockOf(createVarcharType(5), BOOLEAN, "k1", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5)), new BigDecimal("2.3"))
-                    .row(777L, "sky", arrayBlockOf(BIGINT, 3, 4), mapBlockOf(createVarcharType(5), BOOLEAN, "k2", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 6)), new BigDecimal("2.3"))
-                    .row(456L, "bye", arrayBlockOf(BIGINT, 5, 6), mapBlockOf(createVarcharType(5), BOOLEAN, "k3", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 7)), new BigDecimal("2.3"))
-                    .row(888L, "world", arrayBlockOf(BIGINT, 7, 8), mapBlockOf(createVarcharType(5), BOOLEAN, "k4", true), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 8), null), new BigDecimal("2.3"))
-                    .row(999L, "done", arrayBlockOf(BIGINT, 9, 10), mapBlockOf(createVarcharType(5), BOOLEAN, "k5", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 9, 10)), new BigDecimal("2.3"))
+                    .row(123L, "hello", arrayBlockOf(BIGINT, 1, 2), sqlMapOf(createVarcharType(5), BOOLEAN, "k1", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5)), new BigDecimal("2.3"))
+                    .row(777L, "sky", arrayBlockOf(BIGINT, 3, 4), sqlMapOf(createVarcharType(5), BOOLEAN, "k2", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 6)), new BigDecimal("2.3"))
+                    .row(456L, "bye", arrayBlockOf(BIGINT, 5, 6), sqlMapOf(createVarcharType(5), BOOLEAN, "k3", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 7)), new BigDecimal("2.3"))
+                    .row(888L, "world", arrayBlockOf(BIGINT, 7, 8), sqlMapOf(createVarcharType(5), BOOLEAN, "k4", true), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 8), null), new BigDecimal("2.3"))
+                    .row(999L, "done", arrayBlockOf(BIGINT, 9, 10), sqlMapOf(createVarcharType(5), BOOLEAN, "k5", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 9, 10)), new BigDecimal("2.3"))
                     .build();
             writer.appendPages(pages);
         }
@@ -158,11 +159,11 @@ public class TestOrcFileRewriter
             for (int i = 0; i < 5; i++) {
                 assertEquals(column3.isNull(i), false);
             }
-            assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column3, 0), mapBlockOf(createVarcharType(5), BOOLEAN, "k1", true)));
-            assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column3, 1), mapBlockOf(createVarcharType(5), BOOLEAN, "k2", false)));
-            assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column3, 2), mapBlockOf(createVarcharType(5), BOOLEAN, "k3", true)));
-            assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column3, 3), mapBlockOf(createVarcharType(5), BOOLEAN, "k4", true)));
-            assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column3, 4), mapBlockOf(createVarcharType(5), BOOLEAN, "k5", true)));
+            assertTrue(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column3, 0), sqlMapOf(createVarcharType(5), BOOLEAN, "k1", true)));
+            assertTrue(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column3, 1), sqlMapOf(createVarcharType(5), BOOLEAN, "k2", false)));
+            assertTrue(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column3, 2), sqlMapOf(createVarcharType(5), BOOLEAN, "k3", true)));
+            assertTrue(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column3, 3), sqlMapOf(createVarcharType(5), BOOLEAN, "k4", true)));
+            assertTrue(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column3, 4), sqlMapOf(createVarcharType(5), BOOLEAN, "k5", true)));
 
             Block column4 = page.getBlock(4);
             assertEquals(column4.getPositionCount(), 5);
@@ -237,8 +238,8 @@ public class TestOrcFileRewriter
             for (int i = 0; i < 2; i++) {
                 assertEquals(column3.isNull(i), false);
             }
-            assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column3, 0), mapBlockOf(createVarcharType(5), BOOLEAN, "k1", true)));
-            assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column3, 1), mapBlockOf(createVarcharType(5), BOOLEAN, "k3", true)));
+            assertTrue(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column3, 0), sqlMapOf(createVarcharType(5), BOOLEAN, "k1", true)));
+            assertTrue(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column3, 1), sqlMapOf(createVarcharType(5), BOOLEAN, "k3", true)));
 
             Block column4 = page.getBlock(4);
             assertEquals(column4.getPositionCount(), 2);

@@ -559,11 +559,11 @@ public class TracingMetadata
     }
 
     @Override
-    public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Type type)
+    public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Map<String, Object> tableProperties, Type type)
     {
         Span span = startSpan("getSupportedType", catalogHandle.getCatalogName());
         try (var ignored = scopedSpan(span)) {
-            return delegate.getSupportedType(session, catalogHandle, type);
+            return delegate.getSupportedType(session, catalogHandle, tableProperties, type);
         }
     }
 
@@ -633,6 +633,15 @@ public class TracingMetadata
         }
         try (var ignored = scopedSpan(span)) {
             delegate.finishStatisticsCollection(session, tableHandle, computedStatistics);
+        }
+    }
+
+    @Override
+    public void beginQuery(Session session)
+    {
+        Span span = startSpan("beginQuery");
+        try (var ignored = scopedSpan(span)) {
+            delegate.beginQuery(session);
         }
     }
 
@@ -1161,11 +1170,20 @@ public class TracingMetadata
     }
 
     @Override
-    public Collection<FunctionMetadata> listFunctions(Session session)
+    public Collection<FunctionMetadata> listGlobalFunctions(Session session)
     {
-        Span span = startSpan("listFunctions");
+        Span span = startSpan("listGlobalFunctions");
         try (var ignored = scopedSpan(span)) {
-            return delegate.listFunctions(session);
+            return delegate.listGlobalFunctions(session);
+        }
+    }
+
+    @Override
+    public Collection<FunctionMetadata> listFunctions(Session session, CatalogSchemaName schema)
+    {
+        Span span = startSpan("listFunctions", schema);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.listFunctions(session, schema);
         }
     }
 

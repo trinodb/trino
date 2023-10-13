@@ -525,12 +525,15 @@ public class BackgroundHiveSplitLoader
             checkPartitionLocationExists(trinoFileSystem, location);
         }
         fileStatusIterator.forEachRemaining(status -> fileStatuses.put(Location.of(status.getPath()).path(), status));
-
-        List<TrinoFileStatus> locatedFileStatuses = paths.stream()
-                .map(path -> fileStatuses.get(path.path()))
-                .toList();
-
-        return createInternalHiveSplitIterator(splitFactory, splittable, Optional.empty(), locatedFileStatuses.stream());
+        Stream<TrinoFileStatus> fileStream = paths.stream()
+                .map(path -> {
+                    TrinoFileStatus status = fileStatuses.get(path.path());
+                    if (status == null) {
+                        throw new TrinoException(HIVE_FILE_NOT_FOUND, "Manifest file from the location [%s] contains non-existent path: %s".formatted(location, path));
+                    }
+                    return status;
+                });
+        return createInternalHiveSplitIterator(splitFactory, splittable, Optional.empty(), fileStream);
     }
 
     private ListenableFuture<Void> getTransactionalSplits(Location path, boolean splittable, Optional<BucketConversion> bucketConversion, InternalHiveSplitFactory splitFactory)

@@ -17,6 +17,7 @@ import io.trino.operator.aggregation.histogram.TypedHistogram;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.MapBlock;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.OperatorDependency;
@@ -43,7 +44,7 @@ public final class ArrayHistogramFunction
 
     @TypeParameter("T")
     @SqlType("map(T, bigint)")
-    public static Block arrayHistogram(
+    public static SqlMap arrayHistogram(
             @TypeParameter("T") Type elementType,
             @OperatorDependency(
                     operator = OperatorType.READ_VALUE,
@@ -78,6 +79,6 @@ public final class ArrayHistogramFunction
         MapBlockBuilder blockBuilder = mapType.createBlockBuilder(null, histogram.size());
         histogram.serialize(0, blockBuilder);
         MapBlock mapBlock = (MapBlock) blockBuilder.build();
-        return mapBlock.getObject(0, Block.class);
+        return mapType.getObject(mapBlock, 0);
     }
 }

@@ -17,6 +17,7 @@ import io.trino.Session;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -30,6 +31,7 @@ import io.trino.testing.LocalQueryRunner;
 import io.trino.transaction.TransactionManager;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -99,6 +101,11 @@ public class TestingFunctionResolution
         return new PageFunctionCompiler(plannerContext.getFunctionManager(), expressionCacheSize);
     }
 
+    public Collection<FunctionMetadata> listGlobalFunctions()
+    {
+        return inTransaction(metadata::listGlobalFunctions);
+    }
+
     public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
@@ -143,7 +150,7 @@ public class TestingFunctionResolution
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
     {
-        return transaction(transactionManager, new AllowAllAccessControl())
+        return transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(TEST_SESSION, session -> {
                     // metadata.getCatalogHandle() registers the catalog for the transaction

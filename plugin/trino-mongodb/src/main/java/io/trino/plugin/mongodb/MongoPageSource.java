@@ -27,6 +27,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -236,7 +238,7 @@ public class MongoPageSource
             else if (javaType == Slice.class) {
                 writeSlice(output, type, value);
             }
-            else if (javaType == Block.class) {
+            else if (javaType == Block.class || javaType == SqlMap.class || javaType == SqlRow.class) {
                 writeBlock(output, type, value);
             }
             else {

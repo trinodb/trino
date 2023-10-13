@@ -47,7 +47,7 @@ public final class TestingSessionContext
                 session.getProtocolHeaders(),
                 session.getCatalog(),
                 session.getSchema(),
-                session.getPath().getRawPath(),
+                Optional.of(session.getPath().getRawPath()),
                 Optional.empty(),
                 session.getIdentity(),
                 session.getOriginalIdentity(),

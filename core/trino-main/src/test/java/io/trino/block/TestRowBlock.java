@@ -19,7 +19,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.RowBlockBuilder;
-import io.trino.spi.block.SingleRowBlock;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.junit.jupiter.api.Test;
@@ -177,20 +177,22 @@ public class TestRowBlock
         requireNonNull(row, "row is null");
 
         assertFalse(rowBlock.isNull(position));
-        SingleRowBlock singleRowBlock = (SingleRowBlock) rowBlock.getObject(position, Block.class);
-        assertEquals(singleRowBlock.getPositionCount(), row.size());
+        SqlRow sqlRow = rowBlock.getObject(position, SqlRow.class);
+        assertEquals(sqlRow.getFieldCount(), row.size());
 
+        int rawIndex = sqlRow.getRawIndex();
         for (int i = 0; i < row.size(); i++) {
             Object fieldValue = row.get(i);
+            Block rawFieldBlock = sqlRow.getRawFieldBlock(i);
             if (fieldValue == null) {
-                assertTrue(singleRowBlock.isNull(i));
+                assertTrue(rawFieldBlock.isNull(rawIndex));
             }
             else {
                 if (fieldValue instanceof Long) {
-                    assertEquals(BIGINT.getLong(singleRowBlock, i), ((Long) fieldValue).longValue());
+                    assertEquals(BIGINT.getLong(rawFieldBlock, rawIndex), ((Long) fieldValue).longValue());
                 }
                 else if (fieldValue instanceof String) {
-                    assertEquals(VARCHAR.getSlice(singleRowBlock, i), utf8Slice((String) fieldValue));
+                    assertEquals(VARCHAR.getSlice(rawFieldBlock, rawIndex), utf8Slice((String) fieldValue));
                 }
                 else {
                     throw new IllegalArgumentException();

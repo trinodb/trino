@@ -50,10 +50,7 @@
         {
             "user": "alice",
             "schema": "ptf_schema",
-            "function_kinds": [
-                "TABLE"
-            ],
-            "function": "some_table_function",
+            "function": "some_function",
             "privileges": [
                 "EXECUTE",
                 "GRANT_EXECUTE"
@@ -61,11 +58,7 @@
         },
         {
             "user": "bob",
-            "function_kinds": [
-                "SCALAR",
-                "AGGREGATE",
-                "WINDOW"
-            ],
+            "schema": "any",
             "function": "some_function",
             "privileges": [
                 "EXECUTE",

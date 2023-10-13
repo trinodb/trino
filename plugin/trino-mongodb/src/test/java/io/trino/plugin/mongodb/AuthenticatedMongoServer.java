@@ -21,6 +21,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.io.Closeable;
+import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
@@ -30,11 +31,6 @@ public class AuthenticatedMongoServer
     private static final int MONGODB_INTERNAL_PORT = 27017;
     private static final String ROOT_USER = "root";
     private static final String ROOT_PASSWORD = "password";
-    private static final String TEST_USER = "testUser";
-    private static final String TEST_PASSWORD = "pass";
-    private static final String TEST_ROLE = "testRole";
-    public static final String TEST_DATABASE = "test";
-    public static final String TEST_COLLECTION = "testCollection";
     private final GenericContainer<?> dockerContainer;
 
     public AuthenticatedMongoServer(String mongoVersion)
@@ -59,51 +55,51 @@ public class AuthenticatedMongoServer
                 dockerContainer.getMappedPort(MONGODB_INTERNAL_PORT)));
     }
 
-    public ConnectionString testUserConnectionString()
+    public ConnectionString testUserConnectionString(String database, String user, String password)
     {
         return new ConnectionString("mongodb://%s:%s@%s:%d/%s".formatted(
-                TEST_USER,
-                TEST_PASSWORD,
+                user,
+                password,
                 dockerContainer.getHost(),
                 dockerContainer.getMappedPort(MONGODB_INTERNAL_PORT),
-                TEST_DATABASE));
+                database));
     }
 
-    public static Document createTestRole()
+    public static Document createRole(String role, ImmutableList<Document> privileges, ImmutableList<Object> roles)
     {
         return new Document(ImmutableMap.of(
-                "createRole", TEST_ROLE,
-                "privileges", ImmutableList.of(privilege("_schema"), privilege(TEST_COLLECTION)),
-                "roles", ImmutableList.of()));
+                "createRole", role,
+                "privileges", privileges,
+                "roles", roles));
     }
 
-    private static Document privilege(String collectionName)
+    public static Document privilege(Document resource, List<String> actions)
     {
         return new Document(ImmutableMap.of(
-                "resource", resource(collectionName),
-                "actions", ImmutableList.of("find")));
+                "resource", resource,
+                "actions", actions));
     }
 
-    private static Document resource(String collectionName)
+    public static Document resource(String database, String collectionName)
     {
         return new Document(ImmutableMap.of(
-                "db", TEST_DATABASE,
+                "db", database,
                 "collection", collectionName));
     }
 
-    public static Document createTestUser()
+    public static Document createUser(String user, String password, ImmutableList<Document> roles)
     {
         return new Document(ImmutableMap.of(
-                "createUser", TEST_USER,
-                "pwd", TEST_PASSWORD,
-                "roles", ImmutableList.of(role())));
+                "createUser", user,
+                "pwd", password,
+                "roles", roles));
     }
 
-    private static Document role()
+    public static Document role(String database, String role)
     {
         return new Document(ImmutableMap.of(
-                "role", TEST_ROLE,
-                "db", TEST_DATABASE));
+                "role", role,
+                "db", database));
     }
 
     @Override

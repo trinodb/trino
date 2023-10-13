@@ -40,7 +40,17 @@ public interface NodeAllocator
 
         default void attachTaskId(TaskId taskId) {}
 
+        /**
+         * Update execution class if it changes at runtime.
+         * It is only allowed to change execution class from speculative to non-speculative.
+         */
         void setExecutionClass(TaskExecutionClass executionClass);
+
+        /**
+         * Update memory requirement for lease. There is no constraint when this method can be called - it
+         * can be done both before and after node lease is already fulfilled.
+         */
+        void setMemoryRequirement(DataSize memoryRequirement);
 
         void release();
     }

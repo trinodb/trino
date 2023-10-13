@@ -20,6 +20,7 @@ import io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column;
 import io.trino.spi.connector.SchemaTableName;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
@@ -58,8 +59,10 @@ public class TestTestingMetadata
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(new Column("test", BIGINT.getTypeId())),
+                Optional.of(Duration.ZERO),
                 Optional.empty(),
                 Optional.of("owner"),
+                ImmutableList.of(),
                 ImmutableMap.of());
     }
 }

@@ -30,6 +30,8 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DuplicateMapKeyException;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -605,17 +607,22 @@ public final class JsonUtil
                 jsonGenerator.writeNull();
             }
             else {
-                Block mapBlock = type.getObject(block, position);
+                SqlMap sqlMap = type.getObject(block, position);
+
+                int rawOffset = sqlMap.getRawOffset();
+                Block rawKeyBlock = sqlMap.getRawKeyBlock();
+                Block rawValueBlock = sqlMap.getRawValueBlock();
+
                 Map<String, Integer> orderedKeyToValuePosition = new TreeMap<>();
-                for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-                    String objectKey = keyProvider.getObjectKey(mapBlock, i);
-                    orderedKeyToValuePosition.put(objectKey, i + 1);
+                for (int i = 0; i < sqlMap.getSize(); i++) {
+                    String objectKey = keyProvider.getObjectKey(rawKeyBlock, rawOffset + i);
+                    orderedKeyToValuePosition.put(objectKey, i);
                 }
 
                 jsonGenerator.writeStartObject();
                 for (Map.Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
                     jsonGenerator.writeFieldName(entry.getKey());
-                    valueWriter.writeJsonValue(jsonGenerator, mapBlock, entry.getValue());
+                    valueWriter.writeJsonValue(jsonGenerator, rawValueBlock, rawOffset + entry.getValue());
                 }
                 jsonGenerator.writeEndObject();
             }
@@ -642,13 +649,14 @@ public final class JsonUtil
                 jsonGenerator.writeNull();
             }
             else {
-                Block rowBlock = type.getObject(block, position);
+                SqlRow sqlRow = type.getObject(block, position);
+                int rawIndex = sqlRow.getRawIndex();
 
                 List<TypeSignatureParameter> typeSignatureParameters = type.getTypeSignature().getParameters();
                 jsonGenerator.writeStartObject();
-                for (int i = 0; i < rowBlock.getPositionCount(); i++) {
+                for (int i = 0; i < sqlRow.getFieldCount(); i++) {
                     jsonGenerator.writeFieldName(typeSignatureParameters.get(i).getNamedTypeSignature().getName().orElse(""));
-                    fieldWriters.get(i).writeJsonValue(jsonGenerator, rowBlock, i);
+                    fieldWriters.get(i).writeJsonValue(jsonGenerator, sqlRow.getRawFieldBlock(i), rawIndex);
                 }
                 jsonGenerator.writeEndObject();
             }

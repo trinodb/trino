@@ -24,6 +24,7 @@ import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
@@ -79,8 +80,8 @@ public class TestDeleteAndInsertMergeProcessor
         assertThat((int) TINYINT.getByte(outputPage.getBlock(3), 0)).isEqualTo(DELETE_OPERATION_NUMBER);
 
         // Show that the row to be deleted is rowId 0, e.g. ('Dave', 11, 'Devon')
-        Block rowIdRow = outputPage.getBlock(4).getObject(0, Block.class);
-        assertThat(INTEGER.getInt(rowIdRow, 1)).isEqualTo(0);
+        SqlRow rowIdRow = outputPage.getBlock(4).getObject(0, SqlRow.class);
+        assertThat(INTEGER.getInt(rowIdRow.getRawFieldBlock(1), rowIdRow.getRawIndex())).isEqualTo(0);
     }
 
     @Test

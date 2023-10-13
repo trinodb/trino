@@ -14,6 +14,7 @@
 package io.trino.connector.system.jdbc;
 
 import com.google.inject.Inject;
+import io.airlift.slice.Slices;
 import io.trino.FullConnectorSession;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
@@ -26,20 +27,20 @@ import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.InMemoryRecordSet.Builder;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.connector.system.jdbc.FilterUtil.emptyOrEquals;
+import static io.trino.connector.system.jdbc.FilterUtil.isImpossibleObjectName;
 import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.trino.metadata.MetadataListing.listCatalogNames;
 import static io.trino.metadata.MetadataListing.listTables;
 import static io.trino.metadata.MetadataListing.listViews;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static java.util.Locale.ENGLISH;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class TableJdbcTable
@@ -48,16 +49,16 @@ public class TableJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "tables");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("table_cat", createUnboundedVarcharType())
-            .column("table_schem", createUnboundedVarcharType())
-            .column("table_name", createUnboundedVarcharType())
-            .column("table_type", createUnboundedVarcharType())
-            .column("remarks", createUnboundedVarcharType())
-            .column("type_cat", createUnboundedVarcharType())
-            .column("type_schem", createUnboundedVarcharType())
-            .column("type_name", createUnboundedVarcharType())
-            .column("self_referencing_col_name", createUnboundedVarcharType())
-            .column("ref_generation", createUnboundedVarcharType())
+            .column("table_cat", VARCHAR)
+            .column("table_schem", VARCHAR)
+            .column("table_name", VARCHAR)
+            .column("table_type", VARCHAR)
+            .column("remarks", VARCHAR)
+            .column("type_cat", VARCHAR)
+            .column("type_schem", VARCHAR)
+            .column("type_name", VARCHAR)
+            .column("self_referencing_col_name", VARCHAR)
+            .column("ref_generation", VARCHAR)
             .build();
 
     private final Metadata metadata;
@@ -79,26 +80,28 @@ public class TableJdbcTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
-        Session session = ((FullConnectorSession) connectorSession).getSession();
-        Optional<String> catalogFilter = tryGetSingleVarcharValue(constraint, 0);
-        Optional<String> schemaFilter = tryGetSingleVarcharValue(constraint, 1);
-        Optional<String> tableFilter = tryGetSingleVarcharValue(constraint, 2);
-        Optional<String> typeFilter = tryGetSingleVarcharValue(constraint, 3);
-
-        boolean includeTables = emptyOrEquals(typeFilter, "TABLE");
-        boolean includeViews = emptyOrEquals(typeFilter, "VIEW");
         Builder table = InMemoryRecordSet.builder(METADATA);
+        Session session = ((FullConnectorSession) connectorSession).getSession();
 
+        Domain catalogDomain = constraint.getDomain(0, VARCHAR);
+        Domain schemaDomain = constraint.getDomain(1, VARCHAR);
+        Domain tableDomain = constraint.getDomain(2, VARCHAR);
+        Domain typeDomain = constraint.getDomain(3, VARCHAR);
+
+        if (isImpossibleObjectName(catalogDomain) || isImpossibleObjectName(schemaDomain) || isImpossibleObjectName(tableDomain)) {
+            return table.build().cursor();
+        }
+
+        Optional<String> schemaFilter = tryGetSingleVarcharValue(schemaDomain);
+        Optional<String> tableFilter = tryGetSingleVarcharValue(tableDomain);
+
+        boolean includeTables = typeDomain.includesNullableValue(Slices.utf8Slice("TABLE"));
+        boolean includeViews = typeDomain.includesNullableValue(Slices.utf8Slice("VIEW"));
         if (!includeTables && !includeViews) {
             return table.build().cursor();
         }
 
-        if (isNonLowercase(schemaFilter) || isNonLowercase(tableFilter)) {
-            // Non-lowercase predicate will never match a lowercase name (until TODO https://github.com/trinodb/trino/issues/17)
-            return table.build().cursor();
-        }
-
-        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogFilter)) {
+        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogDomain)) {
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
             Set<SchemaTableName> views = listViews(session, metadata, accessControl, prefix);
@@ -110,11 +113,6 @@ public class TableJdbcTable
             }
         }
         return table.build().cursor();
-    }
-
-    private static boolean isNonLowercase(Optional<String> filter)
-    {
-        return filter.filter(value -> !value.equals(value.toLowerCase(ENGLISH))).isPresent();
     }
 
     private static Object[] tableRow(String catalog, SchemaTableName name, String type)

@@ -20,6 +20,7 @@ import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeUtils;
@@ -253,16 +254,12 @@ public interface AccumuloRowSerializer
      * @param type Map type
      * @return Map value
      */
-    Block getMap(String name, Type type);
+    SqlMap getMap(String name, Type type);
 
     /**
      * Encode the given map Block into the given Text object.
-     *
-     * @param text Text object to set
-     * @param type Map type
-     * @param block Map block
      */
-    void setMap(Text text, Type type, Block block);
+    void setMap(Text text, Type type, SqlMap map);
 
     /**
      * Gets the Short value of the given Trino column.
@@ -347,9 +344,9 @@ public interface AccumuloRowSerializer
     /**
      * Encodes a Trino Java object to a byte array based on the given type.
      * <p>
-     * Java Lists and Maps can be converted to Blocks using
+     * Java Lists and Maps can be converted to Trino values using
      * {@link AccumuloRowSerializer#getBlockFromArray(Type, java.util.List)} and
-     * {@link AccumuloRowSerializer#getBlockFromMap(Type, Map)}
+     * {@link AccumuloRowSerializer#getSqlMapFromMap(Type, Map)}
      * <p>
      * <table summary="Expected data types">
      * <tr>
@@ -510,19 +507,19 @@ public interface AccumuloRowSerializer
     }
 
     /**
-     * Given the map type and Trino Block, decodes the Block into a map of values.
-     *
-     * @param type Map type
-     * @param block Map block
-     * @return List of values
+     * Given the map type and Trino SqlMap, decodes the SqlMap into a Java map of values.
      */
-    static Map<Object, Object> getMapFromBlock(Type type, Block block)
+    static Map<Object, Object> getMapFromSqlMap(Type type, SqlMap sqlMap)
     {
-        Map<Object, Object> map = new HashMap<>(block.getPositionCount() / 2);
+        Map<Object, Object> map = new HashMap<>(sqlMap.getSize());
         Type keyType = Types.getKeyType(type);
         Type valueType = Types.getValueType(type);
-        for (int i = 0; i < block.getPositionCount(); i += 2) {
-            map.put(readObject(keyType, block, i), readObject(valueType, block, i + 1));
+
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+        for (int i = 0; i < sqlMap.getSize(); i++) {
+            map.put(readObject(keyType, rawKeyBlock, rawOffset + i), readObject(valueType, rawValueBlock, rawOffset + i));
         }
         return map;
     }
@@ -544,13 +541,13 @@ public interface AccumuloRowSerializer
     }
 
     /**
-     * Encodes the given map into a Block.
+     * Encodes the given Java map into a SqlMap.
      *
      * @param type Trino type of the map
      * @param map Map of key/value pairs to encode
-     * @return Trino Block
+     * @return Trino SqlMap
      */
-    static Block getBlockFromMap(Type type, Map<?, ?> map)
+    static SqlMap getSqlMapFromMap(Type type, Map<?, ?> map)
     {
         MapType mapType = (MapType) type;
         Type keyType = mapType.getKeyType();
@@ -566,7 +563,7 @@ public interface AccumuloRowSerializer
 
     /**
      * Recursive helper function used by {@link AccumuloRowSerializer#getBlockFromArray} and
-     * {@link AccumuloRowSerializer#getBlockFromMap} to add the given object to the given block
+     * {@link AccumuloRowSerializer#getSqlMapFromMap} to add the given object to the given block
      * builder. Supports nested complex types!
      *
      * @param builder Block builder
@@ -598,7 +595,7 @@ public interface AccumuloRowSerializer
 
     /**
      * Recursive helper function used by {@link AccumuloRowSerializer#getArrayFromBlock} and
-     * {@link AccumuloRowSerializer#getMapFromBlock} to decode the Block into a Java type.
+     * {@link AccumuloRowSerializer#getMapFromSqlMap} to decode the Block into a Java type.
      *
      * @param type Trino type
      * @param block Block to decode
@@ -612,7 +609,7 @@ public interface AccumuloRowSerializer
             return getArrayFromBlock(elementType, block.getObject(position, Block.class));
         }
         if (Types.isMapType(type)) {
-            return getMapFromBlock(type, block.getObject(position, Block.class));
+            return getMapFromSqlMap(type, block.getObject(position, SqlMap.class));
         }
         if (type.getJavaType() == Slice.class) {
             Slice slice = (Slice) TypeUtils.readNativeValue(type, block, position);

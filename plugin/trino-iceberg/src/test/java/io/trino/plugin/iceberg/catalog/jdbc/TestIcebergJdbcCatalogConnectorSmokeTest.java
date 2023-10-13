@@ -21,10 +21,13 @@ import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testng.services.ManageTestResources;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.jdbc.JdbcCatalog;
-import org.testng.annotations.AfterClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.File;
 import java.io.IOException;
@@ -46,10 +49,13 @@ import static org.apache.iceberg.CatalogUtil.buildIcebergCatalog;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.apache.iceberg.jdbc.JdbcCatalog.PROPERTY_PREFIX;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestIcebergJdbcCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
+    @ManageTestResources.Suppress(because = "Not a TestNG test class")
     private JdbcCatalog jdbcCatalog;
     private File warehouseLocation;
 
@@ -105,13 +111,14 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
                 .build();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public final void destroy()
     {
         jdbcCatalog.close();
         jdbcCatalog = null;
     }
 
+    @Test
     @Override
     public void testView()
     {
@@ -119,6 +126,7 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
                 .hasMessageContaining("createView is not supported for Iceberg JDBC catalogs");
     }
 
+    @Test
     @Override
     public void testMaterializedView()
     {
@@ -126,6 +134,7 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
                 .hasMessageContaining("createMaterializedView is not supported for Iceberg JDBC catalogs");
     }
 
+    @Test
     @Override
     public void testRenameSchema()
     {

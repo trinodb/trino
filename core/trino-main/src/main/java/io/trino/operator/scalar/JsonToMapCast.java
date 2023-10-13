@@ -24,6 +24,7 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
@@ -95,7 +96,7 @@ public class JsonToMapCast
     }
 
     @UsedByGeneratedCode
-    public static Block toMap(MapType mapType, BlockBuilderAppender mapAppender, ConnectorSession connectorSession, Slice json)
+    public static SqlMap toMap(MapType mapType, BlockBuilderAppender mapAppender, ConnectorSession connectorSession, Slice json)
     {
         try (JsonParser jsonParser = createJsonParser(JSON_FACTORY, json)) {
             jsonParser.nextToken();

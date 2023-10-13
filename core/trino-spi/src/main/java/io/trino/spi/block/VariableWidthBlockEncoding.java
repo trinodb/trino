@@ -39,7 +39,7 @@ public class VariableWidthBlockEncoding
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         // The down casts here are safe because it is the block itself the provides this encoding implementation.
-        AbstractVariableWidthBlock variableWidthBlock = (AbstractVariableWidthBlock) block;
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
 
         int positionCount = variableWidthBlock.getPositionCount();
         sliceOutput.appendInt(positionCount);
@@ -64,7 +64,7 @@ public class VariableWidthBlockEncoding
 
         sliceOutput
                 .appendInt(totalLength)
-                .writeBytes(variableWidthBlock.getRawSlice(0), variableWidthBlock.getPositionOffset(0), totalLength);
+                .writeBytes(variableWidthBlock.getRawSlice(), variableWidthBlock.getPositionOffset(0), totalLength);
     }
 
     @Override

@@ -35,10 +35,10 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 import okhttp3.mockwebserver.SocketPolicy;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -71,13 +71,9 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.String.format;
 import static java.time.Duration.ofMillis;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
 public class TestHttpEventListener
 {
     private MockWebServer server;
@@ -228,7 +224,7 @@ public class TestHttpEventListener
         splitCompleteEventJson = splitCompleteEventJsonCodec.toJson(splitCompleteEvent);
     }
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws IOException
     {
@@ -236,7 +232,7 @@ public class TestHttpEventListener
         server.start();
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void teardown()
     {
         try {
@@ -265,7 +261,7 @@ public class TestHttpEventListener
         eventListener.queryCompleted(null);
         eventListener.splitCompleted(null);
 
-        assertNull(server.takeRequest(5, TimeUnit.SECONDS));
+        assertThat(server.takeRequest(5, TimeUnit.SECONDS)).isNull();
     }
 
     @Test
@@ -304,7 +300,7 @@ public class TestHttpEventListener
 
         eventListener.queryCompleted(queryCompleteEvent);
 
-        assertEquals(server.takeRequest(5, TimeUnit.SECONDS).getHeader("Content-Type"), "application/json; charset=utf-8");
+        assertThat(server.takeRequest(5, TimeUnit.SECONDS).getHeader("Content-Type")).isEqualTo("application/json; charset=utf-8");
     }
 
     @Test
@@ -341,8 +337,10 @@ public class TestHttpEventListener
 
         RecordedRequest recordedRequest = server.takeRequest(5, TimeUnit.SECONDS);
 
-        assertNotNull(recordedRequest, "Handshake probably failed");
-        assertEquals(recordedRequest.getTlsVersion().javaName(), "TLSv1.3");
+        assertThat(recordedRequest)
+                .describedAs("Handshake probably failed")
+                .isNotNull();
+        assertThat(recordedRequest.getTlsVersion().javaName()).isEqualTo("TLSv1.3");
 
         checkRequest(recordedRequest, queryCompleteEventJson);
     }
@@ -363,7 +361,9 @@ public class TestHttpEventListener
 
         RecordedRequest recordedRequest = server.takeRequest(5, TimeUnit.SECONDS);
 
-        assertNull(recordedRequest, "Handshake should have failed");
+        assertThat(recordedRequest)
+                .describedAs("Handshake should have failed")
+                .isNull();
     }
 
     @Test
@@ -381,17 +381,22 @@ public class TestHttpEventListener
 
         RecordedRequest recordedRequest = server.takeRequest(5, TimeUnit.SECONDS);
 
-        assertNull(recordedRequest, "Handshake should have failed");
+        assertThat(recordedRequest)
+                .describedAs("Handshake should have failed")
+                .isNull();
     }
 
-    @DataProvider(name = "retryStatusCodes")
-    public static Object[][] retryStatusCodes()
+    @Test
+    public void testServerShoudRetry()
+            throws Exception
     {
-        return new Object[][] {{503}, {500}, {429}, {408}};
+        testServerShouldRetry(503);
+        testServerShouldRetry(500);
+        testServerShouldRetry(429);
+        testServerShouldRetry(408);
     }
 
-    @Test(dataProvider = "retryStatusCodes")
-    public void testServerShouldRetry(int responseCode)
+    private void testServerShouldRetry(int responseCode)
             throws Exception
     {
         EventListener eventListener = factory.create(Map.of(
@@ -404,7 +409,7 @@ public class TestHttpEventListener
 
         eventListener.queryCompleted(queryCompleteEvent);
 
-        assertNotNull(server.takeRequest(5, TimeUnit.SECONDS));
+        assertThat(server.takeRequest(5, TimeUnit.SECONDS)).isNotNull();
         checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCompleteEventJson);
     }
 
@@ -424,7 +429,7 @@ public class TestHttpEventListener
 
         eventListener.queryCompleted(queryCompleteEvent);
 
-        assertNotNull(server.takeRequest(5, TimeUnit.SECONDS)); // First request, causes exception
+        assertThat(server.takeRequest(5, TimeUnit.SECONDS)).isNotNull(); // First request, causes exception
         checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCompleteEventJson);
     }
 
@@ -442,8 +447,9 @@ public class TestHttpEventListener
         eventListener.queryCompleted(queryCompleteEvent);
         long endTime = System.nanoTime();
 
-        assertTrue(Duration.of(endTime - startTime, ChronoUnit.NANOS).compareTo(Duration.of(1, ChronoUnit.SECONDS)) < 0,
-                "Server delay is blocking main thread");
+        assertThat(Duration.of(endTime - startTime, ChronoUnit.NANOS).compareTo(Duration.of(1, ChronoUnit.SECONDS)) < 0)
+                .describedAs("Server delay is blocking main thread")
+                .isTrue();
 
         checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCompleteEventJson);
     }
@@ -457,14 +463,21 @@ public class TestHttpEventListener
     private void checkRequest(RecordedRequest recordedRequest, Map<String, String> customHeaders, String eventJson)
             throws JsonProcessingException
     {
-        assertNotNull(recordedRequest, "No request sent when logging is enabled");
+        assertThat(recordedRequest)
+                .describedAs("No request sent when logging is enabled")
+                .isNotNull();
         for (String key : customHeaders.keySet()) {
-            assertNotNull(recordedRequest.getHeader(key), format("Custom header %s not present in request", key));
-            assertEquals(recordedRequest.getHeader(key), customHeaders.get(key),
-                    format("Expected value %s for header %s but got %s", customHeaders.get(key), key, recordedRequest.getHeader(key)));
+            assertThat(recordedRequest.getHeader(key))
+                    .describedAs(format("Custom header %s not present in request", key))
+                    .isNotNull();
+            assertThat(recordedRequest.getHeader(key))
+                    .describedAs(format("Expected value %s for header %s but got %s", customHeaders.get(key), key, recordedRequest.getHeader(key)))
+                    .isEqualTo(customHeaders.get(key));
         }
         String body = recordedRequest.getBody().readUtf8();
-        assertFalse(body.isEmpty(), "Body is empty");
+        assertThat(body.isEmpty())
+                .describedAs("Body is empty")
+                .isFalse();
 
         ObjectMapper objectMapper = new ObjectMapper();
         assertThat(objectMapper.readTree(body))

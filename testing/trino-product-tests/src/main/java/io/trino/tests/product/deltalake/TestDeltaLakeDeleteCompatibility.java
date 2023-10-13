@@ -56,8 +56,7 @@ public class TestDeltaLakeDeleteCompatibility
         databricksRuntimeVersion = getDatabricksRuntimeVersion();
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
     public void testDeleteOnEnforcedConstraintsReturnsRowsCount(boolean partitioned)
     {
         String tableName = "test_delete_push_down_" + randomNameSuffix();
@@ -89,8 +88,35 @@ public class TestDeltaLakeDeleteCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testDeleteCompatibility()
+    {
+        String tableName = "test_delete_compatibility_" + randomNameSuffix();
+
+        onDelta().executeQuery("CREATE TABLE default." + tableName + " (a int, b int)" +
+                " USING DELTA LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
+
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 2), (2, 3), (3, 4), (4, 5), (5, 6)");
+            onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a % 2 = 0");
+
+            List<Row> expectedRows = ImmutableList.of(
+                    row(1, 2),
+                    row(3, 4),
+                    row(5, 6));
+
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(expectedRows);
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(expectedRows);
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testDeleteOnAppendOnlyTableFails()
     {
         String tableName = "test_delete_on_append_only_table_fails_" + randomNameSuffix();
@@ -257,8 +283,7 @@ public class TestDeltaLakeDeleteCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testDeletionVectorsWithRandomPrefix()
     {
         String tableName = "test_deletion_vectors_random_prefix_" + randomNameSuffix();
@@ -282,8 +307,7 @@ public class TestDeltaLakeDeleteCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testDisableDeletionVectors()
     {
         String tableName = "test_deletion_vectors_random_prefix_" + randomNameSuffix();
@@ -323,8 +347,7 @@ public class TestDeltaLakeDeleteCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testDeletionVectorsWithCheckpointInterval()
     {
         String tableName = "test_deletion_vectors_random_prefix_" + randomNameSuffix();
@@ -348,8 +371,7 @@ public class TestDeltaLakeDeleteCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testDeletionVectorsMergeDelete()
     {
         String tableName = "test_deletion_vectors_merge_delete_" + randomNameSuffix();
@@ -373,8 +395,7 @@ public class TestDeltaLakeDeleteCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testDeletionVectorsLargeNumbers()
     {
         String tableName = "test_deletion_vectors_large_numbers_" + randomNameSuffix();
@@ -397,9 +418,8 @@ public class TestDeltaLakeDeleteCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS},
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS},
             dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDeletionVectorsAcrossAddFile(boolean partitioned)
     {
         String tableName = "test_deletion_vectors_accross_add_file_" + randomNameSuffix();
@@ -443,8 +463,7 @@ public class TestDeltaLakeDeleteCompatibility
         });
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testDeletionVectorsDeleteFrom()
     {
         testDeletionVectorsDeleteAll(tableName -> onDelta().executeQuery("DELETE FROM default." + tableName));
@@ -473,8 +492,7 @@ public class TestDeltaLakeDeleteCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testDeletionVectorsOptimize()
     {
         String tableName = "test_deletion_vectors_optimize_" + randomNameSuffix();
@@ -502,8 +520,7 @@ public class TestDeltaLakeDeleteCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testDeletionVectorsAbsolutePath()
     {
         String baseTableName = "test_deletion_vectors_base_absolute_" + randomNameSuffix();
@@ -533,8 +550,7 @@ public class TestDeltaLakeDeleteCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testDeletionVectorsWithChangeDataFeed()
     {
         String tableName = "test_deletion_vectors_cdf_" + randomNameSuffix();

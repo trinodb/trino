@@ -101,6 +101,7 @@ public class TestPushProjectionIntoTableScan
             PushProjectionIntoTableScan optimizer = createRule(ruleTester);
 
             ruleTester.assertThat(optimizer)
+                    .withSession(MOCK_SESSION)
                     .on(p -> {
                         Symbol symbol = p.symbol(columnName, columnType);
                         return p.project(
@@ -110,7 +111,6 @@ public class TestPushProjectionIntoTableScan
                                         ImmutableList.of(symbol),
                                         ImmutableMap.of(symbol, inputColumnHandle)));
                     })
-                    .withSession(MOCK_SESSION)
                     .doesNotFire();
         }
     }
@@ -167,6 +167,7 @@ public class TestPushProjectionIntoTableScan
                             e -> column(e.getValue(), types.get(e.getKey()))));
 
             ruleTester.assertThat(createRule(ruleTester))
+                    .withSession(MOCK_SESSION)
                     .on(p -> {
                         // Register symbols
                         types.forEach((symbol, type) -> p.symbol(symbol.getName(), type));
@@ -183,7 +184,6 @@ public class TestPushProjectionIntoTableScan
                                                 .addSymbolStatistics(baseColumn, SymbolStatsEstimate.builder().setNullsFraction(0).setDistinctValuesCount(33).build())
                                                 .build()))));
                     })
-                    .withSession(MOCK_SESSION)
                     .matches(project(
                             newNames.entrySet().stream()
                                     .collect(toImmutableMap(
@@ -228,6 +228,7 @@ public class TestPushProjectionIntoTableScan
         MockConnectorFactory factory = createMockFactory(ImmutableMap.of(columnName, columnHandle), Optional.of(this::mockApplyProjection));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(factory).build()) {
             assertThatThrownBy(() -> ruleTester.assertThat(createRule(ruleTester))
+                    .withSession(MOCK_SESSION)
                     // projection pushdown results in different table handle without partitioning
                     .on(p -> p.project(
                             Assignments.of(),
@@ -236,7 +237,6 @@ public class TestPushProjectionIntoTableScan
                                     ImmutableList.of(p.symbol("col", VARCHAR)),
                                     ImmutableMap.of(p.symbol("col", VARCHAR), columnHandle),
                                     Optional.of(true))))
-                    .withSession(MOCK_SESSION)
                     .matches(anyTree()))
                     .hasMessage("Partitioning must not change after projection is pushed down");
         }

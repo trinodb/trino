@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slices;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.block.ArrayBlockBuilder;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
@@ -77,39 +76,41 @@ public final class SerDeUtils
 {
     private SerDeUtils() {}
 
-    public static Block getBlockObject(Type type, Object object, ObjectInspector objectInspector)
+    public static Object getBlockObject(Type type, Object object, ObjectInspector inspector)
     {
-        Block serialized = serializeObject(type, null, object, objectInspector);
-        return requireNonNull(serialized, "serialized is null");
+        requireNonNull(object, "object is null");
+        if (inspector instanceof ListObjectInspector listObjectInspector) {
+            List<?> list = listObjectInspector.getList(object);
+            ArrayType arrayType = (ArrayType) type;
+            ObjectInspector elementInspector = listObjectInspector.getListElementObjectInspector();
+            return buildArrayValue(arrayType, list.size(), valuesBuilder -> buildList(list, arrayType.getElementType(), elementInspector, valuesBuilder));
+        }
+        if (inspector instanceof MapObjectInspector mapObjectInspector) {
+            Map<?, ?> map = mapObjectInspector.getMap(object);
+            MapType mapType = (MapType) type;
+            return buildMapValue(mapType, map.size(), (keyBuilder, valueBuilder) -> buildMap(mapType, keyBuilder, valueBuilder, map, mapObjectInspector, true));
+        }
+        if (inspector instanceof StructObjectInspector structObjectInspector) {
+            RowType rowType = (RowType) type;
+            return buildRowValue(rowType, fieldBuilders -> buildStruct(rowType, object, structObjectInspector, fieldBuilders));
+        }
+        if (inspector instanceof UnionObjectInspector unionObjectInspector) {
+            RowType rowType = (RowType) type;
+            return buildRowValue(rowType, fieldBuilders -> buildUnion(rowType, object, unionObjectInspector, fieldBuilders));
+        }
+        throw new RuntimeException("Unknown object inspector category: " + inspector.getCategory());
     }
 
-    public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector)
+    public static void serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector)
     {
-        return serializeObject(type, builder, object, inspector, true);
+        requireNonNull(builder, "builder is null");
+        serializeObject(type, builder, object, inspector, true);
     }
 
     // This version supports optionally disabling the filtering of null map key, which should only be used for building test data sets
     // that contain null map keys.  For production, null map keys are not allowed.
     @VisibleForTesting
-    public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector, boolean filterNullMapKeys)
-    {
-        switch (inspector.getCategory()) {
-            case PRIMITIVE:
-                serializePrimitive(type, builder, object, (PrimitiveObjectInspector) inspector);
-                return null;
-            case LIST:
-                return serializeList(type, builder, object, (ListObjectInspector) inspector);
-            case MAP:
-                return serializeMap((MapType) type, (MapBlockBuilder) builder, object, (MapObjectInspector) inspector, filterNullMapKeys);
-            case STRUCT:
-                return serializeStruct(type, builder, object, (StructObjectInspector) inspector);
-            case UNION:
-                return serializeUnion(type, builder, object, (UnionObjectInspector) inspector);
-        }
-        throw new RuntimeException("Unknown object inspector category: " + inspector.getCategory());
-    }
-
-    private static void serializePrimitive(Type type, BlockBuilder builder, Object object, PrimitiveObjectInspector inspector)
+    public static void serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector, boolean filterNullMapKeys)
     {
         requireNonNull(builder, "builder is null");
 
@@ -117,6 +118,30 @@ public final class SerDeUtils
             builder.appendNull();
             return;
         }
+
+        if (inspector instanceof PrimitiveObjectInspector primitiveObjectInspector) {
+            serializePrimitive(type, builder, object, primitiveObjectInspector);
+        }
+        else if (inspector instanceof ListObjectInspector listObjectInspector) {
+            serializeList(type, builder, object, listObjectInspector);
+        }
+        else if (inspector instanceof MapObjectInspector mapObjectInspector) {
+            serializeMap((MapType) type, (MapBlockBuilder) builder, object, mapObjectInspector, filterNullMapKeys);
+        }
+        else if (inspector instanceof StructObjectInspector structObjectInspector) {
+            serializeStruct(type, builder, object, structObjectInspector);
+        }
+        else if (inspector instanceof UnionObjectInspector unionObjectInspector) {
+            serializeUnion(type, builder, object, unionObjectInspector);
+        }
+        else {
+            throw new RuntimeException("Unknown object inspector category: " + inspector.getCategory());
+        }
+    }
+
+    private static void serializePrimitive(Type type, BlockBuilder builder, Object object, PrimitiveObjectInspector inspector)
+    {
+        requireNonNull(builder, "builder is null");
 
         switch (inspector.getPrimitiveCategory()) {
             case BOOLEAN:
@@ -181,21 +206,12 @@ public final class SerDeUtils
         throw new RuntimeException("Unknown primitive type: " + inspector.getPrimitiveCategory());
     }
 
-    private static Block serializeList(Type type, BlockBuilder builder, Object object, ListObjectInspector inspector)
+    private static void serializeList(Type type, BlockBuilder builder, Object object, ListObjectInspector inspector)
     {
         List<?> list = inspector.getList(object);
-        if (list == null) {
-            requireNonNull(builder, "builder is null").appendNull();
-            return null;
-        }
-
         ArrayType arrayType = (ArrayType) type;
         ObjectInspector elementInspector = inspector.getListElementObjectInspector();
-        if (builder == null) {
-            return buildArrayValue(arrayType, list.size(), valuesBuilder -> buildList(list, arrayType.getElementType(), elementInspector, valuesBuilder));
-        }
         ((ArrayBlockBuilder) builder).buildEntry(elementBuilder -> buildList(list, arrayType.getElementType(), elementInspector, elementBuilder));
-        return null;
     }
 
     private static void buildList(List<?> list, Type elementType, ObjectInspector elementInspector, BlockBuilder valueBuilder)
@@ -205,23 +221,10 @@ public final class SerDeUtils
         }
     }
 
-    private static Block serializeMap(MapType mapType, MapBlockBuilder builder, Object object, MapObjectInspector inspector, boolean filterNullMapKeys)
+    private static void serializeMap(MapType mapType, MapBlockBuilder builder, Object object, MapObjectInspector inspector, boolean filterNullMapKeys)
     {
         Map<?, ?> map = inspector.getMap(object);
-        if (map == null) {
-            requireNonNull(builder, "builder is null").appendNull();
-            return null;
-        }
-
-        if (builder == null) {
-            return buildMapValue(
-                    mapType,
-                    map.size(),
-                    (keyBuilder, valueBuilder) -> buildMap(mapType, keyBuilder, valueBuilder, map, inspector, filterNullMapKeys));
-        }
-
         builder.buildEntry((keyBuilder, valueBuilder) -> buildMap(mapType, keyBuilder, valueBuilder, map, inspector, filterNullMapKeys));
-        return null;
     }
 
     private static void buildMap(MapType mapType, BlockBuilder keyBuilder, BlockBuilder valueBuilder, Map<?, ?> map, MapObjectInspector inspector, boolean filterNullMapKeys)
@@ -240,20 +243,10 @@ public final class SerDeUtils
         }
     }
 
-    private static Block serializeStruct(Type type, BlockBuilder builder, Object object, StructObjectInspector inspector)
+    private static void serializeStruct(Type type, BlockBuilder builder, Object object, StructObjectInspector inspector)
     {
-        if (object == null) {
-            requireNonNull(builder, "builder is null").appendNull();
-            return null;
-        }
-
         RowType rowType = (RowType) type;
-        if (builder == null) {
-            return buildRowValue(rowType, fieldBuilders -> buildStruct(rowType, object, inspector, fieldBuilders));
-        }
-
         ((RowBlockBuilder) builder).buildEntry(fieldBuilders -> buildStruct(rowType, object, inspector, fieldBuilders));
-        return null;
     }
 
     private static void buildStruct(RowType type, Object object, StructObjectInspector inspector, List<BlockBuilder> fieldBuilders)
@@ -268,19 +261,10 @@ public final class SerDeUtils
     }
 
     // Use row blocks to represent union objects when reading
-    private static Block serializeUnion(Type type, BlockBuilder builder, Object object, UnionObjectInspector inspector)
+    private static void serializeUnion(Type type, BlockBuilder builder, Object object, UnionObjectInspector inspector)
     {
-        if (object == null) {
-            requireNonNull(builder, "builder is null").appendNull();
-            return null;
-        }
-
         RowType rowType = (RowType) type;
-        if (builder == null) {
-            return buildRowValue(rowType, fieldBuilders -> buildUnion(rowType, object, inspector, fieldBuilders));
-        }
         ((RowBlockBuilder) builder).buildEntry(fieldBuilders -> buildUnion(rowType, object, inspector, fieldBuilders));
-        return null;
     }
 
     private static void buildUnion(RowType rowType, Object object, UnionObjectInspector inspector, List<BlockBuilder> fieldBuilders)

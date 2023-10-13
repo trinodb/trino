@@ -47,6 +47,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
@@ -549,15 +550,14 @@ public class ParquetTester
             return null;
         }
         if (isStructuralType(type)) {
-            Block block = (Block) fieldFromCursor;
             if (type instanceof ArrayType arrayType) {
-                return toArrayValue(block, arrayType.getElementType());
+                return toArrayValue((Block) fieldFromCursor, arrayType.getElementType());
             }
             if (type instanceof MapType mapType) {
-                return toMapValue(block, mapType.getKeyType(), mapType.getValueType());
+                return toMapValue((SqlMap) fieldFromCursor, mapType.getKeyType(), mapType.getValueType());
             }
             if (type instanceof RowType) {
-                return toRowValue(block, type.getTypeParameters());
+                return toRowValue((Block) fieldFromCursor, type.getTypeParameters());
             }
         }
         if (type instanceof DecimalType decimalType) {
@@ -578,11 +578,15 @@ public class ParquetTester
         return fieldFromCursor;
     }
 
-    private static Map<?, ?> toMapValue(Block mapBlock, Type keyType, Type valueType)
+    private static Map<?, ?> toMapValue(SqlMap sqlMap, Type keyType, Type valueType)
     {
-        Map<Object, Object> map = new HashMap<>(mapBlock.getPositionCount() * 2);
-        for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-            map.put(keyType.getObjectValue(SESSION, mapBlock, i), valueType.getObjectValue(SESSION, mapBlock, i + 1));
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+
+        Map<Object, Object> map = new HashMap<>(sqlMap.getSize());
+        for (int i = 0; i < sqlMap.getSize(); i++) {
+            map.put(keyType.getObjectValue(SESSION, rawKeyBlock, rawOffset + i), valueType.getObjectValue(SESSION, rawValueBlock, rawOffset + i));
         }
         return Collections.unmodifiableMap(map);
     }

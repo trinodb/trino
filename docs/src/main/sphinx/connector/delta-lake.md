@@ -365,8 +365,10 @@ statements, the connector supports the following features:
 
 - {ref}`sql-write-operations`:
 
-  - {ref}`sql-data-management`, see details for Delta Lake {ref}`delta-lake-data-management`
-  - {ref}`sql-schema-table-management`, see details for Delta Lake {ref}`delta-lake-schema-table-management`
+  - {ref}`sql-data-management`, see details for  {ref}`Delta Lake data
+    management <delta-lake-data-management>`
+  - {ref}`sql-schema-table-management`, see details for  {ref}`Delta Lake schema
+    and table management <delta-lake-schema-table-management>`
   - {ref}`sql-view-management`
 
 ### Procedures
@@ -485,8 +487,8 @@ The {ref}`sql-schema-table-management` functionality includes support for:
 - {doc}`/sql/create-table`
 - {doc}`/sql/create-table-as`
 - {doc}`/sql/drop-table`
-- {doc}`/sql/alter-table`, see details for Delta Lake
-  {ref}`delta-lake-alter-table`
+- {doc}`/sql/alter-table`, see details for {ref}`Delta Lake ALTER TABLE
+  <delta-lake-alter-table>`
 - {doc}`/sql/create-schema`
 - {doc}`/sql/drop-schema`
 - {doc}`/sql/alter-schema`
@@ -553,44 +555,19 @@ TABLE AS </sql/create-table-as>` syntax.
 
 (delta-lake-alter-table)=
 
-#### ALTER TABLE
-
 The connector supports the following [](/sql/alter-table) statements.
 
-##### ALTER TABLE EXECUTE
+#### ALTER TABLE EXECUTE
 
-optimize
+The connector supports the following commands for use with {ref}`ALTER TABLE
+EXECUTE <alter-table-execute>`.
 
-The `optimize` command is used for rewriting the content of the specified
-table so that it is merged into fewer but larger files. If the table is
-partitioned, the data compaction acts separately on each partition selected for
-optimization. This operation improves read performance.
-
-All files with a size below the optional `file_size_threshold` parameter
-(default value for the threshold is `100MB`) are merged:
-
-```sql
-ALTER TABLE test_table EXECUTE optimize
-```
-
-The following statement merges files in a table that are
-under 10 megabytes in size:
-
-```sql
-ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '10MB')
-```
-
-You can use a `WHERE` clause with the columns used to partition the table
-to filter which partitions are optimized:
-
-```sql
-ALTER TABLE test_partitioned_table EXECUTE optimize
-WHERE partition_key = 1
+```{include} optimize.fragment
 ```
 
 (delta-lake-alter-table-rename-to)=
 
-##### ALTER TABLE RENAME TO
+#### ALTER TABLE RENAME TO
 
 The connector only supports the `ALTER TABLE RENAME TO` statement when met with
 one of the following conditions:

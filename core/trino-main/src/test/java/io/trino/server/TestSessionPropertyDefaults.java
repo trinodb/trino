@@ -22,13 +22,13 @@ import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.Identity;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
 import io.trino.spi.session.TestingSessionPropertyConfigurationManagerFactory;
-import io.trino.testing.AllowAllAccessControlManager;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -49,7 +49,7 @@ public class TestSessionPropertyDefaults
     @Test
     public void testApplyDefaultProperties()
     {
-        SessionPropertyDefaults sessionPropertyDefaults = new SessionPropertyDefaults(TEST_NODE_INFO, new AllowAllAccessControlManager());
+        SessionPropertyDefaults sessionPropertyDefaults = new SessionPropertyDefaults(TEST_NODE_INFO, new AllowAllAccessControl());
 
         ImmutableList<PropertyMetadata<?>> catalogProperties = ImmutableList.of(
                 PropertyMetadata.stringProperty("explicit_set", "Test property", null, false),

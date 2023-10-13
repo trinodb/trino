@@ -24,6 +24,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -216,7 +218,7 @@ public class AvroColumnDecoder
         }
 
         @Override
-        public Block getBlock()
+        public Object getObject()
         {
             return serializeObject(null, value, columnType, columnName);
         }
@@ -240,7 +242,7 @@ public class AvroColumnDecoder
         throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), type, columnName));
     }
 
-    private static Block serializeObject(BlockBuilder builder, Object value, Type type, String columnName)
+    private static Object serializeObject(BlockBuilder builder, Object value, Type type, String columnName)
     {
         if (type instanceof ArrayType) {
             return serializeList(builder, value, type, columnName);
@@ -314,7 +316,7 @@ public class AvroColumnDecoder
         throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), type, columnName));
     }
 
-    private static Block serializeMap(BlockBuilder parentBlockBuilder, Object value, MapType type, String columnName)
+    private static SqlMap serializeMap(BlockBuilder parentBlockBuilder, Object value, MapType type, String columnName)
     {
         if (value == null) {
             checkState(parentBlockBuilder != null, "parentBlockBuilder is null");
@@ -343,7 +345,7 @@ public class AvroColumnDecoder
         }
     }
 
-    private static Block serializeRow(BlockBuilder blockBuilder, Object value, Type type, String columnName)
+    private static SqlRow serializeRow(BlockBuilder blockBuilder, Object value, Type type, String columnName)
     {
         if (value == null) {
             checkState(blockBuilder != null, "block builder is null");

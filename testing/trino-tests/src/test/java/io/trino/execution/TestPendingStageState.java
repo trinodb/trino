@@ -18,9 +18,11 @@ import io.airlift.units.Duration;
 import io.trino.spi.QueryId;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryRunnerUtil.createQuery;
@@ -29,13 +31,15 @@ import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 
+@TestInstance(PER_CLASS)
 public class TestPendingStageState
 {
     private DistributedQueryRunner queryRunner;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
             throws Exception
     {
@@ -43,7 +47,8 @@ public class TestPendingStageState
         queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "10000"));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testPendingState()
             throws Exception
     {
@@ -67,7 +72,7 @@ public class TestPendingStageState
         assertEquals(queryInfo.getOutputStage().get().getSubStages().get(0).getState(), StageState.PENDING);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         if (queryRunner != null) {

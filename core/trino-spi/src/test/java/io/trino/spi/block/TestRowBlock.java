@@ -18,8 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRowBlock
 {
@@ -27,17 +26,17 @@ public class TestRowBlock
     public void testFieldBlockOffsetsIsNullWhenThereIsNoNullRow()
     {
         Block fieldBlock = new ByteArrayBlock(1, Optional.empty(), new byte[]{10});
-        AbstractRowBlock rowBlock = (RowBlock) RowBlock.fromFieldBlocks(1, Optional.empty(), new Block[] {fieldBlock});
+        RowBlock rowBlock = (RowBlock) RowBlock.fromFieldBlocks(1, Optional.empty(), new Block[] {fieldBlock});
         // Blocks should discard the offset mask during creation if no values are null
-        assertNull(rowBlock.getFieldBlockOffsets());
+        assertThat(rowBlock.getFieldBlockOffsets()).isNull();
     }
 
     @Test
     public void testFieldBlockOffsetsIsNotNullWhenThereIsNullRow()
     {
         Block fieldBlock = new ByteArrayBlock(1, Optional.empty(), new byte[]{10});
-        AbstractRowBlock rowBlock = (RowBlock) RowBlock.fromFieldBlocks(1, Optional.of(new boolean[] {true}), new Block[] {fieldBlock});
+        RowBlock rowBlock = (RowBlock) RowBlock.fromFieldBlocks(1, Optional.of(new boolean[] {true}), new Block[] {fieldBlock});
         // Blocks should not discard the offset mask during creation if no values are null
-        assertNotNull(rowBlock.getFieldBlockOffsets());
+        assertThat(rowBlock.getFieldBlockOffsets()).isNotNull();
     }
 }

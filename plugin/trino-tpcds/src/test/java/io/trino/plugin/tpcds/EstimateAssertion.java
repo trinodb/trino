@@ -20,7 +20,8 @@ import io.trino.spi.statistics.Estimate;
 import java.util.Optional;
 
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.withinPercentage;
 
 class EstimateAssertion
 {
@@ -45,7 +46,9 @@ class EstimateAssertion
     {
         if (actual.isPresent() != expected.isPresent()) {
             // Trigger exception message that includes compared values
-            assertEquals(actual, expected, comparedValue);
+            assertThat(actual)
+                    .describedAs(comparedValue)
+                    .isEqualTo(expected);
         }
         if (actual.isPresent()) {
             Object actualValue = actual.get();
@@ -57,13 +60,17 @@ class EstimateAssertion
     private void assertClose(Object actual, Object expected, String comparedValue)
     {
         if (actual instanceof Slice) {
-            assertEquals(actual.getClass(), expected.getClass(), comparedValue);
-            assertEquals(((Slice) actual).toStringUtf8(), ((Slice) expected).toStringUtf8());
+            assertThat(actual.getClass())
+                    .describedAs(comparedValue)
+                    .isEqualTo(expected.getClass());
+            assertThat(((Slice) actual).toStringUtf8())
+                    .isEqualTo(((Slice) expected).toStringUtf8());
         }
         else {
             double actualDouble = toDouble(actual);
             double expectedDouble = toDouble(expected);
-            assertEquals(actualDouble, expectedDouble, expectedDouble * tolerance, comparedValue);
+            assertThat(actualDouble)
+                    .isCloseTo(expectedDouble, withinPercentage(tolerance * 100));
         }
     }
 

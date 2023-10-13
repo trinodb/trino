@@ -19,10 +19,17 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.block.TestingBlockEncodingSerde;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 
 import java.lang.reflect.Array;
 import java.util.Arrays;
+import java.util.List;
 
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.testng.Assert.assertEquals;
@@ -35,27 +42,27 @@ public final class ColumnarTestUtils
 
     private ColumnarTestUtils() {}
 
-    public static <T> void assertBlock(Block block, T[] expectedValues)
+    public static <T> void assertBlock(Type type, Block block, T[] expectedValues)
     {
-        assertBlockPositions(block, expectedValues);
-        assertBlockPositions(copyBlock(block), expectedValues);
+        assertBlockPositions(type, block, expectedValues);
+        assertBlockPositions(type, copyBlock(block), expectedValues);
     }
 
-    private static <T> void assertBlockPositions(Block block, T[] expectedValues)
+    private static <T> void assertBlockPositions(Type type, Block block, T[] expectedValues)
     {
         assertEquals(block.getPositionCount(), expectedValues.length);
         for (int position = 0; position < block.getPositionCount(); position++) {
-            assertBlockPosition(block, position, expectedValues[position]);
+            assertBlockPosition(type, block, position, expectedValues[position]);
         }
     }
 
-    public static <T> void assertBlockPosition(Block block, int position, T expectedValue)
+    public static <T> void assertBlockPosition(Type type, Block block, int position, T expectedValue)
     {
-        assertPositionValue(block, position, expectedValue);
-        assertPositionValue(block.getSingleValueBlock(position), 0, expectedValue);
+        assertPositionValue(type, block, position, expectedValue);
+        assertPositionValue(type, block.getSingleValueBlock(position), 0, expectedValue);
     }
 
-    private static <T> void assertPositionValue(Block block, int position, T expectedValue)
+    private static <T> void assertPositionValue(Type type, Block block, int position, T expectedValue)
     {
         if (expectedValue == null) {
             assertTrue(block.isNull(position));
@@ -70,32 +77,40 @@ public final class ColumnarTestUtils
             Slice actual = block.getSlice(position, 0, length);
             assertEquals(actual, expected);
         }
-        else if (expectedValue instanceof Slice[] expected) {
-            // array or row
-            Block actual = block.getObject(position, Block.class);
-            assertBlock(actual, expected);
+        else if (type instanceof ArrayType arrayType) {
+            Block actual = arrayType.getObject(block, position);
+            assertBlock(type, actual, (Slice[]) expectedValue);
         }
-        else if (expectedValue instanceof Slice[][] expected) {
-            // map
-            Block actual = block.getObject(position, Block.class);
-            // a map is exposed as a block alternating key and value entries, so we need to flatten the expected values array
-            assertBlock(actual, flattenMapEntries(expected));
+        else if (type instanceof RowType rowType) {
+            SqlRow actual = rowType.getObject(block, position);
+            int rawIndex = actual.getRawIndex();
+            List<Block> fieldBlocks = actual.getRawFieldBlocks();
+            Slice[] expectedValues = (Slice[]) expectedValue;
+            for (int fieldIndex = 0; fieldIndex < fieldBlocks.size(); fieldIndex++) {
+                Block fieldBlock = fieldBlocks.get(fieldIndex);
+                Type fieldType = rowType.getTypeParameters().get(fieldIndex);
+                assertBlockPosition(fieldType, fieldBlock, rawIndex, expectedValues[fieldIndex]);
+            }
+        }
+        else if (type instanceof MapType mapType) {
+            Slice[][] expected = (Slice[][]) expectedValue;
+            SqlMap actual = mapType.getObject(block, position);
+
+            Block actualKeys = actual.getRawKeyBlock().getRegion(actual.getRawOffset(), actual.getSize());
+            Slice[] expectedKeys = Arrays.stream(expected)
+                    .map(pair -> pair[0])
+                    .toArray(Slice[]::new);
+            assertBlock(type, actualKeys, expectedKeys);
+
+            Block actualValues = actual.getRawValueBlock().getRegion(actual.getRawOffset(), actual.getSize());
+            Slice[] expectedValues = Arrays.stream(expected)
+                    .map(pair -> pair[1])
+                    .toArray(Slice[]::new);
+            assertBlock(type, actualValues, expectedValues);
         }
         else {
             throw new IllegalArgumentException(expectedValue.getClass().getName());
         }
-    }
-
-    private static Slice[] flattenMapEntries(Slice[][] mapEntries)
-    {
-        Slice[] flattened = new Slice[mapEntries.length * 2];
-        for (int i = 0; i < mapEntries.length; i++) {
-            Slice[] mapEntry = mapEntries[i];
-            assertEquals(mapEntry.length, 2);
-            flattened[i * 2] = mapEntry[0];
-            flattened[i * 2 + 1] = mapEntry[1];
-        }
-        return flattened;
     }
 
     public static <T> T[] alternatingNullValues(T[] objects)

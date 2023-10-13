@@ -181,7 +181,7 @@ public class TestDbSessionPropertyManagerIntegration
                 .setSource("test")
                 .setCatalog("catalog")
                 .setSchema("schema")
-                .setPath(new SqlPath(Optional.of("path")))
+                .setPath(SqlPath.buildPath("path", Optional.empty()))
                 .setTimeZoneKey(DEFAULT_TIME_ZONE_KEY)
                 .setLocale(ENGLISH)
                 .setRemoteUserAddress("address")

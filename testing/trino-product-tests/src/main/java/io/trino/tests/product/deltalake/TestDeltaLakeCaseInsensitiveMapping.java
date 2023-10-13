@@ -44,8 +44,7 @@ import static org.testng.Assert.assertEquals;
 public class TestDeltaLakeCaseInsensitiveMapping
         extends BaseTestDeltaLakeS3Storage
 {
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testNonLowercaseColumnNames()
     {
         String tableName = "test_dl_non_lowercase_column" + randomNameSuffix();
@@ -111,8 +110,7 @@ public class TestDeltaLakeCaseInsensitiveMapping
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testColumnCommentWithNonLowerCaseColumnName()
     {
         String tableName = "test_dl_column_comment_uppercase_name" + randomNameSuffix();
@@ -137,8 +135,7 @@ public class TestDeltaLakeCaseInsensitiveMapping
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testNotNullColumnWithNonLowerCaseColumnName()
     {
         String tableName = "test_dl_notnull_column_uppercase_name" + randomNameSuffix();

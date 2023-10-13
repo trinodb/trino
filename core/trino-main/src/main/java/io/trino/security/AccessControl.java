@@ -18,7 +18,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.function.FunctionKind;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
@@ -402,20 +402,6 @@ public interface AccessControl
     void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Optional<Object>> properties);
 
     /**
-     * Check if identity is allowed to create a view that executes the function.
-     *
-     * @throws AccessDeniedException if not allowed
-     */
-    void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption);
-
-    /**
-     * Check if identity is allowed to create a view that executes the function.
-     *
-     * @throws AccessDeniedException if not allowed
-     */
-    void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, Identity grantee, boolean grantOption);
-
-    /**
      * Check if identity is allowed to grant a privilege to the grantee on the specified schema.
      *
      * @throws AccessDeniedException if not allowed
@@ -555,18 +541,14 @@ public interface AccessControl
     void checkCanExecuteProcedure(SecurityContext context, QualifiedObjectName procedureName);
 
     /**
-     * Check if identity is allowed to execute function
-     *
-     * @throws AccessDeniedException if not allowed
+     * Is the identity allowed to execute function?
      */
-    void checkCanExecuteFunction(SecurityContext context, String functionName);
+    boolean canExecuteFunction(SecurityContext context, QualifiedObjectName functionName);
 
     /**
-     * Check if identity is allowed to execute function
-     *
-     * @throws AccessDeniedException if not allowed
+     * Is the identity allowed to create a view that executes the specified function?
      */
-    void checkCanExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName);
+    boolean canCreateViewWithExecuteFunction(SecurityContext context, QualifiedObjectName functionName);
 
     /**
      * Check if identity is allowed to execute given table procedure on given table
@@ -574,6 +556,22 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName tableName, String procedureName);
+
+    /**
+     * Check if identity is allowed to show functions by executing SHOW FUNCTIONS in a catalog schema.
+     * <p>
+     * NOTE: This method is only present to give users an error message when listing is not allowed.
+     * The {@link #filterFunctions} method must filter all results for unauthorized users,
+     * since there are multiple ways to list functions.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanShowFunctions(SecurityContext context, CatalogSchemaName schema);
+
+    /**
+     * Filter the list of functions to those visible to the identity.
+     */
+    Set<SchemaFunctionName> filterFunctions(SecurityContext context, String catalogName, Set<SchemaFunctionName> functionNames);
 
     default List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {

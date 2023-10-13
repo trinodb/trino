@@ -104,7 +104,6 @@ import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.Split;
 import io.trino.metadata.SystemFunctionBundle;
-import io.trino.metadata.SystemSecurityMetadata;
 import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableProceduresPropertyManager;
@@ -196,7 +195,6 @@ import io.trino.sql.rewrite.ShowStatsRewrite;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.testing.PageConsumerOperator.PageConsumerOutputFactory;
 import io.trino.transaction.InMemoryTransactionManager;
-import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import io.trino.transaction.TransactionManagerConfig;
 import io.trino.type.BlockTypeOperators;
@@ -223,7 +221,6 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -247,6 +244,7 @@ import static io.trino.connector.CatalogServiceProviderModule.createTableProcedu
 import static io.trino.connector.CatalogServiceProviderModule.createTablePropertyManager;
 import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
+import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
@@ -334,16 +332,14 @@ public class LocalQueryRunner
             Session defaultSession,
             FeaturesConfig featuresConfig,
             NodeSpillConfig nodeSpillConfig,
-            boolean withInitialTransaction,
             boolean alwaysRevokeMemory,
             int nodeCountForStats,
             Map<String, List<PropertyMetadata<?>>> defaultSessionProperties,
-            MetadataProvider metadataProvider,
+            Function<Metadata, Metadata> metadataDecorator,
             Set<SystemSessionPropertiesProvider> extraSessionProperties)
     {
         requireNonNull(defaultSession, "defaultSession is null");
         requireNonNull(defaultSessionProperties, "defaultSessionProperties is null");
-        checkArgument(defaultSession.getTransactionId().isEmpty() || !withInitialTransaction, "Already in transaction");
 
         Tracer tracer = noopTracer();
         this.taskManagerConfig = new TaskManagerConfig().setTaskConcurrency(4);
@@ -381,11 +377,11 @@ public class LocalQueryRunner
         this.globalFunctionCatalog = new GlobalFunctionCatalog();
         globalFunctionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(blockEncodingSerde)));
         globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(featuresConfig, typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion()));
-        Metadata metadata = metadataProvider.getMetadata(
+        Metadata metadata = metadataDecorator.apply(new MetadataManager(
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
                 globalFunctionCatalog,
-                typeManager);
+                typeManager));
         typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
         this.joinCompiler = new JoinCompiler(typeOperators);
         PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler);
@@ -448,7 +444,6 @@ public class LocalQueryRunner
                 groupProvider,
                 tableProceduresRegistry,
                 tableFunctionRegistry,
-                sessionPropertyManager,
                 tablePropertyManager,
                 analyzePropertyManager,
                 tableProceduresPropertyManager);
@@ -496,11 +491,10 @@ public class LocalQueryRunner
         catalogManager.registerGlobalSystemConnector(globalSystemConnector);
 
         // rewrite session to use managed SessionPropertyMetadata
-        Optional<TransactionId> transactionId = withInitialTransaction ? Optional.of(transactionManager.beginTransaction(true)) : defaultSession.getTransactionId();
         this.defaultSession = new Session(
                 defaultSession.getQueryId(),
                 Span.getInvalid(),
-                transactionId,
+                defaultSession.getTransactionId(),
                 defaultSession.isClientTransactionSupport(),
                 defaultSession.getIdentity(),
                 defaultSession.getOriginalIdentity(),
@@ -808,7 +802,7 @@ public class LocalQueryRunner
     {
         lock.readLock().lock();
         try {
-            return transaction(transactionManager, accessControl)
+            return transaction(transactionManager, plannerContext.getMetadata(), accessControl)
                     .readOnly()
                     .execute(session, transactionSession -> {
                         return getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema));
@@ -824,7 +818,7 @@ public class LocalQueryRunner
     {
         lock.readLock().lock();
         try {
-            return transaction(transactionManager, accessControl)
+            return transaction(transactionManager, plannerContext.getMetadata(), accessControl)
                     .readOnly()
                     .execute(session, transactionSession -> {
                         return MetadataUtil.tableExists(getMetadata(), transactionSession, table);
@@ -844,7 +838,7 @@ public class LocalQueryRunner
     @Override
     public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
-        return executeWithPlan(session, sql, WarningCollector.NOOP).getMaterializedResult();
+        return executeWithPlan(session, sql, NOOP).getMaterializedResult();
     }
 
     @Override
@@ -860,7 +854,7 @@ public class LocalQueryRunner
 
     public <T> T inTransaction(Session session, Function<Session, T> transactionSessionConsumer)
     {
-        return transaction(transactionManager, accessControl)
+        return transaction(transactionManager, plannerContext.getMetadata(), accessControl)
                 .singleStatement()
                 .execute(session, transactionSessionConsumer);
     }
@@ -881,7 +875,7 @@ public class LocalQueryRunner
                     .setQueryMaxSpillSize(queryMaxSpillPerNode)
                     .build();
 
-            Plan plan = createPlan(session, sql, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+            Plan plan = createPlan(session, sql, getPlanOptimizers(true), OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
             List<Driver> drivers = createDrivers(session, plan, outputFactory, taskContext);
             drivers.forEach(closer::register);
 
@@ -948,13 +942,15 @@ public class LocalQueryRunner
 
     public List<Driver> createDrivers(Session session, @Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
     {
-        Plan plan = createPlan(session, sql, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
-        return createDrivers(session, plan, outputFactory, taskContext);
+        return inTransaction(session, transactionSession -> {
+            Plan plan = createPlan(transactionSession, sql, getPlanOptimizers(true), OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
+            return createDrivers(transactionSession, plan, outputFactory, taskContext);
+        });
     }
 
     public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode)
     {
-        return planFragmenter.createSubPlans(session, plan, forceSingleNode, WarningCollector.NOOP);
+        return planFragmenter.createSubPlans(session, plan, forceSingleNode, NOOP);
     }
 
     private List<Driver> createDrivers(Session session, Plan plan, OutputFactory outputFactory, TaskContext taskContext)
@@ -1075,19 +1071,9 @@ public class LocalQueryRunner
     }
 
     @Override
-    public Plan createPlan(Session session, @Language("SQL") String sql, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
+    public Plan createPlan(Session session, @Language("SQL") String sql)
     {
-        return createPlan(session, sql, OPTIMIZED_AND_VALIDATED, warningCollector, planOptimizersStatsCollector);
-    }
-
-    public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
-    {
-        return createPlan(session, sql, stage, true, warningCollector, planOptimizersStatsCollector);
-    }
-
-    public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage, boolean forceSingleNode, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
-    {
-        return createPlan(session, sql, getPlanOptimizers(forceSingleNode), stage, warningCollector, planOptimizersStatsCollector);
+        return createPlan(session, sql, getPlanOptimizers(true), OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
     }
 
     public List<PlanOptimizer> getPlanOptimizers(boolean forceSingleNode)
@@ -1109,13 +1095,11 @@ public class LocalQueryRunner
                 new RuleStatsRecorder()).get();
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
-    {
-        return createPlan(session, sql, optimizers, OPTIMIZED_AND_VALIDATED, warningCollector, planOptimizersStatsCollector);
-    }
-
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
+        // session must be in a transaction registered with the transaction manager in this query runner
+        transactionManager.getTransactionInfo(session.getRequiredTransactionId());
+
         PreparedQuery preparedQuery = new QueryPreparer(sqlParser).prepareQuery(session, sql);
 
         assertFormattedSql(sqlParser, preparedQuery.getStatement());
@@ -1192,15 +1176,6 @@ public class LocalQueryRunner
                 .findAll();
     }
 
-    public interface MetadataProvider
-    {
-        Metadata getMetadata(
-                SystemSecurityMetadata systemSecurityMetadata,
-                TransactionManager transactionManager,
-                GlobalFunctionCatalog globalFunctionCatalog,
-                TypeManager typeManager);
-    }
-
     public static class Builder
     {
         private final Session defaultSession;
@@ -1211,7 +1186,7 @@ public class LocalQueryRunner
         private Map<String, List<PropertyMetadata<?>>> defaultSessionProperties = ImmutableMap.of();
         private Set<SystemSessionPropertiesProvider> extraSessionProperties = ImmutableSet.of();
         private int nodeCountForStats;
-        private MetadataProvider metadataProvider = MetadataManager::new;
+        private Function<Metadata, Metadata> metadataDecorator = Function.identity();
 
         private Builder(Session defaultSession)
         {
@@ -1227,12 +1202,6 @@ public class LocalQueryRunner
         public Builder withNodeSpillConfig(NodeSpillConfig nodeSpillConfig)
         {
             this.nodeSpillConfig = requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
-            return this;
-        }
-
-        public Builder withInitialTransaction()
-        {
-            this.initialTransaction = true;
             return this;
         }
 
@@ -1254,9 +1223,9 @@ public class LocalQueryRunner
             return this;
         }
 
-        public Builder withMetadataProvider(MetadataProvider metadataProvider)
+        public Builder withMetadataDecorator(Function<Metadata, Metadata> metadataDecorator)
         {
-            this.metadataProvider = metadataProvider;
+            this.metadataDecorator = requireNonNull(metadataDecorator, "metadataDecorator is null");
             return this;
         }
 
@@ -1277,11 +1246,10 @@ public class LocalQueryRunner
                     defaultSession,
                     featuresConfig,
                     nodeSpillConfig,
-                    initialTransaction,
                     alwaysRevokeMemory,
                     nodeCountForStats,
                     defaultSessionProperties,
-                    metadataProvider,
+                    metadataDecorator,
                     extraSessionProperties);
         }
     }

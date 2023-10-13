@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>146</version>
+        <version>147</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>428-SNAPSHOT</version>
+    <version>430-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -154,28 +154,30 @@
         <dep.accumulo.version>1.10.2</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.13.0</dep.antlr.version>
-        <dep.airlift.version>235</dep.airlift.version>
+        <dep.airlift.version>236</dep.airlift.version>
         <dep.arrow.version>13.0.0</dep.arrow.version>
         <dep.avro.version>1.11.3</dep.avro.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.takari.version>2.1.1</dep.takari.version>
-        <dep.aws-sdk.version>1.12.560</dep.aws-sdk.version>
-        <dep.aws-sdk-v2.version>2.20.157</dep.aws-sdk-v2.version>
-        <dep.jsonwebtoken.version>0.11.5</dep.jsonwebtoken.version>
+        <dep.aws-sdk.version>1.12.561</dep.aws-sdk.version>
+        <dep.aws-sdk-v2.version>2.20.158</dep.aws-sdk-v2.version>
+        <dep.jsonwebtoken.version>0.12.2</dep.jsonwebtoken.version>
         <dep.oracle.version>21.9.0.0</dep.oracle.version>
         <dep.drift.version>1.21</dep.drift.version>
         <dep.tempto.version>201</dep.tempto.version>
-        <dep.gcs.version>2.2.8</dep.gcs.version>
-
+        <dep.gcs.version>2.2.17</dep.gcs.version>
+        <dep.swagger.version>1.6.11</dep.swagger.version>
+        <dep.kotlin.version>1.9.10</dep.kotlin.version>
+        <dep.google.http.client.version>1.43.3</dep.google.http.client.version>
         <dep.errorprone.version>2.22.0</dep.errorprone.version>
-        <dep.testcontainers.version>1.19.0</dep.testcontainers.version>
+        <dep.testcontainers.version>1.19.1</dep.testcontainers.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
         <dep.confluent.version>7.3.1</dep.confluent.version>
         <dep.kafka-clients.version>3.3.2</dep.kafka-clients.version>
         <dep.casandra.version>4.17.0</dep.casandra.version>
         <dep.minio.version>8.5.6</dep.minio.version>
         <dep.iceberg.version>1.4.0</dep.iceberg.version>
-        <dep.protobuf.version>3.23.2</dep.protobuf.version>
+        <dep.protobuf.version>3.24.4</dep.protobuf.version>
         <dep.wire.version>4.5.0</dep.wire.version>
         <dep.netty.version>4.1.99.Final</dep.netty.version>
         <dep.jna.version>5.13.0</dep.jna.version>
@@ -183,7 +185,7 @@
         <dep.flyway.version>9.22.2</dep.flyway.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
         <dep.antlr.version>4.13.1</dep.antlr.version>
-        <dep.logback.version>1.4.8</dep.logback.version>
+        <dep.asm.version>9.6</dep.asm.version>
 
         <dep.docker.images.version>86</dep.docker.images.version>
 
@@ -225,6 +227,14 @@
             </dependency>
 
             <dependency>
+                <groupId>com.google.cloud</groupId>
+                <artifactId>libraries-bom</artifactId>
+                <version>26.24.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
                 <groupId>com.squareup.okhttp3</groupId>
                 <artifactId>okhttp-bom</artifactId>
                 <version>4.11.0</version>
@@ -241,6 +251,14 @@
             </dependency>
 
             <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-bom</artifactId>
+                <version>1.58.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
                 <version>${dep.netty.version}</version>
@@ -251,7 +269,7 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
-                <version>3.41.2</version>
+                <version>3.41.3</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -259,7 +277,7 @@
             <dependency>
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm-bom</artifactId>
-                <version>9.5</version>
+                <version>${dep.asm.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -289,7 +307,7 @@
             <dependency>
                 <groupId>com.amazonaws</groupId>
                 <artifactId>amazon-kinesis-client</artifactId>
-                <version>1.6.3</version>
+                <version>1.15.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.amazonaws</groupId>
@@ -413,7 +431,7 @@
             <dependency>
                 <groupId>com.clickhouse</groupId>
                 <artifactId>clickhouse-jdbc</artifactId>
-                <version>0.4.6</version>
+                <version>0.5.0</version>
                 <classifier>all</classifier>
             </dependency>
 
@@ -462,7 +480,7 @@
             <dependency>
                 <groupId>com.github.luben</groupId>
                 <artifactId>zstd-jni</artifactId>
-                <version>1.5.5-5</version>
+                <version>1.5.5-6</version>
             </dependency>
 
             <dependency>
@@ -472,9 +490,15 @@
             </dependency>
 
             <dependency>
+                <groupId>com.google.auto.value</groupId>
+                <artifactId>auto-value-annotations</artifactId>
+                <version>1.10.2</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
-                <version>hadoop2-${dep.gcs.version}</version>
+                <version>hadoop3-${dep.gcs.version}</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
@@ -495,6 +519,18 @@
                 <groupId>com.google.errorprone</groupId>
                 <artifactId>error_prone_annotations</artifactId>
                 <version>${dep.errorprone.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.http-client</groupId>
+                <artifactId>google-http-client</artifactId>
+                <version>${dep.google.http.client.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.http-client</groupId>
+                <artifactId>google-http-client-gson</artifactId>
+                <version>${dep.google.http.client.version}</version>
             </dependency>
 
             <dependency>
@@ -530,13 +566,13 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
-                <version>9.35</version>
+                <version>9.36</version>
             </dependency>
 
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>11.0</version>
+                <version>11.2</version>
                 <classifier>jdk11</classifier>
             </dependency>
 
@@ -604,6 +640,11 @@
                 <groupId>io.airlift</groupId>
                 <artifactId>joni</artifactId>
                 <version>2.1.5.3</version>
+            </dependency>
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>junit-extensions</artifactId>
+                <version>1</version>
             </dependency>
 
             <dependency>
@@ -795,14 +836,14 @@
             <dependency>
                 <groupId>io.swagger</groupId>
                 <artifactId>swagger-annotations</artifactId>
-                <version>1.6.2</version>
+                <version>${dep.swagger.version}</version>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
             <dependency>
                 <groupId>io.swagger</groupId>
                 <artifactId>swagger-core</artifactId>
-                <version>1.6.2</version>
+                <version>${dep.swagger.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.trino</groupId>
@@ -1765,7 +1806,13 @@
             <dependency>
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libthrift</artifactId>
-                <version>0.18.1</version>
+                <version>0.19.0</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>jakarta.servlet</groupId>
+                        <artifactId>jakarta.servlet-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1848,13 +1895,13 @@
             <dependency>
                 <groupId>org.locationtech.jts</groupId>
                 <artifactId>jts-core</artifactId>
-                <version>1.16.1</version>
+                <version>1.19.0</version>
             </dependency>
 
             <dependency>
                 <groupId>org.locationtech.jts.io</groupId>
                 <artifactId>jts-io-common</artifactId>
-                <version>1.16.1</version>
+                <version>1.19.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>junit</groupId>
@@ -1996,14 +2043,6 @@
         </dependencies>
     </dependencyManagement>
 
-    <repositories>
-        <repository>
-            <id>iceberg-release-candidate</id>
-            <name>Iceberg Release Candidate</name>
-            <url>https://repository.apache.org/content/repositories/orgapacheiceberg-1146/</url>
-        </repository>
-    </repositories>
-
     <build>
         <pluginManagement>
             <plugins>
@@ -2105,31 +2144,6 @@
                 </plugin>
 
                 <plugin>
-                    <groupId>com.github.ekryd.sortpom</groupId>
-                    <artifactId>sortpom-maven-plugin</artifactId>
-                    <version>3.2.1</version>
-                    <configuration>
-                        <createBackupFile>false</createBackupFile>
-                        <nrOfIndentSpace>4</nrOfIndentSpace>
-                        <sortModules>true</sortModules>
-                        <sortDependencies>scope,groupId,artifactId</sortDependencies>
-                        <sortDependencyExclusions>groupId,artifactId</sortDependencyExclusions>
-                        <spaceBeforeCloseEmptyElement>true</spaceBeforeCloseEmptyElement>
-                        <expandEmptyElements>false</expandEmptyElements>
-                        <verifyFailOn>Strict</verifyFailOn>
-                        <verifyFail>Stop</verifyFail>
-                    </configuration>
-                    <executions>
-                        <execution>
-                            <goals>
-                                <goal>verify</goal>
-                            </goals>
-                            <phase>validate</phase>
-                        </execution>
-                    </executions>
-                </plugin>
-
-                <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-enforcer-plugin</artifactId>
                     <configuration>
@@ -2197,6 +2211,10 @@
                                     <dependency>
                                         <groupId>org.apache.httpcomponents</groupId>
                                         <artifactId>httpclient</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.apache.httpcomponents.client5</groupId>
+                                        <artifactId>httpclient5</artifactId>
                                     </dependency>
                                 </conflictingDependencies>
                                 <resources>
@@ -2441,7 +2459,8 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <properties>
-                        <configurationParameters>junit.jupiter.execution.timeout.thread.mode.default = SEPARATE_THREAD</configurationParameters>
+                        <configurationParameters>junit.jupiter.execution.timeout.thread.mode.default = SEPARATE_THREAD
+                            junit.jupiter.extensions.autodetection.enabled = true</configurationParameters>
                     </properties>
                     <includes>
                         <!-- Tests classes should start with "Test", but we do also want to include tests incorrectly named, with "Test" at the end -->

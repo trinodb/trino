@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedMapValueBuilder;
-import io.trino.spi.block.SingleMapBlock;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
@@ -43,7 +43,7 @@ public final class MapZipWithFunction
 {
     public static final MapZipWithFunction MAP_ZIP_WITH_FUNCTION = new MapZipWithFunction();
 
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapZipWithFunction.class, "mapZipWith", Type.class, Type.class, Type.class, MapType.class, Object.class, Block.class, Block.class, MapZipWithLambda.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapZipWithFunction.class, "mapZipWith", Type.class, Type.class, Type.class, MapType.class, Object.class, SqlMap.class, SqlMap.class, MapZipWithLambda.class);
     private static final MethodHandle STATE_FACTORY = methodHandle(MapZipWithFunction.class, "createState", MapType.class);
 
     private MapZipWithFunction()
@@ -85,51 +85,59 @@ public final class MapZipWithFunction
         return BufferedMapValueBuilder.createBuffered(mapType);
     }
 
-    public static Block mapZipWith(
+    public static SqlMap mapZipWith(
             Type keyType,
             Type leftValueType,
             Type rightValueType,
             MapType outputMapType,
             Object state,
-            Block leftBlock,
-            Block rightBlock,
+            SqlMap leftMap,
+            SqlMap rightMap,
             MapZipWithLambda function)
     {
-        SingleMapBlock leftMapBlock = (SingleMapBlock) leftBlock;
-        SingleMapBlock rightMapBlock = (SingleMapBlock) rightBlock;
         Type outputValueType = outputMapType.getValueType();
 
-        int maxOutputSize = (leftMapBlock.getPositionCount() + rightMapBlock.getPositionCount()) / 2;
+        int leftSize = leftMap.getSize();
+        int leftRawOffset = leftMap.getRawOffset();
+        Block leftRawKeyBlock = leftMap.getRawKeyBlock();
+        Block leftRawValueBlock = leftMap.getRawValueBlock();
+
+        int rightSize = rightMap.getSize();
+        int rightRawOffset = rightMap.getRawOffset();
+        Block rightRawKeyBlock = rightMap.getRawKeyBlock();
+        Block rightRawValueBlock = rightMap.getRawValueBlock();
+
+        int maxOutputSize = (leftSize + rightSize);
         BufferedMapValueBuilder mapValueBuilder = (BufferedMapValueBuilder) state;
         return mapValueBuilder.build(maxOutputSize, (keyBuilder, valueBuilder) -> {
-            // seekKey() can take non-trivial time when key is complicated value, such as a long VARCHAR or ROW.
-            boolean[] keyFound = new boolean[rightMapBlock.getPositionCount()];
-            for (int leftKeyPosition = 0; leftKeyPosition < leftMapBlock.getPositionCount(); leftKeyPosition += 2) {
-                Object key = readNativeValue(keyType, leftMapBlock, leftKeyPosition);
-                Object leftValue = readNativeValue(leftValueType, leftMapBlock, leftKeyPosition + 1);
+            // seekKey() can take non-trivial time when key is a complicated value, such as a long VARCHAR or ROW.
+            boolean[] keyFound = new boolean[rightSize];
+            for (int leftIndex = 0; leftIndex < leftSize; leftIndex++) {
+                Object key = readNativeValue(keyType, leftRawKeyBlock, leftRawOffset + leftIndex);
+                Object leftValue = readNativeValue(leftValueType, leftRawValueBlock, leftRawOffset + leftIndex);
 
-                int rightValuePosition = rightMapBlock.seekKey(key);
+                int rightIndex = rightMap.seekKey(key);
                 Object rightValue = null;
-                if (rightValuePosition != -1) {
-                    rightValue = readNativeValue(rightValueType, rightMapBlock, rightValuePosition);
-                    keyFound[rightValuePosition / 2] = true;
+                if (rightIndex != -1) {
+                    rightValue = readNativeValue(rightValueType, rightRawValueBlock, rightRawOffset + rightIndex);
+                    keyFound[rightIndex] = true;
                 }
 
                 Object outputValue = function.apply(key, leftValue, rightValue);
 
-                keyType.appendTo(leftMapBlock, leftKeyPosition, keyBuilder);
+                keyType.appendTo(leftRawKeyBlock, leftRawOffset + leftIndex, keyBuilder);
                 writeNativeValue(outputValueType, valueBuilder, outputValue);
             }
 
-            // iterate over keys that only exists in rightMapBlock
-            for (int rightKeyPosition = 0; rightKeyPosition < rightMapBlock.getPositionCount(); rightKeyPosition += 2) {
-                if (!keyFound[rightKeyPosition / 2]) {
-                    Object key = readNativeValue(keyType, rightMapBlock, rightKeyPosition);
-                    Object rightValue = readNativeValue(rightValueType, rightMapBlock, rightKeyPosition + 1);
+            // iterate over keys that only exists in rightMap
+            for (int rightIndex = 0; rightIndex < rightSize; rightIndex++) {
+                if (!keyFound[rightIndex]) {
+                    Object key = readNativeValue(keyType, rightRawKeyBlock, rightRawOffset + rightIndex);
+                    Object rightValue = readNativeValue(rightValueType, rightRawValueBlock, rightRawOffset + rightIndex);
 
                     Object outputValue = function.apply(key, null, rightValue);
 
-                    keyType.appendTo(rightMapBlock, rightKeyPosition, keyBuilder);
+                    keyType.appendTo(rightRawKeyBlock, rightRawOffset + rightIndex, keyBuilder);
                     writeNativeValue(outputValueType, valueBuilder, outputValue);
                 }
             }

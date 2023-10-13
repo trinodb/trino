@@ -40,7 +40,8 @@ public class AccessControlRules
         this.schemaRules = schemaRules.orElse(ImmutableList.of(SchemaAccessControlRule.ALLOW_ALL));
         this.tableRules = tableRules.orElse(ImmutableList.of(TableAccessControlRule.ALLOW_ALL));
         this.sessionPropertyRules = sessionPropertyRules.orElse(ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL));
-        this.functionRules = functionRules.orElse(ImmutableList.of(FunctionAccessControlRule.ALLOW_ALL));
+        // functions are not allowed by default
+        this.functionRules = functionRules.orElse(ImmutableList.of());
         this.authorizationRules = authorizationRules.orElse(ImmutableList.of());
     }
 

@@ -19,6 +19,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorMethodHandle;
@@ -58,7 +59,6 @@ import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toUnmodifiableList;
 
 /**
  * As defined in ISO/IEC FCD 9075-2 (SQL 2011), section 4.8
@@ -91,27 +91,27 @@ public class RowType
     private static final MethodHandle CHAIN_COMPARISON;
     private static final int MEGAMORPHIC_FIELD_COUNT = 64;
 
-    // this field is used in double checked locking
+    // this field is used in double-checked locking
     @SuppressWarnings("FieldAccessedSynchronizedAndUnsynchronized")
     private volatile TypeOperatorDeclaration typeOperatorDeclaration;
 
     static {
         try {
             Lookup lookup = lookup();
-            READ_FLAT = lookup.findStatic(RowType.class, "megamorphicReadFlat", methodType(Block.class, RowType.class, List.class, byte[].class, int.class, byte[].class));
+            READ_FLAT = lookup.findStatic(RowType.class, "megamorphicReadFlat", methodType(SqlRow.class, RowType.class, List.class, byte[].class, int.class, byte[].class));
             READ_FLAT_TO_BLOCK = lookup.findStatic(RowType.class, "megamorphicReadFlatToBlock", methodType(void.class, RowType.class, List.class, byte[].class, int.class, byte[].class, BlockBuilder.class));
-            WRITE_FLAT = lookup.findStatic(RowType.class, "megamorphicWriteFlat", methodType(void.class, RowType.class, List.class, Block.class, byte[].class, int.class, byte[].class, int.class));
-            EQUAL = lookup.findStatic(RowType.class, "megamorphicEqualOperator", methodType(Boolean.class, List.class, Block.class, Block.class));
-            CHAIN_EQUAL = lookup.findStatic(RowType.class, "chainEqual", methodType(Boolean.class, Boolean.class, int.class, MethodHandle.class, Block.class, Block.class));
-            HASH_CODE = lookup.findStatic(RowType.class, "megamorphicHashCodeOperator", methodType(long.class, List.class, Block.class));
-            CHAIN_HASH_CODE = lookup.findStatic(RowType.class, "chainHashCode", methodType(long.class, long.class, int.class, MethodHandle.class, Block.class));
-            DISTINCT_FROM = lookup.findStatic(RowType.class, "megamorphicDistinctFromOperator", methodType(boolean.class, List.class, Block.class, Block.class));
-            CHAIN_DISTINCT_FROM_START = lookup.findStatic(RowType.class, "chainDistinctFromStart", methodType(boolean.class, MethodHandle.class, Block.class, Block.class));
-            CHAIN_DISTINCT_FROM = lookup.findStatic(RowType.class, "chainDistinctFrom", methodType(boolean.class, boolean.class, int.class, MethodHandle.class, Block.class, Block.class));
-            INDETERMINATE = lookup.findStatic(RowType.class, "megamorphicIndeterminateOperator", methodType(boolean.class, List.class, Block.class));
-            CHAIN_INDETERMINATE = lookup.findStatic(RowType.class, "chainIndeterminate", methodType(boolean.class, boolean.class, int.class, MethodHandle.class, Block.class));
-            COMPARISON = lookup.findStatic(RowType.class, "megamorphicComparisonOperator", methodType(long.class, List.class, Block.class, Block.class));
-            CHAIN_COMPARISON = lookup.findStatic(RowType.class, "chainComparison", methodType(long.class, long.class, int.class, MethodHandle.class, Block.class, Block.class));
+            WRITE_FLAT = lookup.findStatic(RowType.class, "megamorphicWriteFlat", methodType(void.class, RowType.class, List.class, SqlRow.class, byte[].class, int.class, byte[].class, int.class));
+            EQUAL = lookup.findStatic(RowType.class, "megamorphicEqualOperator", methodType(Boolean.class, List.class, SqlRow.class, SqlRow.class));
+            CHAIN_EQUAL = lookup.findStatic(RowType.class, "chainEqual", methodType(Boolean.class, Boolean.class, int.class, MethodHandle.class, SqlRow.class, SqlRow.class));
+            HASH_CODE = lookup.findStatic(RowType.class, "megamorphicHashCodeOperator", methodType(long.class, List.class, SqlRow.class));
+            CHAIN_HASH_CODE = lookup.findStatic(RowType.class, "chainHashCode", methodType(long.class, long.class, int.class, MethodHandle.class, SqlRow.class));
+            DISTINCT_FROM = lookup.findStatic(RowType.class, "megamorphicDistinctFromOperator", methodType(boolean.class, List.class, SqlRow.class, SqlRow.class));
+            CHAIN_DISTINCT_FROM_START = lookup.findStatic(RowType.class, "chainDistinctFromStart", methodType(boolean.class, MethodHandle.class, SqlRow.class, SqlRow.class));
+            CHAIN_DISTINCT_FROM = lookup.findStatic(RowType.class, "chainDistinctFrom", methodType(boolean.class, boolean.class, int.class, MethodHandle.class, SqlRow.class, SqlRow.class));
+            INDETERMINATE = lookup.findStatic(RowType.class, "megamorphicIndeterminateOperator", methodType(boolean.class, List.class, SqlRow.class));
+            CHAIN_INDETERMINATE = lookup.findStatic(RowType.class, "chainIndeterminate", methodType(boolean.class, boolean.class, int.class, MethodHandle.class, SqlRow.class));
+            COMPARISON = lookup.findStatic(RowType.class, "megamorphicComparisonOperator", methodType(long.class, List.class, SqlRow.class, SqlRow.class));
+            CHAIN_COMPARISON = lookup.findStatic(RowType.class, "chainComparison", methodType(long.class, long.class, int.class, MethodHandle.class, SqlRow.class, SqlRow.class));
         }
         catch (NoSuchMethodException | IllegalAccessException e) {
             throw new RuntimeException(e);
@@ -127,12 +127,12 @@ public class RowType
 
     private RowType(TypeSignature typeSignature, List<Field> originalFields)
     {
-        super(typeSignature, Block.class);
+        super(typeSignature, SqlRow.class);
 
         this.fields = List.copyOf(originalFields);
         this.fieldTypes = fields.stream()
                 .map(Field::getType)
-                .collect(toUnmodifiableList());
+                .toList();
 
         this.comparable = fields.stream().allMatch(field -> field.getType().isComparable());
         this.orderable = fields.stream().allMatch(field -> field.getType().isOrderable());
@@ -156,7 +156,7 @@ public class RowType
     {
         List<Field> fields = types.stream()
                 .map(type -> new Field(Optional.empty(), type))
-                .collect(toUnmodifiableList());
+                .toList();
 
         return new RowType(makeSignature(fields), fields);
     }
@@ -197,7 +197,7 @@ public class RowType
         List<TypeSignatureParameter> parameters = fields.stream()
                 .map(field -> new NamedTypeSignature(field.getName().map(RowFieldName::new), field.getType().getTypeSignature()))
                 .map(TypeSignatureParameter::namedTypeParameter)
-                .collect(toUnmodifiableList());
+                .toList();
 
         return new TypeSignature(ROW, parameters);
     }
@@ -243,11 +243,12 @@ public class RowType
             return null;
         }
 
-        Block arrayBlock = getObject(block, position);
-        List<Object> values = new ArrayList<>(arrayBlock.getPositionCount());
+        SqlRow sqlRow = getObject(block, position);
+        List<Object> values = new ArrayList<>(sqlRow.getFieldCount());
 
-        for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-            values.add(fields.get(i).getType().getObjectValue(session, arrayBlock, i));
+        int rawIndex = sqlRow.getRawIndex();
+        for (int i = 0; i < sqlRow.getFieldCount(); i++) {
+            values.add(fields.get(i).getType().getObjectValue(session, sqlRow.getRawFieldBlock(i), rawIndex));
         }
 
         return Collections.unmodifiableList(values);
@@ -265,18 +266,19 @@ public class RowType
     }
 
     @Override
-    public Block getObject(Block block, int position)
+    public SqlRow getObject(Block block, int position)
     {
-        return block.getObject(position, Block.class);
+        return block.getObject(position, SqlRow.class);
     }
 
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        Block rowBlock = (Block) value;
+        SqlRow sqlRow = (SqlRow) value;
+        int rawIndex = sqlRow.getRawIndex();
         ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
-            for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-                fields.get(i).getType().appendTo(rowBlock, i, fieldBuilders.get(i));
+            for (int i = 0; i < sqlRow.getFieldCount(); i++) {
+                fields.get(i).getType().appendTo(sqlRow.getRawFieldBlock(i), rawIndex, fieldBuilders.get(i));
             }
         });
     }
@@ -300,13 +302,15 @@ public class RowType
             return 0;
         }
 
-        Block row = getObject(block, position);
+        SqlRow sqlRow = getObject(block, position);
+        int rawIndex = sqlRow.getRawIndex();
 
         int variableSize = 0;
         for (int i = 0; i < fieldTypes.size(); i++) {
             Type fieldType = fieldTypes.get(i);
-            if (!row.isNull(i)) {
-                variableSize += fieldType.getFlatVariableWidthSize(row, i);
+            Block fieldBlock = sqlRow.getRawFieldBlock(i);
+            if (!fieldBlock.isNull(rawIndex)) {
+                variableSize += fieldType.getFlatVariableWidthSize(fieldBlock, rawIndex);
             }
         }
         return variableSize;
@@ -421,7 +425,7 @@ public class RowType
                 new OperatorMethodHandle(WRITE_FLAT_CONVENTION, writeFlat));
     }
 
-    private static Block megamorphicReadFlat(
+    private static SqlRow megamorphicReadFlat(
             RowType rowType,
             List<MethodHandle> fieldReadFlatMethods,
             byte[] fixedSizeSlice,
@@ -474,25 +478,27 @@ public class RowType
     private static void megamorphicWriteFlat(
             RowType rowType,
             List<MethodHandle> fieldWriteFlatMethods,
-            Block row,
+            SqlRow row,
             byte[] fixedSizeSlice,
             int fixedSizeOffset,
             byte[] variableSizeSlice,
             int variableSizeOffset)
             throws Throwable
     {
+        int rawIndex = row.getRawIndex();
         List<Type> fieldTypes = rowType.getTypeParameters();
         for (int fieldIndex = 0; fieldIndex < fieldTypes.size(); fieldIndex++) {
             Type fieldType = fieldTypes.get(fieldIndex);
-            if (row.isNull(fieldIndex)) {
+            Block fieldBlock = row.getRawFieldBlock(fieldIndex);
+            if (fieldBlock.isNull(rawIndex)) {
                 fixedSizeSlice[fixedSizeOffset] = 1;
             }
             else {
                 int fieldVariableLength = 0;
                 if (fieldType.isFlatVariableWidth()) {
-                    fieldVariableLength = fieldType.getFlatVariableWidthSize(row, fieldIndex);
+                    fieldVariableLength = fieldType.getFlatVariableWidthSize(fieldBlock, rawIndex);
                 }
-                fieldWriteFlatMethods.get(fieldIndex).invokeExact(row, fieldIndex, fixedSizeSlice, fixedSizeOffset + 1, variableSizeSlice, variableSizeOffset);
+                fieldWriteFlatMethods.get(fieldIndex).invokeExact((Block) fieldBlock, rawIndex, fixedSizeSlice, fixedSizeOffset + 1, variableSizeSlice, variableSizeOffset);
                 variableSizeOffset += fieldVariableLength;
             }
             fixedSizeOffset += 1 + fieldType.getFlatFixedSize();
@@ -508,17 +514,19 @@ public class RowType
 
         // for large rows, use a generic loop with a megamorphic call site
         if (fields.size() > MEGAMORPHIC_FIELD_COUNT) {
-            List<MethodHandle> equalOperators = fields.stream()
-                    .map(field -> typeOperators.getEqualOperator(field.getType(), simpleConvention(NULLABLE_RETURN, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL)))
-                    .collect(toUnmodifiableList());
+            List<MethodHandle> equalOperators = new ArrayList<>();
+            for (Field field : fields) {
+                MethodHandle equalOperator = typeOperators.getEqualOperator(field.getType(), simpleConvention(NULLABLE_RETURN, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
+                equalOperators.add(equalOperator);
+            }
             return singletonList(new OperatorMethodHandle(EQUAL_CONVENTION, EQUAL.bindTo(equalOperators)));
         }
 
-        // (Block, Block):Boolean
-        MethodHandle equal = dropArguments(constant(Boolean.class, TRUE), 0, Block.class, Block.class);
+        // (SqlRow, SqlRow):Boolean
+        MethodHandle equal = dropArguments(constant(Boolean.class, TRUE), 0, SqlRow.class, SqlRow.class);
         for (int fieldId = 0; fieldId < fields.size(); fieldId++) {
             Field field = fields.get(fieldId);
-            // (Block, Block, int, MethodHandle, Block, Block):Boolean
+            // (SqlRow, SqlRow, int, MethodHandle, SqlRow, SqlRow):Boolean
             equal = collectArguments(
                     CHAIN_EQUAL,
                     0,
@@ -527,26 +535,30 @@ public class RowType
             // field equal
             MethodHandle fieldEqualOperator = typeOperators.getEqualOperator(field.getType(), simpleConvention(NULLABLE_RETURN, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
 
-            // (Block, Block, Block, Block):Boolean
+            // (SqlRow, SqlRow, SqlRow, SqlRow):Boolean
             equal = insertArguments(equal, 2, fieldId, fieldEqualOperator);
 
-            // (Block, Block):Boolean
-            equal = permuteArguments(equal, methodType(Boolean.class, Block.class, Block.class), 0, 1, 0, 1);
+            // (SqlRow, SqlRow):Boolean
+            equal = permuteArguments(equal, methodType(Boolean.class, SqlRow.class, SqlRow.class), 0, 1, 0, 1);
         }
         return singletonList(new OperatorMethodHandle(EQUAL_CONVENTION, equal));
     }
 
-    private static Boolean megamorphicEqualOperator(List<MethodHandle> equalOperators, Block leftRow, Block rightRow)
+    private static Boolean megamorphicEqualOperator(List<MethodHandle> equalOperators, SqlRow leftRow, SqlRow rightRow)
             throws Throwable
     {
+        int leftRawIndex = leftRow.getRawIndex();
+        int rightRawIndex = rightRow.getRawIndex();
         boolean unknown = false;
         for (int fieldIndex = 0; fieldIndex < equalOperators.size(); fieldIndex++) {
-            if (leftRow.isNull(fieldIndex) || rightRow.isNull(fieldIndex)) {
+            Block leftFieldBlock = leftRow.getRawFieldBlock(fieldIndex);
+            Block rightFieldBlock = rightRow.getRawFieldBlock(fieldIndex);
+            if (leftFieldBlock.isNull(leftRawIndex) || rightFieldBlock.isNull(rightRawIndex)) {
                 unknown = true;
                 continue;
             }
             MethodHandle equalOperator = equalOperators.get(fieldIndex);
-            Boolean result = (Boolean) equalOperator.invokeExact(leftRow, fieldIndex, rightRow, fieldIndex);
+            Boolean result = (Boolean) equalOperator.invokeExact(leftFieldBlock, leftRawIndex, rightFieldBlock, rightRawIndex);
             if (result == null) {
                 unknown = true;
             }
@@ -561,20 +573,25 @@ public class RowType
         return true;
     }
 
-    private static Boolean chainEqual(Boolean previousFieldsEqual, int currentFieldIndex, MethodHandle currentFieldEqual, Block rightRow, Block leftRow)
+    private static Boolean chainEqual(Boolean previousFieldsEqual, int currentFieldIndex, MethodHandle currentFieldEqual, SqlRow leftRow, SqlRow rightRow)
             throws Throwable
     {
         if (previousFieldsEqual == FALSE) {
             return FALSE;
         }
 
-        if (leftRow.isNull(currentFieldIndex) || rightRow.isNull(currentFieldIndex)) {
+        int leftRawIndex = leftRow.getRawIndex();
+        int rightRawIndex = rightRow.getRawIndex();
+        Block leftFieldBlock = leftRow.getRawFieldBlock(currentFieldIndex);
+        Block rightFieldBlock = rightRow.getRawFieldBlock(currentFieldIndex);
+
+        if (leftFieldBlock.isNull(leftRawIndex) || rightFieldBlock.isNull(rightRawIndex)) {
             return null;
         }
 
-        Boolean result = (Boolean) currentFieldEqual.invokeExact(rightRow, currentFieldIndex, leftRow, currentFieldIndex);
+        Boolean result = (Boolean) currentFieldEqual.invokeExact(leftFieldBlock, leftRawIndex, rightFieldBlock, rightRawIndex);
         if (result == TRUE) {
-            // this field is equal, so result is either true or unknown depending on the previous fields
+            // this field is equal, so the result is either true or unknown depending on the previous fields
             return previousFieldsEqual;
         }
         // this field is either not equal or unknown, which is the result
@@ -602,15 +619,15 @@ public class RowType
         if (fields.size() > MEGAMORPHIC_FIELD_COUNT) {
             List<MethodHandle> hashCodeOperators = fields.stream()
                     .map(field -> getHashOperator.apply(field.getType()))
-                    .collect(toUnmodifiableList());
+                    .toList();
             return singletonList(new OperatorMethodHandle(HASH_CODE_CONVENTION, HASH_CODE.bindTo(hashCodeOperators)));
         }
 
-        // (Block):long
-        MethodHandle hashCode = dropArguments(constant(long.class, 1), 0, Block.class);
+        // (SqlRow):long
+        MethodHandle hashCode = dropArguments(constant(long.class, 1), 0, SqlRow.class);
         for (int fieldId = 0; fieldId < fields.size(); fieldId++) {
             Field field = fields.get(fieldId);
-            // (Block, int, MethodHandle, Block):long
+            // (SqlRow, int, MethodHandle, SqlRow):long
             hashCode = collectArguments(
                     CHAIN_HASH_CODE,
                     0,
@@ -619,36 +636,42 @@ public class RowType
             // field hash code
             MethodHandle fieldHashCodeOperator = getHashOperator.apply(field.getType());
 
-            // (Block, Block):long
+            // (SqlRow, SqlRow):long
             hashCode = insertArguments(hashCode, 1, fieldId, fieldHashCodeOperator);
 
-            // (Block):long
-            hashCode = permuteArguments(hashCode, methodType(long.class, Block.class), 0, 0);
+            // (SqlRow):long
+            hashCode = permuteArguments(hashCode, methodType(long.class, SqlRow.class), 0, 0);
         }
         return singletonList(new OperatorMethodHandle(HASH_CODE_CONVENTION, hashCode));
     }
 
-    private static long megamorphicHashCodeOperator(List<MethodHandle> hashCodeOperators, Block rowBlock)
+    private static long megamorphicHashCodeOperator(List<MethodHandle> hashCodeOperators, SqlRow row)
             throws Throwable
     {
+        int rawIndex = row.getRawIndex();
+
         long result = 1;
         for (int fieldIndex = 0; fieldIndex < hashCodeOperators.size(); fieldIndex++) {
+            Block fieldBlock = row.getRawFieldBlock(fieldIndex);
             long fieldHashCode = NULL_HASH_CODE;
-            if (!rowBlock.isNull(fieldIndex)) {
+            if (!fieldBlock.isNull(rawIndex)) {
                 MethodHandle hashCodeOperator = hashCodeOperators.get(fieldIndex);
-                fieldHashCode = (long) hashCodeOperator.invokeExact(rowBlock, fieldIndex);
+                fieldHashCode = (long) hashCodeOperator.invokeExact(fieldBlock, rawIndex);
             }
             result = 31 * result + fieldHashCode;
         }
         return result;
     }
 
-    private static long chainHashCode(long previousFieldHashCode, int currentFieldIndex, MethodHandle currentFieldHashCodeOperator, Block row)
+    private static long chainHashCode(long previousFieldHashCode, int currentFieldIndex, MethodHandle currentFieldHashCodeOperator, SqlRow row)
             throws Throwable
     {
+        Block fieldBlock = row.getRawFieldBlock(currentFieldIndex);
+        int rawIndex = row.getRawIndex();
+
         long fieldHashCode = NULL_HASH_CODE;
-        if (!row.isNull(currentFieldIndex)) {
-            fieldHashCode = (long) currentFieldHashCodeOperator.invokeExact(row, currentFieldIndex);
+        if (!fieldBlock.isNull(rawIndex)) {
+            fieldHashCode = (long) currentFieldHashCodeOperator.invokeExact(fieldBlock, rawIndex);
         }
         return 31 * previousFieldHashCode + fieldHashCode;
     }
@@ -664,15 +687,15 @@ public class RowType
         if (fields.size() > MEGAMORPHIC_FIELD_COUNT) {
             List<MethodHandle> distinctFromOperators = fields.stream()
                     .map(field -> typeOperators.getDistinctFromOperator(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION)))
-                    .collect(toUnmodifiableList());
+                    .toList();
             return singletonList(new OperatorMethodHandle(DISTINCT_FROM_CONVENTION, DISTINCT_FROM.bindTo(distinctFromOperators)));
         }
 
-        // (Block, Block):boolean
-        MethodHandle distinctFrom = dropArguments(constant(boolean.class, false), 0, Block.class, Block.class);
+        // (SqlRow, SqlRow):boolean
+        MethodHandle distinctFrom = dropArguments(constant(boolean.class, false), 0, SqlRow.class, SqlRow.class);
         for (int fieldId = 0; fieldId < fields.size(); fieldId++) {
             Field field = fields.get(fieldId);
-            // (Block, Block, int, MethodHandle, Block, Block):boolean
+            // (SqlRow, SqlRow, int, MethodHandle, SqlRow, SqlRow):boolean
             distinctFrom = collectArguments(
                     CHAIN_DISTINCT_FROM,
                     0,
@@ -681,18 +704,18 @@ public class RowType
             // field distinctFrom
             MethodHandle fieldDistinctFromOperator = typeOperators.getDistinctFromOperator(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
 
-            // (Block, Block, Block, Block):boolean
+            // (SqlRow, SqlRow, SqlRow, SqlRow):boolean
             distinctFrom = insertArguments(distinctFrom, 2, fieldId, fieldDistinctFromOperator);
 
-            // (Block, Block):boolean
-            distinctFrom = permuteArguments(distinctFrom, methodType(boolean.class, Block.class, Block.class), 0, 1, 0, 1);
+            // (SqlRow, SqlRow):boolean
+            distinctFrom = permuteArguments(distinctFrom, methodType(boolean.class, SqlRow.class, SqlRow.class), 0, 1, 0, 1);
         }
         distinctFrom = CHAIN_DISTINCT_FROM_START.bindTo(distinctFrom);
 
         return singletonList(new OperatorMethodHandle(DISTINCT_FROM_CONVENTION, distinctFrom));
     }
 
-    private static boolean megamorphicDistinctFromOperator(List<MethodHandle> distinctFromOperators, Block leftRow, Block rightRow)
+    private static boolean megamorphicDistinctFromOperator(List<MethodHandle> distinctFromOperators, SqlRow leftRow, SqlRow rightRow)
             throws Throwable
     {
         boolean leftIsNull = leftRow == null;
@@ -701,9 +724,15 @@ public class RowType
             return leftIsNull != rightIsNull;
         }
 
+        int leftRawIndex = leftRow.getRawIndex();
+        int rightRawIndex = rightRow.getRawIndex();
+
         for (int fieldIndex = 0; fieldIndex < distinctFromOperators.size(); fieldIndex++) {
+            Block leftFieldBlock = leftRow.getRawFieldBlock(fieldIndex);
+            Block rightFieldBlock = rightRow.getRawFieldBlock(fieldIndex);
+
             MethodHandle equalOperator = distinctFromOperators.get(fieldIndex);
-            boolean result = (boolean) equalOperator.invoke(leftRow, fieldIndex, rightRow, fieldIndex);
+            boolean result = (boolean) equalOperator.invoke(leftFieldBlock, leftRawIndex, rightFieldBlock, rightRawIndex);
             if (result) {
                 return true;
             }
@@ -712,7 +741,7 @@ public class RowType
         return false;
     }
 
-    private static boolean chainDistinctFromStart(MethodHandle chain, Block rightRow, Block leftRow)
+    private static boolean chainDistinctFromStart(MethodHandle chain, SqlRow leftRow, SqlRow rightRow)
             throws Throwable
     {
         boolean leftIsNull = leftRow == null;
@@ -720,16 +749,18 @@ public class RowType
         if (leftIsNull || rightIsNull) {
             return leftIsNull != rightIsNull;
         }
-        return (boolean) chain.invokeExact(rightRow, leftRow);
+        return (boolean) chain.invokeExact(leftRow, rightRow);
     }
 
-    private static boolean chainDistinctFrom(boolean previousFieldsDistinctFrom, int currentFieldIndex, MethodHandle currentFieldDistinctFrom, Block rightRow, Block leftRow)
+    private static boolean chainDistinctFrom(boolean previousFieldsDistinctFrom, int currentFieldIndex, MethodHandle currentFieldDistinctFrom, SqlRow leftRow, SqlRow rightRow)
             throws Throwable
     {
         if (previousFieldsDistinctFrom) {
             return true;
         }
-        return (boolean) currentFieldDistinctFrom.invokeExact(rightRow, currentFieldIndex, leftRow, currentFieldIndex);
+        return (boolean) currentFieldDistinctFrom.invokeExact(
+                leftRow.getRawFieldBlock(currentFieldIndex), leftRow.getRawIndex(),
+                rightRow.getRawFieldBlock(currentFieldIndex), rightRow.getRawIndex());
     }
 
     private static List<OperatorMethodHandle> getIndeterminateOperatorInvokers(TypeOperators typeOperators, List<Field> fields)
@@ -743,15 +774,15 @@ public class RowType
         if (fields.size() > MEGAMORPHIC_FIELD_COUNT) {
             List<MethodHandle> indeterminateOperators = fields.stream()
                     .map(field -> typeOperators.getIndeterminateOperator(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL)))
-                    .collect(toUnmodifiableList());
+                    .toList();
             return singletonList(new OperatorMethodHandle(INDETERMINATE_CONVENTION, INDETERMINATE.bindTo(indeterminateOperators)));
         }
 
-        // (Block):long
-        MethodHandle indeterminate = dropArguments(constant(boolean.class, false), 0, Block.class);
+        // (SqlRow):long
+        MethodHandle indeterminate = dropArguments(constant(boolean.class, false), 0, SqlRow.class);
         for (int fieldId = 0; fieldId < fields.size(); fieldId++) {
             Field field = fields.get(fieldId);
-            // (Block, int, MethodHandle, Block):boolean
+            // (SqlRow, int, MethodHandle, SqlRow):boolean
             indeterminate = collectArguments(
                     CHAIN_INDETERMINATE,
                     0,
@@ -760,25 +791,27 @@ public class RowType
             // field indeterminate
             MethodHandle fieldIndeterminateOperator = typeOperators.getIndeterminateOperator(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
 
-            // (Block, Block):boolean
+            // (SqlRow, SqlRow):boolean
             indeterminate = insertArguments(indeterminate, 1, fieldId, fieldIndeterminateOperator);
 
-            // (Block):boolean
-            indeterminate = permuteArguments(indeterminate, methodType(boolean.class, Block.class), 0, 0);
+            // (SqlRow):boolean
+            indeterminate = permuteArguments(indeterminate, methodType(boolean.class, SqlRow.class), 0, 0);
         }
         return singletonList(new OperatorMethodHandle(INDETERMINATE_CONVENTION, indeterminate));
     }
 
-    private static boolean megamorphicIndeterminateOperator(List<MethodHandle> indeterminateOperators, Block rowBlock)
+    private static boolean megamorphicIndeterminateOperator(List<MethodHandle> indeterminateOperators, SqlRow row)
             throws Throwable
     {
-        if (rowBlock == null) {
+        if (row == null) {
             return true;
         }
+        int rawIndex = row.getRawIndex();
         for (int fieldIndex = 0; fieldIndex < indeterminateOperators.size(); fieldIndex++) {
-            if (!rowBlock.isNull(fieldIndex)) {
+            Block fieldBlock = row.getRawFieldBlock(fieldIndex);
+            if (!fieldBlock.isNull(rawIndex)) {
                 MethodHandle indeterminateOperator = indeterminateOperators.get(fieldIndex);
-                if ((boolean) indeterminateOperator.invokeExact(rowBlock, fieldIndex)) {
+                if ((boolean) indeterminateOperator.invokeExact(fieldBlock, rawIndex)) {
                     return true;
                 }
             }
@@ -786,13 +819,18 @@ public class RowType
         return false;
     }
 
-    private static boolean chainIndeterminate(boolean previousFieldIndeterminate, int currentFieldIndex, MethodHandle currentFieldIndeterminateOperator, Block row)
+    private static boolean chainIndeterminate(boolean previousFieldIndeterminate, int currentFieldIndex, MethodHandle currentFieldIndeterminateOperator, SqlRow row)
             throws Throwable
     {
-        if (row == null || previousFieldIndeterminate || row.isNull(currentFieldIndex)) {
+        if (row == null || previousFieldIndeterminate) {
             return true;
         }
-        return (boolean) currentFieldIndeterminateOperator.invokeExact(row, currentFieldIndex);
+        int rawIndex = row.getRawIndex();
+        Block fieldBlock = row.getRawFieldBlock(currentFieldIndex);
+        if (fieldBlock.isNull(rawIndex)) {
+            return true;
+        }
+        return (boolean) currentFieldIndeterminateOperator.invokeExact(fieldBlock, rawIndex);
     }
 
     private static List<OperatorMethodHandle> getComparisonOperatorInvokers(BiFunction<Type, InvocationConvention, MethodHandle> comparisonOperatorFactory, List<Field> fields)
@@ -806,15 +844,15 @@ public class RowType
         if (fields.size() > MEGAMORPHIC_FIELD_COUNT) {
             List<MethodHandle> comparisonOperators = fields.stream()
                     .map(field -> comparisonOperatorFactory.apply(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL)))
-                    .collect(toUnmodifiableList());
+                    .toList();
             return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, COMPARISON.bindTo(comparisonOperators)));
         }
 
-        // (Block, Block):Boolean
-        MethodHandle comparison = dropArguments(constant(long.class, 0), 0, Block.class, Block.class);
+        // (SqlRow, SqlRow):Boolean
+        MethodHandle comparison = dropArguments(constant(long.class, 0), 0, SqlRow.class, SqlRow.class);
         for (int fieldId = 0; fieldId < fields.size(); fieldId++) {
             Field field = fields.get(fieldId);
-            // (Block, Block, int, MethodHandle, Block, Block):Boolean
+            // (SqlRow, SqlRow, int, MethodHandle, SqlRow, SqlRow):Boolean
             comparison = collectArguments(
                     CHAIN_COMPARISON,
                     0,
@@ -823,24 +861,30 @@ public class RowType
             // field comparison
             MethodHandle fieldComparisonOperator = comparisonOperatorFactory.apply(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
 
-            // (Block, Block, Block, Block):Boolean
+            // (SqlRow, SqlRow, SqlRow, SqlRow):Boolean
             comparison = insertArguments(comparison, 2, fieldId, fieldComparisonOperator);
 
-            // (Block, Block):Boolean
-            comparison = permuteArguments(comparison, methodType(long.class, Block.class, Block.class), 0, 1, 0, 1);
+            // (SqlRow, SqlRow):Boolean
+            comparison = permuteArguments(comparison, methodType(long.class, SqlRow.class, SqlRow.class), 0, 1, 0, 1);
         }
         return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, comparison));
     }
 
-    private static long megamorphicComparisonOperator(List<MethodHandle> comparisonOperators, Block leftRow, Block rightRow)
+    private static long megamorphicComparisonOperator(List<MethodHandle> comparisonOperators, SqlRow leftRow, SqlRow rightRow)
             throws Throwable
     {
+        int leftRawIndex = leftRow.getRawIndex();
+        int rightRawIndex = rightRow.getRawIndex();
+
         for (int fieldIndex = 0; fieldIndex < comparisonOperators.size(); fieldIndex++) {
-            checkElementNotNull(leftRow.isNull(fieldIndex));
-            checkElementNotNull(rightRow.isNull(fieldIndex));
+            Block leftFieldBlock = leftRow.getRawFieldBlock(fieldIndex);
+            Block rightFieldBlock = rightRow.getRawFieldBlock(fieldIndex);
+
+            checkElementNotNull(leftFieldBlock.isNull(leftRawIndex));
+            checkElementNotNull(rightFieldBlock.isNull(rightRawIndex));
 
             MethodHandle comparisonOperator = comparisonOperators.get(fieldIndex);
-            long result = (long) comparisonOperator.invoke(leftRow, fieldIndex, rightRow, fieldIndex);
+            long result = (long) comparisonOperator.invoke(leftFieldBlock, leftRawIndex, rightFieldBlock, rightRawIndex);
             if (result == 0) {
                 return result;
             }
@@ -848,17 +892,22 @@ public class RowType
         return 0;
     }
 
-    private static long chainComparison(long previousFieldsResult, int fieldIndex, MethodHandle nextFieldComparison, Block rightRow, Block leftRow)
+    private static long chainComparison(long previousFieldsResult, int fieldIndex, MethodHandle nextFieldComparison, SqlRow leftRow, SqlRow rightRow)
             throws Throwable
     {
         if (previousFieldsResult != 0) {
             return previousFieldsResult;
         }
 
-        checkElementNotNull(leftRow.isNull(fieldIndex));
-        checkElementNotNull(rightRow.isNull(fieldIndex));
+        int leftRawIndex = leftRow.getRawIndex();
+        int rightRawIndex = rightRow.getRawIndex();
+        Block leftFieldBlock = leftRow.getRawFieldBlock(fieldIndex);
+        Block rightFieldBlock = rightRow.getRawFieldBlock(fieldIndex);
 
-        return (long) nextFieldComparison.invokeExact(rightRow, fieldIndex, leftRow, fieldIndex);
+        checkElementNotNull(leftFieldBlock.isNull(leftRawIndex));
+        checkElementNotNull(rightFieldBlock.isNull(rightRawIndex));
+
+        return (long) nextFieldComparison.invokeExact(leftFieldBlock, leftRawIndex, rightFieldBlock, rightRawIndex);
     }
 
     private static void checkElementNotNull(boolean isNull)

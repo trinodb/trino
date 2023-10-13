@@ -16,6 +16,7 @@ package io.trino.plugin.base.security;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.base.security.FunctionAccessControlRule.FunctionPrivilege;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.function.FunctionKind;
@@ -24,15 +25,21 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.Preconditions.checkState;
-import static io.trino.spi.function.FunctionKind.TABLE;
+import static io.trino.plugin.base.security.FunctionAccessControlRule.FunctionPrivilege.EXECUTE;
+import static io.trino.plugin.base.security.FunctionAccessControlRule.FunctionPrivilege.GRANT_EXECUTE;
 import static java.util.Objects.requireNonNull;
 
 public class CatalogFunctionAccessControlRule
 {
-    public static final CatalogFunctionAccessControlRule ALLOW_ALL = new CatalogFunctionAccessControlRule(
+    public static final CatalogFunctionAccessControlRule ALLOW_BUILTIN = new CatalogFunctionAccessControlRule(
+            ImmutableSet.of(EXECUTE, GRANT_EXECUTE),
             Optional.empty(),
-            FunctionAccessControlRule.ALLOW_ALL);
+            Optional.empty(),
+            Optional.empty(),
+            Optional.of(Pattern.compile("system")),
+            Optional.of(Pattern.compile("builtin")),
+            Optional.empty(),
+            ImmutableSet.of());
 
     private final Optional<Pattern> catalogRegex;
     private final FunctionAccessControlRule functionAccessControlRule;
@@ -55,28 +62,19 @@ public class CatalogFunctionAccessControlRule
     {
         this.catalogRegex = requireNonNull(catalogRegex, "catalogRegex is null");
         this.functionAccessControlRule = requireNonNull(functionAccessControlRule, "functionAccessControlRule is null");
-        // TODO when every function is tied to connectors then remove this check
-        checkState(functionAccessControlRule.getFunctionKinds().equals(Set.of(TABLE)) || catalogRegex.isEmpty(), "Cannot define catalog for others function kinds than TABLE");
     }
 
-    public boolean matches(String user, Set<String> roles, Set<String> groups, String functionName)
-    {
-        return functionAccessControlRule.matches(user, roles, groups, functionName);
-    }
-
-    public boolean matches(String user, Set<String> roles, Set<String> groups, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
+    public boolean matches(String user, Set<String> roles, Set<String> groups, CatalogSchemaRoutineName functionName)
     {
         if (!catalogRegex.map(regex -> regex.matcher(functionName.getCatalogName()).matches()).orElse(true)) {
             return false;
         }
-        return functionAccessControlRule.matches(user, roles, groups, functionKind, functionName.getSchemaRoutineName());
+        return functionAccessControlRule.matches(user, roles, groups, functionName.getSchemaRoutineName());
     }
 
     Optional<AnyCatalogPermissionsRule> toAnyCatalogPermissionsRule()
     {
-        if (functionAccessControlRule.getPrivileges().isEmpty() ||
-                // TODO when every function is tied to connectors then remove this check
-                !functionAccessControlRule.getFunctionKinds().contains(TABLE)) {
+        if (functionAccessControlRule.getPrivileges().isEmpty()) {
             return Optional.empty();
         }
         return Optional.of(new AnyCatalogPermissionsRule(
@@ -88,9 +86,7 @@ public class CatalogFunctionAccessControlRule
 
     Optional<AnyCatalogSchemaPermissionsRule> toAnyCatalogSchemaPermissionsRule()
     {
-        if (functionAccessControlRule.getPrivileges().isEmpty() ||
-                // TODO when every function is tied to connectors then remove this check
-                !functionAccessControlRule.getFunctionKinds().contains(TABLE)) {
+        if (functionAccessControlRule.getPrivileges().isEmpty()) {
             return Optional.empty();
         }
         return Optional.of(new AnyCatalogSchemaPermissionsRule(

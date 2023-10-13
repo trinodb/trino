@@ -87,7 +87,8 @@ public class TestRemoveEmptyUnionBranches
                                     .collect(toImmutableList()),
                             Optional.empty(),
                             Optional.empty(),
-                            true));
+                            true,
+                            ImmutableList.of()));
 
     @Override
     protected LocalQueryRunner createLocalQueryRunner()

@@ -57,7 +57,7 @@ jobs:
       matrix:
         java-version:
           - 17
-          - 20
+          - 21
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -96,6 +96,8 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
+        with:
+          cleanup-node: true
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -436,6 +438,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           cache: restore
+          cleanup-node: true
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -457,6 +460,7 @@ jobs:
             !:trino-filesystem-azure,
             !:trino-filesystem-manager,
             !:trino-filesystem-s3,
+            !:trino-google-sheets,
             !:trino-hdfs,
             !:trino-hive,
             !:trino-hudi,
@@ -479,6 +483,7 @@ jobs:
             !:trino-raptor-legacy,
             !:trino-redis,
             !:trino-redshift,
+            !:trino-resource-group-managers,
             !:trino-server,
             !:trino-server-rpm,
             !:trino-singlestore,
@@ -579,6 +584,7 @@ jobs:
             - { modules: plugin/trino-delta-lake, profile: fte-tests }
             - { modules: plugin/trino-druid }
             - { modules: plugin/trino-elasticsearch }
+            - { modules: plugin/trino-google-sheets }
             - { modules: plugin/trino-hive }
             - { modules: plugin/trino-hive, profile: fte-tests }
             - { modules: plugin/trino-hive, profile: test-parquet }
@@ -602,6 +608,7 @@ jobs:
             - { modules: plugin/trino-redshift }
             - { modules: plugin/trino-redshift, profile: cloud-tests }
             - { modules: plugin/trino-redshift, profile: fte-tests }
+            - { modules: plugin/trino-resource-group-managers }
             - { modules: plugin/trino-singlestore }
             - { modules: plugin/trino-sqlserver }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
@@ -636,10 +643,7 @@ jobs:
         with:
           cache: restore
           java-version: ${{ matrix.jdk != '' && matrix.jdk || '17' }}
-      - name: Cleanup node
-        # This is required as a virtual environment update 20210219.1 left too little space for MemSQL to work
-        if: matrix.modules == 'plugin/trino-singlestore'
-        run: .github/bin/cleanup-node.sh
+          cleanup-node: ${{ format('{0}', matrix.modules == 'plugin/trino-singlestore') }}
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -871,6 +875,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           cache: restore
+          cleanup-node: true
       - uses: dorny/paths-filter@v2
         id: filter
         with:

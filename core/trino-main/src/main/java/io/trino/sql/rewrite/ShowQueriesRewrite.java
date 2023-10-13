@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 import com.google.common.primitives.Primitives;
 import com.google.inject.Inject;
 import io.trino.Session;
@@ -47,6 +49,8 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.SchemaFunctionName;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
@@ -124,6 +128,7 @@ import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.QueryUtil.aliased;
 import static io.trino.sql.QueryUtil.aliasedName;
@@ -441,7 +446,7 @@ public final class ShowQueriesRewrite
         @Override
         protected Node visitShowCatalogs(ShowCatalogs node, Void context)
         {
-            List<Expression> rows = listCatalogNames(session, metadata, accessControl).stream()
+            List<Expression> rows = listCatalogNames(session, metadata, accessControl, Domain.all(VARCHAR)).stream()
                     .map(name -> row(new StringLiteral(name)))
                     .collect(toImmutableList());
 
@@ -773,7 +778,17 @@ public final class ShowQueriesRewrite
         @Override
         protected Node visitShowFunctions(ShowFunctions node, Void context)
         {
-            List<Expression> rows = metadata.listFunctions(session).stream()
+            Collection<FunctionMetadata> functions;
+            if (node.getSchema().isPresent()) {
+                CatalogSchemaName schema = createCatalogSchemaName(session, node, node.getSchema());
+                accessControl.checkCanShowFunctions(session.toSecurityContext(), schema);
+                functions = listFunctions(schema);
+            }
+            else {
+                functions = listFunctions();
+            }
+
+            List<Expression> rows = functions.stream()
                     .filter(function -> !function.isHidden())
                     .flatMap(metadata -> metadata.getNames().stream().map(alias -> toRow(alias, metadata)))
                     .collect(toImmutableList());
@@ -786,6 +801,10 @@ public final class ShowQueriesRewrite
                     .put("deterministic", "Deterministic")
                     .put("description", "Description")
                     .buildOrThrow();
+
+            if (rows.isEmpty()) {
+                return emptyQuery(ImmutableList.copyOf(columns.values()));
+            }
 
             return simpleQuery(
                     selectAll(columns.entrySet().stream()
@@ -818,6 +837,31 @@ public final class ShowQueriesRewrite
                     new StringLiteral(getFunctionType(function)),
                     function.isDeterministic() ? TRUE_LITERAL : FALSE_LITERAL,
                     new StringLiteral(nullToEmpty(function.getDescription())));
+        }
+
+        private Collection<FunctionMetadata> listFunctions()
+        {
+            ImmutableList.Builder<FunctionMetadata> functions = ImmutableList.builder();
+            functions.addAll(metadata.listGlobalFunctions(session));
+            for (CatalogSchemaName name : session.getPath().getPath()) {
+                functions.addAll(metadata.listFunctions(session, name));
+            }
+            return functions.build();
+        }
+
+        private Collection<FunctionMetadata> listFunctions(CatalogSchemaName schema)
+        {
+            return filterFunctions(schema, metadata.listFunctions(session, schema));
+        }
+
+        private Collection<FunctionMetadata> filterFunctions(CatalogSchemaName schema, Iterable<FunctionMetadata> functions)
+        {
+            Multimap<SchemaFunctionName, FunctionMetadata> functionsByName = Multimaps.index(functions, function ->
+                    new SchemaFunctionName(schema.getSchemaName(), function.getCanonicalName()));
+
+            Set<SchemaFunctionName> filtered = accessControl.filterFunctions(session.toSecurityContext(), schema.getCatalogName(), functionsByName.keySet());
+
+            return Multimaps.filterKeys(functionsByName, filtered::contains).values();
         }
 
         private static String getFunctionType(FunctionMetadata function)

@@ -16,7 +16,6 @@ package io.trino.plugin.jdbc;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.SortOrder;
@@ -37,6 +36,7 @@ import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
@@ -61,7 +61,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
-import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC_FILTERING_ENABLED;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC_FILTERING_WAIT_TIMEOUT;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTION_THRESHOLD;
@@ -1857,20 +1856,21 @@ public abstract class BaseJdbcConnectorTest
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "write_parallelism", String.valueOf(parallelism))
                 .build();
 
+        QueryRunner queryRunner = getQueryRunner();
         try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+                queryRunner::execute,
                 "write_parallelism",
                 "(a varchar(128), b bigint)")) {
-            Plan plan = getQueryRunner().createPlan(
-                    session,
-                    "INSERT INTO " + table.getName() + " (a, b) SELECT clerk, orderkey FROM tpch.sf100.orders LIMIT " + numberOfRows,
-                    WarningCollector.NOOP,
-                    createPlanOptimizersStatsCollector());
+            Plan plan = newTransaction()
+                    .singleStatement()
+                    .execute(session, (Session transactionSession) -> queryRunner.createPlan(
+                            transactionSession,
+                            "INSERT INTO " + table.getName() + " (a, b) SELECT clerk, orderkey FROM tpch.sf100.orders LIMIT " + numberOfRows));
             TableWriterNode.WriterTarget target = ((TableWriterNode) searchFrom(plan.getRoot())
                     .where(node -> node instanceof TableWriterNode)
                     .findOnlyElement()).getTarget();
 
-            assertThat(target.getMaxWriterTasks(getQueryRunner().getMetadata(), getSession()))
+            assertThat(target.getMaxWriterTasks(queryRunner.getMetadata(), getSession()))
                     .hasValue(parallelism);
         }
     }
@@ -1916,7 +1916,7 @@ public abstract class BaseJdbcConnectorTest
         }
         assertQueryFails(
                 format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
-                "line 1:21: Table function system.query not registered");
+                "line 1:21: Table function 'system.query' not registered");
     }
 
     @Test

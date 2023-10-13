@@ -29,6 +29,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.hive.HiveType.HIVE_BYTE;
+import static io.trino.plugin.hive.HiveType.HIVE_DATE;
 import static io.trino.plugin.hive.HiveType.HIVE_DOUBLE;
 import static io.trino.plugin.hive.HiveType.HIVE_FLOAT;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
@@ -64,6 +65,7 @@ public final class HiveCoercionPolicy
                     toHiveType.equals(HIVE_SHORT) ||
                     toHiveType.equals(HIVE_INT) ||
                     toHiveType.equals(HIVE_LONG) ||
+                    toHiveType.equals(HIVE_DATE) ||
                     toHiveType.equals(HIVE_TIMESTAMP);
         }
         if (fromType instanceof CharType) {
@@ -94,7 +96,13 @@ public final class HiveCoercionPolicy
             return toHiveType.equals(HIVE_FLOAT) || toType instanceof DecimalType;
         }
         if (fromType instanceof DecimalType) {
-            return toType instanceof DecimalType || toHiveType.equals(HIVE_FLOAT) || toHiveType.equals(HIVE_DOUBLE);
+            return toType instanceof DecimalType ||
+                    toHiveType.equals(HIVE_FLOAT) ||
+                    toHiveType.equals(HIVE_DOUBLE) ||
+                    toHiveType.equals(HIVE_BYTE) ||
+                    toHiveType.equals(HIVE_SHORT) ||
+                    toHiveType.equals(HIVE_INT) ||
+                    toHiveType.equals(HIVE_LONG);
         }
 
         return canCoerceForList(fromHiveType, toHiveType, hiveTimestampPrecision)

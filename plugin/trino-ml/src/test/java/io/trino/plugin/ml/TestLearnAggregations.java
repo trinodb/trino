@@ -28,7 +28,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.transaction.TransactionManager;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.OptionalInt;
 import java.util.Random;
@@ -42,11 +42,10 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static io.trino.testing.StructuralTestUtil.mapBlockOf;
+import static io.trino.testing.StructuralTestUtil.sqlMapOf;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLearnAggregations
 {
@@ -90,8 +89,11 @@ public class TestLearnAggregations
         Block block = finalOut.build();
         Slice slice = aggregator.getType().getSlice(block, 0);
         Model deserialized = ModelUtils.deserialize(slice);
-        assertNotNull(deserialized, "deserialization failed");
-        assertTrue(deserialized instanceof Classifier, "deserialized model is not a classifier");
+        assertThat(deserialized)
+                .describedAs("deserialization failed")
+                .isNotNull();
+
+        assertThat(deserialized).isInstanceOf(Classifier.class);
     }
 
     private static Page getPage()
@@ -102,7 +104,7 @@ public class TestLearnAggregations
         Random rand = new Random(0);
         for (int i = 0; i < datapoints; i++) {
             long label = rand.nextDouble() < 0.5 ? 0 : 1;
-            builder.row(label, mapBlockOf(BIGINT, DOUBLE, 0L, label + rand.nextGaussian()), "C=1");
+            builder.row(label, sqlMapOf(BIGINT, DOUBLE, 0L, label + rand.nextGaussian()), "C=1");
         }
 
         return builder.build();

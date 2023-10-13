@@ -208,12 +208,12 @@ public class TestJwkDecoder
                     }
 
                     @Override
-                    public Key resolveSigningKey(JwsHeader header, String plaintext)
+                    public Key resolveSigningKey(JwsHeader header, byte[] plaintext)
                     {
                         return getKey(header);
                     }
 
-                    private Key getKey(JwsHeader<?> header)
+                    private Key getKey(JwsHeader header)
                     {
                         String keyId = header.getKeyId();
                         assertEquals(keyId, "test-rsa");
@@ -344,12 +344,12 @@ public class TestJwkDecoder
                     }
 
                     @Override
-                    public Key resolveSigningKey(JwsHeader header, String plaintext)
+                    public Key resolveSigningKey(JwsHeader header, byte[] plaintext)
                     {
                         return getKey(header);
                     }
 
-                    private Key getKey(JwsHeader<?> header)
+                    private Key getKey(JwsHeader header)
                     {
                         String keyId = header.getKeyId();
                         assertEquals(keyId, keyName);

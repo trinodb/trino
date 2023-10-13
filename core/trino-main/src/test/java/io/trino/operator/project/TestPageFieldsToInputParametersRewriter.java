@@ -14,20 +14,19 @@
 package io.trino.operator.project;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.Session;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
 import io.trino.sql.tree.Expression;
-import io.trino.testing.TestingSession;
-import io.trino.transaction.TransactionId;
+import io.trino.transaction.TestingTransactionManager;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
@@ -38,21 +37,23 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.operator.project.PageFieldsToInputParametersRewriter.Result;
 import static io.trino.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ExpressionTestUtils.createExpression;
-import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPageFieldsToInputParametersRewriter
 {
-    private static final TypeAnalyzer TYPE_ANALYZER = createTestingTypeAnalyzer(PLANNER_CONTEXT);
-    private static final Session TEST_SESSION = TestingSession.testSessionBuilder()
-            .setTransactionId(TransactionId.create())
+    private static final TestingTransactionManager TRANSACTION_MANAGER = new TestingTransactionManager();
+    private static final PlannerContext PLANNER_CONTEXT = plannerContextBuilder()
+            .withTransactionManager(TRANSACTION_MANAGER)
             .build();
+    private static final TypeAnalyzer TYPE_ANALYZER = createTestingTypeAnalyzer(PLANNER_CONTEXT);
 
     @Test
     public void testEagerLoading()
@@ -138,7 +139,7 @@ public class TestPageFieldsToInputParametersRewriter
 
         private RowExpression buildExpression(String value)
         {
-            Expression expression = createExpression(value, PLANNER_CONTEXT, TypeProvider.copyOf(symbolTypes));
+            Expression expression = createExpression(value, TRANSACTION_MANAGER, PLANNER_CONTEXT, TypeProvider.copyOf(symbolTypes));
 
             return SqlToRowExpressionTranslator.translate(
                     expression,

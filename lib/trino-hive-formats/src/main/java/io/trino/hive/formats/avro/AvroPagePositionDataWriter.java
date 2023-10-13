@@ -18,7 +18,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.SingleRowBlock;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -45,6 +46,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.avro.AvroTypeUtils.SimpleUnionNullIndex;
 import static io.trino.hive.formats.avro.AvroTypeUtils.getSimpleNullableUnionNullIndex;
 import static io.trino.hive.formats.avro.AvroTypeUtils.isSimpleNullableUnion;
+import static io.trino.hive.formats.avro.AvroTypeUtils.lowerCaseAllFieldsForWriter;
 import static io.trino.hive.formats.avro.AvroTypeUtils.unwrapNullableUnion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -74,7 +76,10 @@ public class AvroPagePositionDataWriter
     @Override
     public void setSchema(Schema schema)
     {
-        verify(this.schema == requireNonNull(schema, "schema is null"), "Unable to change schema for this data writer");
+        requireNonNull(schema, "schema is null");
+        if (this.schema != schema) {
+            verify(this.schema.equals(lowerCaseAllFieldsForWriter(schema)), "Unable to change schema for this data writer");
+        }
     }
 
     public void setPage(Page page)
@@ -458,15 +463,17 @@ public class AvroPagePositionDataWriter
         void encodeFromBlock(int position, Encoder encoder)
                 throws IOException
         {
-            Block mapBlock = type.getObject(block, position);
-            keyBlockPositionEncoder.setBlock(mapBlock);
-            valueBlockPositionEncoder.setBlock(mapBlock);
+            SqlMap sqlMap = type.getObject(block, position);
+            keyBlockPositionEncoder.setBlock(sqlMap.getRawKeyBlock());
+            valueBlockPositionEncoder.setBlock(sqlMap.getRawValueBlock());
             encoder.writeMapStart();
-            encoder.setItemCount(mapBlock.getPositionCount() / 2);
-            for (int mapIndex = 0; mapIndex < mapBlock.getPositionCount(); mapIndex += 2) {
+            encoder.setItemCount(sqlMap.getSize());
+
+            int rawOffset = sqlMap.getRawOffset();
+            for (int i = 0; i < sqlMap.getSize(); i++) {
                 encoder.startItem();
-                keyBlockPositionEncoder.encode(mapIndex, encoder);
-                valueBlockPositionEncoder.encode(mapIndex + 1, encoder);
+                keyBlockPositionEncoder.encode(rawOffset + i, encoder);
+                valueBlockPositionEncoder.encode(rawOffset + i, encoder);
             }
             encoder.writeMapEnd();
         }
@@ -526,11 +533,12 @@ public class AvroPagePositionDataWriter
         void encodeFromBlock(int position, Encoder encoder)
                 throws IOException
         {
-            SingleRowBlock singleRowBlock = (SingleRowBlock) type.getObject(block, position);
-            for (BlockPositionEncoder channelEncoder : channelEncoders) {
-                channelEncoder.setBlock(singleRowBlock);
+            SqlRow sqlRow = type.getObject(block, position);
+            for (int i = 0; i < channelEncoders.length; i++) {
+                channelEncoders[i].setBlock(sqlRow.getRawFieldBlock(i));
             }
-            encodeInternal(i -> i, encoder);
+            int rawIndex = sqlRow.getRawIndex();
+            encodeInternal(i -> rawIndex, encoder);
         }
 
         public void setChannelBlocksFromPage(Page page)

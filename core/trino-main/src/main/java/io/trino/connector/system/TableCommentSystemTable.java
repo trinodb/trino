@@ -16,6 +16,7 @@ package io.trino.connector.system;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import io.trino.FullConnectorSession;
 import io.trino.Session;
 import io.trino.metadata.MaterializedViewDefinition;
@@ -34,17 +35,23 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static io.trino.connector.system.jdbc.FilterUtil.isImpossibleObjectName;
 import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.trino.metadata.MetadataListing.listCatalogNames;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -87,17 +94,35 @@ public class TableCommentSystemTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
-        Optional<String> catalogFilter = tryGetSingleVarcharValue(constraint, 0);
-        Optional<String> schemaFilter = tryGetSingleVarcharValue(constraint, 1);
-        Optional<String> tableFilter = tryGetSingleVarcharValue(constraint, 2);
-
-        Session session = ((FullConnectorSession) connectorSession).getSession();
         Builder table = InMemoryRecordSet.builder(COMMENT_TABLE);
 
-        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogFilter)) {
-            QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
+        Domain catalogDomain = constraint.getDomain(0, VARCHAR);
+        Domain schemaDomain = constraint.getDomain(1, VARCHAR);
+        Domain tableDomain = constraint.getDomain(2, VARCHAR);
 
-            addTableCommentForCatalog(session, table, catalog, prefix);
+        if (isImpossibleObjectName(catalogDomain) || isImpossibleObjectName(schemaDomain) || isImpossibleObjectName(tableDomain)) {
+            return table.build().cursor();
+        }
+
+        Optional<String> tableFilter = tryGetSingleVarcharValue(tableDomain);
+
+        Session session = ((FullConnectorSession) connectorSession).getSession();
+
+        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogDomain)) {
+            // TODO A connector may be able to pull information from multiple schemas at once, so pass the schema filter to the connector instead.
+            // TODO Support LIKE predicates on schema name (or any other functional predicates), so pass the schema filter as Constraint-like to the connector.
+            if (schemaDomain.isNullableDiscreteSet()) {
+                for (Object slice : schemaDomain.getNullableDiscreteSet().getNonNullValues()) {
+                    String schemaName = ((Slice) slice).toStringUtf8();
+                    if (isImpossibleObjectName(schemaName)) {
+                        continue;
+                    }
+                    addTableCommentForCatalog(session, table, catalog, tablePrefix(catalog, Optional.of(schemaName), tableFilter));
+                }
+            }
+            else {
+                addTableCommentForCatalog(session, table, catalog, tablePrefix(catalog, Optional.empty(), tableFilter));
+            }
         }
 
         return table.build().cursor();
@@ -124,11 +149,22 @@ public class TableCommentSystemTable
             }
         }
         else {
+            AtomicInteger filteredCount = new AtomicInteger();
             List<RelationCommentMetadata> relationComments = metadata.listRelationComments(
                     session,
                     prefix.getCatalogName(),
                     prefix.getSchemaName(),
-                    relationNames -> accessControl.filterTables(session.toSecurityContext(), catalog, relationNames));
+                    relationNames -> {
+                        Set<SchemaTableName> filtered = accessControl.filterTables(session.toSecurityContext(), catalog, relationNames);
+                        filteredCount.addAndGet(filtered.size());
+                        return filtered;
+                    });
+            checkState(
+                    // Inequality because relationFilter can be invoked more than once on a set of names.
+                    filteredCount.get() >= relationComments.size(),
+                    "relationFilter is mandatory, but it has not been called for some of returned relations: returned %s relations, %s passed the filter",
+                    relationComments.size(),
+                    filteredCount.get());
 
             for (RelationCommentMetadata commentMetadata : relationComments) {
                 SchemaTableName name = commentMetadata.name();

@@ -157,6 +157,16 @@ public class CreateTableTask
         String catalogName = tableName.getCatalogName();
         CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, catalogName);
 
+        Map<String, Object> properties = tablePropertyManager.getProperties(
+                catalogName,
+                catalogHandle,
+                statement.getProperties(),
+                session,
+                plannerContext,
+                accessControl,
+                parameterLookup,
+                true);
+
         LinkedHashMap<String, ColumnMetadata> columns = new LinkedHashMap<>();
         Map<String, Object> inheritedProperties = ImmutableMap.of();
         boolean includingProperties = false;
@@ -194,7 +204,7 @@ public class CreateTableTask
 
                 columns.put(name.getValue().toLowerCase(ENGLISH), ColumnMetadata.builder()
                         .setName(name.getValue().toLowerCase(ENGLISH))
-                        .setType(getSupportedType(session, catalogHandle, type))
+                        .setType(getSupportedType(session, catalogHandle, properties, type))
                         .setNullable(column.isNullable())
                         .setComment(column.getComment())
                         .setProperties(columnProperties)
@@ -266,7 +276,7 @@ public class CreateTableTask
                             columns.put(
                                     column.getName().toLowerCase(Locale.ENGLISH),
                                     ColumnMetadata.builderFrom(column)
-                                            .setType(getSupportedType(session, catalogHandle, column.getType()))
+                                            .setType(getSupportedType(session, catalogHandle, properties, column.getType()))
                                             .build());
                         });
             }
@@ -274,15 +284,6 @@ public class CreateTableTask
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid TableElement: " + element.getClass().getName());
             }
         }
-        Map<String, Object> properties = tablePropertyManager.getProperties(
-                catalogName,
-                catalogHandle,
-                statement.getProperties(),
-                session,
-                plannerContext,
-                accessControl,
-                parameterLookup,
-                true);
 
         Set<String> specifiedPropertyKeys = statement.getProperties().stream()
                 // property names are case-insensitive and normalized to lower case
@@ -316,10 +317,10 @@ public class CreateTableTask
         return immediateVoidFuture();
     }
 
-    private Type getSupportedType(Session session, CatalogHandle catalogHandle, Type type)
+    private Type getSupportedType(Session session, CatalogHandle catalogHandle, Map<String, Object> tableProperties, Type type)
     {
         return plannerContext.getMetadata()
-                .getSupportedType(session, catalogHandle, type)
+                .getSupportedType(session, catalogHandle, tableProperties, type)
                 .orElse(type);
     }
 

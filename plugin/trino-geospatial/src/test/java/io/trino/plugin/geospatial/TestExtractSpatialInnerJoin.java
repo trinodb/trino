@@ -16,7 +16,7 @@ package io.trino.plugin.geospatial;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.ExtractSpatialJoins.ExtractSpatialInnerJoin;
-import io.trino.sql.planner.iterative.rule.test.RuleAssert;
+import io.trino.sql.planner.iterative.rule.test.RuleBuilder;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.LogicalExpression;
@@ -344,7 +344,7 @@ public class TestExtractSpatialInnerJoin
                                 values(ImmutableMap.of("geometry1", 0, "geometry2", 1))));
     }
 
-    private RuleAssert assertRuleApplication()
+    private RuleBuilder assertRuleApplication()
     {
         RuleTester tester = tester();
         return tester.assertThat(new ExtractSpatialInnerJoin(tester.getPlannerContext(), tester.getSplitManager(), tester.getPageSourceManager(), tester.getTypeAnalyzer()));

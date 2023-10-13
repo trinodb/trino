@@ -939,14 +939,32 @@ public class DeltaLakeMetadata
 
         Table table = buildTable(session, schemaTableName, location, external);
 
+        // Ensure the table has queryId set. This is relied on for exception handling
+        String queryId = session.getQueryId();
+        verify(
+                getQueryId(table).orElseThrow(() -> new IllegalArgumentException("Query id is not present")).equals(queryId),
+                "Table '%s' does not have correct query id set",
+                table);
+
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner().orElseThrow());
         // As a precaution, clear the caches
         statisticsAccess.invalidateCache(schemaTableName, Optional.of(location));
         transactionLogAccess.invalidateCache(schemaTableName, Optional.of(location));
-        metastore.createTable(
-                session,
-                table,
-                principalPrivileges);
+        try {
+            metastore.createTable(
+                    session,
+                    table,
+                    principalPrivileges);
+        }
+        catch (TableAlreadyExistsException e) {
+            // Ignore TableAlreadyExistsException when table looks like created by us.
+            // This may happen when an actually successful metastore create call is retried
+            // e.g. because of a timeout on our side.
+            Optional<Table> existingTable = metastore.getRawMetastoreTable(schemaName, tableName);
+            if (existingTable.isEmpty() || !isCreatedBy(existingTable.get(), queryId)) {
+                throw e;
+            }
+        }
     }
 
     public static Table buildTable(ConnectorSession session, SchemaTableName schemaTableName, String location, boolean isExternal)
@@ -1295,7 +1313,7 @@ public class DeltaLakeMetadata
         return databaseQueryId.isPresent() && databaseQueryId.get().equals(queryId);
     }
 
-    private static boolean isCreatedBy(Table table, String queryId)
+    public static boolean isCreatedBy(Table table, String queryId)
     {
         Optional<String> tableQueryId = getQueryId(table);
         return tableQueryId.isPresent() && tableQueryId.get().equals(queryId);
@@ -1978,7 +1996,7 @@ public class DeltaLakeMetadata
             }
 
             for (String file : oldFiles) {
-                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(file, writeTimestamp, true));
+                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(toUriFormat(file), writeTimestamp, true));
             }
 
             appendAddFileEntries(transactionLogWriter, newFiles, partitionColumns, getExactColumnNames(handle.getMetadataEntry()), true);
@@ -2169,7 +2187,7 @@ public class DeltaLakeMetadata
 
             for (String scannedPath : scannedPaths) {
                 String relativePath = relativePath(tableLocation, scannedPath);
-                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(relativePath, writeTimestamp, false));
+                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(toUriFormat(relativePath), writeTimestamp, false));
             }
 
             // Note: during writes we want to preserve original case of partition columns
@@ -2632,7 +2650,7 @@ public class DeltaLakeMetadata
         String basePathDirectory = basePath.endsWith("/") ? basePath : basePath + "/";
         checkArgument(path.startsWith(basePathDirectory) && (path.length() > basePathDirectory.length()),
                 "path [%s] must be a subdirectory of basePath [%s]", path, basePath);
-        return toUriFormat(path.substring(basePathDirectory.length()));
+        return path.substring(basePathDirectory.length());
     }
 
     public void rollback()
@@ -3721,7 +3739,7 @@ public class DeltaLakeMetadata
         return Optional.ofNullable(database.getParameters().get(PRESTO_QUERY_ID_NAME));
     }
 
-    private static Optional<String> getQueryId(Table table)
+    public static Optional<String> getQueryId(Table table)
     {
         return Optional.ofNullable(table.getParameters().get(PRESTO_QUERY_ID_NAME));
     }

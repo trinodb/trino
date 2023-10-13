@@ -309,7 +309,7 @@ public interface Metadata
     /**
      * Return the effective {@link io.trino.spi.type.Type} that is supported by the connector for the given type, if {@link Optional#empty()} is returned, the type will be used as is during table creation which may or may not be supported by the connector.
      */
-    Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Type type);
+    Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Map<String, Object> tableProperties, Type type);
 
     /**
      * Begin the atomic creation of a table with data.
@@ -342,6 +342,11 @@ public interface Metadata
      * Finish statistics collection
      */
     void finishStatisticsCollection(Session session, AnalyzeTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics);
+
+    /**
+     * Initialize before query begins
+     */
+    void beginQuery(Session session);
 
     /**
      * Cleanup after a query. This is the very last notification after the query finishes, regardless if it succeeds or fails.
@@ -661,7 +666,9 @@ public interface Metadata
     // Functions
     //
 
-    Collection<FunctionMetadata> listFunctions(Session session);
+    Collection<FunctionMetadata> listGlobalFunctions(Session session);
+
+    Collection<FunctionMetadata> listFunctions(Session session, CatalogSchemaName schema);
 
     ResolvedFunction decodeFunction(QualifiedName name);
 

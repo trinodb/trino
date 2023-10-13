@@ -16,8 +16,7 @@ package io.trino.plugin.tpcds;
 import io.trino.spi.connector.ConnectorSession;
 import org.junit.jupiter.api.Test;
 
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTpcdsMetadata
 {
@@ -27,11 +26,11 @@ public class TestTpcdsMetadata
     @Test
     public void testHiddenSchemas()
     {
-        assertTrue(tpcdsMetadata.schemaExists(session, "sf1"));
-        assertTrue(tpcdsMetadata.schemaExists(session, "sf3000.0"));
-        assertFalse(tpcdsMetadata.schemaExists(session, "sf0"));
-        assertFalse(tpcdsMetadata.schemaExists(session, "hf1"));
-        assertFalse(tpcdsMetadata.schemaExists(session, "sf"));
-        assertFalse(tpcdsMetadata.schemaExists(session, "sfabc"));
+        assertThat(tpcdsMetadata.schemaExists(session, "sf1")).isTrue();
+        assertThat(tpcdsMetadata.schemaExists(session, "sf3000.0")).isTrue();
+        assertThat(tpcdsMetadata.schemaExists(session, "sf0")).isFalse();
+        assertThat(tpcdsMetadata.schemaExists(session, "hf1")).isFalse();
+        assertThat(tpcdsMetadata.schemaExists(session, "sf")).isFalse();
+        assertThat(tpcdsMetadata.schemaExists(session, "sfabc")).isFalse();
     }
 }

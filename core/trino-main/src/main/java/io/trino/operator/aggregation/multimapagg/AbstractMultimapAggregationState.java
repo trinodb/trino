@@ -22,7 +22,7 @@ import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
-import io.trino.spi.block.SingleMapBlock;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
@@ -293,11 +293,16 @@ public abstract class AbstractMultimapAggregationState
         });
     }
 
-    protected void deserialize(int groupId, SingleMapBlock serializedState)
+    protected void deserialize(int groupId, SqlMap serializedState)
     {
-        for (int i = 0; i < serializedState.getPositionCount(); i += 2) {
-            int keyId = putKeyIfAbsent(groupId, serializedState, i);
-            Block array = new ArrayType(valueArrayBuilder.type()).getObject(serializedState, i + 1);
+        int rawOffset = serializedState.getRawOffset();
+        Block rawKeyBlock = serializedState.getRawKeyBlock();
+        Block rawValueBlock = serializedState.getRawValueBlock();
+
+        ArrayType arrayType = new ArrayType(valueArrayBuilder.type());
+        for (int i = 0; i < serializedState.getSize(); i++) {
+            int keyId = putKeyIfAbsent(groupId, rawKeyBlock, rawOffset + i);
+            Block array = arrayType.getObject(rawValueBlock, rawOffset + i);
             verify(array.getPositionCount() > 0, "array is empty");
             for (int arrayIndex = 0; arrayIndex < array.getPositionCount(); arrayIndex++) {
                 addKeyValue(keyId, array, arrayIndex);

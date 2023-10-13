@@ -21,6 +21,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -234,12 +235,12 @@ public class TestReaderProjectionsAdapter
         for (int i = 0; i < data.getPositionCount(); i++) {
             Type sourceType = blockType;
 
-            Block currentData = null;
+            SqlRow currentData = null;
             boolean isNull = data.isNull(i);
 
             if (!isNull) {
                 // Get SingleRowBlock corresponding to element at position i
-                currentData = data.getObject(i, Block.class);
+                currentData = data.getObject(i, SqlRow.class);
             }
 
             // Apply all dereferences except for the last one, because the type can be different
@@ -249,13 +250,17 @@ public class TestReaderProjectionsAdapter
                     break;
                 }
 
-                checkArgument(sourceType instanceof RowType);
-                if (currentData.isNull(dereferences.get(j))) {
+                int fieldIndex = dereferences.get(j);
+                Block fieldBlock = currentData.getRawFieldBlock(fieldIndex);
+
+                RowType rowType = (RowType) sourceType;
+                int rawIndex = currentData.getRawIndex();
+                if (fieldBlock.isNull(rawIndex)) {
                     currentData = null;
                 }
                 else {
-                    sourceType = ((RowType) sourceType).getFields().get(dereferences.get(j)).getType();
-                    currentData = currentData.getObject(dereferences.get(j), Block.class);
+                    sourceType = rowType.getFields().get(fieldIndex).getType();
+                    currentData = fieldBlock.getObject(rawIndex, SqlRow.class);
                 }
 
                 isNull = isNull || (currentData == null);
@@ -268,7 +273,7 @@ public class TestReaderProjectionsAdapter
             else {
                 int lastDereference = dereferences.get(dereferences.size() - 1);
 
-                finalType.appendTo(currentData, lastDereference, builder);
+                finalType.appendTo(currentData.getRawFieldBlock(lastDereference), currentData.getRawIndex(), builder);
             }
         }
 

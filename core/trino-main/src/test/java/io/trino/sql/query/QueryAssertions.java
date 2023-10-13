@@ -58,7 +58,6 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.cost.StatsCalculator.noopStatsCalculator;
-import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.trino.sql.query.QueryAssertions.QueryAssert.newQueryAssert;
@@ -406,9 +405,9 @@ public class QueryAssertions
         @CanIgnoreReturnValue
         public QueryAssert matches(PlanMatchPattern expectedPlan)
         {
-            transaction(runner.getTransactionManager(), runner.getAccessControl())
+            transaction(runner.getTransactionManager(), runner.getMetadata(), runner.getAccessControl())
                     .execute(session, session -> {
-                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                        Plan plan = runner.createPlan(session, query);
                         assertPlan(
                                 session,
                                 runner.getMetadata(),
@@ -483,9 +482,9 @@ public class QueryAssertions
         {
             checkState(!(runner instanceof LocalQueryRunner), "isFullyPushedDown() currently does not work with LocalQueryRunner");
 
-            transaction(runner.getTransactionManager(), runner.getAccessControl())
+            transaction(runner.getTransactionManager(), runner.getMetadata(), runner.getAccessControl())
                     .execute(session, session -> {
-                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                        Plan plan = runner.createPlan(session, query);
                         assertPlan(
                                 session,
                                 runner.getMetadata(),
@@ -568,9 +567,9 @@ public class QueryAssertions
 
         private QueryAssert hasPlan(PlanMatchPattern expectedPlan, Consumer<Plan> additionalPlanVerification)
         {
-            transaction(runner.getTransactionManager(), runner.getAccessControl())
+            transaction(runner.getTransactionManager(), runner.getMetadata(), runner.getAccessControl())
                     .execute(session, session -> {
-                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                        Plan plan = runner.createPlan(session, query);
                         assertPlan(
                                 session,
                                 runner.getMetadata(),
@@ -590,9 +589,9 @@ public class QueryAssertions
 
         private QueryAssert verifyPlan(Consumer<Plan> planVerification)
         {
-            transaction(runner.getTransactionManager(), runner.getAccessControl())
+            transaction(runner.getTransactionManager(), runner.getMetadata(), runner.getAccessControl())
                     .execute(session, session -> {
-                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                        Plan plan = runner.createPlan(session, query);
                         planVerification.accept(plan);
                     });
 

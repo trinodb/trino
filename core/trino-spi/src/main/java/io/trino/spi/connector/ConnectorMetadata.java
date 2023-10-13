@@ -662,7 +662,8 @@ public interface ConnectorMetadata
      * If {@link Optional#empty()} is returned, the type will be used as is during table creation which may or may not be supported by the connector.
      * The effective type shall be a type that is cast-compatible with the input type.
      */
-    default Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    @Experimental(eta = "2024-01-31")
+    default Optional<Type> getSupportedType(ConnectorSession session, Map<String, Object> tableProperties, Type type)
     {
         return Optional.empty();
     }

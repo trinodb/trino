@@ -84,6 +84,7 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
         // Spooling exchange does not prove output buffer utilization histogram
     }
 
+    @Test
     @Override
     @Disabled
     public void testSelectiveLimit()
