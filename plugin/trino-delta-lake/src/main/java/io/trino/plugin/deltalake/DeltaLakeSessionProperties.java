@@ -48,8 +48,8 @@ import static java.lang.String.format;
 public final class DeltaLakeSessionProperties
         implements SessionPropertiesProvider
 {
-    private static final String MAX_SPLIT_SIZE = "max_split_size";
-    private static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
+    public static final String MAX_SPLIT_SIZE = "max_split_size";
+    public static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
     public static final String VACUUM_MIN_RETENTION = "vacuum_min_retention";
     private static final String HIVE_CATALOG_NAME = "hive_catalog_name";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";

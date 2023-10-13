@@ -28,6 +28,7 @@ import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.io.FileIO;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
@@ -655,7 +656,7 @@ public abstract class BaseIcebergConnectorSmokeTest
         assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
         assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
         String query = "SELECT id FROM " + tableName + " WHERE a = 'a'";
-        String failureMessage = "Filter required for tpch.*\\." + tableName + " on at least one of the partition columns: ds";
+        @Language("RegExp") String failureMessage = "Filter required for .*" + tableName + " on at least one of the partition columns: ds";
         assertQueryFails(session, query, failureMessage);
         assertQueryFails(session, "EXPLAIN " + query, failureMessage);
         assertUpdate(session, "DROP TABLE " + tableName);
