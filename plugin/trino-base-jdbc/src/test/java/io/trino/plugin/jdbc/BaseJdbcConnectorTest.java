@@ -2042,6 +2042,26 @@ public abstract class BaseJdbcConnectorTest
     }
 
     @Test
+    public void testJoinPushdownWithLongIdentifiers()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_JOIN_PUSHDOWN));
+
+        String baseColumnName = "col";
+        int maxLength = maxColumnNameLength()
+                // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
+                .orElse(65536 + 5);
+
+        String validColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
+        try (TestTable left = new TestTable(getQueryRunner()::execute, "test_long_id_l", format("(%s BIGINT)", validColumnName));
+                TestTable right = new TestTable(getQueryRunner()::execute, "test_long_id_r", format("(%s BIGINT)", validColumnName))) {
+            assertThat(query(joinPushdownEnabled(getSession()), """
+                SELECT l.%1$s, r.%1$s
+                FROM %2$s l JOIN %3$s r ON l.%1$s = r.%1$s""".formatted(validColumnName, left.getName(), right.getName())))
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
     public void testDynamicFiltering()
     {
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));

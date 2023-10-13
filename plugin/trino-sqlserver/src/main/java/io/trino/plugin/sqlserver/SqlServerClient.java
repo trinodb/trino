@@ -114,6 +114,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
@@ -1096,6 +1097,12 @@ public class SqlServerClient
         catch (SQLException exception) {
             throw new TrinoException(JDBC_ERROR, exception);
         }
+    }
+
+    @Override
+    public OptionalInt getMaxColumnNameLength(ConnectorSession session)
+    {
+        return getMaxColumnNameLengthFromDatabaseMetaData(session);
     }
 
     @Override

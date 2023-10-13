@@ -102,6 +102,7 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.function.BiFunction;
 
@@ -505,6 +506,12 @@ public class RedshiftClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    @Override
+    public OptionalInt getMaxColumnNameLength(ConnectorSession session)
+    {
+        return getMaxColumnNameLengthFromDatabaseMetaData(session);
     }
 
     @Override
