@@ -1104,8 +1104,12 @@ public class MySqlClient
                     log.debug("Reading column statistics for %s, %s from index statistics: %s", table, columnName, columnIndexStatistics);
                     updateColumnStatisticsFromIndexStatistics(table, columnName, columnStatisticsBuilder, columnIndexStatistics);
 
-                    // row count from INFORMATION_SCHEMA.TABLES is very inaccurate
-                    rowCount = max(rowCount, columnIndexStatistics.cardinality());
+                    if (rowCount < columnIndexStatistics.cardinality()) {
+                        // row count from INFORMATION_SCHEMA.TABLES is very inaccurate but rowCount already includes MAX(CARDINALITY) from indexes
+                        // This can still happen if table's index statistics change concurrently
+                        log.debug("Table %s rowCount calculated so far [%s] is less than index cardinality for %s: %s", table, rowCount, columnName, columnIndexStatistics);
+                        rowCount = max(rowCount, columnIndexStatistics.cardinality());
+                    }
                 }
 
                 tableStatistics.setColumnStatistics(column, columnStatisticsBuilder.build());
@@ -1182,9 +1186,15 @@ public class MySqlClient
         {
             RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
             return handle.createQuery("""
-                        SELECT TABLE_ROWS FROM INFORMATION_SCHEMA.TABLES
-                        WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name
-                        AND TABLE_TYPE = 'BASE TABLE'
+                        SELECT max(row_count) FROM (
+                            (SELECT TABLE_ROWS AS row_count FROM INFORMATION_SCHEMA.TABLES
+                            WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name
+                            AND TABLE_TYPE = 'BASE TABLE')
+                            UNION ALL
+                            (SELECT CARDINALITY AS row_count FROM INFORMATION_SCHEMA.STATISTICS
+                            WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name
+                            AND CARDINALITY IS NOT NULL)
+                        ) t
                         """)
                     .bind("schema", remoteTableName.getCatalogName().orElse(null))
                     .bind("table_name", remoteTableName.getTableName())
