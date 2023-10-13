@@ -22,7 +22,6 @@ import io.trino.testing.QueryRunner;
 import org.testcontainers.containers.Network;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 import java.nio.file.Files;
@@ -58,15 +57,11 @@ public class TestDeltaLakeAdlsStorage
 
     private HiveHadoop hiveHadoop;
 
-    @Parameters({
-            "hive.hadoop2.azure-abfs-container",
-            "hive.hadoop2.azure-abfs-account",
-            "hive.hadoop2.azure-abfs-access-key"})
-    public TestDeltaLakeAdlsStorage(String container, String account, String accessKey)
+    public TestDeltaLakeAdlsStorage()
     {
-        requireNonNull(container, "container is null");
-        this.account = requireNonNull(account, "account is null");
-        this.accessKey = requireNonNull(accessKey, "accessKey is null");
+        String container = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-container"), "container is null");
+        this.account = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-account"), "account is null");
+        this.accessKey = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-access-key"), "accessKey is null");
 
         String directoryBase = format("abfs://%s@%s.dfs.core.windows.net", container, account);
         adlsDirectory = format("%s/tpch-tiny-%s/", directoryBase, randomUUID());

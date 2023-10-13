@@ -30,7 +30,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -76,14 +75,12 @@ public class TestMinimalFunctionality
     private StandaloneQueryRunner queryRunner;
     private QueryAssertions assertions;
 
-    @Parameters({
-            "kinesis.awsAccessKey",
-            "kinesis.awsSecretKey"
-    })
     @BeforeClass
     public void start(String accessKey, String secretKey)
     {
-        embeddedKinesisStream = new EmbeddedKinesisStream(TestUtils.noneToBlank(accessKey), TestUtils.noneToBlank(secretKey));
+        embeddedKinesisStream = new EmbeddedKinesisStream(
+                TestUtils.noneToBlank(System.getProperty("kinesis.awsAccessKey")),
+                TestUtils.noneToBlank(System.getProperty("kinesis.awsSecretKey")));
     }
 
     @AfterClass(alwaysRun = true)
@@ -93,14 +90,13 @@ public class TestMinimalFunctionality
         embeddedKinesisStream = null;
     }
 
-    @Parameters({
-            "kinesis.awsAccessKey",
-            "kinesis.awsSecretKey"
-    })
     @BeforeMethod
-    public void spinUp(String accessKey, String secretKey)
+    public void spinUp()
             throws Exception
     {
+        String accessKey = System.getProperty("kinesis.awsAccessKey");
+        String secretKey = System.getProperty("kinesis.awsSecretKey");
+
         streamName = "test_" + UUID.randomUUID().toString().replaceAll("-", "_");
 
         embeddedKinesisStream.createStream(2, streamName);

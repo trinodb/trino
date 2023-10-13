@@ -24,7 +24,6 @@ import io.trino.plugin.kinesis.util.TestUtils;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
-import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -76,14 +75,12 @@ public class TestS3TableConfigClient
         assertEquals(uri3.getKey(), "unit-test/trino-kinesis");
     }
 
-    @Parameters({
-            "kinesis.test-table-description-location",
-            "kinesis.awsAccessKey",
-            "kinesis.awsSecretKey"
-    })
     @Test
-    public void testTableReading(String tableDescriptionS3, String accessKey, String secretKey)
+    public void testTableReading()
     {
+        String tableDescriptionS3 = System.getProperty("kinesis.test-table-description-location");
+        String accessKey = System.getProperty("kinesis.awsAccessKey");
+        String secretKey = System.getProperty("kinesis.awsSecretKey");
         // To run this test: setup an S3 bucket with a folder for unit testing, and put
         // MinimalTable.json in that folder.
 

@@ -25,7 +25,6 @@ import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
-import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -42,6 +41,7 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -55,12 +55,11 @@ public abstract class BaseBigQueryConnectorTest
     private String gcpStorageBucket;
 
     @BeforeClass(alwaysRun = true)
-    @Parameters("testing.gcp-storage-bucket")
-    public void initBigQueryExecutor(String gcpStorageBucket)
+    public void initBigQueryExecutor()
     {
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
         // Prerequisite: upload region.csv in resources directory to gs://{testing.gcp-storage-bucket}/tpch/tiny/region.csv
-        this.gcpStorageBucket = gcpStorageBucket;
+        this.gcpStorageBucket = requireNonNull(System.getProperty("testing.gcp-storage-bucket"), "gcpStorageBucket is null");
     }
 
     @Override

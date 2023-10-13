@@ -28,7 +28,6 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -53,23 +52,13 @@ public class TestHiveThriftMetastoreWithS3
     private final Path hadoopCoreSiteXmlTempFile;
     private final AmazonS3 s3Client;
 
-    @Parameters({
-            "hive.hadoop2.s3.endpoint",
-            "hive.hadoop2.s3.awsAccessKey",
-            "hive.hadoop2.s3.awsSecretKey",
-            "hive.hadoop2.s3.writableBucket",
-    })
-    public TestHiveThriftMetastoreWithS3(
-            String s3endpoint,
-            String awsAccessKey,
-            String awsSecretKey,
-            String writableBucket)
+    public TestHiveThriftMetastoreWithS3()
             throws IOException
     {
-        this.s3endpoint = requireNonNull(s3endpoint, "s3endpoint is null");
-        this.awsAccessKey = requireNonNull(awsAccessKey, "awsAccessKey is null");
-        this.awsSecretKey = requireNonNull(awsSecretKey, "awsSecretKey is null");
-        this.writableBucket = requireNonNull(writableBucket, "writableBucket is null");
+        this.s3endpoint = requireNonNull(System.getProperty("hive.hadoop2.s3.endpoint"), "s3endpoint is null");
+        this.awsAccessKey = requireNonNull(System.getProperty("hive.hadoop2.s3.awsAccessKey"), "awsAccessKey is null");
+        this.awsSecretKey = requireNonNull(System.getProperty("hive.hadoop2.s3.awsSecretKey"), "awsSecretKey is null");
+        this.writableBucket = requireNonNull(System.getProperty("hive.hadoop2.s3.writableBucket"), "writableBucket is null");
         this.schemaName = "test_thrift_s3_" + randomNameSuffix();
 
         String coreSiteXmlContent = Resources.toString(Resources.getResource("s3/hive-core-site.template.xml"), UTF_8)

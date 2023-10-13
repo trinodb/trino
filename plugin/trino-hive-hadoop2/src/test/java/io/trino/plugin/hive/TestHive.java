@@ -21,7 +21,6 @@ import io.trino.spi.connector.SchemaTablePrefix;
 import org.apache.hadoop.net.NetUtils;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,10 +31,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestHive
         extends AbstractTestHive
 {
-    @Parameters({"test.metastore", "test.database"})
     @BeforeClass
-    public void initialize(String metastore, String database)
+    public void initialize()
     {
+        String metastore = System.getProperty("test.metastore");
+        String database = System.getProperty("test.database");
+
         String hadoopMasterIp = System.getProperty("hadoop-master-ip");
         if (hadoopMasterIp != null) {
             // Even though Hadoop is accessed by proxy, Hadoop still tries to resolve hadoop-master

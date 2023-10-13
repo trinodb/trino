@@ -24,7 +24,6 @@ import io.trino.hdfs.azure.TrinoAzureConfigurationInitializer;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 import java.io.FileNotFoundException;
@@ -46,19 +45,18 @@ public class TestHiveFileSystemAdl
     private String refreshUrl;
     private String testDirectory;
 
-    @Parameters({
-            "hive.hadoop2.metastoreHost",
-            "hive.hadoop2.metastorePort",
-            "hive.hadoop2.databaseName",
-            "hive.hadoop2.adl.name",
-            "hive.hadoop2.adl.clientId",
-            "hive.hadoop2.adl.credential",
-            "hive.hadoop2.adl.refreshUrl",
-            "hive.hadoop2.adl.testDirectory",
-    })
     @BeforeClass
-    public void setup(String host, int port, String databaseName, String dataLakeName, String clientId, String credential, String refreshUrl, String testDirectory)
+    public void setup()
     {
+        String host = System.getProperty("hive.hadoop2.metastoreHost");
+        int port = Integer.parseInt(System.getProperty("hive.hadoop2.metastorePort"));
+        String databaseName = System.getProperty("hive.hadoop2.databaseName");
+        String dataLakeName = System.getProperty("hive.hadoop2.adl.name");
+        String clientId = System.getProperty("hive.hadoop2.adl.clientId");
+        String credential = System.getProperty("hive.hadoop2.adl.credential");
+        String refreshUrl = System.getProperty("hive.hadoop2.adl.refreshUrl");
+        String testDirectory = System.getProperty("hive.hadoop2.adl.testDirectory");
+
         checkArgument(!isNullOrEmpty(host), "expected non empty host");
         checkArgument(!isNullOrEmpty(databaseName), "expected non empty databaseName");
         checkArgument(!isNullOrEmpty(dataLakeName), "expected non empty dataLakeName");
