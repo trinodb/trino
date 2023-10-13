@@ -201,6 +201,13 @@ public class StaticCatalogManager
     }
 
     @Override
+    public Set<CatalogHandle> getActiveCatalogs()
+    {
+        // static catalog manager does not differentiate between active and not. Nor does it need to prune
+        return ImmutableSet.of();
+    }
+
+    @Override
     public ConnectorServices getConnectorServices(CatalogHandle catalogHandle)
     {
         CatalogConnector catalogConnector = catalogs.get(catalogHandle.getCatalogName());

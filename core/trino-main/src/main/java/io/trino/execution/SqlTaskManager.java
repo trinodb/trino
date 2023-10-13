@@ -78,7 +78,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -447,13 +447,14 @@ public class SqlTaskManager
         return sqlTask.acknowledgeAndGetNewDynamicFilterDomains(currentDynamicFiltersVersion);
     }
 
-    private final ReentrantLock catalogsLock = new ReentrantLock();
+    private final ReentrantReadWriteLock catalogsLock = new ReentrantReadWriteLock();
 
     public void pruneCatalogs(Set<CatalogHandle> activeCatalogs)
     {
-        catalogsLock.lock();
+        Set<CatalogHandle> catalogsInUse = new HashSet<>(activeCatalogs);
+        ReentrantReadWriteLock.WriteLock pruneLock = catalogsLock.writeLock();
+        pruneLock.lock();
         try {
-            Set<CatalogHandle> catalogsInUse = new HashSet<>(activeCatalogs);
             for (SqlTask task : tasks.asMap().values()) {
                 // add all catalogs being used by a non-done task
                 if (!task.getTaskState().isDone()) {
@@ -463,7 +464,7 @@ public class SqlTaskManager
             connectorServicesProvider.pruneCatalogs(catalogsInUse);
         }
         finally {
-            catalogsLock.unlock();
+            pruneLock.unlock();
         }
     }
 
@@ -533,7 +534,14 @@ public class SqlTaskManager
                             .map(CatalogProperties::getCatalogHandle)
                             .collect(toImmutableSet());
                     if (sqlTask.setCatalogs(catalogHandles)) {
-                        connectorServicesProvider.ensureCatalogsLoaded(session, activeCatalogs);
+                        ReentrantReadWriteLock.ReadLock catalogInitLock = catalogsLock.readLock();
+                        catalogInitLock.lock();
+                        try {
+                            connectorServicesProvider.ensureCatalogsLoaded(session, activeCatalogs);
+                        }
+                        finally {
+                            catalogInitLock.unlock();
+                        }
                     }
                 });
 
