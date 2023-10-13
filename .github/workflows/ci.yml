@@ -571,7 +571,7 @@ jobs:
                 - lib/trino-filesystem-s3
                 - lib/trino-hdfs
             - { modules: core/trino-main }
-            - { modules: core/trino-main, jdk: 20 }
+            - { modules: core/trino-main, jdk: 21 }
             - { modules: lib/trino-filesystem-s3, profile: cloud-tests }
             - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
             - { modules: plugin/trino-accumulo }
