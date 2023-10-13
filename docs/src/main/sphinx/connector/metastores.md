@@ -193,11 +193,8 @@ properties:
 
 ## AWS Glue catalog configuration properties
 
-In order to use an AWS Glue catalog, you must configure your catalog file as
-follows:
-
-`hive.metastore=glue` and provide further details with the following
-properties:
+In order to use an AWS Glue catalog, you must configure your catalog with
+`hive.metastore=glue` and provide further details with the following properties:
 
 ```{eval-rst}
 .. list-table:: AWS Glue catalog configuration properties
@@ -467,3 +464,8 @@ using Hive 3.x:
      <value>org.apache.hadoop.hive.metastore.SerDeStorageSchemaReader</value>
  </property>
 ```
+
+## Limitations
+
+Glue does not support setting comments on existing tables. You must set comments
+when [creating tables](/sql/create-table).
