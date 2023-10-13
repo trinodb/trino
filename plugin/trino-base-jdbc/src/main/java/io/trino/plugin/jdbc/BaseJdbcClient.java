@@ -114,6 +114,7 @@ public abstract class BaseJdbcClient
     private final IdentifierMapping identifierMapping;
     private final boolean supportsRetries;
     private final JdbcRemoteIdentifiersFactory jdbcRemoteIdentifiersFactory = new JdbcRemoteIdentifiersFactory(this);
+    private Integer maxColumnNameLength;
 
     public BaseJdbcClient(
             String identifierQuote,
@@ -1433,6 +1434,26 @@ public abstract class BaseJdbcClient
     public OptionalInt getMaxWriteParallelism(ConnectorSession session)
     {
         return OptionalInt.of(getWriteParallelism(session));
+    }
+
+    protected OptionalInt getMaxColumnNameLengthFromDatabaseMetaData(ConnectorSession session)
+    {
+        if (maxColumnNameLength != null) {
+            // According to JavaDoc of DatabaseMetaData#getMaxColumnNameLength a value of 0 signifies that the limit is unknown
+            if (maxColumnNameLength == 0) {
+                return OptionalInt.empty();
+            }
+
+            return OptionalInt.of(maxColumnNameLength);
+        }
+
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            maxColumnNameLength = connection.getMetaData().getMaxColumnNameLength();
+            return OptionalInt.of(maxColumnNameLength);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     protected void verifySchemaName(DatabaseMetaData databaseMetadata, String schemaName)
