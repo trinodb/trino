@@ -101,7 +101,7 @@ public class WorkerDynamicCatalogManager
                 checkArgument(!catalog.getCatalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE), "Global system catalog not registered");
                 CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
                 catalogs.put(catalog.getCatalogHandle(), newCatalog);
-                log.info("Added catalog: " + catalog.getCatalogHandle());
+                log.debug("Added catalog: " + catalog.getCatalogHandle());
             }
         }
         finally {
@@ -142,7 +142,7 @@ public class WorkerDynamicCatalogManager
         }
         if (!removedCatalogs.isEmpty()) {
             List<String> sortedHandles = removedCatalogs.stream().map(connector -> connector.getCatalogHandle().toString()).sorted().toList();
-            log.info("Pruned catalogs: %s", sortedHandles);
+            log.debug("Pruned catalogs: %s", sortedHandles);
         }
     }
 

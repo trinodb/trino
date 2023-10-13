@@ -29,6 +29,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
+import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ForNodeManager;
 import io.trino.server.InternalCommunicationConfig;
 import io.trino.spi.connector.CatalogHandle;
@@ -61,7 +62,8 @@ public class CatalogPruneTask
     private static final JsonCodec<List<CatalogHandle>> CATALOG_HANDLES_CODEC = listJsonCodec(CatalogHandle.class);
 
     private final TransactionManager transactionManager;
-    private final CoordinatorDynamicCatalogManager catalogManager;
+    private final CatalogManager catalogManager;
+    private final ConnectorServicesProvider connectorServicesProvider;
     private final NodeInfo nodeInfo;
     private final ServiceSelector selector;
     private final HttpClient httpClient;
@@ -78,7 +80,8 @@ public class CatalogPruneTask
     @Inject
     public CatalogPruneTask(
             TransactionManager transactionManager,
-            CoordinatorDynamicCatalogManager catalogManager,
+            CatalogManager catalogManager,
+            ConnectorServicesProvider connectorServicesProvider,
             NodeInfo nodeInfo,
             @ServiceType("trino") ServiceSelector selector,
             @ForNodeManager HttpClient httpClient,
@@ -87,6 +90,7 @@ public class CatalogPruneTask
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
+        this.connectorServicesProvider = requireNonNull(connectorServicesProvider, "connectorServicesProvider is null");
         this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
         this.selector = requireNonNull(selector, "selector is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -127,7 +131,7 @@ public class CatalogPruneTask
     }
 
     @VisibleForTesting
-    void pruneWorkerCatalogs()
+    public void pruneWorkerCatalogs()
     {
         Set<ServiceDescriptor> online = selector.selectAllServices().stream()
                 .filter(descriptor -> !nodeInfo.getNodeId().equals(descriptor.getNodeId()))
@@ -135,6 +139,14 @@ public class CatalogPruneTask
 
         // send message to workers to trigger prune
         List<CatalogHandle> activeCatalogs = getActiveCatalogs();
+        pruneWorkerCatalogs(online, activeCatalogs);
+
+        // prune all inactive catalogs - we pass an empty set here because manager always retains active catalogs
+        connectorServicesProvider.pruneCatalogs(ImmutableSet.of());
+    }
+
+    void pruneWorkerCatalogs(Set<ServiceDescriptor> online, List<CatalogHandle> activeCatalogs)
+    {
         for (ServiceDescriptor service : online) {
             URI uri = getHttpUri(service);
             if (uri == null) {
@@ -163,9 +175,6 @@ public class CatalogPruneTask
                 }
             });
         }
-
-        // prune all inactive catalogs - we pass an empty set here because manager always retains active catalogs
-        catalogManager.pruneCatalogs(ImmutableSet.of());
     }
 
     private List<CatalogHandle> getActiveCatalogs()
