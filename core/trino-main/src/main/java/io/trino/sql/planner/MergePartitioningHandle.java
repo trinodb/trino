@@ -16,7 +16,7 @@ package io.trino.sql.planner;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.google.common.base.VerifyException;
-import io.trino.execution.scheduler.FaultTolerantPartitioningScheme;
+import io.trino.execution.scheduler.faulttolerant.FaultTolerantPartitioningScheme;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.PartitionFunction;
 import io.trino.spi.Page;
