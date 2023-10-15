@@ -40,6 +40,7 @@ import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.trino.SystemSessionProperties.MIN_INPUT_SIZE_PER_TASK;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_GET_LENGTH;
+import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_LAST_MODIFIED;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_CREATE;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_CREATE_OR_OVERWRITE;
@@ -276,6 +277,7 @@ public class TestIcebergMetadataFileOperations
                         .add(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM))
                         // TODO return synthetic columns without opening the data files
                         .addCopies(new FileOperation(DATA, INPUT_FILE_NEW_STREAM), 4)
+                        .addCopies(new FileOperation(DATA, INPUT_FILE_LAST_MODIFIED), 4)
                         .build());
 
         // Read only row count

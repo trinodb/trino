@@ -32,6 +32,7 @@ import java.util.function.Consumer;
 import static com.google.common.base.Verify.verify;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_EXISTS;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_GET_LENGTH;
+import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_LAST_MODIFIED;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_CREATE;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_CREATE_EXCLUSIVE;
@@ -50,6 +51,7 @@ public class TrackingFileSystemFactory
         OUTPUT_FILE_CREATE_OR_OVERWRITE,
         OUTPUT_FILE_CREATE_EXCLUSIVE,
         OUTPUT_FILE_TO_INPUT_FILE,
+        INPUT_FILE_LAST_MODIFIED,
     }
 
     private final AtomicInteger fileId = new AtomicInteger();
@@ -251,6 +253,7 @@ public class TrackingFileSystemFactory
         public Instant lastModified()
                 throws IOException
         {
+            tracker.accept(INPUT_FILE_LAST_MODIFIED);
             return delegate.lastModified();
         }
 
