@@ -45,7 +45,8 @@ public class SnowflakeParallelSessionProperties
         return ImmutableList.of(
                 dataSizeProperty(
                         CLIENT_RESULT_CHUNK_SIZE,
-                        "Max result chink size (MB)",
+                        "Max result chunk size (MB)",
+                        // 160 is Snowflake default: https://docs.snowflake.com/en/sql-reference/parameters#client-result-chunk-size
                         DataSize.of(160, DataSize.Unit.MEGABYTE),
                         true),
                 booleanProperty(
