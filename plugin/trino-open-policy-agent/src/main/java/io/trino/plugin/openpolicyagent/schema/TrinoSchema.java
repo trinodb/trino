@@ -27,32 +27,32 @@ public record TrinoSchema(
         String schemaName,
         Map<String, Optional<Object>> properties)
 {
-    public static Builder builder()
-    {
-        return new Builder();
-    }
-
     public static TrinoSchema fromTrinoCatalogSchema(CatalogSchemaName catalogSchemaName)
     {
         return Builder.fromTrinoCatalogSchema(catalogSchemaName).build();
     }
 
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
     public static class Builder
             extends BaseSchemaBuilder<TrinoSchema, Builder>
     {
+        public static Builder fromTrinoCatalogSchema(CatalogSchemaName catalogSchemaName)
+        {
+            return new Builder()
+                    .catalogName(catalogSchemaName.getCatalogName())
+                    .schemaName(catalogSchemaName.getSchemaName());
+        }
+
         private Builder() {}
 
         @Override
         protected Builder getInstance()
         {
             return this;
-        }
-
-        public static Builder fromTrinoCatalogSchema(CatalogSchemaName catalogSchemaName)
-        {
-            return new Builder()
-                    .catalogName(catalogSchemaName.getCatalogName())
-                    .schemaName(catalogSchemaName.getSchemaName());
         }
 
         @Override

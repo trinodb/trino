@@ -44,6 +44,16 @@ public record TrinoTable(
         public String tableName;
         public Set<String> columns;
 
+        public static Builder fromTrinoTable(CatalogSchemaTableName table)
+        {
+            return builder()
+                    .catalogName(table.getCatalogName())
+                    .schemaName(table.getSchemaTableName().getSchemaName())
+                    .tableName(table.getSchemaTableName().getTableName());
+        }
+
+        private Builder() {}
+
         @Override
         protected Builder getInstance()
         {
@@ -60,14 +70,6 @@ public record TrinoTable(
         {
             this.columns = ImmutableSet.copyOf(columns);
             return this;
-        }
-
-        public static Builder fromTrinoTable(CatalogSchemaTableName table)
-        {
-            return builder()
-                    .catalogName(table.getCatalogName())
-                    .schemaName(table.getSchemaTableName().getSchemaName())
-                    .tableName(table.getSchemaTableName().getTableName());
         }
 
         @Override
