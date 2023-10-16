@@ -63,6 +63,8 @@ import io.trino.execution.scheduler.QueryScheduler;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.execution.scheduler.TaskExecutionStats;
 import io.trino.execution.scheduler.faulttolerant.NodeAllocator.NodeLease;
+import io.trino.execution.scheduler.faulttolerant.OutputDataSizeEstimator.OutputDataSizeEstimateResult;
+import io.trino.execution.scheduler.faulttolerant.OutputDataSizeEstimator.OutputDataSizeEstimateStatus;
 import io.trino.execution.scheduler.faulttolerant.PartitionMemoryEstimator.MemoryRequirements;
 import io.trino.execution.scheduler.faulttolerant.SplitAssigner.AssignmentResult;
 import io.trino.execution.scheduler.faulttolerant.SplitAssigner.Partition;
@@ -133,13 +135,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.trino.SystemSessionProperties.getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
-import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMinSourceStageProgress;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount;
-import static io.trino.SystemSessionProperties.getFaultTolerantExecutionSmallStageEstimationThreshold;
-import static io.trino.SystemSessionProperties.getFaultTolerantExecutionSmallStageSourceSizeMultiplier;
 import static io.trino.SystemSessionProperties.getMaxTasksWaitingForExecutionPerQuery;
 import static io.trino.SystemSessionProperties.getMaxTasksWaitingForNodePerStage;
 import static io.trino.SystemSessionProperties.getRetryDelayScaleFactor;
@@ -148,8 +146,6 @@ import static io.trino.SystemSessionProperties.getRetryMaxDelay;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.getTaskRetryAttemptsPerTask;
 import static io.trino.SystemSessionProperties.isFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled;
-import static io.trino.SystemSessionProperties.isFaultTolerantExecutionSmallStageEstimationEnabled;
-import static io.trino.SystemSessionProperties.isFaultTolerantExecutionSmallStageRequireNoMorePartitions;
 import static io.trino.SystemSessionProperties.isFaultTolerantExecutionStageEstimationForEagerParentEnabled;
 import static io.trino.execution.BasicStageStats.aggregateBasicStageStats;
 import static io.trino.execution.StageState.ABORTED;
@@ -205,6 +201,7 @@ public class EventDrivenFaultTolerantQueryScheduler
     private final Tracer tracer;
     private final SplitSchedulerStats schedulerStats;
     private final PartitionMemoryEstimatorFactory memoryEstimatorFactory;
+    private final OutputDataSizeEstimatorFactory outputDataSizeEstimatorFactory;
     private final NodePartitioningManager nodePartitioningManager;
     private final ExchangeManager exchangeManager;
     private final NodeAllocatorService nodeAllocatorService;
@@ -212,12 +209,6 @@ public class EventDrivenFaultTolerantQueryScheduler
     private final DynamicFilterService dynamicFilterService;
     private final TaskExecutionStats taskExecutionStats;
     private final SubPlan originalPlan;
-    private final double minSourceStageProgress;
-    private final boolean smallStageEstimationEnabled;
-    private final DataSize smallStageEstimationThreshold;
-    private final double smallStageSourceSizeMultiplier;
-    private final DataSize smallSizePartitionSizeEstimate;
-    private final boolean smallStageRequireNoMorePartitions;
     private final boolean stageEstimationForEagerParentEnabled;
 
     private final StageRegistry stageRegistry;
@@ -240,6 +231,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             Tracer tracer,
             SplitSchedulerStats schedulerStats,
             PartitionMemoryEstimatorFactory memoryEstimatorFactory,
+            OutputDataSizeEstimatorFactory outputDataSizeEstimatorFactory,
             NodePartitioningManager nodePartitioningManager,
             ExchangeManager exchangeManager,
             NodeAllocatorService nodeAllocatorService,
@@ -262,6 +254,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
         this.memoryEstimatorFactory = requireNonNull(memoryEstimatorFactory, "memoryEstimatorFactory is null");
+        this.outputDataSizeEstimatorFactory = requireNonNull(outputDataSizeEstimatorFactory, "outputDataSizeEstimatorFactory is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "partitioningSchemeFactory is null");
         this.exchangeManager = requireNonNull(exchangeManager, "exchangeManager is null");
         this.nodeAllocatorService = requireNonNull(nodeAllocatorService, "nodeAllocatorService is null");
@@ -269,12 +262,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         this.taskExecutionStats = requireNonNull(taskExecutionStats, "taskExecutionStats is null");
         this.originalPlan = requireNonNull(originalPlan, "originalPlan is null");
-        this.minSourceStageProgress = getFaultTolerantExecutionMinSourceStageProgress(queryStateMachine.getSession());
-        this.smallStageEstimationEnabled = isFaultTolerantExecutionSmallStageEstimationEnabled(queryStateMachine.getSession());
-        this.smallStageEstimationThreshold = getFaultTolerantExecutionSmallStageEstimationThreshold(queryStateMachine.getSession());
-        this.smallStageSourceSizeMultiplier = getFaultTolerantExecutionSmallStageSourceSizeMultiplier(queryStateMachine.getSession());
-        this.smallSizePartitionSizeEstimate = getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin(queryStateMachine.getSession());
-        this.smallStageRequireNoMorePartitions = isFaultTolerantExecutionSmallStageRequireNoMorePartitions(queryStateMachine.getSession());
+
         this.stageEstimationForEagerParentEnabled = isFaultTolerantExecutionStageEstimationForEagerParentEnabled(queryStateMachine.getSession());
 
         stageRegistry = new StageRegistry(queryStateMachine, originalPlan);
@@ -335,6 +323,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     tracer,
                     schedulerStats,
                     memoryEstimatorFactory,
+                    outputDataSizeEstimatorFactory.create(session),
                     partitioningSchemeFactory,
                     exchangeManager,
                     getTaskRetryAttemptsPerTask(session) + 1,
@@ -355,13 +344,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     isFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled(session),
                     getFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount(session),
                     getFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize(session),
-                    minSourceStageProgress,
-                    smallStageEstimationEnabled,
-                    smallStageEstimationThreshold,
-                    smallStageSourceSizeMultiplier,
-                    smallSizePartitionSizeEstimate,
-                    stageEstimationForEagerParentEnabled,
-                    smallStageRequireNoMorePartitions);
+                    stageEstimationForEagerParentEnabled);
             queryExecutor.submit(scheduler::run);
         }
         catch (Throwable t) {
@@ -527,6 +510,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final Tracer tracer;
         private final SplitSchedulerStats schedulerStats;
         private final PartitionMemoryEstimatorFactory memoryEstimatorFactory;
+        private final OutputDataSizeEstimator outputDataSizeEstimator;
         private final FaultTolerantPartitioningSchemeFactory partitioningSchemeFactory;
         private final ExchangeManager exchangeManager;
         private final int maxTaskExecutionAttempts;
@@ -541,12 +525,6 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final boolean runtimeAdaptivePartitioningEnabled;
         private final int runtimeAdaptivePartitioningPartitionCount;
         private final long runtimeAdaptivePartitioningMaxTaskSizeInBytes;
-        private final double minSourceStageProgress;
-        private final boolean smallStageEstimationEnabled;
-        private final DataSize smallStageEstimationThreshold;
-        private final double smallStageSourceSizeMultiplier;
-        private final DataSize smallSizePartitionSizeEstimate;
-        private final boolean smallStageRequireNoMorePartitions;
         private final boolean stageEstimationForEagerParentEnabled;
 
         private final BlockingQueue<Event> eventQueue = new LinkedBlockingQueue<>();
@@ -583,6 +561,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 Tracer tracer,
                 SplitSchedulerStats schedulerStats,
                 PartitionMemoryEstimatorFactory memoryEstimatorFactory,
+                OutputDataSizeEstimator outputDataSizeEstimator,
                 FaultTolerantPartitioningSchemeFactory partitioningSchemeFactory,
                 ExchangeManager exchangeManager,
                 int maxTaskExecutionAttempts,
@@ -599,13 +578,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 boolean runtimeAdaptivePartitioningEnabled,
                 int runtimeAdaptivePartitioningPartitionCount,
                 DataSize runtimeAdaptivePartitioningMaxTaskSize,
-                double minSourceStageProgress,
-                boolean smallStageEstimationEnabled,
-                DataSize smallStageEstimationThreshold,
-                double smallStageSourceSizeMultiplier,
-                DataSize smallSizePartitionSizeEstimate,
-                boolean stageEstimationForEagerParentEnabled,
-                boolean smallStageRequireNoMorePartitions)
+                boolean stageEstimationForEagerParentEnabled)
         {
             this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
@@ -619,6 +592,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.tracer = requireNonNull(tracer, "tracer is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
             this.memoryEstimatorFactory = requireNonNull(memoryEstimatorFactory, "memoryEstimatorFactory is null");
+            this.outputDataSizeEstimator = requireNonNull(outputDataSizeEstimator, "outputDataSizeEstimator is null");
             this.partitioningSchemeFactory = requireNonNull(partitioningSchemeFactory, "partitioningSchemeFactory is null");
             this.exchangeManager = requireNonNull(exchangeManager, "exchangeManager is null");
             checkArgument(maxTaskExecutionAttempts > 0, "maxTaskExecutionAttempts must be greater than zero: %s", maxTaskExecutionAttempts);
@@ -636,13 +610,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.runtimeAdaptivePartitioningEnabled = runtimeAdaptivePartitioningEnabled;
             this.runtimeAdaptivePartitioningPartitionCount = runtimeAdaptivePartitioningPartitionCount;
             this.runtimeAdaptivePartitioningMaxTaskSizeInBytes = requireNonNull(runtimeAdaptivePartitioningMaxTaskSize, "runtimeAdaptivePartitioningMaxTaskSize is null").toBytes();
-            this.minSourceStageProgress = minSourceStageProgress;
-            this.smallStageEstimationEnabled = smallStageEstimationEnabled;
-            this.smallStageEstimationThreshold = requireNonNull(smallStageEstimationThreshold, "smallStageEstimationThreshold is null");
-            this.smallStageSourceSizeMultiplier = smallStageSourceSizeMultiplier;
-            this.smallSizePartitionSizeEstimate = requireNonNull(smallSizePartitionSizeEstimate, "smallSizePartitionSizeEstimate is null");
             this.stageEstimationForEagerParentEnabled = stageEstimationForEagerParentEnabled;
-            this.smallStageRequireNoMorePartitions = smallStageRequireNoMorePartitions;
 
             planInTopologicalOrder = sortPlanInTopologicalOrder(plan);
         }
@@ -1203,24 +1171,18 @@ public class EventDrivenFaultTolerantQueryScheduler
                     return stageExecution.getStageInfo().getPlan();
                 };
                 StageExecution execution = new StageExecution(
-                        queryStateMachine,
                         taskDescriptorStorage,
                         stage,
                         taskSource,
                         sinkPartitioningScheme,
                         exchange,
                         memoryEstimatorFactory.createPartitionMemoryEstimator(session, fragment, planFragmentLookup),
+                        outputDataSizeEstimator,
                         // do not retry coordinator only tasks
                         coordinatorStage ? 1 : maxTaskExecutionAttempts,
                         schedulingPriority,
                         eager,
-                        dynamicFilterService,
-                        minSourceStageProgress,
-                        smallStageEstimationEnabled,
-                        smallStageEstimationThreshold,
-                        smallStageSourceSizeMultiplier,
-                        smallSizePartitionSizeEstimate,
-                        smallStageRequireNoMorePartitions);
+                        dynamicFilterService);
 
                 stageExecutions.put(execution.getStageId(), execution);
 
@@ -1592,9 +1554,8 @@ public class EventDrivenFaultTolerantQueryScheduler
         }
     }
 
-    private static class StageExecution
+    public static class StageExecution
     {
-        private final QueryStateMachine queryStateMachine;
         private final TaskDescriptorStorage taskDescriptorStorage;
 
         private final SqlStage stage;
@@ -1602,6 +1563,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final FaultTolerantPartitioningScheme sinkPartitioningScheme;
         private final Exchange exchange;
         private final PartitionMemoryEstimator partitionMemoryEstimator;
+        private final OutputDataSizeEstimator outputDataSizeEstimator;
         private final int maxTaskExecutionAttempts;
         private final int schedulingPriority;
         private final boolean eager;
@@ -1624,41 +1586,28 @@ public class EventDrivenFaultTolerantQueryScheduler
         private boolean taskDescriptorLoadingActive;
         private boolean exchangeClosed;
 
-        private final double minSourceStageProgress;
-        private final boolean smallStageEstimationEnabled;
-        private final DataSize smallStageEstimationThreshold;
-        private final double smallStageSourceSizeMultiplier;
-        private final DataSize smallSizePartitionSizeEstimate;
-        private final boolean smallStageRequireNoMorePartitions;
-
         private MemoryRequirements initialMemoryRequirements;
 
         private StageExecution(
-                QueryStateMachine queryStateMachine,
                 TaskDescriptorStorage taskDescriptorStorage,
                 SqlStage stage,
                 EventDrivenTaskSource taskSource,
                 FaultTolerantPartitioningScheme sinkPartitioningScheme,
                 Exchange exchange,
                 PartitionMemoryEstimator partitionMemoryEstimator,
+                OutputDataSizeEstimator outputDataSizeEstimator,
                 int maxTaskExecutionAttempts,
                 int schedulingPriority,
                 boolean eager,
-                DynamicFilterService dynamicFilterService,
-                double minSourceStageProgress,
-                boolean smallStageEstimationEnabled,
-                DataSize smallStageEstimationThreshold,
-                double smallStageSourceSizeMultiplier,
-                DataSize smallSizePartitionSizeEstimate,
-                boolean smallStageRequireNoMorePartitions)
+                DynamicFilterService dynamicFilterService)
         {
-            this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
             this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
             this.stage = requireNonNull(stage, "stage is null");
             this.taskSource = requireNonNull(taskSource, "taskSource is null");
             this.sinkPartitioningScheme = requireNonNull(sinkPartitioningScheme, "sinkPartitioningScheme is null");
             this.exchange = requireNonNull(exchange, "exchange is null");
             this.partitionMemoryEstimator = requireNonNull(partitionMemoryEstimator, "partitionMemoryEstimator is null");
+            this.outputDataSizeEstimator = requireNonNull(outputDataSizeEstimator, "outputDataSizeEstimator is null");
             this.maxTaskExecutionAttempts = maxTaskExecutionAttempts;
             this.schedulingPriority = schedulingPriority;
             this.eager = eager;
@@ -1673,12 +1622,6 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
             this.remoteSourceIds = remoteSourceIds.build();
             this.remoteSources = remoteSources.buildOrThrow();
-            this.minSourceStageProgress = minSourceStageProgress;
-            this.smallStageEstimationEnabled = smallStageEstimationEnabled;
-            this.smallStageEstimationThreshold = requireNonNull(smallStageEstimationThreshold, "smallStageEstimationThreshold is null");
-            this.smallStageSourceSizeMultiplier = smallStageSourceSizeMultiplier;
-            this.smallSizePartitionSizeEstimate = requireNonNull(smallSizePartitionSizeEstimate, "smallSizePartitionSizeEstimate is null");
-            this.smallStageRequireNoMorePartitions = smallStageRequireNoMorePartitions;
             this.initialMemoryRequirements = computeCurrentInitialMemoryRequirements();
         }
 
@@ -2137,123 +2080,12 @@ public class EventDrivenFaultTolerantQueryScheduler
                 return Optional.of(new OutputDataSizeEstimateResult(
                         new OutputDataSizeEstimate(ImmutableLongArray.copyOf(outputDataSize)), OutputDataSizeEstimateStatus.FINISHED));
             }
-            Optional<OutputDataSizeEstimateResult> result = getEstimatedOutputDataSize().or(() -> getEstimatedSmallStageOutputDataSize(stageExecutionLookup));
-            if (result.isEmpty() && parentEager) {
-                result = getEstimatedStageOutputSizeForEagerParent();
-            }
-            return result;
+            return outputDataSizeEstimator.getEstimatedOutputDataSize(this, stageExecutionLookup, parentEager);
         }
 
         public boolean isSomeProgressMade()
         {
             return partitions.size() > 0 && remainingPartitions.size() < partitions.size();
-        }
-
-        private Optional<OutputDataSizeEstimateResult> getEstimatedOutputDataSize()
-        {
-            if (!isNoMorePartitions()) {
-                return Optional.empty();
-            }
-
-            int allPartitionsCount = getPartitionsCount();
-            int remainingPartitionsCount = getRemainingPartitionsCount();
-
-            if (remainingPartitionsCount == allPartitionsCount) {
-                return Optional.empty();
-            }
-
-            double progress = (double) (allPartitionsCount - remainingPartitionsCount) / allPartitionsCount;
-
-            if (progress < minSourceStageProgress) {
-                return Optional.empty();
-            }
-
-            ImmutableLongArray.Builder estimateBuilder = ImmutableLongArray.builder(outputDataSize.length);
-
-            for (long partitionSize : outputDataSize) {
-                estimateBuilder.add((long) (partitionSize / progress));
-            }
-            return Optional.of(new OutputDataSizeEstimateResult(new OutputDataSizeEstimate(estimateBuilder.build()), OutputDataSizeEstimateStatus.ESTIMATED_BY_PROGRESS));
-        }
-
-        private Optional<OutputDataSizeEstimateResult> getEstimatedSmallStageOutputDataSize(Function<StageId, StageExecution> stageExecutionLookup)
-        {
-            if (!smallStageEstimationEnabled) {
-                return Optional.empty();
-            }
-
-            if (smallStageRequireNoMorePartitions && !isNoMorePartitions()) {
-                return Optional.empty();
-            }
-
-            long currentOutputDataSize = 0;
-            for (long partitionOutputDataSize : outputDataSize) {
-                currentOutputDataSize += partitionOutputDataSize;
-            }
-            if (currentOutputDataSize > smallStageEstimationThreshold.toBytes()) {
-                // our output is too big already
-                return Optional.empty();
-            }
-
-            PlanFragment planFragment = this.getStageInfo().getPlan();
-            boolean hasPartitionedSources = planFragment.getPartitionedSources().size() > 0;
-            List<RemoteSourceNode> remoteSourceNodes = planFragment.getRemoteSourceNodes();
-
-            long partitionedInputSizeEstimate = 0;
-            if (hasPartitionedSources) {
-                if (!isNoMorePartitions()) {
-                    // stage is reading directly from table
-                    // for leaf stages require all tasks to be enumerated
-                    return Optional.empty();
-                }
-                // estimate partitioned input based on number of task partitions
-                partitionedInputSizeEstimate += this.getPartitionsCount() * smallSizePartitionSizeEstimate.toBytes();
-            }
-
-            long remoteInputSizeEstimate = 0;
-            for (RemoteSourceNode remoteSourceNode : remoteSourceNodes) {
-                for (PlanFragmentId sourceFragmentId : remoteSourceNode.getSourceFragmentIds()) {
-                    StageId sourceStageId = StageId.create(queryStateMachine.getQueryId(), sourceFragmentId);
-
-                    StageExecution sourceStage = stageExecutionLookup.apply(sourceStageId);
-                    requireNonNull(sourceStage, "sourceStage is null");
-                    Optional<OutputDataSizeEstimateResult> sourceStageOutputDataSize = sourceStage.getOutputDataSize(stageExecutionLookup, false);
-
-                    if (sourceStageOutputDataSize.isEmpty()) {
-                        // cant estimate size of one of sources; should not happen in practice
-                        return Optional.empty();
-                    }
-
-                    remoteInputSizeEstimate += sourceStageOutputDataSize.orElseThrow().outputDataSizeEstimate().getTotalSizeInBytes();
-                }
-            }
-
-            long inputSizeEstimate = (long) ((partitionedInputSizeEstimate + remoteInputSizeEstimate) * smallStageSourceSizeMultiplier);
-            if (inputSizeEstimate > smallStageEstimationThreshold.toBytes()) {
-                return Optional.empty();
-            }
-
-            int outputPartitionsCount = sinkPartitioningScheme.getPartitionCount();
-            ImmutableLongArray.Builder estimateBuilder = ImmutableLongArray.builder(outputPartitionsCount);
-            for (int i = 0; i < outputPartitionsCount; ++i) {
-                // assume uniform distribution
-                // TODO; should we use distribution as in this.outputDataSize if we have some data there already?
-                estimateBuilder.add(inputSizeEstimate / outputPartitionsCount);
-            }
-            return Optional.of(new OutputDataSizeEstimateResult(estimateBuilder.build(), OutputDataSizeEstimateStatus.ESTIMATED_BY_SMALL_INPUT));
-        }
-
-        private Optional<OutputDataSizeEstimateResult> getEstimatedStageOutputSizeForEagerParent()
-        {
-            // use empty estimate as fallback for eager parents. It matches current logic of assessing if node should be processed eagerly or not.
-            // Currently, we use eager task exectuion only for stages with small FINAL LIMIT which implies small input from child stages (child stages will
-            // enforce small input via PARTIAL LIMIT)
-            int outputPartitionsCount = sinkPartitioningScheme.getPartitionCount();
-            ImmutableLongArray.Builder estimateBuilder = ImmutableLongArray.builder(outputPartitionsCount);
-            for (int i = 0; i < outputPartitionsCount; ++i) {
-                estimateBuilder.add(0);
-            }
-            return Optional.of(new OutputDataSizeEstimateResult(estimateBuilder.build(), OutputDataSizeEstimateStatus.ESTIMATED_FOR_EAGER_PARENT));
         }
 
         public ExchangeSourceOutputSelector getSinkOutputSelector()
@@ -2326,28 +2158,20 @@ public class EventDrivenFaultTolerantQueryScheduler
             checkState(partition != null, "partition with id %s does not exist in stage %s", partitionId, stage.getStageId());
             return partition;
         }
-    }
 
-    private enum OutputDataSizeEstimateStatus {
-        FINISHED,
-        ESTIMATED_BY_PROGRESS,
-        ESTIMATED_BY_SMALL_INPUT,
-        ESTIMATED_FOR_EAGER_PARENT
-    }
-
-    private record OutputDataSizeEstimateResult(
-            OutputDataSizeEstimate outputDataSizeEstimate,
-            OutputDataSizeEstimateStatus status)
-    {
-        OutputDataSizeEstimateResult(ImmutableLongArray partitionDataSizes, OutputDataSizeEstimateStatus status)
+        /**
+         * This returns current output data size as captured on internal long[] field.
+         * Returning internal mutable field is done due to performance reasons.
+         * It is not allowed for the caller to mutate contents of returned array.
+         */
+        public long[] currentOutputDataSize()
         {
-            this(new OutputDataSizeEstimate(partitionDataSizes), status);
+            return outputDataSize;
         }
 
-        OutputDataSizeEstimateResult
+        public FaultTolerantPartitioningScheme getSinkPartitioningScheme()
         {
-            requireNonNull(outputDataSizeEstimate, "outputDataSizeEstimate is null");
-            requireNonNull(status, "status is null");
+            return sinkPartitioningScheme;
         }
     }
 
