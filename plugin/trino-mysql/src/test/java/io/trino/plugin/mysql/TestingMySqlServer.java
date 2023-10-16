@@ -70,7 +70,14 @@ public class TestingMySqlServer
         this.container = container;
         configureContainer(container);
         cleanup = startOrReuse(container);
-        execute(format("GRANT ALL PRIVILEGES ON *.* TO '%s'", container.getUsername()), "root", container.getPassword());
+
+        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), "root", container.getPassword());
+                Statement statement = connection.createStatement()) {
+            statement.execute(format("GRANT ALL PRIVILEGES ON *.* TO '%s'", container.getUsername()));
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void configureContainer(MySQLContainer<?> container)
@@ -79,26 +86,21 @@ public class TestingMySqlServer
         container.addParameter("TC_MY_CNF", null);
     }
 
-    public Connection createConnection()
-            throws SQLException
-    {
-        return container.createConnection("");
-    }
-
     public void execute(String sql)
     {
-        execute(sql, getUsername(), getPassword());
-    }
-
-    public void execute(String sql, String user, String password)
-    {
-        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), user, password);
+        try (Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
         catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public Connection createConnection()
+            throws SQLException
+    {
+        return container.createConnection("");
     }
 
     public String getUsername()
