@@ -1019,9 +1019,9 @@ public class EventDrivenFaultTolerantQueryScheduler
                 else {
                     // source stage finished; no more checks needed
                     OutputDataSizeEstimateResult result = sourceStageExecution.getOutputDataSize(stageExecutions::get, eager).orElseThrow();
-                    verify(result.getStatus() == OutputDataSizeEstimateStatus.FINISHED, "expected FINISHED status but got %s", result.getStatus());
+                    verify(result.status() == OutputDataSizeEstimateStatus.FINISHED, "expected FINISHED status but got %s", result.status());
                     finishedSourcesCount++;
-                    sourceOutputSizeEstimates.put(sourceStageExecution.getStageId(), result.getOutputDataSizeEstimate());
+                    sourceOutputSizeEstimates.put(sourceStageExecution.getStageId(), result.outputDataSizeEstimate());
                     someSourcesMadeProgress = true;
                     continue;
                 }
@@ -1041,14 +1041,14 @@ public class EventDrivenFaultTolerantQueryScheduler
                     return IsReadyForExecutionResult.notReady();
                 }
 
-                switch (result.orElseThrow().getStatus()) {
+                switch (result.orElseThrow().status()) {
                     case ESTIMATED_BY_PROGRESS -> estimatedByProgressSourcesCount++;
                     case ESTIMATED_BY_SMALL_INPUT -> estimatedBySmallInputSourcesCount++;
                     case ESTIMATED_FOR_EAGER_PARENT -> estimatedForEagerParent++;
-                    default -> throw new IllegalStateException(format("unexpected status %s", result.orElseThrow().getStatus())); // FINISHED handled above
+                    default -> throw new IllegalStateException(format("unexpected status %s", result.orElseThrow().status())); // FINISHED handled above
                 }
 
-                sourceOutputSizeEstimates.put(sourceStageExecution.getStageId(), result.orElseThrow().getOutputDataSizeEstimate());
+                sourceOutputSizeEstimates.put(sourceStageExecution.getStageId(), result.orElseThrow().outputDataSizeEstimate());
                 someSourcesMadeProgress = someSourcesMadeProgress || sourceStageExecution.isSomeProgressMade();
             }
 
@@ -2224,7 +2224,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         return Optional.empty();
                     }
 
-                    remoteInputSizeEstimate += sourceStageOutputDataSize.orElseThrow().getOutputDataSizeEstimate().getTotalSizeInBytes();
+                    remoteInputSizeEstimate += sourceStageOutputDataSize.orElseThrow().outputDataSizeEstimate().getTotalSizeInBytes();
                 }
             }
 
@@ -2335,30 +2335,19 @@ public class EventDrivenFaultTolerantQueryScheduler
         ESTIMATED_FOR_EAGER_PARENT
     }
 
-    private static class OutputDataSizeEstimateResult
+    private record OutputDataSizeEstimateResult(
+            OutputDataSizeEstimate outputDataSizeEstimate,
+            OutputDataSizeEstimateStatus status)
     {
-        private final OutputDataSizeEstimate outputDataSizeEstimate;
-        private final OutputDataSizeEstimateStatus status;
-
-        public OutputDataSizeEstimateResult(ImmutableLongArray partitionDataSizes, OutputDataSizeEstimateStatus status)
+        OutputDataSizeEstimateResult(ImmutableLongArray partitionDataSizes, OutputDataSizeEstimateStatus status)
         {
             this(new OutputDataSizeEstimate(partitionDataSizes), status);
         }
 
-        private OutputDataSizeEstimateResult(OutputDataSizeEstimate outputDataSizeEstimate, OutputDataSizeEstimateStatus status)
+        OutputDataSizeEstimateResult
         {
-            this.outputDataSizeEstimate = requireNonNull(outputDataSizeEstimate, "outputDataSizeEstimate is null");
-            this.status = requireNonNull(status, "status is null");
-        }
-
-        public OutputDataSizeEstimate getOutputDataSizeEstimate()
-        {
-            return outputDataSizeEstimate;
-        }
-
-        public OutputDataSizeEstimateStatus getStatus()
-        {
-            return status;
+            requireNonNull(outputDataSizeEstimate, "outputDataSizeEstimate is null");
+            requireNonNull(status, "status is null");
         }
     }
 
