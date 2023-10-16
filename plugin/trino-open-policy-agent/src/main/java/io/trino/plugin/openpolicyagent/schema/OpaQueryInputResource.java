@@ -31,9 +31,7 @@ public record OpaQueryInputResource(
         NamedEntity role,
         Set<NamedEntity> roles)
 {
-    @JsonInclude
-    public record NamedEntity(String name)
-    { }
+    public record NamedEntity(String name) {}
 
     public OpaQueryInputResource(OpaQueryInputResource.Builder builder)
     {

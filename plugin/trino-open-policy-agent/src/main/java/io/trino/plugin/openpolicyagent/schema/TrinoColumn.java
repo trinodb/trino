@@ -23,5 +23,4 @@ import io.trino.spi.connector.SchemaTableName;
  * @param schemaTableName Schema and table name
  * @param columnName Column name
  */
-public record TrinoColumn(SchemaTableName schemaTableName, String columnName)
-{ }
+public record TrinoColumn(SchemaTableName schemaTableName, String columnName) {}

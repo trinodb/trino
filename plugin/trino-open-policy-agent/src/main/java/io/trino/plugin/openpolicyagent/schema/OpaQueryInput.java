@@ -13,8 +13,4 @@
  */
 package io.trino.plugin.openpolicyagent.schema;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-
-@JsonInclude
-public record OpaQueryInput(OpaQueryContext context, OpaQueryInputAction action)
-{ }
+public record OpaQueryInput(OpaQueryContext context, OpaQueryInputAction action) {}
