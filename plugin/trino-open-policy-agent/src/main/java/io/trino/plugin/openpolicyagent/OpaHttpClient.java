@@ -32,6 +32,7 @@ import io.trino.plugin.openpolicyagent.schema.OpaQueryResult;
 
 import java.net.URI;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -42,7 +43,6 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
@@ -50,7 +50,7 @@ import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonRespo
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toMap;
+import static java.util.Objects.requireNonNullElse;
 
 public class OpaHttpClient
 {
@@ -134,35 +134,32 @@ public class OpaHttpClient
 
     public <K, V> Map<K, Set<V>> parallelBatchFilterFromOpa(Map<K, ? extends Collection<V>> items, BiFunction<K, List<V>, OpaQueryInput> requestBuilder, URI uri, JsonCodec<? extends OpaBatchQueryResult> deserializer)
     {
-        List<FluentFuture<Map.Entry<K, ImmutableSet<V>>>> allFutures = items
-                .entrySet()
-                .stream()
-                .filter(mapEntry -> !mapEntry.getValue().isEmpty())
-                .map(mapEntry -> Map.entry(mapEntry.getKey(), ImmutableList.copyOf(mapEntry.getValue())))
-                .map(
-                        mapEntry -> submitOpaRequest(
-                                requestBuilder.apply(mapEntry.getKey(), mapEntry.getValue()), uri, deserializer)
-                                .transform(
-                                        responseForEntry -> Map.entry(
-                                                mapEntry.getKey(),
-                                                (responseForEntry.result() != null && !responseForEntry.result().isEmpty()) ?
-                                                        responseForEntry.result().stream().map(mapEntry.getValue()::get).collect(toImmutableSet())
-                                                        : ImmutableSet.<V>of()),
-                                                executor))
-                .collect(toImmutableList());
-        Map<K, Set<V>> filtered = consumeOpaResponse(Futures.whenAllComplete(allFutures).call(() ->
-                allFutures
-                        .stream()
-                        .map(this::consumeOpaResponse)
-                        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue)),
-                executor));
-        return items
-                .entrySet()
-                .stream()
-                .collect(
-                        toImmutableMap(
-                                Map.Entry::getKey,
-                                mapEntry -> filtered.getOrDefault(mapEntry.getKey(), ImmutableSet.of())));
+        ImmutableMap.Builder<K, Set<V>> resultBuilder = ImmutableMap.builder();
+        Map<K, FluentFuture<ImmutableSet<V>>> allFutures = new HashMap<>();
+
+        for (Map.Entry<K, ? extends Collection<V>> mapEntry : items.entrySet()) {
+            resultBuilder.put(mapEntry.getKey(), ImmutableSet.of());
+            if (mapEntry.getValue().isEmpty()) {
+                continue;
+            }
+            List<V> orderedItems = ImmutableList.copyOf(mapEntry.getValue());
+            allFutures.put(
+                    mapEntry.getKey(),
+                    submitOpaRequest(requestBuilder.apply(mapEntry.getKey(), orderedItems), uri, deserializer)
+                            .transform(
+                                    response -> requireNonNullElse(response.result(), List.<Integer>of()).stream()
+                                            .map(orderedItems::get)
+                                            .collect(toImmutableSet()),
+                                    executor));
+        }
+
+        List<Map.Entry<K, ImmutableSet<V>>> consumedFutures = consumeOpaResponse(
+                Futures.whenAllComplete(allFutures.values()).call(
+                        () -> allFutures.entrySet().stream()
+                                .map(entry -> Map.entry(entry.getKey(), consumeOpaResponse(entry.getValue())))
+                                .toList(),
+                        executor));
+        return resultBuilder.putAll(consumedFutures).buildKeepingLast();
     }
 
     private <T> T parseOpaResponse(FullJsonResponseHandler.JsonResponse<T> response, URI uri)
