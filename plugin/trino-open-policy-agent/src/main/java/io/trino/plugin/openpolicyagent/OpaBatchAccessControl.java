@@ -50,42 +50,13 @@ public class OpaBatchAccessControl
     public OpaBatchAccessControl(
             OpaHighLevelClient opaHighLevelClient,
             JsonCodec<OpaBatchQueryResult> batchResultCodec,
-            OpaHttpClient httpClient,
+            OpaHttpClient opaHttpClient,
             OpaConfig config)
     {
         super(opaHighLevelClient);
         this.opaBatchedPolicyUri = config.getOpaBatchUri().orElseThrow();
         this.batchResultCodec = batchResultCodec;
-        this.opaHttpClient = httpClient;
-    }
-
-    private <V> Function<List<V>, OpaQueryInput> batchRequestBuilder(OpaQueryContext context, String operation, Function<V, OpaQueryInputResource> resourceMapper)
-    {
-        return items -> new OpaQueryInput(
-                context,
-                OpaQueryInputAction.builder()
-                        .operation(operation)
-                        .filterResources(items.stream().map(resourceMapper).collect(toImmutableList()))
-                        .build());
-    }
-
-    private <K, V> BiFunction<K, List<V>, OpaQueryInput> batchRequestBuilder(OpaQueryContext context, String operation, BiFunction<K, List<V>, OpaQueryInputResource> resourceMapper)
-    {
-        return (resourcesKey, resourcesList) -> new OpaQueryInput(
-                context,
-                OpaQueryInputAction.builder()
-                        .operation(operation)
-                        .filterResources(ImmutableList.of(resourceMapper.apply(resourcesKey, resourcesList)))
-                        .build());
-    }
-
-    private <T> Set<T> batchFilterFromOpa(OpaQueryContext context, String operation, Collection<T> items, Function<T, OpaQueryInputResource> converter)
-    {
-        return opaHttpClient.batchFilterFromOpa(
-                items,
-                batchRequestBuilder(context, operation, converter),
-                opaBatchedPolicyUri,
-                batchResultCodec);
+        this.opaHttpClient = opaHttpClient;
     }
 
     @Override
@@ -159,5 +130,34 @@ public class OpaBatchAccessControl
                                         .build())
                                 .build());
         return opaHttpClient.parallelBatchFilterFromOpa(tableColumns, requestBuilder, opaBatchedPolicyUri, batchResultCodec);
+    }
+
+    private <V> Function<List<V>, OpaQueryInput> batchRequestBuilder(OpaQueryContext context, String operation, Function<V, OpaQueryInputResource> resourceMapper)
+    {
+        return items -> new OpaQueryInput(
+                context,
+                OpaQueryInputAction.builder()
+                        .operation(operation)
+                        .filterResources(items.stream().map(resourceMapper).collect(toImmutableList()))
+                        .build());
+    }
+
+    private <K, V> BiFunction<K, List<V>, OpaQueryInput> batchRequestBuilder(OpaQueryContext context, String operation, BiFunction<K, List<V>, OpaQueryInputResource> resourceMapper)
+    {
+        return (resourcesKey, resourcesList) -> new OpaQueryInput(
+                context,
+                OpaQueryInputAction.builder()
+                        .operation(operation)
+                        .filterResources(ImmutableList.of(resourceMapper.apply(resourcesKey, resourcesList)))
+                        .build());
+    }
+
+    private <T> Set<T> batchFilterFromOpa(OpaQueryContext context, String operation, Collection<T> items, Function<T, OpaQueryInputResource> converter)
+    {
+        return opaHttpClient.batchFilterFromOpa(
+                items,
+                batchRequestBuilder(context, operation, converter),
+                opaBatchedPolicyUri,
+                batchResultCodec);
     }
 }

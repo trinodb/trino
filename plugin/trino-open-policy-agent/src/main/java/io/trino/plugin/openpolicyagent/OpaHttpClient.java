@@ -85,21 +85,6 @@ public class OpaHttpClient
                 .transform((response) -> parseOpaResponse(response, uri), executor);
     }
 
-    private <T> T parseOpaResponse(FullJsonResponseHandler.JsonResponse<T> response, URI uri)
-    {
-        int statusCode = response.getStatusCode();
-        if (HttpStatus.familyForStatusCode(statusCode) != HttpStatus.Family.SUCCESSFUL) {
-            if (statusCode == HttpStatus.NOT_FOUND.code()) {
-                throw new OpaQueryException.PolicyNotFound(uri.toString());
-            }
-            throw new OpaQueryException.OpaServerError(uri.toString(), statusCode, response.toString());
-        }
-        if (!response.hasValue()) {
-            throw new OpaQueryException.DeserializeFailed(response.getException());
-        }
-        return response.getValue();
-    }
-
     public <T> T consumeOpaResponse(ListenableFuture<T> opaResponseFuture)
     {
         try {
@@ -176,5 +161,20 @@ public class OpaHttpClient
                         toImmutableMap(
                                 Map.Entry::getKey,
                                 mapEntry -> filtered.getOrDefault(mapEntry.getKey(), ImmutableSet.of())));
+    }
+
+    private <T> T parseOpaResponse(FullJsonResponseHandler.JsonResponse<T> response, URI uri)
+    {
+        int statusCode = response.getStatusCode();
+        if (HttpStatus.familyForStatusCode(statusCode) != HttpStatus.Family.SUCCESSFUL) {
+            if (statusCode == HttpStatus.NOT_FOUND.code()) {
+                throw new OpaQueryException.PolicyNotFound(uri.toString());
+            }
+            throw new OpaQueryException.OpaServerError(uri.toString(), statusCode, response.toString());
+        }
+        if (!response.hasValue()) {
+            throw new OpaQueryException.DeserializeFailed(response.getException());
+        }
+        return response.getValue();
     }
 }
