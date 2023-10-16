@@ -473,6 +473,13 @@ public abstract class BaseConnectorTest
         assertQuery(
                 "SELECT count(*) FROM (SELECT count(*) FROM nation UNION ALL SELECT count(*) FROM region)",
                 "VALUES 2");
+
+        // HAVING, i.e. filter after aggregation
+        assertQuery("SELECT count(*) FROM nation HAVING count(*) = 25");
+        assertQuery("SELECT regionkey, count(*) FROM nation GROUP BY regionkey HAVING count(*) = 5");
+        assertQuery(
+                "SELECT regionkey, count(*) FROM nation GROUP BY GROUPING SETS ((), (regionkey)) HAVING count(*) IN (5, 25)",
+                "(SELECT NULL, count(*) FROM nation) UNION ALL (SELECT regionkey, count(*) FROM nation GROUP BY regionkey)");
     }
 
     @Test
