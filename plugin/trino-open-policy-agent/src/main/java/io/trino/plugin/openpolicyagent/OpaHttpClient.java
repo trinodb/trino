@@ -128,7 +128,7 @@ public class OpaHttpClient
         if (items.isEmpty()) {
             return ImmutableSet.of();
         }
-        final String dummyMapKey = "filter";
+        String dummyMapKey = "filter";
         return parallelBatchFilterFromOpa(ImmutableMap.of(dummyMapKey, items), (k, v) -> requestBuilder.apply(v), uri, deserializer).getOrDefault(dummyMapKey, ImmutableSet.of());
     }
 
