@@ -935,6 +935,22 @@ public class TestDeltaLakeBasic
                    """);
     }
 
+    /**
+     * @see deltalake.multipart_checkpoint
+     */
+    @Test
+    public void testReadMultipartCheckpoint()
+            throws Exception
+    {
+        String tableName = "test_multipart_checkpoint_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/multipart_checkpoint").toURI()).toPath(), tableLocation);
+
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+        assertThat(query("DESCRIBE " + tableName)).projected("Column", "Type").skippingTypesCheck().matches("VALUES ('c', 'integer')");
+        assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1, 2, 3, 4, 5, 6, 7");
+    }
+
     private static MetadataEntry loadMetadataEntry(long entryNumber, Path tableLocation)
             throws IOException
     {
