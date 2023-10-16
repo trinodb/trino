@@ -49,6 +49,7 @@ import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.preparePost;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
 public class OpaHttpClient
@@ -63,9 +64,9 @@ public class OpaHttpClient
             JsonCodec<OpaQuery> serializer,
             @ForOpa Executor executor)
     {
-        this.httpClient = httpClient;
-        this.serializer = serializer;
-        this.executor = executor;
+        this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.serializer = requireNonNull(serializer, "serializer is null");
+        this.executor = requireNonNull(executor, "executor is null");
     }
 
     public <T> FluentFuture<T> submitOpaRequest(OpaQueryInput input, URI uri, JsonCodec<T> deserializer)
@@ -97,6 +98,7 @@ public class OpaHttpClient
             throw new OpaQueryException.QueryFailed(e);
         }
         catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             throw new RuntimeException(e);
         }
     }
