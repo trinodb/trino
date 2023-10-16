@@ -180,7 +180,7 @@ public class TestDeltaLakeSplitManager
                     }
 
                     @Override
-                    public List<AddFileEntry> getActiveFiles(TableSnapshot tableSnapshot, ConnectorSession session)
+                    public List<AddFileEntry> getActiveFiles(TableSnapshot tableSnapshot, MetadataEntry metadataEntry, ProtocolEntry protocolEntry, ConnectorSession session)
                     {
                         return addFileEntries;
                     }

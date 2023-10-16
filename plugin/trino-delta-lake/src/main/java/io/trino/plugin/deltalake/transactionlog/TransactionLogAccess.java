@@ -30,6 +30,7 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
+import io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
@@ -255,7 +256,7 @@ public class TransactionLogAccess
                 .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
     }
 
-    public List<AddFileEntry> getActiveFiles(TableSnapshot tableSnapshot, ConnectorSession session)
+    public List<AddFileEntry> getActiveFiles(TableSnapshot tableSnapshot, MetadataEntry metadataEntry, ProtocolEntry protocolEntry, ConnectorSession session)
     {
         try {
             TableVersion tableVersion = new TableVersion(new TableLocation(tableSnapshot.getTable(), tableSnapshot.getTableLocation()), tableSnapshot.getVersion());
@@ -285,7 +286,7 @@ public class TransactionLogAccess
                     }
                 }
 
-                List<AddFileEntry> activeFiles = loadActiveFiles(tableSnapshot, session);
+                List<AddFileEntry> activeFiles = loadActiveFiles(tableSnapshot, metadataEntry, protocolEntry, session);
                 return new DeltaLakeDataFileCacheEntry(tableSnapshot.getVersion(), activeFiles);
             });
             return cacheEntry.getActiveFiles();
@@ -295,17 +296,22 @@ public class TransactionLogAccess
         }
     }
 
-    private List<AddFileEntry> loadActiveFiles(TableSnapshot tableSnapshot, ConnectorSession session)
+    private List<AddFileEntry> loadActiveFiles(TableSnapshot tableSnapshot, MetadataEntry metadataEntry, ProtocolEntry protocolEntry, ConnectorSession session)
     {
-        try (Stream<AddFileEntry> entries = getEntries(
-                tableSnapshot,
-                ImmutableSet.of(ADD),
-                this::activeAddEntries,
+        List<Transaction> transactions = tableSnapshot.getTransactions();
+        try (Stream<DeltaLakeTransactionLogEntry> checkpointEntries = tableSnapshot.getCheckpointTransactionLogEntries(
                 session,
+                ImmutableSet.of(ADD),
+                checkpointSchemaManager,
+                typeManager,
                 fileSystemFactory.create(session),
-                fileFormatDataSourceStats)) {
-            List<AddFileEntry> activeFiles = entries.collect(toImmutableList());
-            return activeFiles;
+                fileFormatDataSourceStats,
+                Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)))) {
+            return activeAddEntries(checkpointEntries, transactions)
+                    .collect(toImmutableList());
+        }
+        catch (IOException e) {
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error reading transaction log for " + tableSnapshot.getTable(), e);
         }
     }
 
@@ -439,7 +445,7 @@ public class TransactionLogAccess
         try {
             List<Transaction> transactions = tableSnapshot.getTransactions();
             Stream<DeltaLakeTransactionLogEntry> checkpointEntries = tableSnapshot.getCheckpointTransactionLogEntries(
-                    session, entryTypes, checkpointSchemaManager, typeManager, fileSystem, stats);
+                    session, entryTypes, checkpointSchemaManager, typeManager, fileSystem, stats, Optional.empty());
 
             return entryMapper.apply(
                     checkpointEntries,
