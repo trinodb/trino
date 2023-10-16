@@ -128,7 +128,7 @@ public class TestTableSnapshot
                 domainCompactionThreshold);
         tableSnapshot.setCachedMetadata(Optional.of(new MetadataEntry("id", "name", "description", null, "schema", ImmutableList.of(), ImmutableMap.of(), 0)));
         try (Stream<DeltaLakeTransactionLogEntry> stream = tableSnapshot.getCheckpointTransactionLogEntries(
-                SESSION, ImmutableSet.of(ADD), checkpointSchemaManager, TESTING_TYPE_MANAGER, trackingFileSystem, new FileFormatDataSourceStats())) {
+                SESSION, ImmutableSet.of(ADD), checkpointSchemaManager, TESTING_TYPE_MANAGER, trackingFileSystem, new FileFormatDataSourceStats(), Optional.empty())) {
             List<DeltaLakeTransactionLogEntry> entries = stream.collect(toImmutableList());
 
             assertThat(entries).hasSize(9);
@@ -170,7 +170,7 @@ public class TestTableSnapshot
 
         // lets read two entry types in one call; add and protocol
         try (Stream<DeltaLakeTransactionLogEntry> stream = tableSnapshot.getCheckpointTransactionLogEntries(
-                SESSION, ImmutableSet.of(ADD, PROTOCOL), checkpointSchemaManager, TESTING_TYPE_MANAGER, trackingFileSystem, new FileFormatDataSourceStats())) {
+                SESSION, ImmutableSet.of(ADD, PROTOCOL), checkpointSchemaManager, TESTING_TYPE_MANAGER, trackingFileSystem, new FileFormatDataSourceStats(), Optional.empty())) {
             List<DeltaLakeTransactionLogEntry> entries = stream.collect(toImmutableList());
 
             assertThat(entries).hasSize(10);

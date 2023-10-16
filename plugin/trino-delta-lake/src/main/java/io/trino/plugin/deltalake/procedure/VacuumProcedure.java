@@ -197,7 +197,7 @@ public class VacuumProcedure
         // Any remaining file are not live, and not needed to read any "recent" snapshot.
         List<Long> recentVersions = transactionLogAccess.getPastTableVersions(fileSystem, transactionLogDir, threshold, tableSnapshot.getVersion());
         Set<String> retainedPaths = Stream.concat(
-                        transactionLogAccess.getActiveFiles(tableSnapshot, session).stream()
+                        transactionLogAccess.getActiveFiles(tableSnapshot, handle.getMetadataEntry(), handle.getProtocolEntry(), session).stream()
                                 .map(AddFileEntry::getPath),
                         transactionLogAccess.getJsonEntries(
                                         fileSystem,

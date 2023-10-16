@@ -180,7 +180,8 @@ public class TableSnapshot
             CheckpointSchemaManager checkpointSchemaManager,
             TypeManager typeManager,
             TrinoFileSystem fileSystem,
-            FileFormatDataSourceStats stats)
+            FileFormatDataSourceStats stats,
+            Optional<MetadataAndProtocolEntry> metadataAndProtocol)
             throws IOException
     {
         if (lastCheckpoint.isEmpty()) {
@@ -190,8 +191,7 @@ public class TableSnapshot
         LastCheckpoint checkpoint = lastCheckpoint.get();
         // Add entries contain statistics. When struct statistics are used the format of the Parquet file depends on the schema. It is important to use the schema at the time
         // of the Checkpoint creation, in case the schema has evolved since it was written.
-        Optional<MetadataAndProtocolEntry> metadataAndProtocol = Optional.empty();
-        if (entryTypes.contains(ADD)) {
+        if (entryTypes.contains(ADD) && metadataAndProtocol.isEmpty()) {
             metadataAndProtocol = Optional.of(getCheckpointMetadataAndProtocolEntries(
                     session,
                     checkpointSchemaManager,
@@ -300,9 +300,9 @@ public class TableSnapshot
         throw new TrinoException(DELTA_LAKE_BAD_DATA, "Checkpoint found without metadata and protocol entry: " + checkpoint);
     }
 
-    private record MetadataAndProtocolEntry(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
+    public record MetadataAndProtocolEntry(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
     {
-        private MetadataAndProtocolEntry
+        public MetadataAndProtocolEntry
         {
             requireNonNull(metadataEntry, "metadataEntry is null");
             requireNonNull(protocolEntry, "protocolEntry is null");
