@@ -216,13 +216,13 @@ public class OpaHighLevelClient
 
     public static OpaQueryInput buildQueryInputForSimpleAction(OpaQueryContext context, String operation)
     {
-        OpaQueryInputAction action = new OpaQueryInputAction.Builder().operation(operation).build();
+        OpaQueryInputAction action = OpaQueryInputAction.builder().operation(operation).build();
         return new OpaQueryInput(context, action);
     }
 
     public static OpaQueryInput buildQueryInputForSimpleResource(OpaQueryContext context, String operation, OpaQueryInputResource resource)
     {
-        OpaQueryInputAction action = new OpaQueryInputAction.Builder().operation(operation).resource(resource).build();
+        OpaQueryInputAction action = OpaQueryInputAction.builder().operation(operation).resource(resource).build();
         return new OpaQueryInput(context, action);
     }
 }

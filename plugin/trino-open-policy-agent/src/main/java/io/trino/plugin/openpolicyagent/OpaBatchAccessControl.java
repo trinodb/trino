@@ -61,9 +61,9 @@ public class OpaBatchAccessControl
 
     private <V> Function<List<V>, OpaQueryInput> batchRequestBuilder(OpaQueryContext context, String operation, Function<V, OpaQueryInputResource> resourceMapper)
     {
-        return (items) -> new OpaQueryInput(
+        return items -> new OpaQueryInput(
                 context,
-                new OpaQueryInputAction.Builder()
+                OpaQueryInputAction.builder()
                         .operation(operation)
                         .filterResources(items.stream().map(resourceMapper).collect(toImmutableList()))
                         .build());
@@ -71,11 +71,11 @@ public class OpaBatchAccessControl
 
     private <K, V> BiFunction<K, List<V>, OpaQueryInput> batchRequestBuilder(OpaQueryContext context, String operation, BiFunction<K, List<V>, OpaQueryInputResource> resourceMapper)
     {
-        return (k, v) -> new OpaQueryInput(
+        return (resourcesKey, resourcesList) -> new OpaQueryInput(
                 context,
-                new OpaQueryInputAction.Builder()
+                OpaQueryInputAction.builder()
                         .operation(operation)
-                        .filterResources(ImmutableList.of(resourceMapper.apply(k, v)))
+                        .filterResources(ImmutableList.of(resourceMapper.apply(resourcesKey, resourcesList)))
                         .build());
     }
 
@@ -95,9 +95,8 @@ public class OpaBatchAccessControl
                 OpaQueryContext.fromIdentity(identity),
                 "FilterViewQueryOwnedBy",
                 queryOwners,
-                (item) -> new OpaQueryInputResource
-                        .Builder()
-                        .user(new TrinoUser(item))
+                queryOwner -> OpaQueryInputResource.builder()
+                        .user(new TrinoUser(queryOwner))
                         .build());
     }
 
@@ -108,9 +107,8 @@ public class OpaBatchAccessControl
                 OpaQueryContext.fromSystemSecurityContext(context),
                 "FilterCatalogs",
                 catalogs,
-                (item) -> new OpaQueryInputResource
-                        .Builder()
-                        .catalog(item)
+                catalog -> OpaQueryInputResource.builder()
+                        .catalog(catalog)
                         .build());
     }
 
@@ -121,12 +119,10 @@ public class OpaBatchAccessControl
                 OpaQueryContext.fromSystemSecurityContext(context),
                 "FilterSchemas",
                 schemaNames,
-                (item) -> new OpaQueryInputResource
-                        .Builder()
-                        .schema(new TrinoSchema
-                                .Builder()
+                schema -> OpaQueryInputResource.builder()
+                        .schema(TrinoSchema.builder()
                                 .catalogName(catalogName)
-                                .schemaName(item)
+                                .schemaName(schema)
                                 .build())
                         .build());
     }
@@ -138,13 +134,11 @@ public class OpaBatchAccessControl
                 OpaQueryContext.fromSystemSecurityContext(context),
                 "FilterTables",
                 tableNames,
-                (i) -> new OpaQueryInputResource
-                        .Builder()
-                        .table(new TrinoTable
-                                .Builder()
+                table -> OpaQueryInputResource.builder()
+                        .table(TrinoTable.builder()
                                 .catalogName(catalogName)
-                                .schemaName(i.getSchemaName())
-                                .tableName(i.getTableName())
+                                .schemaName(table.getSchemaName())
+                                .tableName(table.getTableName())
                                 .build())
                         .build());
     }
@@ -156,16 +150,13 @@ public class OpaBatchAccessControl
                 OpaQueryContext.fromSystemSecurityContext(context),
                 "FilterColumns",
                 (schemaTableName, columns) ->
-                        new OpaQueryInputResource
-                                .Builder()
-                                .table(
-                                        new TrinoTable
-                                                .Builder()
-                                                .catalogName(catalogName)
-                                                .schemaName(schemaTableName.getSchemaName())
-                                                .tableName(schemaTableName.getTableName())
-                                                .columns(ImmutableSet.copyOf(columns))
-                                                .build())
+                        OpaQueryInputResource.builder()
+                                .table(TrinoTable.builder()
+                                        .catalogName(catalogName)
+                                        .schemaName(schemaTableName.getSchemaName())
+                                        .tableName(schemaTableName.getTableName())
+                                        .columns(ImmutableSet.copyOf(columns))
+                                        .build())
                                 .build());
         return opaHttpClient.parallelBatchFilterFromOpa(tableColumns, requestBuilder, opaBatchedPolicyUri, batchResultCodec);
     }

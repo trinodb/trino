@@ -27,6 +27,11 @@ public record OpaQueryInputGrant(Set<TrinoGrantPrincipal> principals, Boolean gr
         this(builder.principals, builder.grantOption, builder.privilege);
     }
 
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
     public static class Builder
     {
         private Set<TrinoGrantPrincipal> principals;

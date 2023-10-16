@@ -49,6 +49,11 @@ public record OpaQueryInputResource(
                 builder.roles);
     }
 
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
     public static class Builder
     {
         private TrinoUser user;

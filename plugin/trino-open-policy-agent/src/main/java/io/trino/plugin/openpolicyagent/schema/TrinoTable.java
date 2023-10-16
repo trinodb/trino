@@ -25,6 +25,21 @@ public record TrinoTable(@JsonUnwrapped TrinoSchema catalogSchema,
                          String tableName,
                          Set<String> columns)
 {
+    public TrinoTable(Builder builder)
+    {
+        this(new TrinoSchema(builder), builder.tableName, builder.columns);
+    }
+
+    public static TrinoTable fromTrinoTable(CatalogSchemaTableName table)
+    {
+        return TrinoTable.Builder.fromTrinoTable(table).build();
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
     public static class Builder
             extends BaseSchemaBuilder<TrinoTable, Builder>
     {
@@ -62,15 +77,5 @@ public record TrinoTable(@JsonUnwrapped TrinoSchema catalogSchema,
         {
             return new TrinoTable(this);
         }
-    }
-
-    public TrinoTable(Builder builder)
-    {
-        this(new TrinoSchema(builder), builder.tableName, builder.columns);
-    }
-
-    public static TrinoTable fromTrinoTable(CatalogSchemaTableName table)
-    {
-        return TrinoTable.Builder.fromTrinoTable(table).build();
     }
 }

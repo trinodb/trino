@@ -121,10 +121,9 @@ public class OpaHttpClient
         if (items.isEmpty()) {
             return ImmutableSet.of();
         }
-        List<FluentFuture<Optional<T>>> allFutures = items
-                .stream()
-                .map((item) -> submitOpaRequest(requestBuilder.apply(item), uri, deserializer)
-                        .transform((result) -> result.result() ? Optional.of(item) : Optional.<T>empty(), executor))
+        List<FluentFuture<Optional<T>>> allFutures = items.stream()
+                .map(item -> submitOpaRequest(requestBuilder.apply(item), uri, deserializer)
+                        .transform(result -> result.result() ? Optional.of(item) : Optional.<T>empty(), executor))
                 .collect(toImmutableList());
         return consumeOpaResponse(
                 Futures.whenAllComplete(allFutures).call(() ->
@@ -151,16 +150,16 @@ public class OpaHttpClient
         List<FluentFuture<Map.Entry<K, ImmutableSet<V>>>> allFutures = items
                 .entrySet()
                 .stream()
-                .map((e) -> Map.entry(e.getKey(), ImmutableList.copyOf(e.getValue())))
-                .filter((e) -> !e.getValue().isEmpty())
+                .filter(mapEntry -> !mapEntry.getValue().isEmpty())
+                .map(mapEntry -> Map.entry(mapEntry.getKey(), ImmutableList.copyOf(mapEntry.getValue())))
                 .map(
-                        (e) -> submitOpaRequest(
-                                requestBuilder.apply(e.getKey(), e.getValue()), uri, deserializer)
+                        mapEntry -> submitOpaRequest(
+                                requestBuilder.apply(mapEntry.getKey(), mapEntry.getValue()), uri, deserializer)
                                 .transform(
-                                        (result) -> Map.entry(
-                                                e.getKey(),
-                                                (result.result() != null && !result.result().isEmpty()) ?
-                                                        result.result().stream().map(e.getValue()::get).collect(toImmutableSet())
+                                        responseForEntry -> Map.entry(
+                                                mapEntry.getKey(),
+                                                (responseForEntry.result() != null && !responseForEntry.result().isEmpty()) ?
+                                                        responseForEntry.result().stream().map(mapEntry.getValue()::get).collect(toImmutableSet())
                                                         : ImmutableSet.<V>of()),
                                                 executor))
                 .collect(toImmutableList());
@@ -176,6 +175,6 @@ public class OpaHttpClient
                 .collect(
                         toImmutableMap(
                                 Map.Entry::getKey,
-                                (e) -> filtered.getOrDefault(e.getKey(), ImmutableSet.of())));
+                                mapEntry -> filtered.getOrDefault(mapEntry.getKey(), ImmutableSet.of())));
     }
 }
