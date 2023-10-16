@@ -104,18 +104,6 @@ the task has remaining splits to process.
 
 - **Description:** see details at {ref}`prop-task-scale-writers`
 
-## `task.writer-count`
-
-Deprecated and replaced by {ref}`prop-task-min-writer-count`.
-
-## `task.partitioned-writer-count`
-
-Deprecated and replaced by {ref}`prop-task-max-writer-count`.
-
-## `task.scale-writers.max-writer-count`
-
-Deprecated and replaced by {ref}`prop-task-max-writer-count`.
-
 (prop-task-min-writer-count)=
 ## `task.min-writer-count`
 
