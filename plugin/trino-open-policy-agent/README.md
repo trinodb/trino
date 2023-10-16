@@ -49,12 +49,8 @@ The plugin will contact OPA for each authorization request as defined on the SPI
 OPA must return a response containing a boolean `allow` field, which will determine whether the operation
 is permitted or not.
 
-The plugin will pass as much context as possible within the OPA request.
-
-We will add better documentation on the specific combinations of fields in the requests soon! But for now,
-you can simply run OPA in verbose mode and see what requests are coming in from Trino.
-
-The tests for this plugin also showcase certain queries.
+The plugin will pass as much context as possible within the OPA request. A simple way of checking
+what data is passed in from Trino is to run OPA locally in verbose mode.
 
 ### Query structure
 
@@ -90,9 +86,9 @@ Accessing a table will result in a query like the one below:
     "operation": "SelectFromColumns",
     "resource": {
       "table": {
-        "catalogName": "someCatalog",
-        "schemaName": "someSchema",
-        "tableName": "someTable",
+        "catalogName": "my_catalog",
+        "schemaName": "my_schema",
+        "tableName": "my_table",
         "columns": [
           "column1",
           "column2",
@@ -119,16 +115,16 @@ when renaming a table.
     "operation": "RenameTable",
     "resource": {
       "table": {
-        "catalogName": "some-catalog",
-        "schemaName": "some-schema",
-        "tableName": "some-table"
+        "catalogName": "my_catalog",
+        "schemaName": "my_schema",
+        "tableName": "my_table"
       }
     },
     "targetResource": {
       "table": {
-        "catalogName": "some-catalog",
-        "schemaName": "another-schema",
-        "tableName": "another-table"
+        "catalogName": "my_catalog",
+        "schemaName": "my_schema",
+        "tableName": "new_table_name"
       }
     }
   }
