@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
+import com.google.common.io.Resources;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.filesystem.TrackingFileSystemFactory;
@@ -30,6 +31,8 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
@@ -51,6 +54,7 @@ import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.LAS
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.STARBURST_EXTENDED_STATS_JSON;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.TRANSACTION_LOG_JSON;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.TRINO_EXTENDED_STATS_JSON;
+import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
@@ -95,7 +99,8 @@ public class TestDeltaLakeFileOperations
                     Map.of(
                             "hive.metastore", "file",
                             "hive.metastore.catalog.dir", metastoreDirectory,
-                            "delta.enable-non-concurrent-writes", "true"));
+                            "delta.enable-non-concurrent-writes", "true",
+                            "delta.register-table-procedure.enabled", "true"));
 
             queryRunner.execute("CREATE SCHEMA " + session.getSchema().orElseThrow());
             return queryRunner;
@@ -701,6 +706,28 @@ public class TestDeltaLakeFileOperations
         assertFileSystemAccesses("SHOW TABLES", ImmutableMultiset.of());
     }
 
+    @Test
+    public void testReadMultipartCheckpoint()
+            throws Exception
+    {
+        String tableName = "test_multipart_checkpoint_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/multipart_checkpoint").toURI()).toPath(), tableLocation);
+
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+        assertFileSystemAccesses("SELECT * FROM " + tableName,
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM))
+                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000001.0000000002.parquet", INPUT_FILE_GET_LENGTH), 6) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
+                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000001.0000000002.parquet", INPUT_FILE_NEW_STREAM), 3) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
+                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000002.0000000002.parquet", INPUT_FILE_GET_LENGTH), 6) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
+                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000002.0000000002.parquet", INPUT_FILE_NEW_STREAM), 3) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000007.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000008.json", INPUT_FILE_NEW_STREAM))
+                        .addCopies(new FileOperation(DATA, "no partition", INPUT_FILE_NEW_STREAM), 7)
+                        .build());
+    }
+
     private int countCdfFilesForKey(String partitionValue)
     {
         String path = (String) computeScalar("SELECT \"$path\" FROM table_changes_file_system_access WHERE key = '" + partitionValue + "'");
@@ -742,12 +769,11 @@ public class TestDeltaLakeFileOperations
     {
         public static FileOperation create(String path, OperationType operationType)
         {
-            Pattern dataFilePattern = Pattern.compile(".*?/(?<partition>key=[^/]*/)?(?<queryId>\\d{8}_\\d{6}_\\d{5}_\\w{5})_(?<uuid>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})");
             String fileName = path.replaceFirst(".*/", "");
             if (path.matches(".*/_delta_log/_last_checkpoint")) {
                 return new FileOperation(LAST_CHECKPOINT, fileName, operationType);
             }
-            if (path.matches(".*/_delta_log/\\d+\\.checkpoint\\.parquet")) {
+            if (path.matches(".*/_delta_log/\\d+\\.checkpoint(\\.\\d+\\.\\d+)?\\.parquet")) {
                 return new FileOperation(CHECKPOINT, fileName, operationType);
             }
             if (path.matches(".*/_delta_log/\\d+\\.json")) {
@@ -759,6 +785,7 @@ public class TestDeltaLakeFileOperations
             if (path.matches(".*/_delta_log/_starburst_meta/extendeded_stats.json")) {
                 return new FileOperation(STARBURST_EXTENDED_STATS_JSON, fileName, operationType);
             }
+            Pattern dataFilePattern = Pattern.compile(".*?/(?<partition>key=[^/]*/)?[^/]+");
             if (path.matches(".*/_change_data/.*")) {
                 Matcher matcher = dataFilePattern.matcher(path);
                 if (matcher.matches()) {
