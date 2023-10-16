@@ -14,6 +14,8 @@
 package io.trino.plugin.deltalake;
 
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
+import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.spi.connector.SchemaTableName;
@@ -48,7 +50,9 @@ public final class TestingDeltaLakeUtils
         transactionLogAccess.flushCache();
 
         TableSnapshot snapshot = transactionLogAccess.getSnapshot(SESSION, dummyTable, tableLocation, Optional.empty());
-        List<AddFileEntry> activeFiles = transactionLogAccess.getActiveFiles(snapshot, SESSION);
+        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(snapshot, SESSION);
+        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, snapshot);
+        List<AddFileEntry> activeFiles = transactionLogAccess.getActiveFiles(snapshot, metadataEntry, protocolEntry, SESSION);
         transactionLogAccess.cleanupQuery(SESSION);
         return activeFiles;
     }

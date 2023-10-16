@@ -99,7 +99,8 @@ public class CheckpointWriterManager
                             checkpointSchemaManager,
                             typeManager,
                             fileSystem,
-                            fileFormatDataSourceStats)
+                            fileFormatDataSourceStats,
+                            Optional.empty())
                     .collect(toOptional());
             if (checkpointMetadataLogEntry.isPresent()) {
                 // TODO HACK: this call is required only to ensure that cachedMetadataEntry is set in snapshot (https://github.com/trinodb/trino/issues/12032),
@@ -119,7 +120,8 @@ public class CheckpointWriterManager
                                 checkpointSchemaManager,
                                 typeManager,
                                 fileSystem,
-                                fileFormatDataSourceStats)
+                                fileFormatDataSourceStats,
+                                Optional.empty())
                         .forEach(checkpointBuilder::addLogEntry);
             }
 
