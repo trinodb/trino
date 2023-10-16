@@ -36,6 +36,8 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static java.util.Objects.requireNonNull;
+
 public class OpaHighLevelClient
 {
     private final JsonCodec<OpaQueryResult> queryResultCodec;
@@ -48,9 +50,9 @@ public class OpaHighLevelClient
             OpaHttpClient opaHttpClient,
             OpaConfig config)
     {
+        this.queryResultCodec = requireNonNull(queryResultCodec, "queryResultCodec is null");
+        this.opaHttpClient = requireNonNull(opaHttpClient, "opaHttpClient is null");
         this.opaPolicyUri = config.getOpaUri();
-        this.opaHttpClient = opaHttpClient;
-        this.queryResultCodec = queryResultCodec;
     }
 
     public boolean queryOpa(OpaQueryInput input)
