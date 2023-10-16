@@ -291,14 +291,13 @@ public class TableSnapshot
                     protocol = entry.getProtocol();
                 }
                 if (metadata != null && protocol != null) {
-                    break;
+                    // No need to read next checkpoint parts if requested info already found
+                    return new MetadataAndProtocolEntry(metadata, protocol);
                 }
             }
         }
-        if (metadata == null || protocol == null) {
-            throw new TrinoException(DELTA_LAKE_BAD_DATA, "Checkpoint found without metadata and protocol entry: " + checkpoint);
-        }
-        return new MetadataAndProtocolEntry(metadata, protocol);
+
+        throw new TrinoException(DELTA_LAKE_BAD_DATA, "Checkpoint found without metadata and protocol entry: " + checkpoint);
     }
 
     private record MetadataAndProtocolEntry(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
