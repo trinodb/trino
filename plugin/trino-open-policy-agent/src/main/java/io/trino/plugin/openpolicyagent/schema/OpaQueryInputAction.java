@@ -49,6 +49,8 @@ public record OpaQueryInputAction(
         private OpaQueryInputGrant grantee;
         private TrinoGrantPrincipal grantor;
 
+        private Builder() {}
+
         public Builder operation(String operation)
         {
             this.operation = operation;

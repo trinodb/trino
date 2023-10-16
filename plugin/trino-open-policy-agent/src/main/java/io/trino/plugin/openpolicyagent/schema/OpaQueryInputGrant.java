@@ -38,6 +38,8 @@ public record OpaQueryInputGrant(Set<TrinoGrantPrincipal> principals, Boolean gr
         private Boolean grantOption;
         private String privilege;
 
+        private Builder() {}
+
         public Builder principal(TrinoGrantPrincipal principal)
         {
             this.principals = ImmutableSet.of(principal);

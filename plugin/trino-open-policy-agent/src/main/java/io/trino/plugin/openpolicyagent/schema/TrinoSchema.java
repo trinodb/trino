@@ -42,6 +42,8 @@ public record TrinoSchema(String catalogName,
     public static class Builder
             extends BaseSchemaBuilder<TrinoSchema, Builder>
     {
+        private Builder() {}
+
         @Override
         protected Builder getInstance()
         {

@@ -64,6 +64,8 @@ public record OpaQueryInputResource(
         private Set<NamedEntity> roles;
         private TrinoFunction function;
 
+        private Builder() {}
+
         public Builder user(TrinoUser user)
         {
             this.user = user;
