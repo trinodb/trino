@@ -42,19 +42,14 @@ public class OpaHighLevelClient
     private final URI opaPolicyUri;
     private final OpaHttpClient opaHttpClient;
 
-    interface DenyCallable
-    {
-        void doDeny();
-    }
-
     @Inject
     public OpaHighLevelClient(
             JsonCodec<OpaQueryResult> queryResultCodec,
-            OpaHttpClient httpClient,
+            OpaHttpClient opaHttpClient,
             OpaConfig config)
     {
         this.opaPolicyUri = config.getOpaUri();
-        this.opaHttpClient = httpClient;
+        this.opaHttpClient = opaHttpClient;
         this.queryResultCodec = queryResultCodec;
     }
 
@@ -78,8 +73,7 @@ public class OpaHighLevelClient
         return queryOpa(
                 new OpaQueryInput(
                         context,
-                        new OpaQueryInputAction
-                                .Builder()
+                        OpaQueryInputAction.builder()
                                 .operation(operation)
                                 .resource(resource)
                                 .targetResource(targetResource)
@@ -93,8 +87,7 @@ public class OpaHighLevelClient
             BiFunction<OpaQueryInputResource.Builder, T, OpaQueryInputResource.Builder> builderSetter,
             T value)
     {
-        OpaQueryInputResource.Builder builder = new OpaQueryInputResource.Builder();
-        OpaQueryInputResource resource = builderSetter.apply(builder, value).build();
+        OpaQueryInputResource resource = builderSetter.apply(OpaQueryInputResource.builder(), value).build();
         if (!queryOpaWithSimpleResource(context, actionName, resource)) {
             denyCallable.accept(value);
         }
@@ -110,7 +103,7 @@ public class OpaHighLevelClient
         queryAndEnforce(
                 context,
                 actionName,
-                (i) -> denyCallable.doDeny(),
+                failedItem -> denyCallable.deny(),
                 builderSetter,
                 value);
     }
@@ -203,7 +196,7 @@ public class OpaHighLevelClient
             DenyCallable denyCallable)
     {
         if (!queryOpaWithSimpleAction(context, actionName)) {
-            denyCallable.doDeny();
+            denyCallable.deny();
         }
     }
 
@@ -216,13 +209,16 @@ public class OpaHighLevelClient
 
     public static OpaQueryInput buildQueryInputForSimpleAction(OpaQueryContext context, String operation)
     {
-        OpaQueryInputAction action = OpaQueryInputAction.builder().operation(operation).build();
-        return new OpaQueryInput(context, action);
+        return new OpaQueryInput(context, OpaQueryInputAction.builder().operation(operation).build());
     }
 
     public static OpaQueryInput buildQueryInputForSimpleResource(OpaQueryContext context, String operation, OpaQueryInputResource resource)
     {
-        OpaQueryInputAction action = OpaQueryInputAction.builder().operation(operation).resource(resource).build();
-        return new OpaQueryInput(context, action);
+        return new OpaQueryInput(context, OpaQueryInputAction.builder().operation(operation).resource(resource).build());
+    }
+
+    interface DenyCallable
+    {
+        void deny();
     }
 }
