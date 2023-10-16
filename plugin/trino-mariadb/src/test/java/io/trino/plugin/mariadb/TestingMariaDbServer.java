@@ -46,17 +46,19 @@ public class TestingMariaDbServer
         // explicit-defaults-for-timestamp: 1 is ON, the default set is 0 (OFF)
         container.withCommand("--character-set-server", "utf8mb4", "--explicit-defaults-for-timestamp=1");
         container.start();
-        execute(format("GRANT ALL PRIVILEGES ON *.* TO '%s'", container.getUsername()), "root", container.getPassword());
+
+        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), "root", container.getPassword());
+                Statement statement = connection.createStatement()) {
+            statement.execute(format("GRANT ALL PRIVILEGES ON *.* TO '%s'", container.getUsername()));
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public void execute(String sql)
     {
-        execute(sql, getUsername(), getPassword());
-    }
-
-    private void execute(String sql, String user, String password)
-    {
-        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), user, password);
+        try (Connection connection = container.createConnection("");
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }

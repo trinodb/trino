@@ -18,8 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseAutomaticJoinPushdownTest;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
-import org.jdbi.v3.core.Handle;
-import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
@@ -73,9 +71,6 @@ public class TestMySqlAutomaticJoinPushdown
 
     protected void onRemoteDatabase(String sql)
     {
-        try (Handle handle = Jdbi.open(() -> mySqlServer.createConnection())) {
-            handle.execute("USE tpch");
-            handle.execute(sql);
-        }
+        mySqlServer.execute(sql);
     }
 }
