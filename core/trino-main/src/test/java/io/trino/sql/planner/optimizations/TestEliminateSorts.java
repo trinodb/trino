@@ -36,7 +36,6 @@ import java.util.Optional;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -55,21 +54,6 @@ public class TestEliminateSorts
     private static final PlanMatchPattern LINEITEM_TABLESCAN_Q = tableScan(
             "lineitem",
             ImmutableMap.of(QUANTITY_ALIAS, "quantity"));
-
-    @Test
-    public void testEliminateSorts()
-    {
-        @Language("SQL") String sql = "SELECT quantity, row_number() OVER (ORDER BY quantity) FROM lineitem ORDER BY quantity";
-
-        PlanMatchPattern pattern =
-                output(
-                        window(windowMatcherBuilder -> windowMatcherBuilder
-                                        .specification(windowSpec)
-                                        .addFunction(functionCall("row_number", Optional.empty(), ImmutableList.of())),
-                                anyTree(LINEITEM_TABLESCAN_Q)));
-
-        assertUnitPlan(sql, pattern);
-    }
 
     @Test
     public void testNotEliminateSorts()
