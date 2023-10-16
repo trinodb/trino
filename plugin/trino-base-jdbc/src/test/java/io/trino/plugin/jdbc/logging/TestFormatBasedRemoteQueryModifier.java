@@ -79,23 +79,18 @@ public class TestFormatBasedRemoteQueryModifier
 
         assertThatThrownBy(() -> modifier.apply(connectorSession, "SELECT * from USERS"))
                 .isInstanceOf(TrinoException.class)
-                .hasMessage("Passed value */; DROP TABLE TABLE_A; /* as $TRACE_TOKEN does not meet security criteria. It can contain only letters, digits, underscores and hyphens");
+                .hasMessageMatching("Rendering metadata using 'query.comment-format' does not meet security criteria: Query=.* Execution for user=Alice with source=source ttoken=\\*/; DROP TABLE TABLE_A; /\\*");
     }
 
     @Test
     public void testForSQLInjectionsBySource()
     {
-        TestingConnectorSession connectorSession = TestingConnectorSession.builder()
-                .setTraceToken("trace_token")
-                .setSource("*/; DROP TABLE TABLE_A; /*")
-                .setIdentity(ConnectorIdentity.ofUser("Alice"))
-                .build();
+        testForSQLInjectionsBySource("*/; DROP TABLE TABLE_A; /*");
+        testForSQLInjectionsBySource("Prefix */; DROP TABLE TABLE_A; /*");
+        testForSQLInjectionsBySource("""
 
-        FormatBasedRemoteQueryModifier modifier = createRemoteQueryModifier("Query=$QUERY_ID Execution for user=$USER with source=$SOURCE ttoken=$TRACE_TOKEN");
 
-        assertThatThrownBy(() -> modifier.apply(connectorSession, "SELECT * from USERS"))
-                .isInstanceOf(TrinoException.class)
-                .hasMessage("Passed value */; DROP TABLE TABLE_A; /* as $SOURCE does not meet security criteria. It can contain only letters, digits, underscores and hyphens");
+                                     Multiline */; DROP TABLE TABLE_A; /*""");
     }
 
     @Test
@@ -178,6 +173,21 @@ public class TestFormatBasedRemoteQueryModifier
 
         assertThat(modifiedQuery)
                 .isEqualTo("SELECT * FROM USERS /*source=%1$s ttoken=%1$s*/".formatted(value));
+    }
+
+    private void testForSQLInjectionsBySource(String sqlInjection)
+    {
+        TestingConnectorSession connectorSession = TestingConnectorSession.builder()
+                .setTraceToken("trace_token")
+                .setSource(sqlInjection)
+                .setIdentity(ConnectorIdentity.ofUser("Alice"))
+                .build();
+
+        FormatBasedRemoteQueryModifier modifier = createRemoteQueryModifier("Query=$QUERY_ID Execution for user=$USER with source=$SOURCE ttoken=$TRACE_TOKEN");
+
+        assertThatThrownBy(() -> modifier.apply(connectorSession, "SELECT * from USERS"))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("Rendering metadata using 'query.comment-format' does not meet security criteria: Query=");
     }
 
     private static FormatBasedRemoteQueryModifier createRemoteQueryModifier(String commentFormat)
