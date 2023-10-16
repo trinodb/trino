@@ -720,8 +720,8 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM))
                         .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000001.0000000002.parquet", INPUT_FILE_GET_LENGTH), 6) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
                         .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000001.0000000002.parquet", INPUT_FILE_NEW_STREAM), 3) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
-                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000002.0000000002.parquet", INPUT_FILE_GET_LENGTH), 6) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
-                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000002.0000000002.parquet", INPUT_FILE_NEW_STREAM), 3) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
+                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000002.0000000002.parquet", INPUT_FILE_GET_LENGTH), 4) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
+                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000002.0000000002.parquet", INPUT_FILE_NEW_STREAM), 2) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000007.json", INPUT_FILE_NEW_STREAM))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000008.json", INPUT_FILE_NEW_STREAM))
                         .addCopies(new FileOperation(DATA, "no partition", INPUT_FILE_NEW_STREAM), 7)
