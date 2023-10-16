@@ -58,18 +58,6 @@ public class OpaHighLevelClient
         this.queryResultCodec = queryResultCodec;
     }
 
-    public static OpaQueryInput buildQueryInputForSimpleAction(OpaQueryContext context, String operation)
-    {
-        OpaQueryInputAction action = new OpaQueryInputAction.Builder().operation(operation).build();
-        return new OpaQueryInput(context, action);
-    }
-
-    public static OpaQueryInput buildQueryInputForSimpleResource(OpaQueryContext context, String operation, OpaQueryInputResource resource)
-    {
-        OpaQueryInputAction action = new OpaQueryInputAction.Builder().operation(operation).resource(resource).build();
-        return new OpaQueryInput(context, action);
-    }
-
     public boolean queryOpa(OpaQueryInput input)
     {
         return opaHttpClient.consumeOpaResponse(opaHttpClient.submitOpaRequest(input, opaPolicyUri, queryResultCodec)).result();
@@ -224,5 +212,17 @@ public class OpaHighLevelClient
             Function<T, OpaQueryInput> requestBuilder)
     {
         return opaHttpClient.parallelFilterFromOpa(items, requestBuilder, opaPolicyUri, queryResultCodec);
+    }
+
+    public static OpaQueryInput buildQueryInputForSimpleAction(OpaQueryContext context, String operation)
+    {
+        OpaQueryInputAction action = new OpaQueryInputAction.Builder().operation(operation).build();
+        return new OpaQueryInput(context, action);
+    }
+
+    public static OpaQueryInput buildQueryInputForSimpleResource(OpaQueryContext context, String operation, OpaQueryInputResource resource)
+    {
+        OpaQueryInputAction action = new OpaQueryInputAction.Builder().operation(operation).resource(resource).build();
+        return new OpaQueryInput(context, action);
     }
 }

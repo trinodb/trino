@@ -87,11 +87,6 @@ public class OpaAccessControl
         this.opaHighLevelClient = opaHighLevelClient;
     }
 
-    private static String trinoPrincipalToString(TrinoPrincipal principal)
-    {
-        return format("%s '%s'", principal.getType().name().toLowerCase(Locale.ENGLISH), principal.getName());
-    }
-
     @Override
     public void checkCanImpersonateUser(Identity identity, String userName)
     {
@@ -1141,5 +1136,10 @@ public class OpaAccessControl
         if (!opaHighLevelClient.queryOpaWithSimpleResource(queryContext, "ExecuteTableProcedure", resource)) {
             denyExecuteTableProcedure(table.toString(), procedure);
         }
+    }
+
+    private static String trinoPrincipalToString(TrinoPrincipal principal)
+    {
+        return format("%s '%s'", principal.getType().name().toLowerCase(Locale.ENGLISH), principal.getName());
     }
 }
