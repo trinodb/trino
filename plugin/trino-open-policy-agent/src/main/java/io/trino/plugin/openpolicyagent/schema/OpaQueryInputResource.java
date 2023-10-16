@@ -34,20 +34,6 @@ public record OpaQueryInputResource(
 {
     public record NamedEntity(String name) {}
 
-    public OpaQueryInputResource(OpaQueryInputResource.Builder builder)
-    {
-        this(
-                builder.user,
-                builder.systemSessionProperty,
-                builder.catalogSessionProperty,
-                builder.function,
-                builder.catalog,
-                builder.schema,
-                builder.table,
-                builder.role,
-                builder.roles);
-    }
-
     public static Builder builder()
     {
         return new Builder();
@@ -129,7 +115,16 @@ public record OpaQueryInputResource(
 
         public OpaQueryInputResource build()
         {
-            return new OpaQueryInputResource(this);
+            return new OpaQueryInputResource(
+                    this.user,
+                    this.systemSessionProperty,
+                    this.catalogSessionProperty,
+                    this.function,
+                    this.catalog,
+                    this.schema,
+                    this.table,
+                    this.role,
+                    this.roles);
         }
     }
 }

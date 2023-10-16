@@ -24,11 +24,6 @@ import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 @JsonInclude(NON_NULL)
 public record OpaQueryInputGrant(Set<TrinoGrantPrincipal> principals, Boolean grantOption, String privilege)
 {
-    private OpaQueryInputGrant(Builder builder)
-    {
-        this(builder.principals, builder.grantOption, builder.privilege);
-    }
-
     public static Builder builder()
     {
         return new Builder();
@@ -68,7 +63,7 @@ public record OpaQueryInputGrant(Set<TrinoGrantPrincipal> principals, Boolean gr
 
         public OpaQueryInputGrant build()
         {
-            return new OpaQueryInputGrant(this);
+            return new OpaQueryInputGrant(this.principals, this.grantOption, this.privilege);
         }
     }
 }

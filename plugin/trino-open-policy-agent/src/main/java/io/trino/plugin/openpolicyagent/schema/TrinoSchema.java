@@ -37,11 +37,6 @@ public record TrinoSchema(
         return Builder.fromTrinoCatalogSchema(catalogSchemaName).build();
     }
 
-    public <T extends BaseSchemaBuilder<?, T>> TrinoSchema(T builder)
-    {
-        this(builder.catalogName, builder.schemaName, builder.properties);
-    }
-
     public static class Builder
             extends BaseSchemaBuilder<TrinoSchema, Builder>
     {
@@ -63,7 +58,10 @@ public record TrinoSchema(
         @Override
         public TrinoSchema build()
         {
-            return new TrinoSchema(this);
+            return new TrinoSchema(
+                    this.catalogName,
+                    this.schemaName,
+                    this.properties);
         }
     }
 }

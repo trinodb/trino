@@ -28,11 +28,6 @@ public record TrinoTable(
         String tableName,
         Set<String> columns)
 {
-    public TrinoTable(Builder builder)
-    {
-        this(new TrinoSchema(builder), builder.tableName, builder.columns);
-    }
-
     public static TrinoTable fromTrinoTable(CatalogSchemaTableName table)
     {
         return TrinoTable.Builder.fromTrinoTable(table).build();
@@ -69,7 +64,7 @@ public record TrinoTable(
 
         public static Builder fromTrinoTable(CatalogSchemaTableName table)
         {
-            return new Builder()
+            return builder()
                     .catalogName(table.getCatalogName())
                     .schemaName(table.getSchemaTableName().getSchemaName())
                     .tableName(table.getSchemaTableName().getTableName());
@@ -78,7 +73,10 @@ public record TrinoTable(
         @Override
         public TrinoTable build()
         {
-            return new TrinoTable(this);
+            return new TrinoTable(
+                    new TrinoSchema(this.catalogName, this.schemaName, this.properties),
+                    this.tableName,
+                    this.columns);
         }
     }
 }

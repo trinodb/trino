@@ -29,14 +29,6 @@ public record OpaQueryInputAction(
         OpaQueryInputGrant grantee,
         TrinoGrantPrincipal grantor)
 {
-    private OpaQueryInputAction(OpaQueryInputAction.Builder builder)
-    {
-        this(builder.operation, builder.resource, builder.filterResources, builder.targetResource, builder.grantee, builder.grantor);
-        if (this.resource != null && this.filterResources != null) {
-            throw new IllegalArgumentException("resource and filterResources cannot both be configured");
-        }
-    }
-
     public static Builder builder()
     {
         return new Builder();
@@ -91,7 +83,16 @@ public record OpaQueryInputAction(
 
         public OpaQueryInputAction build()
         {
-            return new OpaQueryInputAction(this);
+            if (this.resource != null && this.filterResources != null) {
+                throw new IllegalArgumentException("resource and filterResources cannot both be configured");
+            }
+            return new OpaQueryInputAction(
+                    this.operation,
+                    this.resource,
+                    this.filterResources,
+                    this.targetResource,
+                    this.grantee,
+                    this.grantor);
         }
     }
 }
