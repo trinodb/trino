@@ -13,18 +13,6 @@
  */
 package io.trino.plugin.openpolicyagent.schema;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.validation.constraints.NotNull;
 
-import static java.util.Objects.requireNonNullElse;
-
-@JsonInclude(JsonInclude.Include.NON_NULL)
-public record OpaQueryResult(@JsonProperty("decision_id") String decisionId, Boolean result)
-{
-    @Override
-    public @NotNull Boolean result()
-    {
-        return requireNonNullElse(this.result, false);
-    }
-}
+public record OpaQueryResult(@JsonProperty("decision_id") String decisionId, boolean result) {}

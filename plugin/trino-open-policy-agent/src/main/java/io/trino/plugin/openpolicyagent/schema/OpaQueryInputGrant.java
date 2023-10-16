@@ -19,7 +19,9 @@ import io.trino.spi.security.Privilege;
 
 import java.util.Set;
 
-@JsonInclude(JsonInclude.Include.NON_NULL)
+import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
+
+@JsonInclude(NON_NULL)
 public record OpaQueryInputGrant(Set<TrinoGrantPrincipal> principals, Boolean grantOption, String privilege)
 {
     private OpaQueryInputGrant(Builder builder)

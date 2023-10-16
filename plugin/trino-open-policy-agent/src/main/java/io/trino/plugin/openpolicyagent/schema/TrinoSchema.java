@@ -19,10 +19,13 @@ import io.trino.spi.connector.CatalogSchemaName;
 import java.util.Map;
 import java.util.Optional;
 
-@JsonInclude(JsonInclude.Include.NON_NULL)
-public record TrinoSchema(String catalogName,
-                          String schemaName,
-                          Map<String, Optional<Object>> properties)
+import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
+
+@JsonInclude(NON_NULL)
+public record TrinoSchema(
+        String catalogName,
+        String schemaName,
+        Map<String, Optional<Object>> properties)
 {
     public static Builder builder()
     {

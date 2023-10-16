@@ -20,10 +20,13 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 
 import java.util.Set;
 
-@JsonInclude(JsonInclude.Include.NON_NULL)
-public record TrinoTable(@JsonUnwrapped TrinoSchema catalogSchema,
-                         String tableName,
-                         Set<String> columns)
+import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
+
+@JsonInclude(NON_NULL)
+public record TrinoTable(
+        @JsonUnwrapped TrinoSchema catalogSchema,
+        String tableName,
+        Set<String> columns)
 {
     public TrinoTable(Builder builder)
     {

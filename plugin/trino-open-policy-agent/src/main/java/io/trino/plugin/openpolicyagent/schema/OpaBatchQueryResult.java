@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.openpolicyagent.schema;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import jakarta.validation.constraints.NotNull;
@@ -22,7 +21,6 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNullElse;
 
-@JsonInclude(JsonInclude.Include.NON_NULL)
 public record OpaBatchQueryResult(@JsonProperty("decision_id") String decisionId, List<Integer> result)
 {
     public @NotNull List<Integer> result()

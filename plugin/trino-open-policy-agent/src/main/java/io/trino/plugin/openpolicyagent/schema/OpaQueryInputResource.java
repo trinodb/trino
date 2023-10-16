@@ -17,9 +17,10 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.util.Set;
 
+import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
-@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonInclude(NON_NULL)
 public record OpaQueryInputResource(
         TrinoUser user,
         NamedEntity systemSessionProperty,

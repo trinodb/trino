@@ -18,7 +18,9 @@ import io.trino.spi.security.TrinoPrincipal;
 
 import java.util.Optional;
 
-@JsonInclude(JsonInclude.Include.NON_NULL)
+import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
+
+@JsonInclude(NON_NULL)
 public record TrinoGrantPrincipal(String type, String name)
 {
     public static TrinoGrantPrincipal fromTrinoPrincipal(TrinoPrincipal principal)

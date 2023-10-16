@@ -20,9 +20,10 @@ import io.trino.spi.security.SelectedRole;
 import java.util.Map;
 import java.util.Set;
 
+import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
-@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonInclude(NON_NULL)
 public record TrinoIdentity(
         String user,
         Set<String> groups,
