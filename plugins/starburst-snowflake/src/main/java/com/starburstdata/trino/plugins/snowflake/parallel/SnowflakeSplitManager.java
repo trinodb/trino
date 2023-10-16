@@ -11,6 +11,7 @@ package com.starburstdata.trino.plugins.snowflake.parallel;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeClient;
 import io.airlift.log.Logger;
@@ -65,8 +66,8 @@ import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeClient.throwIfInvalidWarehouse;
-import static com.starburstdata.trino.plugins.snowflake.parallel.SnowflakeArrowSplit.newChunkFileSplit;
-import static com.starburstdata.trino.plugins.snowflake.parallel.SnowflakeArrowSplit.newEncodedSplit;
+import static com.starburstdata.trino.plugins.snowflake.parallel.Chunk.newFileChunk;
+import static com.starburstdata.trino.plugins.snowflake.parallel.Chunk.newInlineChunk;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.dynamicFilteringEnabled;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.lang.String.format;
@@ -77,6 +78,13 @@ import static net.snowflake.client.core.ResultUtil.effectiveParamValue;
 public class SnowflakeSplitManager
         implements ConnectorSplitManager
 {
+    // SSE-C algorithm header
+    private static final String SSE_C_ALGORITHM = "x-amz-server-side-encryption-customer-algorithm";
+    // SSE-C customer key header
+    private static final String SSE_C_KEY = "x-amz-server-side-encryption-customer-key";
+    // SSE-C algorithm value
+    private static final String SSE_C_AES = "AES256";
+
     private static final Logger log = Logger.get(SnowflakeSplitManager.class);
 
     private final ConnectionFactory connectionFactory;
@@ -273,9 +281,14 @@ public class SnowflakeSplitManager
         List<ConnectorSplit> splits = new ArrayList<>(encodedChunkIsPresentInJson ? chunkFileCount + 1 : chunkFileCount);
 
         if (encodedChunkIsPresentInJson) {
-            splits.add(newEncodedSplit(rowsetBase64.asText(), parameters, resultVersion));
+            splits.add(new SnowflakeArrowSplit(resultVersion, newInlineChunk(rowsetBase64.asText()), parameters));
         }
 
+        if (chunkFileCount <= 0) {
+            return splits;
+        }
+
+        Map<String, String> headers = buildSecurityHeaders(chunkHeadersMap, qrmk);
         // parse chunk files metadata, e.g. url and row count
         for (int index = 0; index < chunkFileCount; index++) {
             JsonNode chunkNode = chunksNode.get(index);
@@ -283,9 +296,19 @@ public class SnowflakeSplitManager
             int compressedSize = chunkNode.path("compressedSize").asInt();
             int uncompressedSize = chunkNode.path("uncompressedSize").asInt();
 
-            splits.add(newChunkFileSplit(url, uncompressedSize, compressedSize, chunkHeadersMap, parameters, qrmk, resultVersion));
+            splits.add(new SnowflakeArrowSplit(resultVersion, newFileChunk(url, uncompressedSize, compressedSize, headers), parameters));
         }
         return splits;
+    }
+
+    private static Map<String, String> buildSecurityHeaders(Map<String, String> chunkHeaders, String queryMasterKey)
+    {
+        if (chunkHeaders.isEmpty() && queryMasterKey == null) {
+            throw new IllegalStateException("Security headers or query master key must be present if there is a chunk URL");
+        }
+        return !chunkHeaders.isEmpty() ? chunkHeaders : ImmutableMap.of(
+                SSE_C_ALGORITHM, SSE_C_AES,
+                SSE_C_KEY, queryMasterKey);
     }
 
     private static SnowflakeSessionParameters parseParameters(Map<String, Object> parameters)

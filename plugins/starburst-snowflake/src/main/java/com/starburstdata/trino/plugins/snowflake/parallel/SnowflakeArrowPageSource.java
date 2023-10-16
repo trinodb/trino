@@ -90,7 +90,7 @@ public class SnowflakeArrowPageSource
                 decimalColumnScales,
                 split.resultVersion());
 
-        this.fetcher = new ChunkFileFetcher(requireNonNull(streamProvider, "streamProvider is null"), split);
+        this.fetcher = new ChunkFileFetcher(requireNonNull(streamProvider, "streamProvider is null"), split.chunk());
     }
 
     @Override

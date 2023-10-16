@@ -17,14 +17,14 @@ import static java.util.Objects.requireNonNull;
 public class ChunkFileFetcher
 {
     private final StarburstResultStreamProvider streamProvider;
-    private final SnowflakeArrowSplit split;
+    private final Chunk chunk;
     private long readTimeNanos;
     private CompletableFuture<byte[]> future;
 
-    public ChunkFileFetcher(StarburstResultStreamProvider streamProvider, SnowflakeArrowSplit split)
+    public ChunkFileFetcher(StarburstResultStreamProvider streamProvider, Chunk chunk)
     {
         this.streamProvider = requireNonNull(streamProvider, "streamProvider is null");
-        this.split = requireNonNull(split, "split is null");
+        this.chunk = requireNonNull(chunk, "chunk is null");
     }
 
     public long getReadTimeNanos()
@@ -42,7 +42,7 @@ public class ChunkFileFetcher
         checkState(future == null, "future is not null at the beginning of fetching");
         future = CompletableFuture.supplyAsync(() -> {
             long start = System.nanoTime();
-            byte[] data = split.getInputStream(streamProvider);
+            byte[] data = chunk.getInputStream(streamProvider);
             readTimeNanos = System.nanoTime() - start;
             return data;
         });
