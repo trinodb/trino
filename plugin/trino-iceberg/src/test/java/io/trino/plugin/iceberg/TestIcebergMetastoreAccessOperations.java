@@ -456,7 +456,7 @@ public class TestIcebergMetastoreAccessOperations
         assertMetastoreInvocations(session, "SELECT schema_name, name FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA",
                 ImmutableMultiset.builder()
                         .add(GET_TABLES_WITH_PARAMETER)
-                        .addCopies(GET_TABLE, 6)
+                        .addCopies(GET_TABLE, 4)
                         .build());
 
         // Bulk retrieval for two schemas
@@ -475,7 +475,7 @@ public class TestIcebergMetastoreAccessOperations
         // Pointed lookup without selecting freshness
         assertMetastoreInvocations(session, "SELECT schema_name, name FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA AND name = 'mv1'",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 4)
+                        .addCopies(GET_TABLE, 2)
                         .build());
 
         assertUpdate("DROP SCHEMA " + schemaName + " CASCADE");
