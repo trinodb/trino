@@ -15,6 +15,8 @@ package io.trino.spi.connector;
 
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.Set;
+
 /**
  * Exactly one of {@link #cursor} or {@link #pageSource} must be implemented.
  */
@@ -38,6 +40,11 @@ public interface SystemTable
     default RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         throw new UnsupportedOperationException();
+    }
+
+    default RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint, Set<Integer> requiredColumns)
+    {
+        return cursor(transactionHandle, session, constraint);
     }
 
     /**

@@ -14,6 +14,7 @@
 package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.base.MappedPageSource;
 import io.trino.plugin.base.MappedRecordSet;
 import io.trino.spi.TrinoException;
@@ -38,6 +39,7 @@ import io.trino.spi.type.Type;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -83,6 +85,7 @@ public class SystemPageSourceProvider
         }
 
         ImmutableList.Builder<Integer> userToSystemFieldIndex = ImmutableList.builder();
+        ImmutableSet.Builder<Integer> requiredColumns = ImmutableSet.builder();
         for (ColumnHandle column : columns) {
             String columnName = ((SystemColumnHandle) column).getColumnName();
 
@@ -92,6 +95,7 @@ public class SystemPageSourceProvider
             }
 
             userToSystemFieldIndex.add(index);
+            requiredColumns.add(index);
         }
 
         TupleDomain<ColumnHandle> constraint = systemSplit.getConstraint();
@@ -105,11 +109,18 @@ public class SystemPageSourceProvider
             return new MappedPageSource(systemTable.pageSource(systemTransaction.getConnectorTransactionHandle(), session, newConstraint), userToSystemFieldIndex.build());
         }
         catch (UnsupportedOperationException e) {
-            return new RecordPageSource(new MappedRecordSet(toRecordSet(systemTransaction.getConnectorTransactionHandle(), systemTable, session, newConstraint), userToSystemFieldIndex.build()));
+            return new RecordPageSource(new MappedRecordSet(
+                    toRecordSet(
+                            systemTransaction.getConnectorTransactionHandle(),
+                            systemTable,
+                            session,
+                            newConstraint,
+                            requiredColumns.build()),
+                    userToSystemFieldIndex.build()));
         }
     }
 
-    private static RecordSet toRecordSet(ConnectorTransactionHandle sourceTransaction, SystemTable table, ConnectorSession session, TupleDomain<Integer> constraint)
+    private static RecordSet toRecordSet(ConnectorTransactionHandle sourceTransaction, SystemTable table, ConnectorSession session, TupleDomain<Integer> constraint, Set<Integer> requiredColumns)
     {
         return new RecordSet()
         {
@@ -126,7 +137,7 @@ public class SystemPageSourceProvider
             @Override
             public RecordCursor cursor()
             {
-                return table.cursor(sourceTransaction, session, constraint);
+                return table.cursor(sourceTransaction, session, constraint, requiredColumns);
             }
         };
     }

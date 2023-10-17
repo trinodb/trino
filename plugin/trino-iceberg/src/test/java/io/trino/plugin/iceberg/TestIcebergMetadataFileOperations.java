@@ -715,7 +715,7 @@ public class TestIcebergMetadataFileOperations
         // Bulk retrieval without selecting freshness
         assertFileSystemAccesses(session, "SELECT schema_name, name FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA",
                 ImmutableMultiset.<FileOperation>builder()
-                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 4)
+                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 2)
                         .build());
 
         // Bulk retrieval for two schemas
@@ -733,7 +733,7 @@ public class TestIcebergMetadataFileOperations
         // Pointed lookup without selecting freshness
         assertFileSystemAccesses(session, "SELECT schema_name, name FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA AND name = 'mv1'",
                 ImmutableMultiset.<FileOperation>builder()
-                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 3)
+                        .add(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM))
                         .build());
 
         assertUpdate("DROP SCHEMA " + schemaName + " CASCADE");
