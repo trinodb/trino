@@ -468,19 +468,19 @@ class TranslationMap
                             .build();
                     case TIME -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                             .setName("$current_time")
-                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new NullLiteral()))
+                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new Cast(new NullLiteral(), toSqlType(analysis.getType(node)))))
                             .build();
                     case LOCALTIME -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                             .setName("$localtime")
-                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new NullLiteral()))
+                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new Cast(new NullLiteral(), toSqlType(analysis.getType(node)))))
                             .build();
                     case TIMESTAMP -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                             .setName("$current_timestamp")
-                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new NullLiteral()))
+                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new Cast(new NullLiteral(), toSqlType(analysis.getType(node)))))
                             .build();
                     case LOCALTIMESTAMP -> BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                             .setName("$localtimestamp")
-                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new NullLiteral()))
+                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new Cast(new NullLiteral(), toSqlType(analysis.getType(node)))))
                             .build();
                 };
 
