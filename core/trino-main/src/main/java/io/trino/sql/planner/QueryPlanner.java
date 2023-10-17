@@ -549,7 +549,7 @@ class QueryPlanner
                 assignmentsBuilder.putIdentity(symbol);
             }
             else {
-                assignmentsBuilder.put(symbol, new NullLiteral());
+                assignmentsBuilder.put(symbol, new Cast(new NullLiteral(), toSqlType(symbolAllocator.getTypes().get(symbol))));
             }
         }
         List<Symbol> columnSymbols = columnSymbolsBuilder.build();

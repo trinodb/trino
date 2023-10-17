@@ -24,6 +24,7 @@ import io.trino.sql.analyzer.Analyzer;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AstVisitor;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Limit;
@@ -32,6 +33,7 @@ import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Query;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
@@ -42,6 +44,8 @@ import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.trino.execution.ParameterExtractor.extractParameters;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.QueryUtil.aliased;
 import static io.trino.sql.QueryUtil.ascending;
 import static io.trino.sql.QueryUtil.identifier;
@@ -51,6 +55,7 @@ import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.values;
 import static io.trino.sql.analyzer.QueryType.DESCRIBE;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.type.TypeUtils.getDisplayLabel;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
@@ -82,6 +87,12 @@ public final class DescribeInputRewrite
     private static final class Visitor
             extends AstVisitor<Node, Void>
     {
+        private static final Query EMPTY_INPUT = createDesctibeInputQuery(
+                new Row[]{row(
+                        new Cast(new NullLiteral(), toSqlType(BIGINT)),
+                        new Cast(new NullLiteral(), toSqlType(VARCHAR)))},
+                Optional.of(new Limit(new LongLiteral("0"))));
+
         private final Session session;
         private final SqlParser parser;
         private final AnalyzerFactory analyzerFactory;
@@ -130,10 +141,14 @@ public final class DescribeInputRewrite
             Row[] rows = builder.build().toArray(Row[]::new);
             Optional<Node> limit = Optional.empty();
             if (rows.length == 0) {
-                rows = new Row[] {row(new NullLiteral(), new NullLiteral())};
-                limit = Optional.of(new Limit(new LongLiteral("0")));
+                return EMPTY_INPUT;
             }
 
+            return createDesctibeInputQuery(rows, limit);
+        }
+
+        private static Query createDesctibeInputQuery(Row[] rows, Optional<Node> limit)
+        {
             return simpleQuery(
                     selectList(identifier("Position"), identifier("Type")),
                     aliased(

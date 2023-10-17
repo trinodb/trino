@@ -120,7 +120,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                 .matches(
                         project(
                                 ImmutableMap.of(
-                                        "a", expression("if(b > a, a, null)"),
+                                        "a", expression("if(b > a, a, cast(null AS BIGINT))"),
                                         "b", expression("b")),
                                 join(Type.INNER, builder -> builder
                                         .left(values("a"))
