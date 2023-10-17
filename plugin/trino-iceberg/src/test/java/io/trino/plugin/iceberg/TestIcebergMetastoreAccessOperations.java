@@ -428,6 +428,60 @@ public class TestIcebergMetastoreAccessOperations
     }
 
     @Test
+    public void testSystemMetadataMaterializedViews()
+    {
+        String schemaName = "test_materialized_views_" + randomNameSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        Session session = Session.builder(getSession())
+                .setSchema(schemaName)
+                .build();
+
+        assertUpdate(session, "CREATE TABLE test_table1 AS SELECT 1 a", 1);
+        assertUpdate(session, "CREATE TABLE test_table2 AS SELECT 1 a", 1);
+
+        assertUpdate(session, "CREATE MATERIALIZED VIEW mv1 AS SELECT * FROM test_table1 JOIN test_table2 USING (a)");
+        assertUpdate(session, "REFRESH MATERIALIZED VIEW mv1", 1);
+
+        assertUpdate(session, "CREATE MATERIALIZED VIEW mv2 AS SELECT count(*) c FROM test_table1 JOIN test_table2 USING (a)");
+        assertUpdate(session, "REFRESH MATERIALIZED VIEW mv2", 1);
+
+        // Bulk retrieval
+        assertMetastoreInvocations(session, "SELECT * FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA",
+                ImmutableMultiset.builder()
+                        .add(GET_TABLES_WITH_PARAMETER)
+                        .addCopies(GET_TABLE, 6)
+                        .build());
+
+        // Bulk retrieval without selecting freshness
+        assertMetastoreInvocations(session, "SELECT schema_name, name FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA",
+                ImmutableMultiset.builder()
+                        .add(GET_TABLES_WITH_PARAMETER)
+                        .addCopies(GET_TABLE, 6)
+                        .build());
+
+        // Bulk retrieval for two schemas
+        assertMetastoreInvocations(session, "SELECT * FROM system.metadata.materialized_views WHERE schema_name IN (CURRENT_SCHEMA, 'non_existent')",
+                ImmutableMultiset.builder()
+                        .addCopies(GET_TABLES_WITH_PARAMETER, 2)
+                        .addCopies(GET_TABLE, 6)
+                        .build());
+
+        // Pointed lookup
+        assertMetastoreInvocations(session, "SELECT * FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA AND name = 'mv1'",
+                ImmutableMultiset.builder()
+                        .addCopies(GET_TABLE, 4)
+                        .build());
+
+        // Pointed lookup without selecting freshness
+        assertMetastoreInvocations(session, "SELECT schema_name, name FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA AND name = 'mv1'",
+                ImmutableMultiset.builder()
+                        .addCopies(GET_TABLE, 4)
+                        .build());
+
+        assertUpdate("DROP SCHEMA " + schemaName + " CASCADE");
+    }
+
+    @Test
     public void testShowTables()
     {
         assertMetastoreInvocations("SHOW TABLES",
