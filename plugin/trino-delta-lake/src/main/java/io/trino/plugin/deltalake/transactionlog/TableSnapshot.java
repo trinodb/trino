@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake.transactionlog;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
@@ -37,14 +36,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Streams.stream;
-import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_DATA;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readLastCheckpoint;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -191,14 +188,8 @@ public class TableSnapshot
         LastCheckpoint checkpoint = lastCheckpoint.get();
         // Add entries contain statistics. When struct statistics are used the format of the Parquet file depends on the schema. It is important to use the schema at the time
         // of the Checkpoint creation, in case the schema has evolved since it was written.
-        if (entryTypes.contains(ADD) && metadataAndProtocol.isEmpty()) {
-            metadataAndProtocol = Optional.of(getCheckpointMetadataAndProtocolEntries(
-                    session,
-                    checkpointSchemaManager,
-                    typeManager,
-                    fileSystem,
-                    stats,
-                    checkpoint));
+        if (entryTypes.contains(ADD)) {
+            checkState(metadataAndProtocol.isPresent(), "metadata and protocol information is needed to process the add log entries");
         }
 
         Stream<DeltaLakeTransactionLogEntry> resultStream = Stream.empty();
@@ -257,47 +248,6 @@ public class TableSnapshot
                 parquetReaderOptions,
                 checkpointRowStatisticsWritingEnabled,
                 domainCompactionThreshold);
-    }
-
-    private MetadataAndProtocolEntry getCheckpointMetadataAndProtocolEntries(
-            ConnectorSession session,
-            CheckpointSchemaManager checkpointSchemaManager,
-            TypeManager typeManager,
-            TrinoFileSystem fileSystem,
-            FileFormatDataSourceStats stats,
-            LastCheckpoint checkpoint)
-            throws IOException
-    {
-        MetadataEntry metadata = null;
-        ProtocolEntry protocol = null;
-        for (Location checkpointPath : getCheckpointPartPaths(checkpoint)) {
-            TrinoInputFile checkpointFile = fileSystem.newInputFile(checkpointPath);
-            Iterator<DeltaLakeTransactionLogEntry> entries = getCheckpointTransactionLogEntries(
-                    session,
-                    ImmutableSet.of(METADATA, PROTOCOL),
-                    Optional.empty(),
-                    Optional.empty(),
-                    checkpointSchemaManager,
-                    typeManager,
-                    stats,
-                    checkpoint,
-                    checkpointFile);
-            while (entries.hasNext()) {
-                DeltaLakeTransactionLogEntry entry = entries.next();
-                if (metadata == null && entry.getMetaData() != null) {
-                    metadata = entry.getMetaData();
-                }
-                if (protocol == null && entry.getProtocol() != null) {
-                    protocol = entry.getProtocol();
-                }
-                if (metadata != null && protocol != null) {
-                    // No need to read next checkpoint parts if requested info already found
-                    return new MetadataAndProtocolEntry(metadata, protocol);
-                }
-            }
-        }
-
-        throw new TrinoException(DELTA_LAKE_BAD_DATA, "Checkpoint found without metadata and protocol entry: " + checkpoint);
     }
 
     public record MetadataAndProtocolEntry(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
