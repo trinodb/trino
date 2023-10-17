@@ -74,7 +74,6 @@ public class OpaAccessControlSystemTest
         assertTrue(opaContainer.isRunning());
         InetSocketAddress opaSocket = new InetSocketAddress(opaContainer.getHost(), opaContainer.getMappedPort(OPA_PORT));
         String opaEndpoint = String.format("%s:%d", opaSocket.getHostString(), opaSocket.getPort());
-        System.out.println("OPA has endpoint " + opaEndpoint);
         awaitSocketOpen(opaSocket, 100, 200);
         this.opaServerUri = URI.create(String.format("http://%s/", opaEndpoint));
     }
