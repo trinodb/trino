@@ -36,16 +36,19 @@ public class TestHelpers
                 "decision_id": "",
                 "result": true
             }
-            """, 200);
+            """,
+            200);
     public static final HttpClientUtils.MockResponse NO_ACCESS_RESPONSE = new HttpClientUtils.MockResponse("""
             {
                 "decision_id": "",
                 "result": false
             }
-            """, 200);
+            """,
+            200);
     public static final HttpClientUtils.MockResponse MALFORMED_RESPONSE = new HttpClientUtils.MockResponse("""
             { "this"": is broken_json; }
-            """, 200);
+            """,
+            200);
     public static final HttpClientUtils.MockResponse UNDEFINED_RESPONSE = new HttpClientUtils.MockResponse("{}", 404);
     public static final HttpClientUtils.MockResponse BAD_REQUEST_RESPONSE = new HttpClientUtils.MockResponse("{}", 400);
     public static final HttpClientUtils.MockResponse SERVER_ERROR_RESPONSE = new HttpClientUtils.MockResponse("", 500);
@@ -56,7 +59,7 @@ public class TestHelpers
                         baseTestCases.collect(Collectors.toSet()),
                         allErrorCasesArgumentProvider().collect(Collectors.toSet()))
                 .stream()
-                .map((items) -> Arguments.of(items.stream().flatMap((args) -> Arrays.stream(args.get())).toArray()));
+                .map(items -> Arguments.of(items.stream().flatMap((args) -> Arrays.stream(args.get())).toArray()));
     }
 
     public static Stream<Arguments> createIllegalResponseTestCases(Stream<Arguments> baseTestCases)
@@ -65,7 +68,7 @@ public class TestHelpers
                         baseTestCases.collect(Collectors.toSet()),
                         illegalResponseArgumentProvider().collect(Collectors.toSet()))
                 .stream()
-                .map((items) -> Arguments.of(items.stream().flatMap((args) -> Arrays.stream(args.get())).toArray()));
+                .map(items -> Arguments.of(items.stream().flatMap((args) -> Arrays.stream(args.get())).toArray()));
     }
 
     public static Stream<Arguments> illegalResponseArgumentProvider()
@@ -94,11 +97,11 @@ public class TestHelpers
     public static <T> BiConsumer<OpaAccessControl, SystemSecurityContext> convertSystemSecurityContextToIdentityArgument(
             BiConsumer<OpaAccessControl, Identity> callable)
     {
-        return (acc, ctx) -> callable.accept(acc, ctx.getIdentity());
+        return (accessControl, systemSecurityContext) -> callable.accept(accessControl, systemSecurityContext.getIdentity());
     }
 
     public static <T> FunctionalHelpers.Consumer3<OpaAccessControl, SystemSecurityContext, T> convertSystemSecurityContextToIdentityArgument(
             FunctionalHelpers.Consumer3<OpaAccessControl, Identity, T> callable) {
-        return (acc, ctx, val) -> callable.accept(acc, ctx.getIdentity(), val);
+        return (accessControl, systemSecurityContext, argument) -> callable.accept(accessControl, systemSecurityContext.getIdentity(), argument);
     }
 }

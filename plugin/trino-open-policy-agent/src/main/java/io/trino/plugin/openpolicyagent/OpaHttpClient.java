@@ -83,7 +83,7 @@ public class OpaHttpClient
             throw new OpaQueryException.SerializeFailed(e);
         }
         return FluentFuture.from(httpClient.executeAsync(request, createFullJsonResponseHandler(deserializer)))
-                .transform((response) -> parseOpaResponse(response, uri), executor);
+                .transform(response -> parseOpaResponse(response, uri), executor);
     }
 
     public <T> T consumeOpaResponse(ListenableFuture<T> opaResponseFuture)

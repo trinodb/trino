@@ -148,7 +148,7 @@ public class OpaAccessControlSystemTest
         return runner.execute(session, query)
                 .getMaterializedRows()
                 .stream()
-                .map((i) -> i.getField(0).toString())
+                .map(row -> row.getField(0).toString())
                 .collect(toImmutableSet());
     }
 
@@ -157,7 +157,7 @@ public class OpaAccessControlSystemTest
         Stream<Pair<String, Set<String>>> userAndExpectedCatalogs = Stream.of(
                 Pair.of("bob", ImmutableSet.of("catalogOne")),
                 Pair.of("admin", ImmutableSet.of("catalogOne", "catalogTwo", "system")));
-        return userAndExpectedCatalogs.map((i) -> Arguments.of(Named.of(i.getFirst(), i.getFirst()), i.getSecond()));
+        return userAndExpectedCatalogs.map(testCase -> Arguments.of(Named.of(testCase.getFirst(), testCase.getFirst()), testCase.getSecond()));
     }
 
     @Nested
@@ -185,32 +185,32 @@ public class OpaAccessControlSystemTest
         public void testAllowsQueryAndFilters(String userName, Set<String> expectedCatalogs)
                 throws IOException, InterruptedException
         {
-            submitPolicy(
-                    """
-                            package trino
-                            import future.keywords.in
-                            import future.keywords.if
+            submitPolicy("""
+                    package trino
+                    import future.keywords.in
+                    import future.keywords.if
 
-                            default allow = false
-                            allow {
-                              is_bob
-                              can_be_accessed_by_bob
-                            }
-                            allow if is_admin
+                    default allow = false
+                    allow {
+                      is_bob
+                      can_be_accessed_by_bob
+                    }
+                    allow if is_admin
 
-                            is_admin {
-                              input.context.identity.user == "admin"
-                            }
-                            is_bob {
-                              input.context.identity.user == "bob"
-                            }
-                            can_be_accessed_by_bob {
-                              input.action.operation in ["ImpersonateUser", "ExecuteQuery"]
-                            }
-                            can_be_accessed_by_bob {
-                              input.action.operation in ["FilterCatalogs", "AccessCatalog"]
-                              input.action.resource.catalog.name == "catalogOne"
-                            }""");
+                    is_admin {
+                      input.context.identity.user == "admin"
+                    }
+                    is_bob {
+                      input.context.identity.user == "bob"
+                    }
+                    can_be_accessed_by_bob {
+                      input.action.operation in ["ImpersonateUser", "ExecuteQuery"]
+                    }
+                    can_be_accessed_by_bob {
+                      input.action.operation in ["FilterCatalogs", "AccessCatalog"]
+                      input.action.resource.catalog.name == "catalogOne"
+                    }
+                    """);
             Set<String> catalogs = querySetOfStrings(user(userName), "SHOW CATALOGS");
             assertEquals(expectedCatalogs, catalogs);
         }
@@ -219,16 +219,15 @@ public class OpaAccessControlSystemTest
         public void testShouldDenyQueryIfDirected()
                 throws IOException, InterruptedException
         {
-            submitPolicy(
-                    """
-                            package trino
-                            import future.keywords.in
-                            default allow = false
+            submitPolicy("""
+                    package trino
+                    import future.keywords.in
+                    default allow = false
 
-                            allow {
-                                input.context.identity.user in ["someone", "admin"]
-                            }
-                            """);
+                    allow {
+                        input.context.identity.user in ["someone", "admin"]
+                    }
+                    """);
             RuntimeException error = assertThrows(RuntimeException.class, () -> {
                 runner.execute(user("bob"), "SHOW CATALOGS");
             });
@@ -264,40 +263,40 @@ public class OpaAccessControlSystemTest
         public void testFilterOutItemsBatch(String userName, Set<String> expectedCatalogs)
                 throws IOException, InterruptedException
         {
-            submitPolicy(
-                    """
-                            package trino
-                            import future.keywords.in
-                            import future.keywords.if
-                            default allow = false
+            submitPolicy("""
+                    package trino
+                    import future.keywords.in
+                    import future.keywords.if
+                    default allow = false
 
-                            allow if is_admin
+                    allow if is_admin
 
-                            allow {
-                                is_bob
-                                input.action.operation in ["AccessCatalog", "ExecuteQuery", "ImpersonateUser", "ShowSchemas", "SelectFromColumns"]
-                            }
+                    allow {
+                        is_bob
+                        input.action.operation in ["AccessCatalog", "ExecuteQuery", "ImpersonateUser", "ShowSchemas", "SelectFromColumns"]
+                    }
 
-                            is_bob {
-                                input.context.identity.user == "bob"
-                            }
+                    is_bob {
+                        input.context.identity.user == "bob"
+                    }
 
-                            is_admin {
-                                input.context.identity.user == "admin"
-                            }
+                    is_admin {
+                        input.context.identity.user == "admin"
+                    }
 
-                            batchAllow[i] {
-                                some i
-                                is_bob
-                                input.action.operation == "FilterCatalogs"
-                                input.action.filterResources[i].catalog.name == "catalogOne"
-                            }
+                    batchAllow[i] {
+                        some i
+                        is_bob
+                        input.action.operation == "FilterCatalogs"
+                        input.action.filterResources[i].catalog.name == "catalogOne"
+                    }
 
-                            batchAllow[i] {
-                                some i
-                                input.action.filterResources[i]
-                                is_admin
-                            }""");
+                    batchAllow[i] {
+                        some i
+                        input.action.filterResources[i]
+                        is_admin
+                    }
+                    """);
             Set<String> catalogs = querySetOfStrings(user(userName), "SHOW CATALOGS");
             assertEquals(expectedCatalogs, catalogs);
         }
@@ -306,11 +305,11 @@ public class OpaAccessControlSystemTest
         public void testDenyUnbatchedQuery()
                 throws IOException, InterruptedException
         {
-            submitPolicy(
-                    """
-                            package trino
-                            import future.keywords.in
-                            default allow = false""");
+            submitPolicy("""
+                    package trino
+                    import future.keywords.in
+                    default allow = false
+                    """);
             RuntimeException error = assertThrows(RuntimeException.class, () -> {
                 runner.execute(user("bob"), "SELECT version()");
             });
@@ -322,15 +321,15 @@ public class OpaAccessControlSystemTest
         public void testAllowUnbatchedQuery()
                 throws IOException, InterruptedException
         {
-            submitPolicy(
-                    """
-                            package trino
-                            import future.keywords.in
-                            default allow = false
-                            allow {
-                                input.context.identity.user == "bob"
-                                input.action.operation in ["ImpersonateUser", "ExecuteFunction", "AccessCatalog", "ExecuteQuery"]
-                            }""");
+            submitPolicy("""
+                    package trino
+                    import future.keywords.in
+                    default allow = false
+                    allow {
+                        input.context.identity.user == "bob"
+                        input.action.operation in ["ImpersonateUser", "ExecuteFunction", "AccessCatalog", "ExecuteQuery"]
+                    }
+                    """);
             Set<String> version = querySetOfStrings(user("bob"), "SELECT version()");
             assertFalse(version.isEmpty());
         }

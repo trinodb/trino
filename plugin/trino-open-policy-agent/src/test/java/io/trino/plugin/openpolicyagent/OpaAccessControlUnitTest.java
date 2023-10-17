@@ -68,7 +68,7 @@ public class OpaAccessControlUnitTest
     @BeforeEach
     public void setupAuthorizer()
     {
-        this.mockClient = new InstrumentedHttpClient(OPA_SERVER_URI, "POST", JSON_UTF_8.toString(), (request) -> OK_RESPONSE);
+        this.mockClient = new InstrumentedHttpClient(OPA_SERVER_URI, "POST", JSON_UTF_8.toString(), request -> OK_RESPONSE);
         this.authorizer = (OpaAccessControl) new OpaAccessControlFactory().create(
                 Map.of("opa.policy.uri", OPA_SERVER_URI.toString()),
                 Optional.of(mockClient));
@@ -114,13 +114,14 @@ public class OpaAccessControlUnitTest
     @Test
     public void testResponseHasExtraFields()
     {
-        mockClient.setHandler((request) -> new HttpClientUtils.MockResponse("""
+        mockClient.setHandler(request -> new HttpClientUtils.MockResponse("""
                 {
                     "result": true,
                     "decision_id": "foo",
                     "some_debug_info": {"test": ""}
                 }
-                """, 200));
+                """,
+                200));
         authorizer.checkCanShowRoles(requestingSecurityContext);
     }
 
@@ -142,7 +143,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         Throwable actualError = assertThrows(
                 expectedException,
@@ -234,7 +235,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         Throwable actualError = assertThrows(
                 expectedException,
@@ -314,7 +315,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         Throwable actualError = assertThrows(
                 expectedException,
@@ -382,7 +383,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         Throwable actualError = assertThrows(
                 expectedException,
@@ -457,7 +458,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         Throwable actualError = assertThrows(
                 expectedException,
@@ -518,7 +519,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         Throwable actualError = assertThrows(
                 expectedException,
@@ -574,7 +575,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         Throwable actualError = assertThrows(
                 expectedException,
@@ -619,7 +620,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         Throwable actualError = assertThrows(
                 expectedException,
@@ -691,7 +692,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         CatalogSchemaTableName sourceTable = new CatalogSchemaTableName("some-catalog", "some-schema", "some-table");
         CatalogSchemaTableName targetTable = new CatalogSchemaTableName("another-catalog", "another-schema", "another-table");
@@ -742,7 +743,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         CatalogSchemaName schema = new CatalogSchemaName("some-catalog", "some-schema");
         Throwable actualError = assertThrows(
@@ -813,7 +814,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         CatalogSchemaTableName table = new CatalogSchemaTableName("some-catalog", "some-schema", "some-table");
 
@@ -882,7 +883,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
         CatalogSchemaTableName table = new CatalogSchemaTableName("some-catalog", "some-schema", "some-table");
         Set<String> columns = Set.of("some-column");
 
@@ -932,7 +933,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         Throwable actualError = assertThrows(
                 expectedException,
@@ -990,7 +991,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         Throwable actualError = assertThrows(
                 expectedException,
@@ -1034,7 +1035,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         Throwable actualError = assertThrows(
                 expectedException,
@@ -1123,7 +1124,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         Privilege privilege = Privilege.CREATE;
         Throwable actualError = assertThrows(
@@ -1214,7 +1215,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         Privilege privilege = Privilege.CREATE;
         Throwable actualError = assertThrows(
@@ -1237,30 +1238,30 @@ public class OpaAccessControlUnitTest
         TrinoPrincipal grantor = new TrinoPrincipal(PrincipalType.USER, "some-grantor");
         authorizer.checkCanCreateRole(requestingSecurityContext, "some-role-with-grantor", Optional.of(grantor));
 
-        Set<String> expectedRequests = Set.of(
-                """
-                        {
-                            "operation": "CreateRole",
-                            "resource": {
-                                "role": {
-                                    "name": "some-role-without-grantor"
-                                }
-                            }
-                        }""",
-                """
-                        {
-                            "operation": "CreateRole",
-                            "resource": {
-                                "role": {
-                                    "name": "some-role-with-grantor"
-                                }
-                            },
-                            "grantor": {
-                                "name": "some-grantor",
-                                "type": "USER"
-                            }
+        Set<String> expectedRequests = Set.of("""
+                {
+                    "operation": "CreateRole",
+                    "resource": {
+                        "role": {
+                            "name": "some-role-without-grantor"
                         }
-                        """);
+                    }
+                }
+                """,
+                """
+                {
+                    "operation": "CreateRole",
+                    "resource": {
+                        "role": {
+                            "name": "some-role-with-grantor"
+                        }
+                    },
+                    "grantor": {
+                        "name": "some-grantor",
+                        "type": "USER"
+                    }
+                }
+                """);
         assertStringRequestsEqual(expectedRequests, mockClient.getRequests(), "/input/action");
     }
 
@@ -1271,7 +1272,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         Throwable actualError = assertThrows(
                 expectedException,
@@ -1307,51 +1308,52 @@ public class OpaAccessControlUnitTest
         TrinoPrincipal grantor = new TrinoPrincipal(PrincipalType.USER, "some-grantor-user");
         method.accept(authorizer, requestingSecurityContext, Set.of("some-role-with-grantor"), Set.of(grantee), false, Optional.of(grantor));
 
-        Set<String> expectedRequests = Set.of(
-                """
-                        {
-                            "operation": "%s",
-                            "resource": {
-                                "roles": [
-                                    {
-                                        "name": "some-role-with-grantor"
-                                    }
-                                ]
-                            },
-                            "grantor": {
-                                "name": "some-grantor-user",
-                                "type": "USER"
-                            },
-                            "grantee": {
-                                "principals": [
-                                    {
-                                        "name": "some-grantee-role",
-                                        "type": "ROLE"
-                                    }
-                                ],
-                                "grantOption": false
+        Set<String> expectedRequests = Set.of("""
+                {
+                    "operation": "%s",
+                    "resource": {
+                        "roles": [
+                            {
+                                "name": "some-role-with-grantor"
                             }
-                        }""".formatted(actionName),
-                """
-                        {
-                            "operation": "%s",
-                            "resource": {
-                                "roles": [
-                                    {
-                                        "name": "some-role-without-grantor"
-                                    }
-                                ]
-                            },
-                            "grantee": {
-                                "principals": [
-                                    {
-                                        "name": "some-grantee-role",
-                                        "type": "ROLE"
-                                    }
-                                ],
-                                "grantOption": true
+                        ]
+                    },
+                    "grantor": {
+                        "name": "some-grantor-user",
+                        "type": "USER"
+                    },
+                    "grantee": {
+                        "principals": [
+                            {
+                                "name": "some-grantee-role",
+                                "type": "ROLE"
                             }
-                        }""".formatted(actionName));
+                        ],
+                        "grantOption": false
+                    }
+                }
+                """.formatted(actionName),
+                """
+                {
+                    "operation": "%s",
+                    "resource": {
+                        "roles": [
+                            {
+                                "name": "some-role-without-grantor"
+                            }
+                        ]
+                    },
+                    "grantee": {
+                        "principals": [
+                            {
+                                "name": "some-grantee-role",
+                                "type": "ROLE"
+                            }
+                        ],
+                        "grantOption": true
+                    }
+                }
+                """.formatted(actionName));
         assertStringRequestsEqual(expectedRequests, mockClient.getRequests(), "/input/action");
     }
 
@@ -1369,7 +1371,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         TrinoPrincipal grantee = new TrinoPrincipal(PrincipalType.ROLE, "some-grantee-role");
         Throwable actualError = assertThrows(
@@ -1415,7 +1417,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         CatalogSchemaRoutineName routine = new CatalogSchemaRoutineName("some-catalog", "some-schema", "some-routine-name");
         Throwable actualError = assertThrows(
@@ -1458,7 +1460,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         CatalogSchemaTableName table = new CatalogSchemaTableName("some-catalog", "some-schema", "some-table");
         Throwable actualError = assertThrows(
@@ -1502,7 +1504,7 @@ public class OpaAccessControlUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         CatalogSchemaRoutineName routine = new CatalogSchemaRoutineName("some-catalog", "some-schema", "some-routine");
         Throwable actualError = assertThrows(

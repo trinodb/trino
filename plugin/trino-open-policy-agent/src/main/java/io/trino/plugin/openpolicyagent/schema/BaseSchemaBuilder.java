@@ -55,7 +55,7 @@ public abstract class BaseSchemaBuilder<T, B extends BaseSchemaBuilder<T, B>>
         this.properties = properties
                 .entrySet()
                 .stream()
-                .map((e) -> Map.entry(e.getKey(), buildOptional(e.getValue())))
+                .map(propertiesEntry -> Map.entry(propertiesEntry.getKey(), buildOptional(propertiesEntry.getValue())))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         return getInstance();
     }

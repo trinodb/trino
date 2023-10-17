@@ -69,7 +69,7 @@ public class OpaBatchAccessControlFilteringUnitTest
     {
         this.jsonMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
         this.jsonMapper.registerModule(new Jdk8Module());
-        this.mockClient = new HttpClientUtils.InstrumentedHttpClient(OPA_BATCH_SERVER_URI, "POST", JSON_UTF_8.toString(), (request) -> null);
+        this.mockClient = new HttpClientUtils.InstrumentedHttpClient(OPA_BATCH_SERVER_URI, "POST", JSON_UTF_8.toString(), request -> null);
         this.authorizer = (OpaAccessControl) new OpaAccessControlFactory()
                 .create(
                         Map.of(
@@ -122,7 +122,7 @@ public class OpaBatchAccessControlFilteringUnitTest
             HttpClientUtils.MockResponse response,
             List<Integer> expectedItems)
     {
-        this.mockClient.setHandler((request) -> response);
+        this.mockClient.setHandler(request -> response);
 
         Identity identityOne = Identity.ofUser("user-one");
         Identity identityTwo = Identity.ofUser("user-two");
@@ -137,7 +137,7 @@ public class OpaBatchAccessControlFilteringUnitTest
         ArrayNode allExpectedUsers = jsonMapper.createArrayNode().addAll(
                 requestedIdentities.stream()
                         .map(TrinoUser::new)
-                        .map((i) -> encodeObjectWithKey(i, "user"))
+                        .map(user -> encodeObjectWithKey(user, "user"))
                         .toList());
         ObjectNode expectedRequest = jsonMapper.createObjectNode()
                 .put("operation", "FilterViewQueryOwnedBy")
@@ -151,7 +151,7 @@ public class OpaBatchAccessControlFilteringUnitTest
             HttpClientUtils.MockResponse response,
             List<Integer> expectedItems)
     {
-        this.mockClient.setHandler((request) -> response);
+        this.mockClient.setHandler(request -> response);
 
         List<String> requestedCatalogs = List.of("catalog-one", "catalog-two", "catalog-three");
 
@@ -190,7 +190,7 @@ public class OpaBatchAccessControlFilteringUnitTest
             HttpClientUtils.MockResponse response,
             List<Integer> expectedItems)
     {
-        this.mockClient.setHandler((request) -> response);
+        this.mockClient.setHandler(request -> response);
         List<String> requestedSchemas = List.of("schema-one", "schema-two", "schema-three");
 
         Set<String> result = authorizer.filterSchemas(
@@ -232,7 +232,7 @@ public class OpaBatchAccessControlFilteringUnitTest
             HttpClientUtils.MockResponse response,
             List<Integer> expectedItems)
     {
-        this.mockClient.setHandler((request) -> response);
+        this.mockClient.setHandler(request -> response);
         List<SchemaTableName> tables = List.of(
                 new SchemaTableName("schema-one", "table-one"),
                 new SchemaTableName("schema-one", "table-two"),
@@ -276,7 +276,7 @@ public class OpaBatchAccessControlFilteringUnitTest
 
     private static Function<String, HttpClientUtils.MockResponse> buildHandler(Function<String, String> dataBuilder)
     {
-        return (request) -> new HttpClientUtils.MockResponse(dataBuilder.apply(request), 200);
+        return request -> new HttpClientUtils.MockResponse(dataBuilder.apply(request), 200);
     }
 
     @Test
@@ -293,7 +293,7 @@ public class OpaBatchAccessControlFilteringUnitTest
         // Allow both columns from one table, one column from another one and no columns from the last one
         this.mockClient.setHandler(
                 buildHandler(
-                        (request) -> {
+                        request -> {
                             if (request.contains("table-one")) {
                                 return "{\"result\": [0, 1]}";
                             } else if (request.contains("table-two")) {
@@ -308,21 +308,21 @@ public class OpaBatchAccessControlFilteringUnitTest
                 requestedColumns);
 
         List<String> expectedRequests = Stream.of("table-one", "table-two", "table-three")
-                .map(
-                        (tableName) -> """
-                                        {
-                                            "operation": "FilterColumns",
-                                            "filterResources": [
-                                                {
-                                                    "table": {
-                                                        "tableName": "%s",
-                                                        "schemaName": "my-schema",
-                                                        "catalogName": "my-catalog",
-                                                        "columns": ["%s-column-one", "%s-column-two"]
-                                                    }
-                                                }
-                                            ]
-                                        }""".formatted(tableName, tableName, tableName))
+                .map(tableName -> """
+                        {
+                            "operation": "FilterColumns",
+                            "filterResources": [
+                                {
+                                    "table": {
+                                        "tableName": "%s",
+                                        "schemaName": "my-schema",
+                                        "catalogName": "my-catalog",
+                                        "columns": ["%s-column-one", "%s-column-two"]
+                                    }
+                                }
+                            ]
+                        }
+                        """.formatted(tableName, tableName, tableName))
                 .toList();
         assertStringRequestsEqual(expectedRequests, this.mockClient.getRequests(), "/input/action");
         assertTrue(
@@ -373,7 +373,7 @@ public class OpaBatchAccessControlFilteringUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         Throwable actualError = assertThrows(
                 expectedException,

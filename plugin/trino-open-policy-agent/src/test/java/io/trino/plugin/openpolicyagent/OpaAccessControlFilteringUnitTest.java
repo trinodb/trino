@@ -51,14 +51,14 @@ public class OpaAccessControlFilteringUnitTest
     private static final URI OPA_SERVER_URI = URI.create("http://my-uri/");
     private HttpClientUtils.InstrumentedHttpClient mockClient;
     private OpaAccessControl authorizer;
-    private JsonMapper jsonMapper = new JsonMapper();
+    private final JsonMapper jsonMapper = new JsonMapper();
     private Identity requestingIdentity;
     private SystemSecurityContext requestingSecurityContext;
 
     @BeforeEach
     public void setupAuthorizer()
     {
-        this.mockClient = new HttpClientUtils.InstrumentedHttpClient(OPA_SERVER_URI, "POST", JSON_UTF_8.toString(), (request) -> OK_RESPONSE);
+        this.mockClient = new HttpClientUtils.InstrumentedHttpClient(OPA_SERVER_URI, "POST", JSON_UTF_8.toString(), request -> OK_RESPONSE);
         this.authorizer = (OpaAccessControl) new OpaAccessControlFactory()
                 .create(Map.of("opa.policy.uri", OPA_SERVER_URI.toString()),
                         Optional.of(mockClient));
@@ -78,7 +78,7 @@ public class OpaAccessControlFilteringUnitTest
 
     private Function<String, HttpClientUtils.MockResponse> buildHandler(String jsonPath, Set<String> resourcesToAccept)
     {
-        return (request) -> {
+        return request -> {
             try {
                 JsonNode parsedRequest = this.jsonMapper.readTree(request);
                 String requestedItem = parsedRequest.at(jsonPath).asText();
@@ -111,35 +111,36 @@ public class OpaAccessControlFilteringUnitTest
                 requestedIdentities);
         assertEquals(Set.copyOf(result), Set.of(userOne));
 
-        List<String> expectedRequests = List.of(
+        List<String> expectedRequests = List.of("""
+                {
+                    "operation": "FilterViewQueryOwnedBy",
+                    "resource": {
+                        "user": {
+                            "name": "user-one",
+                            "user": "user-one",
+                            "groups": [],
+                            "enabledRoles": [],
+                            "catalogRoles": {},
+                            "extraCredentials": {}
+                        }
+                    }
+                }
+                """,
                 """
-                        {
-                            "operation": "FilterViewQueryOwnedBy",
-                            "resource": {
-                                "user": {
-                                    "name": "user-one",
-                                    "user": "user-one",
-                                    "groups": [],
-                                    "enabledRoles": [],
-                                    "catalogRoles": {},
-                                    "extraCredentials": {}
-                                }
-                            }
-                        }""",
-                """
-                        {
-                            "operation": "FilterViewQueryOwnedBy",
-                            "resource": {
-                                "user": {
-                                    "name": "user-two",
-                                    "user": "user-two",
-                                    "groups": [],
-                                    "enabledRoles": [],
-                                    "catalogRoles": {},
-                                    "extraCredentials": {}
-                                }
-                            }
-                        }""");
+                {
+                    "operation": "FilterViewQueryOwnedBy",
+                    "resource": {
+                        "user": {
+                            "name": "user-two",
+                            "user": "user-two",
+                            "groups": [],
+                            "enabledRoles": [],
+                            "catalogRoles": {},
+                            "extraCredentials": {}
+                        }
+                    }
+                }
+                """);
         assertStringRequestsEqual(expectedRequests, this.mockClient.getRequests(), "/input/action");
     }
 
@@ -154,25 +155,26 @@ public class OpaAccessControlFilteringUnitTest
                 requestedCatalogs);
         assertEquals(Set.copyOf(result), Set.of("catalog-two"));
 
-        List<String> expectedRequests = List.of(
+        List<String> expectedRequests = List.of("""
+                {
+                    "operation": "FilterCatalogs",
+                    "resource": {
+                        "catalog": {
+                            "name": "catalog-one"
+                        }
+                    }
+                }
+                """,
                 """
-                        {
-                            "operation": "FilterCatalogs",
-                            "resource": {
-                                "catalog": {
-                                    "name": "catalog-one"
-                                }
-                            }
-                        }""",
-                """
-                        {
-                            "operation": "FilterCatalogs",
-                            "resource": {
-                                "catalog": {
-                                    "name": "catalog-two"
-                                }
-                            }
-                        }""");
+                {
+                    "operation": "FilterCatalogs",
+                    "resource": {
+                        "catalog": {
+                            "name": "catalog-two"
+                        }
+                    }
+                }
+                """);
         assertStringRequestsEqual(expectedRequests, this.mockClient.getRequests(), "/input/action");
     }
 
@@ -188,17 +190,17 @@ public class OpaAccessControlFilteringUnitTest
                 requestedSchemas);
         assertEquals(Set.copyOf(result), Set.of("schema-one"));
 
-        List<String> expectedRequests = requestedSchemas.stream().map(
-                        """
-                                {
-                                    "operation": "FilterSchemas",
-                                    "resource": {
-                                        "schema": {
-                                            "schemaName": "%s",
-                                            "catalogName": "my-catalog"
-                                        }
-                                    }
-                                }"""::formatted)
+        List<String> expectedRequests = requestedSchemas.stream().map("""
+                {
+                    "operation": "FilterSchemas",
+                    "resource": {
+                        "schema": {
+                            "schemaName": "%s",
+                            "catalogName": "my-catalog"
+                        }
+                    }
+                }
+                """::formatted)
                 .collect(Collectors.toList());
         assertStringRequestsEqual(expectedRequests, this.mockClient.getRequests(), "/input/action");
     }
@@ -217,20 +219,20 @@ public class OpaAccessControlFilteringUnitTest
                 requestingSecurityContext,
                 "my-catalog",
                 tables);
-        assertEquals(Set.copyOf(result), tables.stream().filter((i) -> i.getTableName().equals("table-one")).collect(Collectors.toSet()));
+        assertEquals(Set.copyOf(result), tables.stream().filter(table -> table.getTableName().equals("table-one")).collect(Collectors.toSet()));
 
-        List<String> expectedRequests = tables.stream().map(
-                        (i) -> """
-                                {
-                                    "operation": "FilterTables",
-                                    "resource": {
-                                        "table": {
-                                            "tableName": "%s",
-                                            "schemaName": "%s",
-                                            "catalogName": "my-catalog"
-                                        }
-                                    }
-                                }""".formatted(i.getTableName(), i.getSchemaName()))
+        List<String> expectedRequests = tables.stream().map(table -> """
+                {
+                    "operation": "FilterTables",
+                    "resource": {
+                        "table": {
+                            "tableName": "%s",
+                            "schemaName": "%s",
+                            "catalogName": "my-catalog"
+                        }
+                    }
+                }
+                """.formatted(table.getTableName(), table.getSchemaName()))
                 .collect(Collectors.toList());
         assertStringRequestsEqual(expectedRequests, this.mockClient.getRequests(), "/input/action");
     }
@@ -260,18 +262,19 @@ public class OpaAccessControlFilteringUnitTest
                 .stream()
                 .<String>mapMulti(
                         (requestedColumnsForTable, accepter) -> requestedColumnsForTable.getValue().forEach(
-                                (col) -> accepter.accept("""
-                                    {
-                                        "operation": "FilterColumns",
-                                        "resource": {
-                                            "table": {
-                                                "tableName": "%s",
-                                                "schemaName": "my-schema",
-                                                "catalogName": "my-catalog",
-                                                "columns": ["%s"]
+                                column -> accepter.accept("""
+                                        {
+                                            "operation": "FilterColumns",
+                                            "resource": {
+                                                "table": {
+                                                    "tableName": "%s",
+                                                    "schemaName": "my-schema",
+                                                    "catalogName": "my-catalog",
+                                                    "columns": ["%s"]
+                                                }
                                             }
                                         }
-                                    }""".formatted(requestedColumnsForTable.getKey().getTableName(), col))))
+                                        """.formatted(requestedColumnsForTable.getKey().getTableName(), column))))
                 .collect(Collectors.toList());
         assertStringRequestsEqual(expectedRequests, this.mockClient.getRequests(), "/input/action");
         assertTrue(
@@ -320,7 +323,7 @@ public class OpaAccessControlFilteringUnitTest
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
     {
-        mockClient.setHandler((request) -> failureResponse);
+        mockClient.setHandler(request -> failureResponse);
 
         Throwable actualError = assertThrows(
                 expectedException,
