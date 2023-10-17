@@ -289,6 +289,14 @@ public class DispatchManager
     public long getRunningQueries()
     {
         return queryTracker.getAllQueries().stream()
+                .filter(query -> query.getState() == RUNNING)
+                .count();
+    }
+
+    @Managed
+    public long getProgressingQueries()
+    {
+        return queryTracker.getAllQueries().stream()
                 .filter(query -> query.getState() == RUNNING && !query.getBasicQueryInfo().getQueryStats().isFullyBlocked())
                 .count();
     }
