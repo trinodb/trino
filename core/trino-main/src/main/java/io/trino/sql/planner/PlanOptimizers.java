@@ -52,6 +52,7 @@ import io.trino.sql.planner.iterative.rule.EvaluateZeroSample;
 import io.trino.sql.planner.iterative.rule.ExtractDereferencesFromFilterAboveScan;
 import io.trino.sql.planner.iterative.rule.ExtractSpatialJoins;
 import io.trino.sql.planner.iterative.rule.GatherAndMergeWindows;
+import io.trino.sql.planner.iterative.rule.GatherPartialTopN;
 import io.trino.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import io.trino.sql.planner.iterative.rule.ImplementExceptAll;
 import io.trino.sql.planner.iterative.rule.ImplementExceptDistinctAsUnion;
@@ -935,7 +936,9 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 costCalculator,
-                ImmutableSet.of(new UseNonPartitionedJoinLookupSource())));
+                ImmutableSet.of(
+                        new UseNonPartitionedJoinLookupSource(),
+                        new GatherPartialTopN())));
 
         // Optimizers above this do not need to care about aggregations with the type other than SINGLE
         // This optimizer must be run after all exchange-related optimizers

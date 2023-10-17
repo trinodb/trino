@@ -74,6 +74,7 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAS
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN;
@@ -244,7 +245,7 @@ public abstract class BaseJdbcConnectorTest
                 getSession(),
                 "SELECT custkey, sum(totalprice) FROM (SELECT custkey, totalprice FROM orders ORDER BY orderdate ASC, totalprice ASC LIMIT 10) GROUP BY custkey",
                 hasBehavior(SUPPORTS_TOPN_PUSHDOWN),
-                node(TopNNode.class, anyTree(node(TableScanNode.class))));
+                project(node(TopNNode.class, anyTree(node(TableScanNode.class)))));
         // GROUP BY with JOIN
         assertConditionallyPushedDown(
                 joinPushdownEnabled(getSession()),
@@ -901,7 +902,7 @@ public abstract class BaseJdbcConnectorTest
         }
 
         // with TopN over numeric column
-        PlanMatchPattern topnOverTableScan = node(TopNNode.class, anyTree(node(TableScanNode.class)));
+        PlanMatchPattern topnOverTableScan = project(node(TopNNode.class, anyTree(node(TableScanNode.class))));
         assertConditionallyPushedDown(
                 getSession(),
                 "SELECT * FROM (SELECT regionkey FROM nation ORDER BY nationkey ASC LIMIT 10) LIMIT 5",
@@ -1092,7 +1093,7 @@ public abstract class BaseJdbcConnectorTest
 
         // topN over varchar/char columns should only be pushed down if the remote systems's sort order matches Trino
         boolean expectTopNPushdown = hasBehavior(SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR);
-        PlanMatchPattern topNOverTableScan = node(TopNNode.class, anyTree(node(TableScanNode.class)));
+        PlanMatchPattern topNOverTableScan = project(node(TopNNode.class, anyTree(node(TableScanNode.class))));
 
         try (TestTable testTable = new TestTable(
                 getQueryRunner()::execute,
