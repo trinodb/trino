@@ -917,34 +917,34 @@ public class DeltaLakeMetadata
         ColumnMappingMode columnMappingMode = DeltaLakeTableProperties.getColumnMappingMode(tableMetadata.getProperties());
         AtomicInteger fieldId = new AtomicInteger();
 
+        validateTableColumns(tableMetadata);
+
+        List<String> partitionColumns = getPartitionedBy(tableMetadata.getProperties());
+        ImmutableList.Builder<String> columnNames = ImmutableList.builderWithExpectedSize(tableMetadata.getColumns().size());
+        ImmutableMap.Builder<String, Object> columnTypes = ImmutableMap.builderWithExpectedSize(tableMetadata.getColumns().size());
+        ImmutableMap.Builder<String, Map<String, Object>> columnsMetadata = ImmutableMap.builderWithExpectedSize(tableMetadata.getColumns().size());
+        boolean containsTimestampType = false;
+        for (ColumnMetadata column : tableMetadata.getColumns()) {
+            columnNames.add(column.getName());
+            columnTypes.put(column.getName(), serializeColumnType(columnMappingMode, fieldId, column.getType()));
+            columnsMetadata.put(column.getName(), generateColumnMetadata(columnMappingMode, fieldId));
+            if (!containsTimestampType) {
+                containsTimestampType = containsTimestampType(column.getType());
+            }
+        }
+        Map<String, String> columnComments = tableMetadata.getColumns().stream()
+                .filter(column -> column.getComment() != null)
+                .collect(toImmutableMap(ColumnMetadata::getName, ColumnMetadata::getComment));
+        Map<String, Boolean> columnsNullability = tableMetadata.getColumns().stream()
+                .collect(toImmutableMap(ColumnMetadata::getName, ColumnMetadata::isNullable));
+        OptionalInt maxFieldId = OptionalInt.empty();
+        if (columnMappingMode == ID || columnMappingMode == NAME) {
+            maxFieldId = OptionalInt.of(fieldId.get());
+        }
+
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             if (!fileSystem.listFiles(deltaLogDirectory).hasNext()) {
-                validateTableColumns(tableMetadata);
-
-                List<String> partitionColumns = getPartitionedBy(tableMetadata.getProperties());
-                ImmutableList.Builder<String> columnNames = ImmutableList.builderWithExpectedSize(tableMetadata.getColumns().size());
-                ImmutableMap.Builder<String, Object> columnTypes = ImmutableMap.builderWithExpectedSize(tableMetadata.getColumns().size());
-                ImmutableMap.Builder<String, Map<String, Object>> columnsMetadata = ImmutableMap.builderWithExpectedSize(tableMetadata.getColumns().size());
-                boolean containsTimestampType = false;
-                for (ColumnMetadata column : tableMetadata.getColumns()) {
-                    columnNames.add(column.getName());
-                    columnTypes.put(column.getName(), serializeColumnType(columnMappingMode, fieldId, column.getType()));
-                    columnsMetadata.put(column.getName(), generateColumnMetadata(columnMappingMode, fieldId));
-                    if (!containsTimestampType) {
-                        containsTimestampType = containsTimestampType(column.getType());
-                    }
-                }
-                Map<String, String> columnComments = tableMetadata.getColumns().stream()
-                        .filter(column -> column.getComment() != null)
-                        .collect(toImmutableMap(ColumnMetadata::getName, ColumnMetadata::getComment));
-                Map<String, Boolean> columnsNullability = tableMetadata.getColumns().stream()
-                        .collect(toImmutableMap(ColumnMetadata::getName, ColumnMetadata::isNullable));
-                OptionalInt maxFieldId = OptionalInt.empty();
-                if (columnMappingMode == ID || columnMappingMode == NAME) {
-                    maxFieldId = OptionalInt.of(fieldId.get());
-                }
-
                 TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriterWithoutTransactionIsolation(session, location);
                 appendTableEntries(
                         0,
