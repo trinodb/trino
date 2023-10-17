@@ -186,6 +186,7 @@ public class DeltaLakeSplit
                 .add("length", length)
                 .add("fileSize", fileSize)
                 .add("rowCount", fileRowCount)
+                .add("fileModifiedTime", fileModifiedTime)
                 .add("deletionVector", deletionVector)
                 .add("statisticsPredicate", statisticsPredicate)
                 .add("partitionKeys", partitionKeys)
@@ -205,6 +206,7 @@ public class DeltaLakeSplit
         return start == that.start &&
                 length == that.length &&
                 fileSize == that.fileSize &&
+                fileModifiedTime == that.fileModifiedTime &&
                 path.equals(that.path) &&
                 fileRowCount.equals(that.fileRowCount) &&
                 deletionVector.equals(that.deletionVector) &&
@@ -215,6 +217,6 @@ public class DeltaLakeSplit
     @Override
     public int hashCode()
     {
-        return Objects.hash(path, start, length, fileSize, fileRowCount, deletionVector, statisticsPredicate, partitionKeys);
+        return Objects.hash(path, start, length, fileSize, fileRowCount, fileModifiedTime, deletionVector, statisticsPredicate, partitionKeys);
     }
 }
