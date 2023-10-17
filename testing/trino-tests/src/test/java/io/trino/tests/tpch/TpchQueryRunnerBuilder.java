@@ -103,6 +103,9 @@ public final class TpchQueryRunnerBuilder
     public DistributedQueryRunner build()
             throws Exception
     {
+        if (withPlanAlternatives) {
+            super.addExtraProperty("optimizer.use-sub-plan-alternatives", "true");
+        }
         DistributedQueryRunner queryRunner = buildWithoutCatalogs();
         try {
             ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();

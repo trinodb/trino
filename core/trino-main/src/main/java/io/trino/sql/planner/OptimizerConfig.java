@@ -88,7 +88,7 @@ public class OptimizerConfig
     private boolean forceSingleNodeOutput;
     private boolean useExactPartitioning;
     private boolean useCostBasedPartitioning = true;
-    private boolean useSubPlanAlternatives = true;
+    private boolean useSubPlanAlternatives;
     // adaptive partial aggregation
     private boolean adaptivePartialAggregationEnabled = true;
     private double adaptivePartialAggregationUniqueRowsRatioThreshold = 0.8;
