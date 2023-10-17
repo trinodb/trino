@@ -14,11 +14,14 @@
 package io.trino.plugin.openpolicyagent.schema;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.google.common.collect.ImmutableSet;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.Set;
 
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Objects.requireNonNull;
 
 @JsonInclude(NON_NULL)
 public record OpaQueryInputResource(
@@ -32,7 +35,20 @@ public record OpaQueryInputResource(
         NamedEntity role,
         Set<NamedEntity> roles)
 {
-    public record NamedEntity(String name) {}
+    public OpaQueryInputResource
+    {
+        if (roles != null) {
+            roles = ImmutableSet.copyOf(roles);
+        }
+    }
+
+    public record NamedEntity(@NotNull String name)
+    {
+        public NamedEntity
+        {
+            requireNonNull(name, "name is null");
+        }
+    }
 
     public static Builder builder()
     {

@@ -15,13 +15,15 @@ package io.trino.plugin.openpolicyagent.schema;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.trino.spi.security.TrinoPrincipal;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
 
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
+import static java.util.Objects.requireNonNull;
 
 @JsonInclude(NON_NULL)
-public record TrinoGrantPrincipal(String type, String name)
+public record TrinoGrantPrincipal(@NotNull String type, @NotNull String name)
 {
     public static TrinoGrantPrincipal fromTrinoPrincipal(TrinoPrincipal principal)
     {
@@ -31,5 +33,11 @@ public record TrinoGrantPrincipal(String type, String name)
     public static TrinoGrantPrincipal fromTrinoPrincipal(Optional<TrinoPrincipal> principal)
     {
         return principal.map(TrinoGrantPrincipal::fromTrinoPrincipal).orElse(null);
+    }
+
+    public TrinoGrantPrincipal
+    {
+        requireNonNull(type, "type is null");
+        requireNonNull(name, "name is null");
     }
 }

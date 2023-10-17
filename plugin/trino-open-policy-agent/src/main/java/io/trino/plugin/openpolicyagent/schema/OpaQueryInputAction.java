@@ -14,21 +14,35 @@
 package io.trino.plugin.openpolicyagent.schema;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.google.common.collect.ImmutableList;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.Collection;
 import java.util.List;
 
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
+import static java.util.Objects.requireNonNull;
 
 @JsonInclude(NON_NULL)
 public record OpaQueryInputAction(
-        String operation,
+        @NotNull String operation,
         OpaQueryInputResource resource,
         List<OpaQueryInputResource> filterResources,
         OpaQueryInputResource targetResource,
         OpaQueryInputGrant grantee,
         TrinoGrantPrincipal grantor)
 {
+    public OpaQueryInputAction
+    {
+        requireNonNull(operation, "operation is null");
+        if (filterResources != null && resource != null) {
+            throw new IllegalArgumentException("resource and filterResources cannot both be configured");
+        }
+        if (filterResources != null) {
+            filterResources = ImmutableList.copyOf(filterResources);
+        }
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -83,9 +97,6 @@ public record OpaQueryInputAction(
 
         public OpaQueryInputAction build()
         {
-            if (this.resource != null && this.filterResources != null) {
-                throw new IllegalArgumentException("resource and filterResources cannot both be configured");
-            }
             return new OpaQueryInputAction(
                     this.operation,
                     this.resource,

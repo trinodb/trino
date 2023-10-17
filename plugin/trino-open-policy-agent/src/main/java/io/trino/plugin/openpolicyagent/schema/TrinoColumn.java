@@ -15,6 +15,8 @@ package io.trino.plugin.openpolicyagent.schema;
 
 import io.trino.spi.connector.SchemaTableName;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * Helper record used to denote a specific column within a schema & table pair
  * This is only used in filterColumns where simpler objects than TrinoTable help
@@ -23,4 +25,11 @@ import io.trino.spi.connector.SchemaTableName;
  * @param schemaTableName Schema and table name
  * @param columnName Column name
  */
-public record TrinoColumn(SchemaTableName schemaTableName, String columnName) {}
+public record TrinoColumn(SchemaTableName schemaTableName, String columnName)
+{
+    public TrinoColumn
+    {
+        requireNonNull(schemaTableName, "schemaTableName is null");
+        requireNonNull(columnName, "columnName is null");
+    }
+}

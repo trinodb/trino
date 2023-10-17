@@ -14,22 +14,34 @@
 package io.trino.plugin.openpolicyagent.schema;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.CatalogSchemaName;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.Map;
 import java.util.Optional;
 
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
+import static java.util.Objects.requireNonNull;
 
 @JsonInclude(NON_NULL)
 public record TrinoSchema(
-        String catalogName,
-        String schemaName,
+        @NotNull String catalogName,
+        @NotNull String schemaName,
         Map<String, Optional<Object>> properties)
 {
     public static TrinoSchema fromTrinoCatalogSchema(CatalogSchemaName catalogSchemaName)
     {
         return Builder.fromTrinoCatalogSchema(catalogSchemaName).build();
+    }
+
+    public TrinoSchema
+    {
+        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(schemaName, "schemaName is null");
+        if (properties != null) {
+            properties = ImmutableMap.copyOf(properties);
+        }
     }
 
     public static Builder builder()

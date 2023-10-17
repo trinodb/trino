@@ -13,4 +13,12 @@
  */
 package io.trino.plugin.openpolicyagent.schema;
 
-public record OpaQuery(OpaQueryInput input) {}
+import static java.util.Objects.requireNonNull;
+
+public record OpaQuery(OpaQueryInput input)
+{
+    public OpaQuery
+    {
+        requireNonNull(input, "input is null");
+    }
+}

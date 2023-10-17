@@ -17,20 +17,31 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.Set;
 
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
+import static java.util.Objects.requireNonNull;
 
 @JsonInclude(NON_NULL)
 public record TrinoTable(
-        @JsonUnwrapped TrinoSchema catalogSchema,
-        String tableName,
+        @JsonUnwrapped @NotNull TrinoSchema catalogSchema,
+        @NotNull String tableName,
         Set<String> columns)
 {
     public static TrinoTable fromTrinoTable(CatalogSchemaTableName table)
     {
         return TrinoTable.Builder.fromTrinoTable(table).build();
+    }
+
+    public TrinoTable
+    {
+        requireNonNull(catalogSchema, "catalogSchema is null");
+        requireNonNull(tableName, "tableName is null");
+        if (columns != null) {
+            columns = ImmutableSet.copyOf(columns);
+        }
     }
 
     public static Builder builder()
@@ -68,7 +79,7 @@ public record TrinoTable(
 
         public Builder columns(Set<String> columns)
         {
-            this.columns = ImmutableSet.copyOf(columns);
+            this.columns = columns;
             return this;
         }
 

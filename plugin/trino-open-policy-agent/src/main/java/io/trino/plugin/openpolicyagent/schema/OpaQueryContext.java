@@ -16,6 +16,8 @@ package io.trino.plugin.openpolicyagent.schema;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SystemSecurityContext;
 
+import static java.util.Objects.requireNonNull;
+
 public record OpaQueryContext(TrinoIdentity identity)
 {
     public static OpaQueryContext fromSystemSecurityContext(SystemSecurityContext ctx)
@@ -26,5 +28,10 @@ public record OpaQueryContext(TrinoIdentity identity)
     public static OpaQueryContext fromIdentity(Identity identity)
     {
         return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(identity));
+    }
+
+    public OpaQueryContext
+    {
+        requireNonNull(identity, "identity is null");
     }
 }

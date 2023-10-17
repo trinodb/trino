@@ -16,12 +16,19 @@ package io.trino.plugin.openpolicyagent.schema;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import io.trino.spi.security.Identity;
+import jakarta.validation.constraints.NotNull;
 
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
+import static java.util.Objects.requireNonNull;
 
 @JsonInclude(NON_NULL)
-public record TrinoUser(String name, @JsonUnwrapped TrinoIdentity identity)
+public record TrinoUser(@NotNull String name, @JsonUnwrapped TrinoIdentity identity)
 {
+    public TrinoUser
+    {
+        requireNonNull(name, "name is null");
+    }
+
     public TrinoUser(String name)
     {
         this(name, null);

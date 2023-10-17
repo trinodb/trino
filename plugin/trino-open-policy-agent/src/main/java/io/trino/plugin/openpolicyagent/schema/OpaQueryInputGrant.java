@@ -16,14 +16,21 @@ package io.trino.plugin.openpolicyagent.schema;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.security.Privilege;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.Set;
 
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
+import static java.util.Objects.requireNonNull;
 
 @JsonInclude(NON_NULL)
-public record OpaQueryInputGrant(Set<TrinoGrantPrincipal> principals, Boolean grantOption, String privilege)
+public record OpaQueryInputGrant(@NotNull Set<TrinoGrantPrincipal> principals, Boolean grantOption, String privilege)
 {
+    public OpaQueryInputGrant
+    {
+        principals = ImmutableSet.copyOf(requireNonNull(principals, "principals is null"));
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -45,7 +52,7 @@ public record OpaQueryInputGrant(Set<TrinoGrantPrincipal> principals, Boolean gr
 
         public Builder principals(Set<TrinoGrantPrincipal> principals)
         {
-            this.principals = ImmutableSet.copyOf(principals);
+            this.principals = principals;
             return this;
         }
 

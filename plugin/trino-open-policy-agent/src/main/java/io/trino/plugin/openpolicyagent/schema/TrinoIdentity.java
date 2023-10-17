@@ -14,22 +14,26 @@
 package io.trino.plugin.openpolicyagent.schema;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.Map;
 import java.util.Set;
 
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.Objects.requireNonNull;
 
 @JsonInclude(NON_NULL)
 public record TrinoIdentity(
-        String user,
-        Set<String> groups,
-        Set<String> enabledRoles,
-        Map<String, OpaSelectedRole> catalogRoles,
-        Map<String, String> extraCredentials)
+        @NotNull String user,
+        @NotNull Set<String> groups,
+        @NotNull Set<String> enabledRoles,
+        @NotNull Map<String, OpaSelectedRole> catalogRoles,
+        @NotNull Map<String, String> extraCredentials)
 {
     public static TrinoIdentity fromTrinoIdentity(Identity identity)
     {
@@ -53,5 +57,14 @@ public record TrinoIdentity(
         {
             return new OpaSelectedRole(role.getType().name(), role.getRole().orElse(null));
         }
+    }
+
+    public TrinoIdentity
+    {
+        requireNonNull(user, "user is null");
+        groups = ImmutableSet.copyOf(requireNonNull(groups, "groups is null"));
+        enabledRoles = ImmutableSet.copyOf(requireNonNull(enabledRoles, "enabledRoles is null"));
+        catalogRoles = ImmutableMap.copyOf(requireNonNull(catalogRoles, "catalogRoles is null"));
+        extraCredentials = ImmutableMap.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
     }
 }

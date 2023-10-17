@@ -14,12 +14,19 @@
 package io.trino.plugin.openpolicyagent.schema;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import jakarta.validation.constraints.NotNull;
 
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
+import static java.util.Objects.requireNonNull;
 
 @JsonInclude(NON_NULL)
-public record TrinoFunction(String name, String functionKind)
+public record TrinoFunction(@NotNull String name, String functionKind)
 {
+    public TrinoFunction
+    {
+        requireNonNull(name, "name is null");
+    }
+
     public TrinoFunction(String functionName)
     {
         this(functionName, null);

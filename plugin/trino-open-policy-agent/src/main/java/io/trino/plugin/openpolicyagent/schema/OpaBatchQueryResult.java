@@ -21,10 +21,10 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNullElse;
 
-public record OpaBatchQueryResult(@JsonProperty("decision_id") String decisionId, List<Integer> result)
+public record OpaBatchQueryResult(@JsonProperty("decision_id") String decisionId, @NotNull List<Integer> result)
 {
-    public @NotNull List<Integer> result()
+    public OpaBatchQueryResult
     {
-        return requireNonNullElse(this.result, ImmutableList.of());
+        result = ImmutableList.copyOf(requireNonNullElse(result, ImmutableList.of()));
     }
 }
