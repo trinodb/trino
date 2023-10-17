@@ -21,7 +21,7 @@ import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 
@@ -93,7 +93,7 @@ class ValidationHash
             return new ValidationHash(ROW_HASH.bindTo(rowType).bindTo(fieldHashes));
         }
 
-        if (type.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP)) {
+        if (type instanceof TimestampType timestampType && timestampType.isShort()) {
             return new ValidationHash(TIMESTAMP_HASH);
         }
 
