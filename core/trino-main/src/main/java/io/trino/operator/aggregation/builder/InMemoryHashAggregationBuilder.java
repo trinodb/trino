@@ -147,10 +147,10 @@ public class InMemoryHashAggregationBuilder
     public Work<?> processPage(Page page)
     {
         if (groupedAggregators.isEmpty()) {
-            return groupByHash.addPage(page.getColumns(groupByChannels));
+            return groupByHash.addPage(page.getLoadedPage(groupByChannels));
         }
         return new TransformWork<>(
-                groupByHash.getGroupIds(page.getColumns(groupByChannels)),
+                groupByHash.getGroupIds(page.getLoadedPage(groupByChannels)),
                 groupByIdBlock -> {
                     int groupCount = groupByHash.getGroupCount();
                     for (GroupedAggregator groupedAggregator : groupedAggregators) {
