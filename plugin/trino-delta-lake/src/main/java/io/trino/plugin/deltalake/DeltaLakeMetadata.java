@@ -966,29 +966,29 @@ public class DeltaLakeMetadata
         ColumnMappingMode columnMappingMode = DeltaLakeTableProperties.getColumnMappingMode(tableMetadata.getProperties());
         AtomicInteger fieldId = new AtomicInteger();
 
+        validateTableColumns(tableMetadata);
+        boolean containsTimestampType = false;
+        DeltaLakeTable.Builder deltaTable = DeltaLakeTable.builder();
+        for (ColumnMetadata column : tableMetadata.getColumns()) {
+            deltaTable.addColumn(
+                    column.getName(),
+                    serializeColumnType(columnMappingMode, fieldId, column.getType()),
+                    column.isNullable(),
+                    column.getComment(),
+                    generateColumnMetadata(columnMappingMode, fieldId));
+            if (!containsTimestampType) {
+                containsTimestampType = containsTimestampType(column.getType());
+            }
+        }
+
+        OptionalInt maxFieldId = OptionalInt.empty();
+        if (columnMappingMode == ID || columnMappingMode == NAME) {
+            maxFieldId = OptionalInt.of(fieldId.get());
+        }
+
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             if (!fileSystem.listFiles(deltaLogDirectory).hasNext()) {
-                validateTableColumns(tableMetadata);
-                boolean containsTimestampType = false;
-                DeltaLakeTable.Builder deltaTable = DeltaLakeTable.builder();
-                for (ColumnMetadata column : tableMetadata.getColumns()) {
-                    deltaTable.addColumn(
-                            column.getName(),
-                            serializeColumnType(columnMappingMode, fieldId, column.getType()),
-                            column.isNullable(),
-                            column.getComment(),
-                            generateColumnMetadata(columnMappingMode, fieldId));
-                    if (!containsTimestampType) {
-                        containsTimestampType = containsTimestampType(column.getType());
-                    }
-                }
-
-                OptionalInt maxFieldId = OptionalInt.empty();
-                if (columnMappingMode == ID || columnMappingMode == NAME) {
-                    maxFieldId = OptionalInt.of(fieldId.get());
-                }
-
                 TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriterWithoutTransactionIsolation(session, location);
                 appendTableEntries(
                         0,
