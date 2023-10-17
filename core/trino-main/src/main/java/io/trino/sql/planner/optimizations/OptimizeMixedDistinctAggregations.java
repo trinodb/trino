@@ -56,6 +56,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.isOptimizeDistinctAggregationEnabled;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -374,7 +375,7 @@ public class OptimizeMixedDistinctAggregations
 
             // add null assignment for mask
             // unused mask will be removed by PruneUnreferencedOutputs
-            outputSymbols.put(aggregateInfo.getMask(), new NullLiteral());
+            outputSymbols.put(aggregateInfo.getMask(), new Cast(new NullLiteral(), toSqlType(BOOLEAN)));
 
             aggregateInfo.setNewNonDistinctAggregateSymbols(outputNonDistinctAggregateSymbols.buildOrThrow());
 

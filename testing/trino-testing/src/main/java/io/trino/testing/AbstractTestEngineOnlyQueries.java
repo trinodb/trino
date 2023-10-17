@@ -71,7 +71,6 @@ import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.tests.QueryTemplate.parameter;
 import static io.trino.tests.QueryTemplate.queryTemplate;
-import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.joining;
@@ -1382,7 +1381,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 .addPreparedStatement("my_query", "SELECT * FROM nation")
                 .build();
         assertThat(query(session, "DESCRIBE INPUT my_query"))
-                .hasOutputTypes(List.of(UNKNOWN, UNKNOWN))
+                .hasOutputTypes(List.of(BIGINT, VARCHAR))
                 .returnsEmptyResult();
     }
 
