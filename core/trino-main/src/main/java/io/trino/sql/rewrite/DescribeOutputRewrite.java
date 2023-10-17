@@ -27,6 +27,7 @@ import io.trino.sql.analyzer.Field;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Limit;
@@ -35,6 +36,7 @@ import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Query;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
@@ -44,6 +46,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.isOmitDateTimeTypePrecision;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.QueryUtil.aliased;
 import static io.trino.sql.QueryUtil.identifier;
 import static io.trino.sql.QueryUtil.row;
@@ -51,6 +56,7 @@ import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.values;
 import static io.trino.sql.analyzer.QueryType.DESCRIBE;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.type.TypeUtils.getDisplayLabel;
 import static java.util.Objects.requireNonNull;
 
@@ -81,6 +87,17 @@ public final class DescribeOutputRewrite
     private static final class Visitor
             extends AstVisitor<Node, Void>
     {
+        private static final Query EMPTY_OUTPUT = createDesctibeOutputQuery(
+                new Row[]{row(
+                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                        new Cast(new NullLiteral(), toSqlType(BIGINT)),
+                        new Cast(new NullLiteral(), toSqlType(BOOLEAN)))},
+                Optional.of(new Limit(new LongLiteral("0"))));
+
         private final Session session;
         private final SqlParser parser;
         private final AnalyzerFactory analyzerFactory;
@@ -119,10 +136,13 @@ public final class DescribeOutputRewrite
             Optional<Node> limit = Optional.empty();
             Row[] rows = analysis.getRootScope().getRelationType().getVisibleFields().stream().map(field -> createDescribeOutputRow(field, analysis)).toArray(Row[]::new);
             if (rows.length == 0) {
-                NullLiteral nullLiteral = new NullLiteral();
-                rows = new Row[] {row(nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral)};
-                limit = Optional.of(new Limit(new LongLiteral("0")));
+                return EMPTY_OUTPUT;
             }
+            return createDesctibeOutputQuery(rows, limit);
+        }
+
+        private static Query createDesctibeOutputQuery(Row[] rows, Optional<Node> limit)
+        {
             return simpleQuery(
                     selectList(
                             identifier("Column Name"),
