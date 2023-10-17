@@ -56,11 +56,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class OpaBatchAccessControlFilteringUnitTest
 {
-    private static URI opaServerUri = URI.create("http://my-uri/");
-    private static URI opaBatchServerUri = URI.create("http://my-uri/batchAllow");
+    private static final URI OPA_SERVER_URI = URI.create("http://my-uri/");
+    private static final URI OPA_BATCH_SERVER_URI = URI.create("http://my-uri/batchAllow");
     private HttpClientUtils.InstrumentedHttpClient mockClient;
     private OpaAccessControl authorizer;
-    private JsonMapper jsonMapper = new JsonMapper();
+    private final JsonMapper jsonMapper = new JsonMapper();
     private Identity requestingIdentity;
     private SystemSecurityContext requestingSecurityContext;
 
@@ -69,12 +69,12 @@ public class OpaBatchAccessControlFilteringUnitTest
     {
         this.jsonMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
         this.jsonMapper.registerModule(new Jdk8Module());
-        this.mockClient = new HttpClientUtils.InstrumentedHttpClient(opaBatchServerUri, "POST", JSON_UTF_8.toString(), (request) -> null);
+        this.mockClient = new HttpClientUtils.InstrumentedHttpClient(OPA_BATCH_SERVER_URI, "POST", JSON_UTF_8.toString(), (request) -> null);
         this.authorizer = (OpaAccessControl) new OpaAccessControlFactory()
                 .create(
                         Map.of(
-                                "opa.policy.uri", opaServerUri.toString(),
-                                "opa.policy.batched-uri", opaBatchServerUri.toString()),
+                                "opa.policy.uri", OPA_SERVER_URI.toString(),
+                                "opa.policy.batched-uri", OPA_BATCH_SERVER_URI.toString()),
                         Optional.of(mockClient));
         this.requestingIdentity = Identity.ofUser("source-user");
         this.requestingSecurityContext = systemSecurityContextFromIdentity(requestingIdentity);

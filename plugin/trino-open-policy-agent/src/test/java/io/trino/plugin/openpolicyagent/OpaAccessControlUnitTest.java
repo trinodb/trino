@@ -58,19 +58,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class OpaAccessControlUnitTest
 {
-    private static URI opaServerUri = URI.create("http://my-uri/");
+    private static final URI OPA_SERVER_URI = URI.create("http://my-uri/");
     private InstrumentedHttpClient mockClient;
     private OpaAccessControl authorizer;
-    private JsonMapper jsonMapper = new JsonMapper();
+    private final JsonMapper jsonMapper = new JsonMapper();
     private Identity requestingIdentity;
     private SystemSecurityContext requestingSecurityContext;
 
     @BeforeEach
     public void setupAuthorizer()
     {
-        this.mockClient = new InstrumentedHttpClient(opaServerUri, "POST", JSON_UTF_8.toString(), (request) -> OK_RESPONSE);
+        this.mockClient = new InstrumentedHttpClient(OPA_SERVER_URI, "POST", JSON_UTF_8.toString(), (request) -> OK_RESPONSE);
         this.authorizer = (OpaAccessControl) new OpaAccessControlFactory().create(
-                Map.of("opa.policy.uri", opaServerUri.toString()),
+                Map.of("opa.policy.uri", OPA_SERVER_URI.toString()),
                 Optional.of(mockClient));
         this.requestingIdentity = Identity.ofUser("source-user");
         this.requestingSecurityContext = systemSecurityContextFromIdentity(requestingIdentity);
