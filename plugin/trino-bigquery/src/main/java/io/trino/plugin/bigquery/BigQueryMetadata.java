@@ -684,10 +684,10 @@ public class BigQueryMetadata
     }
 
     @Override
-    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode, List<ColumnHandle> updateColumns)
     {
         // TODO Fix BaseBigQueryFailureRecoveryTest when implementing this method
-        return ConnectorMetadata.super.beginMerge(session, tableHandle, retryMode);
+        return ConnectorMetadata.super.beginMerge(session, tableHandle, retryMode, updateColumns);
     }
 
     @Override

@@ -72,7 +72,7 @@ import static io.trino.plugin.blackhole.BlackHolePageSourceProvider.isNumericTyp
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
-import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
+import static io.trino.spi.connector.RowChangeParadigm.UPDATE_PARTIAL_COLUMNS;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
@@ -336,7 +336,7 @@ public class BlackHoleMetadata
     @Override
     public RowChangeParadigm getRowChangeParadigm(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return DELETE_ROW_AND_INSERT_ROW;
+        return UPDATE_PARTIAL_COLUMNS;
     }
 
     @Override
@@ -346,7 +346,7 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode, List<ColumnHandle> updatedColumns)
     {
         return new BlackHoleMergeTableHandle((BlackHoleTableHandle) tableHandle);
     }

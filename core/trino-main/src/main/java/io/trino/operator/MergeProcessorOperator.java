@@ -63,7 +63,9 @@ public class MergeProcessorOperator
                     mergeRowChannel,
                     redistributionColumnChannels,
                     dataColumnChannels);
-            case CHANGE_ONLY_UPDATED_COLUMNS -> new ChangeOnlyUpdatedColumnsMergeProcessor(
+            // UPDATE_PARTIAL_COLUMNS will perform MERGE operations on all columns same as CHANGE_ONLY_UPDATED_COLUMNS,
+            // for partial columns DELETE and UPDATE operations use UPDATE/ DELETE syntax.
+            case CHANGE_ONLY_UPDATED_COLUMNS, UPDATE_PARTIAL_COLUMNS -> new ChangeOnlyUpdatedColumnsMergeProcessor(
                     rowIdChannel,
                     mergeRowChannel,
                     dataColumnChannels,

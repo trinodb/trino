@@ -16,6 +16,7 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.spi.Page;
@@ -47,6 +48,7 @@ public class MergeWriterOperator
         implements Operator
 {
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, VARBINARY);
+    private static final Logger LOG = Logger.get(MergeWriterOperator.class);
 
     public static class MergeWriterOperatorFactory
             implements OperatorFactory
@@ -144,6 +146,7 @@ public class MergeWriterOperator
         int[] columns = IntStream.range(0, outputChannelCount).toArray();
         Page newPage = page.getColumns(columns);
 
+        LOG.debug("append page, number of columns: %d, number of rows: %d", outputChannelCount, newPage.getPositionCount());
         // Store the page
         mergeSink.storeMergedRows(newPage);
 

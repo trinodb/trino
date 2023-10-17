@@ -34,4 +34,12 @@ public enum RowChangeParadigm
      * corresponding merge processor class is {@code DeleteAndInsertMergeProcessor}.
      */
     DELETE_ROW_AND_INSERT_ROW,
+
+    /**
+     * A paradigm that translates a changed row into an inplace update of the specific columns
+     * new rows will get a new rowId when the connector writes it out.
+     * UPDATE command will change only relevant columns
+     * corresponding to merge processor class is {@code UpdatePartialColumns}.
+     */
+    UPDATE_PARTIAL_COLUMNS
 }

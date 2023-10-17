@@ -25,6 +25,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
 import com.google.common.math.IntMath;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
@@ -68,6 +69,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.PointerType;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.function.CatalogSchemaFunctionName;
@@ -398,6 +400,7 @@ import static java.util.Objects.requireNonNull;
 
 class StatementAnalyzer
 {
+    private static final Logger LOG = Logger.get(StatementAnalyzer.class);
     private static final Set<String> WINDOW_VALUE_FUNCTIONS = ImmutableSet.of("lead", "lag", "first_value", "last_value", "nth_value");
 
     private final StatementAnalyzerFactory statementAnalyzerFactory;
@@ -3603,13 +3606,21 @@ class StatementAnalyzer
                     fieldIndexes.put(name, fieldIndex);
                 });
             }
+            RowChangeParadigm paradigm = metadata.getRowChangeParadigm(session, handle);
             Map<ColumnHandle, Integer> columnHandleFieldNumbers = columnHandleFieldNumbersBuilder.buildOrThrow();
-
+            Set<ColumnHandle> updatedColumnsSet = updatedColumns.stream().flatMap(List::stream).collect(Collectors.toSet());
+            LOG.info("MergeAnalysis, paradigm: %s", paradigm);
             List<ColumnSchema> dataColumnSchemas = tableSchema.getColumns().stream()
                     .filter(column -> !column.isHidden())
                     .collect(toImmutableList());
+            if (paradigm == RowChangeParadigm.UPDATE_PARTIAL_COLUMNS) {
+                dataColumnSchemas = dataColumnSchemas
+                        .stream()
+                        .filter(column -> updatedColumnsSet.contains(allColumnHandles.get(column.getName())))
+                        .collect(Collectors.toList());
+            }
+            LOG.info("MergeAnalysis, dataColumnSchema size: %s", dataColumnSchemas.size());
             Optional<TableLayout> insertLayout = metadata.getInsertLayout(session, handle);
-
             ImmutableList.Builder<ColumnHandle> dataColumnHandlesBuilder = ImmutableList.builder();
             ImmutableSet.Builder<String> dataColumnNamesBuilder = ImmutableSet.builder();
             ImmutableList.Builder<ColumnHandle> redistributionColumnHandlesBuilder = ImmutableList.builder();
@@ -3645,6 +3656,7 @@ class StatementAnalyzer
             fields.add(new RowType.Field(Optional.empty(), TINYINT)); // operation_number
             fields.add(new RowType.Field(Optional.empty(), INTEGER)); // case_number
             RowType mergeRowType = RowType.from(fields);
+            LOG.info("Merge, size of RowType: %s", mergeRowType.getFields().size());
 
             analysis.setMergeAnalysis(new MergeAnalysis(
                     table,

@@ -576,7 +576,8 @@ class QueryPlanner
                         handle,
                         Optional.empty(),
                         tableMetadata.getTable(),
-                        paradigmAndTypes),
+                        paradigmAndTypes,
+                        List.of()), // Delete requires only RowID
                 projectNode.getOutputSymbols(),
                 partitioningScheme,
                 outputs);
@@ -630,6 +631,7 @@ class QueryPlanner
         Metadata metadata = plannerContext.getMetadata();
         ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
         Assignments.Builder assignments = Assignments.builder();
+        RowChangeParadigm paradigm = metadata.getRowChangeParadigm(this.session, this.analysis.getTableHandle(table));
 
         // Add column values to the rowBuilder - - the SET expression value for updated
         // columns, and the existing column value for non-updated columns
@@ -655,9 +657,11 @@ class QueryPlanner
                 assignments.put(field, rewritten);
             }
             else {
-                // Get the non-updated column value from the table
-                rowBuilder.add(field.toSymbolReference());
-                assignments.putIdentity(field);
+                if (paradigm != RowChangeParadigm.UPDATE_PARTIAL_COLUMNS) {
+                    // Get the non-updated column value from the table
+                    rowBuilder.add(field.toSymbolReference());
+                    assignments.putIdentity(field);
+                }
             }
         }
 
@@ -707,14 +711,14 @@ class QueryPlanner
         }
 
         // Add the rest of the page columns: rowId, merge row, case number and is_distinct
-        projectionAssignmentsBuilder.putIdentity(rowIdSymbol);
+        projectionAssignmentsBuilder.put(rowIdSymbol, rowIdSymbol.toSymbolReference());
         projectionAssignmentsBuilder.put(mergeRowSymbol, mergeRow);
         projectionAssignmentsBuilder.put(caseNumberSymbol, new GenericLiteral("INTEGER", "0"));
         projectionAssignmentsBuilder.put(isDistinctSymbol, TRUE_LITERAL);
 
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), subPlanBuilder.getRoot(), projectionAssignmentsBuilder.build());
 
-        return createMergePipeline(table, relationPlan, projectNode, rowIdSymbol, mergeRowSymbol);
+        return createMergePipeline(table, relationPlan, projectNode, rowIdSymbol, mergeRowSymbol, updatedColumnHandles);
     }
 
     private PlanBuilder addCheckConstraints(List<Expression> constraints, PlanBuilder subPlanBuilder)
@@ -914,10 +918,10 @@ class QueryPlanner
 
         FilterNode filterNode = new FilterNode(idAllocator.getNextId(), markDistinctNode, filter);
 
-        return createMergePipeline(merge.getTargetTable(), planWithPresentColumn, filterNode, rowIdSymbol, mergeRowSymbol);
+        return createMergePipeline(merge.getTargetTable(), planWithPresentColumn, filterNode, rowIdSymbol, mergeRowSymbol, mergeAnalysis.getDataColumnHandles());
     }
 
-    private MergeWriterNode createMergePipeline(Table table, RelationPlan relationPlan, PlanNode planNode, Symbol rowIdSymbol, Symbol mergeRowSymbol)
+    private MergeWriterNode createMergePipeline(Table table, RelationPlan relationPlan, PlanNode planNode, Symbol rowIdSymbol, Symbol mergeRowSymbol, List<ColumnHandle> updatedColumnHandles)
     {
         TableHandle handle = analysis.getTableHandle(table);
         MergeAnalysis mergeAnalysis = analysis.getMergeAnalysis().orElseThrow();
@@ -934,10 +938,12 @@ class QueryPlanner
                     columnNamesBuilder.add(columnSchema.getName());
                 });
         MergeParadigmAndTypes mergeParadigmAndTypes = new MergeParadigmAndTypes(Optional.of(paradigm), typesBuilder.build(), columnNamesBuilder.build(), rowIdType);
-        MergeTarget mergeTarget = new MergeTarget(handle, Optional.empty(), metadata.getTableName(session, handle).getSchemaTableName(), mergeParadigmAndTypes);
+        MergeTarget mergeTarget = new MergeTarget(handle, Optional.empty(), metadata.getTableName(session, handle).getSchemaTableName(), mergeParadigmAndTypes, updatedColumnHandles);
 
         ImmutableList.Builder<Symbol> columnSymbolsBuilder = ImmutableList.builder();
-        for (ColumnHandle columnHandle : mergeAnalysis.getDataColumnHandles()) {
+        List<ColumnHandle> iterateHandles = (paradigm != RowChangeParadigm.UPDATE_PARTIAL_COLUMNS) ?
+                mergeAnalysis.getDataColumnHandles() : updatedColumnHandles;
+        for (ColumnHandle columnHandle : iterateHandles) {
             int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(columnHandle), "Could not find field number for column handle");
             columnSymbolsBuilder.add(relationPlan.getFieldMappings().get(fieldIndex));
         }
