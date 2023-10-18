@@ -93,32 +93,6 @@ public class OpaBatchAccessControlFilteringUnitTest
         }
     }
 
-    private ObjectNode encodeObjectWithKey(Object inp, String key)
-    {
-        return jsonMapper.createObjectNode().set(key, jsonMapper.valueToTree(inp));
-    }
-
-    private static Stream<Arguments> subsetProvider()
-    {
-        return Stream.of(
-                Arguments.of(Named.of("All-3-resources", new HttpClientUtils.MockResponse("{\"result\": [0, 1, 2]}", 200)), ImmutableList.of(0, 1, 2)),
-                Arguments.of(Named.of("First-and-last-resources", new HttpClientUtils.MockResponse("{\"result\": [0, 2]}", 200)), ImmutableList.of(0, 2)),
-                Arguments.of(Named.of("Only-one-resource", new HttpClientUtils.MockResponse("{\"result\": [2]}", 200)), ImmutableList.of(2)),
-                Arguments.of(Named.of("No-resources", new HttpClientUtils.MockResponse("{\"result\": []}", 200)), ImmutableList.of()));
-    }
-
-    private <T> List<T> getSubset(List<T> allItems, List<Integer> subsetPositions)
-    {
-        List<T> result = new ArrayList<>();
-        for (int i : subsetPositions) {
-            if (i < 0 || i >= allItems.size()) {
-                throw new IllegalArgumentException("Invalid subset of items provided");
-            }
-            result.add(allItems.get(i));
-        }
-        return result;
-    }
-
     @ParameterizedTest(name = "{index}: {0}")
     @MethodSource("io.trino.plugin.openpolicyagent.OpaBatchAccessControlFilteringUnitTest#subsetProvider")
     public void testFilterViewQueryOwnedBy(
@@ -384,5 +358,31 @@ public class OpaBatchAccessControlFilteringUnitTest
                 actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
         assertFalse(mockClient.getRequests().isEmpty());
+    }
+
+    private ObjectNode encodeObjectWithKey(Object inp, String key)
+    {
+        return jsonMapper.createObjectNode().set(key, jsonMapper.valueToTree(inp));
+    }
+
+    private static Stream<Arguments> subsetProvider()
+    {
+        return Stream.of(
+                Arguments.of(Named.of("All-3-resources", new HttpClientUtils.MockResponse("{\"result\": [0, 1, 2]}", 200)), ImmutableList.of(0, 1, 2)),
+                Arguments.of(Named.of("First-and-last-resources", new HttpClientUtils.MockResponse("{\"result\": [0, 2]}", 200)), ImmutableList.of(0, 2)),
+                Arguments.of(Named.of("Only-one-resource", new HttpClientUtils.MockResponse("{\"result\": [2]}", 200)), ImmutableList.of(2)),
+                Arguments.of(Named.of("No-resources", new HttpClientUtils.MockResponse("{\"result\": []}", 200)), ImmutableList.of()));
+    }
+
+    private <T> List<T> getSubset(List<T> allItems, List<Integer> subsetPositions)
+    {
+        List<T> result = new ArrayList<>();
+        for (int i : subsetPositions) {
+            if (i < 0 || i >= allItems.size()) {
+                throw new IllegalArgumentException("Invalid subset of items provided");
+            }
+            result.add(allItems.get(i));
+        }
+        return result;
     }
 }

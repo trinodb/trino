@@ -86,8 +86,7 @@ public class TestHelpers
         // All possible failure scenarios, including a well-formed access denied response
         return Stream.concat(
                 illegalResponseArgumentProvider(),
-                Stream.of(
-                        Arguments.of(Named.of("No access response", NO_ACCESS_RESPONSE), AccessDeniedException.class, "Access Denied")));
+                Stream.of(Arguments.of(Named.of("No access response", NO_ACCESS_RESPONSE), AccessDeniedException.class, "Access Denied")));
     }
 
     public static SystemSecurityContext systemSecurityContextFromIdentity(Identity identity) {

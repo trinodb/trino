@@ -87,31 +87,6 @@ public class OpaAccessControlUnitTest
         }
     }
 
-    private static Stream<Arguments> noResourceActionTestCases()
-    {
-        Stream<BiConsumer<OpaAccessControl, SystemSecurityContext>> methods =
-                Stream.of(
-                        convertSystemSecurityContextToIdentityArgument(OpaAccessControl::checkCanExecuteQuery),
-                        convertSystemSecurityContextToIdentityArgument(OpaAccessControl::checkCanReadSystemInformation),
-                        convertSystemSecurityContextToIdentityArgument(OpaAccessControl::checkCanWriteSystemInformation),
-                        OpaAccessControl::checkCanShowRoles,
-                        OpaAccessControl::checkCanShowCurrentRoles,
-                        OpaAccessControl::checkCanShowRoleGrants);
-        Stream<String> expectedActions = Stream.of(
-                "ExecuteQuery",
-                "ReadSystemInformation",
-                "WriteSystemInformation",
-                "ShowRoles",
-                "ShowCurrentRoles",
-                "ShowRoleGrants");
-        return Streams.zip(expectedActions, methods, (action, method) -> Arguments.of(Named.of(action, action), method));
-    }
-
-    private static Stream<Arguments> noResourceActionFailureTestCases()
-    {
-        return createFailingTestCases(noResourceActionTestCases());
-    }
-
     @Test
     public void testResponseHasExtraFields()
     {
@@ -1524,5 +1499,29 @@ public class OpaAccessControlUnitTest
         assertTrue(
                 actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
+    }
+
+    private static Stream<Arguments> noResourceActionTestCases()
+    {
+        Stream<BiConsumer<OpaAccessControl, SystemSecurityContext>> methods = Stream.of(
+                convertSystemSecurityContextToIdentityArgument(OpaAccessControl::checkCanExecuteQuery),
+                convertSystemSecurityContextToIdentityArgument(OpaAccessControl::checkCanReadSystemInformation),
+                convertSystemSecurityContextToIdentityArgument(OpaAccessControl::checkCanWriteSystemInformation),
+                OpaAccessControl::checkCanShowRoles,
+                OpaAccessControl::checkCanShowCurrentRoles,
+                OpaAccessControl::checkCanShowRoleGrants);
+        Stream<String> expectedActions = Stream.of(
+                "ExecuteQuery",
+                "ReadSystemInformation",
+                "WriteSystemInformation",
+                "ShowRoles",
+                "ShowCurrentRoles",
+                "ShowRoleGrants");
+        return Streams.zip(expectedActions, methods, (action, method) -> Arguments.of(Named.of(action, action), method));
+    }
+
+    private static Stream<Arguments> noResourceActionFailureTestCases()
+    {
+        return createFailingTestCases(noResourceActionTestCases());
     }
 }

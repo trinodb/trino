@@ -54,7 +54,8 @@ public class FilteringTestHelpers
                         context,
                         "some-catalog",
                         ImmutableMap.of(
-                                SchemaTableName.schemaTableName("some-schema", "some-table"), ImmutableSet.of("some-col"))));
+                                SchemaTableName.schemaTableName("some-schema", "some-table"),
+                                ImmutableSet.of("some-col"))));
         Stream<String> testNames = Stream.of("filterViewQueryOwnedBy", "filterCatalogs", "filterSchemas", "filterTables", "filterColumns");
         return createIllegalResponseTestCases(Streams.zip(testNames, callables, (name, method) -> Arguments.of(Named.of(name, method))));
     }

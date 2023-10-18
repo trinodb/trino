@@ -77,28 +77,6 @@ public class OpaAccessControlFilteringUnitTest
         }
     }
 
-    private Function<String, HttpClientUtils.MockResponse> buildHandler(String jsonPath, Set<String> resourcesToAccept)
-    {
-        return request -> {
-            try {
-                JsonNode parsedRequest = this.jsonMapper.readTree(request);
-                String requestedItem = parsedRequest.at(jsonPath).asText();
-                if (resourcesToAccept.contains(requestedItem)) {
-                    return OK_RESPONSE;
-                }
-            }
-            catch (IOException e) {
-                fail("Could not parse request");
-            }
-            return NO_ACCESS_RESPONSE;
-        };
-    }
-
-    private Function<String, HttpClientUtils.MockResponse> buildHandler(String jsonPath, String resourceToAccept)
-    {
-        return buildHandler(jsonPath, ImmutableSet.of(resourceToAccept));
-    }
-
     @Test
     public void testFilterViewQueryOwnedBy()
     {
@@ -334,5 +312,26 @@ public class OpaAccessControlFilteringUnitTest
                 actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
         assertEquals(mockClient.getRequests().size(), 1);
+    }
+
+    private Function<String, HttpClientUtils.MockResponse> buildHandler(String jsonPath, Set<String> resourcesToAccept)
+    {
+        return request -> {
+            try {
+                JsonNode parsedRequest = this.jsonMapper.readTree(request);
+                String requestedItem = parsedRequest.at(jsonPath).asText();
+                if (resourcesToAccept.contains(requestedItem)) {
+                    return OK_RESPONSE;
+                }
+            }
+            catch (IOException e) {
+                fail("Could not parse request");
+            }
+            return NO_ACCESS_RESPONSE;
+        };
+    }
+    private Function<String, HttpClientUtils.MockResponse> buildHandler(String jsonPath, String resourceToAccept)
+    {
+        return buildHandler(jsonPath, ImmutableSet.of(resourceToAccept));
     }
 }

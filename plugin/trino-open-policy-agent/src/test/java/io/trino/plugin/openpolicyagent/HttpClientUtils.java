@@ -45,6 +45,14 @@ public class HttpClientUtils
         private final String expectedMethod;
         private final String expectedContentType;
 
+        public RecordingHttpProcessor(URI expectedURI, String expectedMethod, String expectedContentType, Function<String, MockResponse> handler)
+        {
+            this.expectedMethod = requireNonNull(expectedMethod, "expectedMethod is null");
+            this.expectedContentType = requireNonNull(expectedContentType, "expectedContentType is null");
+            this.expectedURI = requireNonNull(expectedURI, "expectedURI is null");
+            this.handler = requireNonNull(handler, "handler is null");
+        }
+
         @Override
         public Response handle(Request request)
         {
@@ -68,14 +76,6 @@ public class HttpClientUtils
             else {
                 throw new IllegalArgumentException("Request has an unexpected body generator");
             }
-        }
-
-        public RecordingHttpProcessor(URI expectedURI, String expectedMethod, String expectedContentType, Function<String, MockResponse> handler)
-        {
-            this.expectedMethod = requireNonNull(expectedMethod, "expectedMethod is null");
-            this.expectedContentType = requireNonNull(expectedContentType, "expectedContentType is null");
-            this.expectedURI = requireNonNull(expectedURI, "expectedURI is null");
-            this.handler = requireNonNull(handler, "handler is null");
         }
 
         public List<String> getRequests()
