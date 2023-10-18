@@ -572,7 +572,7 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
-                <version>9.36</version>
+                <version>9.37</version>
             </dependency>
 
             <dependency>
