@@ -51,6 +51,7 @@ public class HdfsExchangeModule
         if (scheme.equalsIgnoreCase("hdfs")) {
             binder.bind(FileSystemExchangeStorage.class).to(HadoopFileSystemExchangeStorage.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(ExchangeHdfsConfig.class);
+            binder.bind(ExchangeHdfsEnvironment.class).in(Scopes.SINGLETON);
         }
         else {
             binder.addError(new TrinoException(NOT_SUPPORTED,

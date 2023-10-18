@@ -55,7 +55,13 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-hadoop-toolkit</artifactId>
+            <artifactId>trino-hdfs</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.httpcomponents</groupId>
+                    <artifactId>httpclient</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

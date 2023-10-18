@@ -50,7 +50,7 @@ connector. The following connectors support fault-tolerant execution:
 - {ref}`PostgreSQL connector <postgresql-fte-support>`
 - {ref}`Redshift connector <redshift-fte-support>`
 - {ref}`SQL Server connector <sqlserver-fte-support>`
-:::
+  :::
 
 The following configuration properties control the behavior of fault-tolerant
 execution on a Trino cluster:
@@ -599,8 +599,20 @@ as the spooling storage destination.
 ```properties
 exchange-manager.name=hdfs
 exchange.base-directories=hadoop-master:9000/exchange-spooling-directory
-hdfs.config.resources=/usr/lib/hadoop/etc/hadoop/core-site.xml
+hive.config.resources=/usr/lib/hadoop/etc/hadoop/core-site.xml
 ```
+
+In a Kerberized Hadoop cluster, to support kerberos authentication for HDFS as the
+spooling storage destination, kerberos authentication for HDFS is configured in
+{ref}`HDFS authentication <hive-security-hdfs-authentication>`
+
+:::{note}
+When using ``KERBEROS`` authentication with impersonation, Trino impersonates
+the user who is running the query when accessing HDFS. You can config the proxied user as:
+```properties
+hdfs.proxy-user=username
+```
+:::
 
 (fte-exchange-local-filesystem)=
 
