@@ -307,8 +307,8 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/open-policy-agent">
-        <artifact id="${project.groupId}:trino-open-policy-agent:zip:${project.version}">
+    <artifactSet to="plugin/opa">
+        <artifact id="${project.groupId}:trino-opa:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
