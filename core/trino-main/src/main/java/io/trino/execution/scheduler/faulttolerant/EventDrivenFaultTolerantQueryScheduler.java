@@ -2014,6 +2014,11 @@ public class EventDrivenFaultTolerantQueryScheduler
                 runningPartitions.remove(partitionId);
             }
 
+            if (!remainingPartitions.contains(partitionId)) {
+                // another task for this partition finished successfully
+                return ImmutableList.of();
+            }
+
             RuntimeException failure = failureInfo.toException();
             ErrorCode errorCode = failureInfo.getErrorCode();
             partitionMemoryEstimator.registerPartitionFinished(
