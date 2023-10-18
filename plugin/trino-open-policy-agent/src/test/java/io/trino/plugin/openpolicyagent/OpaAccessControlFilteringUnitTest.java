@@ -292,8 +292,8 @@ public class OpaAccessControlFilteringUnitTest
             BiFunction<OpaAccessControl, SystemSecurityContext, Collection> callable)
     {
         Collection result = callable.apply(authorizer, requestingSecurityContext);
-        assertEquals(result.size(), 0);
-        assertEquals(mockClient.getRequests().size(), 0);
+        assertTrue(result.isEmpty());
+        assertTrue(mockClient.getRequests().isEmpty());
     }
 
     @ParameterizedTest(name = "{index}: {0} - {1}")
