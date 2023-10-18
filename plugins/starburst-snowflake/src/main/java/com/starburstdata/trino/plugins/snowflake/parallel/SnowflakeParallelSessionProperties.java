@@ -10,7 +10,9 @@
 package com.starburstdata.trino.plugins.snowflake.parallel;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.airlift.units.DataSize;
+import io.trino.plugin.base.mapping.MappingConfig;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
@@ -18,14 +20,24 @@ import io.trino.spi.session.PropertyMetadata;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
+import static java.util.Objects.requireNonNull;
 
 public class SnowflakeParallelSessionProperties
         implements SessionPropertiesProvider
 {
     public static final String CLIENT_RESULT_CHUNK_SIZE = "client_result_chunk_size";
     public static final String QUOTED_IDENTIFIERS_IGNORE_CASE = "quoted_identifiers_ignore_case";
+
+    private final MappingConfig mappingConfig;
+
+    @Inject
+    public SnowflakeParallelSessionProperties(MappingConfig mappingConfig)
+    {
+        this.mappingConfig = requireNonNull(mappingConfig, "mappingConfig is null");
+    }
 
     @Override
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -40,6 +52,9 @@ public class SnowflakeParallelSessionProperties
                         QUOTED_IDENTIFIERS_IGNORE_CASE,
                         "Propagate QUOTED_IDENTIFIERS_IGNORE_CASE to Snowflake, changes how it resolves quoted identifiers",
                         false,
+                        value -> checkArgument(
+                                !(value && mappingConfig.isCaseInsensitiveNameMatching()),
+                                "Enabling quoted_identifiers_ignore_case not supported for Snowflake when case-insensitive-name-matching is enabled"),
                         true));
     }
 
