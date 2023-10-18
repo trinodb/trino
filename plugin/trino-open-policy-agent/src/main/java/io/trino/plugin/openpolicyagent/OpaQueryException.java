@@ -53,7 +53,7 @@ public abstract class OpaQueryException
     {
         public PolicyNotFound(String policyName)
         {
-            super("OPA policy named " + policyName + " did not return a value (or does not exist)", null);
+            super("OPA policy named %s did not return a value (or does not exist)".formatted(policyName), null);
         }
     }
 
@@ -62,16 +62,7 @@ public abstract class OpaQueryException
     {
         public OpaServerError(String policyName, int statusCode, String extra)
         {
-            super(String.format("OPA server returned status %d when processing policy %s: %s", statusCode, policyName, extra), null);
-        }
-    }
-
-    public static final class OpaInternalPluginError
-            extends OpaQueryException
-    {
-        public OpaInternalPluginError(String message)
-        {
-            super(message, null);
+            super("OPA server returned status %d when processing policy %s: %s".formatted(statusCode, policyName, extra), null);
         }
     }
 }
