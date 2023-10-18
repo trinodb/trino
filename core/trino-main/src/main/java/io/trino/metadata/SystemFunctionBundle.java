@@ -165,6 +165,7 @@ import io.trino.operator.scalar.SequenceFunction;
 import io.trino.operator.scalar.SessionFunctions;
 import io.trino.operator.scalar.SplitToMapFunction;
 import io.trino.operator.scalar.SplitToMultimapFunction;
+import io.trino.operator.scalar.SqlFunctions;
 import io.trino.operator.scalar.StringFunctions;
 import io.trino.operator.scalar.TDigestFunctions;
 import io.trino.operator.scalar.TryFunction;
@@ -443,6 +444,7 @@ public final class SystemFunctionBundle
                 .scalars(JsonOutputFunctions.class)
                 .functions(JSON_OBJECT_FUNCTION, JSON_ARRAY_FUNCTION)
                 .scalars(ColorFunctions.class)
+                .scalars(SqlFunctions.class)
                 .scalars(HyperLogLogFunctions.class)
                 .scalars(QuantileDigestFunctions.class)
                 .scalars(TDigestFunctions.class)
