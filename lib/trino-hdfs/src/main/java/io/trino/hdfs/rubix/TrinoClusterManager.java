@@ -13,6 +13,7 @@
  */
 package io.trino.hdfs.rubix;
 
+import com.google.common.collect.Sets;
 import com.qubole.rubix.spi.ClusterManager;
 import com.qubole.rubix.spi.ClusterType;
 import io.trino.spi.HostAddress;
@@ -21,10 +22,10 @@ import io.trino.spi.NodeManager;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class TrinoClusterManager
@@ -44,14 +45,20 @@ public class TrinoClusterManager
     }
 
     @Override
-    public List<String> getNodesInternal()
+    public Set<String> getNodesInternal()
     {
         return nodeManager
                 .orElseThrow(() -> new IllegalStateException("NodeManager not set"))
                 .getWorkerNodes().stream()
                 .filter(node -> !node.isCoordinator())
                 .map(Node::getHost)
-                .collect(toImmutableList());
+                .collect(toImmutableSet());
+    }
+
+    @Override
+    public Set<String> getNodes()
+    {
+        return Sets.newHashSet(getNodesInternal());
     }
 
     @Override
