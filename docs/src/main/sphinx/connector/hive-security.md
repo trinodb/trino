@@ -219,6 +219,8 @@ Keytab files must be distributed to every node in the cluster that runs Trino.
 
 {ref}`Additional Information About Keytab Files.<hive-security-additional-keytab>`
 
+(hive-security-hdfs-authentication)=
+
 ### HDFS authentication
 
 In a Kerberized Hadoop cluster, Trino authenticates to HDFS using Kerberos.
