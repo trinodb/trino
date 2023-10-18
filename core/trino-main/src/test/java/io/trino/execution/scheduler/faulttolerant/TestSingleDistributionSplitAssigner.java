@@ -43,10 +43,10 @@ public class TestSingleDistributionSplitAssigner
 
         tester.update(splitAssigner.finish());
 
-        assertEquals(tester.getPartitionCount(), 1);
+        assertEquals(tester.getTaskPartitionCount(), 1);
         assertEquals(tester.getNodeRequirements(0), new NodeRequirements(Optional.empty(), hostRequirement));
         assertTrue(tester.isSealed(0));
-        assertTrue(tester.isNoMorePartitions());
+        assertTrue(tester.isNoMoreTaskPartitions());
     }
 
     @Test
@@ -61,12 +61,12 @@ public class TestSingleDistributionSplitAssigner
         tester.update(splitAssigner.assign(PLAN_NODE_1, ImmutableListMultimap.of(), true));
         tester.update(splitAssigner.finish());
 
-        assertEquals(tester.getPartitionCount(), 1);
+        assertEquals(tester.getTaskPartitionCount(), 1);
         assertEquals(tester.getNodeRequirements(0), new NodeRequirements(Optional.empty(), hostRequirement));
         assertThat(tester.getSplitIds(0, PLAN_NODE_1)).isEmpty();
         assertTrue(tester.isNoMoreSplits(0, PLAN_NODE_1));
         assertTrue(tester.isSealed(0));
-        assertTrue(tester.isNoMorePartitions());
+        assertTrue(tester.isNoMoreTaskPartitions());
     }
 
     @Test
@@ -77,18 +77,18 @@ public class TestSingleDistributionSplitAssigner
                 ImmutableSet.of(PLAN_NODE_1));
         SplitAssignerTester tester = new SplitAssignerTester();
 
-        assertEquals(tester.getPartitionCount(), 0);
-        assertFalse(tester.isNoMorePartitions());
+        assertEquals(tester.getTaskPartitionCount(), 0);
+        assertFalse(tester.isNoMoreTaskPartitions());
 
         tester.update(splitAssigner.assign(PLAN_NODE_1, ImmutableListMultimap.of(0, createSplit(1)), false));
         tester.update(splitAssigner.finish());
-        assertEquals(tester.getPartitionCount(), 1);
+        assertEquals(tester.getTaskPartitionCount(), 1);
         assertThat(tester.getSplitIds(0, PLAN_NODE_1)).containsExactly(1);
-        assertTrue(tester.isNoMorePartitions());
+        assertTrue(tester.isNoMoreTaskPartitions());
 
         tester.update(splitAssigner.assign(PLAN_NODE_1, ImmutableListMultimap.of(0, createSplit(2), 1, createSplit(3)), false));
         tester.update(splitAssigner.finish());
-        assertEquals(tester.getPartitionCount(), 1);
+        assertEquals(tester.getTaskPartitionCount(), 1);
         assertThat(tester.getSplitIds(0, PLAN_NODE_1)).containsExactly(1, 2, 3);
 
         assertFalse(tester.isNoMoreSplits(0, PLAN_NODE_1));
@@ -107,18 +107,18 @@ public class TestSingleDistributionSplitAssigner
                 ImmutableSet.of(PLAN_NODE_1, PLAN_NODE_2));
         SplitAssignerTester tester = new SplitAssignerTester();
 
-        assertEquals(tester.getPartitionCount(), 0);
-        assertFalse(tester.isNoMorePartitions());
+        assertEquals(tester.getTaskPartitionCount(), 0);
+        assertFalse(tester.isNoMoreTaskPartitions());
 
         tester.update(splitAssigner.assign(PLAN_NODE_1, ImmutableListMultimap.of(0, createSplit(1)), false));
         tester.update(splitAssigner.finish());
-        assertEquals(tester.getPartitionCount(), 1);
+        assertEquals(tester.getTaskPartitionCount(), 1);
         assertThat(tester.getSplitIds(0, PLAN_NODE_1)).containsExactly(1);
-        assertTrue(tester.isNoMorePartitions());
+        assertTrue(tester.isNoMoreTaskPartitions());
 
         tester.update(splitAssigner.assign(PLAN_NODE_2, ImmutableListMultimap.of(0, createSplit(2), 1, createSplit(3)), false));
         tester.update(splitAssigner.finish());
-        assertEquals(tester.getPartitionCount(), 1);
+        assertEquals(tester.getTaskPartitionCount(), 1);
         assertThat(tester.getSplitIds(0, PLAN_NODE_2)).containsExactly(2, 3);
 
         assertFalse(tester.isNoMoreSplits(0, PLAN_NODE_1));
