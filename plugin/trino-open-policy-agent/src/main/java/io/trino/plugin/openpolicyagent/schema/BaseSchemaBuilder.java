@@ -52,9 +52,7 @@ public abstract class BaseSchemaBuilder<T, B extends BaseSchemaBuilder<T, B>>
         // https://openjdk.org/jeps/269
         // ImmutableMap along with other new collections does not support null
         // cast nulls to empty optionals
-        this.properties = properties
-                .entrySet()
-                .stream()
+        this.properties = properties.entrySet().stream()
                 .map(propertiesEntry -> Map.entry(propertiesEntry.getKey(), buildOptional(propertiesEntry.getValue())))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         return getInstance();

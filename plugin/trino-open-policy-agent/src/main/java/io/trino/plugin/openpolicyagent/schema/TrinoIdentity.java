@@ -41,12 +41,8 @@ public record TrinoIdentity(
                 identity.getUser(),
                 identity.getGroups(),
                 identity.getEnabledRoles(),
-                identity
-                        .getCatalogRoles()
-                        .entrySet()
-                        .stream()
-                        .map(entry -> Map.entry(
-                                entry.getKey(), OpaSelectedRole.fromTrinoSelectedRole(entry.getValue())))
+                identity.getCatalogRoles().entrySet().stream()
+                        .map(entry -> Map.entry(entry.getKey(), OpaSelectedRole.fromTrinoSelectedRole(entry.getValue())))
                         .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)),
                 identity.getExtraCredentials());
     }

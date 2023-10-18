@@ -53,8 +53,7 @@ public abstract class OpaQueryException
     {
         public PolicyNotFound(String policyName)
         {
-            super("OPA policy named " + policyName + " did not return a value (or does not exist)",
-                    null);
+            super("OPA policy named " + policyName + " did not return a value (or does not exist)", null);
         }
     }
 
