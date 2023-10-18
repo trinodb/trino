@@ -37,8 +37,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.trino.plugin.openpolicyagent.RequestTestUtilities.assertStringRequestsEqual;
 import static io.trino.plugin.openpolicyagent.TestHelpers.NO_ACCESS_RESPONSE;
@@ -185,7 +186,7 @@ public class OpaAccessControlFilteringUnitTest
                         }
                     }
                     """::formatted)
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
         assertStringRequestsEqual(expectedRequests, this.mockClient.getRequests(), "/input/action");
     }
 
@@ -201,7 +202,7 @@ public class OpaAccessControlFilteringUnitTest
         this.mockClient.setHandler(buildHandler("/input/action/resource/table/tableName", "table-one"));
 
         Set<SchemaTableName> result = authorizer.filterTables(requestingSecurityContext, "my-catalog", tables);
-        assertEquals(ImmutableSet.copyOf(result), tables.stream().filter(table -> table.getTableName().equals("table-one")).collect(Collectors.toSet()));
+        assertEquals(ImmutableSet.copyOf(result), tables.stream().filter(table -> table.getTableName().equals("table-one")).collect(toImmutableSet()));
 
         List<String> expectedRequests = tables.stream()
                 .map(table -> """
@@ -216,7 +217,7 @@ public class OpaAccessControlFilteringUnitTest
                         }
                     }
                     """.formatted(table.getTableName(), table.getSchemaName()))
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
         assertStringRequestsEqual(expectedRequests, this.mockClient.getRequests(), "/input/action");
     }
 
@@ -258,7 +259,7 @@ public class OpaAccessControlFilteringUnitTest
                                             }
                                         }
                                         """.formatted(requestedColumnsForTable.getKey().getTableName(), column))))
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
         assertStringRequestsEqual(expectedRequests, this.mockClient.getRequests(), "/input/action");
         assertTrue(
                 Maps.difference(

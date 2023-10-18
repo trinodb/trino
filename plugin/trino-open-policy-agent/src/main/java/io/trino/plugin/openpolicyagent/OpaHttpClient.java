@@ -157,7 +157,7 @@ public class OpaHttpClient
                 Futures.whenAllComplete(allFutures.values()).call(
                         () -> allFutures.entrySet().stream()
                                 .map(entry -> Map.entry(entry.getKey(), consumeOpaResponse(entry.getValue())))
-                                .toList(),
+                                .collect(toImmutableList()),
                         executor));
         return resultBuilder.putAll(consumedFutures).buildKeepingLast();
     }

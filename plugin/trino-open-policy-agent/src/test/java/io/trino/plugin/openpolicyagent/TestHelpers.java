@@ -24,8 +24,9 @@ import org.junit.jupiter.params.provider.Arguments;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class TestHelpers
 {
@@ -56,8 +57,8 @@ public class TestHelpers
     public static Stream<Arguments> createFailingTestCases(Stream<Arguments> baseTestCases)
     {
         return Sets.cartesianProduct(
-                        baseTestCases.collect(Collectors.toSet()),
-                        allErrorCasesArgumentProvider().collect(Collectors.toSet()))
+                        baseTestCases.collect(toImmutableSet()),
+                        allErrorCasesArgumentProvider().collect(toImmutableSet()))
                 .stream()
                 .map(items -> Arguments.of(items.stream().flatMap((args) -> Arrays.stream(args.get())).toArray()));
     }
@@ -65,8 +66,8 @@ public class TestHelpers
     public static Stream<Arguments> createIllegalResponseTestCases(Stream<Arguments> baseTestCases)
     {
         return Sets.cartesianProduct(
-                        baseTestCases.collect(Collectors.toSet()),
-                        illegalResponseArgumentProvider().collect(Collectors.toSet()))
+                        baseTestCases.collect(toImmutableSet()),
+                        illegalResponseArgumentProvider().collect(toImmutableSet()))
                 .stream()
                 .map(items -> Arguments.of(items.stream().flatMap((args) -> Arrays.stream(args.get())).toArray()));
     }

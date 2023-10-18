@@ -20,8 +20,8 @@ import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Set;
-import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -44,7 +44,7 @@ public class RequestTestUtilities
                         return null;
                     }
                 })
-                .collect(Collectors.toSet());
+                .collect(toImmutableSet());
         assertJsonRequestsEqual(parsedExpectedRequests, actualRequests, extractPath);
     }
 
@@ -70,7 +70,7 @@ public class RequestTestUtilities
                         return null;
                     }
                 })
-                .collect(Collectors.toSet());
+                .collect(toImmutableSet());
         assertEquals(ImmutableSet.copyOf(expectedRequests), parsedActualRequests, "Requests do not match");
     }
 }

@@ -48,6 +48,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.trino.plugin.openpolicyagent.RequestTestUtilities.assertJsonRequestsEqual;
 import static io.trino.plugin.openpolicyagent.RequestTestUtilities.assertStringRequestsEqual;
@@ -115,7 +116,7 @@ public class OpaBatchAccessControlFilteringUnitTest
                 requestedIdentities.stream()
                         .map(TrinoUser::new)
                         .map(user -> encodeObjectWithKey(user, "user"))
-                        .toList());
+                        .collect(toImmutableList()));
         ObjectNode expectedRequest = jsonMapper.createObjectNode()
                 .put("operation", "FilterViewQueryOwnedBy")
                 .set("filterResources", allExpectedUsers);
@@ -302,7 +303,7 @@ public class OpaBatchAccessControlFilteringUnitTest
                             ]
                         }
                         """.formatted(tableName, tableName, tableName))
-                .toList();
+                .collect(toImmutableList());
         assertStringRequestsEqual(expectedRequests, this.mockClient.getRequests(), "/input/action");
         assertTrue(Maps.difference(
                 result,
