@@ -15,6 +15,7 @@ package io.trino.execution.scheduler.faulttolerant;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import io.trino.exchange.SpoolingExchangeInput;
@@ -131,7 +132,7 @@ class ArbitraryDistributionSplitAssigner
                     partitionAssignment.getPartitionId(),
                     planNodeId,
                     false,
-                    splits,
+                    singleSourcePartition(SINGLE_SOURCE_PARTITION_ID, splits),
                     noMoreSplits));
         }
         if (noMoreSplits) {
@@ -157,7 +158,7 @@ class ArbitraryDistributionSplitAssigner
                             0,
                             replicatedSourceId,
                             false,
-                            replicatedSplits.get(replicatedSourceId),
+                            singleSourcePartition(SINGLE_SOURCE_PARTITION_ID, replicatedSplits.get(replicatedSourceId)),
                             true));
                 }
                 for (PlanNodeId partitionedSourceId : partitionedSources) {
@@ -165,7 +166,7 @@ class ArbitraryDistributionSplitAssigner
                             0,
                             partitionedSourceId,
                             false,
-                            ImmutableList.of(),
+                            ImmutableListMultimap.of(),
                             true));
                 }
                 assignment.sealPartition(0);
@@ -179,7 +180,7 @@ class ArbitraryDistributionSplitAssigner
                                     partitionAssignment.getPartitionId(),
                                     partitionedSourceNodeId,
                                     false,
-                                    ImmutableList.of(),
+                                    singleSourcePartition(0, ImmutableList.of()),
                                     true));
                         }
                         // seal partition
@@ -192,6 +193,13 @@ class ArbitraryDistributionSplitAssigner
             assignment.setNoMorePartitions();
         }
         return assignment.build();
+    }
+
+    private ListMultimap<Integer, Split> singleSourcePartition(int sourcePartitionId, List<Split> splits)
+    {
+        ImmutableListMultimap.Builder<Integer, Split> builder = ImmutableListMultimap.builder();
+        builder.putAll(0, splits);
+        return builder.build();
     }
 
     private AssignmentResult assignPartitionedSplits(PlanNodeId planNodeId, List<Split> splits, boolean noMoreSplits)
@@ -210,7 +218,7 @@ class ArbitraryDistributionSplitAssigner
                             partitionAssignment.getPartitionId(),
                             partitionedSourceNodeId,
                             false,
-                            ImmutableList.of(),
+                            ImmutableListMultimap.of(),
                             true));
                 }
                 if (completedSources.containsAll(replicatedSources)) {
@@ -241,7 +249,7 @@ class ArbitraryDistributionSplitAssigner
                             partitionAssignment.getPartitionId(),
                             replicatedSourceId,
                             false,
-                            replicatedSplits.get(replicatedSourceId),
+                            singleSourcePartition(SINGLE_SOURCE_PARTITION_ID, replicatedSplits.get(replicatedSourceId)),
                             completedSources.contains(replicatedSourceId)));
                 }
             }
@@ -249,7 +257,7 @@ class ArbitraryDistributionSplitAssigner
                     partitionAssignment.getPartitionId(),
                     planNodeId,
                     true,
-                    ImmutableList.of(split),
+                    singleSourcePartition(SINGLE_SOURCE_PARTITION_ID, ImmutableList.of(split)),
                     false));
             partitionAssignment.assignSplit(splitSizeInBytes);
         }
@@ -268,7 +276,7 @@ class ArbitraryDistributionSplitAssigner
                             0,
                             replicatedSourceId,
                             false,
-                            replicatedSplits.get(replicatedSourceId),
+                            singleSourcePartition(SINGLE_SOURCE_PARTITION_ID, replicatedSplits.get(replicatedSourceId)),
                             true));
                 }
                 for (PlanNodeId partitionedSourceId : partitionedSources) {
@@ -276,7 +284,7 @@ class ArbitraryDistributionSplitAssigner
                             0,
                             partitionedSourceId,
                             false,
-                            ImmutableList.of(),
+                            ImmutableListMultimap.of(),
                             true));
                 }
 
@@ -290,7 +298,7 @@ class ArbitraryDistributionSplitAssigner
                                 partitionAssignment.getPartitionId(),
                                 partitionedSourceNodeId,
                                 false,
-                                ImmutableList.of(),
+                                ImmutableListMultimap.of(),
                                 true));
                     }
                     // seal partition

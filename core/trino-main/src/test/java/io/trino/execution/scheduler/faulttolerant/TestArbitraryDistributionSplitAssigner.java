@@ -43,6 +43,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.execution.scheduler.faulttolerant.SplitAssigner.SINGLE_SOURCE_PARTITION_ID;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.Collections.shuffle;
 import static java.util.Objects.requireNonNull;
@@ -770,9 +771,13 @@ public class TestArbitraryDistributionSplitAssigner
             ListMultimap<PlanNodeId, Split> expectedSplits)
     {
         assertEquals(taskDescriptor.getPartitionId(), expectedPartitionId);
-        assertSplitsEqual(taskDescriptor.getSplits(), expectedSplits);
+        taskDescriptor.getSplits().getPlanNodeIds().forEach(planNodeId -> {
+            // we expect single source partition for arbitrary distributed tasks
+            assertThat(taskDescriptor.getSplits().getSplits(planNodeId).keySet()).isEqualTo(ImmutableSet.of(SINGLE_SOURCE_PARTITION_ID));
+        });
+        assertSplitsEqual(taskDescriptor.getSplits().getSplitsFlat(), expectedSplits);
         Set<HostAddress> hostRequirement = null;
-        for (Split split : taskDescriptor.getSplits().values()) {
+        for (Split split : taskDescriptor.getSplits().getSplitsFlat().values()) {
             if (!split.isRemotelyAccessible()) {
                 if (hostRequirement == null) {
                     hostRequirement = ImmutableSet.copyOf(split.getAddresses());

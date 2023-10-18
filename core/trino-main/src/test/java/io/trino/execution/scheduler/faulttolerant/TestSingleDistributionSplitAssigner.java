@@ -113,25 +113,25 @@ public class TestSingleDistributionSplitAssigner
         tester.update(splitAssigner.assign(PLAN_NODE_1, ImmutableListMultimap.of(0, createSplit(1)), false));
         tester.update(splitAssigner.finish());
         assertEquals(tester.getTaskPartitionCount(), 1);
-        assertThat(tester.getSplitIds(0, PLAN_NODE_1)).containsExactly(1);
+        assertThat(tester.getSplitIds(0, PLAN_NODE_1)).containsExactlyInAnyOrder(1);
         assertTrue(tester.isNoMoreTaskPartitions());
 
         tester.update(splitAssigner.assign(PLAN_NODE_2, ImmutableListMultimap.of(0, createSplit(2), 1, createSplit(3)), false));
         tester.update(splitAssigner.finish());
         assertEquals(tester.getTaskPartitionCount(), 1);
-        assertThat(tester.getSplitIds(0, PLAN_NODE_2)).containsExactly(2, 3);
+        assertThat(tester.getSplitIds(0, PLAN_NODE_2)).containsExactlyInAnyOrder(2, 3);
 
         assertFalse(tester.isNoMoreSplits(0, PLAN_NODE_1));
         tester.update(splitAssigner.assign(PLAN_NODE_1, ImmutableListMultimap.of(2, createSplit(4)), true));
         tester.update(splitAssigner.finish());
-        assertThat(tester.getSplitIds(0, PLAN_NODE_1)).containsExactly(1, 4);
+        assertThat(tester.getSplitIds(0, PLAN_NODE_1)).containsExactlyInAnyOrder(1, 4);
         assertTrue(tester.isNoMoreSplits(0, PLAN_NODE_1));
 
         assertFalse(tester.isNoMoreSplits(0, PLAN_NODE_2));
         assertFalse(tester.isSealed(0));
         tester.update(splitAssigner.assign(PLAN_NODE_2, ImmutableListMultimap.of(3, createSplit(5)), true));
         tester.update(splitAssigner.finish());
-        assertThat(tester.getSplitIds(0, PLAN_NODE_2)).containsExactly(2, 3, 5);
+        assertThat(tester.getSplitIds(0, PLAN_NODE_2)).containsExactlyInAnyOrder(2, 3, 5);
         assertTrue(tester.isNoMoreSplits(0, PLAN_NODE_2));
         assertTrue(tester.isSealed(0));
     }
