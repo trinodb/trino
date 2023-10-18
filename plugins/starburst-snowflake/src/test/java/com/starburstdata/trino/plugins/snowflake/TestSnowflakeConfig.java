@@ -28,7 +28,8 @@ public class TestSnowflakeConfig
                 .setDatabase(null)
                 .setRole(null)
                 .setDatabasePrefixForSchemaEnabled(false)
-                .setExperimentalPushdownEnabled(false));
+                .setExperimentalPushdownEnabled(false)
+                .setProxyEnabled(false));
     }
 
     @Test
@@ -40,6 +41,7 @@ public class TestSnowflakeConfig
                 .put("snowflake.role", "role")
                 .put("snowflake.database-prefix-for-schema.enabled", "true")
                 .put("snowflake.experimental-pushdown.enabled", "true")
+                .put("snowflake.proxy.enabled", "true")
                 .buildOrThrow();
 
         SnowflakeConfig expected = new SnowflakeConfig()
@@ -47,7 +49,8 @@ public class TestSnowflakeConfig
                 .setDatabase("database")
                 .setRole("role")
                 .setDatabasePrefixForSchemaEnabled(true)
-                .setExperimentalPushdownEnabled(true);
+                .setExperimentalPushdownEnabled(true)
+                .setProxyEnabled(true);
 
         assertFullMapping(properties, expected);
     }

@@ -96,7 +96,8 @@ public class SnowflakeQueryRunner
         extraProperties.forEach(builder::addExtraProperty);
         DistributedQueryRunner queryRunner = builder
                 .setCoordinatorProperties(coordinatorProperties)
-                .setAdditionalSetup(additionalSetup).build();
+                .setAdditionalSetup(additionalSetup)
+                .build();
 
         createSnowflakeQueryRunner(
                 server,
@@ -315,7 +316,9 @@ public class SnowflakeQueryRunner
         SnowflakeServer server = new SnowflakeServer();
         DistributedQueryRunner queryRunner = jdbcBuilder()
                 .withServer(server)
-                .withConnectorProperties(impersonationDisabled())
+                .withConnectorProperties(ImmutableMap.<String, String>builder()
+                        .putAll(impersonationDisabled())
+                        .buildOrThrow())
                 .withExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .build();
 

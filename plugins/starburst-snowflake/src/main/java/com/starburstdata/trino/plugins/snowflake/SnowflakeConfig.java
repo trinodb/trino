@@ -22,6 +22,7 @@ public class SnowflakeConfig
     private boolean databasePrefixForSchemaEnabled;
     // disabled by default for some time
     private boolean experimentalPushdownEnabled;
+    private boolean proxyEnabled;
 
     public Optional<String> getWarehouse()
     {
@@ -85,6 +86,19 @@ public class SnowflakeConfig
     public SnowflakeConfig setExperimentalPushdownEnabled(boolean experimentalPushdownEnabled)
     {
         this.experimentalPushdownEnabled = experimentalPushdownEnabled;
+        return this;
+    }
+
+    public boolean isProxyEnabled()
+    {
+        return proxyEnabled;
+    }
+
+    @ConfigDescription("Enable proxying of requests to Snowflake")
+    @Config("snowflake.proxy.enabled")
+    public SnowflakeConfig setProxyEnabled(boolean proxyEnabled)
+    {
+        this.proxyEnabled = proxyEnabled;
         return this;
     }
 }

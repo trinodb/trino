@@ -11,13 +11,15 @@ package com.starburstdata.trino.plugins.snowflake.jdbc;
 
 import com.google.inject.Binder;
 import com.google.inject.BindingAnnotation;
+import com.google.inject.Inject;
 import com.google.inject.Key;
+import com.google.inject.Provider;
 import com.google.inject.Provides;
-import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.starburstdata.trino.plugins.jdbc.JdbcConnectionPoolConfig;
 import com.starburstdata.trino.plugins.snowflake.SnowflakeConfig;
 import com.starburstdata.trino.plugins.snowflake.SnowflakeConnectorFlavour;
+import com.starburstdata.trino.plugins.snowflake.SnowflakeProxyConfig;
 import com.starburstdata.trino.plugins.snowflake.SnowflakeSessionProperties;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.configuration.ConfigBinder;
@@ -41,17 +43,15 @@ import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.type.TypeManager;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 
-import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.lang.management.ManagementFactory;
 import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
+import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeConnectorFlavour.DISTRIBUTED;
@@ -59,18 +59,18 @@ import static com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeClient.SNO
 import static com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeJdbcSessionProperties.WAREHOUSE;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
+import static java.lang.String.join;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toSet;
 
 public class SnowflakeJdbcClientModule
         extends AbstractConfigurationAwareModule
 {
-    private static final String TIMESTAMP_FORMAT = "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM";
-    private static final String TIME_FORMAT = "HH24:MI:SS.FF9";
-
     // TODO If any module setup is needed by the JDBC client and needs to be disabled in the distributed connector,
     //  move all shared module configuration to a separate module and remove this field.
     private final SnowflakeConnectorFlavour connectorFlavour;
@@ -89,7 +89,7 @@ public class SnowflakeJdbcClientModule
         newOptionalBinder(binder, Key.get(JdbcClient.class, ForBaseJdbc.class))
                 .setDefault()
                 .to(SnowflakeClient.class)
-                .in(Scopes.SINGLETON);
+                .in(SINGLETON);
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(SNOWFLAKE_MAX_LIST_EXPRESSIONS);
 
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
@@ -102,15 +102,29 @@ public class SnowflakeJdbcClientModule
 
         install(new ConnectorObjectNameGeneratorModule("com.starburstdata.trino.plugins.snowflake", "starburst.plugin.snowflake"));
 
-        newOptionalBinder(binder, Key.get(ConnectionFactory.class, ForBaseJdbc.class))
-                .setDefault()
-                .to(Key.get(ConnectionFactory.class, DefaultSnowflakeBinding.class))
-                .in(Scopes.SINGLETON);
-
         newOptionalBinder(binder, Key.get(IdentityCacheMapping.class, ForWarehouseAware.class))
                 .setDefault()
                 .to(SingletonIdentityCacheMapping.class)
-                .in(Scopes.SINGLETON);
+                .in(SINGLETON);
+
+        newOptionalBinder(binder, Key.get(Properties.class, ForSnowflakeConnectionFactory.class))
+                .setDefault()
+                .toProvider(SnowflakeDefaultConnectionPropertiesProvider.class)
+                .in(SINGLETON);
+
+        SnowflakeConfig snowflakeConfig = buildConfigObject(SnowflakeConfig.class);
+
+        if (snowflakeConfig.isProxyEnabled()) {
+            if (connectorFlavour == DISTRIBUTED) {
+                binder.addError("Distributed connector does not support proxy settings");
+            }
+
+            configBinder(binder).bindConfig(SnowflakeProxyConfig.class);
+            newOptionalBinder(binder, Key.get(Properties.class, ForSnowflakeConnectionFactory.class))
+                    .setBinding()
+                    .toProvider(SnowflakeProxyConnectionPropertiesProvider.class)
+                    .in(SINGLETON);
+        }
 
         if (connectorFlavour != DISTRIBUTED) {
             // The distributed connector doesn't use JDBC for query results fetching so query passthrough doesn't work as expected
@@ -121,11 +135,9 @@ public class SnowflakeJdbcClientModule
     @SuppressWarnings("TrinoExperimentalSpi") // Allowed, as it was introduced before disallowing experimental SPIs usage
     private static void setupTableFunctions(Binder binder)
     {
-        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(SINGLETON);
     }
 
-    // TODO: Replace this method by annotating SnowflakeClient's constructor
-    //       and binding a different parameter value for distributed/JDBC.
     @Provides
     @Singleton
     public SnowflakeClient getSnowflakeClient(
@@ -150,36 +162,36 @@ public class SnowflakeJdbcClientModule
 
     @Provides
     @Singleton
-    @DefaultSnowflakeBinding
+    @ForBaseJdbc
     public ConnectionFactory getConnectionFactory(
             BaseJdbcConfig config,
             CredentialProvider credentialProvider,
-            SnowflakeConfig snowflakeConfig,
             CatalogName catalogName,
             JdbcConnectionPoolConfig connectionPoolingConfig,
-            IdentityCacheMapping identityCacheMapping)
+            IdentityCacheMapping identityCacheMapping,
+            @ForSnowflakeConnectionFactory Properties connectionProperties)
     {
         return getDriverConnectionFactory(
                 config,
                 credentialProvider,
-                snowflakeConfig,
                 catalogName,
                 connectionPoolingConfig,
-                identityCacheMapping);
+                identityCacheMapping,
+                connectionProperties);
     }
 
     protected ConnectionFactory getDriverConnectionFactory(
             BaseJdbcConfig config,
             CredentialProvider credentialProvider,
-            SnowflakeConfig snowflakeConfig,
             CatalogName catalogName,
             JdbcConnectionPoolConfig connectionPoolingConfig,
-            IdentityCacheMapping identityCacheMapping)
+            IdentityCacheMapping identityCacheMapping,
+            Properties connectionProperties)
     {
         if (connectionPoolingConfig.isConnectionPoolEnabled()) {
             return new WarehouseAwareDriverPoolingConnectionFactory(
                     catalogName.toString(),
-                    getConnectionProperties(snowflakeConfig),
+                    connectionProperties,
                     config,
                     connectionPoolingConfig,
                     credentialProvider,
@@ -188,30 +200,75 @@ public class SnowflakeJdbcClientModule
         return new WarehouseAwareDriverConnectionFactory(
                 new SnowflakeDriver(),
                 config.getConnectionUrl(),
-                getConnectionProperties(snowflakeConfig),
+                connectionProperties,
                 credentialProvider);
     }
 
-    public static Properties getConnectionProperties(SnowflakeConfig snowflakeConfig)
+    private static class SnowflakeProxyConnectionPropertiesProvider
+            extends SnowflakeDefaultConnectionPropertiesProvider
     {
-        requireNonNull(snowflakeConfig, "snowflakeConfig is null");
-        Properties properties = new Properties();
+        private final SnowflakeProxyConfig snowflakeProxyConfig;
 
-        snowflakeConfig.getWarehouse().ifPresent(warehouse -> properties.setProperty(WAREHOUSE, warehouse));
-        snowflakeConfig.getDatabase().ifPresent(database -> properties.setProperty("db", database));
-        snowflakeConfig.getRole().ifPresent(role -> properties.setProperty("role", role));
+        @Inject
+        public SnowflakeProxyConnectionPropertiesProvider(
+                SnowflakeConfig snowflakeConfig,
+                SnowflakeProxyConfig snowflakeProxyConfig)
+        {
+            super(snowflakeConfig);
+            this.snowflakeProxyConfig = requireNonNull(snowflakeProxyConfig, "snowflakeProxyConfig is null");
+        }
 
-        properties.setProperty("JDBC_TREAT_DECIMAL_AS_INT", "false"); // avoid cast to Long which overflows
-        properties.setProperty("JDBC_USE_SESSION_TIMEZONE", "false");
-        properties.setProperty("TIMESTAMP_OUTPUT_FORMAT", TIMESTAMP_FORMAT);
-        properties.setProperty("TIMESTAMP_NTZ_OUTPUT_FORMAT", TIMESTAMP_FORMAT);
-        properties.setProperty("TIMESTAMP_TZ_OUTPUT_FORMAT", TIMESTAMP_FORMAT);
-        properties.setProperty("TIMESTAMP_LTZ_OUTPUT_FORMAT", TIMESTAMP_FORMAT);
-        properties.setProperty("TIME_OUTPUT_FORMAT", TIME_FORMAT);
-        properties.setProperty("JSON_INDENT", "0");
-        properties.setProperty("CLIENT_OUT_OF_BAND_TELEMETRY_ENABLED", "false");
+        @Override
+        public Properties get()
+        {
+            Properties properties = super.get();
+            properties.setProperty("useProxy", "true");
+            properties.setProperty("proxyHost", snowflakeProxyConfig.getProxyHost());
+            properties.setProperty("proxyPort", String.valueOf(snowflakeProxyConfig.getProxyPort()));
+            properties.setProperty("proxyProtocol", snowflakeProxyConfig.getProxyProtocol().name().toLowerCase(ENGLISH));
+            // see https://docs.snowflake.com/en/developer-guide/jdbc/jdbc-configure#bypassing-the-proxy-server
+            properties.setProperty("nonProxyHosts", join("%7C", snowflakeProxyConfig.getNonProxyHosts()));
+            snowflakeProxyConfig.getUsername().ifPresent(username -> properties.setProperty("proxyUser", username));
+            snowflakeProxyConfig.getPassword().ifPresent(password -> properties.setProperty("proxyPassword", password));
+            return properties;
+        }
+    }
 
-        return properties;
+    private static class SnowflakeDefaultConnectionPropertiesProvider
+            implements Provider<Properties>
+    {
+        private static final String TIMESTAMP_FORMAT = "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM";
+        private static final String TIME_FORMAT = "HH24:MI:SS.FF9";
+
+        private final SnowflakeConfig snowflakeConfig;
+
+        @Inject
+        public SnowflakeDefaultConnectionPropertiesProvider(SnowflakeConfig snowflakeConfig)
+        {
+            this.snowflakeConfig = requireNonNull(snowflakeConfig, "snowflakeConfig is null");
+        }
+
+        @Override
+        public Properties get()
+        {
+            Properties properties = new Properties();
+
+            snowflakeConfig.getWarehouse().ifPresent(warehouse -> properties.setProperty(WAREHOUSE, warehouse));
+            snowflakeConfig.getDatabase().ifPresent(database -> properties.setProperty("db", database));
+            snowflakeConfig.getRole().ifPresent(role -> properties.setProperty("role", role));
+
+            properties.setProperty("JDBC_TREAT_DECIMAL_AS_INT", "false"); // avoid cast to Long which overflows
+            properties.setProperty("JDBC_USE_SESSION_TIMEZONE", "false");
+            properties.setProperty("TIMESTAMP_OUTPUT_FORMAT", TIMESTAMP_FORMAT);
+            properties.setProperty("TIMESTAMP_NTZ_OUTPUT_FORMAT", TIMESTAMP_FORMAT);
+            properties.setProperty("TIMESTAMP_TZ_OUTPUT_FORMAT", TIMESTAMP_FORMAT);
+            properties.setProperty("TIMESTAMP_LTZ_OUTPUT_FORMAT", TIMESTAMP_FORMAT);
+            properties.setProperty("TIME_OUTPUT_FORMAT", TIME_FORMAT);
+            properties.setProperty("JSON_INDENT", "0");
+            properties.setProperty("CLIENT_OUT_OF_BAND_TELEMETRY_ENABLED", "false");
+
+            return properties;
+        }
     }
 
     /**
@@ -234,7 +291,7 @@ public class SnowflakeJdbcClientModule
                 .map(argPattern::matcher)
                 .filter(Matcher::matches)
                 .map(matcher -> matcher.group(1))
-                .collect(Collectors.toSet());
+                .collect(toSet());
 
         if (!openedModules.contains("java.base/java.nio")) {
             binder.addError(
@@ -248,8 +305,8 @@ public class SnowflakeJdbcClientModule
     @BindingAnnotation
     public @interface ForWarehouseAware {}
 
-    @Retention(RetentionPolicy.RUNTIME)
-    @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
+    @Retention(RUNTIME)
+    @Target({FIELD, PARAMETER, METHOD})
     @BindingAnnotation
-    public @interface DefaultSnowflakeBinding {}
+    public @interface ForSnowflakeConnectionFactory {}
 }

@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestSnowflakePlugin
@@ -57,5 +58,35 @@ public class TestSnowflakePlugin
                         "snowflake.warehouse", "test"),
                 new TestingConnectorContext())
                 .shutdown();
+    }
+
+    @Test
+    public void testCreateConnectorWithProxySettings()
+    {
+        Plugin plugin = new TestingSnowflakePlugin();
+        List<ConnectorFactory> connectorFactories = ImmutableList.copyOf(plugin.getConnectorFactories());
+        assertEquals(connectorFactories.size(), 3);
+
+        int created = 0;
+        for (ConnectorFactory factory : connectorFactories) {
+            try {
+                factory.create(
+                                "test",
+                                ImmutableMap.of(
+                                        "connection-url", "jdbc:snowflake:test",
+                                        "snowflake.database", "test",
+                                        "snowflake.warehouse", "test",
+                                        "snowflake.proxy.enabled", "true",
+                                        "snowflake.proxy.host", "localhost",
+                                        "snowflake.proxy.port", "9000"),
+                                new TestingConnectorContext())
+                        .shutdown();
+                created++;
+            }
+            catch (Exception e) {
+                assertThat(e).hasMessageContaining("Distributed connector does not support proxy settings");
+            }
+        }
+        assertThat(created).isEqualTo(2); // parallel and jdbc should succeed while distributed will fail
     }
 }
