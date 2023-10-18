@@ -379,6 +379,20 @@ public class TestMongoConnectorTest
     }
 
     @Test
+    public void testPredicatePushdownMultipleNotEquals()
+    {
+        // Regression test for https://github.com/trinodb/trino/issues/19404
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_predicate_pushdown_with_multiple_not_equals",
+                "(id, value) AS VALUES (1, 10), (2, 20), (3, 30)")) {
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE id != 1 AND value != 20"))
+                    .matches("VALUES (3, 30)")
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
     public void testHighPrecisionDecimalPredicate()
     {
         try (TestTable table = new TestTable(
