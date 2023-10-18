@@ -180,16 +180,16 @@ public class OpaAccessControlUnitTest
         callable.accept(
                 authorizer,
                 requestingSecurityContext,
-                new CatalogSchemaTableName("my-catalog", "my-schema", "my-table"));
+                new CatalogSchemaTableName("my_catalog", "my_schema", "my_table"));
 
         String expectedRequest = """
                 {
                     "operation": "%s",
                     "resource": {
                         "table": {
-                            "catalogName": "my-catalog",
-                            "schemaName": "my-schema",
-                            "tableName": "my-table"
+                            "catalogName": "my_catalog",
+                            "schemaName": "my_schema",
+                            "tableName": "my_table"
                         }
                     }
                 }
@@ -218,7 +218,7 @@ public class OpaAccessControlUnitTest
                 () -> method.accept(
                         authorizer,
                         requestingSecurityContext,
-                        new CatalogSchemaTableName("catalog", "schema", "table")));
+                        new CatalogSchemaTableName("my_catalog", "my_schema", "my_table")));
         assertTrue(actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
     }
@@ -244,17 +244,17 @@ public class OpaAccessControlUnitTest
             String actionName,
             FunctionalHelpers.Consumer4<OpaAccessControl, SystemSecurityContext, CatalogSchemaTableName, Map> callable)
     {
-        CatalogSchemaTableName table = new CatalogSchemaTableName("my-catalog", "my-schema", "my-table");
+        CatalogSchemaTableName table = new CatalogSchemaTableName("my_catalog", "my_schema", "my_table");
         Map<String, Optional<Object>> properties = new HashMap<>(
                 ImmutableMap.<String, Optional<Object>>builder()
-                        .put("string-item", Optional.of("string-value"))
-                        .put("empty-item", Optional.empty())
-                        .put("boxed-number-item", Optional.of(Integer.valueOf(32)))
+                        .put("string_item", Optional.of("string_value"))
+                        .put("empty_item", Optional.empty())
+                        .put("boxed_number_item", Optional.of(Integer.valueOf(32)))
                         .buildOrThrow());
         // https://openjdk.org/jeps/269
         // New collections do not support null items in them, so we need to ensure
         // our code can still deal with them.
-        properties.put("null-item", null);
+        properties.put("null_item", null);
 
         callable.accept(authorizer, requestingSecurityContext, table, properties);
 
@@ -263,14 +263,14 @@ public class OpaAccessControlUnitTest
                     "operation": "%s",
                     "resource": {
                         "table": {
-                            "tableName": "my-table",
-                            "catalogName": "my-catalog",
-                            "schemaName": "my-schema",
+                            "tableName": "my_table",
+                            "catalogName": "my_catalog",
+                            "schemaName": "my_schema",
                             "properties": {
-                                "string-item": "string-value",
-                                "empty-item": null,
-                                "null-item": null,
-                                "boxed-number-item": 32
+                                "string_item": "string_value",
+                                "empty_item": null,
+                                "null_item": null,
+                                "boxed_number_item": 32
                             }
                         }
                     }
@@ -300,7 +300,7 @@ public class OpaAccessControlUnitTest
                 () -> method.accept(
                         authorizer,
                         requestingSecurityContext,
-                        new CatalogSchemaTableName("catalog", "schema", "table"),
+                        new CatalogSchemaTableName("my_catalog", "my_schema", "my_table"),
                         ImmutableMap.of()));
         assertTrue(actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
@@ -325,7 +325,7 @@ public class OpaAccessControlUnitTest
     {
         Identity dummyIdentity = Identity.forUser("dummy-user")
                 .withGroups(ImmutableSet.of("some-group"))
-                .withExtraCredentials(ImmutableMap.of("some-extra-credential", "value"))
+                .withExtraCredentials(ImmutableMap.of("some_extra_credential", "value"))
                 .build();
         callable.accept(authorizer, requestingIdentity, dummyIdentity);
 
@@ -339,7 +339,7 @@ public class OpaAccessControlUnitTest
                             "groups": ["some-group"],
                             "enabledRoles": [],
                             "catalogRoles": {},
-                            "extraCredentials": {"some-extra-credential": "value"}
+                            "extraCredentials": {"some_extra_credential": "value"}
                         }
                     }
                 }
@@ -406,14 +406,14 @@ public class OpaAccessControlUnitTest
             String resourceName,
             FunctionalHelpers.Consumer3<OpaAccessControl, SystemSecurityContext, String> callable)
     {
-        callable.accept(authorizer, requestingSecurityContext, "dummy-name");
+        callable.accept(authorizer, requestingSecurityContext, "resource_name");
 
         String expectedRequest = """
                 {
                     "operation": "%s",
                     "resource": {
                         "%s": {
-                            "name": "dummy-name"
+                            "name": "resource_name"
                         }
                     }
                 }
@@ -443,7 +443,7 @@ public class OpaAccessControlUnitTest
                 () -> method.accept(
                         authorizer,
                         requestingSecurityContext,
-                        "dummy-value"));
+                        "dummy_value"));
         assertTrue(actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
     }
@@ -467,15 +467,15 @@ public class OpaAccessControlUnitTest
             String actionName,
             FunctionalHelpers.Consumer3<OpaAccessControl, SystemSecurityContext, CatalogSchemaName> callable)
     {
-        callable.accept(authorizer, requestingSecurityContext, new CatalogSchemaName("my-catalog", "my-schema"));
+        callable.accept(authorizer, requestingSecurityContext, new CatalogSchemaName("my_catalog", "my_schema"));
 
         String expectedRequest = """
                 {
                     "operation": "%s",
                     "resource": {
                         "schema": {
-                            "catalogName": "my-catalog",
-                            "schemaName": "my-schema"
+                            "catalogName": "my_catalog",
+                            "schemaName": "my_schema"
                         }
                     }
                 }
@@ -504,7 +504,7 @@ public class OpaAccessControlUnitTest
                 () -> method.accept(
                         authorizer,
                         requestingSecurityContext,
-                        new CatalogSchemaName("dummy-catalog", "dummy-schema")));
+                        new CatalogSchemaName("dummy_catalog", "dummy_schema")));
         assertTrue(actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
     }
@@ -512,8 +512,8 @@ public class OpaAccessControlUnitTest
     @Test
     public void testCreateSchema()
     {
-        CatalogSchemaName schema = new CatalogSchemaName("some-catalog", "some-schema");
-        authorizer.checkCanCreateSchema(requestingSecurityContext, schema, ImmutableMap.of("some-key", "some-value"));
+        CatalogSchemaName schema = new CatalogSchemaName("my_catalog", "my_schema");
+        authorizer.checkCanCreateSchema(requestingSecurityContext, schema, ImmutableMap.of("some_key", "some_value"));
         authorizer.checkCanCreateSchema(requestingSecurityContext, schema, ImmutableMap.of());
 
         List<String> expectedRequests = ImmutableList.<String>builder()
@@ -522,10 +522,10 @@ public class OpaAccessControlUnitTest
                         "operation": "CreateSchema",
                         "resource": {
                             "schema": {
-                                "catalogName": "some-catalog",
-                                "schemaName": "some-schema",
+                                "catalogName": "my_catalog",
+                                "schemaName": "my_schema",
                                 "properties": {
-                                    "some-key": "some-value"
+                                    "some_key": "some_value"
                                 }
                             }
                         }
@@ -536,8 +536,8 @@ public class OpaAccessControlUnitTest
                         "operation": "CreateSchema",
                         "resource": {
                             "schema": {
-                                "catalogName": "some-catalog",
-                                "schemaName": "some-schema",
+                                "catalogName": "my_catalog",
+                                "schemaName": "my_schema",
                                 "properties": {}
                             }
                         }
@@ -560,7 +560,7 @@ public class OpaAccessControlUnitTest
                 expectedException,
                 () -> authorizer.checkCanCreateSchema(
                         requestingSecurityContext,
-                        new CatalogSchemaName("some-catalog", "some-schema"),
+                        new CatalogSchemaName("my_catalog", "my_schema"),
                         ImmutableMap.of()));
         assertTrue(actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
@@ -569,22 +569,22 @@ public class OpaAccessControlUnitTest
     @Test
     public void testCanRenameSchema()
     {
-        CatalogSchemaName sourceSchema = new CatalogSchemaName("some-catalog", "some-schema");
-        authorizer.checkCanRenameSchema(requestingSecurityContext, sourceSchema, "new-name");
+        CatalogSchemaName sourceSchema = new CatalogSchemaName("my_catalog", "my_schema");
+        authorizer.checkCanRenameSchema(requestingSecurityContext, sourceSchema, "new_schema_name");
 
         String expectedRequest = """
                 {
                     "operation": "RenameSchema",
                     "resource": {
                         "schema": {
-                            "catalogName": "some-catalog",
-                            "schemaName": "some-schema"
+                            "catalogName": "my_catalog",
+                            "schemaName": "my_schema"
                         }
                     },
                     "targetResource": {
                         "schema": {
-                            "catalogName": "some-catalog",
-                            "schemaName": "new-name"
+                            "catalogName": "my_catalog",
+                            "schemaName": "new_schema_name"
                         }
                     }
                 }
@@ -605,8 +605,8 @@ public class OpaAccessControlUnitTest
                 expectedException,
                 () -> authorizer.checkCanRenameSchema(
                         requestingSecurityContext,
-                        new CatalogSchemaName("some-catalog", "some-schema"),
-                        "new-name"));
+                        new CatalogSchemaName("my_catalog", "my_schema"),
+                        "new_schema_name"));
         assertTrue(actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
     }
@@ -630,8 +630,8 @@ public class OpaAccessControlUnitTest
             String actionName,
             FunctionalHelpers.Consumer4<OpaAccessControl, SystemSecurityContext, CatalogSchemaTableName, CatalogSchemaTableName> method)
     {
-        CatalogSchemaTableName sourceTable = new CatalogSchemaTableName("some-catalog", "some-schema", "some-table");
-        CatalogSchemaTableName targetTable = new CatalogSchemaTableName("another-catalog", "another-schema", "another-table");
+        CatalogSchemaTableName sourceTable = new CatalogSchemaTableName("my_catalog", "my_schema", "my_table");
+        CatalogSchemaTableName targetTable = new CatalogSchemaTableName("my_catalog", "new_schema_name", "new_table_name");
 
         method.accept(authorizer, requestingSecurityContext, sourceTable, targetTable);
 
@@ -640,16 +640,16 @@ public class OpaAccessControlUnitTest
                     "operation": "%s",
                     "resource": {
                         "table": {
-                            "catalogName": "some-catalog",
-                            "schemaName": "some-schema",
-                            "tableName": "some-table"
+                            "catalogName": "my_catalog",
+                            "schemaName": "my_schema",
+                            "tableName": "my_table"
                         }
                     },
                     "targetResource": {
                         "table": {
-                            "catalogName": "another-catalog",
-                            "schemaName": "another-schema",
-                            "tableName": "another-table"
+                            "catalogName": "my_catalog",
+                            "schemaName": "new_schema_name",
+                            "tableName": "new_table_name"
                         }
                     }
                 }
@@ -673,8 +673,8 @@ public class OpaAccessControlUnitTest
     {
         mockClient.setHandler(request -> failureResponse);
 
-        CatalogSchemaTableName sourceTable = new CatalogSchemaTableName("some-catalog", "some-schema", "some-table");
-        CatalogSchemaTableName targetTable = new CatalogSchemaTableName("another-catalog", "another-schema", "another-table");
+        CatalogSchemaTableName sourceTable = new CatalogSchemaTableName("my_catalog", "my_schema", "my_table");
+        CatalogSchemaTableName targetTable = new CatalogSchemaTableName("my_catalog", "new_schema_name", "new_table_name");
         Throwable actualError = assertThrows(
                 expectedException,
                 () -> method.accept(
@@ -689,23 +689,23 @@ public class OpaAccessControlUnitTest
     @Test
     public void testCanSetSchemaAuthorization()
     {
-        CatalogSchemaName schema = new CatalogSchemaName("some-catalog", "some-schema");
+        CatalogSchemaName schema = new CatalogSchemaName("my_catalog", "my_schema");
 
-        authorizer.checkCanSetSchemaAuthorization(requestingSecurityContext, schema, new TrinoPrincipal(PrincipalType.USER, "some-user"));
+        authorizer.checkCanSetSchemaAuthorization(requestingSecurityContext, schema, new TrinoPrincipal(PrincipalType.USER, "my_user"));
 
         String expectedRequest = """
                 {
                     "operation": "SetSchemaAuthorization",
                     "resource": {
                         "schema": {
-                            "catalogName": "some-catalog",
-                            "schemaName": "some-schema"
+                            "catalogName": "my_catalog",
+                            "schemaName": "my_schema"
                         }
                     },
                     "grantee": {
                         "principals": [
                             {
-                                "name": "some-user",
+                                "name": "my_user",
                                 "type": "USER"
                             }
                         ]
@@ -724,13 +724,13 @@ public class OpaAccessControlUnitTest
     {
         mockClient.setHandler(request -> failureResponse);
 
-        CatalogSchemaName schema = new CatalogSchemaName("some-catalog", "some-schema");
+        CatalogSchemaName schema = new CatalogSchemaName("my_catalog", "my_schema");
         Throwable actualError = assertThrows(
                 expectedException,
                 () -> authorizer.checkCanSetSchemaAuthorization(
                         requestingSecurityContext,
                         schema,
-                        new TrinoPrincipal(PrincipalType.USER, "some-user")));
+                        new TrinoPrincipal(PrincipalType.USER, "my_user")));
         assertTrue(actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
     }
@@ -752,24 +752,24 @@ public class OpaAccessControlUnitTest
             String actionName,
             FunctionalHelpers.Consumer4<OpaAccessControl, SystemSecurityContext, CatalogSchemaTableName, TrinoPrincipal> method)
     {
-        CatalogSchemaTableName table = new CatalogSchemaTableName("some-catalog", "some-schema", "some-table");
+        CatalogSchemaTableName table = new CatalogSchemaTableName("my_catalog", "my_schema", "my_table");
 
-        method.accept(authorizer, requestingSecurityContext, table, new TrinoPrincipal(PrincipalType.USER, "some-user"));
+        method.accept(authorizer, requestingSecurityContext, table, new TrinoPrincipal(PrincipalType.USER, "my_user"));
 
         String expectedRequest = """
                 {
                     "operation": "%s",
                     "resource": {
                         "table": {
-                            "catalogName": "some-catalog",
-                            "schemaName": "some-schema",
-                            "tableName": "some-table"
+                            "catalogName": "my_catalog",
+                            "schemaName": "my_schema",
+                            "tableName": "my_table"
                         }
                     },
                     "grantee": {
                         "principals": [
                             {
-                                "name": "some-user",
+                                "name": "my_user",
                                 "type": "USER"
                             }
                         ]
@@ -795,7 +795,7 @@ public class OpaAccessControlUnitTest
     {
         mockClient.setHandler(request -> failureResponse);
 
-        CatalogSchemaTableName table = new CatalogSchemaTableName("some-catalog", "some-schema", "some-table");
+        CatalogSchemaTableName table = new CatalogSchemaTableName("my_catalog", "my_schema", "my_table");
 
         Throwable actualError = assertThrows(
                 expectedException,
@@ -803,7 +803,7 @@ public class OpaAccessControlUnitTest
                         authorizer,
                         requestingSecurityContext,
                         table,
-                        new TrinoPrincipal(PrincipalType.USER, "some-user")));
+                        new TrinoPrincipal(PrincipalType.USER, "my_user")));
         assertTrue(actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
     }
@@ -827,8 +827,8 @@ public class OpaAccessControlUnitTest
             String actionName,
             FunctionalHelpers.Consumer4<OpaAccessControl, SystemSecurityContext, CatalogSchemaTableName, Set<String>> method)
     {
-        CatalogSchemaTableName table = new CatalogSchemaTableName("some-catalog", "some-schema", "some-table");
-        Set<String> columns = ImmutableSet.of("some-column");
+        CatalogSchemaTableName table = new CatalogSchemaTableName("my_catalog", "my_schema", "my_table");
+        Set<String> columns = ImmutableSet.of("my_column");
 
         method.accept(authorizer, requestingSecurityContext, table, columns);
 
@@ -837,10 +837,10 @@ public class OpaAccessControlUnitTest
                     "operation": "%s",
                     "resource": {
                         "table": {
-                            "catalogName": "some-catalog",
-                            "schemaName": "some-schema",
-                            "tableName": "some-table",
-                            "columns": ["some-column"]
+                            "catalogName": "my_catalog",
+                            "schemaName": "my_schema",
+                            "tableName": "my_table",
+                            "columns": ["my_column"]
                         }
                     }
                 }
@@ -863,8 +863,8 @@ public class OpaAccessControlUnitTest
             String expectedErrorMessage)
     {
         mockClient.setHandler(request -> failureResponse);
-        CatalogSchemaTableName table = new CatalogSchemaTableName("some-catalog", "some-schema", "some-table");
-        Set<String> columns = ImmutableSet.of("some-column");
+        CatalogSchemaTableName table = new CatalogSchemaTableName("my_catalog", "my_schema", "my_table");
+        Set<String> columns = ImmutableSet.of("my_column");
 
         Throwable actualError = assertThrows(
                 expectedException,
@@ -879,8 +879,8 @@ public class OpaAccessControlUnitTest
     {
         authorizer.checkCanGrantExecuteFunctionPrivilege(
                 requestingSecurityContext,
-                "some-function",
-                new TrinoPrincipal(PrincipalType.USER, "some-user"),
+                "my_function",
+                new TrinoPrincipal(PrincipalType.USER, "my_user"),
                 true);
 
         String expectedRequest = """
@@ -888,13 +888,13 @@ public class OpaAccessControlUnitTest
                     "operation": "GrantExecuteFunctionPrivilege",
                     "resource": {
                         "function": {
-                            "name": "some-function"
+                            "name": "my_function"
                         }
                     },
                     "grantee": {
                         "principals": [
                             {
-                                "name": "some-user",
+                                "name": "my_user",
                                 "type": "USER"
                             }
                         ],
@@ -918,8 +918,8 @@ public class OpaAccessControlUnitTest
                 expectedException,
                 () -> authorizer.checkCanGrantExecuteFunctionPrivilege(
                         requestingSecurityContext,
-                        "some-function",
-                        new TrinoPrincipal(PrincipalType.USER, "some-name"),
+                        "my_function",
+                        new TrinoPrincipal(PrincipalType.USER, "my_user"),
                         true));
         assertTrue(
                 actualError.getMessage().contains(expectedErrorMessage),
@@ -932,8 +932,8 @@ public class OpaAccessControlUnitTest
         authorizer.checkCanGrantExecuteFunctionPrivilege(
                 requestingSecurityContext,
                 FunctionKind.AGGREGATE,
-                new CatalogSchemaRoutineName("some-catalog", "some-schema", "some-routine"),
-                new TrinoPrincipal(PrincipalType.USER, "some-user"),
+                new CatalogSchemaRoutineName("my_catalog", "my_schema", "my_routine"),
+                new TrinoPrincipal(PrincipalType.USER, "my_user"),
                 true);
 
         String expectedRequest = """
@@ -941,18 +941,18 @@ public class OpaAccessControlUnitTest
                     "operation": "GrantExecuteFunctionPrivilege",
                     "resource": {
                         "function": {
-                            "name": "some-routine",
+                            "name": "my_routine",
                             "functionKind": "AGGREGATE"
                         },
                         "schema": {
-                            "catalogName": "some-catalog",
-                            "schemaName": "some-schema"
+                            "catalogName": "my_catalog",
+                            "schemaName": "my_schema"
                         }
                     },
                     "grantee": {
                         "principals": [
                             {
-                                "name": "some-user",
+                                "name": "my_user",
                                 "type": "USER"
                             }
                         ],
@@ -977,8 +977,8 @@ public class OpaAccessControlUnitTest
                 () -> authorizer.checkCanGrantExecuteFunctionPrivilege(
                         requestingSecurityContext,
                         FunctionKind.AGGREGATE,
-                        new CatalogSchemaRoutineName("some-catalog", "some-schema", "some-routine"),
-                        new TrinoPrincipal(PrincipalType.USER, "some-name"),
+                        new CatalogSchemaRoutineName("my_catalog", "my_schema", "my_routine"),
+                        new TrinoPrincipal(PrincipalType.USER, "my_name"),
                         true));
         assertTrue(
                 actualError.getMessage().contains(expectedErrorMessage),
@@ -989,17 +989,17 @@ public class OpaAccessControlUnitTest
     public void testCanSetCatalogSessionProperty()
     {
         authorizer.checkCanSetCatalogSessionProperty(
-                requestingSecurityContext, "some-catalog", "some-property");
+                requestingSecurityContext, "my_catalog", "my_property");
 
         String expectedRequest = """
                 {
                     "operation": "SetCatalogSessionProperty",
                     "resource": {
                         "catalog": {
-                            "name": "some-catalog"
+                            "name": "my_catalog"
                         },
                         "catalogSessionProperty": {
-                            "name": "some-property"
+                            "name": "my_property"
                         }
                     }
                 }
@@ -1020,8 +1020,8 @@ public class OpaAccessControlUnitTest
                 expectedException,
                 () -> authorizer.checkCanSetCatalogSessionProperty(
                         requestingSecurityContext,
-                        "some-catalog",
-                        "some-property"));
+                        "my_catalog",
+                        "my_property"));
         assertTrue(
                 actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
@@ -1054,22 +1054,22 @@ public class OpaAccessControlUnitTest
                 authorizer,
                 requestingSecurityContext,
                 privilege,
-                new CatalogSchemaName("some-catalog", "some-schema"),
-                new TrinoPrincipal(PrincipalType.USER, "some-user"));
+                new CatalogSchemaName("my_catalog", "my_schema"),
+                new TrinoPrincipal(PrincipalType.USER, "my_user"));
 
         String expectedRequest = """
                 {
                     "operation": "%s",
                     "resource": {
                         "schema": {
-                            "catalogName": "some-catalog",
-                            "schemaName": "some-schema"
+                            "catalogName": "my_catalog",
+                            "schemaName": "my_schema"
                         }
                     },
                     "grantee": {
                         "principals": [
                             {
-                                "name": "some-user",
+                                "name": "my_user",
                                 "type": "USER"
                             }
                         ],
@@ -1112,8 +1112,8 @@ public class OpaAccessControlUnitTest
                         authorizer,
                         requestingSecurityContext,
                         privilege,
-                        new CatalogSchemaName("some-catalog", "some-schema"),
-                        new TrinoPrincipal(PrincipalType.USER, "some-user")));
+                        new CatalogSchemaName("my_catalog", "my_schema"),
+                        new TrinoPrincipal(PrincipalType.USER, "my_user")));
         assertTrue(
                 actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
@@ -1144,23 +1144,23 @@ public class OpaAccessControlUnitTest
                 authorizer,
                 requestingSecurityContext,
                 privilege,
-                new CatalogSchemaTableName("some-catalog", "some-schema", "some-table"),
-                new TrinoPrincipal(PrincipalType.USER, "some-user"));
+                new CatalogSchemaTableName("my_catalog", "my_schema", "my_table"),
+                new TrinoPrincipal(PrincipalType.USER, "my_user"));
 
         String expectedRequest = """
                 {
                     "operation": "%s",
                     "resource": {
                         "table": {
-                            "catalogName": "some-catalog",
-                            "schemaName": "some-schema",
-                            "tableName": "some-table"
+                            "catalogName": "my_catalog",
+                            "schemaName": "my_schema",
+                            "tableName": "my_table"
                         }
                     },
                     "grantee": {
                         "principals": [
                             {
-                                "name": "some-user",
+                                "name": "my_user",
                                 "type": "USER"
                             }
                         ],
@@ -1203,8 +1203,8 @@ public class OpaAccessControlUnitTest
                         authorizer,
                         requestingSecurityContext,
                         privilege,
-                        new CatalogSchemaTableName("some-catalog", "some-schema", "some-table"),
-                        new TrinoPrincipal(PrincipalType.USER, "some-user")));
+                        new CatalogSchemaTableName("my_catalog", "my_schema", "my_table"),
+                        new TrinoPrincipal(PrincipalType.USER, "my_user")));
         assertTrue(
                 actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
@@ -1213,9 +1213,9 @@ public class OpaAccessControlUnitTest
     @Test
     public void testCanCreateRole()
     {
-        authorizer.checkCanCreateRole(requestingSecurityContext, "some-role-without-grantor", Optional.empty());
-        TrinoPrincipal grantor = new TrinoPrincipal(PrincipalType.USER, "some-grantor");
-        authorizer.checkCanCreateRole(requestingSecurityContext, "some-role-with-grantor", Optional.of(grantor));
+        authorizer.checkCanCreateRole(requestingSecurityContext, "my_role_without_grantor", Optional.empty());
+        TrinoPrincipal grantor = new TrinoPrincipal(PrincipalType.USER, "my_grantor");
+        authorizer.checkCanCreateRole(requestingSecurityContext, "my_role_with_grantor", Optional.of(grantor));
 
         Set<String> expectedRequests = ImmutableSet.<String>builder()
                 .add("""
@@ -1223,7 +1223,7 @@ public class OpaAccessControlUnitTest
                         "operation": "CreateRole",
                         "resource": {
                             "role": {
-                                "name": "some-role-without-grantor"
+                                "name": "my_role_without_grantor"
                             }
                         }
                     }
@@ -1233,11 +1233,11 @@ public class OpaAccessControlUnitTest
                         "operation": "CreateRole",
                         "resource": {
                             "role": {
-                                "name": "some-role-with-grantor"
+                                "name": "my_role_with_grantor"
                             }
                         },
                         "grantor": {
-                            "name": "some-grantor",
+                            "name": "my_grantor",
                             "type": "USER"
                         }
                     }
@@ -1259,7 +1259,7 @@ public class OpaAccessControlUnitTest
                 expectedException,
                 () -> authorizer.checkCanCreateRole(
                         requestingSecurityContext,
-                        "some-role-without-grantor",
+                        "my_role_without_grantor",
                         Optional.empty()));
         assertTrue(
                 actualError.getMessage().contains(expectedErrorMessage),
@@ -1283,11 +1283,11 @@ public class OpaAccessControlUnitTest
             String actionName,
             FunctionalHelpers.Consumer6<OpaAccessControl, SystemSecurityContext, Set<String>, Set<TrinoPrincipal>, Boolean, Optional<TrinoPrincipal>> method)
     {
-        TrinoPrincipal grantee = new TrinoPrincipal(PrincipalType.ROLE, "some-grantee-role");
-        method.accept(authorizer, requestingSecurityContext, ImmutableSet.of("some-role-without-grantor"), ImmutableSet.of(grantee), true, Optional.empty());
+        TrinoPrincipal grantee = new TrinoPrincipal(PrincipalType.ROLE, "my_grantee_role");
+        method.accept(authorizer, requestingSecurityContext, ImmutableSet.of("my_role_without_grantor"), ImmutableSet.of(grantee), true, Optional.empty());
 
-        TrinoPrincipal grantor = new TrinoPrincipal(PrincipalType.USER, "some-grantor-user");
-        method.accept(authorizer, requestingSecurityContext, ImmutableSet.of("some-role-with-grantor"), ImmutableSet.of(grantee), false, Optional.of(grantor));
+        TrinoPrincipal grantor = new TrinoPrincipal(PrincipalType.USER, "my_grantor_user");
+        method.accept(authorizer, requestingSecurityContext, ImmutableSet.of("my_role_with_grantor"), ImmutableSet.of(grantee), false, Optional.of(grantor));
 
         Set<String> expectedRequests = ImmutableSet.<String>builder()
                 .add("""
@@ -1296,18 +1296,18 @@ public class OpaAccessControlUnitTest
                         "resource": {
                             "roles": [
                                 {
-                                    "name": "some-role-with-grantor"
+                                    "name": "my_role_with_grantor"
                                 }
                             ]
                         },
                         "grantor": {
-                            "name": "some-grantor-user",
+                            "name": "my_grantor_user",
                             "type": "USER"
                         },
                         "grantee": {
                             "principals": [
                                 {
-                                    "name": "some-grantee-role",
+                                    "name": "my_grantee_role",
                                     "type": "ROLE"
                                 }
                             ],
@@ -1321,14 +1321,14 @@ public class OpaAccessControlUnitTest
                         "resource": {
                             "roles": [
                                 {
-                                    "name": "some-role-without-grantor"
+                                    "name": "my_role_without_grantor"
                                 }
                             ]
                         },
                         "grantee": {
                             "principals": [
                                 {
-                                    "name": "some-grantee-role",
+                                    "name": "my_grantee_role",
                                     "type": "ROLE"
                                 }
                             ],
@@ -1356,13 +1356,13 @@ public class OpaAccessControlUnitTest
     {
         mockClient.setHandler(request -> failureResponse);
 
-        TrinoPrincipal grantee = new TrinoPrincipal(PrincipalType.ROLE, "some-grantee-role");
+        TrinoPrincipal grantee = new TrinoPrincipal(PrincipalType.ROLE, "my_grantee_role");
         Throwable actualError = assertThrows(
                 expectedException,
                 () -> method.accept(
                         authorizer,
                         requestingSecurityContext,
-                        ImmutableSet.of("some-role-without-grantor"),
+                        ImmutableSet.of("my_role_without_grantor"),
                         ImmutableSet.of(grantee),
                         true,
                         Optional.empty()));
@@ -1374,7 +1374,7 @@ public class OpaAccessControlUnitTest
     @Test
     public void testCanExecuteProcedure()
     {
-        CatalogSchemaRoutineName routine = new CatalogSchemaRoutineName("some-catalog", "some-schema", "some-routine-name");
+        CatalogSchemaRoutineName routine = new CatalogSchemaRoutineName("my_catalog", "my_schema", "my_routine_name");
         authorizer.checkCanExecuteProcedure(requestingSecurityContext, routine);
 
         String expectedRequest = """
@@ -1382,11 +1382,11 @@ public class OpaAccessControlUnitTest
                     "operation": "ExecuteProcedure",
                     "resource": {
                         "schema": {
-                            "schemaName": "some-schema",
-                            "catalogName": "some-catalog"
+                            "schemaName": "my_schema",
+                            "catalogName": "my_catalog"
                         },
                         "function": {
-                            "name": "some-routine-name"
+                            "name": "my_routine_name"
                         }
                     }
                 }""";
@@ -1402,7 +1402,7 @@ public class OpaAccessControlUnitTest
     {
         mockClient.setHandler(request -> failureResponse);
 
-        CatalogSchemaRoutineName routine = new CatalogSchemaRoutineName("some-catalog", "some-schema", "some-routine-name");
+        CatalogSchemaRoutineName routine = new CatalogSchemaRoutineName("my_catalog", "my_schema", "my_routine_name");
         Throwable actualError = assertThrows(
                 expectedException,
                 () -> authorizer.checkCanExecuteProcedure(
@@ -1416,20 +1416,20 @@ public class OpaAccessControlUnitTest
     @Test
     public void testCanExecuteTableProcedure()
     {
-        CatalogSchemaTableName table = new CatalogSchemaTableName("some-catalog", "some-schema", "some-table");
-        authorizer.checkCanExecuteTableProcedure(requestingSecurityContext, table, "some-procedure");
+        CatalogSchemaTableName table = new CatalogSchemaTableName("my_catalog", "my_schema", "my_table");
+        authorizer.checkCanExecuteTableProcedure(requestingSecurityContext, table, "my_procedure");
 
         String expectedRequest = """
                 {
                     "operation": "ExecuteTableProcedure",
                     "resource": {
                         "table": {
-                            "schemaName": "some-schema",
-                            "catalogName": "some-catalog",
-                            "tableName": "some-table"
+                            "schemaName": "my_schema",
+                            "catalogName": "my_catalog",
+                            "tableName": "my_table"
                         },
                         "function": {
-                            "name": "some-procedure"
+                            "name": "my_procedure"
                         }
                     }
                 }""";
@@ -1445,13 +1445,13 @@ public class OpaAccessControlUnitTest
     {
         mockClient.setHandler(request -> failureResponse);
 
-        CatalogSchemaTableName table = new CatalogSchemaTableName("some-catalog", "some-schema", "some-table");
+        CatalogSchemaTableName table = new CatalogSchemaTableName("my_catalog", "my_schema", "my_table");
         Throwable actualError = assertThrows(
                 expectedException,
                 () -> authorizer.checkCanExecuteTableProcedure(
                         requestingSecurityContext,
                         table,
-                        "some-procedure"));
+                        "my_procedure"));
         assertTrue(
                 actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
@@ -1460,7 +1460,7 @@ public class OpaAccessControlUnitTest
     @Test
     public void testCanExecuteFunctionWithFunctionKind()
     {
-        CatalogSchemaRoutineName routine = new CatalogSchemaRoutineName("some-catalog", "some-schema", "some-routine");
+        CatalogSchemaRoutineName routine = new CatalogSchemaRoutineName("my_catalog", "my_schema", "my_routine");
         authorizer.checkCanExecuteFunction(requestingSecurityContext, FunctionKind.AGGREGATE, routine);
 
         String expectedRequest = """
@@ -1468,11 +1468,11 @@ public class OpaAccessControlUnitTest
                     "operation": "ExecuteFunction",
                     "resource": {
                         "schema": {
-                            "schemaName": "some-schema",
-                            "catalogName": "some-catalog"
+                            "schemaName": "my_schema",
+                            "catalogName": "my_catalog"
                         },
                         "function": {
-                            "name": "some-routine",
+                            "name": "my_routine",
                             "functionKind": "AGGREGATE"
                         }
                     }
@@ -1489,7 +1489,7 @@ public class OpaAccessControlUnitTest
     {
         mockClient.setHandler(request -> failureResponse);
 
-        CatalogSchemaRoutineName routine = new CatalogSchemaRoutineName("some-catalog", "some-schema", "some-routine");
+        CatalogSchemaRoutineName routine = new CatalogSchemaRoutineName("my_catalog", "my_schema", "my_routine");
         Throwable actualError = assertThrows(
                 expectedException,
                 () -> authorizer.checkCanExecuteFunction(

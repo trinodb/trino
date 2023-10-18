@@ -170,7 +170,7 @@ public class OpaAccessControlFilteringUnitTest
 
         Set<String> result = authorizer.filterSchemas(
                 requestingSecurityContext,
-                "my-catalog",
+                "my_catalog",
                 requestedSchemas);
         assertEquals(ImmutableSet.copyOf(result), ImmutableSet.of("schema_one"));
 
@@ -181,7 +181,7 @@ public class OpaAccessControlFilteringUnitTest
                         "resource": {
                             "schema": {
                                 "schemaName": "%s",
-                                "catalogName": "my-catalog"
+                                "catalogName": "my_catalog"
                             }
                         }
                     }

@@ -37,8 +37,8 @@ public class FilteringTestHelpers
         Stream<BiFunction<OpaAccessControl, SystemSecurityContext, Collection>> callables = Stream.of(
                 (authorizer, context) -> authorizer.filterViewQueryOwnedBy(context.getIdentity(), ImmutableSet.<Identity>of()),
                 (authorizer, context) -> authorizer.filterCatalogs(context, ImmutableSet.of()),
-                (authorizer, context) -> authorizer.filterSchemas(context, "some-catalog", ImmutableSet.of()),
-                (authorizer, context) -> authorizer.filterTables(context, "some-catalog", ImmutableSet.of()));
+                (authorizer, context) -> authorizer.filterSchemas(context, "my_catalog", ImmutableSet.of()),
+                (authorizer, context) -> authorizer.filterTables(context, "my_catalog", ImmutableSet.of()));
         Stream<String> testNames = Stream.of("filterViewQueryOwnedBy", "filterCatalogs", "filterSchemas", "filterTables");
         return Streams.zip(testNames, callables, (name, method) -> Arguments.of(Named.of(name, method)));
     }
@@ -48,14 +48,14 @@ public class FilteringTestHelpers
         Stream<BiFunction<OpaAccessControl, SystemSecurityContext, ?>> callables = Stream.of(
                 (authorizer, context) -> authorizer.filterViewQueryOwnedBy(context.getIdentity(), ImmutableSet.of(Identity.ofUser("foo"))),
                 (authorizer, context) -> authorizer.filterCatalogs(context, ImmutableSet.of("foo")),
-                (authorizer, context) -> authorizer.filterSchemas(context, "some-catalog", ImmutableSet.of("foo")),
-                (authorizer, context) -> authorizer.filterTables(context, "some-catalog", ImmutableSet.of(new SchemaTableName("foo", "bar"))),
+                (authorizer, context) -> authorizer.filterSchemas(context, "my_catalog", ImmutableSet.of("foo")),
+                (authorizer, context) -> authorizer.filterTables(context, "my_catalog", ImmutableSet.of(new SchemaTableName("foo", "bar"))),
                 (authorizer, context) -> authorizer.filterColumns(
                         context,
-                        "some-catalog",
+                        "my_catalog",
                         ImmutableMap.of(
-                                SchemaTableName.schemaTableName("some-schema", "some-table"),
-                                ImmutableSet.of("some-col"))));
+                                SchemaTableName.schemaTableName("my_schema", "my_table"),
+                                ImmutableSet.of("some_column"))));
         Stream<String> testNames = Stream.of("filterViewQueryOwnedBy", "filterCatalogs", "filterSchemas", "filterTables", "filterColumns");
         return createIllegalResponseTestCases(Streams.zip(testNames, callables, (name, method) -> Arguments.of(Named.of(name, method))));
     }

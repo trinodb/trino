@@ -107,9 +107,7 @@ public class OpaBatchAccessControlFilteringUnitTest
         Identity identityThree = Identity.ofUser("user-three");
         List<Identity> requestedIdentities = ImmutableList.of(identityOne, identityTwo, identityThree);
 
-        Collection<Identity> result = authorizer.filterViewQueryOwnedBy(
-                requestingIdentity,
-                requestedIdentities);
+        Collection<Identity> result = authorizer.filterViewQueryOwnedBy(requestingIdentity, requestedIdentities);
         assertEquals(ImmutableSet.copyOf(result), ImmutableSet.copyOf(getSubset(requestedIdentities, expectedItems)));
 
         ArrayNode allExpectedUsers = jsonMapper.createArrayNode().addAll(
@@ -131,7 +129,7 @@ public class OpaBatchAccessControlFilteringUnitTest
     {
         this.mockClient.setHandler(request -> response);
 
-        List<String> requestedCatalogs = ImmutableList.of("catalog-one", "catalog-two", "catalog-three");
+        List<String> requestedCatalogs = ImmutableList.of("catalog_one", "catalog_two", "catalog_three");
 
         Set<String> result = authorizer.filterCatalogs(
                 requestingSecurityContext,
@@ -144,17 +142,17 @@ public class OpaBatchAccessControlFilteringUnitTest
                     "filterResources": [
                         {
                             "catalog": {
-                                "name": "catalog-one"
+                                "name": "catalog_one"
                             }
                         },
                         {
                             "catalog": {
-                                "name": "catalog-two"
+                                "name": "catalog_two"
                             }
                         },
                         {
                             "catalog": {
-                                "name": "catalog-three"
+                                "name": "catalog_three"
                             }
                         }
                     ]
@@ -169,11 +167,11 @@ public class OpaBatchAccessControlFilteringUnitTest
             List<Integer> expectedItems)
     {
         this.mockClient.setHandler(request -> response);
-        List<String> requestedSchemas = ImmutableList.of("schema-one", "schema-two", "schema-three");
+        List<String> requestedSchemas = ImmutableList.of("schema_one", "schema_two", "schema_three");
 
         Set<String> result = authorizer.filterSchemas(
                 requestingSecurityContext,
-                "my-catalog",
+                "my_catalog",
                 new LinkedHashSet<>(requestedSchemas));
         assertEquals(ImmutableSet.copyOf(result), ImmutableSet.copyOf(getSubset(requestedSchemas, expectedItems)));
 
@@ -183,20 +181,20 @@ public class OpaBatchAccessControlFilteringUnitTest
                     "filterResources": [
                         {
                             "schema": {
-                                "schemaName": "schema-one",
-                                "catalogName": "my-catalog"
+                                "schemaName": "schema_one",
+                                "catalogName": "my_catalog"
                             }
                         },
                         {
                             "schema": {
-                                "schemaName": "schema-two",
-                                "catalogName": "my-catalog"
+                                "schemaName": "schema_two",
+                                "catalogName": "my_catalog"
                             }
                         },
                         {
                             "schema": {
-                                "schemaName": "schema-three",
-                                "catalogName": "my-catalog"
+                                "schemaName": "schema_three",
+                                "catalogName": "my_catalog"
                             }
                         }
                     ]
@@ -212,14 +210,14 @@ public class OpaBatchAccessControlFilteringUnitTest
     {
         this.mockClient.setHandler(request -> response);
         List<SchemaTableName> tables = ImmutableList.<SchemaTableName>builder()
-                .add(new SchemaTableName("schema-one", "table-one"))
-                .add(new SchemaTableName("schema-one", "table-two"))
-                .add(new SchemaTableName("schema-two", "table-one"))
+                .add(new SchemaTableName("schema_one", "table_one"))
+                .add(new SchemaTableName("schema_one", "table_two"))
+                .add(new SchemaTableName("schema_two", "table_one"))
                 .build();
 
         Set<SchemaTableName> result = authorizer.filterTables(
                 requestingSecurityContext,
-                "my-catalog",
+                "my_catalog",
                 new LinkedHashSet<>(tables));
         assertEquals(ImmutableSet.copyOf(result), ImmutableSet.copyOf(getSubset(tables, expectedItems)));
 
@@ -229,23 +227,23 @@ public class OpaBatchAccessControlFilteringUnitTest
                     "filterResources": [
                         {
                             "table": {
-                                "tableName": "table-one",
-                                "schemaName": "schema-one",
-                                "catalogName": "my-catalog"
+                                "tableName": "table_one",
+                                "schemaName": "schema_one",
+                                "catalogName": "my_catalog"
                             }
                         },
                         {
                             "table": {
-                                "tableName": "table-two",
-                                "schemaName": "schema-one",
-                                "catalogName": "my-catalog"
+                                "tableName": "table_two",
+                                "schemaName": "schema_one",
+                                "catalogName": "my_catalog"
                             }
                         },
                         {
                             "table": {
-                                "tableName": "table-one",
-                                "schemaName": "schema-two",
-                                "catalogName": "my-catalog"
+                                "tableName": "table_one",
+                                "schemaName": "schema_two",
+                                "catalogName": "my_catalog"
                             }
                         }
                     ]
@@ -261,22 +259,22 @@ public class OpaBatchAccessControlFilteringUnitTest
     @Test
     public void testFilterColumns()
     {
-        SchemaTableName tableOne = SchemaTableName.schemaTableName("my-schema", "table-one");
-        SchemaTableName tableTwo = SchemaTableName.schemaTableName("my-schema", "table-two");
-        SchemaTableName tableThree = SchemaTableName.schemaTableName("my-schema", "table-three");
+        SchemaTableName tableOne = SchemaTableName.schemaTableName("my_schema", "table_one");
+        SchemaTableName tableTwo = SchemaTableName.schemaTableName("my_schema", "table_two");
+        SchemaTableName tableThree = SchemaTableName.schemaTableName("my_schema", "table_three");
         Map<SchemaTableName, Set<String>> requestedColumns = ImmutableMap.<SchemaTableName, Set<String>>builder()
-                .put(tableOne, ImmutableSet.of("table-one-column-one", "table-one-column-two"))
-                .put(tableTwo, ImmutableSet.of("table-two-column-one", "table-two-column-two"))
-                .put(tableThree, ImmutableSet.of("table-three-column-one", "table-three-column-two"))
+                .put(tableOne, ImmutableSet.of("table_one_column_one", "table_one_column_two"))
+                .put(tableTwo, ImmutableSet.of("table_two_column_one", "table_two_column_two"))
+                .put(tableThree, ImmutableSet.of("table_three_column_one", "table_three_column_two"))
                 .buildOrThrow();
 
         // Allow both columns from one table, one column from another one and no columns from the last one
         this.mockClient.setHandler(
                 buildHandler(
                         request -> {
-                            if (request.contains("table-one")) {
+                            if (request.contains("table_one")) {
                                 return "{\"result\": [0, 1]}";
-                            } else if (request.contains("table-two")) {
+                            } else if (request.contains("table_two")) {
                                 return "{\"result\": [1]}";
                             }
                             return "{\"result\": []}";
@@ -284,10 +282,10 @@ public class OpaBatchAccessControlFilteringUnitTest
 
         Map<SchemaTableName, Set<String>> result = authorizer.filterColumns(
                 requestingSecurityContext,
-                "my-catalog",
+                "my_catalog",
                 requestedColumns);
 
-        List<String> expectedRequests = Stream.of("table-one", "table-two", "table-three")
+        List<String> expectedRequests = Stream.of("table_one", "table_two", "table_three")
                 .map(tableName -> """
                         {
                             "operation": "FilterColumns",
@@ -295,9 +293,9 @@ public class OpaBatchAccessControlFilteringUnitTest
                                 {
                                     "table": {
                                         "tableName": "%s",
-                                        "schemaName": "my-schema",
-                                        "catalogName": "my-catalog",
-                                        "columns": ["%s-column-one", "%s-column-two"]
+                                        "schemaName": "my_schema",
+                                        "catalogName": "my_catalog",
+                                        "columns": ["%s_column_one", "%s_column_two"]
                                     }
                                 }
                             ]
@@ -308,8 +306,8 @@ public class OpaBatchAccessControlFilteringUnitTest
         assertTrue(Maps.difference(
                 result,
                 ImmutableMap.builder()
-                        .put(tableOne, ImmutableSet.of("table-one-column-one", "table-one-column-two"))
-                        .put(tableTwo, ImmutableSet.of("table-two-column-two"))
+                        .put(tableOne, ImmutableSet.of("table_one_column_one", "table_one_column_two"))
+                        .put(tableTwo, ImmutableSet.of("table_two_column_two"))
                         .put(tableThree, ImmutableSet.of())
                         .buildOrThrow()).areEqual());
     }
@@ -317,8 +315,8 @@ public class OpaBatchAccessControlFilteringUnitTest
     @Test
     public void testEmptyFilterColumns()
     {
-        SchemaTableName tableOne = SchemaTableName.schemaTableName("my-schema", "table-one");
-        SchemaTableName tableTwo = SchemaTableName.schemaTableName("my-schema", "table-two");
+        SchemaTableName tableOne = SchemaTableName.schemaTableName("my_schema", "table_one");
+        SchemaTableName tableTwo = SchemaTableName.schemaTableName("my_schema", "table_two");
         Map<SchemaTableName, Set<String>> requestedColumns = ImmutableMap.<SchemaTableName, Set<String>>builder()
                 .put(tableOne, ImmutableSet.of())
                 .put(tableTwo, ImmutableSet.of())
@@ -326,9 +324,9 @@ public class OpaBatchAccessControlFilteringUnitTest
 
         Map<SchemaTableName, Set<String>> result = authorizer.filterColumns(
                 requestingSecurityContext,
-                "my-catalog",
+                "my_catalog",
                 requestedColumns);
-        assertEquals(mockClient.getRequests().size(), 0);
+        assertTrue(mockClient.getRequests().isEmpty());
         assertTrue(Maps.difference(result, requestedColumns).areEqual());
     }
 
@@ -338,8 +336,8 @@ public class OpaBatchAccessControlFilteringUnitTest
             BiFunction<OpaAccessControl, SystemSecurityContext, Collection> callable)
     {
         Collection result = callable.apply(authorizer, requestingSecurityContext);
-        assertEquals(result.size(), 0);
-        assertEquals(mockClient.getRequests().size(), 0);
+        assertTrue(result.isEmpty());
+        assertTrue(mockClient.getRequests().isEmpty());
     }
 
     @ParameterizedTest(name = "{index}: {0} - {1}")
