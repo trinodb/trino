@@ -126,9 +126,7 @@ public class OpaAccessControl
                 queryOwner -> buildQueryInputForSimpleResource(
                         OpaQueryContext.fromIdentity(identity),
                         "FilterViewQueryOwnedBy",
-                        OpaQueryInputResource.builder()
-                                .user(new TrinoUser(queryOwner))
-                                .build()));
+                        OpaQueryInputResource.builder().user(new TrinoUser(queryOwner)).build()));
     }
 
     @Override
@@ -201,9 +199,7 @@ public class OpaAccessControl
                 catalog -> buildQueryInputForSimpleResource(
                         OpaQueryContext.fromSystemSecurityContext(context),
                         "FilterCatalogs",
-                        OpaQueryInputResource.builder()
-                                .catalog(catalog)
-                                .build()));
+                        OpaQueryInputResource.builder().catalog(catalog).build()));
     }
 
     @Override
@@ -230,9 +226,7 @@ public class OpaAccessControl
     @Override
     public void checkCanRenameSchema(SystemSecurityContext context, CatalogSchemaName schema, String newSchemaName)
     {
-        OpaQueryInputResource resource = OpaQueryInputResource.builder()
-                .schema(TrinoSchema.fromTrinoCatalogSchema(schema))
-                .build();
+        OpaQueryInputResource resource = OpaQueryInputResource.builder().schema(TrinoSchema.fromTrinoCatalogSchema(schema)).build();
         OpaQueryInputResource targetResource = OpaQueryInputResource.builder()
                 .schema(TrinoSchema.builder()
                         .catalogName(schema.getCatalogName())
@@ -250,12 +244,8 @@ public class OpaAccessControl
     @Override
     public void checkCanSetSchemaAuthorization(SystemSecurityContext context, CatalogSchemaName schema, TrinoPrincipal principal)
     {
-        OpaQueryInputResource resource = OpaQueryInputResource.builder()
-                .schema(TrinoSchema.fromTrinoCatalogSchema(schema))
-                .build();
-        OpaQueryInputGrant grantee = OpaQueryInputGrant.builder()
-                .principal(TrinoGrantPrincipal.fromTrinoPrincipal(principal))
-                .build();
+        OpaQueryInputResource resource = OpaQueryInputResource.builder().schema(TrinoSchema.fromTrinoCatalogSchema(schema)).build();
+        OpaQueryInputGrant grantee = OpaQueryInputGrant.builder().principal(TrinoGrantPrincipal.fromTrinoPrincipal(principal)).build();
         OpaQueryInputAction action = OpaQueryInputAction.builder()
                 .operation("SetSchemaAuthorization")
                 .resource(resource)
@@ -339,12 +329,8 @@ public class OpaAccessControl
     @Override
     public void checkCanRenameTable(SystemSecurityContext context, CatalogSchemaTableName table, CatalogSchemaTableName newTable)
     {
-        OpaQueryInputResource oldResource = OpaQueryInputResource.builder()
-                .table(TrinoTable.fromTrinoTable(table))
-                .build();
-        OpaQueryInputResource newResource = OpaQueryInputResource.builder()
-                .table(TrinoTable.fromTrinoTable(newTable))
-                .build();
+        OpaQueryInputResource oldResource = OpaQueryInputResource.builder().table(TrinoTable.fromTrinoTable(table)).build();
+        OpaQueryInputResource newResource = OpaQueryInputResource.builder().table(TrinoTable.fromTrinoTable(newTable)).build();
         OpaQueryContext queryContext = OpaQueryContext.fromSystemSecurityContext(context);
 
         if (!opaHighLevelClient.queryOpaWithSourceAndTargetResource(queryContext, "RenameTable", oldResource, newResource)) {
@@ -496,12 +482,8 @@ public class OpaAccessControl
     @Override
     public void checkCanSetTableAuthorization(SystemSecurityContext context, CatalogSchemaTableName table, TrinoPrincipal principal)
     {
-        OpaQueryInputResource resource = OpaQueryInputResource.builder()
-                .table(TrinoTable.fromTrinoTable(table))
-                .build();
-        OpaQueryInputGrant grantee = OpaQueryInputGrant.builder()
-                .principal(TrinoGrantPrincipal.fromTrinoPrincipal(principal))
-                .build();
+        OpaQueryInputResource resource = OpaQueryInputResource.builder().table(TrinoTable.fromTrinoTable(table)).build();
+        OpaQueryInputGrant grantee = OpaQueryInputGrant.builder().principal(TrinoGrantPrincipal.fromTrinoPrincipal(principal)).build();
         OpaQueryInputAction action = OpaQueryInputAction.builder()
                 .operation("SetTableAuthorization")
                 .resource(resource)
@@ -589,12 +571,8 @@ public class OpaAccessControl
     @Override
     public void checkCanRenameView(SystemSecurityContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
     {
-        OpaQueryInputResource oldResource = OpaQueryInputResource.builder()
-                .table(TrinoTable.fromTrinoTable(view))
-                .build();
-        OpaQueryInputResource newResource = OpaQueryInputResource.builder()
-                .table(TrinoTable.fromTrinoTable(newView))
-                .build();
+        OpaQueryInputResource oldResource = OpaQueryInputResource.builder().table(TrinoTable.fromTrinoTable(view)).build();
+        OpaQueryInputResource newResource = OpaQueryInputResource.builder().table(TrinoTable.fromTrinoTable(newView)).build();
         OpaQueryContext queryContext = OpaQueryContext.fromSystemSecurityContext(context);
 
         if (!opaHighLevelClient.queryOpaWithSourceAndTargetResource(queryContext, "RenameView", oldResource, newResource)) {
@@ -605,12 +583,8 @@ public class OpaAccessControl
     @Override
     public void checkCanSetViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, TrinoPrincipal principal)
     {
-        OpaQueryInputResource resource = OpaQueryInputResource.builder()
-                .table(TrinoTable.fromTrinoTable(view))
-                .build();
-        OpaQueryInputGrant grantee = OpaQueryInputGrant.builder()
-                .principal(TrinoGrantPrincipal.fromTrinoPrincipal(principal))
-                .build();
+        OpaQueryInputResource resource = OpaQueryInputResource.builder().table(TrinoTable.fromTrinoTable(view)).build();
+        OpaQueryInputGrant grantee = OpaQueryInputGrant.builder().principal(TrinoGrantPrincipal.fromTrinoPrincipal(principal)).build();
         OpaQueryInputAction action = OpaQueryInputAction.builder()
                 .operation("SetViewAuthorization")
                 .resource(resource)
@@ -689,12 +663,8 @@ public class OpaAccessControl
     @Override
     public void checkCanRenameMaterializedView(SystemSecurityContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
     {
-        OpaQueryInputResource oldResource = OpaQueryInputResource.builder()
-                .table(TrinoTable.fromTrinoTable(view))
-                .build();
-        OpaQueryInputResource newResource = OpaQueryInputResource.builder()
-                .table(TrinoTable.fromTrinoTable(newView))
-                .build();
+        OpaQueryInputResource oldResource = OpaQueryInputResource.builder().table(TrinoTable.fromTrinoTable(view)).build();
+        OpaQueryInputResource newResource = OpaQueryInputResource.builder().table(TrinoTable.fromTrinoTable(newView)).build();
         OpaQueryContext queryContext = OpaQueryContext.fromSystemSecurityContext(context);
 
         if (!opaHighLevelClient.queryOpaWithSourceAndTargetResource(queryContext, "RenameMaterializedView", oldResource, newResource)) {
@@ -705,9 +675,7 @@ public class OpaAccessControl
     @Override
     public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, TrinoPrincipal grantee, boolean grantOption)
     {
-        OpaQueryInputResource resource = OpaQueryInputResource.builder()
-                .function(functionName)
-                .build();
+        OpaQueryInputResource resource = OpaQueryInputResource.builder().function(functionName).build();
         OpaQueryInputGrant opaGrantee = OpaQueryInputGrant.builder()
                 .principal(TrinoGrantPrincipal.fromTrinoPrincipal(grantee))
                 .grantOption(grantOption)
@@ -767,9 +735,7 @@ public class OpaAccessControl
     @Override
     public void checkCanGrantSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, TrinoPrincipal grantee, boolean grantOption)
     {
-        OpaQueryInputResource resource = OpaQueryInputResource.builder()
-                .schema(TrinoSchema.fromTrinoCatalogSchema(schema))
-                .build();
+        OpaQueryInputResource resource = OpaQueryInputResource.builder().schema(TrinoSchema.fromTrinoCatalogSchema(schema)).build();
         OpaQueryInputGrant opaGrantee = OpaQueryInputGrant.builder()
                 .principal(TrinoGrantPrincipal.fromTrinoPrincipal(grantee))
                 .grantOption(grantOption)
@@ -790,9 +756,7 @@ public class OpaAccessControl
     @Override
     public void checkCanDenySchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, TrinoPrincipal grantee)
     {
-        OpaQueryInputResource resource = OpaQueryInputResource.builder()
-                .schema(TrinoSchema.fromTrinoCatalogSchema(schema))
-                .build();
+        OpaQueryInputResource resource = OpaQueryInputResource.builder().schema(TrinoSchema.fromTrinoCatalogSchema(schema)).build();
         OpaQueryInputGrant opaGrantee = OpaQueryInputGrant.builder()
                 .principal(TrinoGrantPrincipal.fromTrinoPrincipal(grantee))
                 .privilege(privilege)
@@ -812,9 +776,7 @@ public class OpaAccessControl
     @Override
     public void checkCanRevokeSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, TrinoPrincipal revokee, boolean grantOption)
     {
-        OpaQueryInputResource resource = OpaQueryInputResource.builder()
-                .schema(TrinoSchema.fromTrinoCatalogSchema(schema))
-                .build();
+        OpaQueryInputResource resource = OpaQueryInputResource.builder().schema(TrinoSchema.fromTrinoCatalogSchema(schema)).build();
         OpaQueryInputGrant opaGrantee = OpaQueryInputGrant.builder()
                 .principal(TrinoGrantPrincipal.fromTrinoPrincipal(revokee))
                 .grantOption(grantOption)
@@ -835,9 +797,7 @@ public class OpaAccessControl
     @Override
     public void checkCanGrantTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, TrinoPrincipal grantee, boolean grantOption)
     {
-        OpaQueryInputResource resource = OpaQueryInputResource.builder()
-                .table(TrinoTable.fromTrinoTable(table))
-                .build();
+        OpaQueryInputResource resource = OpaQueryInputResource.builder().table(TrinoTable.fromTrinoTable(table)).build();
         OpaQueryInputGrant opaGrantee = OpaQueryInputGrant.builder()
                 .principal(TrinoGrantPrincipal.fromTrinoPrincipal(grantee))
                 .grantOption(grantOption)
@@ -858,9 +818,7 @@ public class OpaAccessControl
     @Override
     public void checkCanDenyTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, TrinoPrincipal grantee)
     {
-        OpaQueryInputResource resource = OpaQueryInputResource.builder()
-                .table(TrinoTable.fromTrinoTable(table))
-                .build();
+        OpaQueryInputResource resource = OpaQueryInputResource.builder().table(TrinoTable.fromTrinoTable(table)).build();
         OpaQueryInputGrant opaGrantee = OpaQueryInputGrant.builder()
                 .principal(TrinoGrantPrincipal.fromTrinoPrincipal(grantee))
                 .privilege(privilege)
@@ -880,9 +838,7 @@ public class OpaAccessControl
     @Override
     public void checkCanRevokeTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, TrinoPrincipal revokee, boolean grantOption)
     {
-        OpaQueryInputResource resource = OpaQueryInputResource.builder()
-                .table(TrinoTable.fromTrinoTable(table))
-                .build();
+        OpaQueryInputResource resource = OpaQueryInputResource.builder().table(TrinoTable.fromTrinoTable(table)).build();
         OpaQueryInputGrant opaRevokee = OpaQueryInputGrant.builder()
                 .principal(TrinoGrantPrincipal.fromTrinoPrincipal(revokee))
                 .privilege(privilege)
@@ -912,9 +868,7 @@ public class OpaAccessControl
     @Override
     public void checkCanCreateRole(SystemSecurityContext context, String role, Optional<TrinoPrincipal> grantor)
     {
-        OpaQueryInputResource resource = OpaQueryInputResource.builder()
-                .role(role)
-                .build();
+        OpaQueryInputResource resource = OpaQueryInputResource.builder().role(role).build();
         OpaQueryInputAction action = OpaQueryInputAction.builder()
                 .operation("CreateRole")
                 .resource(resource)
@@ -941,9 +895,7 @@ public class OpaAccessControl
     @Override
     public void checkCanGrantRoles(SystemSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor)
     {
-        OpaQueryInputResource resource = OpaQueryInputResource.builder()
-                .roles(roles)
-                .build();
+        OpaQueryInputResource resource = OpaQueryInputResource.builder().roles(roles).build();
         OpaQueryInputGrant opaGrantees = OpaQueryInputGrant.builder()
                 .grantOption(adminOption)
                 .principals(grantees
@@ -967,9 +919,7 @@ public class OpaAccessControl
     @Override
     public void checkCanRevokeRoles(SystemSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor)
     {
-        OpaQueryInputResource resource = OpaQueryInputResource.builder()
-                .roles(roles)
-                .build();
+        OpaQueryInputResource resource = OpaQueryInputResource.builder().roles(roles).build();
         OpaQueryInputGrant opaGrantees = OpaQueryInputGrant.builder()
                 .grantOption(adminOption)
                 .principals(
