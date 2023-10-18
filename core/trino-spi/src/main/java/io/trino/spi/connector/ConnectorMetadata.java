@@ -1405,6 +1405,11 @@ public interface ConnectorMetadata
             Map<String, ColumnHandle> assignments,
             List<List<ColumnHandle>> groupingSets)
     {
+        // Global aggregation is represented by [[]]
+        if (groupingSets.isEmpty()) {
+            throw new IllegalArgumentException("No grouping sets provided");
+        }
+
         return Optional.empty();
     }
 
