@@ -76,7 +76,7 @@ public class SnowflakeArrowPageSource
 
         this.bufferAllocator = ROOT_ALLOCATOR.newChildAllocator(
                 "snowflakeArrowSplit" + split.hashCode(),
-                split.uncompressedByteSize() == 0 ? 1024 : split.uncompressedByteSize(),
+                split.uncompressedByteSize(),
                 Long.MAX_VALUE);
 
         int[] decimalColumnScales = columns.stream()

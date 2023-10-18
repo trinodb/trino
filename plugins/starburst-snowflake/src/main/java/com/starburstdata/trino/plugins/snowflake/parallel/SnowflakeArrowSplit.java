@@ -26,6 +26,7 @@ import java.util.Optional;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
@@ -73,7 +74,10 @@ public record SnowflakeArrowSplit(
             SnowflakeSessionParameters snowflakeSessionParameters,
             long resultVersion)
     {
-        return new SnowflakeArrowSplit(Optional.empty(), Optional.of(encodedArrowValue), 0, 0, resultVersion, emptyMap(), snowflakeSessionParameters);
+        int compressedSizeInBytes = encodedArrowValue.getBytes(UTF_8).length;
+        // for inline chunk this value is not present in the metadata, so we approximate
+        int uncompressedByteSize = compressedSizeInBytes * 4;
+        return new SnowflakeArrowSplit(Optional.empty(), Optional.of(encodedArrowValue), uncompressedByteSize, compressedSizeInBytes, resultVersion, emptyMap(), snowflakeSessionParameters);
     }
 
     public static SnowflakeArrowSplit newChunkFileSplit(
