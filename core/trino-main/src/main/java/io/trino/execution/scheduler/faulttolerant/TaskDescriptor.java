@@ -13,16 +13,9 @@
  */
 package io.trino.execution.scheduler.faulttolerant;
 
-import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ListMultimap;
-import io.trino.metadata.Split;
-import io.trino.sql.planner.plan.PlanNodeId;
-
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.collect.Multimaps.asMap;
-import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
@@ -31,18 +24,18 @@ public class TaskDescriptor
     private static final int INSTANCE_SIZE = instanceSize(TaskDescriptor.class);
 
     private final int partitionId;
-    private final ListMultimap<PlanNodeId, Split> splits;
+    private final SplitsMapping splits;
     private final NodeRequirements nodeRequirements;
 
     private transient volatile long retainedSizeInBytes;
 
     public TaskDescriptor(
             int partitionId,
-            ListMultimap<PlanNodeId, Split> splits,
+            SplitsMapping splitsMapping,
             NodeRequirements nodeRequirements)
     {
         this.partitionId = partitionId;
-        this.splits = ImmutableListMultimap.copyOf(requireNonNull(splits, "splits is null"));
+        this.splits = requireNonNull(splitsMapping, "splitsMapping is null");
         this.nodeRequirements = requireNonNull(nodeRequirements, "nodeRequirements is null");
     }
 
@@ -51,7 +44,7 @@ public class TaskDescriptor
         return partitionId;
     }
 
-    public ListMultimap<PlanNodeId, Split> getSplits()
+    public SplitsMapping getSplits()
     {
         return splits;
     }
@@ -95,7 +88,7 @@ public class TaskDescriptor
         long result = retainedSizeInBytes;
         if (result == 0) {
             result = INSTANCE_SIZE
-                    + estimatedSizeOf(asMap(splits), PlanNodeId::getRetainedSizeInBytes, splits -> estimatedSizeOf(splits, Split::getRetainedSizeInBytes))
+                    + splits.getRetainedSizeInBytes()
                     + nodeRequirements.getRetainedSizeInBytes();
             retainedSizeInBytes = result;
         }

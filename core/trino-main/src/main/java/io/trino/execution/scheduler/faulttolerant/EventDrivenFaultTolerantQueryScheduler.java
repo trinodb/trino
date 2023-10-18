@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.io.Closer;
@@ -1700,21 +1701,21 @@ public class EventDrivenFaultTolerantQueryScheduler
         }
 
         public Optional<PrioritizedScheduledTask> updatePartition(
-                int partitionId,
+                int taskPartitionId,
                 PlanNodeId planNodeId,
                 boolean readyForScheduling,
-                List<Split> splits,
+                ListMultimap<Integer, Split> splits, // sourcePartitionId -> splits
                 boolean noMoreSplits)
         {
             if (getState().isDone()) {
                 return Optional.empty();
             }
 
-            StagePartition partition = getStagePartition(partitionId);
+            StagePartition partition = getStagePartition(taskPartitionId);
             partition.addSplits(planNodeId, splits, noMoreSplits);
             if (readyForScheduling && !partition.isTaskScheduled()) {
                 partition.setTaskScheduled(true);
-                return Optional.of(PrioritizedScheduledTask.createSpeculative(stage.getStageId(), partitionId, schedulingPriority, eager));
+                return Optional.of(PrioritizedScheduledTask.createSpeculative(stage.getStageId(), taskPartitionId, schedulingPriority, eager));
             }
             return Optional.empty();
         }
@@ -1823,7 +1824,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             Map<PlanNodeId, ExchangeSourceOutputSelector> outputSelectors = getSourceOutputSelectors();
 
             ListMultimap<PlanNodeId, Split> splits = ArrayListMultimap.create();
-            splits.putAll(partition.getSplits());
+            splits.putAll(partition.getSplits().getSplitsFlat());
             outputSelectors.forEach((planNodeId, outputSelector) -> splits.put(planNodeId, createOutputSelectorSplit(outputSelector)));
 
             Set<PlanNodeId> noMoreSplits = new HashSet<>();
@@ -2219,7 +2220,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.exchangeSinkHandle = requireNonNull(exchangeSinkHandle, "exchangeSinkHandle is null");
             this.remoteSourceIds = ImmutableSet.copyOf(requireNonNull(remoteSourceIds, "remoteSourceIds is null"));
             requireNonNull(nodeRequirements, "nodeRequirements is null");
-            this.openTaskDescriptor = Optional.of(new OpenTaskDescriptor(ImmutableListMultimap.of(), ImmutableSet.of(), nodeRequirements));
+            this.openTaskDescriptor = Optional.of(new OpenTaskDescriptor(SplitsMapping.EMPTY, ImmutableSet.of(), nodeRequirements));
             this.memoryRequirements = requireNonNull(memoryRequirements, "memoryRequirements is null");
             this.remainingAttempts = maxTaskExecutionAttempts;
         }
@@ -2229,7 +2230,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             return exchangeSinkHandle;
         }
 
-        public void addSplits(PlanNodeId planNodeId, List<Split> splits, boolean noMoreSplits)
+        public void addSplits(PlanNodeId planNodeId, ListMultimap<Integer, Split> splits, boolean noMoreSplits)
         {
             checkState(openTaskDescriptor.isPresent(), "openTaskDescriptor is empty");
             openTaskDescriptor = Optional.of(openTaskDescriptor.get().update(planNodeId, splits, noMoreSplits));
@@ -2238,7 +2239,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
             for (RemoteTask task : tasks.values()) {
                 task.addSplits(ImmutableListMultimap.<PlanNodeId, Split>builder()
-                        .putAll(planNodeId, splits)
+                        .putAll(planNodeId, splits.values())
                         .build());
                 if (noMoreSplits && isFinalOutputSelectorDelivered(planNodeId)) {
                     task.noMoreSplits(planNodeId);
@@ -2275,15 +2276,15 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
         }
 
-        public ListMultimap<PlanNodeId, Split> getSplits()
+        public SplitsMapping getSplits()
         {
             if (finished) {
-                return ImmutableListMultimap.of();
+                return SplitsMapping.EMPTY;
             }
             return openTaskDescriptor.map(OpenTaskDescriptor::getSplits)
                     .or(() -> taskDescriptorStorage.get(stageId, partitionId).map(TaskDescriptor::getSplits))
                     // execution is finished
-                    .orElse(ImmutableListMultimap.of());
+                    .orElse(SplitsMapping.EMPTY);
         }
 
         public boolean isNoMoreSplits(PlanNodeId planNodeId)
@@ -2441,18 +2442,25 @@ public class EventDrivenFaultTolerantQueryScheduler
 
     private static class OpenTaskDescriptor
     {
-        private final ListMultimap<PlanNodeId, Split> splits;
+        private final SplitsMapping splits;
         private final Set<PlanNodeId> noMoreSplits;
         private final NodeRequirements nodeRequirements;
 
-        private OpenTaskDescriptor(ListMultimap<PlanNodeId, Split> splits, Set<PlanNodeId> noMoreSplits, NodeRequirements nodeRequirements)
+        private OpenTaskDescriptor(SplitsMapping splits, Set<PlanNodeId> noMoreSplits, NodeRequirements nodeRequirements)
         {
-            this.splits = ImmutableListMultimap.copyOf(requireNonNull(splits, "splits is null"));
+            this.splits = requireNonNull(splits, "splits is null");
             this.noMoreSplits = ImmutableSet.copyOf(requireNonNull(noMoreSplits, "noMoreSplits is null"));
             this.nodeRequirements = requireNonNull(nodeRequirements, "nodeRequirements is null");
         }
 
-        public ListMultimap<PlanNodeId, Split> getSplits()
+        private static Map<PlanNodeId, ListMultimap<Integer, Split>> copySplits(Map<PlanNodeId, ListMultimap<Integer, Split>> splits)
+        {
+            ImmutableMap.Builder<PlanNodeId, ListMultimap<Integer, Split>> splitsBuilder = ImmutableMap.builder();
+            splits.forEach((planNodeId, planNodeSplits) -> splitsBuilder.put(planNodeId, ImmutableListMultimap.copyOf(planNodeSplits)));
+            return splitsBuilder.buildOrThrow();
+        }
+
+        public SplitsMapping getSplits()
         {
             return splits;
         }
@@ -2467,12 +2475,15 @@ public class EventDrivenFaultTolerantQueryScheduler
             return nodeRequirements;
         }
 
-        public OpenTaskDescriptor update(PlanNodeId planNodeId, List<Split> splits, boolean noMoreSplits)
+        public OpenTaskDescriptor update(PlanNodeId planNodeId, ListMultimap<Integer, Split> splits, boolean noMoreSplits)
         {
-            ListMultimap<PlanNodeId, Split> updatedSplits = ImmutableListMultimap.<PlanNodeId, Split>builder()
-                    .putAll(this.splits)
-                    .putAll(planNodeId, splits)
-                    .build();
+            SplitsMapping.Builder updatedSplitsMapping = SplitsMapping.builder(this.splits);
+
+            for (Map.Entry<Integer, List<Split>> entry : Multimaps.asMap(splits).entrySet()) {
+                Integer sourcePartition = entry.getKey();
+                List<Split> partitionSplits = entry.getValue();
+                updatedSplitsMapping.addSplits(planNodeId, sourcePartition, partitionSplits);
+            }
 
             Set<PlanNodeId> updatedNoMoreSplits = this.noMoreSplits;
             if (noMoreSplits && !updatedNoMoreSplits.contains(planNodeId)) {
@@ -2482,14 +2493,14 @@ public class EventDrivenFaultTolerantQueryScheduler
                         .build();
             }
             return new OpenTaskDescriptor(
-                    updatedSplits,
+                    updatedSplitsMapping.build(),
                     updatedNoMoreSplits,
                     nodeRequirements);
         }
 
         public TaskDescriptor createTaskDescriptor(int partitionId)
         {
-            Set<PlanNodeId> missingNoMoreSplits = Sets.difference(splits.keySet(), noMoreSplits);
+            Set<PlanNodeId> missingNoMoreSplits = Sets.difference(splits.getPlanNodeIds(), noMoreSplits);
             checkState(missingNoMoreSplits.isEmpty(), "missing no more splits for plan nodes: %s", missingNoMoreSplits);
             return new TaskDescriptor(
                     partitionId,

@@ -14,11 +14,13 @@
 package io.trino.execution.scheduler.faulttolerant;
 
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.ImmutableLongArray;
@@ -48,6 +50,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static io.trino.execution.scheduler.faulttolerant.HashDistributionSplitAssigner.createSourcePartitionToTaskPartition;
+import static io.trino.execution.scheduler.faulttolerant.SplitAssigner.SINGLE_SOURCE_PARTITION_ID;
+import static io.trino.execution.scheduler.faulttolerant.TestingConnectorSplit.getSplitId;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -724,16 +728,16 @@ public class TestHashDistributionSplitAssigner
                     sourcePartitionToTaskPartition);
             SplitAssignerTester tester = new SplitAssignerTester();
             Map<Integer, ListMultimap<PlanNodeId, Integer>> partitionedSplitIds = new HashMap<>();
-            Set<Integer> replicatedSplitIds = new HashSet<>();
+            Multimap<PlanNodeId, Integer> replicatedSplitIds = HashMultimap.create();
             for (SplitBatch batch : splits) {
                 tester.update(assigner.assign(batch.getPlanNodeId(), batch.getSplits(), batch.isNoMoreSplits()));
                 boolean replicated = replicatedSources.contains(batch.getPlanNodeId());
-                tester.checkContainsSplits(batch.getPlanNodeId(), batch.getSplits().values(), replicated);
+                tester.checkContainsSplits(batch.getPlanNodeId(), batch.getSplits(), replicated);
                 for (Map.Entry<Integer, Split> entry : batch.getSplits().entries()) {
-                    int splitId = TestingConnectorSplit.getSplitId(entry.getValue());
+                    int splitId = getSplitId(entry.getValue());
                     if (replicated) {
-                        assertThat(replicatedSplitIds).doesNotContain(splitId);
-                        replicatedSplitIds.add(splitId);
+                        assertThat(replicatedSplitIds.containsValue(splitId)).isFalse();
+                        replicatedSplitIds.put(batch.getPlanNodeId(), splitId);
                     }
                     else {
                         partitionedSplitIds.computeIfAbsent(entry.getKey(), key -> ArrayListMultimap.create()).put(batch.getPlanNodeId(), splitId);
@@ -751,15 +755,19 @@ public class TestHashDistributionSplitAssigner
                 NodeRequirements nodeRequirements = taskDescriptor.getNodeRequirements();
                 assertEquals(nodeRequirements.getCatalogHandle(), Optional.of(TEST_CATALOG_HANDLE));
                 partitionToNodeMap.ifPresent(partitionToNode -> {
-                    if (!taskDescriptor.getSplits().isEmpty()) {
+                    if (!taskDescriptor.getSplits().getSplitsFlat().isEmpty()) {
                         InternalNode node = partitionToNode.get(partitionId);
                         assertThat(nodeRequirements.getAddresses()).containsExactly(node.getHostAndPort());
                     }
                 });
-                Set<Integer> taskDescriptorSplitIds = taskDescriptor.getSplits().values().stream()
-                        .map(TestingConnectorSplit::getSplitId)
-                        .collect(toImmutableSet());
-                assertThat(taskDescriptorSplitIds).containsAll(replicatedSplitIds);
+                Set<Integer> taskDescriptorSplitIds = new HashSet<>();
+                replicatedSplitIds.keySet().forEach(planNodeId -> {
+                    // all replicated splits should be assigned to single source partition in task descriptor
+                    taskDescriptor.getSplits().getSplits(planNodeId).get(SINGLE_SOURCE_PARTITION_ID).stream()
+                            .map(TestingConnectorSplit::getSplitId)
+                            .forEach(taskDescriptorSplitIds::add);
+                });
+                assertThat(taskDescriptorSplitIds).containsAll(replicatedSplitIds.values());
             }
 
             // validate partitioned splits
@@ -771,13 +779,15 @@ public class TestHashDistributionSplitAssigner
                             .map(taskDescriptors::get)
                             .collect(toImmutableList());
                     for (TaskDescriptor descriptor : descriptors) {
-                        Set<Integer> taskDescriptorSplitIds = descriptor.getSplits().values().stream()
-                                .map(TestingConnectorSplit::getSplitId)
-                                .collect(toImmutableSet());
-                        if (taskDescriptorSplitIds.contains(splitId) && splittableSources.contains(source)) {
+                        Multimap<Integer, Integer> taskDescriptorSplitIds = descriptor.getSplits().getSplits(source).entries().stream()
+                                .collect(toImmutableListMultimap(
+                                        Map.Entry::getKey,
+                                        entry -> getSplitId(entry.getValue())));
+
+                        if (taskDescriptorSplitIds.get(partitionId).contains(splitId) && splittableSources.contains(source)) {
                             return;
                         }
-                        if (!taskDescriptorSplitIds.contains(splitId) && !splittableSources.contains(source)) {
+                        if (!taskDescriptorSplitIds.get(partitionId).contains(splitId) && !splittableSources.contains(source)) {
                             fail("expected split not found: ." + splitId);
                         }
                     }

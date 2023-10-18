@@ -361,7 +361,7 @@ public class TestEventDrivenTaskSource
         Map<Integer, SetMultimap<PlanNodeId, TestingConnectorSplit>> actualSplits = new HashMap<>();
         for (TaskDescriptor taskDescriptor : taskDescriptors) {
             int partitionId = taskDescriptor.getPartitionId();
-            for (Map.Entry<PlanNodeId, Split> entry : taskDescriptor.getSplits().entries()) {
+            for (Map.Entry<PlanNodeId, Split> entry : taskDescriptor.getSplits().getSplitsFlat().entries()) {
                 if (entry.getValue().getCatalogHandle().equals(REMOTE_CATALOG_HANDLE)) {
                     RemoteSplit remoteSplit = (RemoteSplit) entry.getValue().getConnectorSplit();
                     SpoolingExchangeInput input = (SpoolingExchangeInput) remoteSplit.getExchangeInput();
@@ -671,15 +671,18 @@ public class TestEventDrivenTaskSource
                 if (partitions.add(partition)) {
                     result.addPartition(new Partition(partition, new NodeRequirements(Optional.empty(), ImmutableSet.of())));
                     for (PlanNodeId finishedSource : finishedSources) {
-                        result.updatePartition(new PartitionUpdate(partition, finishedSource, false, ImmutableList.of(), true));
+                        result.updatePartition(new PartitionUpdate(partition, finishedSource, false, ImmutableListMultimap.of(), true));
                     }
                 }
-                result.updatePartition(new PartitionUpdate(partition, planNodeId, true, splits, noMoreSplits));
+
+                // todo - why are mixing source and task partition ids here
+                ListMultimap<Integer, Split> partitionSplits = ImmutableListMultimap.<Integer, Split>builder().putAll(partition, splits).build();
+                result.updatePartition(new PartitionUpdate(partition, planNodeId, true, partitionSplits, noMoreSplits));
             });
             if (noMoreSplits) {
                 finishedSources.add(planNodeId);
                 for (Integer partition : partitions) {
-                    result.updatePartition(new PartitionUpdate(partition, planNodeId, false, ImmutableList.of(), true));
+                    result.updatePartition(new PartitionUpdate(partition, planNodeId, false, ImmutableListMultimap.of(), true));
                 }
             }
             if (finishedSources.containsAll(allSources)) {
