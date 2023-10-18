@@ -14,6 +14,8 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
@@ -22,19 +24,17 @@ import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.LogicalExpression;
 
-import java.util.LinkedHashMap;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.ExpressionUtils.and;
 import static io.trino.sql.ExpressionUtils.or;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.LogicalExpression.Operator.AND;
-import static java.util.stream.Collectors.groupingBy;
-import static java.util.stream.Collectors.mapping;
 
 public final class NormalizeOrExpressionRewriter
 {
@@ -59,35 +59,70 @@ public final class NormalizeOrExpressionRewriter
                 return and(terms);
             }
 
-            List<InPredicate> comparisons = terms.stream()
-                    .filter(NormalizeOrExpressionRewriter::isEqualityComparisonExpression)
-                    .map(ComparisonExpression.class::cast)
-                    .collect(groupingBy(
-                            ComparisonExpression::getLeft,
-                            LinkedHashMap::new,
-                            mapping(ComparisonExpression::getRight, Collectors.toList())))
-                    .entrySet().stream()
-                    .filter(entry -> entry.getValue().size() > 1)
-                    .map(entry -> new InPredicate(entry.getKey(), new InListExpression(entry.getValue())))
-                    .collect(Collectors.toList());
+            ImmutableList.Builder<InPredicate> inPredicateBuilder = ImmutableList.builder();
+            ImmutableSet.Builder<Expression> expressionToSkipBuilder = ImmutableSet.builder();
+            ImmutableList.Builder<Expression> othersExpressionBuilder = ImmutableList.builder();
+            groupComparisonAndInPredicate(terms).forEach((expression, values) -> {
+                if (values.size() > 1) {
+                    inPredicateBuilder.add(new InPredicate(expression, mergeToInListExpression(values)));
+                    expressionToSkipBuilder.add(expression);
+                }
+            });
 
-            Set<Expression> expressionToSkip = comparisons.stream()
-                    .map(InPredicate::getValue)
-                    .collect(toImmutableSet());
-
-            List<Expression> others = terms.stream()
-                    .filter(expression -> !isEqualityComparisonExpression(expression) || !expressionToSkip.contains(((ComparisonExpression) expression).getLeft()))
-                    .collect(Collectors.toList());
+            Set<Expression> expressionToSkip = expressionToSkipBuilder.build();
+            for (Expression expression : terms) {
+                if (expression instanceof ComparisonExpression comparisonExpression && comparisonExpression.getOperator() == EQUAL) {
+                    if (!expressionToSkip.contains(comparisonExpression.getLeft())) {
+                        othersExpressionBuilder.add(expression);
+                    }
+                }
+                else if (expression instanceof InPredicate inPredicate && inPredicate.getValueList() instanceof InListExpression) {
+                    if (!expressionToSkip.contains(inPredicate.getValue())) {
+                        othersExpressionBuilder.add(expression);
+                    }
+                }
+                else {
+                    othersExpressionBuilder.add(expression);
+                }
+            }
 
             return or(ImmutableList.<Expression>builder()
-                    .addAll(others)
-                    .addAll(comparisons)
+                    .addAll(othersExpressionBuilder.build())
+                    .addAll(inPredicateBuilder.build())
                     .build());
         }
-    }
 
-    private static boolean isEqualityComparisonExpression(Expression expression)
-    {
-        return expression instanceof ComparisonExpression && ((ComparisonExpression) expression).getOperator() == EQUAL;
+        private InListExpression mergeToInListExpression(Collection<Expression> expressions)
+        {
+            LinkedHashSet<Expression> expressionValues = new LinkedHashSet<>();
+            for (Expression expression : expressions) {
+                if (expression instanceof ComparisonExpression comparisonExpression && comparisonExpression.getOperator() == EQUAL) {
+                    expressionValues.add(comparisonExpression.getRight());
+                }
+                else if (expression instanceof InPredicate inPredicate && inPredicate.getValueList() instanceof InListExpression valueList) {
+                    expressionValues.addAll(valueList.getValues());
+                }
+                else {
+                    throw new IllegalStateException("Unexpected expression: " + expression);
+                }
+            }
+
+            return new InListExpression(ImmutableList.copyOf(expressionValues));
+        }
+
+        private Map<Expression, Collection<Expression>> groupComparisonAndInPredicate(List<Expression> terms)
+        {
+            ImmutableMultimap.Builder<Expression, Expression> expressionBuilder = ImmutableMultimap.builder();
+            for (Expression expression : terms) {
+                if (expression instanceof ComparisonExpression comparisonExpression && comparisonExpression.getOperator() == EQUAL) {
+                    expressionBuilder.put(comparisonExpression.getLeft(), comparisonExpression);
+                }
+                else if (expression instanceof InPredicate inPredicate && inPredicate.getValueList() instanceof InListExpression) {
+                    expressionBuilder.put(inPredicate.getValue(), inPredicate);
+                }
+            }
+
+            return expressionBuilder.build().asMap();
+        }
     }
 }
