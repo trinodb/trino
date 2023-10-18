@@ -45,8 +45,8 @@ class SplitAssignerTester
     private final Map<Integer, NodeRequirements> nodeRequirements = new HashMap<>();
     private final Map<Integer, ListMultimap<PlanNodeId, Split>> splits = new HashMap<>();
     private final SetMultimap<Integer, PlanNodeId> noMoreSplits = HashMultimap.create();
-    private final Set<Integer> sealedPartitions = new HashSet<>();
-    private boolean noMorePartitions;
+    private final Set<Integer> sealedTaskPartitions = new HashSet<>();
+    private boolean noMoreTaskPartitions;
     private Optional<List<TaskDescriptor>> taskDescriptors = Optional.empty();
 
     public Optional<List<TaskDescriptor>> getTaskDescriptors()
@@ -54,40 +54,40 @@ class SplitAssignerTester
         return taskDescriptors;
     }
 
-    public synchronized int getPartitionCount()
+    public synchronized int getTaskPartitionCount()
     {
         return nodeRequirements.size();
     }
 
-    public synchronized NodeRequirements getNodeRequirements(int partition)
+    public synchronized NodeRequirements getNodeRequirements(int taskPartition)
     {
-        NodeRequirements result = nodeRequirements.get(partition);
-        checkArgument(result != null, "partition not found: %s", partition);
+        NodeRequirements result = nodeRequirements.get(taskPartition);
+        checkArgument(result != null, "task partition not found: %s", taskPartition);
         return result;
     }
 
-    public synchronized Set<Integer> getSplitIds(int partition, PlanNodeId planNodeId)
+    public synchronized Set<Integer> getSplitIds(int taskPartition, PlanNodeId planNodeId)
     {
-        ListMultimap<PlanNodeId, Split> partitionSplits = splits.getOrDefault(partition, ImmutableListMultimap.of());
-        return partitionSplits.get(planNodeId).stream()
+        ListMultimap<PlanNodeId, Split> taskPartitionSplits = splits.getOrDefault(taskPartition, ImmutableListMultimap.of());
+        return taskPartitionSplits.get(planNodeId).stream()
                 .map(split -> (TestingConnectorSplit) split.getConnectorSplit())
                 .map(TestingConnectorSplit::getId)
                 .collect(toImmutableSet());
     }
 
-    public synchronized boolean isNoMoreSplits(int partition, PlanNodeId planNodeId)
+    public synchronized boolean isNoMoreSplits(int taskPartition, PlanNodeId planNodeId)
     {
-        return noMoreSplits.get(partition).contains(planNodeId);
+        return noMoreSplits.get(taskPartition).contains(planNodeId);
     }
 
-    public synchronized boolean isSealed(int partition)
+    public synchronized boolean isSealed(int taskPartition)
     {
-        return sealedPartitions.contains(partition);
+        return sealedTaskPartitions.contains(taskPartition);
     }
 
-    public synchronized boolean isNoMorePartitions()
+    public synchronized boolean isNoMoreTaskPartitions()
     {
-        return noMorePartitions;
+        return noMoreTaskPartitions;
     }
 
     public void checkContainsSplits(PlanNodeId planNodeId, Collection<Split> splits, boolean replicated)
@@ -95,13 +95,13 @@ class SplitAssignerTester
         Set<Integer> expectedSplitIds = splits.stream()
                 .map(TestingConnectorSplit::getSplitId)
                 .collect(Collectors.toSet());
-        for (int partitionId = 0; partitionId < getPartitionCount(); partitionId++) {
-            Set<Integer> partitionSplitIds = getSplitIds(partitionId, planNodeId);
+        for (int taskPartitionId = 0; taskPartitionId < getTaskPartitionCount(); taskPartitionId++) {
+            Set<Integer> taskPartitionSplitIds = getSplitIds(taskPartitionId, planNodeId);
             if (replicated) {
-                assertThat(partitionSplitIds).containsAll(expectedSplitIds);
+                assertThat(taskPartitionSplitIds).containsAll(expectedSplitIds);
             }
             else {
-                expectedSplitIds.removeAll(partitionSplitIds);
+                expectedSplitIds.removeAll(taskPartitionSplitIds);
             }
         }
         if (!replicated) {
@@ -111,46 +111,46 @@ class SplitAssignerTester
 
     public void update(AssignmentResult assignment)
     {
-        for (Partition partition : assignment.partitionsAdded()) {
-            verify(!noMorePartitions, "noMorePartitions is set");
-            verify(nodeRequirements.put(partition.partitionId(), partition.nodeRequirements()) == null, "partition already exist: %s", partition.partitionId());
+        for (Partition taskPartition : assignment.partitionsAdded()) {
+            verify(!noMoreTaskPartitions, "noMoreTaskPartitions is set");
+            verify(nodeRequirements.put(taskPartition.partitionId(), taskPartition.nodeRequirements()) == null, "task partition already exist: %s", taskPartition.partitionId());
         }
-        for (PartitionUpdate partitionUpdate : assignment.partitionUpdates()) {
-            int partitionId = partitionUpdate.partitionId();
-            verify(nodeRequirements.get(partitionId) != null, "partition does not exist: %s", partitionId);
-            verify(!sealedPartitions.contains(partitionId), "partition is sealed: %s", partitionId);
-            PlanNodeId planNodeId = partitionUpdate.planNodeId();
-            if (!partitionUpdate.splits().isEmpty()) {
-                verify(!noMoreSplits.get(partitionId).contains(planNodeId), "noMoreSplits is set for partition %s and plan node %s", partitionId, planNodeId);
-                splits.computeIfAbsent(partitionId, (key) -> ArrayListMultimap.create()).putAll(planNodeId, partitionUpdate.splits());
+        for (PartitionUpdate taskPartitionUpdate : assignment.partitionUpdates()) {
+            int taskPartitionId = taskPartitionUpdate.partitionId();
+            verify(nodeRequirements.get(taskPartitionId) != null, "task partition does not exist: %s", taskPartitionId);
+            verify(!sealedTaskPartitions.contains(taskPartitionId), "task partition is sealed: %s", taskPartitionId);
+            PlanNodeId planNodeId = taskPartitionUpdate.planNodeId();
+            if (!taskPartitionUpdate.splits().isEmpty()) {
+                verify(!noMoreSplits.get(taskPartitionId).contains(planNodeId), "noMoreSplits is set for task partition %s and plan node %s", taskPartitionId, planNodeId);
+                splits.computeIfAbsent(taskPartitionId, (key) -> ArrayListMultimap.create()).putAll(planNodeId, taskPartitionUpdate.splits());
             }
-            if (partitionUpdate.noMoreSplits()) {
-                noMoreSplits.put(partitionId, planNodeId);
+            if (taskPartitionUpdate.noMoreSplits()) {
+                noMoreSplits.put(taskPartitionId, planNodeId);
             }
         }
-        assignment.sealedPartitions().forEach(sealedPartitions::add);
+        assignment.sealedPartitions().forEach(sealedTaskPartitions::add);
         if (assignment.noMorePartitions()) {
-            noMorePartitions = true;
+            noMoreTaskPartitions = true;
         }
         checkFinished();
     }
 
     private synchronized void checkFinished()
     {
-        if (noMorePartitions && sealedPartitions.containsAll(nodeRequirements.keySet())) {
-            verify(sealedPartitions.equals(nodeRequirements.keySet()), "unknown sealed partitions: %s", Sets.difference(sealedPartitions, nodeRequirements.keySet()));
+        if (noMoreTaskPartitions && sealedTaskPartitions.containsAll(nodeRequirements.keySet())) {
+            verify(sealedTaskPartitions.equals(nodeRequirements.keySet()), "unknown sealed partitions: %s", Sets.difference(sealedTaskPartitions, nodeRequirements.keySet()));
             ImmutableList.Builder<TaskDescriptor> result = ImmutableList.builder();
-            for (Integer partitionId : sealedPartitions) {
-                ListMultimap<PlanNodeId, Split> taskSplits = splits.getOrDefault(partitionId, ImmutableListMultimap.of());
+            for (Integer taskPartitionId : sealedTaskPartitions) {
+                ListMultimap<PlanNodeId, Split> taskSplits = splits.getOrDefault(taskPartitionId, ImmutableListMultimap.of());
                 verify(
-                        noMoreSplits.get(partitionId).containsAll(taskSplits.keySet()),
-                        "no more split is missing for partition %s: %s",
-                        partitionId,
-                        Sets.difference(taskSplits.keySet(), noMoreSplits.get(partitionId)));
+                        noMoreSplits.get(taskPartitionId).containsAll(taskSplits.keySet()),
+                        "no more split is missing for task partition %s: %s",
+                        taskPartitionId,
+                        Sets.difference(taskSplits.keySet(), noMoreSplits.get(taskPartitionId)));
                 result.add(new TaskDescriptor(
-                        partitionId,
+                        taskPartitionId,
                         taskSplits,
-                        nodeRequirements.get(partitionId)));
+                        nodeRequirements.get(taskPartitionId)));
             }
             taskDescriptors = Optional.of(result.build());
         }
