@@ -34,7 +34,6 @@ public record SnowflakeArrowSplit(
         Optional<String> encodedArrowValue,
         int uncompressedByteSize,
         int compressedByteSize,
-        int rowCount,
         long resultVersion,
         Map<String, String> headers,
         SnowflakeSessionParameters snowflakeSessionParameters
@@ -56,7 +55,6 @@ public record SnowflakeArrowSplit(
             @JsonProperty("encodedArrowValue") Optional<String> encodedArrowValue,
             @JsonProperty("uncompressedByteSize") int uncompressedByteSize,
             @JsonProperty("compressedByteSize") int compressedByteSize,
-            @JsonProperty("rowCount") int rowCount,
             @JsonProperty("resultVersion") long resultVersion,
             @JsonProperty("headers") Map<String, String> headers,
             @JsonProperty("snowflakeSessionParameters") SnowflakeSessionParameters snowflakeSessionParameters)
@@ -65,7 +63,6 @@ public record SnowflakeArrowSplit(
         this.encodedArrowValue = requireNonNull(encodedArrowValue, "encodedArrowValue are null");
         this.uncompressedByteSize = uncompressedByteSize;
         this.compressedByteSize = compressedByteSize;
-        this.rowCount = rowCount;
         this.resultVersion = resultVersion;
         this.headers = requireNonNull(headers, "headers are null");
         this.snowflakeSessionParameters = snowflakeSessionParameters;
@@ -76,21 +73,20 @@ public record SnowflakeArrowSplit(
             SnowflakeSessionParameters snowflakeSessionParameters,
             long resultVersion)
     {
-        return new SnowflakeArrowSplit(Optional.empty(), Optional.of(encodedArrowValue), 0, 0, 0, resultVersion, emptyMap(), snowflakeSessionParameters);
+        return new SnowflakeArrowSplit(Optional.empty(), Optional.of(encodedArrowValue), 0, 0, resultVersion, emptyMap(), snowflakeSessionParameters);
     }
 
     public static SnowflakeArrowSplit newChunkFileSplit(
             String fileUrl,
             int uncompressedByteSize,
             int compressedByteSize,
-            int rowCount,
             Map<String, String> chunkHeaders,
             SnowflakeSessionParameters snowflakeSessionParameters,
             String queryMasterKey,
             long resultVersion)
     {
         if (!chunkHeaders.isEmpty()) {
-            return new SnowflakeArrowSplit(Optional.of(fileUrl), Optional.empty(), uncompressedByteSize, compressedByteSize, rowCount, resultVersion, chunkHeaders, snowflakeSessionParameters);
+            return new SnowflakeArrowSplit(Optional.of(fileUrl), Optional.empty(), uncompressedByteSize, compressedByteSize,  resultVersion, chunkHeaders, snowflakeSessionParameters);
         }
         else if (queryMasterKey != null) {
             return new SnowflakeArrowSplit(
@@ -98,7 +94,6 @@ public record SnowflakeArrowSplit(
                     null,
                     uncompressedByteSize,
                     compressedByteSize,
-                    rowCount,
                     resultVersion,
                     buildMasterKeyAuthHeaders(queryMasterKey),
                     snowflakeSessionParameters);

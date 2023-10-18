@@ -280,11 +280,10 @@ public class SnowflakeSplitManager
         for (int index = 0; index < chunkFileCount; index++) {
             JsonNode chunkNode = chunksNode.get(index);
             String url = chunkNode.path("url").asText();
-            int rowCount = chunkNode.path("rowCount").asInt();
             int compressedSize = chunkNode.path("compressedSize").asInt();
             int uncompressedSize = chunkNode.path("uncompressedSize").asInt();
 
-            splits.add(newChunkFileSplit(url, uncompressedSize, compressedSize, rowCount, chunkHeadersMap, parameters, qrmk, resultVersion));
+            splits.add(newChunkFileSplit(url, uncompressedSize, compressedSize, chunkHeadersMap, parameters, qrmk, resultVersion));
         }
         return splits;
     }
