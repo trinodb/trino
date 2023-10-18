@@ -41,7 +41,6 @@ import io.trino.spi.security.TrinoPrincipal;
 import java.security.Principal;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -419,18 +418,19 @@ public class OpaAccessControl
     @Override
     public Map<SchemaTableName, Set<String>> filterColumns(SystemSecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
     {
-        Set<TrinoColumn> allColumns = new HashSet<>();
-        Map<SchemaTableName, Set<String>> groupedFilteredColumns = new HashMap<>();
+        ImmutableSet.Builder<TrinoColumn> allColumnsBuilder = ImmutableSet.builder();
+        Map<SchemaTableName, ImmutableSet.Builder<String>> resultBuilder = new HashMap<>();
+
         for (Map.Entry<SchemaTableName, Set<String>> oneTableColumns : tableColumns.entrySet()) {
             SchemaTableName schemaTableName = oneTableColumns.getKey();
-            groupedFilteredColumns.put(schemaTableName, new HashSet<>());
+            resultBuilder.put(schemaTableName, ImmutableSet.builder());
             for (String columnForTable : oneTableColumns.getValue()) {
-                allColumns.add(new TrinoColumn(schemaTableName, columnForTable));
+                allColumnsBuilder.add(new TrinoColumn(schemaTableName, columnForTable));
             }
         }
 
         Set<TrinoColumn> filteredColumns = opaHighLevelClient.parallelFilterFromOpa(
-                allColumns,
+                allColumnsBuilder.build(),
                 tableColumn -> buildQueryInputForSimpleResource(
                         OpaQueryContext.fromSystemSecurityContext(context),
                         "FilterColumns",
@@ -442,11 +442,12 @@ public class OpaAccessControl
                                         .columns(ImmutableSet.of(tableColumn.columnName()))
                                         .build())
                                 .build()));
+
         for (TrinoColumn filteredColumn : filteredColumns) {
-            groupedFilteredColumns.get(filteredColumn.schemaTableName()).add(filteredColumn.columnName());
+            resultBuilder.get(filteredColumn.schemaTableName()).add(filteredColumn.columnName());
         }
 
-        return groupedFilteredColumns.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, mapEntry -> ImmutableSet.copyOf(mapEntry.getValue())));
+        return resultBuilder.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, (mapEntry) -> mapEntry.getValue().build()));
     }
 
     @Override

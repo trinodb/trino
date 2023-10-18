@@ -113,13 +113,11 @@ public class OpaHttpClient
                         .transform(result -> result.result() ? Optional.of(item) : Optional.<T>empty(), executor))
                 .collect(toImmutableList());
         return consumeOpaResponse(
-                Futures.whenAllComplete(allFutures).call(() ->
-                                allFutures
-                                        .stream()
-                                        .map(this::consumeOpaResponse)
-                                        .filter(Optional::isPresent)
-                                        .map(Optional::get)
-                                        .collect(toImmutableSet()),
+                Futures.whenAllComplete(allFutures).call(() -> allFutures.stream()
+                                .map(this::consumeOpaResponse)
+                                .filter(Optional::isPresent)
+                                .map(Optional::get)
+                                .collect(toImmutableSet()),
                         executor));
     }
 
@@ -129,7 +127,7 @@ public class OpaHttpClient
             return ImmutableSet.of();
         }
         String dummyMapKey = "filter";
-        return parallelBatchFilterFromOpa(ImmutableMap.of(dummyMapKey, items), (k, v) -> requestBuilder.apply(v), uri, deserializer).getOrDefault(dummyMapKey, ImmutableSet.of());
+        return parallelBatchFilterFromOpa(ImmutableMap.of(dummyMapKey, items), (mapKey, mapValue) -> requestBuilder.apply(mapValue), uri, deserializer).getOrDefault(dummyMapKey, ImmutableSet.of());
     }
 
     public <K, V> Map<K, Set<V>> parallelBatchFilterFromOpa(Map<K, ? extends Collection<V>> items, BiFunction<K, List<V>, OpaQueryInput> requestBuilder, URI uri, JsonCodec<? extends OpaBatchQueryResult> deserializer)
