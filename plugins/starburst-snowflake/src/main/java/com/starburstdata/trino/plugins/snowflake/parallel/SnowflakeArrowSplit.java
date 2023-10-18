@@ -10,6 +10,7 @@
 package com.starburstdata.trino.plugins.snowflake.parallel;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SizeOf;
@@ -17,19 +18,27 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.Base64;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
-public class SnowflakeArrowSplit
+public record SnowflakeArrowSplit(
+        Optional<String> fileUrl,
+        Optional<String> encodedArrowValue,
+        int uncompressedByteSize,
+        int compressedByteSize,
+        int rowCount,
+        long resultVersion,
+        Map<String, String> headers,
+        SnowflakeSessionParameters snowflakeSessionParameters
+)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(SnowflakeArrowSplit.class);
@@ -41,19 +50,10 @@ public class SnowflakeArrowSplit
     // SSE-C algorithm value
     private static final String SSE_C_AES = "AES256";
 
-    private final Optional<String> fileUrl;
-    private final Optional<String> encodedArrowValue;
-    private final int uncompressedByteSize;
-    private final int compressedByteSize;
-    private final int rowCount;
-    private final long resultVersion;
-    private final Map<String, String> headers;
-    private final SnowflakeSessionParameters snowflakeSessionParameters;
-
     @JsonCreator
     public SnowflakeArrowSplit(
-            @JsonProperty("fileUrl") String fileUrl,
-            @JsonProperty("encodedArrowValue") String encodedArrowValue,
+            @JsonProperty("fileUrl") Optional<String> fileUrl,
+            @JsonProperty("encodedArrowValue") Optional<String> encodedArrowValue,
             @JsonProperty("uncompressedByteSize") int uncompressedByteSize,
             @JsonProperty("compressedByteSize") int compressedByteSize,
             @JsonProperty("rowCount") int rowCount,
@@ -61,8 +61,8 @@ public class SnowflakeArrowSplit
             @JsonProperty("headers") Map<String, String> headers,
             @JsonProperty("snowflakeSessionParameters") SnowflakeSessionParameters snowflakeSessionParameters)
     {
-        this.fileUrl = Optional.ofNullable(fileUrl);
-        this.encodedArrowValue = Optional.ofNullable(encodedArrowValue);
+        this.fileUrl = requireNonNull(fileUrl, "fileUrl are null");
+        this.encodedArrowValue = requireNonNull(encodedArrowValue, "encodedArrowValue are null");
         this.uncompressedByteSize = uncompressedByteSize;
         this.compressedByteSize = compressedByteSize;
         this.rowCount = rowCount;
@@ -76,7 +76,7 @@ public class SnowflakeArrowSplit
             SnowflakeSessionParameters snowflakeSessionParameters,
             long resultVersion)
     {
-        return new SnowflakeArrowSplit(null, encodedArrowValue, 0, 0, 0, resultVersion, Collections.emptyMap(), snowflakeSessionParameters);
+        return new SnowflakeArrowSplit(Optional.empty(), Optional.of(encodedArrowValue), 0, 0, 0, resultVersion, emptyMap(), snowflakeSessionParameters);
     }
 
     public static SnowflakeArrowSplit newChunkFileSplit(
@@ -90,11 +90,11 @@ public class SnowflakeArrowSplit
             long resultVersion)
     {
         if (!chunkHeaders.isEmpty()) {
-            return new SnowflakeArrowSplit(fileUrl, null, uncompressedByteSize, compressedByteSize, rowCount, resultVersion, chunkHeaders, snowflakeSessionParameters);
+            return new SnowflakeArrowSplit(Optional.of(fileUrl), Optional.empty(), uncompressedByteSize, compressedByteSize, rowCount, resultVersion, chunkHeaders, snowflakeSessionParameters);
         }
         else if (queryMasterKey != null) {
             return new SnowflakeArrowSplit(
-                    fileUrl,
+                    Optional.of(fileUrl),
                     null,
                     uncompressedByteSize,
                     compressedByteSize,
@@ -106,6 +106,7 @@ public class SnowflakeArrowSplit
         throw new IllegalStateException("Security headers or query master key must be present if there is a chunk URL");
     }
 
+    @JsonIgnore
     public byte[] getInputStream(StarburstResultStreamProvider streamProvider)
     {
         if (fileUrl.isPresent()) {
@@ -120,72 +121,28 @@ public class SnowflakeArrowSplit
                         .orElseThrow(() -> new IllegalStateException("Either fileUrl or encodedArrowValue must be present in the split, but both are null!")));
     }
 
-    @JsonProperty
-    public Optional<String> getFileUrl()
-    {
-        return fileUrl;
-    }
-
-    @JsonProperty
-    public long getResultVersion()
-    {
-        return resultVersion;
-    }
-
-    @JsonProperty
-    public SnowflakeSessionParameters getSnowflakeSessionParameters()
-    {
-        return snowflakeSessionParameters;
-    }
-
-    @JsonProperty
-    public Optional<String> getEncodedArrowValue()
-    {
-        return encodedArrowValue;
-    }
-
-    @JsonProperty
-    public int getUncompressedByteSize()
-    {
-        return uncompressedByteSize;
-    }
-
-    @JsonProperty
-    public int getCompressedByteSize()
-    {
-        return compressedByteSize;
-    }
-
-    @JsonProperty
-    public int getRowCount()
-    {
-        return rowCount;
-    }
-
-    @JsonProperty
-    public Map<String, String> getHeaders()
-    {
-        return headers;
-    }
-
+    @JsonIgnore
     @Override
     public boolean isRemotelyAccessible()
     {
         return true;
     }
 
+    @JsonIgnore
     @Override
     public List<HostAddress> getAddresses()
     {
         return ImmutableList.of();
     }
 
+    @JsonIgnore
     @Override
     public Object getInfo()
     {
         return this;
     }
 
+    @JsonIgnore
     @Override
     public long getRetainedSizeInBytes()
     {
@@ -194,56 +151,6 @@ public class SnowflakeArrowSplit
                 + sizeOf(encodedArrowValue, SizeOf::estimatedSizeOf)
                 + estimatedSizeOf(headers, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf)
                 + snowflakeSessionParameters.getRetainedSizeInBytes();
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        SnowflakeArrowSplit that = (SnowflakeArrowSplit) o;
-
-        if (uncompressedByteSize != that.uncompressedByteSize) {
-            return false;
-        }
-        if (compressedByteSize != that.compressedByteSize) {
-            return false;
-        }
-        if (rowCount != that.rowCount) {
-            return false;
-        }
-        if (resultVersion != that.resultVersion) {
-            return false;
-        }
-        if (!fileUrl.equals(that.fileUrl)) {
-            return false;
-        }
-        if (!encodedArrowValue.equals(that.encodedArrowValue)) {
-            return false;
-        }
-        if (!Objects.equals(headers, that.headers)) {
-            return false;
-        }
-        return Objects.equals(snowflakeSessionParameters, that.snowflakeSessionParameters);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        int result = fileUrl.hashCode();
-        result = 31 * result + encodedArrowValue.hashCode();
-        result = 31 * result + uncompressedByteSize;
-        result = 31 * result + compressedByteSize;
-        result = 31 * result + rowCount;
-        result = 31 * result + (int) (resultVersion ^ (resultVersion >>> 32));
-        result = 31 * result + (headers != null ? headers.hashCode() : 0);
-        result = 31 * result + (snowflakeSessionParameters != null ? snowflakeSessionParameters.hashCode() : 0);
-        return result;
     }
 
     private static Map<String, String> buildMasterKeyAuthHeaders(String queryMasterKey)

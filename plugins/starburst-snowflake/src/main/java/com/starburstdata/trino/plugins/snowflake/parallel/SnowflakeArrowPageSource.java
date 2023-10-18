@@ -76,7 +76,7 @@ public class SnowflakeArrowPageSource
 
         this.bufferAllocator = ROOT_ALLOCATOR.newChildAllocator(
                 "snowflakeArrowSplit" + split.hashCode(),
-                split.getUncompressedByteSize() == 0 ? 1024 : split.getUncompressedByteSize(),
+                split.uncompressedByteSize() == 0 ? 1024 : split.uncompressedByteSize(),
                 Long.MAX_VALUE);
 
         int[] decimalColumnScales = columns.stream()
@@ -86,9 +86,9 @@ public class SnowflakeArrowPageSource
                 .toArray();
 
         this.conversionContext = new StarburstDataConversionContext(
-                split.getSnowflakeSessionParameters(),
+                split.snowflakeSessionParameters(),
                 decimalColumnScales,
-                split.getResultVersion());
+                split.resultVersion());
 
         this.fetcher = new ChunkFileFetcher(requireNonNull(streamProvider, "streamProvider is null"), split);
     }

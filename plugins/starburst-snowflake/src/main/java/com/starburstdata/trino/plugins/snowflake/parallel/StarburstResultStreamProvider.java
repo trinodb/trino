@@ -61,7 +61,7 @@ public class StarburstResultStreamProvider
         catch (URISyntaxException | SnowflakeSQLException e) {
             throw new TrinoException(
                     JDBC_ERROR,
-                    "Error encountered when request a result chunk URL: %s %s".formatted(split.getFileUrl(), firstNonNull(e.getMessage(), e)),
+                    "Error encountered when request a result chunk URL: %s %s".formatted(split.fileUrl(), firstNonNull(e.getMessage(), e)),
                     e);
         }
 
@@ -88,10 +88,10 @@ public class StarburstResultStreamProvider
     private HttpResponse getResultChunk(SnowflakeArrowSplit split)
             throws URISyntaxException, SnowflakeSQLException
     {
-        URIBuilder uriBuilder = new URIBuilder(split.getFileUrl().orElseThrow());
+        URIBuilder uriBuilder = new URIBuilder(split.fileUrl().orElseThrow());
         HttpGet httpRequest = new HttpGet(uriBuilder.build());
 
-        for (Map.Entry<String, String> entry : split.getHeaders().entrySet()) {
+        for (Map.Entry<String, String> entry : split.headers().entrySet()) {
             httpRequest.addHeader(entry.getKey(), entry.getValue());
         }
 
