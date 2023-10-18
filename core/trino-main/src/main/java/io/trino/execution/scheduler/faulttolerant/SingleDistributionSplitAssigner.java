@@ -13,7 +13,7 @@
  */
 package io.trino.execution.scheduler.faulttolerant;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import io.trino.metadata.Split;
@@ -57,7 +57,7 @@ class SingleDistributionSplitAssigner
                     0,
                     planNodeId,
                     true,
-                    ImmutableList.copyOf(splits.values()),
+                    ImmutableListMultimap.copyOf(splits),
                     false));
         }
         if (noMoreSplits) {
@@ -65,7 +65,7 @@ class SingleDistributionSplitAssigner
                     0,
                     planNodeId,
                     false,
-                    ImmutableList.of(),
+                    ImmutableListMultimap.of(),
                     true));
             completedSources.add(planNodeId);
         }
