@@ -14,6 +14,7 @@
 package io.trino.execution.scheduler.faulttolerant;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -32,6 +33,9 @@ import static java.util.Objects.requireNonNull;
 @NotThreadSafe
 interface SplitAssigner
 {
+    // marker source partition id for data which is not hash distributed
+    int SINGLE_SOURCE_PARTITION_ID = 0;
+
     AssignmentResult assign(PlanNodeId planNodeId, ListMultimap<Integer, Split> splits, boolean noMoreSplits);
 
     AssignmentResult finish();
@@ -48,14 +52,14 @@ interface SplitAssigner
             int partitionId,
             PlanNodeId planNodeId,
             boolean readyForScheduling,
-            List<Split> splits,
+            ListMultimap<Integer, Split> splits, // sourcePartition -> splits
             boolean noMoreSplits)
     {
         public PartitionUpdate
         {
             requireNonNull(planNodeId, "planNodeId is null");
             checkArgument(!(readyForScheduling && splits.isEmpty()), "partition update with empty splits marked as ready for scheduling");
-            splits = ImmutableList.copyOf(requireNonNull(splits, "splits is null"));
+            splits = ImmutableListMultimap.copyOf(requireNonNull(splits, "splits is null"));
         }
     }
 
