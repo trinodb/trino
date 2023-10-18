@@ -116,7 +116,7 @@ public class OpaAccessControlSystemTest
                     }
                     can_be_accessed_by_bob {
                       input.action.operation in ["FilterCatalogs", "AccessCatalog"]
-                      input.action.resource.catalog.name == "catalogOne"
+                      input.action.resource.catalog.name == "catalog_one"
                     }
                     """);
             Set<String> catalogs = querySetOfStrings(user(userName), "SHOW CATALOGS");
@@ -196,7 +196,7 @@ public class OpaAccessControlSystemTest
                         some i
                         is_bob
                         input.action.operation == "FilterCatalogs"
-                        input.action.filterResources[i].catalog.name == "catalogOne"
+                        input.action.filterResources[i].catalog.name == "catalog_one"
                     }
 
                     batchAllow[i] {
@@ -259,14 +259,14 @@ public class OpaAccessControlSystemTest
         ensureOpaUp();
         ImmutableMap.Builder<String, String> opaConfigBuilder = ImmutableMap.builder();
         opaConfigBuilder.put("opa.policy.uri", opaServerUri.resolve(basePolicyRelativeUri).toString());
-        batchPolicyRelativeUri.ifPresent(s -> opaConfigBuilder.put("opa.policy.batched-uri", opaServerUri.resolve(s).toString()));
+        batchPolicyRelativeUri.ifPresent(relativeUri -> opaConfigBuilder.put("opa.policy.batched-uri", opaServerUri.resolve(relativeUri).toString()));
         this.runner = DistributedQueryRunner.builder(testSessionBuilder().build())
                 .setSystemAccessControl(new OpaAccessControlFactory().create(opaConfigBuilder.buildOrThrow()))
                 .setNodeCount(1)
                 .build();
         runner.installPlugin(new BlackHolePlugin());
-        runner.createCatalog("catalogOne", "blackhole");
-        runner.createCatalog("catalogTwo", "blackhole");
+        runner.createCatalog("catalog_one", "blackhole");
+        runner.createCatalog("catalog_two", "blackhole");
     }
 
     private static void awaitSocketOpen(InetSocketAddress addr, int attempts, int timeoutMs)
@@ -327,8 +327,8 @@ public class OpaAccessControlSystemTest
     private static Stream<Arguments> filterSchemaTests()
     {
         Stream<Pair<String, Set<String>>> userAndExpectedCatalogs = Stream.of(
-                Pair.of("bob", ImmutableSet.of("catalogOne")),
-                Pair.of("admin", ImmutableSet.of("catalogOne", "catalogTwo", "system")));
+                Pair.of("bob", ImmutableSet.of("catalog_one")),
+                Pair.of("admin", ImmutableSet.of("catalog_one", "catalog_two", "system")));
         return userAndExpectedCatalogs.map(testCase -> Arguments.of(Named.of(testCase.getFirst(), testCase.getFirst()), testCase.getSecond()));
     }
 }
