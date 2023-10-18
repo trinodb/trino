@@ -19,6 +19,8 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.trino.plugin.openpolicyagent.schema.TrinoUser;
@@ -51,6 +53,7 @@ import static io.trino.plugin.openpolicyagent.RequestTestUtilities.assertJsonReq
 import static io.trino.plugin.openpolicyagent.RequestTestUtilities.assertStringRequestsEqual;
 import static io.trino.plugin.openpolicyagent.TestHelpers.systemSecurityContextFromIdentity;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -70,12 +73,12 @@ public class OpaBatchAccessControlFilteringUnitTest
         this.jsonMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
         this.jsonMapper.registerModule(new Jdk8Module());
         this.mockClient = new HttpClientUtils.InstrumentedHttpClient(OPA_BATCH_SERVER_URI, "POST", JSON_UTF_8.toString(), request -> null);
-        this.authorizer = (OpaAccessControl) new OpaAccessControlFactory()
-                .create(
-                        Map.of(
-                                "opa.policy.uri", OPA_SERVER_URI.toString(),
-                                "opa.policy.batched-uri", OPA_BATCH_SERVER_URI.toString()),
-                        Optional.of(mockClient));
+        this.authorizer = (OpaAccessControl) new OpaAccessControlFactory().create(
+                ImmutableMap.<String, String>builder()
+                        .put("opa.policy.uri", OPA_SERVER_URI.toString())
+                        .put("opa.policy.batched-uri", OPA_BATCH_SERVER_URI.toString())
+                        .buildOrThrow(),
+                Optional.of(mockClient));
         this.requestingIdentity = Identity.ofUser("source-user");
         this.requestingSecurityContext = systemSecurityContextFromIdentity(requestingIdentity);
     }
@@ -98,10 +101,10 @@ public class OpaBatchAccessControlFilteringUnitTest
     private static Stream<Arguments> subsetProvider()
     {
         return Stream.of(
-                Arguments.of(Named.of("All-3-resources", new HttpClientUtils.MockResponse("{\"result\": [0, 1, 2]}", 200)), List.of(0, 1, 2)),
-                Arguments.of(Named.of("First-and-last-resources", new HttpClientUtils.MockResponse("{\"result\": [0, 2]}", 200)), List.of(0, 2)),
-                Arguments.of(Named.of("Only-one-resource", new HttpClientUtils.MockResponse("{\"result\": [2]}", 200)), List.of(2)),
-                Arguments.of(Named.of("No-resources", new HttpClientUtils.MockResponse("{\"result\": []}", 200)), List.of()));
+                Arguments.of(Named.of("All-3-resources", new HttpClientUtils.MockResponse("{\"result\": [0, 1, 2]}", 200)), ImmutableList.of(0, 1, 2)),
+                Arguments.of(Named.of("First-and-last-resources", new HttpClientUtils.MockResponse("{\"result\": [0, 2]}", 200)), ImmutableList.of(0, 2)),
+                Arguments.of(Named.of("Only-one-resource", new HttpClientUtils.MockResponse("{\"result\": [2]}", 200)), ImmutableList.of(2)),
+                Arguments.of(Named.of("No-resources", new HttpClientUtils.MockResponse("{\"result\": []}", 200)), ImmutableList.of()));
     }
 
     private <T> List<T> getSubset(List<T> allItems, List<Integer> subsetPositions)
@@ -127,12 +130,12 @@ public class OpaBatchAccessControlFilteringUnitTest
         Identity identityOne = Identity.ofUser("user-one");
         Identity identityTwo = Identity.ofUser("user-two");
         Identity identityThree = Identity.ofUser("user-three");
-        List<Identity> requestedIdentities = List.of(identityOne, identityTwo, identityThree);
+        List<Identity> requestedIdentities = ImmutableList.of(identityOne, identityTwo, identityThree);
 
         Collection<Identity> result = authorizer.filterViewQueryOwnedBy(
                 requestingIdentity,
                 requestedIdentities);
-        assertEquals(Set.copyOf(result), Set.copyOf(getSubset(requestedIdentities, expectedItems)));
+        assertEquals(ImmutableSet.copyOf(result), ImmutableSet.copyOf(getSubset(requestedIdentities, expectedItems)));
 
         ArrayNode allExpectedUsers = jsonMapper.createArrayNode().addAll(
                 requestedIdentities.stream()
@@ -142,7 +145,7 @@ public class OpaBatchAccessControlFilteringUnitTest
         ObjectNode expectedRequest = jsonMapper.createObjectNode()
                 .put("operation", "FilterViewQueryOwnedBy")
                 .set("filterResources", allExpectedUsers);
-        assertJsonRequestsEqual(Set.of(expectedRequest), this.mockClient.getRequests(), "/input/action");
+        assertJsonRequestsEqual(ImmutableSet.of(expectedRequest), this.mockClient.getRequests(), "/input/action");
     }
 
     @ParameterizedTest(name = "{index}: {0}")
@@ -153,12 +156,12 @@ public class OpaBatchAccessControlFilteringUnitTest
     {
         this.mockClient.setHandler(request -> response);
 
-        List<String> requestedCatalogs = List.of("catalog-one", "catalog-two", "catalog-three");
+        List<String> requestedCatalogs = ImmutableList.of("catalog-one", "catalog-two", "catalog-three");
 
         Set<String> result = authorizer.filterCatalogs(
                 requestingSecurityContext,
                 new LinkedHashSet<>(requestedCatalogs));
-        assertEquals(Set.copyOf(result), Set.copyOf(getSubset(requestedCatalogs, expectedItems)));
+        assertEquals(ImmutableSet.copyOf(result), ImmutableSet.copyOf(getSubset(requestedCatalogs, expectedItems)));
 
         String expectedRequest = """
                 {
@@ -181,7 +184,7 @@ public class OpaBatchAccessControlFilteringUnitTest
                         }
                     ]
                 }""";
-        assertStringRequestsEqual(List.of(expectedRequest), this.mockClient.getRequests(), "/input/action");
+        assertStringRequestsEqual(ImmutableList.of(expectedRequest), this.mockClient.getRequests(), "/input/action");
     }
 
     @ParameterizedTest(name = "{index}: {0}")
@@ -191,13 +194,13 @@ public class OpaBatchAccessControlFilteringUnitTest
             List<Integer> expectedItems)
     {
         this.mockClient.setHandler(request -> response);
-        List<String> requestedSchemas = List.of("schema-one", "schema-two", "schema-three");
+        List<String> requestedSchemas = ImmutableList.of("schema-one", "schema-two", "schema-three");
 
         Set<String> result = authorizer.filterSchemas(
                 requestingSecurityContext,
                 "my-catalog",
                 new LinkedHashSet<>(requestedSchemas));
-        assertEquals(Set.copyOf(result), Set.copyOf(getSubset(requestedSchemas, expectedItems)));
+        assertEquals(ImmutableSet.copyOf(result), ImmutableSet.copyOf(getSubset(requestedSchemas, expectedItems)));
 
         String expectedRequest = """
                 {
@@ -223,7 +226,7 @@ public class OpaBatchAccessControlFilteringUnitTest
                         }
                     ]
                 }""";
-        assertStringRequestsEqual(List.of(expectedRequest), this.mockClient.getRequests(), "/input/action");
+        assertStringRequestsEqual(ImmutableList.of(expectedRequest), this.mockClient.getRequests(), "/input/action");
     }
 
     @ParameterizedTest(name = "{index}: {0}")
@@ -233,16 +236,17 @@ public class OpaBatchAccessControlFilteringUnitTest
             List<Integer> expectedItems)
     {
         this.mockClient.setHandler(request -> response);
-        List<SchemaTableName> tables = List.of(
-                new SchemaTableName("schema-one", "table-one"),
-                new SchemaTableName("schema-one", "table-two"),
-                new SchemaTableName("schema-two", "table-one"));
+        List<SchemaTableName> tables = ImmutableList.<SchemaTableName>builder()
+                .add(new SchemaTableName("schema-one", "table-one"))
+                .add(new SchemaTableName("schema-one", "table-two"))
+                .add(new SchemaTableName("schema-two", "table-one"))
+                .build();
 
         Set<SchemaTableName> result = authorizer.filterTables(
                 requestingSecurityContext,
                 "my-catalog",
                 new LinkedHashSet<>(tables));
-        assertEquals(Set.copyOf(result), Set.copyOf(getSubset(tables, expectedItems)));
+        assertEquals(ImmutableSet.copyOf(result), ImmutableSet.copyOf(getSubset(tables, expectedItems)));
 
         String expectedRequest = """
                 {
@@ -271,7 +275,7 @@ public class OpaBatchAccessControlFilteringUnitTest
                         }
                     ]
                 }""";
-        assertStringRequestsEqual(List.of(expectedRequest), this.mockClient.getRequests(), "/input/action");
+        assertStringRequestsEqual(ImmutableList.of(expectedRequest), this.mockClient.getRequests(), "/input/action");
     }
 
     private static Function<String, HttpClientUtils.MockResponse> buildHandler(Function<String, String> dataBuilder)
@@ -285,10 +289,11 @@ public class OpaBatchAccessControlFilteringUnitTest
         SchemaTableName tableOne = SchemaTableName.schemaTableName("my-schema", "table-one");
         SchemaTableName tableTwo = SchemaTableName.schemaTableName("my-schema", "table-two");
         SchemaTableName tableThree = SchemaTableName.schemaTableName("my-schema", "table-three");
-        Map<SchemaTableName, Set<String>> requestedColumns = Map.of(
-                tableOne, ImmutableSet.of("table-one-column-one", "table-one-column-two"),
-                tableTwo, ImmutableSet.of("table-two-column-one", "table-two-column-two"),
-                tableThree, ImmutableSet.of("table-three-column-one", "table-three-column-two"));
+        Map<SchemaTableName, Set<String>> requestedColumns = ImmutableMap.<SchemaTableName, Set<String>>builder()
+                .put(tableOne, ImmutableSet.of("table-one-column-one", "table-one-column-two"))
+                .put(tableTwo, ImmutableSet.of("table-two-column-one", "table-two-column-two"))
+                .put(tableThree, ImmutableSet.of("table-three-column-one", "table-three-column-two"))
+                .buildOrThrow();
 
         // Allow both columns from one table, one column from another one and no columns from the last one
         this.mockClient.setHandler(
@@ -325,14 +330,13 @@ public class OpaBatchAccessControlFilteringUnitTest
                         """.formatted(tableName, tableName, tableName))
                 .toList();
         assertStringRequestsEqual(expectedRequests, this.mockClient.getRequests(), "/input/action");
-        assertTrue(
-                Maps.difference(
-                        result,
-                        Map.of(
-                                tableOne, Set.of("table-one-column-one", "table-one-column-two"),
-                                tableTwo, Set.of("table-two-column-two"),
-                                tableThree, Set.of()))
-                        .areEqual());
+        assertTrue(Maps.difference(
+                result,
+                ImmutableMap.builder()
+                        .put(tableOne, ImmutableSet.of("table-one-column-one", "table-one-column-two"))
+                        .put(tableTwo, ImmutableSet.of("table-two-column-two"))
+                        .put(tableThree, ImmutableSet.of())
+                        .buildOrThrow()).areEqual());
     }
 
     @Test
@@ -340,19 +344,17 @@ public class OpaBatchAccessControlFilteringUnitTest
     {
         SchemaTableName tableOne = SchemaTableName.schemaTableName("my-schema", "table-one");
         SchemaTableName tableTwo = SchemaTableName.schemaTableName("my-schema", "table-two");
-        Map<SchemaTableName, Set<String>> requestedColumns = Map.of(
-                tableOne, ImmutableSet.of(),
-                tableTwo, ImmutableSet.of());
+        Map<SchemaTableName, Set<String>> requestedColumns = ImmutableMap.<SchemaTableName, Set<String>>builder()
+                .put(tableOne, ImmutableSet.of())
+                .put(tableTwo, ImmutableSet.of())
+                .buildOrThrow();
 
         Map<SchemaTableName, Set<String>> result = authorizer.filterColumns(
                 requestingSecurityContext,
                 "my-catalog",
                 requestedColumns);
         assertEquals(mockClient.getRequests().size(), 0);
-        assertTrue(
-                Maps.difference(
-                        result,
-                        requestedColumns).areEqual());
+        assertTrue(Maps.difference(result, requestedColumns).areEqual());
     }
 
     @ParameterizedTest(name = "{index}: {0}")
@@ -381,6 +383,6 @@ public class OpaBatchAccessControlFilteringUnitTest
         assertTrue(
                 actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
-        assertTrue(mockClient.getRequests().size() > 0);
+        assertFalse(mockClient.getRequests().isEmpty());
     }
 }

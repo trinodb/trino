@@ -73,7 +73,7 @@ public record OpaQueryInputAction(
 
         public Builder filterResources(Collection<OpaQueryInputResource> resources)
         {
-            this.filterResources = List.copyOf(resources);
+            this.filterResources = ImmutableList.copyOf(resources);
             return this;
         }
 

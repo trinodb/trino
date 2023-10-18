@@ -15,6 +15,7 @@ package io.trino.plugin.openpolicyagent;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.google.common.collect.ImmutableSet;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -34,9 +35,9 @@ public class RequestTestUtilities
             Collection<String> expectedRequests, Collection<String> actualRequests, String extractPath)
     {
         Set<JsonNode> parsedExpectedRequests = expectedRequests.stream()
-                .map(i -> {
+                .map(expectedRequest -> {
                     try {
-                        return jsonMapper.readTree(i);
+                        return jsonMapper.readTree(expectedRequest);
                     }
                     catch (IOException e) {
                         fail("Could not parse request", e);
@@ -56,9 +57,9 @@ public class RequestTestUtilities
                 "Mismatch in expected vs. actual request count");
 
         Set<JsonNode> parsedActualRequests = actualRequests.stream()
-                .map(i -> {
+                .map(actualRequest -> {
                     try {
-                        JsonNode parsed = jsonMapper.readTree(i);
+                        JsonNode parsed = jsonMapper.readTree(actualRequest);
                         if (extractPath != null) {
                             return parsed.at(extractPath);
                         }
@@ -70,6 +71,6 @@ public class RequestTestUtilities
                     }
                 })
                 .collect(Collectors.toSet());
-        assertEquals(Set.copyOf(expectedRequests), parsedActualRequests, "Requests do not match");
+        assertEquals(ImmutableSet.copyOf(expectedRequests), parsedActualRequests, "Requests do not match");
     }
 }

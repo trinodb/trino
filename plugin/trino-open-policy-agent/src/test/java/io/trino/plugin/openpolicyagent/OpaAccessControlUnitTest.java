@@ -16,6 +16,9 @@ package io.trino.plugin.openpolicyagent;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
@@ -69,9 +72,7 @@ public class OpaAccessControlUnitTest
     public void setupAuthorizer()
     {
         this.mockClient = new InstrumentedHttpClient(OPA_SERVER_URI, "POST", JSON_UTF_8.toString(), request -> OK_RESPONSE);
-        this.authorizer = (OpaAccessControl) new OpaAccessControlFactory().create(
-                Map.of("opa.policy.uri", OPA_SERVER_URI.toString()),
-                Optional.of(mockClient));
+        this.authorizer = (OpaAccessControl) new OpaAccessControlFactory().create(ImmutableMap.of("opa.policy.uri", OPA_SERVER_URI.toString()), Optional.of(mockClient));
         this.requestingIdentity = Identity.ofUser("source-user");
         this.requestingSecurityContext = systemSecurityContextFromIdentity(requestingIdentity);
     }
@@ -131,7 +132,7 @@ public class OpaAccessControlUnitTest
     {
         method.accept(authorizer, requestingSecurityContext);
         ObjectNode expectedRequest = jsonMapper.createObjectNode().put("operation", actionName);
-        assertJsonRequestsEqual(Set.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertJsonRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
     }
 
     @ParameterizedTest(name = "{index}: {0} - {2}")
@@ -149,7 +150,7 @@ public class OpaAccessControlUnitTest
                 expectedException,
                 () -> method.accept(authorizer, requestingSecurityContext));
         ObjectNode expectedRequest = jsonMapper.createObjectNode().put("operation", actionName);
-        assertJsonRequestsEqual(Set.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertJsonRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
         assertTrue(actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
     }
@@ -218,7 +219,7 @@ public class OpaAccessControlUnitTest
                     }
                 }
                 """.formatted(actionName);
-        assertStringRequestsEqual(Set.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
     }
 
     private static Stream<Arguments> tableResourceFailureTestCases()
@@ -269,14 +270,16 @@ public class OpaAccessControlUnitTest
             FunctionalHelpers.Consumer4<OpaAccessControl, SystemSecurityContext, CatalogSchemaTableName, Map> callable)
     {
         CatalogSchemaTableName table = new CatalogSchemaTableName("my-catalog", "my-schema", "my-table");
-        Map<String, Optional<Object>> properties = new HashMap<>();
-        properties.put("string-item", Optional.of("string-value"));
+        Map<String, Optional<Object>> properties = new HashMap<>(
+                ImmutableMap.<String, Optional<Object>>builder()
+                        .put("string-item", Optional.of("string-value"))
+                        .put("empty-item", Optional.empty())
+                        .put("boxed-number-item", Optional.of(Integer.valueOf(32)))
+                        .buildOrThrow());
         // https://openjdk.org/jeps/269
         // New collections do not support null items in them, so we need to ensure
-        // our code will use a Map that can deal with nulls
-        properties.put("empty-item", Optional.empty());
+        // our code can still deal with them.
         properties.put("null-item", null);
-        properties.put("boxed-number-item", Optional.of(Integer.valueOf(32)));
 
         callable.accept(authorizer, requestingSecurityContext, table, properties);
 
@@ -298,7 +301,7 @@ public class OpaAccessControlUnitTest
                     }
                 }
                 """.formatted(actionName);
-        assertStringRequestsEqual(Set.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
     }
 
     private static Stream<Arguments> tableWithPropertiesFailureTestCases()
@@ -323,7 +326,7 @@ public class OpaAccessControlUnitTest
                         authorizer,
                         requestingSecurityContext,
                         new CatalogSchemaTableName("catalog", "schema", "table"),
-                        Map.of()));
+                        ImmutableMap.of()));
         assertTrue(actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
     }
@@ -346,8 +349,8 @@ public class OpaAccessControlUnitTest
             FunctionalHelpers.Consumer3<OpaAccessControl, Identity, Identity> callable)
     {
         Identity dummyIdentity = Identity.forUser("dummy-user")
-                .withGroups(Set.of("some-group"))
-                .withExtraCredentials(Map.of("some-extra-credential", "value"))
+                .withGroups(ImmutableSet.of("some-group"))
+                .withExtraCredentials(ImmutableMap.of("some-extra-credential", "value"))
                 .build();
         callable.accept(authorizer, requestingIdentity, dummyIdentity);
 
@@ -366,7 +369,7 @@ public class OpaAccessControlUnitTest
                     }
                 }
                 """.formatted(actionName);
-        assertStringRequestsEqual(Set.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
     }
 
     private static Stream<Arguments> identityResourceFailureTestCases()
@@ -440,7 +443,7 @@ public class OpaAccessControlUnitTest
                     }
                 }
                 """.formatted(actionName, resourceName);
-        assertStringRequestsEqual(Set.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
     }
 
     public static Stream<Arguments> stringResourceFailureTestCases()
@@ -502,7 +505,7 @@ public class OpaAccessControlUnitTest
                     }
                 }
                 """.formatted(actionName);
-        assertStringRequestsEqual(Set.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
     }
 
     public static Stream<Arguments> schemaResourceFailureTestCases()
@@ -535,36 +538,37 @@ public class OpaAccessControlUnitTest
     public void testCreateSchema()
     {
         CatalogSchemaName schema = new CatalogSchemaName("some-catalog", "some-schema");
-        authorizer.checkCanCreateSchema(requestingSecurityContext, schema, Map.of("some-key", "some-value"));
-        authorizer.checkCanCreateSchema(requestingSecurityContext, schema, Map.of());
+        authorizer.checkCanCreateSchema(requestingSecurityContext, schema, ImmutableMap.of("some-key", "some-value"));
+        authorizer.checkCanCreateSchema(requestingSecurityContext, schema, ImmutableMap.of());
 
-        List<String> expectedRequests = List.of(
-                """
-                        {
-                            "operation": "CreateSchema",
-                            "resource": {
-                                "schema": {
-                                    "catalogName": "some-catalog",
-                                    "schemaName": "some-schema",
-                                    "properties": {
-                                        "some-key": "some-value"
-                                    }
+        List<String> expectedRequests = ImmutableList.<String>builder()
+                .add("""
+                    {
+                        "operation": "CreateSchema",
+                        "resource": {
+                            "schema": {
+                                "catalogName": "some-catalog",
+                                "schemaName": "some-schema",
+                                "properties": {
+                                    "some-key": "some-value"
                                 }
                             }
                         }
-                        """,
-                """
-                        {
-                            "operation": "CreateSchema",
-                            "resource": {
-                                "schema": {
-                                    "catalogName": "some-catalog",
-                                    "schemaName": "some-schema",
-                                    "properties": {}
-                                }
+                    }
+                    """)
+                .add("""
+                    {
+                        "operation": "CreateSchema",
+                        "resource": {
+                            "schema": {
+                                "catalogName": "some-catalog",
+                                "schemaName": "some-schema",
+                                "properties": {}
                             }
                         }
-                        """);
+                    }
+                    """)
+                .build();
         assertStringRequestsEqual(expectedRequests, mockClient.getRequests(), "/input/action");
     }
 
@@ -582,7 +586,7 @@ public class OpaAccessControlUnitTest
                 () -> authorizer.checkCanCreateSchema(
                         requestingSecurityContext,
                         new CatalogSchemaName("some-catalog", "some-schema"),
-                        Map.of()));
+                        ImmutableMap.of()));
         assertTrue(actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
     }
@@ -610,7 +614,7 @@ public class OpaAccessControlUnitTest
                     }
                 }
                 """;
-        assertStringRequestsEqual(Set.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
     }
 
     @ParameterizedTest(name = "{index}: {0}")
@@ -675,7 +679,7 @@ public class OpaAccessControlUnitTest
                     }
                 }
                 """.formatted(actionName);
-        assertStringRequestsEqual(Set.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
     }
 
     public static Stream<Arguments> renameTableFailureTestCases()
@@ -733,7 +737,7 @@ public class OpaAccessControlUnitTest
                     }
                 }
                 """;
-        assertStringRequestsEqual(Set.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
     }
 
     @ParameterizedTest(name = "{index}: {0}")
@@ -797,7 +801,7 @@ public class OpaAccessControlUnitTest
                     }
                 }
                 """.formatted(actionName);
-        assertStringRequestsEqual(Set.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
     }
 
     private static Stream<Arguments> setTableAuthorizationFailureTestCases()
@@ -849,7 +853,7 @@ public class OpaAccessControlUnitTest
             FunctionalHelpers.Consumer4<OpaAccessControl, SystemSecurityContext, CatalogSchemaTableName, Set<String>> method)
     {
         CatalogSchemaTableName table = new CatalogSchemaTableName("some-catalog", "some-schema", "some-table");
-        Set<String> columns = Set.of("some-column");
+        Set<String> columns = ImmutableSet.of("some-column");
 
         method.accept(authorizer, requestingSecurityContext, table, columns);
 
@@ -866,7 +870,7 @@ public class OpaAccessControlUnitTest
                     }
                 }
                 """.formatted(actionName);
-        assertStringRequestsEqual(Set.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
     }
 
     private static Stream<Arguments> tableColumnOperationFailureTestCases()
@@ -885,7 +889,7 @@ public class OpaAccessControlUnitTest
     {
         mockClient.setHandler(request -> failureResponse);
         CatalogSchemaTableName table = new CatalogSchemaTableName("some-catalog", "some-schema", "some-table");
-        Set<String> columns = Set.of("some-column");
+        Set<String> columns = ImmutableSet.of("some-column");
 
         Throwable actualError = assertThrows(
                 expectedException,
@@ -923,7 +927,7 @@ public class OpaAccessControlUnitTest
                     }
                 }
                 """;
-        assertStringRequestsEqual(Set.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
     }
 
     @ParameterizedTest(name = "{index}: {0}")
@@ -981,7 +985,7 @@ public class OpaAccessControlUnitTest
                     }
                 }
                 """;
-        assertStringRequestsEqual(Set.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
     }
 
     @ParameterizedTest(name = "{index}: {0}")
@@ -1025,7 +1029,7 @@ public class OpaAccessControlUnitTest
                     }
                 }
                 """;
-        assertStringRequestsEqual(Set.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
     }
 
     @ParameterizedTest(name = "{index}: {0}")
@@ -1238,30 +1242,32 @@ public class OpaAccessControlUnitTest
         TrinoPrincipal grantor = new TrinoPrincipal(PrincipalType.USER, "some-grantor");
         authorizer.checkCanCreateRole(requestingSecurityContext, "some-role-with-grantor", Optional.of(grantor));
 
-        Set<String> expectedRequests = Set.of("""
-                {
-                    "operation": "CreateRole",
-                    "resource": {
-                        "role": {
-                            "name": "some-role-without-grantor"
+        Set<String> expectedRequests = ImmutableSet.<String>builder()
+                .add("""
+                    {
+                        "operation": "CreateRole",
+                        "resource": {
+                            "role": {
+                                "name": "some-role-without-grantor"
+                            }
                         }
                     }
-                }
-                """,
-                """
-                {
-                    "operation": "CreateRole",
-                    "resource": {
-                        "role": {
-                            "name": "some-role-with-grantor"
+                """)
+                .add("""
+                    {
+                        "operation": "CreateRole",
+                        "resource": {
+                            "role": {
+                                "name": "some-role-with-grantor"
+                            }
+                        },
+                        "grantor": {
+                            "name": "some-grantor",
+                            "type": "USER"
                         }
-                    },
-                    "grantor": {
-                        "name": "some-grantor",
-                        "type": "USER"
                     }
-                }
-                """);
+                    """)
+                .build();
         assertStringRequestsEqual(expectedRequests, mockClient.getRequests(), "/input/action");
     }
 
@@ -1303,57 +1309,59 @@ public class OpaAccessControlUnitTest
             FunctionalHelpers.Consumer6<OpaAccessControl, SystemSecurityContext, Set<String>, Set<TrinoPrincipal>, Boolean, Optional<TrinoPrincipal>> method)
     {
         TrinoPrincipal grantee = new TrinoPrincipal(PrincipalType.ROLE, "some-grantee-role");
-        method.accept(authorizer, requestingSecurityContext, Set.of("some-role-without-grantor"), Set.of(grantee), true, Optional.empty());
+        method.accept(authorizer, requestingSecurityContext, ImmutableSet.of("some-role-without-grantor"), ImmutableSet.of(grantee), true, Optional.empty());
 
         TrinoPrincipal grantor = new TrinoPrincipal(PrincipalType.USER, "some-grantor-user");
-        method.accept(authorizer, requestingSecurityContext, Set.of("some-role-with-grantor"), Set.of(grantee), false, Optional.of(grantor));
+        method.accept(authorizer, requestingSecurityContext, ImmutableSet.of("some-role-with-grantor"), ImmutableSet.of(grantee), false, Optional.of(grantor));
 
-        Set<String> expectedRequests = Set.of("""
-                {
-                    "operation": "%s",
-                    "resource": {
-                        "roles": [
-                            {
-                                "name": "some-role-with-grantor"
-                            }
-                        ]
-                    },
-                    "grantor": {
-                        "name": "some-grantor-user",
-                        "type": "USER"
-                    },
-                    "grantee": {
-                        "principals": [
-                            {
-                                "name": "some-grantee-role",
-                                "type": "ROLE"
-                            }
-                        ],
-                        "grantOption": false
+        Set<String> expectedRequests = ImmutableSet.<String>builder()
+                .add("""
+                    {
+                        "operation": "%s",
+                        "resource": {
+                            "roles": [
+                                {
+                                    "name": "some-role-with-grantor"
+                                }
+                            ]
+                        },
+                        "grantor": {
+                            "name": "some-grantor-user",
+                            "type": "USER"
+                        },
+                        "grantee": {
+                            "principals": [
+                                {
+                                    "name": "some-grantee-role",
+                                    "type": "ROLE"
+                                }
+                            ],
+                            "grantOption": false
+                        }
                     }
-                }
-                """.formatted(actionName),
-                """
-                {
-                    "operation": "%s",
-                    "resource": {
-                        "roles": [
-                            {
-                                "name": "some-role-without-grantor"
-                            }
-                        ]
-                    },
-                    "grantee": {
-                        "principals": [
-                            {
-                                "name": "some-grantee-role",
-                                "type": "ROLE"
-                            }
-                        ],
-                        "grantOption": true
+                    """.formatted(actionName))
+                .add("""
+                    {
+                        "operation": "%s",
+                        "resource": {
+                            "roles": [
+                                {
+                                    "name": "some-role-without-grantor"
+                                }
+                            ]
+                        },
+                        "grantee": {
+                            "principals": [
+                                {
+                                    "name": "some-grantee-role",
+                                    "type": "ROLE"
+                                }
+                            ],
+                            "grantOption": true
+                        }
                     }
-                }
-                """.formatted(actionName));
+                    """.formatted(actionName))
+                .build();
         assertStringRequestsEqual(expectedRequests, mockClient.getRequests(), "/input/action");
     }
 
@@ -1379,8 +1387,8 @@ public class OpaAccessControlUnitTest
                 () -> method.accept(
                         authorizer,
                         requestingSecurityContext,
-                        Set.of("some-role-without-grantor"),
-                        Set.of(grantee),
+                        ImmutableSet.of("some-role-without-grantor"),
+                        ImmutableSet.of(grantee),
                         true,
                         Optional.empty()));
         assertTrue(
@@ -1407,7 +1415,7 @@ public class OpaAccessControlUnitTest
                         }
                     }
                 }""";
-        assertStringRequestsEqual(Set.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
     }
 
     @ParameterizedTest(name = "{index}: {0}")
@@ -1450,7 +1458,7 @@ public class OpaAccessControlUnitTest
                         }
                     }
                 }""";
-        assertStringRequestsEqual(Set.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
     }
 
     @ParameterizedTest(name = "{index}: {0}")
@@ -1494,7 +1502,7 @@ public class OpaAccessControlUnitTest
                         }
                     }
                 }""";
-        assertStringRequestsEqual(Set.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
     }
 
     @ParameterizedTest(name = "{index}: {0}")

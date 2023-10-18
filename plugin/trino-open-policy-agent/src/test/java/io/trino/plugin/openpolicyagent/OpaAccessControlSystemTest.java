@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.openpolicyagent;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.plugin.blackhole.BlackHolePlugin;
@@ -41,8 +42,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -82,11 +81,11 @@ public class OpaAccessControlSystemTest
             throws Exception
     {
         ensureOpaUp();
-        Map<String, String> opaConfig = new HashMap<>();
-        opaConfig.put("opa.policy.uri", opaServerUri.resolve(basePolicyRelativeUri).toString());
-        batchPolicyRelativeUri.ifPresent(s -> opaConfig.put("opa.policy.batched-uri", opaServerUri.resolve(s).toString()));
+        ImmutableMap.Builder<String, String> opaConfigBuilder = ImmutableMap.builder();
+        opaConfigBuilder.put("opa.policy.uri", opaServerUri.resolve(basePolicyRelativeUri).toString());
+        batchPolicyRelativeUri.ifPresent(s -> opaConfigBuilder.put("opa.policy.batched-uri", opaServerUri.resolve(s).toString()));
         this.runner = DistributedQueryRunner.builder(testSessionBuilder().build())
-                .setSystemAccessControl(new OpaAccessControlFactory().create(opaConfig))
+                .setSystemAccessControl(new OpaAccessControlFactory().create(opaConfigBuilder.buildOrThrow()))
                 .setNodeCount(1)
                 .build();
         runner.installPlugin(new BlackHolePlugin());
@@ -109,9 +108,7 @@ public class OpaAccessControlSystemTest
                 Thread.sleep(timeoutMs);
             }
         }
-        throw new SocketTimeoutException(
-                "Timed out waiting for addr %s to be available (%d attempts made with a %d ms wait)"
-                        .formatted(addr, attempts, timeoutMs));
+        throw new SocketTimeoutException("Timed out waiting for addr %s to be available (%d attempts made with a %d ms wait)".formatted(addr, attempts, timeoutMs));
     }
 
     private static String stringOfLines(String... lines)
@@ -128,14 +125,13 @@ public class OpaAccessControlSystemTest
             throws IOException, InterruptedException
     {
         HttpClient httpClient = HttpClient.newHttpClient();
-        HttpResponse<String> policyRes =
+        HttpResponse<String> policyResponse =
                 httpClient.send(
                         HttpRequest.newBuilder(opaServerUri.resolve("v1/policies/trino"))
-                                .PUT(HttpRequest.BodyPublishers
-                                        .ofString(stringOfLines(policyLines)))
+                                .PUT(HttpRequest.BodyPublishers.ofString(stringOfLines(policyLines)))
                                 .header("Content-Type", "text/plain").build(),
                         HttpResponse.BodyHandlers.ofString());
-        assertEquals(policyRes.statusCode(), 200, "Failed to submit policy: " + policyRes.body());
+        assertEquals(policyResponse.statusCode(), 200, "Failed to submit policy: " + policyResponse.body());
     }
 
     private Session user(String user)

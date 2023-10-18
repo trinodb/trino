@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.openpolicyagent;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
@@ -80,7 +81,7 @@ public class HttpClientUtils
         public List<String> getRequests()
         {
             synchronized (this.requests) {
-                return List.copyOf(this.requests);
+                return ImmutableList.copyOf(this.requests);
             }
         }
 

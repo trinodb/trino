@@ -15,6 +15,9 @@ package io.trino.plugin.openpolicyagent;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
@@ -59,9 +62,7 @@ public class OpaAccessControlFilteringUnitTest
     public void setupAuthorizer()
     {
         this.mockClient = new HttpClientUtils.InstrumentedHttpClient(OPA_SERVER_URI, "POST", JSON_UTF_8.toString(), request -> OK_RESPONSE);
-        this.authorizer = (OpaAccessControl) new OpaAccessControlFactory()
-                .create(Map.of("opa.policy.uri", OPA_SERVER_URI.toString()),
-                        Optional.of(mockClient));
+        this.authorizer = (OpaAccessControl) new OpaAccessControlFactory().create(ImmutableMap.of("opa.policy.uri", OPA_SERVER_URI.toString()), Optional.of(mockClient));
         this.requestingIdentity = Identity.ofUser("source-user");
         this.requestingSecurityContext = systemSecurityContextFromIdentity(requestingIdentity);
     }
@@ -95,7 +96,7 @@ public class OpaAccessControlFilteringUnitTest
 
     private Function<String, HttpClientUtils.MockResponse> buildHandler(String jsonPath, String resourceToAccept)
     {
-        return buildHandler(jsonPath, Set.of(resourceToAccept));
+        return buildHandler(jsonPath, ImmutableSet.of(resourceToAccept));
     }
 
     @Test
@@ -103,104 +104,109 @@ public class OpaAccessControlFilteringUnitTest
     {
         Identity userOne = Identity.ofUser("user-one");
         Identity userTwo = Identity.ofUser("user-two");
-        List<Identity> requestedIdentities = List.of(userOne, userTwo);
+        List<Identity> requestedIdentities = ImmutableList.of(userOne, userTwo);
         this.mockClient.setHandler(buildHandler("/input/action/resource/user/name", "user-one"));
 
         Collection<Identity> result = authorizer.filterViewQueryOwnedBy(
                 requestingIdentity,
                 requestedIdentities);
-        assertEquals(Set.copyOf(result), Set.of(userOne));
+        assertEquals(ImmutableSet.copyOf(result), ImmutableSet.of(userOne));
 
-        List<String> expectedRequests = List.of("""
-                {
-                    "operation": "FilterViewQueryOwnedBy",
-                    "resource": {
-                        "user": {
-                            "name": "user-one",
-                            "user": "user-one",
-                            "groups": [],
-                            "enabledRoles": [],
-                            "catalogRoles": {},
-                            "extraCredentials": {}
+        List<String> expectedRequests = ImmutableList.<String>builder()
+                .add("""
+                    {
+                        "operation": "FilterViewQueryOwnedBy",
+                        "resource": {
+                            "user": {
+                                "name": "user-one",
+                                "user": "user-one",
+                                "groups": [],
+                                "enabledRoles": [],
+                                "catalogRoles": {},
+                                "extraCredentials": {}
+                            }
                         }
                     }
-                }
-                """,
-                """
-                {
-                    "operation": "FilterViewQueryOwnedBy",
-                    "resource": {
-                        "user": {
-                            "name": "user-two",
-                            "user": "user-two",
-                            "groups": [],
-                            "enabledRoles": [],
-                            "catalogRoles": {},
-                            "extraCredentials": {}
+                    """)
+                .add("""
+                    {
+                        "operation": "FilterViewQueryOwnedBy",
+                        "resource": {
+                            "user": {
+                                "name": "user-two",
+                                "user": "user-two",
+                                "groups": [],
+                                "enabledRoles": [],
+                                "catalogRoles": {},
+                                "extraCredentials": {}
+                            }
                         }
                     }
-                }
-                """);
+                    """)
+                .build();
         assertStringRequestsEqual(expectedRequests, this.mockClient.getRequests(), "/input/action");
     }
 
     @Test
     public void testFilterCatalogs()
     {
-        Set<String> requestedCatalogs = Set.of("catalog-one", "catalog-two");
+        Set<String> requestedCatalogs = ImmutableSet.of("catalog-one", "catalog-two");
         this.mockClient.setHandler(buildHandler("/input/action/resource/catalog/name", "catalog-two"));
 
         Set<String> result = authorizer.filterCatalogs(
                 requestingSecurityContext,
                 requestedCatalogs);
-        assertEquals(Set.copyOf(result), Set.of("catalog-two"));
+        assertEquals(ImmutableSet.copyOf(result), ImmutableSet.of("catalog-two"));
 
-        List<String> expectedRequests = List.of("""
-                {
-                    "operation": "FilterCatalogs",
-                    "resource": {
-                        "catalog": {
-                            "name": "catalog-one"
+        List<String> expectedRequests = ImmutableList.<String>builder()
+                .add("""
+                    {
+                        "operation": "FilterCatalogs",
+                        "resource": {
+                            "catalog": {
+                                "name": "catalog-one"
+                            }
                         }
                     }
-                }
-                """,
-                """
-                {
-                    "operation": "FilterCatalogs",
-                    "resource": {
-                        "catalog": {
-                            "name": "catalog-two"
+                    """)
+                .add("""
+                    {
+                        "operation": "FilterCatalogs",
+                        "resource": {
+                            "catalog": {
+                                "name": "catalog-two"
+                            }
                         }
                     }
-                }
-                """);
+                    """)
+                .build();
         assertStringRequestsEqual(expectedRequests, this.mockClient.getRequests(), "/input/action");
     }
 
     @Test
     public void testFilterSchemas()
     {
-        Set<String> requestedSchemas = Set.of("schema-one", "schema-two");
+        Set<String> requestedSchemas = ImmutableSet.of("schema-one", "schema-two");
         this.mockClient.setHandler(buildHandler("/input/action/resource/schema/schemaName", "schema-one"));
 
         Set<String> result = authorizer.filterSchemas(
                 requestingSecurityContext,
                 "my-catalog",
                 requestedSchemas);
-        assertEquals(Set.copyOf(result), Set.of("schema-one"));
+        assertEquals(ImmutableSet.copyOf(result), ImmutableSet.of("schema-one"));
 
-        List<String> expectedRequests = requestedSchemas.stream().map("""
-                {
-                    "operation": "FilterSchemas",
-                    "resource": {
-                        "schema": {
-                            "schemaName": "%s",
-                            "catalogName": "my-catalog"
+        List<String> expectedRequests = requestedSchemas.stream()
+                .map("""
+                    {
+                        "operation": "FilterSchemas",
+                        "resource": {
+                            "schema": {
+                                "schemaName": "%s",
+                                "catalogName": "my-catalog"
+                            }
                         }
                     }
-                }
-                """::formatted)
+                    """::formatted)
                 .collect(Collectors.toList());
         assertStringRequestsEqual(expectedRequests, this.mockClient.getRequests(), "/input/action");
     }
@@ -208,31 +214,30 @@ public class OpaAccessControlFilteringUnitTest
     @Test
     public void testFilterTables()
     {
-        Set<SchemaTableName> tables = Set.of(
-                new SchemaTableName("schema-one", "table-one"),
-                new SchemaTableName("schema-one", "table-two"),
-                new SchemaTableName("schema-two", "table-one"),
-                new SchemaTableName("schema-two", "table-two"));
+        Set<SchemaTableName> tables = ImmutableSet.<SchemaTableName>builder()
+                .add(new SchemaTableName("schema-one", "table-one"))
+                .add(new SchemaTableName("schema-one", "table-two"))
+                .add(new SchemaTableName("schema-two", "table-one"))
+                .add(new SchemaTableName("schema-two", "table-two"))
+                .build();
         this.mockClient.setHandler(buildHandler("/input/action/resource/table/tableName", "table-one"));
 
-        Set<SchemaTableName> result = authorizer.filterTables(
-                requestingSecurityContext,
-                "my-catalog",
-                tables);
-        assertEquals(Set.copyOf(result), tables.stream().filter(table -> table.getTableName().equals("table-one")).collect(Collectors.toSet()));
+        Set<SchemaTableName> result = authorizer.filterTables(requestingSecurityContext, "my-catalog", tables);
+        assertEquals(ImmutableSet.copyOf(result), tables.stream().filter(table -> table.getTableName().equals("table-one")).collect(Collectors.toSet()));
 
-        List<String> expectedRequests = tables.stream().map(table -> """
-                {
-                    "operation": "FilterTables",
-                    "resource": {
-                        "table": {
-                            "tableName": "%s",
-                            "schemaName": "%s",
-                            "catalogName": "my-catalog"
+        List<String> expectedRequests = tables.stream()
+                .map(table -> """
+                    {
+                        "operation": "FilterTables",
+                        "resource": {
+                            "table": {
+                                "tableName": "%s",
+                                "schemaName": "%s",
+                                "catalogName": "my-catalog"
+                            }
                         }
                     }
-                }
-                """.formatted(table.getTableName(), table.getSchemaName()))
+                    """.formatted(table.getTableName(), table.getSchemaName()))
                 .collect(Collectors.toList());
         assertStringRequestsEqual(expectedRequests, this.mockClient.getRequests(), "/input/action");
     }
@@ -243,23 +248,23 @@ public class OpaAccessControlFilteringUnitTest
         SchemaTableName tableOne = SchemaTableName.schemaTableName("my-schema", "table-one");
         SchemaTableName tableTwo = SchemaTableName.schemaTableName("my-schema", "table-two");
         SchemaTableName tableThree = SchemaTableName.schemaTableName("my-schema", "table-three");
-        Map<SchemaTableName, Set<String>> requestedColumns = Map.of(
-                tableOne, Set.of("table-one-column-one", "table-one-column-two"),
-                tableTwo, Set.of("table-two-column-one", "table-two-column-two"),
-                tableThree, Set.of("table-three-column-one", "table-three-column-two"));
+        Map<SchemaTableName, Set<String>> requestedColumns = ImmutableMap.<SchemaTableName, Set<String>>builder()
+                .put(tableOne, ImmutableSet.of("table-one-column-one", "table-one-column-two"))
+                .put(tableTwo, ImmutableSet.of("table-two-column-one", "table-two-column-two"))
+                .put(tableThree, ImmutableSet.of("table-three-column-one", "table-three-column-two"))
+                .buildOrThrow();
         // Allow both columns from one table, one column from another one and no columns from the last one
-        Set<String> columnsToAllow = Set.of("table-one-column-one", "table-one-column-two", "table-two-column-two");
+        Set<String> columnsToAllow = ImmutableSet.<String>builder()
+                .add("table-one-column-one")
+                .add("table-one-column-two")
+                .add("table-two-column-two")
+                .build();
 
         this.mockClient.setHandler(buildHandler("/input/action/resource/table/columns/0", columnsToAllow));
 
-        Map<SchemaTableName, Set<String>> result = authorizer.filterColumns(
-                requestingSecurityContext,
-                "my-catalog",
-                requestedColumns);
+        Map<SchemaTableName, Set<String>> result = authorizer.filterColumns(requestingSecurityContext, "my-catalog", requestedColumns);
 
-        List<String> expectedRequests = requestedColumns
-                .entrySet()
-                .stream()
+        List<String> expectedRequests = requestedColumns.entrySet().stream()
                 .<String>mapMulti(
                         (requestedColumnsForTable, accepter) -> requestedColumnsForTable.getValue().forEach(
                                 column -> accepter.accept("""
@@ -280,18 +285,18 @@ public class OpaAccessControlFilteringUnitTest
         assertTrue(
                 Maps.difference(
                         result,
-                        Map.of(
-                                tableOne, Set.of("table-one-column-one", "table-one-column-two"),
-                                tableTwo, Set.of("table-two-column-two"),
-                                tableThree, Set.of()))
-                        .areEqual());
+                        ImmutableMap.builder()
+                                .put(tableOne, ImmutableSet.of("table-one-column-one", "table-one-column-two"))
+                                .put(tableTwo, ImmutableSet.of("table-two-column-two"))
+                                .put(tableThree, ImmutableSet.of())
+                                .buildOrThrow()).areEqual());
     }
 
     @Test
     public void testEmptyFilterColumns()
     {
         SchemaTableName someTable = SchemaTableName.schemaTableName("my-schema", "my-table");
-        Map<SchemaTableName, Set<String>> requestedColumns = Map.of(someTable, Set.of());
+        Map<SchemaTableName, Set<String>> requestedColumns = ImmutableMap.of(someTable, ImmutableSet.of());
 
         Map<SchemaTableName, Set<String>> result = authorizer.filterColumns(
                 requestingSecurityContext,
@@ -299,10 +304,7 @@ public class OpaAccessControlFilteringUnitTest
                 requestedColumns);
 
         assertEquals(mockClient.getRequests().size(), 0);
-        assertTrue(
-                Maps.difference(
-                        result,
-                        requestedColumns).areEqual());
+        assertTrue(Maps.difference(result, requestedColumns).areEqual());
     }
 
     @ParameterizedTest(name = "{index}: {0}")

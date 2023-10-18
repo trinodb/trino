@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.openpolicyagent;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.trino.plugin.openpolicyagent.schema.OpaBatchQueryResult;
@@ -21,8 +22,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -91,7 +90,7 @@ public class ResponseTest
     public void testEmptyOrUndefinedResponses(String response)
     {
         OpaBatchQueryResult result = this.batchResponseCodec.fromJson(response);
-        assertEquals(List.of(), result.result());
+        assertEquals(ImmutableList.of(), result.result());
         assertNull(result.decisionId());
     }
 
@@ -102,7 +101,7 @@ public class ResponseTest
                 {
                     "result": [1, 2, 3]
                 }""");
-        assertEquals(List.of(1, 2, 3), result.result());
+        assertEquals(ImmutableList.of(1, 2, 3), result.result());
         assertNull(result.decisionId());
     }
 
@@ -114,7 +113,7 @@ public class ResponseTest
                     "result": [1, 2, 3],
                     "decision_id": "foobar"
                 }""");
-        assertEquals(List.of(1, 2, 3), result.result());
+        assertEquals(ImmutableList.of(1, 2, 3), result.result());
         assertEquals("foobar", result.decisionId());
     }
 
@@ -128,7 +127,7 @@ public class ResponseTest
                     "someInfo": "foo",
                     "andAnObject": {}
                 }""");
-        assertEquals(List.of(1, 2, 3), result.result());
+        assertEquals(ImmutableList.of(1, 2, 3), result.result());
         assertEquals("foobar", result.decisionId());
     }
 }

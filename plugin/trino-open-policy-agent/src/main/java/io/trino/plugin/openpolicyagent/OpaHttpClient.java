@@ -147,7 +147,7 @@ public class OpaHttpClient
                     mapEntry.getKey(),
                     submitOpaRequest(requestBuilder.apply(mapEntry.getKey(), orderedItems), uri, deserializer)
                             .transform(
-                                    response -> requireNonNullElse(response.result(), List.<Integer>of()).stream()
+                                    response -> requireNonNullElse(response.result(), ImmutableList.<Integer>of()).stream()
                                             .map(orderedItems::get)
                                             .collect(toImmutableSet()),
                                     executor));

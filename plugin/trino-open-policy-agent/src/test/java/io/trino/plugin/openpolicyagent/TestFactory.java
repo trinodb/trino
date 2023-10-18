@@ -13,11 +13,10 @@
  */
 package io.trino.plugin.openpolicyagent;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.bootstrap.ApplicationConfigurationException;
 import io.trino.spi.security.SystemAccessControl;
 import org.junit.jupiter.api.Test;
-
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -29,7 +28,7 @@ public class TestFactory
     public void testCreatesSimpleAuthorizerIfNoBatchUriProvided()
     {
         OpaAccessControlFactory factory = new OpaAccessControlFactory();
-        SystemAccessControl opaAuthorizer = factory.create(Map.of("opa.policy.uri", "foo"));
+        SystemAccessControl opaAuthorizer = factory.create(ImmutableMap.of("opa.policy.uri", "foo"));
 
         assertInstanceOf(OpaAccessControl.class, opaAuthorizer);
         assertFalse(opaAuthorizer instanceof OpaBatchAccessControl);
@@ -39,7 +38,11 @@ public class TestFactory
     public void testCreatesBatchAuthorizerIfBatchUriProvided()
     {
         OpaAccessControlFactory factory = new OpaAccessControlFactory();
-        SystemAccessControl opaAuthorizer = factory.create(Map.of("opa.policy.uri", "foo", "opa.policy.batched-uri", "bar"));
+        SystemAccessControl opaAuthorizer = factory.create(
+                ImmutableMap.<String, String>builder()
+                        .put("opa.policy.uri", "foo")
+                        .put("opa.policy.batched-uri", "bar")
+                        .buildOrThrow());
 
         assertInstanceOf(OpaBatchAccessControl.class, opaAuthorizer);
         assertInstanceOf(OpaAccessControl.class, opaAuthorizer);
@@ -52,7 +55,7 @@ public class TestFactory
 
         assertThrows(
                 ApplicationConfigurationException.class,
-                () -> factory.create(Map.of()),
+                () -> factory.create(ImmutableMap.of()),
                 "may not be null");
     }
 
