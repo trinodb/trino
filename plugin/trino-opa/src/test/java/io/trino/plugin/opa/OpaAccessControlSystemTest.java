@@ -317,11 +317,7 @@ public class OpaAccessControlSystemTest
 
     private Set<String> querySetOfStrings(Session session, String query)
     {
-        return runner.execute(session, query)
-                .getMaterializedRows()
-                .stream()
-                .map(row -> row.getField(0).toString())
-                .collect(toImmutableSet());
+        return runner.execute(session, query).getMaterializedRows().stream().map(row -> row.getField(0).toString()).collect(toImmutableSet());
     }
 
     private static Stream<Arguments> filterSchemaTests()

@@ -899,8 +899,7 @@ public class OpaAccessControl
         OpaQueryInputResource resource = OpaQueryInputResource.builder().roles(roles).build();
         OpaQueryInputGrant opaGrantees = OpaQueryInputGrant.builder()
                 .grantOption(adminOption)
-                .principals(grantees
-                        .stream()
+                .principals(grantees.stream()
                         .map(TrinoGrantPrincipal::fromTrinoPrincipal)
                         .collect(toImmutableSet()))
                 .build();
@@ -923,11 +922,9 @@ public class OpaAccessControl
         OpaQueryInputResource resource = OpaQueryInputResource.builder().roles(roles).build();
         OpaQueryInputGrant opaGrantees = OpaQueryInputGrant.builder()
                 .grantOption(adminOption)
-                .principals(
-                        grantees
-                                .stream()
-                                .map(TrinoGrantPrincipal::fromTrinoPrincipal)
-                                .collect(toImmutableSet()))
+                .principals(grantees.stream()
+                        .map(TrinoGrantPrincipal::fromTrinoPrincipal)
+                        .collect(toImmutableSet()))
                 .build();
         OpaQueryInputAction action = OpaQueryInputAction.builder()
                 .operation("RevokeRoles")
