@@ -226,14 +226,7 @@ public class TestDeltaLakeDeleteCompatibility
                 "         TBLPROPERTIES ('delta.enableDeletionVectors' = true, 'delta.columnMapping.mode' = '" + mode + "')");
         try {
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1,11), (2, 22)");
-            if (databricksRuntimeVersion.isEmpty() && (mode.equals("name") || mode.equals("id"))) {
-                assertQueryFailure(() -> onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE a = 2"))
-                        .hasMessageContaining("Can't resolve column __delta_internal_row_index in root");
-                throw new SkipException("OSS Delta Lake doesn't support deletion vectors with column mapping mode 'name' and 'id'");
-            }
-            else {
-                onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE a = 2");
-            }
+            onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE a = 2");
 
             assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
                     .containsOnly(row(1, 11));
