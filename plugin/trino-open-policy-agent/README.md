@@ -182,8 +182,8 @@ batch contains i {
     raw_resource := input.action.filterResources[0]
     count(raw_resource["table"]["columns"]) > 0
     new_resources := [
-        object.union(raw_resource, {"table": {"column": col}})
-        | col := raw_resource["table"]["columns"][_]
+        object.union(raw_resource, {"table": {"column": column_name}})
+        | column_name := raw_resource["table"]["columns"][_]
     ]
     allow with input.action.resource as new_resources[i]
 }
