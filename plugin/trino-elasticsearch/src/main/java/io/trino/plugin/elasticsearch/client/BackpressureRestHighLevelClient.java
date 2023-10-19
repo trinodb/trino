@@ -30,6 +30,7 @@ import org.elasticsearch.action.search.ClearScrollResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchScrollRequest;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.rest.RestStatus;
@@ -86,19 +87,19 @@ public class BackpressureRestHighLevelClient
     public SearchResponse search(SearchRequest searchRequest)
             throws IOException
     {
-        return executeWithRetries(() -> delegate.search(searchRequest));
+        return executeWithRetries(() -> delegate.search(searchRequest, RequestOptions.DEFAULT));
     }
 
     public SearchResponse searchScroll(SearchScrollRequest searchScrollRequest)
             throws IOException
     {
-        return executeWithRetries(() -> delegate.searchScroll(searchScrollRequest));
+        return executeWithRetries(() -> delegate.scroll(searchScrollRequest, RequestOptions.DEFAULT));
     }
 
     public ClearScrollResponse clearScroll(ClearScrollRequest clearScrollRequest)
             throws IOException
     {
-        return executeWithRetries(() -> delegate.clearScroll(clearScrollRequest));
+        return executeWithRetries(() -> delegate.clearScroll(clearScrollRequest, RequestOptions.DEFAULT));
     }
 
     private static boolean isBackpressure(Throwable throwable)
