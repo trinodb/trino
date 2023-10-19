@@ -136,7 +136,7 @@ public class CheckpointEntryIterator
     private final boolean checkpointRowStatisticsWritingEnabled;
     private MetadataEntry metadataEntry;
     private ProtocolEntry protocolEntry;
-    private List<DeltaLakeColumnMetadata> schema; // Use DeltaLakeColumnMetadata?
+    private List<DeltaLakeColumnMetadata> schema;
     private List<DeltaLakeColumnMetadata> columnsWithMinMaxStats;
     private Page page;
     private long pageIndex;
