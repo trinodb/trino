@@ -16,6 +16,8 @@ package io.trino.plugin.ignite;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
@@ -31,6 +33,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.plugin.ignite.IgniteQueryRunner.createIgniteQueryRunner;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -94,6 +97,34 @@ public class TestIgniteConnectorTest
                     SUPPORTS_TRUNCATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Test
+    public void testLikeWithEscape()
+    {
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_like_with_escape",
+                "(id int, a varchar(4))",
+                List.of(
+                        "1, 'abce'",
+                        "2, 'abcd'",
+                        "3, 'a%de'"))) {
+            String tableName = testTable.getName();
+
+            assertThat(query("SELECT * FROM " + tableName + " WHERE a LIKE 'a%'"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + tableName + " WHERE a LIKE '%c%' ESCAPE '\\'"))
+                    .matches("VALUES (1, 'abce'), (2, 'abcd')")
+                    .isNotFullyPushedDown(node(FilterNode.class, node(TableScanNode.class)));
+
+            assertThat(query("SELECT * FROM " + tableName + " WHERE a LIKE 'a\\%d%' ESCAPE '\\'"))
+                    .matches("VALUES (3, 'a%de')")
+                    .isNotFullyPushedDown(node(FilterNode.class, node(TableScanNode.class)));
+
+            assertThatThrownBy(() -> onRemoteDatabase().execute("SELECT * FROM " + tableName + " WHERE a LIKE 'a%' ESCAPE '\\'"))
+                    .hasMessageContaining("Failed to execute statement");
+        }
     }
 
     @Test
