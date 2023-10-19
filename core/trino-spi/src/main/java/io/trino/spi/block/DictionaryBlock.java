@@ -582,7 +582,24 @@ public class DictionaryBlock
         if (loadedDictionary == dictionary) {
             return this;
         }
-        return new DictionaryBlock(idsOffset, getPositionCount(), loadedDictionary, ids, false, false, randomDictionaryId());
+        // The now-loaded dictionary instance has changed, but the new block is still compact and sequential if this block was
+        int uniqueIds = this.uniqueIds;
+        boolean compacted = uniqueIds != -1 && uniqueIds == loadedDictionary.getPositionCount();
+        DictionaryBlock newBlock = new DictionaryBlock(
+                idsOffset,
+                positionCount,
+                loadedDictionary,
+                ids,
+                compacted,
+                // the constructor only accepts true for compacted blocks
+                compacted && isSequentialIds,
+                // ids are unchanged, so we can share the same dictionarySourceId
+                dictionarySourceId);
+        // Propagate any known value for uniqueIds to the new block, even if it is not compacted
+        if (!compacted && uniqueIds != -1) {
+            newBlock.uniqueIds = uniqueIds;
+        }
+        return newBlock;
     }
 
     @Override
