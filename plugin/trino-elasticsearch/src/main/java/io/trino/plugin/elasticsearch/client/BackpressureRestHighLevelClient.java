@@ -23,7 +23,6 @@ import dev.failsafe.function.CheckedSupplier;
 import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
 import io.trino.plugin.elasticsearch.ElasticsearchConfig;
-import org.apache.http.Header;
 import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.search.ClearScrollRequest;
@@ -84,22 +83,22 @@ public class BackpressureRestHighLevelClient
         delegate.close();
     }
 
-    public SearchResponse search(SearchRequest searchRequest, Header... headers)
+    public SearchResponse search(SearchRequest searchRequest)
             throws IOException
     {
-        return executeWithRetries(() -> delegate.search(searchRequest, headers));
+        return executeWithRetries(() -> delegate.search(searchRequest));
     }
 
-    public SearchResponse searchScroll(SearchScrollRequest searchScrollRequest, Header... headers)
+    public SearchResponse searchScroll(SearchScrollRequest searchScrollRequest)
             throws IOException
     {
-        return executeWithRetries(() -> delegate.searchScroll(searchScrollRequest, headers));
+        return executeWithRetries(() -> delegate.searchScroll(searchScrollRequest));
     }
 
-    public ClearScrollResponse clearScroll(ClearScrollRequest clearScrollRequest, Header... headers)
+    public ClearScrollResponse clearScroll(ClearScrollRequest clearScrollRequest)
             throws IOException
     {
-        return executeWithRetries(() -> delegate.clearScroll(clearScrollRequest, headers));
+        return executeWithRetries(() -> delegate.clearScroll(clearScrollRequest));
     }
 
     private static boolean isBackpressure(Throwable throwable)
