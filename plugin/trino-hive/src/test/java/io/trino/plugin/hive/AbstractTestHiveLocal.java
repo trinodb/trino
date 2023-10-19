@@ -34,7 +34,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.MaterializedResult;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -45,8 +44,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.net.URI;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -241,7 +240,7 @@ public abstract class AbstractTestHiveLocal
     private void doTestSparkBucketedTableValidation(SchemaTableName tableName)
             throws Exception
     {
-        java.nio.file.Path externalLocation = copyResourceDirToTemporaryDirectory("spark_bucketed_nation");
+        Path externalLocation = copyResourceDirToTemporaryDirectory("spark_bucketed_nation");
         try {
             createExternalTable(
                     tableName,
@@ -257,7 +256,7 @@ public abstract class AbstractTestHiveLocal
                             BUCKETING_V1,
                             3,
                             ImmutableList.of(new SortingColumn("name", SortingColumn.Order.ASCENDING)))),
-                    new Path(URI.create("file://" + externalLocation.toString())));
+                    Location.of(externalLocation.toUri().toString()));
 
             assertReadFailsWithMessageMatching(ORC, tableName, "Hive table is corrupt\\. File '.*/.*' is for bucket [0-2], but contains a row for bucket [0-2].");
             markTableAsCreatedBySpark(tableName, "orc");
@@ -294,7 +293,7 @@ public abstract class AbstractTestHiveLocal
         }
     }
 
-    private void createExternalTable(SchemaTableName schemaTableName, HiveStorageFormat hiveStorageFormat, List<Column> columns, List<Column> partitionColumns, Optional<HiveBucketProperty> bucketProperty, Path externalLocation)
+    private void createExternalTable(SchemaTableName schemaTableName, HiveStorageFormat hiveStorageFormat, List<Column> columns, List<Column> partitionColumns, Optional<HiveBucketProperty> bucketProperty, Location externalLocation)
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
@@ -327,17 +326,17 @@ public abstract class AbstractTestHiveLocal
         }
     }
 
-    private java.nio.file.Path copyResourceDirToTemporaryDirectory(String resourceName)
+    private Path copyResourceDirToTemporaryDirectory(String resourceName)
             throws IOException
     {
-        java.nio.file.Path tempDir = java.nio.file.Files.createTempDirectory(getClass().getSimpleName()).normalize();
+        Path tempDir = java.nio.file.Files.createTempDirectory(getClass().getSimpleName()).normalize();
         log.info("Copying resource dir '%s' to %s", resourceName, tempDir);
         ClassPath.from(getClass().getClassLoader())
                 .getResources().stream()
                 .filter(resourceInfo -> resourceInfo.getResourceName().startsWith(resourceName))
                 .forEach(resourceInfo -> {
                     try {
-                        java.nio.file.Path target = tempDir.resolve(resourceInfo.getResourceName());
+                        Path target = tempDir.resolve(resourceInfo.getResourceName());
                         java.nio.file.Files.createDirectories(target.getParent());
                         try (InputStream inputStream = resourceInfo.asByteSource().openStream()) {
                             copy(inputStream, target);
