@@ -2181,7 +2181,11 @@ public class HiveMetadata
         if (isFullAcidTable(table.getParameters())) {
             for (PartitionUpdate update : partitionUpdates) {
                 String deltaSubdir = deltaSubdir(handle.getTransaction().getWriteId(), 0);
-                String directory = "%s/%s/%s".formatted(table.getStorage().getLocation(), update.getName(), deltaSubdir);
+                String directory = table.getStorage().getLocation();
+                if (!update.getName().isEmpty()) {
+                    directory += "/" + update.getName();
+                }
+                directory += "/" + deltaSubdir;
                 createOrcAcidVersionFile(session.getIdentity(), directory);
             }
         }
