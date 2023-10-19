@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -42,6 +43,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.jdbc.DefaultJdbcMetadata.createSyntheticColumn;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
@@ -65,14 +67,20 @@ public class TestDefaultJdbcMetadata
             throws Exception
     {
         database = new TestingDatabase();
-        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient(), Optional.empty()), false, ImmutableSet.of());
+        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient(),
+                Optional.empty()),
+                false,
+                ImmutableSet.of());
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
     }
 
     @Test
     public void testSupportsRetriesValidation()
     {
-        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient(), Optional.of(false)), false, ImmutableSet.of());
+        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient(),
+                Optional.of(false)),
+                false,
+                ImmutableSet.of());
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(new SchemaTableName("example", "numbers"), ImmutableList.of());
 
         assertThatThrownBy(() -> {
@@ -87,7 +95,10 @@ public class TestDefaultJdbcMetadata
     @Test
     public void testNonTransactionalInsertValidation()
     {
-        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient(), Optional.of(true)), false, ImmutableSet.of());
+        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient(),
+                Optional.of(true)),
+                false,
+                ImmutableSet.of());
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(new SchemaTableName("example", "numbers"), ImmutableList.of());
 
         ConnectorSession session = TestingConnectorSession.builder()
@@ -384,6 +395,34 @@ public class TestDefaultJdbcMetadata
                 .isEqualTo("SELECT \"TEXT\", \"VALUE\", count(*) AS \"_pfgnrtd_0\" " +
                         "FROM \"" + database.getDatabaseName() + "\".\"EXAMPLE\".\"NUMBERS\" " +
                         "GROUP BY GROUPING SETS ((\"TEXT\", \"VALUE\"), (\"TEXT\"))");
+    }
+
+    @Test
+    public void testColumnAliasTruncation()
+    {
+        assertThat(createSyntheticColumn(column("column_0"), 999).getColumnName())
+                .isEqualTo("column_0_999");
+        assertThat(createSyntheticColumn(column("column_with_over_twenty_characters"), 100).getColumnName())
+                .isEqualTo("column_with_over_twenty_ch_100");
+        assertThat(createSyntheticColumn(column("column_with_over_twenty_characters"), Integer.MAX_VALUE).getColumnName())
+                .isEqualTo("column_with_over_tw_2147483647");
+    }
+
+    @Test
+    public void testNegativeSyntheticId()
+    {
+        JdbcColumnHandle column = column("column_0");
+
+        assertThatThrownBy(() -> createSyntheticColumn(column, -2147483648)).isInstanceOf(VerifyException.class);
+    }
+
+    private static JdbcColumnHandle column(String columnName)
+    {
+        return JdbcColumnHandle.builder()
+                .setJdbcTypeHandle(JDBC_VARCHAR)
+                .setColumnType(VARCHAR)
+                .setColumnName(columnName)
+                .build();
     }
 
     private JdbcTableHandle applyCountAggregation(ConnectorSession session, ConnectorTableHandle tableHandle, List<List<ColumnHandle>> groupByColumns)

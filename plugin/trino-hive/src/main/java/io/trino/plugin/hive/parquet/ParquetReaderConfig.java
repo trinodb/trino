@@ -18,6 +18,7 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
+import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import io.trino.parquet.ParquetReaderOptions;
 import jakarta.validation.constraints.Max;
@@ -27,9 +28,13 @@ import jakarta.validation.constraints.NotNull;
 @DefunctConfig({
         "hive.parquet.fail-on-corrupted-statistics",
         "parquet.fail-on-corrupted-statistics",
+        "parquet.optimized-reader.enabled",
+        "parquet.optimized-nested-reader.enabled"
 })
 public class ParquetReaderConfig
 {
+    public static final String PARQUET_READER_MAX_SMALL_FILE_THRESHOLD = "15MB";
+
     private ParquetReaderOptions options = new ParquetReaderOptions();
 
     @Deprecated
@@ -116,32 +121,6 @@ public class ParquetReaderConfig
         return options.isUseColumnIndex();
     }
 
-    @Config("parquet.optimized-reader.enabled")
-    @ConfigDescription("Use optimized Parquet reader")
-    public ParquetReaderConfig setOptimizedReaderEnabled(boolean optimizedReaderEnabled)
-    {
-        options = options.withBatchColumnReaders(optimizedReaderEnabled);
-        return this;
-    }
-
-    public boolean isOptimizedReaderEnabled()
-    {
-        return options.useBatchColumnReaders();
-    }
-
-    @Config("parquet.optimized-nested-reader.enabled")
-    @ConfigDescription("Use optimized Parquet reader for nested columns")
-    public ParquetReaderConfig setOptimizedNestedReaderEnabled(boolean optimizedNestedReaderEnabled)
-    {
-        options = options.withBatchNestedColumnReaders(optimizedNestedReaderEnabled);
-        return this;
-    }
-
-    public boolean isOptimizedNestedReaderEnabled()
-    {
-        return options.useBatchNestedColumnReaders();
-    }
-
     @Config("parquet.use-bloom-filter")
     @ConfigDescription("Use Parquet Bloom filters")
     public ParquetReaderConfig setUseBloomFilter(boolean useBloomFilter)
@@ -153,6 +132,21 @@ public class ParquetReaderConfig
     public boolean isUseBloomFilter()
     {
         return options.useBloomFilter();
+    }
+
+    @Config("parquet.small-file-threshold")
+    @ConfigDescription("Size below which a parquet file will be read entirely")
+    public ParquetReaderConfig setSmallFileThreshold(DataSize smallFileThreshold)
+    {
+        options = options.withSmallFileThreshold(smallFileThreshold);
+        return this;
+    }
+
+    @NotNull
+    @MaxDataSize(PARQUET_READER_MAX_SMALL_FILE_THRESHOLD)
+    public DataSize getSmallFileThreshold()
+    {
+        return options.getSmallFileThreshold();
     }
 
     public ParquetReaderOptions toParquetReaderOptions()

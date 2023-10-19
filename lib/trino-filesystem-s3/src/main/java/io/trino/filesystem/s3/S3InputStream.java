@@ -139,14 +139,8 @@ final class S3InputStream
             return;
         }
 
-        if (length == null) {
-            seekStream();
-            super.skipNBytes(n);
-            return;
-        }
-
         long position = nextReadPosition + n;
-        if ((position < 0) || (position > length)) {
+        if ((position < 0) || (length != null && position > length)) {
             throw new EOFException("Unable to skip %s bytes (position=%s, fileSize=%s): %s".formatted(n, nextReadPosition, length, location));
         }
         nextReadPosition = position;
@@ -202,7 +196,9 @@ final class S3InputStream
             streamPosition = nextReadPosition;
         }
         catch (NoSuchKeyException e) {
-            throw new FileNotFoundException(location.toString());
+            var ex = new FileNotFoundException(location.toString());
+            ex.initCause(e);
+            throw ex;
         }
         catch (SdkException e) {
             throw new IOException("Failed to open S3 file: " + location, e);

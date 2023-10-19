@@ -17,36 +17,26 @@ import com.google.common.collect.ImmutableList;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseMongoConnectorSmokeTest
         extends BaseConnectorSmokeTest
 {
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_UPDATE:
-            case SUPPORTS_MERGE:
-            case SUPPORTS_TRUNCATE:
-                return false;
-
-            case SUPPORTS_RENAME_SCHEMA:
-                return false;
-
-            case SUPPORTS_CREATE_VIEW:
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
-                return false;
-
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                    SUPPORTS_CREATE_VIEW,
+                    SUPPORTS_MERGE,
+                    SUPPORTS_NOT_NULL_CONSTRAINT,
+                    SUPPORTS_RENAME_SCHEMA,
+                    SUPPORTS_TRUNCATE,
+                    SUPPORTS_UPDATE -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     @Test

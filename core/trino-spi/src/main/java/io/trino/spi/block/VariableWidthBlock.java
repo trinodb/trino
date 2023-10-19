@@ -16,6 +16,7 @@ package io.trino.spi.block;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.airlift.slice.XxHash64;
 import jakarta.annotation.Nullable;
 
 import java.util.Optional;
@@ -35,7 +36,7 @@ import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
 
 public class VariableWidthBlock
-        extends AbstractVariableWidthBlock
+        implements Block
 {
     private static final int INSTANCE_SIZE = instanceSize(VariableWidthBlock.class);
 
@@ -101,7 +102,6 @@ public class VariableWidthBlock
         return getPositionOffset(position);
     }
 
-    @Override
     protected final int getPositionOffset(int position)
     {
         return offsets[position + arrayOffset];
@@ -112,18 +112,6 @@ public class VariableWidthBlock
     {
         checkReadablePosition(this, position);
         return getPositionOffset(position + 1) - getPositionOffset(position);
-    }
-
-    @Override
-    public boolean mayHaveNull()
-    {
-        return valueIsNull != null;
-    }
-
-    @Override
-    protected boolean isEntryNull(int position)
-    {
-        return valueIsNull != null && valueIsNull[position + arrayOffset];
     }
 
     @Override
@@ -175,6 +163,12 @@ public class VariableWidthBlock
     }
 
     @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        return isNull(position) ? 0 : getSliceLength(position);
+    }
+
+    @Override
     public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(slice, slice.getRetainedSize());
@@ -183,6 +177,119 @@ public class VariableWidthBlock
             consumer.accept(valueIsNull, sizeOf(valueIsNull));
         }
         consumer.accept(this, INSTANCE_SIZE);
+    }
+
+    @Override
+    public byte getByte(int position, int offset)
+    {
+        checkReadablePosition(this, position);
+        return slice.getByte(getPositionOffset(position) + offset);
+    }
+
+    @Override
+    public short getShort(int position, int offset)
+    {
+        checkReadablePosition(this, position);
+        return slice.getShort(getPositionOffset(position) + offset);
+    }
+
+    @Override
+    public int getInt(int position, int offset)
+    {
+        checkReadablePosition(this, position);
+        return slice.getInt(getPositionOffset(position) + offset);
+    }
+
+    @Override
+    public long getLong(int position, int offset)
+    {
+        checkReadablePosition(this, position);
+        return slice.getLong(getPositionOffset(position) + offset);
+    }
+
+    @Override
+    public Slice getSlice(int position, int offset, int length)
+    {
+        checkReadablePosition(this, position);
+        return slice.slice(getPositionOffset(position) + offset, length);
+    }
+
+    @Override
+    public void writeSliceTo(int position, int offset, int length, SliceOutput output)
+    {
+        checkReadablePosition(this, position);
+        output.writeBytes(slice, getPositionOffset(position) + offset, length);
+    }
+
+    @Override
+    public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
+    {
+        checkReadablePosition(this, position);
+        Slice rawSlice = slice;
+        if (getSliceLength(position) < length) {
+            return false;
+        }
+        return otherBlock.bytesEqual(otherPosition, otherOffset, rawSlice, getPositionOffset(position) + offset, length);
+    }
+
+    @Override
+    public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
+    {
+        checkReadablePosition(this, position);
+        return slice.equals(getPositionOffset(position) + offset, length, otherSlice, otherOffset, length);
+    }
+
+    @Override
+    public long hash(int position, int offset, int length)
+    {
+        checkReadablePosition(this, position);
+        return XxHash64.hash(slice, getPositionOffset(position) + offset, length);
+    }
+
+    @Override
+    public int compareTo(int position, int offset, int length, Block otherBlock, int otherPosition, int otherOffset, int otherLength)
+    {
+        checkReadablePosition(this, position);
+        Slice rawSlice = slice;
+        if (getSliceLength(position) < length) {
+            throw new IllegalArgumentException("Length longer than value length");
+        }
+        return -otherBlock.bytesCompare(otherPosition, otherOffset, otherLength, rawSlice, getPositionOffset(position) + offset, length);
+    }
+
+    @Override
+    public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
+    {
+        checkReadablePosition(this, position);
+        return slice.compareTo(getPositionOffset(position) + offset, length, otherSlice, otherOffset, otherLength);
+    }
+
+    @Override
+    public boolean mayHaveNull()
+    {
+        return valueIsNull != null;
+    }
+
+    @Override
+    public boolean isNull(int position)
+    {
+        checkReadablePosition(this, position);
+        return valueIsNull != null && valueIsNull[position + arrayOffset];
+    }
+
+    @Override
+    public Block getSingleValueBlock(int position)
+    {
+        if (isNull(position)) {
+            return new VariableWidthBlock(0, 1, EMPTY_SLICE, new int[] {0, 0}, new boolean[] {true});
+        }
+
+        int offset = getPositionOffset(position);
+        int entrySize = getSliceLength(position);
+
+        Slice copy = slice.copy(offset, entrySize);
+
+        return new VariableWidthBlock(0, 1, copy, new int[] {0, copy.length()}, null);
     }
 
     @Override
@@ -230,12 +337,6 @@ public class VariableWidthBlock
     }
 
     @Override
-    protected Slice getRawSlice(int position)
-    {
-        return slice;
-    }
-
-    @Override
     public Block getRegion(int positionOffset, int length)
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
@@ -257,6 +358,12 @@ public class VariableWidthBlock
             return this;
         }
         return new VariableWidthBlock(0, length, newSlice, newOffsets, newValueIsNull);
+    }
+
+    @Override
+    public String getEncodingName()
+    {
+        return VariableWidthBlockEncoding.NAME;
     }
 
     @Override

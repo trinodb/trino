@@ -22,46 +22,16 @@ public interface OAuth2ServerConfigProvider
 {
     OAuth2ServerConfig get();
 
-    class OAuth2ServerConfig
+    record OAuth2ServerConfig(Optional<String> accessTokenIssuer, URI authUrl, URI tokenUrl, URI jwksUrl, Optional<URI> userinfoUrl, Optional<URI> endSessionUrl)
     {
-        private final Optional<String> accessTokenIssuer;
-        private final URI authUrl;
-        private final URI tokenUrl;
-        private final URI jwksUrl;
-        private final Optional<URI> userinfoUrl;
-
-        public OAuth2ServerConfig(Optional<String> accessTokenIssuer, URI authUrl, URI tokenUrl, URI jwksUrl, Optional<URI> userinfoUrl)
+        public OAuth2ServerConfig
         {
-            this.accessTokenIssuer = requireNonNull(accessTokenIssuer, "accessTokenIssuer is null");
-            this.authUrl = requireNonNull(authUrl, "authUrl is null");
-            this.tokenUrl = requireNonNull(tokenUrl, "tokenUrl is null");
-            this.jwksUrl = requireNonNull(jwksUrl, "jwksUrl is null");
-            this.userinfoUrl = requireNonNull(userinfoUrl, "userinfoUrl is null");
-        }
-
-        public Optional<String> getAccessTokenIssuer()
-        {
-            return accessTokenIssuer;
-        }
-
-        public URI getAuthUrl()
-        {
-            return authUrl;
-        }
-
-        public URI getTokenUrl()
-        {
-            return tokenUrl;
-        }
-
-        public URI getJwksUrl()
-        {
-            return jwksUrl;
-        }
-
-        public Optional<URI> getUserinfoUrl()
-        {
-            return userinfoUrl;
+            requireNonNull(accessTokenIssuer, "accessTokenIssuer is null");
+            requireNonNull(authUrl, "authUrl is null");
+            requireNonNull(tokenUrl, "tokenUrl is null");
+            requireNonNull(jwksUrl, "jwksUrl is null");
+            requireNonNull(userinfoUrl, "userinfoUrl is null");
+            requireNonNull(endSessionUrl, "endSessionUrl is null");
         }
     }
 }

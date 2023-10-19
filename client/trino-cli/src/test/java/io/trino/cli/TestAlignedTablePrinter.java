@@ -16,7 +16,7 @@ package io.trino.cli;
 import com.google.common.collect.ImmutableList;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.StringWriter;
 import java.util.Arrays;
@@ -300,9 +300,9 @@ public class TestAlignedTablePrinter
         return asList(rows);
     }
 
-    static byte[] bytes(String s)
+    static byte[] bytes(String value)
     {
-        return s.getBytes(UTF_8);
+        return value.getBytes(UTF_8);
     }
 
     static class KeyValue

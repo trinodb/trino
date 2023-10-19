@@ -13,18 +13,17 @@
  */
 package io.trino.operator.aggregation;
 
+import com.google.common.primitives.Longs;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.Type;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionXxHash64;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
-import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.trino.block.BlockAssertions.createArrayBigintBlock;
 import static io.trino.block.BlockAssertions.createBooleansBlock;
 import static io.trino.block.BlockAssertions.createDoublesBlock;
@@ -50,35 +49,35 @@ public class TestChecksumAggregation
     @Test
     public void testEmpty()
     {
-        assertAggregation(FUNCTION_RESOLUTION, QualifiedName.of("checksum"), fromTypes(BOOLEAN), null, createBooleansBlock());
+        assertAggregation(FUNCTION_RESOLUTION, "checksum", fromTypes(BOOLEAN), null, createBooleansBlock());
     }
 
     @Test
     public void testBoolean()
     {
         Block block = createBooleansBlock(null, null, true, false, false);
-        assertAggregation(FUNCTION_RESOLUTION, QualifiedName.of("checksum"), fromTypes(BOOLEAN), expectedChecksum(BOOLEAN, block), block);
+        assertAggregation(FUNCTION_RESOLUTION, "checksum", fromTypes(BOOLEAN), expectedChecksum(BOOLEAN, block), block);
     }
 
     @Test
     public void testLong()
     {
         Block block = createLongsBlock(null, 1L, 2L, 100L, null, Long.MAX_VALUE, Long.MIN_VALUE);
-        assertAggregation(FUNCTION_RESOLUTION, QualifiedName.of("checksum"), fromTypes(BIGINT), expectedChecksum(BIGINT, block), block);
+        assertAggregation(FUNCTION_RESOLUTION, "checksum", fromTypes(BIGINT), expectedChecksum(BIGINT, block), block);
     }
 
     @Test
     public void testDouble()
     {
         Block block = createDoublesBlock(null, 2.0, null, 3.0, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, Double.NaN);
-        assertAggregation(FUNCTION_RESOLUTION, QualifiedName.of("checksum"), fromTypes(DOUBLE), expectedChecksum(DOUBLE, block), block);
+        assertAggregation(FUNCTION_RESOLUTION, "checksum", fromTypes(DOUBLE), expectedChecksum(DOUBLE, block), block);
     }
 
     @Test
     public void testString()
     {
         Block block = createStringsBlock("a", "a", null, "b", "c");
-        assertAggregation(FUNCTION_RESOLUTION, QualifiedName.of("checksum"), fromTypes(VARCHAR), expectedChecksum(VARCHAR, block), block);
+        assertAggregation(FUNCTION_RESOLUTION, "checksum", fromTypes(VARCHAR), expectedChecksum(VARCHAR, block), block);
     }
 
     @Test
@@ -86,7 +85,7 @@ public class TestChecksumAggregation
     {
         Block block = createShortDecimalsBlock("11.11", "22.22", null, "33.33", "44.44");
         DecimalType shortDecimalType = createDecimalType(1);
-        assertAggregation(FUNCTION_RESOLUTION, QualifiedName.of("checksum"), fromTypes(createDecimalType(10, 2)), expectedChecksum(shortDecimalType, block), block);
+        assertAggregation(FUNCTION_RESOLUTION, "checksum", fromTypes(createDecimalType(10, 2)), expectedChecksum(shortDecimalType, block), block);
     }
 
     @Test
@@ -94,7 +93,7 @@ public class TestChecksumAggregation
     {
         Block block = createLongDecimalsBlock("11.11", "22.22", null, "33.33", "44.44");
         DecimalType longDecimalType = createDecimalType(19);
-        assertAggregation(FUNCTION_RESOLUTION, QualifiedName.of("checksum"), fromTypes(createDecimalType(19, 2)), expectedChecksum(longDecimalType, block), block);
+        assertAggregation(FUNCTION_RESOLUTION, "checksum", fromTypes(createDecimalType(19, 2)), expectedChecksum(longDecimalType, block), block);
     }
 
     @Test
@@ -102,7 +101,7 @@ public class TestChecksumAggregation
     {
         ArrayType arrayType = new ArrayType(BIGINT);
         Block block = createArrayBigintBlock(asList(null, asList(1L, 2L), asList(3L, 4L), asList(5L, 6L)));
-        assertAggregation(FUNCTION_RESOLUTION, QualifiedName.of("checksum"), fromTypes(arrayType), expectedChecksum(arrayType, block), block);
+        assertAggregation(FUNCTION_RESOLUTION, "checksum", fromTypes(arrayType), expectedChecksum(arrayType, block), block);
     }
 
     private static SqlVarbinary expectedChecksum(Type type, Block block)
@@ -117,6 +116,6 @@ public class TestChecksumAggregation
                 result += xxHash64Operator.xxHash64(block, i) * PRIME64;
             }
         }
-        return new SqlVarbinary(wrappedLongArray(result).getBytes());
+        return new SqlVarbinary(Longs.toByteArray(Long.reverseBytes(result)));
     }
 }

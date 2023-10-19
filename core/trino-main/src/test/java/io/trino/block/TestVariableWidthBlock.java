@@ -14,13 +14,12 @@
 package io.trino.block;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.VarcharType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
@@ -121,8 +120,8 @@ public class TestVariableWidthBlock
     @Test
     public void testCompactBlock()
     {
-        Slice compactSlice = Slices.copyOf(createExpectedValue(16));
-        Slice incompactSlice = Slices.copyOf(createExpectedValue(20)).slice(0, 16);
+        Slice compactSlice = createExpectedValue(16).copy();
+        Slice incompactSlice = createExpectedValue(20).copy().slice(0, 16);
         int[] offsets = {0, 1, 1, 2, 4, 8, 16};
         boolean[] valueIsNull = {false, true, false, false, false, false};
 
@@ -136,9 +135,8 @@ public class TestVariableWidthBlock
 
     private void assertVariableWithValues(Slice[] expectedValues)
     {
-        BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-        assertBlock(blockBuilder, expectedValues);
-        assertBlock(blockBuilder.build(), expectedValues);
+        Block block = createBlockBuilderWithValues(expectedValues).build();
+        assertBlock(block, expectedValues);
     }
 
     private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues)

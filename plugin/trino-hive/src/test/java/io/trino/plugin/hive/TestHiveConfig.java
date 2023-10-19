@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.TimeZone;
@@ -91,9 +91,6 @@ public class TestHiveConfig
                 .setPartitionStatisticsSampleSize(100)
                 .setIgnoreCorruptedStatistics(false)
                 .setCollectColumnStatisticsOnWrite(true)
-                .setS3SelectPushdownEnabled(false)
-                .setS3SelectExperimentalPushdownEnabled(false)
-                .setS3SelectPushdownMaxConnections(500)
                 .setTemporaryStagingDirectoryEnabled(true)
                 .setTemporaryStagingDirectoryPath("/tmp/presto-${USER}")
                 .setDelegateTransactionalManagedTableLocationToMetastore(false)
@@ -112,7 +109,6 @@ public class TestHiveConfig
                 .setProjectionPushdownEnabled(true)
                 .setDynamicFilteringWaitTimeout(new Duration(0, TimeUnit.MINUTES))
                 .setTimestampPrecision(HiveTimestampPrecision.DEFAULT_PRECISION)
-                .setOptimizeSymlinkListing(true)
                 .setIcebergCatalogName(null)
                 .setSizeBasedSplitWeightsEnabled(true)
                 .setMinimumAssignedSplitWeight(0.05)
@@ -178,9 +174,6 @@ public class TestHiveConfig
                 .put("hive.partition-statistics-sample-size", "1234")
                 .put("hive.ignore-corrupted-statistics", "true")
                 .put("hive.collect-column-statistics-on-write", "false")
-                .put("hive.s3select-pushdown.enabled", "true")
-                .put("hive.s3select-pushdown.experimental-textfile-pushdown-enabled", "true")
-                .put("hive.s3select-pushdown.max-connections", "1234")
                 .put("hive.temporary-staging-directory-enabled", "false")
                 .put("hive.temporary-staging-directory-path", "updated")
                 .put("hive.delegate-transactional-managed-table-location-to-metastore", "true")
@@ -199,7 +192,6 @@ public class TestHiveConfig
                 .put("hive.projection-pushdown-enabled", "false")
                 .put("hive.dynamic-filtering.wait-timeout", "10s")
                 .put("hive.timestamp-precision", "NANOSECONDS")
-                .put("hive.optimize-symlink-listing", "false")
                 .put("hive.iceberg-catalog-name", "iceberg")
                 .put("hive.size-based-split-weights-enabled", "false")
                 .put("hive.minimum-assigned-split-weight", "1.0")
@@ -262,9 +254,6 @@ public class TestHiveConfig
                 .setPartitionStatisticsSampleSize(1234)
                 .setIgnoreCorruptedStatistics(true)
                 .setCollectColumnStatisticsOnWrite(false)
-                .setS3SelectPushdownEnabled(true)
-                .setS3SelectExperimentalPushdownEnabled(true)
-                .setS3SelectPushdownMaxConnections(1234)
                 .setTemporaryStagingDirectoryEnabled(false)
                 .setTemporaryStagingDirectoryPath("updated")
                 .setDelegateTransactionalManagedTableLocationToMetastore(true)
@@ -283,7 +272,6 @@ public class TestHiveConfig
                 .setProjectionPushdownEnabled(false)
                 .setDynamicFilteringWaitTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setTimestampPrecision(HiveTimestampPrecision.NANOSECONDS)
-                .setOptimizeSymlinkListing(false)
                 .setIcebergCatalogName("iceberg")
                 .setSizeBasedSplitWeightsEnabled(false)
                 .setMinimumAssignedSplitWeight(1.0)

@@ -17,9 +17,7 @@ import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hive.formats.line.sequence.SequenceFileReaderFactory;
 import io.trino.hive.formats.line.simple.SimpleDeserializerFactory;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.HiveSessionProperties;
 
 import static java.lang.Math.toIntExact;
 
@@ -27,12 +25,10 @@ public class SimpleSequenceFilePageSourceFactory
         extends LinePageSourceFactory
 {
     @Inject
-    public SimpleSequenceFilePageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory, FileFormatDataSourceStats stats, HiveConfig config)
+    public SimpleSequenceFilePageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory, HiveConfig config)
     {
         super(trinoFileSystemFactory,
-                stats,
                 new SimpleDeserializerFactory(),
-                new SequenceFileReaderFactory(1024, toIntExact(config.getTextMaxLineLength().toBytes())),
-                HiveSessionProperties::isSequenceFileNativeReaderEnabled);
+                new SequenceFileReaderFactory(1024, toIntExact(config.getTextMaxLineLength().toBytes())));
     }
 }

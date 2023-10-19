@@ -19,6 +19,7 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.jdbc.BaseJdbcConnectionCreationTest;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
@@ -61,7 +62,7 @@ public class TestPostgreSqlJdbcConnectionCreation
         CredentialProvider credentialProvider = new StaticCredentialProvider(
                 Optional.of(postgreSqlServer.getUser()),
                 Optional.of(postgreSqlServer.getPassword()));
-        DriverConnectionFactory delegate = new DriverConnectionFactory(new Driver(), postgreSqlServer.getJdbcUrl(), connectionProperties, credentialProvider);
+        DriverConnectionFactory delegate = new DriverConnectionFactory(new Driver(), postgreSqlServer.getJdbcUrl(), connectionProperties, credentialProvider, OpenTelemetry.noop());
         this.connectionFactory = new ConnectionCountingConnectionFactory(delegate);
         return createPostgreSqlQueryRunner(postgreSqlServer, ImmutableList.of(NATION, REGION), connectionFactory);
     }
@@ -91,7 +92,7 @@ public class TestPostgreSqlJdbcConnectionCreation
                 {"CREATE TABLE copy_of_nation AS SELECT * FROM nation", 6, Optional.empty()},
                 {"INSERT INTO copy_of_nation SELECT * FROM nation", 6, Optional.empty()},
                 {"DELETE FROM copy_of_nation WHERE nationkey = 3", 1, Optional.empty()},
-                {"UPDATE copy_of_nation SET name = 'POLAND' WHERE nationkey = 1", 1, Optional.of(MODIFYING_ROWS_MESSAGE)},
+                {"UPDATE copy_of_nation SET name = 'POLAND' WHERE nationkey = 1", 1, Optional.empty()},
                 {"MERGE INTO copy_of_nation n USING region r ON r.regionkey= n.regionkey WHEN MATCHED THEN DELETE", 1, Optional.of(MODIFYING_ROWS_MESSAGE)},
                 {"DROP TABLE copy_of_nation", 1, Optional.empty()},
                 {"SHOW SCHEMAS", 1, Optional.empty()},

@@ -173,8 +173,7 @@ public class IcebergSplit
         ToStringHelper helper = toStringHelper(this)
                 .addValue(path)
                 .add("start", start)
-                .add("length", length)
-                .add("records", fileRecordCount);
+                .add("length", length);
         if (!deletes.isEmpty()) {
             helper.add("deleteFiles", deletes.size());
             helper.add("deleteRecords", deletes.stream()

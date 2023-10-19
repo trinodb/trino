@@ -19,6 +19,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
 import io.trino.testing.QueryRunner;
@@ -46,7 +47,7 @@ public class TestJdbcConnectionCreation
             throws Exception
     {
         String connectionUrl = createH2ConnectionUrl();
-        DriverConnectionFactory delegate = new DriverConnectionFactory(new Driver(), connectionUrl, new Properties(), new EmptyCredentialProvider());
+        DriverConnectionFactory delegate = new DriverConnectionFactory(new Driver(), connectionUrl, new Properties(), new EmptyCredentialProvider(), OpenTelemetry.noop());
         this.connectionFactory = new ConnectionCountingConnectionFactory(delegate);
         return createH2QueryRunner(
                 ImmutableList.of(NATION, REGION),
@@ -80,7 +81,7 @@ public class TestJdbcConnectionCreation
                 {"CREATE TABLE copy_of_nation AS SELECT * FROM nation", 6, Optional.empty()},
                 {"INSERT INTO copy_of_nation SELECT * FROM nation", 6, Optional.empty()},
                 {"DELETE FROM copy_of_nation WHERE nationkey = 3", 1, Optional.empty()},
-                {"UPDATE copy_of_nation SET name = 'POLAND' WHERE nationkey = 1", 1, Optional.of(MODIFYING_ROWS_MESSAGE)},
+                {"UPDATE copy_of_nation SET name = 'POLAND' WHERE nationkey = 1", 1, Optional.empty()},
                 {"MERGE INTO copy_of_nation n USING region r ON r.regionkey= n.regionkey WHEN MATCHED THEN DELETE", 1, Optional.of(MODIFYING_ROWS_MESSAGE)},
                 {"DROP TABLE copy_of_nation", 1, Optional.empty()},
                 {"SHOW SCHEMAS", 1, Optional.empty()},

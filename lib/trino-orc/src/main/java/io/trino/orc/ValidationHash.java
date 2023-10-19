@@ -14,8 +14,13 @@
 package io.trino.orc;
 
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.type.AbstractLongType;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -26,9 +31,6 @@ import java.lang.invoke.MethodType;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.type.StandardTypes.ARRAY;
-import static io.trino.spi.type.StandardTypes.MAP;
-import static io.trino.spi.type.StandardTypes.ROW;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
@@ -48,15 +50,15 @@ class ValidationHash
             MAP_HASH = lookup().findStatic(
                     ValidationHash.class,
                     "mapSkipNullKeysHash",
-                    MethodType.methodType(long.class, Type.class, ValidationHash.class, ValidationHash.class, Block.class, int.class));
+                    MethodType.methodType(long.class, MapType.class, ValidationHash.class, ValidationHash.class, Block.class, int.class));
             ARRAY_HASH = lookup().findStatic(
                     ValidationHash.class,
                     "arrayHash",
-                    MethodType.methodType(long.class, Type.class, ValidationHash.class, Block.class, int.class));
+                    MethodType.methodType(long.class, ArrayType.class, ValidationHash.class, Block.class, int.class));
             ROW_HASH = lookup().findStatic(
                     ValidationHash.class,
                     "rowHash",
-                    MethodType.methodType(long.class, Type.class, ValidationHash[].class, Block.class, int.class));
+                    MethodType.methodType(long.class, RowType.class, ValidationHash[].class, Block.class, int.class));
             TIMESTAMP_HASH = lookup().findStatic(
                     ValidationHash.class,
                     "timestampHash",
@@ -67,28 +69,28 @@ class ValidationHash
         }
     }
 
-    // This should really come from the environment, but there is not good way to get a value here
+    // This should really come from the environment, but there is no good way to get a value here
     private static final TypeOperators VALIDATION_TYPE_OPERATORS_CACHE = new TypeOperators();
 
     public static ValidationHash createValidationHash(Type type)
     {
         requireNonNull(type, "type is null");
-        if (type.getTypeSignature().getBase().equals(MAP)) {
-            ValidationHash keyHash = createValidationHash(type.getTypeParameters().get(0));
-            ValidationHash valueHash = createValidationHash(type.getTypeParameters().get(1));
-            return new ValidationHash(MAP_HASH.bindTo(type).bindTo(keyHash).bindTo(valueHash));
+        if (type instanceof MapType mapType) {
+            ValidationHash keyHash = createValidationHash(mapType.getKeyType());
+            ValidationHash valueHash = createValidationHash(mapType.getValueType());
+            return new ValidationHash(MAP_HASH.bindTo(mapType).bindTo(keyHash).bindTo(valueHash));
         }
 
-        if (type.getTypeSignature().getBase().equals(ARRAY)) {
-            ValidationHash elementHash = createValidationHash(type.getTypeParameters().get(0));
-            return new ValidationHash(ARRAY_HASH.bindTo(type).bindTo(elementHash));
+        if (type instanceof ArrayType arrayType) {
+            ValidationHash elementHash = createValidationHash(arrayType.getElementType());
+            return new ValidationHash(ARRAY_HASH.bindTo(arrayType).bindTo(elementHash));
         }
 
-        if (type.getTypeSignature().getBase().equals(ROW)) {
+        if (type instanceof RowType rowType) {
             ValidationHash[] fieldHashes = type.getTypeParameters().stream()
                     .map(ValidationHash::createValidationHash)
                     .toArray(ValidationHash[]::new);
-            return new ValidationHash(ROW_HASH.bindTo(type).bindTo(fieldHashes));
+            return new ValidationHash(ROW_HASH.bindTo(rowType).bindTo(fieldHashes));
         }
 
         if (type.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP)) {
@@ -119,21 +121,25 @@ class ValidationHash
         }
     }
 
-    private static long mapSkipNullKeysHash(Type type, ValidationHash keyHash, ValidationHash valueHash, Block block, int position)
+    private static long mapSkipNullKeysHash(MapType type, ValidationHash keyHash, ValidationHash valueHash, Block block, int position)
     {
-        Block mapBlock = (Block) type.getObject(block, position);
+        SqlMap sqlMap = type.getObject(block, position);
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+
         long hash = 0;
-        for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-            if (!mapBlock.isNull(i)) {
-                hash += keyHash.hash(mapBlock, i) ^ valueHash.hash(mapBlock, i + 1);
+        for (int i = 0; i < sqlMap.getSize(); i++) {
+            if (!rawKeyBlock.isNull(rawOffset + i)) {
+                hash += keyHash.hash(rawKeyBlock, rawOffset + i) ^ valueHash.hash(rawValueBlock, rawOffset + i);
             }
         }
         return hash;
     }
 
-    private static long arrayHash(Type type, ValidationHash elementHash, Block block, int position)
+    private static long arrayHash(ArrayType type, ValidationHash elementHash, Block block, int position)
     {
-        Block array = (Block) type.getObject(block, position);
+        Block array = type.getObject(block, position);
         long hash = 0;
         for (int i = 0; i < array.getPositionCount(); i++) {
             hash = 31 * hash + elementHash.hash(array, i);
@@ -141,12 +147,13 @@ class ValidationHash
         return hash;
     }
 
-    private static long rowHash(Type type, ValidationHash[] fieldHashes, Block block, int position)
+    private static long rowHash(RowType type, ValidationHash[] fieldHashes, Block block, int position)
     {
-        Block row = (Block) type.getObject(block, position);
+        SqlRow row = type.getObject(block, position);
+        int rawIndex = row.getRawIndex();
         long hash = 0;
-        for (int i = 0; i < row.getPositionCount(); i++) {
-            hash = 31 * hash + fieldHashes[i].hash(row, i);
+        for (int i = 0; i < row.getFieldCount(); i++) {
+            hash = 31 * hash + fieldHashes[i].hash(row.getRawFieldBlock(i), rawIndex);
         }
         return hash;
     }
@@ -155,7 +162,7 @@ class ValidationHash
     {
         // A flaw in ORC encoding makes it impossible to represent timestamp
         // between 1969-12-31 23:59:59.000, exclusive, and 1970-01-01 00:00:00.000, exclusive.
-        // Therefore, such data won't round trip. The data read back is expected to be 1 second later than the original value.
+        // Therefore, such data won't roundtrip. The data read back is expected to be 1 second later than the original value.
         long millis = TIMESTAMP_MILLIS.getLong(block, position);
         if (millis > -1000 && millis < 0) {
             millis += 1000;

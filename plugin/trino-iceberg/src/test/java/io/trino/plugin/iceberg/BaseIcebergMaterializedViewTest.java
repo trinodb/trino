@@ -86,6 +86,18 @@ public abstract class BaseIcebergMaterializedViewTest
     }
 
     @Test
+    public void testCommentColumnMaterializedView()
+    {
+        String viewColumnName = "_bigint";
+        String materializedViewName = "test_materialized_view_" + randomNameSuffix();
+        assertUpdate(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM base_table1", materializedViewName));
+        assertUpdate(format("COMMENT ON COLUMN %s.%s IS 'new comment'", materializedViewName, viewColumnName));
+        assertThat(getColumnComment(materializedViewName, viewColumnName)).isEqualTo("new comment");
+        assertQuery(format("SELECT count(*) FROM %s", materializedViewName), "VALUES 6");
+        assertUpdate(format("DROP MATERIALIZED VIEW %s", materializedViewName));
+    }
+
+    @Test
     public void testMaterializedViewsMetadata()
     {
         String catalogName = getSession().getCatalog().orElseThrow();
@@ -775,6 +787,11 @@ public abstract class BaseIcebergMaterializedViewTest
                 {"hour", "timestamp(6)", "TIMESTAMP '2005-09-10 13:31:00.123456'"},
                 {"hour", "timestamp(6) with time zone", "TIMESTAMP '2005-09-10 13:00:00.123456 Europe/Warsaw'"},
         };
+    }
+
+    protected String getColumnComment(String tableName, String columnName)
+    {
+        return (String) computeScalar("SELECT comment FROM information_schema.columns WHERE table_schema = '" + getSession().getSchema().orElseThrow() + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'");
     }
 
     private SchemaTableName getStorageTable(String materializedViewName)

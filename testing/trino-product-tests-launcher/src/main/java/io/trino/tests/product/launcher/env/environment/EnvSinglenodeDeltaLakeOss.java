@@ -41,7 +41,6 @@ import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
 import static io.trino.tests.product.launcher.env.common.Minio.MINIO_CONTAINER_NAME;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -86,11 +85,6 @@ public class EnvSinglenodeDeltaLakeOss
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        // Using hdp3.1 so we are using Hive metastore with version close to versions of  hive-*.jars Spark uses
-        builder.configureContainer(HADOOP, container -> {
-            container.setDockerImageName("ghcr.io/trinodb/testing/hdp3.1-hive:" + hadoopImagesVersion);
-        });
-
         builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
         builder.addConnector(
                 "delta_lake",
@@ -98,10 +92,7 @@ public class EnvSinglenodeDeltaLakeOss
                 CONTAINER_TRINO_ETC + "/catalog/delta.properties");
 
         builder.configureContainer(TESTS, dockerContainer -> {
-            dockerContainer.withEnv("S3_BUCKET", S3_BUCKET_NAME)
-                    .withCopyFileToContainer(
-                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-hive3.yaml")),
-                            CONTAINER_TEMPTO_PROFILE_CONFIG);
+            dockerContainer.withEnv("S3_BUCKET", S3_BUCKET_NAME);
         });
 
         builder.addContainer(createSparkContainer())

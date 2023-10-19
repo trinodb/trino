@@ -16,6 +16,7 @@ package io.trino.plugin.base.security;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 
@@ -149,6 +150,12 @@ public class ReadOnlyAccessControl
     }
 
     @Override
+    public Map<SchemaTableName, Set<String>> filterColumns(ConnectorSecurityContext context, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        return tableColumns;
+    }
+
+    @Override
     public void checkCanRenameColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyRenameColumn(tableName.toString());
@@ -251,12 +258,6 @@ public class ReadOnlyAccessControl
     }
 
     @Override
-    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context)
-    {
-        // allow
-    }
-
-    @Override
     public void checkCanShowRoles(ConnectorSecurityContext context)
     {
         // allow
@@ -272,5 +273,17 @@ public class ReadOnlyAccessControl
     public void checkCanShowRoleGrants(ConnectorSecurityContext context)
     {
         // allow
+    }
+
+    @Override
+    public void checkCanShowFunctions(ConnectorSecurityContext context, String schemaName)
+    {
+        // allow
+    }
+
+    @Override
+    public Set<SchemaFunctionName> filterFunctions(ConnectorSecurityContext context, Set<SchemaFunctionName> functionNames)
+    {
+        return functionNames;
     }
 }

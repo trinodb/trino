@@ -18,6 +18,7 @@ import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.decoder.DispatchingRowDecoderFactory;
 import io.trino.decoder.RowDecoder;
+import io.trino.decoder.RowDecoderSpec;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
@@ -26,11 +27,11 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.RecordSet;
 
-import java.util.HashMap;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public class KinesisRecordSetProvider
@@ -76,11 +77,13 @@ public class KinesisRecordSetProvider
         ImmutableList.Builder<KinesisColumnHandle> handleBuilder = ImmutableList.builder();
 
         RowDecoder messageDecoder = decoderFactory.create(
-                kinesisSplit.getMessageDataFormat(),
-                new HashMap<>(),
-                kinesisColumns.stream()
-                        .filter(column -> !column.isInternal())
-                        .collect(toImmutableSet()));
+                session,
+                new RowDecoderSpec(
+                        kinesisSplit.getMessageDataFormat(),
+                        emptyMap(),
+                        kinesisColumns.stream()
+                                .filter(column -> !column.isInternal())
+                                .collect(toImmutableSet())));
 
         for (ColumnHandle handle : columns) {
             KinesisColumnHandle columnHandle = (KinesisColumnHandle) handle;

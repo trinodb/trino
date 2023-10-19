@@ -662,17 +662,21 @@ public class JsonDeserializer
     {
         private static final Pattern INTERNAL_PATTERN = Pattern.compile("_col([0-9]+)");
 
-        private final List<String> fieldNames;
+        private final Map<String, Integer> fieldPositions;
         private final List<Decoder> fieldDecoders;
         private final IntUnaryOperator ordinalToFieldPosition;
 
         public RowDecoder(RowType rowType, List<Decoder> fieldDecoders, IntUnaryOperator ordinalToFieldPosition)
         {
             super(rowType);
-            this.fieldNames = rowType.getFields().stream()
-                    .map(field -> field.getName().orElseThrow())
-                    .map(fieldName -> fieldName.toLowerCase(Locale.ROOT))
-                    .collect(toImmutableList());
+
+            ImmutableMap.Builder<String, Integer> fieldPositions = ImmutableMap.builder();
+            List<Field> fields = rowType.getFields();
+            for (int i = 0; i < fields.size(); i++) {
+                Field field = fields.get(i);
+                fieldPositions.put(field.getName().orElseThrow().toLowerCase(Locale.ROOT), i);
+            }
+            this.fieldPositions = fieldPositions.buildOrThrow();
             this.fieldDecoders = fieldDecoders;
             this.ordinalToFieldPosition = ordinalToFieldPosition;
         }
@@ -699,7 +703,7 @@ public class JsonDeserializer
             }
 
             int[] jsonToRowIndex = getJsonToRowIndex(lineBuffer, parser);
-            boolean[] fieldWritten = new boolean[fieldNames.size()];
+            boolean[] fieldWritten = new boolean[fieldDecoders.size()];
 
             int jsonFieldIndex = 0;
             while (nextObjectField(parser)) {
@@ -733,7 +737,7 @@ public class JsonDeserializer
             }
 
             // build a mapping from field in the row to the field in the json object
-            int[] rowToJson = new int[fieldNames.size()];
+            int[] rowToJson = new int[fieldDecoders.size()];
             Arrays.fill(rowToJson, -1);
 
             int jsonFieldIndex = 0;
@@ -762,8 +766,8 @@ public class JsonDeserializer
 
         private int getFieldPosition(String fieldName)
         {
-            int fieldPosition = fieldNames.indexOf(fieldName.toLowerCase(Locale.ROOT));
-            if (fieldPosition >= 0) {
+            Integer fieldPosition = fieldPositions.get(fieldName.toLowerCase(Locale.ROOT));
+            if (fieldPosition != null) {
                 return fieldPosition;
             }
 

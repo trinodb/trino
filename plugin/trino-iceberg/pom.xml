@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>423-SNAPSHOT</version>
+        <version>430-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -117,6 +117,11 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-cache</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-filesystem</artifactId>
         </dependency>
 
@@ -137,11 +142,6 @@
                 <exclusion>
                     <groupId>io.airlift</groupId>
                     <artifactId>http-client</artifactId>
-                </exclusion>
-                <!-- TODO: remove when removed from trino-hive -->
-                <exclusion>
-                    <groupId>io.trino.hive</groupId>
-                    <artifactId>hive-apache</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -250,6 +250,11 @@
         </dependency>
 
         <dependency>
+            <groupId>org.gaul</groupId>
+            <artifactId>modernizer-maven-annotations</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.jdbi</groupId>
             <artifactId>jdbi3-core</artifactId>
         </dependency>
@@ -343,6 +348,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.opentelemetry.instrumentation</groupId>
+            <artifactId>opentelemetry-aws-sdk-1.11</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-hadoop-toolkit</artifactId>
             <scope>runtime</scope>
@@ -395,6 +406,12 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
@@ -417,6 +434,12 @@
 
         <dependency>
             <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-sdk-testing</artifactId>
             <scope>test</scope>
         </dependency>
@@ -424,6 +447,12 @@
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-sdk-trace</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-blackhole</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -505,6 +534,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.trino.hive</groupId>
+            <artifactId>hive-apache</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino.tpch</groupId>
             <artifactId>tpch</artifactId>
             <scope>test</scope>
@@ -562,7 +597,7 @@
         <dependency>
             <groupId>org.xerial</groupId>
             <artifactId>sqlite-jdbc</artifactId>
-            <version>3.36.0.3</version>
+            <version>3.43.0.0</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

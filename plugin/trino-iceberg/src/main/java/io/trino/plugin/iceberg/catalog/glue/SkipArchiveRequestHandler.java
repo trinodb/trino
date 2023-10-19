@@ -28,18 +28,11 @@ import com.amazonaws.services.glue.model.UpdateTableRequest;
 public class SkipArchiveRequestHandler
         extends RequestHandler2
 {
-    private final boolean skipArchive;
-
-    public SkipArchiveRequestHandler(boolean skipArchive)
-    {
-        this.skipArchive = skipArchive;
-    }
-
     @Override
     public AmazonWebServiceRequest beforeExecution(AmazonWebServiceRequest request)
     {
         if (request instanceof UpdateTableRequest updateTableRequest) {
-            return updateTableRequest.withSkipArchive(skipArchive);
+            return updateTableRequest.withSkipArchive(true);
         }
         if (request instanceof CreateDatabaseRequest ||
                 request instanceof DeleteDatabaseRequest ||

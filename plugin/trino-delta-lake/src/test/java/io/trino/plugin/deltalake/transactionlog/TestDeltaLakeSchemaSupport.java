@@ -39,7 +39,9 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -67,7 +69,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.testng.Assert.assertEquals;
 
 public class TestDeltaLakeSchemaSupport
@@ -164,6 +166,28 @@ public class TestDeltaLakeSchemaSupport
                         Optional.of(ImmutableMap.of("c", 51)),
                         Optional.of(ImmutableMap.of("c", 1L)))),
                 "{\"numRecords\":100,\"minValues\":{\"c\":42},\"maxValues\":{\"c\":51},\"nullCount\":{\"c\":1}}");
+    }
+
+    @Test
+    public void testSerializeStatisticsWithNullValuesAsJson()
+            throws JsonProcessingException
+    {
+        Map<String, Object> minValues = new HashMap<>();
+        Map<String, Object> maxValues = new HashMap<>();
+
+        // Case where the file contains one record and the column `c1` is a null in the record.
+        minValues.put("c1", null);
+        maxValues.put("c1", null);
+        minValues.put("c2", 10);
+        maxValues.put("c2", 26);
+
+        assertEquals(serializeStatsAsJson(
+                        new DeltaLakeJsonFileStatistics(
+                                Optional.of(1L),
+                                Optional.of(minValues),
+                                Optional.of(maxValues),
+                                Optional.of(ImmutableMap.of("c1", 1L, "c2", 0L)))),
+                "{\"numRecords\":1,\"minValues\":{\"c2\":10},\"maxValues\":{\"c2\":26},\"nullCount\":{\"c1\":1,\"c2\":0}}");
     }
 
     @Test

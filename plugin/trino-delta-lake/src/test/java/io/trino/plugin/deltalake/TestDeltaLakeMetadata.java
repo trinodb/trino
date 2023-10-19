@@ -31,6 +31,7 @@ import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
+import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
@@ -93,8 +94,8 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDeltaLakeMetadata
 {
@@ -529,6 +530,7 @@ public class TestDeltaLakeMetadata
                 true,
                 "test_location",
                 createMetadataEntry(),
+                new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),
                 createConstrainedColumnsTuple(constrainedColumns),
                 TupleDomain.all(),
                 Optional.of(DeltaLakeTableHandle.WriteType.UPDATE),

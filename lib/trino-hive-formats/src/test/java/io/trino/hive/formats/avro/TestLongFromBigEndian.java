@@ -23,8 +23,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.fitBigEndianValueToByteArraySize;
 import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.fromBigEndian;
 import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.padBigEndianToSize;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestLongFromBigEndian
 {

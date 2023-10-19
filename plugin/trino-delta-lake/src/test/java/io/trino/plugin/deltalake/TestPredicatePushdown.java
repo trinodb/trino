@@ -23,7 +23,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 import org.testng.asserts.SoftAssert;
 
 import java.nio.file.Path;
@@ -39,7 +39,7 @@ import static org.testng.Assert.assertEquals;
 public class TestPredicatePushdown
         extends AbstractTestQueryFramework
 {
-    private static final Path RESOURCE_PATH = Path.of("databricks/pushdown/");
+    private static final Path RESOURCE_PATH = Path.of("databricks73/pushdown/");
     private static final String TEST_SCHEMA = "default";
 
     private final String bucketName = "delta-test-pushdown-" + randomNameSuffix();

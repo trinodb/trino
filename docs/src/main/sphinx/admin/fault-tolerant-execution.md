@@ -553,7 +553,9 @@ exchange.base-directories=s3://exchange-spooling-bucket-1,s3://exchange-spooling
 #### Azure Blob Storage
 
 The following example `exchange-manager.properties` configuration specifies an
-Azure Blob Storage container as the spooling storage destination.
+Azure Blob Storage container as the spooling storage destination. You must use
+Azure Blob Storage, not Azure Data Lake Storage or any other hierarchical
+storage option in Azure.
 
 ```properties
 exchange-manager.name=filesystem

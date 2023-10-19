@@ -36,17 +36,25 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.function.AggregationFunctionMetadata;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
@@ -70,6 +78,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 
 import static io.trino.spi.function.OperatorType.CAST;
 
@@ -171,7 +180,13 @@ public interface Metadata
      * Gets the columns metadata for all tables that match the specified prefix.
      * TODO: consider returning a stream for more efficient processing
      */
-    List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix);
+    List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix, UnaryOperator<Set<SchemaTableName>> relationFilter);
+
+    /**
+     * Gets the comments metadata for all relations (tables, views, materialized views) that match the specified prefix.
+     * TODO: consider returning a stream for more efficient processing
+     */
+    List<RelationCommentMetadata> listRelationComments(Session session, String catalogName, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter);
 
     /**
      * Creates a schema.
@@ -258,6 +273,11 @@ public interface Metadata
     void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type);
 
     /**
+     * Set the specified type to the field.
+     */
+    void setFieldType(Session session, TableHandle tableHandle, List<String> fieldPath, Type type);
+
+    /**
      * Set the authorization (owner) of specified table's user/role
      */
     void setTableAuthorization(Session session, CatalogSchemaTableName table, TrinoPrincipal principal);
@@ -285,6 +305,11 @@ public interface Metadata
     void truncateTable(Session session, TableHandle tableHandle);
 
     Optional<TableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
+
+    /**
+     * Return the effective {@link io.trino.spi.type.Type} that is supported by the connector for the given type, if {@link Optional#empty()} is returned, the type will be used as is during table creation which may or may not be supported by the connector.
+     */
+    Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Map<String, Object> tableProperties, Type type);
 
     /**
      * Begin the atomic creation of a table with data.
@@ -317,6 +342,11 @@ public interface Metadata
      * Finish statistics collection
      */
     void finishStatisticsCollection(Session session, AnalyzeTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics);
+
+    /**
+     * Initialize before query begins
+     */
+    void beginQuery(Session session);
 
     /**
      * Cleanup after a query. This is the very last notification after the query finishes, regardless if it succeeds or fails.
@@ -364,6 +394,16 @@ public interface Metadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles);
+
+    /**
+     * Push update into connector
+     */
+    Optional<TableHandle> applyUpdate(Session session, TableHandle tableHandle, Map<ColumnHandle, Constant> assignments);
+
+    /**
+     * Execute update in connector
+     */
+    OptionalLong executeUpdate(Session session, TableHandle tableHandle);
 
     /**
      * Push delete into connector
@@ -626,35 +666,31 @@ public interface Metadata
     // Functions
     //
 
-    Collection<FunctionMetadata> listFunctions(Session session);
+    Collection<FunctionMetadata> listGlobalFunctions(Session session);
+
+    Collection<FunctionMetadata> listFunctions(Session session, CatalogSchemaName schema);
 
     ResolvedFunction decodeFunction(QualifiedName name);
 
-    ResolvedFunction resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes);
+    Collection<CatalogFunctionMetadata> getFunctions(Session session, CatalogSchemaFunctionName catalogSchemaFunctionName);
 
-    ResolvedFunction resolveOperator(Session session, OperatorType operatorType, List<? extends Type> argumentTypes)
+    ResolvedFunction resolveBuiltinFunction(String name, List<TypeSignatureProvider> parameterTypes);
+
+    ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException;
 
-    default ResolvedFunction getCoercion(Session session, Type fromType, Type toType)
+    default ResolvedFunction getCoercion(Type fromType, Type toType)
     {
-        return getCoercion(session, CAST, fromType, toType);
+        return getCoercion(CAST, fromType, toType);
     }
 
-    ResolvedFunction getCoercion(Session session, OperatorType operatorType, Type fromType, Type toType);
+    ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType);
 
-    ResolvedFunction getCoercion(Session session, QualifiedName name, Type fromType, Type toType);
-
-    /**
-     * Is the named function an aggregation function?  This does not need type parameters
-     * because overloads between aggregation and other function types are not allowed.
-     */
-    boolean isAggregationFunction(Session session, QualifiedName name);
-
-    boolean isWindowFunction(Session session, QualifiedName name);
-
-    FunctionMetadata getFunctionMetadata(Session session, ResolvedFunction resolvedFunction);
+    ResolvedFunction getCoercion(CatalogSchemaFunctionName name, Type fromType, Type toType);
 
     AggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction);
+
+    FunctionDependencyDeclaration getFunctionDependencies(Session session, CatalogHandle catalogHandle, FunctionId functionId, BoundSignature boundSignature);
 
     /**
      * Creates the specified materialized view with the specified view definition.
@@ -706,6 +742,11 @@ public interface Metadata
     void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Optional<Object>> properties);
 
     /**
+     * Comments to the specified materialized view column.
+     */
+    void setMaterializedViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment);
+
+    /**
      * Returns the result of redirecting the table scan on a given table to a different table.
      * This method is used by the engine during the plan optimization phase to allow a connector to offload table scans to any other connector.
      * This method is called after security checks against the original table.
@@ -723,16 +764,6 @@ public interface Metadata
     RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
 
     /**
-     * Returns true if the connector reports number of written bytes for an existing table. Otherwise, it returns false.
-     */
-    boolean supportsReportingWrittenBytes(Session session, TableHandle tableHandle);
-
-    /**
-     * Returns true if the connector reports number of written bytes for a new table. Otherwise, it returns false.
-     */
-    boolean supportsReportingWrittenBytes(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties);
-
-    /**
      * Returns a table handle for the specified table name with a specified version
      */
     Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
@@ -742,4 +773,14 @@ public interface Metadata
      * Note: It is ignored when retry policy is set to TASK
      */
     OptionalInt getMaxWriterTasks(Session session, String catalogName);
+
+    /**
+     * Returns writer scaling options for the specified table. This method is called when table handle is not available during CTAS.
+     */
+    WriterScalingOptions getNewTableWriterScalingOptions(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties);
+
+    /**
+     * Returns writer scaling options for the specified table.
+     */
+    WriterScalingOptions getInsertWriterScalingOptions(Session session, TableHandle tableHandle);
 }

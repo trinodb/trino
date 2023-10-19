@@ -120,7 +120,7 @@ public class MetadataEntry
      * For use in read-path. Returns lowercase partition column names.
      */
     @JsonIgnore
-    public List<String> getCanonicalPartitionColumns()
+    public List<String> getLowercasePartitionColumns()
     {
         return canonicalPartitionColumns;
     }
@@ -159,22 +159,6 @@ public class MetadataEntry
         catch (NumberFormatException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, format("Invalid value for %s property: %s", DELTA_CHECKPOINT_INTERVAL_PROPERTY, value));
         }
-    }
-
-    @JsonIgnore
-    public Optional<Boolean> isChangeDataFeedEnabled()
-    {
-        if (this.getConfiguration() == null) {
-            return Optional.empty();
-        }
-
-        String value = this.getConfiguration().get(DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY);
-        if (value == null) {
-            return Optional.empty();
-        }
-
-        boolean changeDataFeedEnabled = Boolean.parseBoolean(value);
-        return Optional.of(changeDataFeedEnabled);
     }
 
     public static Map<String, String> configurationForNewTable(

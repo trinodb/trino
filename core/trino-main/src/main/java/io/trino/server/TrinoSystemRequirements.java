@@ -24,6 +24,8 @@ import java.lang.Runtime.Version;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.nio.ByteOrder;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
 import java.util.OptionalLong;
@@ -48,6 +50,7 @@ final class TrinoSystemRequirements
         verifyUsingG1Gc();
         verifyFileDescriptor();
         verifySlice();
+        verifyUtf8();
     }
 
     private static void verify64BitJvm()
@@ -147,6 +150,14 @@ final class TrinoSystemRequirements
         slice.setByte(1, 0xEF);
         if (slice.getInt(1) != 0xDEADBEEF) {
             failRequirement("Slice library produced an unexpected result");
+        }
+    }
+
+    private static void verifyUtf8()
+    {
+        Charset defaultCharset = Charset.defaultCharset();
+        if (!defaultCharset.equals(StandardCharsets.UTF_8)) {
+            failRequirement("Trino requires that the default charset is UTF-8 (found %s). This can be set with the JVM command line option -Dfile.encoding=UTF-8", defaultCharset.name());
         }
     }
 

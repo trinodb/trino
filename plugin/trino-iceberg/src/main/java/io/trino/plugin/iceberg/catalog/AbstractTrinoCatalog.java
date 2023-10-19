@@ -345,16 +345,22 @@ public abstract class AbstractTrinoCatalog
                 Optional.of(new CatalogSchemaTableName(catalogName.toString(), storageTableName)),
                 definition.getCatalog(),
                 definition.getSchema(),
-                definition.getColumns().stream()
-                        .map(column -> new ConnectorMaterializedViewDefinition.Column(column.getName(), column.getType()))
-                        .collect(toImmutableList()),
+                toSpiMaterializedViewColumns(definition.getColumns()),
                 definition.getGracePeriod(),
                 definition.getComment(),
                 owner,
+                definition.getPath(),
                 ImmutableMap.<String, Object>builder()
                         .putAll(getIcebergTableProperties(icebergTable))
                         .put(STORAGE_SCHEMA, storageTableName.getSchemaName())
                         .buildOrThrow());
+    }
+
+    protected List<ConnectorMaterializedViewDefinition.Column> toSpiMaterializedViewColumns(List<IcebergMaterializedViewDefinition.Column> columns)
+    {
+        return columns.stream()
+                .map(column -> new ConnectorMaterializedViewDefinition.Column(column.getName(), column.getType(), column.getComment()))
+                .collect(toImmutableList());
     }
 
     protected Map<String, String> createMaterializedViewProperties(ConnectorSession session, SchemaTableName storageTableName)

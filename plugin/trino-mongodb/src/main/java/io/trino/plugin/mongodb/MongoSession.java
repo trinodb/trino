@@ -50,6 +50,10 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowFieldName;
@@ -61,8 +65,10 @@ import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 import org.bson.Document;
 import org.bson.types.Binary;
+import org.bson.types.Decimal128;
 import org.bson.types.ObjectId;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -88,10 +94,13 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.plugin.mongodb.ptf.Query.parseFilter;
 import static io.trino.spi.HostAddress.fromParts;
+import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
@@ -128,6 +137,8 @@ public class MongoSession
     private static final String FIELDS_NAME_KEY = "name";
     private static final String FIELDS_TYPE_KEY = "type";
     private static final String FIELDS_HIDDEN_KEY = "hidden";
+
+    private static final Document EMPTY_DOCUMENT = new Document();
 
     private static final String AND_OP = "$and";
     private static final String OR_OP = "$or";
@@ -206,9 +217,20 @@ public class MongoSession
         client.getDatabase(schemaName).createCollection(schemaCollection);
     }
 
-    public void dropSchema(String schemaName)
+    public void dropSchema(String schemaName, boolean cascade)
     {
-        client.getDatabase(toRemoteSchemaName(schemaName)).drop();
+        MongoDatabase database = client.getDatabase(toRemoteSchemaName(schemaName));
+        if (!cascade) {
+            try (MongoCursor<String> collections = database.listCollectionNames().cursor()) {
+                while (collections.hasNext()) {
+                    if (collections.next().equals(schemaCollection)) {
+                        continue;
+                    }
+                    throw new TrinoException(SCHEMA_NOT_EMPTY, "Cannot drop non-empty schema '%s'".formatted(schemaName));
+                }
+            }
+        }
+        database.drop();
     }
 
     public Set<String> getAllTables(String schema)
@@ -221,7 +243,7 @@ public class MongoSession
                 .filter(name -> !name.equals(schemaCollection))
                 .filter(name -> !SYSTEM_TABLES.contains(name))
                 .collect(toSet()));
-        builder.addAll(getTableMetadataNames(schema));
+        builder.addAll(getTableMetadataNames(schemaName));
 
         return builder.build();
     }
@@ -567,16 +589,17 @@ public class MongoSession
     @VisibleForTesting
     static Document buildQuery(TupleDomain<ColumnHandle> tupleDomain)
     {
-        Document query = new Document();
+        ImmutableList.Builder<Document> queryBuilder = ImmutableList.builder();
         if (tupleDomain.getDomains().isPresent()) {
             for (Map.Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
                 MongoColumnHandle column = (MongoColumnHandle) entry.getKey();
                 Optional<Document> predicate = buildPredicate(column, entry.getValue());
-                predicate.ifPresent(query::putAll);
+                predicate.ifPresent(queryBuilder::add);
             }
         }
 
-        return query;
+        List<Document> query = queryBuilder.build();
+        return query.isEmpty() ? EMPTY_DOCUMENT : andPredicate(query);
     }
 
     private static Optional<Document> buildPredicate(MongoColumnHandle column, Domain domain)
@@ -665,8 +688,20 @@ public class MongoSession
             return Optional.of(trinoNativeValue);
         }
 
+        if (type instanceof DecimalType decimalType) {
+            if (decimalType.isShort()) {
+                return Optional.of(Decimal128.parse(Decimals.toString((long) trinoNativeValue, decimalType.getScale())));
+            }
+            return Optional.of(Decimal128.parse(Decimals.toString((Int128) trinoNativeValue, decimalType.getScale())));
+        }
+
         if (type instanceof ObjectIdType) {
             return Optional.of(new ObjectId(((Slice) trinoNativeValue).getBytes()));
+        }
+
+        if (type instanceof CharType charType) {
+            Slice slice = padSpaces(((Slice) trinoNativeValue), charType);
+            return Optional.of(slice.toStringUtf8());
         }
 
         if (type instanceof VarcharType) {
@@ -881,6 +916,19 @@ public class MongoSession
         }
         else if (value instanceof Float || value instanceof Double) {
             typeSignature = DOUBLE.getTypeSignature();
+        }
+        else if (value instanceof Decimal128 decimal128) {
+            BigDecimal decimal;
+            try {
+                decimal = decimal128.bigDecimalValue();
+            }
+            catch (ArithmeticException e) {
+                return Optional.empty();
+            }
+            // Java's BigDecimal.precision() returns precision for the unscaled value, so it skips leading zeros for values lower than 1.
+            // Trino's (SQL) decimal precision must include leading zeros in values less than 1, and can never be lower than scale.
+            int precision = Math.max(decimal.precision(), decimal.scale());
+            typeSignature = createDecimalType(precision, decimal.scale()).getTypeSignature();
         }
         else if (value instanceof Date) {
             typeSignature = TIMESTAMP_MILLIS.getTypeSignature();

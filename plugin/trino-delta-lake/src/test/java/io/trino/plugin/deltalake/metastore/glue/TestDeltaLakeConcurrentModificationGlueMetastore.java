@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake.metastore.glue;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.model.ConcurrentModificationException;
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.plugin.deltalake.TestingDeltaLakePlugin;
 import io.trino.plugin.deltalake.metastore.TestingDeltaLakeMetastoreModule;
@@ -27,8 +28,9 @@ import io.trino.spi.TrinoException;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -42,13 +44,14 @@ import static com.google.common.reflect.Reflection.newProxy;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.metastore.glue.GlueClientUtil.createAsyncGlueClient;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertFalse;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
 public class TestDeltaLakeConcurrentModificationGlueMetastore
         extends AbstractTestQueryFramework
 {
@@ -74,7 +77,7 @@ public class TestDeltaLakeConcurrentModificationGlueMetastore
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
                 .setDefaultWarehouseDir(dataDirectory.toUri().toString());
 
-        AWSGlueAsync glueClient = createAsyncGlueClient(glueConfig, DefaultAWSCredentialsProviderChain.getInstance(), Optional.empty(), stats.newRequestMetricsCollector());
+        AWSGlueAsync glueClient = createAsyncGlueClient(glueConfig, DefaultAWSCredentialsProviderChain.getInstance(), ImmutableSet.of(), stats.newRequestMetricsCollector());
         AWSGlueAsync proxiedGlueClient = newProxy(AWSGlueAsync.class, (proxy, method, args) -> {
             Object result;
             try {
@@ -92,7 +95,7 @@ public class TestDeltaLakeConcurrentModificationGlueMetastore
         });
 
         metastore = new GlueHiveMetastore(
-                HDFS_ENVIRONMENT,
+                HDFS_FILE_SYSTEM_FACTORY,
                 glueConfig,
                 directExecutor(),
                 new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),
@@ -117,7 +120,7 @@ public class TestDeltaLakeConcurrentModificationGlueMetastore
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
             throws IOException
     {

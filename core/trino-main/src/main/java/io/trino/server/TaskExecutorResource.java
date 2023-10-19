@@ -14,7 +14,7 @@
 package io.trino.server;
 
 import com.google.inject.Inject;
-import io.trino.execution.executor.TaskExecutor;
+import io.trino.execution.executor.timesharing.TimeSharingTaskExecutor;
 import io.trino.server.security.ResourceSecurity;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -27,11 +27,11 @@ import static java.util.Objects.requireNonNull;
 @Path("/v1/maxActiveSplits")
 public class TaskExecutorResource
 {
-    private final TaskExecutor taskExecutor;
+    private final TimeSharingTaskExecutor taskExecutor;
 
     @Inject
     public TaskExecutorResource(
-            TaskExecutor taskExecutor)
+            TimeSharingTaskExecutor taskExecutor)
     {
         this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
     }

@@ -20,8 +20,6 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.assertj.core.api.AbstractDoubleAssert;
-import org.jdbi.v3.core.Handle;
-import org.jdbi.v3.core.Jdbi;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
@@ -170,7 +168,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
                 }
                 else {
                     assertNotNull(row.getField(2), "NDV for " + columnName);
-                    assertThat(((Number) row.getField(2)).doubleValue()).as("NDV for " + columnName).isBetween(0.0, 2.0);
+                    assertThat((Double) row.getField(2)).as("NDV for " + columnName).isBetween(0.0, 2.0);
                     assertEquals(row.getField(3), nullFractionToExpected.apply(1.0), "null fraction for " + columnName);
                 }
 
@@ -347,10 +345,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
 
     protected void executeInMysql(String sql)
     {
-        try (Handle handle = Jdbi.open(() -> mysqlServer.createConnection())) {
-            handle.execute("USE tpch");
-            handle.execute(sql);
-        }
+        mysqlServer.execute(sql);
     }
 
     protected void assertColumnStats(MaterializedResult statsResult, Map<String, Integer> columnNdvs)
@@ -430,7 +425,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
         assertNull(lastRow.getField(6));
         assertEquals(lastRow.getFieldCount(), 7);
         assertNotNull(lastRow.getField(4));
-        return ((Number) lastRow.getField(4)).doubleValue();
+        return (Double) lastRow.getField(4);
     }
 
     protected static class MapBuilder<K, V>

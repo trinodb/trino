@@ -20,13 +20,15 @@ import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.TestInstance;
 
 import java.nio.file.Path;
 
 import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 /**
  * Tests metadata operations on a schema which has a mix of Hive and Delta Lake tables.
@@ -34,6 +36,7 @@ import static java.lang.String.format;
  * Requires AWS credentials, which can be provided any way supported by the DefaultProviderChain
  * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
  */
+@TestInstance(PER_CLASS)
 public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
         extends BaseDeltaLakeSharedMetastoreWithTableRedirectionsTest
 {
@@ -80,7 +83,7 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
         return queryRunner;
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
     {
         try {

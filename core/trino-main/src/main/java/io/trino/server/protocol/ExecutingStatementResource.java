@@ -234,6 +234,10 @@ public class ExecutingStatementResource
         resultsResponse.setCatalog().ifPresent(catalog -> response.header(protocolHeaders.responseSetCatalog(), catalog));
         resultsResponse.setSchema().ifPresent(schema -> response.header(protocolHeaders.responseSetSchema(), schema));
         resultsResponse.setPath().ifPresent(path -> response.header(protocolHeaders.responseSetPath(), path));
+        resultsResponse.setAuthorizationUser().ifPresent(authorizationUser -> response.header(protocolHeaders.responseSetAuthorizationUser(), authorizationUser));
+        if (resultsResponse.resetAuthorizationUser()) {
+            response.header(protocolHeaders.responseResetAuthorizationUser(), true);
+        }
 
         // add set session properties
         resultsResponse.setSessionProperties()

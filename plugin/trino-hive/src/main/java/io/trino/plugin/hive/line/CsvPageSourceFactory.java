@@ -17,9 +17,7 @@ import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hive.formats.line.csv.CsvDeserializerFactory;
 import io.trino.hive.formats.line.text.TextLineReaderFactory;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.HiveSessionProperties;
 
 import static java.lang.Math.toIntExact;
 
@@ -27,12 +25,10 @@ public class CsvPageSourceFactory
         extends LinePageSourceFactory
 {
     @Inject
-    public CsvPageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory, FileFormatDataSourceStats stats, HiveConfig config)
+    public CsvPageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory, HiveConfig config)
     {
         super(trinoFileSystemFactory,
-                stats,
                 new CsvDeserializerFactory(),
-                new TextLineReaderFactory(1024, 1024, toIntExact(config.getTextMaxLineLength().toBytes())),
-                HiveSessionProperties::isCsvNativeReaderEnabled);
+                new TextLineReaderFactory(1024, 1024, toIntExact(config.getTextMaxLineLength().toBytes())));
     }
 }

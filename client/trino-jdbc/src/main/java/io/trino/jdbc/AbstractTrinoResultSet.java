@@ -2133,9 +2133,9 @@ abstract class AbstractTrinoResultSet
             fractionValue = Long.parseLong(fraction);
         }
 
-        long epochMilli = (hour * 3600 + minute * 60 + second) * MILLISECONDS_PER_SECOND + rescale(fractionValue, precision, 3);
+        long epochMilli = (hour * 3600L + minute * 60L + second) * MILLISECONDS_PER_SECOND + rescale(fractionValue, precision, 3);
 
-        epochMilli -= calculateOffsetMinutes(offsetSign, offsetHour, offsetMinute) * MILLISECONDS_PER_MINUTE;
+        epochMilli -= calculateOffsetMinutes(offsetSign, offsetHour, offsetMinute) * (long) MILLISECONDS_PER_MINUTE;
 
         return new Time(epochMilli);
     }

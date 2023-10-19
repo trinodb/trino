@@ -229,6 +229,7 @@ public class DispatchManager
                 session = Session.builder(sessionPropertyManager)
                         .setQueryId(queryId)
                         .setIdentity(sessionContext.getIdentity())
+                        .setOriginalIdentity(sessionContext.getOriginalIdentity())
                         .setSource(sessionContext.getSource().orElse(null))
                         .build();
             }
@@ -286,6 +287,14 @@ public class DispatchManager
 
     @Managed
     public long getRunningQueries()
+    {
+        return queryTracker.getAllQueries().stream()
+                .filter(query -> query.getState() == RUNNING)
+                .count();
+    }
+
+    @Managed
+    public long getProgressingQueries()
     {
         return queryTracker.getAllQueries().stream()
                 .filter(query -> query.getState() == RUNNING && !query.getBasicQueryInfo().getQueryStats().isFullyBlocked())

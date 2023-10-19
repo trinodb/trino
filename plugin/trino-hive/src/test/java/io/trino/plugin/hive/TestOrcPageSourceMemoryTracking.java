@@ -325,7 +325,6 @@ public class TestOrcPageSourceMemoryTracking
         int maxReadBytes = 1_000;
         HiveSessionProperties hiveSessionProperties = new HiveSessionProperties(
                 new HiveConfig(),
-                new HiveFormatsConfig(),
                 new OrcReaderConfig()
                         .setMaxBlockSize(DataSize.ofBytes(maxReadBytes)),
                 new OrcWriterConfig(),
@@ -368,7 +367,7 @@ public class TestOrcPageSourceMemoryTracking
                 if (positionCount > MAX_BATCH_SIZE) {
                     // either the block is bounded by maxReadBytes or we just load one single large block
                     // an error margin MAX_BATCH_SIZE / step is needed given the block sizes are increasing
-                    assertTrue(page.getSizeInBytes() < maxReadBytes * (MAX_BATCH_SIZE / step) || 1 == page.getPositionCount());
+                    assertTrue(page.getSizeInBytes() < (long) maxReadBytes * (MAX_BATCH_SIZE / step) || 1 == page.getPositionCount());
                 }
             }
 
@@ -568,8 +567,6 @@ public class TestOrcPageSourceMemoryTracking
 
             ConnectorPageSource connectorPageSource = HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(orcPageSourceFactory),
-                    ImmutableSet.of(),
-                    newEmptyConfiguration(),
                     session,
                     Location.of(fileSplit.getPath().toString()),
                     OptionalInt.empty(),
@@ -578,11 +575,9 @@ public class TestOrcPageSourceMemoryTracking
                     fileSplit.getLength(),
                     schema,
                     TupleDomain.all(),
-                    columns,
                     TESTING_TYPE_MANAGER,
                     Optional.empty(),
                     Optional.empty(),
-                    false,
                     Optional.empty(),
                     false,
                     NO_ACID_TRANSACTION,
@@ -595,6 +590,7 @@ public class TestOrcPageSourceMemoryTracking
             ConnectorPageSource pageSource = newPageSource();
             SourceOperatorFactory sourceOperatorFactory = new TableScanOperatorFactory(
                     0,
+                    new PlanNodeId("0"),
                     new PlanNodeId("0"),
                     (session, split, table, columnHandles, dynamicFilter) -> pageSource,
                     TEST_TABLE_HANDLE,

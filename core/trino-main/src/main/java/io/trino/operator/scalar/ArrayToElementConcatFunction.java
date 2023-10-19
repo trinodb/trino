@@ -44,9 +44,8 @@ public class ArrayToElementConcatFunction
 
     public ArrayToElementConcatFunction()
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.scalarBuilder(FUNCTION_NAME)
                 .signature(Signature.builder()
-                        .name(FUNCTION_NAME)
                         .typeVariable("E")
                         .returnType(arrayType(new TypeSignature("E")))
                         .argumentType(arrayType(new TypeSignature("E")))

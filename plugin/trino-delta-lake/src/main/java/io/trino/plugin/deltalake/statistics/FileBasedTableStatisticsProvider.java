@@ -76,7 +76,7 @@ public class FileBasedTableStatisticsProvider
         double numRecords = 0L;
 
         MetadataEntry metadata = tableHandle.getMetadataEntry();
-        List<DeltaLakeColumnMetadata> columnMetadata = DeltaLakeSchemaSupport.extractSchema(metadata, typeManager);
+        List<DeltaLakeColumnMetadata> columnMetadata = DeltaLakeSchemaSupport.extractSchema(metadata, tableHandle.getProtocolEntry(), typeManager);
         List<DeltaLakeColumnHandle> columns = columnMetadata.stream()
                 .map(columnMeta -> new DeltaLakeColumnHandle(
                         columnMeta.getName(),
@@ -84,7 +84,7 @@ public class FileBasedTableStatisticsProvider
                         columnMeta.getFieldId(),
                         columnMeta.getPhysicalName(),
                         columnMeta.getPhysicalColumnType(),
-                        metadata.getCanonicalPartitionColumns().contains(columnMeta.getName()) ? PARTITION_KEY : REGULAR,
+                        metadata.getOriginalPartitionColumns().contains(columnMeta.getName()) ? PARTITION_KEY : REGULAR,
                         Optional.empty()))
                 .collect(toImmutableList());
 
@@ -110,7 +110,7 @@ public class FileBasedTableStatisticsProvider
                 .filter(column -> predicatedColumnNames.contains(column.getName()))
                 .collect(toImmutableList());
 
-        for (AddFileEntry addEntry : transactionLogAccess.getActiveFiles(tableSnapshot, session)) {
+        for (AddFileEntry addEntry : transactionLogAccess.getActiveFiles(tableSnapshot, tableHandle.getMetadataEntry(), tableHandle.getProtocolEntry(), session)) {
             Optional<? extends DeltaLakeFileStatistics> fileStatistics = addEntry.getStats();
             if (fileStatistics.isEmpty()) {
                 // Open source Delta Lake does not collect stats
@@ -124,7 +124,7 @@ public class FileBasedTableStatisticsProvider
             TupleDomain<DeltaLakeColumnHandle> statisticsPredicate = createStatisticsPredicate(
                     addEntry,
                     predicatedColumns,
-                    tableHandle.getMetadataEntry().getCanonicalPartitionColumns());
+                    tableHandle.getMetadataEntry().getLowercasePartitionColumns());
             if (!tableHandle.getNonPartitionConstraint().overlaps(statisticsPredicate)) {
                 continue;
             }

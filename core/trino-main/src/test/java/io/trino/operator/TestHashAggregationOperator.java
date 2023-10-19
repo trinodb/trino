@@ -38,10 +38,8 @@ import io.trino.spiller.Spiller;
 import io.trino.spiller.SpillerFactory;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingTaskContext;
-import io.trino.type.BlockTypeOperators;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -105,17 +103,16 @@ public class TestHashAggregationOperator
 {
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
 
-    private static final TestingAggregationFunction LONG_AVERAGE = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("avg"), fromTypes(BIGINT));
-    private static final TestingAggregationFunction LONG_SUM = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("sum"), fromTypes(BIGINT));
-    private static final TestingAggregationFunction COUNT = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("count"), ImmutableList.of());
-    private static final TestingAggregationFunction LONG_MIN = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("min"), fromTypes(BIGINT));
+    private static final TestingAggregationFunction LONG_AVERAGE = FUNCTION_RESOLUTION.getAggregateFunction("avg", fromTypes(BIGINT));
+    private static final TestingAggregationFunction LONG_SUM = FUNCTION_RESOLUTION.getAggregateFunction("sum", fromTypes(BIGINT));
+    private static final TestingAggregationFunction COUNT = FUNCTION_RESOLUTION.getAggregateFunction("count", ImmutableList.of());
+    private static final TestingAggregationFunction LONG_MIN = FUNCTION_RESOLUTION.getAggregateFunction("min", fromTypes(BIGINT));
 
     private static final int MAX_BLOCK_SIZE_IN_BYTES = 64 * 1024;
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
     private final TypeOperators typeOperators = new TypeOperators();
-    private final BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
     private final JoinCompiler joinCompiler = new JoinCompiler(typeOperators);
     private DummySpillerFactory spillerFactory;
 
@@ -167,9 +164,9 @@ public class TestHashAggregationOperator
     {
         // make operator produce multiple pages during finish phase
         int numberOfRows = 40_000;
-        TestingAggregationFunction countVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("count"), fromTypes(VARCHAR));
-        TestingAggregationFunction countBooleanColumn = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("count"), fromTypes(BOOLEAN));
-        TestingAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("max"), fromTypes(VARCHAR));
+        TestingAggregationFunction countVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction("count", fromTypes(VARCHAR));
+        TestingAggregationFunction countBooleanColumn = FUNCTION_RESOLUTION.getAggregateFunction("count", fromTypes(BOOLEAN));
+        TestingAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction("max", fromTypes(VARCHAR));
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN);
         List<Page> input = rowPagesBuilder
@@ -201,7 +198,7 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
@@ -222,9 +219,9 @@ public class TestHashAggregationOperator
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
     public void testHashAggregationWithGlobals(boolean hashEnabled, boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
-        TestingAggregationFunction countVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("count"), fromTypes(VARCHAR));
-        TestingAggregationFunction countBooleanColumn = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("count"), fromTypes(BOOLEAN));
-        TestingAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("max"), fromTypes(VARCHAR));
+        TestingAggregationFunction countVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction("count", fromTypes(VARCHAR));
+        TestingAggregationFunction countBooleanColumn = FUNCTION_RESOLUTION.getAggregateFunction("count", fromTypes(BOOLEAN));
+        TestingAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction("max", fromTypes(VARCHAR));
 
         Optional<Integer> groupIdChannel = Optional.of(1);
         List<Integer> groupByChannels = Ints.asList(1, 2);
@@ -255,7 +252,7 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
@@ -270,7 +267,7 @@ public class TestHashAggregationOperator
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
     public void testHashAggregationMemoryReservation(boolean hashEnabled, boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
-        TestingAggregationFunction arrayAggColumn = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("array_agg"), fromTypes(BIGINT));
+        TestingAggregationFunction arrayAggColumn = FUNCTION_RESOLUTION.getAggregateFunction("array_agg", fromTypes(BIGINT));
 
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, BIGINT, BIGINT);
@@ -302,20 +299,20 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         Operator operator = operatorFactory.createOperator(driverContext);
         toPages(operator, input.iterator(), revokeMemoryWhenAddingPages);
         // TODO (https://github.com/trinodb/trino/issues/10596): it should be 0, since operator is finished
-        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), spillEnabled && revokeMemoryWhenAddingPages ? 4_781_448 : 0);
+        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), spillEnabled && revokeMemoryWhenAddingPages ? 4752672 : 0);
         assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getRevocableMemoryReservation().toBytes(), 0);
     }
 
     @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node memory limit of 10B.*")
     public void testMemoryLimit(boolean hashEnabled)
     {
-        TestingAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("max"), fromTypes(VARCHAR));
+        TestingAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction("max", fromTypes(VARCHAR));
 
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, VARCHAR, BIGINT, VARCHAR, BIGINT);
@@ -345,7 +342,7 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         toPages(operatorFactory, driverContext, input);
@@ -386,7 +383,7 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         toPages(operatorFactory, driverContext, input, revokeMemoryWhenAddingPages);
@@ -409,7 +406,7 @@ public class TestHashAggregationOperator
                 1,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         // get result with yield; pick a relatively small buffer for aggregator's memory usage
@@ -462,7 +459,7 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         toPages(operatorFactory, driverContext, input);
@@ -497,7 +494,7 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         assertEquals(toPages(operatorFactory, createDriverContext(), input).size(), 2);
@@ -529,7 +526,7 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(1, KILOBYTE)),
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(1024);
@@ -615,7 +612,7 @@ public class TestHashAggregationOperator
                 succinctBytes(Integer.MAX_VALUE),
                 spillerFactory,
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(smallPagesSpillThresholdSize);
@@ -631,7 +628,7 @@ public class TestHashAggregationOperator
     @Test
     public void testSpillerFailure()
     {
-        TestingAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("max"), fromTypes(VARCHAR));
+        TestingAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction("max", fromTypes(VARCHAR));
 
         List<Integer> hashChannels = Ints.asList(1);
         ImmutableList<Type> types = ImmutableList.of(VARCHAR, BIGINT, VARCHAR, BIGINT);
@@ -671,7 +668,7 @@ public class TestHashAggregationOperator
                 succinctBytes(Integer.MAX_VALUE),
                 new FailingSpillerFactory(),
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         assertThatThrownBy(() -> toPages(operatorFactory, driverContext, input))
@@ -701,7 +698,7 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(1024);
@@ -739,7 +736,7 @@ public class TestHashAggregationOperator
                 100,
                 Optional.of(maxPartialMemory), // this setting makes operator to flush after each page
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 // 1 byte maxPartialMemory causes adaptive partial aggregation to be triggered after each page flush
                 Optional.of(partialAggregationController));
 
@@ -821,7 +818,7 @@ public class TestHashAggregationOperator
                 10,
                 Optional.of(DataSize.of(16, MEGABYTE)), // this setting makes operator to flush only after all pages
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 // 1 byte maxPartialMemory causes adaptive partial aggregation to be triggered after each page flush
                 Optional.of(partialAggregationController));
 

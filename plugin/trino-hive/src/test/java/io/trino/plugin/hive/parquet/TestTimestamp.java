@@ -128,11 +128,7 @@ public class TestTimestamp
                     false,
                     DateTimeZone.getDefault());
 
-            ConnectorSession session = getHiveSession(new HiveConfig(), new ParquetReaderConfig().setOptimizedReaderEnabled(false));
-            testReadingAs(createTimestampType(timestamp.getPrecision()), session, tempFile, columnNames, timestampReadValues);
-            testReadingAs(BIGINT, session, tempFile, columnNames, writeValues);
-
-            session = getHiveSession(new HiveConfig(), new ParquetReaderConfig().setOptimizedReaderEnabled(true));
+            ConnectorSession session = getHiveSession(new HiveConfig());
             testReadingAs(createTimestampType(timestamp.getPrecision()), session, tempFile, columnNames, timestampReadValues);
             testReadingAs(BIGINT, session, tempFile, columnNames, writeValues);
         }

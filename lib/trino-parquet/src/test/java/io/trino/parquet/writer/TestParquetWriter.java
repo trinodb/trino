@@ -15,6 +15,8 @@ package io.trino.parquet.writer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import io.airlift.slice.Slice;
+import io.airlift.slice.SliceInput;
 import io.airlift.units.DataSize;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DiskRange;
@@ -28,24 +30,33 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.VersionParser;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.format.PageHeader;
+import org.apache.parquet.format.PageType;
+import org.apache.parquet.format.Util;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.PrimitiveType;
 import org.testng.annotations.Test;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.parquet.ParquetCompressionUtils.decompress;
+import static io.trino.parquet.ParquetTestUtils.createParquetWriter;
 import static io.trino.parquet.ParquetTestUtils.generateInputPages;
 import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static java.lang.Math.toIntExact;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -141,6 +152,74 @@ public class TestParquetWriter
                     .map(ColumnChunkMetaData::getFirstDataPageOffset)
                     .collect(toImmutableList());
             assertThat(offsets).isSorted();
+        }
+    }
+
+    @Test
+    public void testWriterMemoryAccounting()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("columnA", "columnB");
+        List<Type> types = ImmutableList.of(INTEGER, INTEGER);
+
+        ParquetWriter writer = createParquetWriter(
+                new ByteArrayOutputStream(),
+                ParquetWriterOptions.builder()
+                        .setMaxPageSize(DataSize.ofBytes(1024))
+                        .build(),
+                types,
+                columnNames);
+        List<io.trino.spi.Page> inputPages = generateInputPages(types, 1000, 100);
+
+        long previousRetainedBytes = 0;
+        for (io.trino.spi.Page inputPage : inputPages) {
+            checkArgument(types.size() == inputPage.getChannelCount());
+            writer.write(inputPage);
+            long currentRetainedBytes = writer.getRetainedBytes();
+            assertThat(currentRetainedBytes).isGreaterThanOrEqualTo(previousRetainedBytes);
+            previousRetainedBytes = currentRetainedBytes;
+        }
+        assertThat(previousRetainedBytes).isGreaterThanOrEqualTo(2 * Integer.BYTES * 1000 * 100);
+        writer.close();
+        assertThat(previousRetainedBytes - writer.getRetainedBytes()).isGreaterThanOrEqualTo(2 * Integer.BYTES * 1000 * 100);
+    }
+
+    @Test
+    public void testDictionaryPageOffset()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("column");
+        List<Type> types = ImmutableList.of(INTEGER);
+
+        // Write a file with dictionary encoded data
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder().build(),
+                        types,
+                        columnNames,
+                        generateInputPages(types, 100, 100)),
+                new ParquetReaderOptions());
+
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        assertThat(parquetMetadata.getBlocks().size()).isGreaterThanOrEqualTo(1);
+        for (BlockMetaData blockMetaData : parquetMetadata.getBlocks()) {
+            ColumnChunkMetaData chunkMetaData = getOnlyElement(blockMetaData.getColumns());
+            assertThat(chunkMetaData.getDictionaryPageOffset()).isGreaterThan(0);
+            int dictionaryPageSize = toIntExact(chunkMetaData.getFirstDataPageOffset() - chunkMetaData.getDictionaryPageOffset());
+            assertThat(dictionaryPageSize).isGreaterThan(0);
+
+            // verify reading dictionary page
+            SliceInput inputStream = dataSource.readFully(chunkMetaData.getStartingPos(), dictionaryPageSize).getInput();
+            PageHeader pageHeader = Util.readPageHeader(inputStream);
+            assertThat(pageHeader.getType()).isEqualTo(PageType.DICTIONARY_PAGE);
+            assertThat(pageHeader.getDictionary_page_header().getNum_values()).isEqualTo(100);
+            Slice compressedData = inputStream.readSlice(pageHeader.getCompressed_page_size());
+            Slice uncompressedData = decompress(chunkMetaData.getCodec().getParquetCompressionCodec(), compressedData, pageHeader.getUncompressed_page_size());
+            int[] ids = new int[100];
+            uncompressedData.getInts(0, ids, 0, 100);
+            for (int i = 0; i < 100; i++) {
+                assertThat(ids[i]).isEqualTo(i);
+            }
         }
     }
 }

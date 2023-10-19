@@ -63,9 +63,8 @@ public class ReduceAggregationFunction
     public ReduceAggregationFunction()
     {
         super(
-                FunctionMetadata.aggregateBuilder()
+                FunctionMetadata.aggregateBuilder(NAME)
                         .signature(Signature.builder()
-                                .name(NAME)
                                 .typeVariable("T")
                                 .typeVariable("S")
                                 .returnType(new TypeSignature("S"))

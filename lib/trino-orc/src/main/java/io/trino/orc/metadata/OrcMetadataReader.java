@@ -430,7 +430,7 @@ public class OrcMetadataReader
             return value;
         }
         // Append 0xFF so that it is larger than value
-        Slice newValue = Slices.copyOf(value, 0, index + 1);
+        Slice newValue = value.copy(0, index + 1);
         newValue.setByte(index, 0xFF);
         return newValue;
     }
@@ -450,7 +450,7 @@ public class OrcMetadataReader
         if (index == value.length()) {
             return value;
         }
-        return Slices.copyOf(value, 0, index);
+        return value.copy(0, index);
     }
 
     @VisibleForTesting

@@ -24,7 +24,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -50,10 +49,9 @@ public class TestQuantifiedComparison
         String query = "SELECT orderkey, custkey FROM orders WHERE orderkey <> ALL (VALUES ROW(CAST(5 as BIGINT)), ROW(CAST(3 as BIGINT)))";
         assertPlan(query, anyTree(
                 filter("NOT S",
-                        project(
-                                semiJoin("X", "Y", "S",
-                                        anyTree(tableScan("orders", ImmutableMap.of("X", "orderkey"))),
-                                        anyTree(values(ImmutableMap.of("Y", 0))))))));
+                        semiJoin("X", "Y", "S",
+                                tableScan("orders", ImmutableMap.of("X", "orderkey")),
+                                values(ImmutableMap.of("Y", 0))))));
     }
 
     @Test

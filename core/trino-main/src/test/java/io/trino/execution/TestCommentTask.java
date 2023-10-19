@@ -22,7 +22,7 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -37,7 +37,6 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test(singleThreaded = true)
 public class TestCommentTask
         extends BaseDataDefinitionTaskTest
 {
@@ -134,6 +133,25 @@ public class TestCommentTask
 
         getFutureValue(setComment(COLUMN, columnName, Optional.of("new test column comment")));
         assertThat(metadata.getView(testSession, viewName).get().getColumns().stream().filter(column -> "test".equals(column.getName())).collect(onlyElement()).getComment())
+                .isEqualTo(Optional.of("new test column comment"));
+
+        assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(COLUMN, missingColumnName, Optional.of("comment for missing column"))))
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("Column does not exist: %s", missingColumnName.getSuffix());
+    }
+
+    @Test
+    public void testCommentMaterializedViewColumn()
+    {
+        QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
+        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()), someMaterializedView(), false, false);
+        assertThat(metadata.isMaterializedView(testSession, materializedViewName)).isTrue();
+
+        QualifiedName columnName = qualifiedColumnName("existing_materialized_view", "test");
+        QualifiedName missingColumnName = qualifiedColumnName("existing_materialized_view", "missing");
+
+        getFutureValue(setComment(COLUMN, columnName, Optional.of("new test column comment")));
+        assertThat(metadata.getMaterializedView(testSession, materializedViewName).get().getColumns().stream().filter(column -> "test".equals(column.getName())).collect(onlyElement()).getComment())
                 .isEqualTo(Optional.of("new test column comment"));
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(COLUMN, missingColumnName, Optional.of("comment for missing column"))))

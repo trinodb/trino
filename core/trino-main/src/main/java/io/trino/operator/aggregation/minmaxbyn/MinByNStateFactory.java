@@ -15,7 +15,6 @@ package io.trino.operator.aggregation.minmaxbyn;
 
 import io.trino.operator.aggregation.minmaxbyn.MinMaxByNStateFactory.GroupedMinMaxByNState;
 import io.trino.operator.aggregation.minmaxbyn.MinMaxByNStateFactory.SingleMinMaxByNState;
-import io.trino.spi.block.Block;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.Convention;
@@ -25,12 +24,14 @@ import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
-import java.util.function.Function;
 import java.util.function.LongFunction;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 
@@ -39,14 +40,38 @@ public class MinByNStateFactory
 {
     private static final long MAX_NUMBER_OF_VALUES = 10_000;
     private final LongFunction<TypedKeyValueHeap> heapFactory;
-    private final Function<Block, TypedKeyValueHeap> deserializer;
 
     public MinByNStateFactory(
             @OperatorDependency(
+                    operator = OperatorType.READ_VALUE,
+                    argumentTypes = "K",
+                    convention = @Convention(arguments = FLAT, result = BLOCK_BUILDER))
+                    MethodHandle keyReadFlat,
+            @OperatorDependency(
+                    operator = OperatorType.READ_VALUE,
+                    argumentTypes = "K",
+                    convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN))
+                    MethodHandle keyWriteFlat,
+            @OperatorDependency(
+                    operator = OperatorType.READ_VALUE,
+                    argumentTypes = "V",
+                    convention = @Convention(arguments = FLAT, result = BLOCK_BUILDER))
+                    MethodHandle valueReadFlat,
+            @OperatorDependency(
+                    operator = OperatorType.READ_VALUE,
+                    argumentTypes = "V",
+                    convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN))
+                    MethodHandle valueWriteFlat,
+            @OperatorDependency(
                     operator = OperatorType.COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"K", "K"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
-                    MethodHandle compare,
+                    convention = @Convention(arguments = {FLAT, FLAT}, result = FAIL_ON_NULL))
+                    MethodHandle compareFlatFlat,
+            @OperatorDependency(
+                    operator = OperatorType.COMPARISON_UNORDERED_LAST,
+                    argumentTypes = {"K", "K"},
+                    convention = @Convention(arguments = {FLAT, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL))
+                    MethodHandle compareFlatBlock,
             @TypeParameter("K") Type keyType,
             @TypeParameter("V") Type valueType)
     {
@@ -58,30 +83,39 @@ public class MinByNStateFactory
                     "third argument of min_by must be less than or equal to %s; found %s",
                     MAX_NUMBER_OF_VALUES,
                     n);
-            return new TypedKeyValueHeap(true, compare, keyType, valueType, toIntExact(n));
+            return new TypedKeyValueHeap(
+                    true,
+                    keyReadFlat,
+                    keyWriteFlat,
+                    valueReadFlat,
+                    valueWriteFlat,
+                    compareFlatFlat,
+                    compareFlatBlock,
+                    keyType,
+                    valueType,
+                    toIntExact(n));
         };
-        deserializer = rowBlock -> TypedKeyValueHeap.deserialize(true, compare, keyType, valueType, rowBlock);
     }
 
     @Override
     public MinByNState createSingleState()
     {
-        return new SingleMinByNState(heapFactory, deserializer);
+        return new SingleMinByNState(heapFactory);
     }
 
     @Override
     public MinByNState createGroupedState()
     {
-        return new GroupedMinByNState(heapFactory, deserializer);
+        return new GroupedMinByNState(heapFactory);
     }
 
     private static class GroupedMinByNState
             extends GroupedMinMaxByNState
             implements MinByNState
     {
-        public GroupedMinByNState(LongFunction<TypedKeyValueHeap> heapFactory, Function<Block, TypedKeyValueHeap> deserializer)
+        public GroupedMinByNState(LongFunction<TypedKeyValueHeap> heapFactory)
         {
-            super(heapFactory, deserializer);
+            super(heapFactory);
         }
     }
 
@@ -89,9 +123,9 @@ public class MinByNStateFactory
             extends SingleMinMaxByNState
             implements MinByNState
     {
-        public SingleMinByNState(LongFunction<TypedKeyValueHeap> heapFactory, Function<Block, TypedKeyValueHeap> deserializer)
+        public SingleMinByNState(LongFunction<TypedKeyValueHeap> heapFactory)
         {
-            super(heapFactory, deserializer);
+            super(heapFactory);
         }
 
         public SingleMinByNState(SingleMinByNState state)

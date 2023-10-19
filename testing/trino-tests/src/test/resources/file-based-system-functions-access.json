@@ -35,11 +35,9 @@
     "functions": [
         {
             "user": "alice",
-            "function_kinds": [
-                "SCALAR",
-                "AGGREGATE",
-                "WINDOW"
-            ],
+            "catalog": "mock",
+            "schema": "function",
+            "function": "my_function",
             "privileges": [
                 "EXECUTE",
                 "GRANT_EXECUTE"
@@ -50,9 +48,6 @@
             "catalog": "mock",
             "schema": "system",
             "function": "simple_table_function",
-            "function_kinds": [
-                "TABLE"
-            ],
             "privileges": [
                 "EXECUTE",
                 "GRANT_EXECUTE"
@@ -60,11 +55,9 @@
         },
         {
             "user": "bob",
-            "function_kinds": [
-                "SCALAR",
-                "AGGREGATE",
-                "WINDOW"
-            ],
+            "catalog": "mock",
+            "schema": "function",
+            "function": "my_function",
             "privileges": [
                 "EXECUTE"
             ]
@@ -74,9 +67,6 @@
             "catalog": "mock",
             "schema": "system",
             "function": "simple_table_function",
-            "function_kinds": [
-                "TABLE"
-            ],
             "privileges": [
                 "EXECUTE"
             ]

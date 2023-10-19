@@ -1350,7 +1350,7 @@ public class TestSimpleFormat
         LineSerializer serializer = new SimpleSerializerFactory().create(columns, options.toSchema());
         SliceOutput sliceOutput = new DynamicSliceOutput(1024);
         serializer.write(page, 0, sliceOutput);
-        return Slices.copyOf(sliceOutput.slice());
+        return sliceOutput.slice().copy();
     }
 
     private static void assertValueHive(Type type, String value, Object expectedValue, TextEncodingOptions textEncodingOptions)

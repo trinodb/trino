@@ -28,10 +28,10 @@ import io.trino.sql.planner.DynamicFilterSourceConsumer;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
-import io.trino.type.BlockTypeOperators;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -79,20 +79,20 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
+@TestInstance(TestInstance.Lifecycle.PER_METHOD)
 public class TestDynamicFilterSourceOperator
 {
-    private BlockTypeOperators blockTypeOperators;
+    private TypeOperators typeOperators;
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
     private PipelineContext pipelineContext;
 
     private ImmutableList.Builder<TupleDomain<DynamicFilterId>> partitions;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
-        blockTypeOperators = new BlockTypeOperators(new TypeOperators());
+        typeOperators = new TypeOperators();
         executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
         pipelineContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
@@ -101,7 +101,7 @@ public class TestDynamicFilterSourceOperator
         partitions = ImmutableList.builder();
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         executor.shutdownNow();
@@ -156,7 +156,7 @@ public class TestDynamicFilterSourceOperator
                 maxFilterDistinctValues,
                 maxFilterSize,
                 minMaxCollectionLimit,
-                blockTypeOperators);
+                typeOperators);
     }
 
     private Operator createOperator(OperatorFactory operatorFactory)
@@ -606,34 +606,39 @@ public class TestDynamicFilterSourceOperator
     {
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, BIGINT), channel(1, BIGINT));
         Operator operator = createOperator(operatorFactory);
+        final long initialMemoryUsage = operator.getOperatorContext().getOperatorMemoryContext().getUserMemory();
 
         List<Page> inputPages = ImmutableList.of(new Page(
-                createLongSequenceBlock(51, 101),
-                createLongRepeatBlock(200, 50)));
+                createLongSequenceBlock(51, 151),
+                createLongRepeatBlock(200, 100)));
         toPagesPartial(operator, inputPages.iterator());
-        long initialMemoryUsage = operator.getOperatorContext().getOperatorMemoryContext().getUserMemory();
-        assertThat(initialMemoryUsage).isGreaterThan(0);
+        long baseMemoryUsage = operator.getOperatorContext().getOperatorMemoryContext().getUserMemory();
+        // Hashtable for the first channel has grown
+        assertThat(baseMemoryUsage)
+                .isGreaterThan(initialMemoryUsage);
 
         inputPages = ImmutableList.of(new Page(
                 createLongSequenceBlock(0, 51),
                 createLongSequenceBlock(51, 101)));
         toPagesPartial(operator, inputPages.iterator());
-        long currentMemoryUsage = operator.getOperatorContext().getOperatorMemoryContext().getUserMemory();
-        // First channel stops collecting distinct values
-        assertThat(currentMemoryUsage)
+        long firstChannelStoppedMemoryUsage = operator.getOperatorContext().getOperatorMemoryContext().getUserMemory();
+        // First channel stops collecting distinct values, so memory will decrease below the initial value since hashtable is freed
+        assertThat(firstChannelStoppedMemoryUsage)
                 .isGreaterThan(0)
                 .isLessThan(initialMemoryUsage);
 
         toPagesPartial(operator, inputPages.iterator());
         // No change in distinct values
-        assertThat(operator.getOperatorContext().getOperatorMemoryContext().getUserMemory()).isEqualTo(currentMemoryUsage);
+        assertThat(operator.getOperatorContext().getOperatorMemoryContext().getUserMemory()).isEqualTo(firstChannelStoppedMemoryUsage);
 
         inputPages = ImmutableList.of(new Page(
                 createLongSequenceBlock(0, 51),
                 createLongSequenceBlock(0, 51)));
         toPagesPartial(operator, inputPages.iterator());
-        // Second channel stops collecting distinct values
-        assertThat(operator.getOperatorContext().getOperatorMemoryContext().getUserMemory()).isEqualTo(0);
+        // Second channel stops collecting distinct values, so memory will decrease further
+        assertThat(operator.getOperatorContext().getOperatorMemoryContext().getUserMemory())
+                .isGreaterThan(0)
+                .isLessThan(firstChannelStoppedMemoryUsage);
 
         finishOperator(operator);
         operatorFactory.noMoreOperators();
@@ -641,7 +646,7 @@ public class TestDynamicFilterSourceOperator
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         new DynamicFilterId("0"),
                         Domain.create(
-                                ValueSet.ofRanges(range(BIGINT, 0L, true, 100L, true)),
+                                ValueSet.ofRanges(range(BIGINT, 0L, true, 150L, true)),
                                 false),
                         new DynamicFilterId("1"),
                         Domain.create(

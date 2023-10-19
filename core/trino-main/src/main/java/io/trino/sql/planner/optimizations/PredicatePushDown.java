@@ -675,7 +675,7 @@ public class PredicatePushDown
                         // we can take type of buildSymbol instead probeExpression as comparison expression must have the same type on both sides
                         Type type = symbolAllocator.getTypes().get(buildSymbol);
                         DynamicFilterId id = requireNonNull(buildSymbolToDynamicFilter.get(buildSymbol), () -> "missing dynamic filter for symbol " + buildSymbol);
-                        return createDynamicFilterExpression(session, metadata, id, type, probeExpression, comparison.getOperator(), clause.isNullAllowed());
+                        return createDynamicFilterExpression(metadata, id, type, probeExpression, comparison.getOperator(), clause.isNullAllowed());
                     })
                     .collect(toImmutableList());
             // Return a mapping from build symbols to corresponding dynamic filter IDs:
@@ -1218,7 +1218,7 @@ public class PredicatePushDown
         {
             Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
             ExpressionInterpreter optimizer = new ExpressionInterpreter(expression, plannerContext, session, expressionTypes);
-            return literalEncoder.toExpression(session, optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
+            return literalEncoder.toExpression(optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
         }
 
         private boolean areExpressionsEquivalent(Expression leftExpression, Expression rightExpression)
@@ -1419,7 +1419,6 @@ public class PredicatePushDown
                 dynamicFilterId = Optional.of(new DynamicFilterId("df_" + idAllocator.getNextId().toString()));
                 Symbol sourceSymbol = node.getSourceJoinSymbol();
                 sourceConjuncts.add(createDynamicFilterExpression(
-                        session,
                         metadata,
                         dynamicFilterId.get(),
                         symbolAllocator.getTypes().get(sourceSymbol),

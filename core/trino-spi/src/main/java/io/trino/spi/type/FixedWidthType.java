@@ -13,6 +13,7 @@
  */
 package io.trino.spi.type;
 
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 
 /**
@@ -32,4 +33,22 @@ public interface FixedWidthType
      * of positions.
      */
     BlockBuilder createFixedSizeBlockBuilder(int positionCount);
+
+    @Override
+    default boolean isFlatVariableWidth()
+    {
+        return false;
+    }
+
+    @Override
+    default int getFlatVariableWidthSize(Block block, int position)
+    {
+        return 0;
+    }
+
+    @Override
+    default int relocateFlatVariableWidthOffsets(byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset)
+    {
+        return 0;
+    }
 }

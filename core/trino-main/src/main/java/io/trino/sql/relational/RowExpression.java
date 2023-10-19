@@ -13,9 +13,21 @@
  */
 package io.trino.sql.relational;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.trino.spi.type.Type;
 
-public abstract class RowExpression
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = CallExpression.class, name = "call"),
+        @JsonSubTypes.Type(value = ConstantExpression.class, name = "constant"),
+        @JsonSubTypes.Type(value = InputReferenceExpression.class, name = "input"),
+        @JsonSubTypes.Type(value = LambdaDefinitionExpression.class, name = "lambda"),
+        @JsonSubTypes.Type(value = SpecialForm.class, name = "special"),
+        @JsonSubTypes.Type(value = VariableReferenceExpression.class, name = "variable"),
+})
+public abstract sealed class RowExpression
+        permits CallExpression, ConstantExpression, InputReferenceExpression, LambdaDefinitionExpression, SpecialForm, VariableReferenceExpression
 {
     public abstract Type getType();
 

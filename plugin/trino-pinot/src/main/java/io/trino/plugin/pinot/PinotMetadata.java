@@ -151,7 +151,7 @@ public class PinotMetadata
     @Override
     public PinotTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        if (tableName.getTableName().trim().startsWith("select ")) {
+        if (tableName.getTableName().trim().contains("select ")) {
             DynamicTable dynamicTable = DynamicTableBuilder.buildFromPql(this, tableName, pinotClient, typeConverter);
             return new PinotTableHandle(tableName.getSchemaName(), dynamicTable.getTableName(), TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable));
         }
@@ -256,6 +256,7 @@ public class PinotMetadata
                     dynamicTable.get().getOrderBy(),
                     OptionalLong.of(limit),
                     dynamicTable.get().getOffset(),
+                    dynamicTable.get().getQueryOptions(),
                     dynamicTable.get().getQuery()));
         }
 
@@ -433,6 +434,7 @@ public class PinotMetadata
                 ImmutableList.of(),
                 limitForDynamicTable,
                 OptionalLong.empty(),
+                ImmutableMap.of(),
                 newQuery);
         tableHandle = new PinotTableHandle(tableHandle.getSchemaName(), tableHandle.getTableName(), tableHandle.getConstraint(), tableHandle.getLimit(), Optional.of(dynamicTable));
 

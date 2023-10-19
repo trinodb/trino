@@ -51,6 +51,7 @@ public class TableScanNode
 
     @Nullable // null on workers
     private final TupleDomain<ColumnHandle> enforcedConstraint;
+    @SuppressWarnings("NullableOptional")
     @Nullable // null on workers
     private final Optional<PlanNodeStatsEstimate> statistics;
     private final boolean updateTarget;

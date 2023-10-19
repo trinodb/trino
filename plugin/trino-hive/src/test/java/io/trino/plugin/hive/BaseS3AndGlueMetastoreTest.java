@@ -137,7 +137,7 @@ public abstract class BaseS3AndGlueMetastoreTest
             assertUpdate("CREATE TABLE " + qualifiedTableName + "(col_int int, col_str varchar)" + partitionQueryPart);
             try (UncheckedCloseable ignoredDropTable = onClose("DROP TABLE " + qualifiedTableName)) {
                 // in case of regular CREATE TABLE, location has generated suffix
-                String expectedTableLocationPattern = (schemaLocation.endsWith("/") ? schemaLocation : schemaLocation + "/") + tableName + "-[a-z0-9]+";
+                String expectedTableLocationPattern = Pattern.quote(schemaLocation.endsWith("/") ? schemaLocation : schemaLocation + "/") + tableName + "-[a-z0-9]+";
                 actualTableLocation = getTableLocation(qualifiedTableName);
                 assertThat(actualTableLocation).matches(expectedTableLocationPattern);
 
@@ -323,6 +323,8 @@ public abstract class BaseS3AndGlueMetastoreTest
         DOUBLE_SLASH("s3://%s/%s//double_slash/%s"),
         TRIPLE_SLASH("s3://%s/%s///triple_slash/%s"),
         PERCENT("s3://%s/%s/a%%percent/%s"),
+        HASH("s3://%s/%s/a#hash/%s"),
+        QUESTION_MARK("s3://%s/%s/a?question_mark/%s"),
         WHITESPACE("s3://%s/%s/a whitespace/%s"),
         TRAILING_WHITESPACE("s3://%s/%s/trailing_whitespace/%s "),
         /**/;

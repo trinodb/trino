@@ -22,6 +22,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
@@ -36,7 +37,7 @@ import org.testng.annotations.Test;
 import javax.security.auth.kerberos.KerberosPrincipal;
 
 import java.io.File;
-import java.util.Collection;
+import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -45,10 +46,6 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.io.Files.copy;
-import static io.trino.spi.function.FunctionKind.AGGREGATE;
-import static io.trino.spi.function.FunctionKind.SCALAR;
-import static io.trino.spi.function.FunctionKind.TABLE;
-import static io.trino.spi.function.FunctionKind.WINDOW;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.security.Privilege.UPDATE;
@@ -57,6 +54,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.lang.Thread.sleep;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.util.Files.newTemporaryFile;
 import static org.testng.Assert.assertEquals;
@@ -76,19 +74,21 @@ public abstract class BaseFileBasedSystemAccessControlTest
     private static final Identity admin = Identity.forUser("alberto").withEnabledRoles(ImmutableSet.of("admin")).withGroups(ImmutableSet.of("staff")).build();
     private static final Identity nonAsciiUser = Identity.ofUser("\u0194\u0194\u0194");
     private static final CatalogSchemaTableName aliceView = new CatalogSchemaTableName("alice-catalog", "schema", "view");
-    private static final Optional<QueryId> queryId = Optional.empty();
+    private static final QueryId queryId = new QueryId("test_query");
+    private static final Instant queryStart = Instant.now();
 
     private static final Identity charlie = Identity.forUser("charlie").withGroups(ImmutableSet.of("guests")).build();
     private static final Identity dave = Identity.forUser("dave").withGroups(ImmutableSet.of("contractors")).build();
     private static final Identity joe = Identity.ofUser("joe");
     private static final Identity any = Identity.ofUser("any");
     private static final Identity anyone = Identity.ofUser("anyone");
-    private static final SystemSecurityContext ADMIN = new SystemSecurityContext(admin, queryId);
-    private static final SystemSecurityContext BOB = new SystemSecurityContext(bob, queryId);
-    private static final SystemSecurityContext CHARLIE = new SystemSecurityContext(charlie, queryId);
-    private static final SystemSecurityContext ALICE = new SystemSecurityContext(alice, queryId);
-    private static final SystemSecurityContext JOE = new SystemSecurityContext(joe, queryId);
-    private static final SystemSecurityContext UNKNOWN = new SystemSecurityContext(Identity.ofUser("some-unknown-user-id"), queryId);
+    private static final Identity unknown = Identity.ofUser("some-unknown-user-id");
+    private static final SystemSecurityContext ADMIN = new SystemSecurityContext(admin, queryId, queryStart);
+    private static final SystemSecurityContext BOB = new SystemSecurityContext(bob, queryId, queryStart);
+    private static final SystemSecurityContext CHARLIE = new SystemSecurityContext(charlie, queryId, queryStart);
+    private static final SystemSecurityContext ALICE = new SystemSecurityContext(alice, queryId, queryStart);
+    private static final SystemSecurityContext JOE = new SystemSecurityContext(joe, queryId, queryStart);
+    private static final SystemSecurityContext UNKNOWN = new SystemSecurityContext(unknown, queryId, queryStart);
 
     private static final String SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE = "Cannot show schemas";
     private static final String CREATE_SCHEMA_ACCESS_DENIED_MESSAGE = "Cannot create schema .*";
@@ -121,6 +121,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
     private static final String GRANT_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Cannot grant privilege DELETE on table .*";
     private static final String DENY_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Cannot deny privilege DELETE on table .*";
     private static final String REVOKE_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Cannot revoke privilege DELETE on table .*";
+    private static final String SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE = "Cannot show functions of .*";
 
     private static final String SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE = "Cannot set system session property .*";
     private static final String SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE = "Cannot set catalog session property .*";
@@ -131,12 +132,8 @@ public abstract class BaseFileBasedSystemAccessControlTest
 
     @Test
     public void testEverythingImplemented()
-            throws NoSuchMethodException
     {
-        assertAllMethodsOverridden(SystemAccessControl.class, FileBasedSystemAccessControl.class, ImmutableSet.of(
-                FileBasedSystemAccessControl.class.getMethod("checkCanViewQueryOwnedBy", SystemSecurityContext.class, Identity.class),
-                FileBasedSystemAccessControl.class.getMethod("filterViewQueryOwnedBy", SystemSecurityContext.class, Collection.class),
-                FileBasedSystemAccessControl.class.getMethod("checkCanKillQueryOwnedBy", SystemSecurityContext.class, Identity.class)));
+        assertAllMethodsOverridden(SystemAccessControl.class, FileBasedSystemAccessControl.class);
     }
 
     @Test
@@ -150,7 +147,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
         SystemAccessControl accessControl = newFileBasedSystemAccessControl(configFile, ImmutableMap.of(
                 "security.refresh-period", "1ms"));
 
-        SystemSecurityContext alice = new SystemSecurityContext(BaseFileBasedSystemAccessControlTest.alice, queryId);
+        SystemSecurityContext alice = new SystemSecurityContext(BaseFileBasedSystemAccessControlTest.alice, queryId, queryStart);
         accessControl.checkCanCreateView(alice, aliceView);
         accessControl.checkCanCreateView(alice, aliceView);
         accessControl.checkCanCreateView(alice, aliceView);
@@ -214,39 +211,20 @@ public abstract class BaseFileBasedSystemAccessControlTest
         accessControl.checkCanSetUser(Optional.empty(), "unknown");
         accessControl.checkCanSetUser(Optional.of(new KerberosPrincipal("stuff@example.com")), "unknown");
 
-        accessControl.checkCanSetSystemSessionProperty(UNKNOWN, "anything");
+        accessControl.checkCanSetSystemSessionProperty(unknown, "anything");
         accessControl.checkCanSetCatalogSessionProperty(UNKNOWN, "unknown", "anything");
 
-        accessControl.checkCanExecuteQuery(UNKNOWN);
-        accessControl.checkCanViewQueryOwnedBy(UNKNOWN, anyone);
-        accessControl.checkCanKillQueryOwnedBy(UNKNOWN, anyone);
+        accessControl.checkCanExecuteQuery(unknown);
+        accessControl.checkCanViewQueryOwnedBy(unknown, anyone);
+        accessControl.checkCanKillQueryOwnedBy(unknown, anyone);
 
         // system information access is denied by default
         assertAccessDenied(
-                () -> accessControl.checkCanReadSystemInformation(UNKNOWN),
+                () -> accessControl.checkCanReadSystemInformation(unknown),
                 "Cannot read system information");
         assertAccessDenied(
-                () -> accessControl.checkCanWriteSystemInformation(UNKNOWN),
+                () -> accessControl.checkCanWriteSystemInformation(unknown),
                 "Cannot write system information");
-    }
-
-    @Test
-    public void testEmptyFunctionKind()
-    {
-        assertThatThrownBy(() -> newFileBasedSystemAccessControl("empty-functions-kind.json"))
-                .hasRootCauseInstanceOf(IllegalStateException.class)
-                .hasRootCauseMessage("functionKinds cannot be empty, provide at least one function kind [SCALAR, AGGREGATE, WINDOW, TABLE]");
-    }
-
-    @Test
-    public void testDisallowFunctionKindRuleCombination()
-    {
-        assertThatThrownBy(() -> newFileBasedSystemAccessControl("file-based-disallow-function-rule-combination.json"))
-                .hasRootCauseInstanceOf(IllegalStateException.class)
-                .hasRootCauseMessage("Cannot define catalog for others function kinds than TABLE");
-        assertThatThrownBy(() -> newFileBasedSystemAccessControl("file-based-disallow-function-rule-combination-without-table.json"))
-                .hasRootCauseInstanceOf(IllegalStateException.class)
-                .hasRootCauseMessage("Cannot define catalog for others function kinds than TABLE");
     }
 
     @Test
@@ -520,18 +498,8 @@ public abstract class BaseFileBasedSystemAccessControlTest
     public void testFunctionRulesForCheckExecuteAndGrantExecuteFunctionWithNoAccess()
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-no-access.json");
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(ALICE, "some_function"), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(ALICE, AGGREGATE, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function")), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(ALICE, SCALAR, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function")), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(ALICE, TABLE, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_table_function")), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(ALICE, WINDOW, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function")), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-
-        TrinoPrincipal grantee = new TrinoPrincipal(USER, "some_user");
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, "some_function", grantee, true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, AGGREGATE, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"), grantee, true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, SCALAR, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"), grantee, true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_table_function"), grantee, true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, WINDOW, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"), grantee, true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
+        assertThat(accessControl.canExecuteFunction(ALICE, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"))).isFalse();
+        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, new CatalogSchemaRoutineName("alice-catalog", "schema", "some_function"))).isFalse();
     }
 
     @Test
@@ -778,9 +746,9 @@ public abstract class BaseFileBasedSystemAccessControlTest
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table-mixed-groups.json");
 
         SystemSecurityContext userGroup1Group2 = new SystemSecurityContext(Identity.forUser("user_1_2")
-                .withGroups(ImmutableSet.of("group1", "group2")).build(), Optional.empty());
+                .withGroups(ImmutableSet.of("group1", "group2")).build(), queryId, queryStart);
         SystemSecurityContext userGroup2 = new SystemSecurityContext(Identity.forUser("user_2")
-                .withGroups(ImmutableSet.of("group2")).build(), Optional.empty());
+                .withGroups(ImmutableSet.of("group2")).build(), queryId, queryStart);
 
         assertEquals(
                 accessControl.getColumnMask(
@@ -796,12 +764,16 @@ public abstract class BaseFileBasedSystemAccessControlTest
                         new CatalogSchemaTableName("some-catalog", "my_schema", "my_table"),
                         "col_a",
                         VARCHAR).orElseThrow(),
-                new ViewExpression(Optional.empty(), Optional.of("some-catalog"), Optional.of("my_schema"), "'mask_a'"));
+                ViewExpression.builder()
+                        .catalog("some-catalog")
+                        .schema("my_schema")
+                        .expression("'mask_a'")
+                        .build());
 
         SystemSecurityContext userGroup1Group3 = new SystemSecurityContext(Identity.forUser("user_1_3")
-                .withGroups(ImmutableSet.of("group1", "group3")).build(), Optional.empty());
+                .withGroups(ImmutableSet.of("group1", "group3")).build(), queryId, queryStart);
         SystemSecurityContext userGroup3 = new SystemSecurityContext(Identity.forUser("user_3")
-                .withGroups(ImmutableSet.of("group3")).build(), Optional.empty());
+                .withGroups(ImmutableSet.of("group3")).build(), queryId, queryStart);
 
         assertEquals(
                 accessControl.getRowFilters(
@@ -815,7 +787,11 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertEquals(rowFilters.size(), 1);
         assertViewExpressionEquals(
                 rowFilters.get(0),
-                new ViewExpression(Optional.empty(), Optional.of("some-catalog"), Optional.of("my_schema"), "country='US'"));
+                ViewExpression.builder()
+                        .catalog("some-catalog")
+                        .schema("my_schema")
+                        .expression("country='US'")
+                        .build());
     }
 
     @Test
@@ -883,56 +859,56 @@ public abstract class BaseFileBasedSystemAccessControlTest
     {
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("query.json");
 
-        accessControlManager.checkCanExecuteQuery(ADMIN);
-        accessControlManager.checkCanViewQueryOwnedBy(ADMIN, any);
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(ADMIN, ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
-        accessControlManager.checkCanKillQueryOwnedBy(ADMIN, any);
+        accessControlManager.checkCanExecuteQuery(admin);
+        accessControlManager.checkCanViewQueryOwnedBy(admin, any);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(admin, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b")));
+        accessControlManager.checkCanKillQueryOwnedBy(admin, any);
 
-        accessControlManager.checkCanExecuteQuery(ALICE);
-        accessControlManager.checkCanViewQueryOwnedBy(ALICE, any);
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(ALICE, ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
+        accessControlManager.checkCanExecuteQuery(alice);
+        accessControlManager.checkCanViewQueryOwnedBy(alice, any);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(alice, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b")));
         assertAccessDenied(
-                () -> accessControlManager.checkCanKillQueryOwnedBy(ALICE, any),
+                () -> accessControlManager.checkCanKillQueryOwnedBy(alice, any),
                 "Cannot view query");
 
         assertAccessDenied(
-                () -> accessControlManager.checkCanExecuteQuery(BOB),
+                () -> accessControlManager.checkCanExecuteQuery(bob),
                 "Cannot view query");
         assertAccessDenied(
-                () -> accessControlManager.checkCanViewQueryOwnedBy(BOB, any),
+                () -> accessControlManager.checkCanViewQueryOwnedBy(bob, any),
                 "Cannot view query");
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(BOB, ImmutableSet.of("a", "b")), ImmutableSet.of());
-        accessControlManager.checkCanKillQueryOwnedBy(BOB, any);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(bob, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of());
+        accessControlManager.checkCanKillQueryOwnedBy(bob, any);
 
-        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(dave, queryId));
-        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), alice);
-        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), dave);
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), ImmutableSet.of("alice", "bob", "dave", "admin")),
-                ImmutableSet.of("alice", "dave"));
+        accessControlManager.checkCanExecuteQuery(dave);
+        accessControlManager.checkCanViewQueryOwnedBy(dave, alice);
+        accessControlManager.checkCanViewQueryOwnedBy(dave, dave);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(dave, ImmutableSet.of(Identity.ofUser("alice"), Identity.ofUser("bob"), Identity.ofUser("dave"), Identity.ofUser("admin"))),
+                ImmutableSet.of(Identity.ofUser("alice"), Identity.ofUser("dave")));
         assertAccessDenied(
-                () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), alice),
+                () -> accessControlManager.checkCanKillQueryOwnedBy(dave, alice),
                 "Cannot view query");
         assertAccessDenied(
-                () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), bob),
+                () -> accessControlManager.checkCanKillQueryOwnedBy(dave, bob),
                 "Cannot view query");
         assertAccessDenied(
-                () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), bob),
+                () -> accessControlManager.checkCanViewQueryOwnedBy(dave, bob),
                 "Cannot view query");
         assertAccessDenied(
-                () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), admin),
+                () -> accessControlManager.checkCanViewQueryOwnedBy(dave, admin),
                 "Cannot view query");
 
         Identity contractor = Identity.forUser("some-other-contractor").withGroups(ImmutableSet.of("contractors")).build();
-        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(contractor, queryId));
-        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(contractor, queryId), dave);
+        accessControlManager.checkCanExecuteQuery(contractor);
+        accessControlManager.checkCanViewQueryOwnedBy(contractor, dave);
         assertAccessDenied(
-                () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(contractor, queryId), dave),
+                () -> accessControlManager.checkCanKillQueryOwnedBy(contractor, dave),
                 "Cannot view query");
 
-        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(nonAsciiUser, queryId));
-        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(nonAsciiUser, queryId), any);
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(nonAsciiUser, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
-        accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(nonAsciiUser, queryId), any);
+        accessControlManager.checkCanExecuteQuery(nonAsciiUser);
+        accessControlManager.checkCanViewQueryOwnedBy(nonAsciiUser, any);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(nonAsciiUser, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b")));
+        accessControlManager.checkCanKillQueryOwnedBy(nonAsciiUser, any);
     }
 
     @Test
@@ -947,10 +923,10 @@ public abstract class BaseFileBasedSystemAccessControlTest
     {
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("file-based-system-catalog.json");
 
-        accessControlManager.checkCanExecuteQuery(BOB);
-        accessControlManager.checkCanViewQueryOwnedBy(BOB, any);
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(BOB, ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
-        accessControlManager.checkCanKillQueryOwnedBy(BOB, any);
+        accessControlManager.checkCanExecuteQuery(bob);
+        accessControlManager.checkCanViewQueryOwnedBy(bob, any);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(bob, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b")));
+        accessControlManager.checkCanKillQueryOwnedBy(bob, any);
     }
 
     @Test
@@ -959,49 +935,49 @@ public abstract class BaseFileBasedSystemAccessControlTest
         File rulesFile = new File("../../docs/src/main/sphinx/security/query-access.json");
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(rulesFile, ImmutableMap.of());
 
-        accessControlManager.checkCanExecuteQuery(ADMIN);
-        accessControlManager.checkCanViewQueryOwnedBy(ADMIN, any);
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(ADMIN, ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
-        accessControlManager.checkCanKillQueryOwnedBy(ADMIN, any);
+        accessControlManager.checkCanExecuteQuery(admin);
+        accessControlManager.checkCanViewQueryOwnedBy(admin, any);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(admin, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b")));
+        accessControlManager.checkCanKillQueryOwnedBy(admin, any);
 
-        accessControlManager.checkCanExecuteQuery(ALICE);
+        accessControlManager.checkCanExecuteQuery(alice);
         assertAccessDenied(
-                () -> accessControlManager.checkCanViewQueryOwnedBy(ALICE, any),
+                () -> accessControlManager.checkCanViewQueryOwnedBy(alice, any),
                 "Cannot view query");
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(ALICE, ImmutableSet.of("a", "b")), ImmutableSet.of());
-        accessControlManager.checkCanKillQueryOwnedBy(ALICE, any);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(alice, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of());
+        accessControlManager.checkCanKillQueryOwnedBy(alice, any);
 
-        accessControlManager.checkCanExecuteQuery(BOB);
+        accessControlManager.checkCanExecuteQuery(alice);
         assertAccessDenied(
-                () -> accessControlManager.checkCanViewQueryOwnedBy(BOB, any),
+                () -> accessControlManager.checkCanViewQueryOwnedBy(bob, any),
                 "Cannot view query");
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(BOB, ImmutableSet.of("a", "b")), ImmutableSet.of());
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(bob, ImmutableSet.of(Identity.ofUser("a"), Identity.ofUser("b"))), ImmutableSet.of());
         assertAccessDenied(
-                () -> accessControlManager.checkCanKillQueryOwnedBy(BOB, any),
+                () -> accessControlManager.checkCanKillQueryOwnedBy(bob, any),
                 "Cannot view query");
 
-        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(dave, queryId));
-        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), alice);
-        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), dave);
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), ImmutableSet.of("alice", "bob", "dave", "admin")),
-                ImmutableSet.of("alice", "dave"));
+        accessControlManager.checkCanExecuteQuery(dave);
+        accessControlManager.checkCanViewQueryOwnedBy(dave, alice);
+        accessControlManager.checkCanViewQueryOwnedBy(dave, dave);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(dave, ImmutableSet.of(Identity.ofUser("alice"), Identity.ofUser("bob"), Identity.ofUser("dave"), Identity.ofUser("admin"))),
+                ImmutableSet.of(Identity.ofUser("alice"), Identity.ofUser("dave")));
         assertAccessDenied(
-                () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), alice),
+                () -> accessControlManager.checkCanKillQueryOwnedBy(dave, alice),
                 "Cannot view query");
-        assertAccessDenied(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), bob),
-                "Cannot view query");
-        assertAccessDenied(
-                () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), bob),
+        assertAccessDenied(() -> accessControlManager.checkCanKillQueryOwnedBy(dave, bob),
                 "Cannot view query");
         assertAccessDenied(
-                () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), admin),
+                () -> accessControlManager.checkCanViewQueryOwnedBy(dave, bob),
+                "Cannot view query");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanViewQueryOwnedBy(dave, admin),
                 "Cannot view query");
 
         Identity contractor = Identity.forUser("some-other-contractor").withGroups(ImmutableSet.of("contractors")).build();
-        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(contractor, queryId));
-        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(contractor, queryId), dave);
+        accessControlManager.checkCanExecuteQuery(contractor);
+        accessControlManager.checkCanViewQueryOwnedBy(contractor, dave);
         assertAccessDenied(
-                () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(contractor, queryId), dave),
+                () -> accessControlManager.checkCanKillQueryOwnedBy(contractor, dave),
                 "Cannot view query");
     }
 
@@ -1010,23 +986,23 @@ public abstract class BaseFileBasedSystemAccessControlTest
     {
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("system-information.json");
 
-        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(admin, Optional.empty()));
-        accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(admin, Optional.empty()));
+        accessControlManager.checkCanReadSystemInformation(admin);
+        accessControlManager.checkCanWriteSystemInformation(admin);
 
-        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(alice, Optional.empty()));
+        accessControlManager.checkCanReadSystemInformation(alice);
         assertAccessDenied(
-                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(alice, Optional.empty())),
+                () -> accessControlManager.checkCanWriteSystemInformation(alice),
                 "Cannot write system information");
 
         assertAccessDenied(
-                () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())),
+                () -> accessControlManager.checkCanReadSystemInformation(bob),
                 "Cannot read system information");
         assertAccessDenied(
-                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())),
+                () -> accessControlManager.checkCanWriteSystemInformation(bob),
                 "Cannot write system information");
 
-        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(nonAsciiUser, Optional.empty()));
-        accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(nonAsciiUser, Optional.empty()));
+        accessControlManager.checkCanReadSystemInformation(nonAsciiUser);
+        accessControlManager.checkCanWriteSystemInformation(nonAsciiUser);
     }
 
     @Test
@@ -1035,10 +1011,10 @@ public abstract class BaseFileBasedSystemAccessControlTest
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("file-based-system-catalog.json");
 
         assertAccessDenied(
-                () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())),
+                () -> accessControlManager.checkCanReadSystemInformation(bob),
                 "Cannot read system information");
         assertAccessDenied(
-                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())),
+                () -> accessControlManager.checkCanWriteSystemInformation(bob),
                 "Cannot write system information");
     }
 
@@ -1048,19 +1024,19 @@ public abstract class BaseFileBasedSystemAccessControlTest
         File rulesFile = new File("../../docs/src/main/sphinx/security/system-information-access.json");
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(rulesFile, ImmutableMap.of());
 
-        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(admin, Optional.empty()));
-        accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(admin, Optional.empty()));
+        accessControlManager.checkCanReadSystemInformation(admin);
+        accessControlManager.checkCanWriteSystemInformation(admin);
 
-        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(alice, Optional.empty()));
+        accessControlManager.checkCanReadSystemInformation(alice);
         assertAccessDenied(
-                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(alice, Optional.empty())),
+                () -> accessControlManager.checkCanWriteSystemInformation(alice),
                 "Cannot write system information");
 
         assertAccessDenied(
-                () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())),
+                () -> accessControlManager.checkCanReadSystemInformation(bob),
                 "Cannot read system information");
         assertAccessDenied(
-                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())),
+                () -> accessControlManager.checkCanWriteSystemInformation(bob),
                 "Cannot write system information");
     }
 
@@ -1069,18 +1045,18 @@ public abstract class BaseFileBasedSystemAccessControlTest
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-session-property.json");
 
-        accessControl.checkCanSetSystemSessionProperty(ADMIN, "dangerous");
-        accessControl.checkCanSetSystemSessionProperty(ADMIN, "any");
-        accessControl.checkCanSetSystemSessionProperty(ALICE, "safe");
-        accessControl.checkCanSetSystemSessionProperty(ALICE, "unsafe");
-        accessControl.checkCanSetSystemSessionProperty(ALICE, "staff");
-        accessControl.checkCanSetSystemSessionProperty(BOB, "safe");
-        accessControl.checkCanSetSystemSessionProperty(BOB, "staff");
-        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(BOB, "unsafe"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(ALICE, "dangerous"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(CHARLIE, "safe"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(CHARLIE, "staff"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(JOE, "staff"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanSetSystemSessionProperty(admin, "dangerous");
+        accessControl.checkCanSetSystemSessionProperty(admin, "any");
+        accessControl.checkCanSetSystemSessionProperty(alice, "safe");
+        accessControl.checkCanSetSystemSessionProperty(alice, "unsafe");
+        accessControl.checkCanSetSystemSessionProperty(alice, "staff");
+        accessControl.checkCanSetSystemSessionProperty(bob, "safe");
+        accessControl.checkCanSetSystemSessionProperty(bob, "staff");
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(bob, "unsafe"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(alice, "dangerous"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(charlie, "safe"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(charlie, "staff"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(joe, "staff"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
 
         accessControl.checkCanSetCatalogSessionProperty(ADMIN, "any", "dangerous");
         accessControl.checkCanSetCatalogSessionProperty(ADMIN, "alice-catalog", "dangerous");
@@ -1104,23 +1080,24 @@ public abstract class BaseFileBasedSystemAccessControlTest
     {
         File rulesFile = new File("../../docs/src/main/sphinx/security/session-property-access.json");
         SystemAccessControl accessControl = newFileBasedSystemAccessControl(rulesFile, ImmutableMap.of());
-        SystemSecurityContext bannedUser = new SystemSecurityContext(Identity.ofUser("banned_user"), queryId);
+        Identity bannedUser = Identity.ofUser("banned_user");
+        SystemSecurityContext bannedUserContext = new SystemSecurityContext(Identity.ofUser("banned_user"), queryId, queryStart);
 
-        accessControl.checkCanSetSystemSessionProperty(ADMIN, "any");
-        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(ALICE, "any"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanSetSystemSessionProperty(admin, "any");
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(alice, "any"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(bannedUser, "any"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
 
-        accessControl.checkCanSetSystemSessionProperty(ADMIN, "resource_overcommit");
-        accessControl.checkCanSetSystemSessionProperty(ALICE, "resource_overcommit");
+        accessControl.checkCanSetSystemSessionProperty(admin, "resource_overcommit");
+        accessControl.checkCanSetSystemSessionProperty(alice, "resource_overcommit");
         assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(bannedUser, "resource_overcommit"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
 
         accessControl.checkCanSetCatalogSessionProperty(ADMIN, "hive", "any");
         assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(ALICE, "hive", "any"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(bannedUser, "hive", "any"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(bannedUserContext, "hive", "any"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
 
         accessControl.checkCanSetCatalogSessionProperty(ADMIN, "hive", "bucket_execution_enabled");
         accessControl.checkCanSetCatalogSessionProperty(ALICE, "hive", "bucket_execution_enabled");
-        assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(bannedUser, "hive", "bucket_execution_enabled"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(bannedUserContext, "hive", "bucket_execution_enabled"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
     }
 
     @Test
@@ -1204,7 +1181,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
 
         assertEquals(accessControl.filterSchemas(ADMIN, "specific-catalog", ImmutableSet.of("specific-schema", "unknown")), ImmutableSet.of("specific-schema", "unknown"));
         assertEquals(accessControl.filterSchemas(ALICE, "specific-catalog", ImmutableSet.of("specific-schema", "unknown")), ImmutableSet.of("specific-schema"));
-        assertEquals(accessControl.filterSchemas(BOB, "specific-catalog", ImmutableSet.of("specific-schema", "unknown")), ImmutableSet.of("specific-schema"));
+        assertEquals(accessControl.filterSchemas(BOB, "specific-catalog", ImmutableSet.of("specific-schema")), ImmutableSet.of("specific-schema"));
         assertEquals(accessControl.filterSchemas(CHARLIE, "specific-catalog", ImmutableSet.of("specific-schema", "unknown")), ImmutableSet.of("specific-schema"));
 
         assertEquals(accessControl.filterSchemas(ADMIN, "alice-catalog", ImmutableSet.of("alice-schema", "bob-schema", "unknown")), ImmutableSet.of("alice-schema", "bob-schema", "unknown"));
@@ -1303,6 +1280,55 @@ public abstract class BaseFileBasedSystemAccessControlTest
     }
 
     @Test
+    public void testSchemaRulesForCheckCanShowFunctions()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-visibility.json");
+
+        accessControl.checkCanShowFunctions(ADMIN, new CatalogSchemaName("specific-catalog", "specific-schema"));
+        accessControl.checkCanShowFunctions(ADMIN, new CatalogSchemaName("bob-catalog", "bob-schema"));
+        accessControl.checkCanShowFunctions(ADMIN, new CatalogSchemaName("bob-catalog", "any"));
+        accessControl.checkCanShowFunctions(ADMIN, new CatalogSchemaName("alice-catalog", "alice-schema"));
+        accessControl.checkCanShowFunctions(ADMIN, new CatalogSchemaName("alice-catalog", "any"));
+        accessControl.checkCanShowFunctions(ADMIN, new CatalogSchemaName("secret", "secret"));
+        accessControl.checkCanShowFunctions(ADMIN, new CatalogSchemaName("hidden", "any"));
+        accessControl.checkCanShowFunctions(ADMIN, new CatalogSchemaName("open-to-all", "any"));
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(ADMIN, new CatalogSchemaName("blocked-catalog", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanShowFunctions(ADMIN, new CatalogSchemaName("unknown", "any"));
+
+        accessControl.checkCanShowFunctions(ALICE, new CatalogSchemaName("specific-catalog", "specific-schema"));
+        accessControl.checkCanShowFunctions(ALICE, new CatalogSchemaName("alice-catalog", "alice-schema"));
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(ALICE, new CatalogSchemaName("bob-catalog", "bob-schema")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(ALICE, new CatalogSchemaName("secret", "secret")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(ALICE, new CatalogSchemaName("hidden", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(ALICE, new CatalogSchemaName("open-to-all", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(ALICE, new CatalogSchemaName("blocked-catalog", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(ALICE, new CatalogSchemaName("unknown", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+
+        accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("specific-catalog", "specific-schema"));
+        accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("bob-catalog", "bob-schema"));
+        accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("alice-catalog", "bob-schema"));
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("bob-catalog", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("alice-catalog", "alice-schema")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("alice-catalog", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("secret", "secret")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("hidden", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("open-to-all", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("blocked-catalog", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(BOB, new CatalogSchemaName("unknown", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+
+        accessControl.checkCanShowFunctions(CHARLIE, new CatalogSchemaName("specific-catalog", "specific-schema"));
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, new CatalogSchemaName("bob-catalog", "bob-schema")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, new CatalogSchemaName("bob-catalog", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, new CatalogSchemaName("alice-catalog", "alice-schema")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, new CatalogSchemaName("alice-catalog", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, new CatalogSchemaName("secret", "secret")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, new CatalogSchemaName("hidden", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, new CatalogSchemaName("open-to-all", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, new CatalogSchemaName("blocked-catalog", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanShowFunctions(CHARLIE, new CatalogSchemaName("unknown", "any")), SHOWN_FUNCTIONS_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
     public void testGetColumnMask()
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
@@ -1321,7 +1347,11 @@ public abstract class BaseFileBasedSystemAccessControlTest
                         new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
                         "masked",
                         VARCHAR).orElseThrow(),
-                new ViewExpression(Optional.empty(), Optional.of("some-catalog"), Optional.of("bobschema"), "'mask'"));
+                ViewExpression.builder()
+                        .catalog("some-catalog")
+                        .schema("bobschema")
+                        .expression("'mask'")
+                        .build());
 
         assertViewExpressionEquals(
                 accessControl.getColumnMask(
@@ -1329,7 +1359,12 @@ public abstract class BaseFileBasedSystemAccessControlTest
                         new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
                         "masked_with_user",
                         VARCHAR).orElseThrow(),
-                new ViewExpression(Optional.of("mask-user"), Optional.of("some-catalog"), Optional.of("bobschema"), "'mask-with-user'"));
+                ViewExpression.builder()
+                        .identity("mask-user")
+                        .catalog("some-catalog")
+                        .schema("bobschema")
+                        .expression("'mask-with-user'")
+                        .build());
     }
 
     @Test
@@ -1345,13 +1380,22 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertEquals(rowFilters.size(), 1);
         assertViewExpressionEquals(
                 rowFilters.get(0),
-                new ViewExpression(Optional.empty(), Optional.of("some-catalog"), Optional.of("bobschema"), "starts_with(value, 'filter')"));
+                ViewExpression.builder()
+                        .catalog("some-catalog")
+                        .schema("bobschema")
+                        .expression("starts_with(value, 'filter')")
+                        .build());
 
         rowFilters = accessControl.getRowFilters(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns_with_grant"));
         assertEquals(rowFilters.size(), 1);
         assertViewExpressionEquals(
                 rowFilters.get(0),
-                new ViewExpression(Optional.of("filter-user"), Optional.of("some-catalog"), Optional.of("bobschema"), "starts_with(value, 'filter-with-user')"));
+                ViewExpression.builder()
+                        .identity("filter-user")
+                        .catalog("some-catalog")
+                        .schema("bobschema")
+                        .expression("starts_with(value, 'filter-with-user')")
+                        .build());
     }
 
     private static void assertViewExpressionEquals(ViewExpression actual, ViewExpression expected)
@@ -1360,43 +1404,41 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertEquals(actual.getCatalog(), expected.getCatalog(), "Catalog");
         assertEquals(actual.getSchema(), expected.getSchema(), "Schema");
         assertEquals(actual.getExpression(), expected.getExpression(), "Expression");
+        assertEquals(actual.getPath(), expected.getPath(), "Path");
     }
 
     @Test
     public void testFunctionRulesForCheckCanExecute()
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-visibility.json");
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(ADMIN, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function")), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        accessControl.checkCanExecuteFunction(ALICE, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"));
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(BOB, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function")), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(CHARLIE, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function")), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(ADMIN, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_function")), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(ALICE, "some_function"), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        accessControl.checkCanExecuteFunction(BOB, "some_function");
-        assertAccessDenied(() -> accessControl.checkCanExecuteFunction(CHARLIE, "some_function"), EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
+        assertThat(accessControl.canExecuteFunction(BOB, new CatalogSchemaRoutineName("specific-catalog", "system", "some_function"))).isTrue();
+
+        assertThat(accessControl.canExecuteFunction(ADMIN, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(ADMIN, new CatalogSchemaRoutineName("specific-catalog", "system", "some_function"))).isFalse();
+
+        assertThat(accessControl.canExecuteFunction(ALICE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"))).isTrue();
+        assertThat(accessControl.canExecuteFunction(ALICE, new CatalogSchemaRoutineName("specific-catalog", "system", "some_function"))).isFalse();
+
+        assertThat(accessControl.canExecuteFunction(BOB, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(BOB, new CatalogSchemaRoutineName("specific-catalog", "system", "some_function"))).isTrue();
+
+        assertThat(accessControl.canExecuteFunction(CHARLIE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"))).isFalse();
+        assertThat(accessControl.canExecuteFunction(CHARLIE, new CatalogSchemaRoutineName("specific-catalog", "system", "some_function"))).isFalse();
     }
 
     @Test
-    public void testFunctionRulesForCheckCanGrantExecute()
+    public void testFunctionRulesForCheckCanCreateView()
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-visibility.json");
-        accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, ADMIN.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_function"), new TrinoPrincipal(USER, ADMIN.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, "some_function", new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, "some_function", new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, "some_function", new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
+        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"))).isTrue();
+        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_function"))).isFalse();
+        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, new CatalogSchemaRoutineName("specific-catalog", "builtin", "some_table_function"))).isFalse();
+        assertThat(accessControl.canCreateViewWithExecuteFunction(ALICE, new CatalogSchemaRoutineName("specific-catalog", "builtin", "some_function"))).isFalse();
 
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, ADMIN.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"), new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_function"), new TrinoPrincipal(USER, ADMIN.getIdentity().getUser()), true), GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, "some_function", new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, "some_function", new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, "some_function", new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true);
+        assertThat(accessControl.canCreateViewWithExecuteFunction(BOB, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_table_function"))).isFalse();
+        assertThat(accessControl.canCreateViewWithExecuteFunction(BOB, new CatalogSchemaRoutineName("ptf-catalog", "ptf_schema", "some_function"))).isFalse();
+        assertThat(accessControl.canCreateViewWithExecuteFunction(BOB, new CatalogSchemaRoutineName("specific-catalog", "builtin", "some_table_function"))).isFalse();
+        assertThat(accessControl.canCreateViewWithExecuteFunction(BOB, new CatalogSchemaRoutineName("specific-catalog", "builtin", "some_function"))).isTrue();
     }
 
     @Test
@@ -1593,6 +1635,51 @@ public abstract class BaseFileBasedSystemAccessControlTest
     }
 
     @Test
+    public void testFunctionsFilter()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-function-filter.json");
+        Set<SchemaFunctionName> functions = ImmutableSet.<SchemaFunctionName>builder()
+                .add(new SchemaFunctionName("restricted", "any"))
+                .add(new SchemaFunctionName("secret", "any"))
+                .add(new SchemaFunctionName("aliceschema", "any"))
+                .add(new SchemaFunctionName("aliceschema", "bobfunction"))
+                .add(new SchemaFunctionName("bobschema", "bob_any"))
+                .add(new SchemaFunctionName("bobschema", "any"))
+                .add(new SchemaFunctionName("any", "any"))
+                .build();
+        assertEquals(accessControl.filterFunctions(ALICE, "any", functions), ImmutableSet.<SchemaFunctionName>builder()
+                .add(new SchemaFunctionName("aliceschema", "any"))
+                .add(new SchemaFunctionName("aliceschema", "bobfunction"))
+                .build());
+        assertEquals(accessControl.filterFunctions(BOB, "any", functions), ImmutableSet.<SchemaFunctionName>builder()
+                .add(new SchemaFunctionName("aliceschema", "bobfunction"))
+                .add(new SchemaFunctionName("bobschema", "bob_any"))
+                .build());
+        assertEquals(accessControl.filterFunctions(ADMIN, "any", functions), ImmutableSet.<SchemaFunctionName>builder()
+                .add(new SchemaFunctionName("secret", "any"))
+                .add(new SchemaFunctionName("aliceschema", "any"))
+                .add(new SchemaFunctionName("aliceschema", "bobfunction"))
+                .add(new SchemaFunctionName("bobschema", "bob_any"))
+                .add(new SchemaFunctionName("bobschema", "any"))
+                .add(new SchemaFunctionName("any", "any"))
+                .build());
+    }
+
+    @Test
+    public void testFunctionsFilterNoAccess()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-no-access.json");
+
+        Set<SchemaFunctionName> functions = ImmutableSet.<SchemaFunctionName>builder()
+                .add(new SchemaFunctionName("restricted", "any"))
+                .add(new SchemaFunctionName("secret", "any"))
+                .add(new SchemaFunctionName("any", "any"))
+                .build();
+        assertEquals(accessControl.filterFunctions(ALICE, "any", functions), ImmutableSet.of());
+        assertEquals(accessControl.filterFunctions(BOB, "any", functions), ImmutableSet.of());
+    }
+
+    @Test
     public void testAuthorizationDocsExample()
     {
         File rulesFile = new File("../../docs/src/main/sphinx/security/authorization.json");
@@ -1622,7 +1709,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
                 .withGroups(ImmutableSet.of(group))
                 .withEnabledRoles(ImmutableSet.of(role))
                 .build();
-        return new SystemSecurityContext(identity, queryId);
+        return new SystemSecurityContext(identity, queryId, queryStart);
     }
 
     @Test

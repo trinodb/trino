@@ -36,6 +36,7 @@ public class ClientSession
     private final URI server;
     private final Optional<String> principal;
     private final Optional<String> user;
+    private final Optional<String> authorizationUser;
     private final String source;
     private final Optional<String> traceToken;
     private final Set<String> clientTags;
@@ -75,6 +76,7 @@ public class ClientSession
             URI server,
             Optional<String> principal,
             Optional<String> user,
+            Optional<String> authorizationUser,
             String source,
             Optional<String> traceToken,
             Set<String> clientTags,
@@ -96,6 +98,7 @@ public class ClientSession
         this.server = requireNonNull(server, "server is null");
         this.principal = requireNonNull(principal, "principal is null");
         this.user = requireNonNull(user, "user is null");
+        this.authorizationUser = requireNonNull(authorizationUser, "authorizationUser is null");
         this.source = source;
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
@@ -156,6 +159,11 @@ public class ClientSession
     public Optional<String> getUser()
     {
         return user;
+    }
+
+    public Optional<String> getAuthorizationUser()
+    {
+        return authorizationUser;
     }
 
     public String getSource()
@@ -258,6 +266,7 @@ public class ClientSession
                 .add("server", server)
                 .add("principal", principal)
                 .add("user", user)
+                .add("authorizationUser", authorizationUser)
                 .add("clientTags", clientTags)
                 .add("clientInfo", clientInfo)
                 .add("catalog", catalog)
@@ -277,6 +286,7 @@ public class ClientSession
         private URI server;
         private Optional<String> principal = Optional.empty();
         private Optional<String> user = Optional.empty();
+        private Optional<String> authorizationUser = Optional.empty();
         private String source;
         private Optional<String> traceToken = Optional.empty();
         private Set<String> clientTags = ImmutableSet.of();
@@ -303,6 +313,7 @@ public class ClientSession
             server = clientSession.getServer();
             principal = clientSession.getPrincipal();
             user = clientSession.getUser();
+            authorizationUser = clientSession.getAuthorizationUser();
             source = clientSession.getSource();
             traceToken = clientSession.getTraceToken();
             clientTags = clientSession.getClientTags();
@@ -331,6 +342,12 @@ public class ClientSession
         public Builder user(Optional<String> user)
         {
             this.user = user;
+            return this;
+        }
+
+        public Builder authorizationUser(Optional<String> authorizationUser)
+        {
+            this.authorizationUser = authorizationUser;
             return this;
         }
 
@@ -448,6 +465,7 @@ public class ClientSession
                     server,
                     principal,
                     user,
+                    authorizationUser,
                     source,
                     traceToken,
                     clientTags,

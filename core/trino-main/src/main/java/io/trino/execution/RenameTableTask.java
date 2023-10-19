@@ -86,15 +86,15 @@ public class RenameTableTask
         }
 
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
-        if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
+        if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             if (!statement.isExists()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
             }
             return immediateVoidFuture();
         }
 
-        TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
-        QualifiedObjectName source = redirectionAwareTableHandle.getRedirectedTableName().orElse(tableName);
+        TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
+        QualifiedObjectName source = redirectionAwareTableHandle.redirectedTableName().orElse(tableName);
         QualifiedObjectName target = createTargetQualifiedObjectName(source, statement.getTarget());
         if (metadata.getCatalogHandle(session, target.getCatalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' does not exist", target.getCatalogName());

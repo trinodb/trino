@@ -88,7 +88,7 @@ public class BenchmarkGroupedTopNRowNumberBuilder
 
         public GroupedTopNRowNumberBuilder newTopNRowNumberBuilder()
         {
-            return new GroupedTopNRowNumberBuilder(types, comparator, topN, false, new CyclingGroupByHash(groupCount));
+            return new GroupedTopNRowNumberBuilder(types, comparator, topN, false, new int[0], new CyclingGroupByHash(groupCount));
         }
 
         public Page getPage()

@@ -20,7 +20,6 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.SqlVarbinary;
-import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -106,14 +105,14 @@ public class TestTDigestAggregationFunction
         // Test without weights
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("tdigest_agg"),
+                "tdigest_agg",
                 fromTypes(DOUBLE),
                 getExpectedValue(nCopies(inputs.length, DEFAULT_WEIGHT), inputs),
                 new Page(doublesBlock));
         // Test with weights
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("tdigest_agg"),
+                "tdigest_agg",
                 fromTypes(DOUBLE, DOUBLE),
                 getExpectedValue(weights, inputs),
                 new Page(doublesBlock, weightsBlock));
@@ -124,14 +123,14 @@ public class TestTDigestAggregationFunction
         // Test without weights
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("tdigest_agg"),
+                "tdigest_agg",
                 fromTypes(DOUBLE),
                 equalAssertion, "Test multiple values",
                 new Page(doublesBlock), getExpectedValue(nCopies(inputs.length, DEFAULT_WEIGHT), inputs));
         // Test with weights
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("tdigest_agg"),
+                "tdigest_agg",
                 fromTypes(DOUBLE, DOUBLE),
                 equalAssertion,
                 "Test multiple values",

@@ -40,9 +40,17 @@ public class IcebergColumnHandle
     public static final int TRINO_MERGE_ROW_ID = Integer.MIN_VALUE + 1;
     public static final String TRINO_ROW_ID_NAME = "$row_id";
 
-    public static final int TRINO_MERGE_FILE_RECORD_COUNT = Integer.MIN_VALUE + 2;
-    public static final int TRINO_MERGE_PARTITION_SPEC_ID = Integer.MIN_VALUE + 3;
-    public static final int TRINO_MERGE_PARTITION_DATA = Integer.MIN_VALUE + 4;
+    public static final int TRINO_MERGE_PARTITION_SPEC_ID = Integer.MIN_VALUE + 2;
+    public static final int TRINO_MERGE_PARTITION_DATA = Integer.MIN_VALUE + 3;
+
+    public static final String DATA_CHANGE_TYPE_NAME = "_change_type";
+    public static final int DATA_CHANGE_TYPE_ID = Integer.MIN_VALUE + 5;
+    public static final String DATA_CHANGE_VERSION_NAME = "_change_version_id";
+    public static final int DATA_CHANGE_VERSION_ID = Integer.MIN_VALUE + 6;
+    public static final String DATA_CHANGE_TIMESTAMP_NAME = "_change_timestamp";
+    public static final int DATA_CHANGE_TIMESTAMP_ID = Integer.MIN_VALUE + 7;
+    public static final String DATA_CHANGE_ORDINAL_NAME = "_change_ordinal";
+    public static final int DATA_CHANGE_ORDINAL_ID = Integer.MIN_VALUE + 8;
 
     private final ColumnIdentity baseColumnIdentity;
     private final Type baseType;

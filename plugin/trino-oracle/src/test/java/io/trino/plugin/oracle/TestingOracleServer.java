@@ -40,10 +40,11 @@ import java.sql.Statement;
 import java.time.temporal.ChronoUnit;
 
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.containers.TestContainers.startOrReuse;
 import static java.lang.String.format;
 
 public class TestingOracleServer
-        implements Closeable
+        implements AutoCloseable
 {
     private static final Logger log = Logger.get(TestingOracleServer.class);
 
@@ -64,6 +65,8 @@ public class TestingOracleServer
 
     private final OracleContainer container;
 
+    private Closeable cleanup = () -> {};
+
     public TestingOracleServer()
     {
         container = Failsafe.with(CONTAINER_RETRY_POLICY).get(this::createContainer);
@@ -76,7 +79,7 @@ public class TestingOracleServer
                 .withCopyFileToContainer(MountableFile.forClasspathResource("restart.sh"), "/container-entrypoint-initdb.d/02-restart.sh")
                 .withCopyFileToContainer(MountableFile.forHostPath(createConfigureScript()), "/container-entrypoint-initdb.d/03-create-users.sql")
                 .usingSid();
-        container.start();
+        cleanup = startOrReuse(container);
         return container;
     }
 
@@ -132,7 +135,12 @@ public class TestingOracleServer
     @Override
     public void close()
     {
-        container.stop();
+        try {
+            cleanup.close();
+        }
+        catch (IOException ioe) {
+            throw new UncheckedIOException(ioe);
+        }
     }
 
     @ResourcePresence

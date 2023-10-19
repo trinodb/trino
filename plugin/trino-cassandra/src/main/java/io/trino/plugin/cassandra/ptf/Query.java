@@ -15,6 +15,7 @@ package io.trino.plugin.cassandra.ptf;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
@@ -24,6 +25,7 @@ import io.trino.plugin.cassandra.CassandraColumnHandle;
 import io.trino.plugin.cassandra.CassandraMetadata;
 import io.trino.plugin.cassandra.CassandraQueryRelationHandle;
 import io.trino.plugin.cassandra.CassandraTableHandle;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
@@ -38,6 +40,7 @@ import io.trino.spi.function.table.ScalarArgument;
 import io.trino.spi.function.table.ScalarArgumentSpecification;
 import io.trino.spi.function.table.TableFunctionAnalysis;
 
+import java.lang.reflect.UndeclaredThrowableException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -45,6 +48,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
@@ -98,7 +102,13 @@ public class Query
             String query = ((Slice) argument.getValue()).toStringUtf8();
 
             CassandraQueryRelationHandle queryRelationHandle = new CassandraQueryRelationHandle(query);
-            List<ColumnHandle> columnHandles = cassandraMetadata.getColumnHandles(query);
+            List<ColumnHandle> columnHandles;
+            try {
+                columnHandles = cassandraMetadata.getColumnHandles(query);
+            }
+            catch (UndeclaredThrowableException e) {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot get column definition", Throwables.getRootCause(e));
+            }
             checkState(!columnHandles.isEmpty(), "Handle doesn't have columns info");
             Descriptor returnedType = new Descriptor(columnHandles.stream()
                     .map(CassandraColumnHandle.class::cast)

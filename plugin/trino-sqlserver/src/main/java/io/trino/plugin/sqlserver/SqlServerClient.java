@@ -294,6 +294,17 @@ public class SqlServerClient
     }
 
     @Override
+    protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName, boolean cascade)
+            throws SQLException
+    {
+        if (cascade) {
+            // SQL Server doesn't support CASCADE option https://learn.microsoft.com/en-us/sql/t-sql/statements/drop-schema-transact-sql
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas with CASCADE option");
+        }
+        execute(session, connection, "DROP SCHEMA " + quoted(remoteSchemaName));
+    }
+
+    @Override
     public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         JdbcOutputTableHandle table = super.beginCreateTable(session, tableMetadata);

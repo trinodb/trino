@@ -16,9 +16,11 @@ package io.trino.plugin.atop;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,12 +32,14 @@ import static io.trino.plugin.atop.AtopErrorCode.ATOP_READ_TIMEOUT;
 import static io.trino.plugin.atop.LocalAtopQueryRunner.createQueryRunner;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.nio.file.Files.createTempDirectory;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestAtopHang
 {
     private QueryRunner queryRunner;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
             throws Exception
     {
@@ -44,14 +48,15 @@ public class TestAtopHang
         queryRunner = createQueryRunner(ImmutableMap.of("atop.executable-path", tempPath + "/hanging_atop.sh", "atop.executable-read-timeout", "1s"), AtopProcessFactory.class);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         queryRunner.close();
         queryRunner = null;
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testTimeout()
     {
         assertTrinoExceptionThrownBy(() -> queryRunner.execute("SELECT * FROM disks"))

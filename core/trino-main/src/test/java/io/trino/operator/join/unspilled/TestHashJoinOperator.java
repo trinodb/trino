@@ -54,7 +54,6 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.DataProviders;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingTaskContext;
-import io.trino.type.BlockTypeOperators;
 import io.trino.util.FinalizerService;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -108,7 +107,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestHashJoinOperator
 {
-    private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
+    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -139,7 +138,7 @@ public class TestHashJoinOperator
                 new NodeTaskMap(new FinalizerService())));
         nodePartitioningManager = new NodePartitioningManager(
                 nodeScheduler,
-                new BlockTypeOperators(new TypeOperators()),
+                TYPE_OPERATORS,
                 CatalogServiceProvider.fail());
     }
 
@@ -297,7 +296,7 @@ public class TestHashJoinOperator
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
-                TYPE_OPERATOR_FACTORY);
+                TYPE_OPERATORS);
 
         instantiateBuildDrivers(buildSideSetup, taskContext);
         buildLookupSource(executor, buildSideSetup);
@@ -348,7 +347,7 @@ public class TestHashJoinOperator
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
-                TYPE_OPERATOR_FACTORY);
+                TYPE_OPERATORS);
 
         instantiateBuildDrivers(buildSideSetup, taskContext);
         buildLookupSource(executor, buildSideSetup);
@@ -931,7 +930,7 @@ public class TestHashJoinOperator
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
-                TYPE_OPERATOR_FACTORY);
+                TYPE_OPERATORS);
 
         // drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -968,7 +967,7 @@ public class TestHashJoinOperator
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
-                TYPE_OPERATOR_FACTORY);
+                TYPE_OPERATORS);
 
         // drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1011,7 +1010,7 @@ public class TestHashJoinOperator
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
-                TYPE_OPERATOR_FACTORY);
+                TYPE_OPERATORS);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1057,7 +1056,7 @@ public class TestHashJoinOperator
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
-                TYPE_OPERATOR_FACTORY);
+                TYPE_OPERATORS);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1102,7 +1101,7 @@ public class TestHashJoinOperator
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
-                TYPE_OPERATOR_FACTORY);
+                TYPE_OPERATORS);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1292,7 +1291,7 @@ public class TestHashJoinOperator
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
-                TYPE_OPERATOR_FACTORY);
+                TYPE_OPERATORS);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1365,7 +1364,7 @@ public class TestHashJoinOperator
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
-                TYPE_OPERATOR_FACTORY);
+                TYPE_OPERATORS);
     }
 
     private static <T> List<T> concat(List<T> initialElements, List<T> moreElements)

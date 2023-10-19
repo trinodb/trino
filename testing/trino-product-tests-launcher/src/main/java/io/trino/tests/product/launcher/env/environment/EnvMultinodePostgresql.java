@@ -60,7 +60,7 @@ public final class EnvMultinodePostgresql
     private DockerContainer createPostgreSql()
     {
         // Use the oldest supported PostgreSQL version
-        DockerContainer container = new DockerContainer("postgres:10.20", "postgresql")
+        DockerContainer container = new DockerContainer("postgres:11", "postgresql")
                 .withEnv("POSTGRES_PASSWORD", "test")
                 .withEnv("POSTGRES_USER", "test")
                 .withEnv("POSTGRES_DB", "test")

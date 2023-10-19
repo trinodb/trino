@@ -76,6 +76,7 @@ import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TableUpdateNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
@@ -493,6 +494,14 @@ public final class PropertyDerivations
 
         @Override
         public ActualProperties visitTableDelete(TableDeleteNode node, List<ActualProperties> context)
+        {
+            return ActualProperties.builder()
+                    .global(coordinatorSinglePartition())
+                    .build();
+        }
+
+        @Override
+        public ActualProperties visitTableUpdate(TableUpdateNode node, List<ActualProperties> context)
         {
             return ActualProperties.builder()
                     .global(coordinatorSinglePartition())

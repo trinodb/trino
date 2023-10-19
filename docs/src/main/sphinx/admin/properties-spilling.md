@@ -6,6 +6,7 @@ These properties control {doc}`spill`.
 
 - **Type:** {ref}`prop-type-boolean`
 - **Default value:** `false`
+- **Session property:** `spill_enabled`
 
 Try spilling memory to disk to avoid exceeding memory limits for the query.
 
@@ -13,8 +14,6 @@ Spilling works by offloading memory to disk. This process can allow a query with
 footprint to pass at the cost of slower execution times. Spilling is supported for
 aggregations, joins (inner and outer), sorting, and window functions. This property does not
 reduce memory usage required for other join types.
-
-This config property can be overridden by the `spill_enabled` session property.
 
 ## `spiller-spill-path`
 

@@ -14,7 +14,7 @@
 package io.trino.plugin.hive;
 
 import io.trino.spi.connector.SchemaTableName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.testng.Assert.assertEquals;
 

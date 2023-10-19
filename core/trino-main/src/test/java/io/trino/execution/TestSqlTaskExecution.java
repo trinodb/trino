@@ -34,6 +34,7 @@ import io.trino.execution.buffer.PartitionedOutputBuffer;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.execution.executor.TaskExecutor;
+import io.trino.execution.executor.timesharing.TimeSharingTaskExecutor;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.memory.context.SimpleLocalMemoryContext;
@@ -53,7 +54,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.OptionalInt;
@@ -88,7 +89,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
-@Test(singleThreaded = true)
 public class TestSqlTaskExecution
 {
     private static final OutputBufferId OUTPUT_BUFFER_ID = new OutputBufferId(0);
@@ -101,7 +101,7 @@ public class TestSqlTaskExecution
     {
         ScheduledExecutorService taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));
         ScheduledExecutorService driverYieldExecutor = newScheduledThreadPool(2, threadsNamed("driver-yield-%s"));
-        TaskExecutor taskExecutor = new TaskExecutor(5, 10, 3, 4, Ticker.systemTicker());
+        TaskExecutor taskExecutor = new TimeSharingTaskExecutor(5, 10, 3, 4, Ticker.systemTicker());
 
         taskExecutor.start();
         try {

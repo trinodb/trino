@@ -17,7 +17,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV1;
-import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -61,7 +60,7 @@ public abstract class AbstractColumnReaderBenchmark<VALUES>
     private static final int DATA_GENERATION_BATCH_SIZE = 16384;
     private static final int READ_BATCH_SIZE = 4096;
 
-    private final ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC, new ParquetReaderOptions().withBatchColumnReaders(true));
+    private final ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC);
     private final List<DataPage> dataPages = new ArrayList<>();
     private int dataPositions;
 

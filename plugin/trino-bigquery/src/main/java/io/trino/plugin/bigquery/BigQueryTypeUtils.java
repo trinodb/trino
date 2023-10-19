@@ -16,6 +16,7 @@ package io.trino.plugin.bigquery;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
@@ -122,17 +123,18 @@ public final class BigQueryTypeUtils
             return list.build();
         }
         if (type instanceof RowType rowType) {
-            Block rowBlock = block.getObject(position, Block.class);
+            SqlRow sqlRow = block.getObject(position, SqlRow.class);
 
             List<Type> fieldTypes = rowType.getTypeParameters();
-            if (fieldTypes.size() != rowBlock.getPositionCount()) {
+            if (fieldTypes.size() != sqlRow.getFieldCount()) {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, "Expected row value field count does not match type field count");
             }
 
+            int rawIndex = sqlRow.getRawIndex();
             Map<String, Object> rowValue = new HashMap<>();
-            for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-                String fieldName = rowType.getFields().get(i).getName().orElseThrow(() -> new IllegalArgumentException("Field name must exist in BigQuery"));
-                Object fieldValue = readNativeValue(fieldTypes.get(i), rowBlock, i);
+            for (int fieldIndex = 0; fieldIndex < sqlRow.getFieldCount(); fieldIndex++) {
+                String fieldName = rowType.getFields().get(fieldIndex).getName().orElseThrow(() -> new IllegalArgumentException("Field name must exist in BigQuery"));
+                Object fieldValue = readNativeValue(fieldTypes.get(fieldIndex), sqlRow.getRawFieldBlock(fieldIndex), rawIndex);
                 rowValue.put(fieldName, fieldValue);
             }
             return unmodifiableMap(rowValue);

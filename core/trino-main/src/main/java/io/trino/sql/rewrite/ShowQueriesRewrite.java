@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 import com.google.common.primitives.Primitives;
 import com.google.inject.Inject;
 import io.trino.Session;
@@ -47,6 +49,8 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.SchemaFunctionName;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
@@ -77,6 +81,7 @@ import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.Relation;
+import io.trino.sql.tree.Row;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
 import io.trino.sql.tree.ShowCreate;
@@ -123,8 +128,8 @@ import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
-import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.QueryUtil.aliased;
 import static io.trino.sql.QueryUtil.aliasedName;
 import static io.trino.sql.QueryUtil.aliasedNullToEmpty;
@@ -307,11 +312,11 @@ public final class ShowQueriesRewrite
                 QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
                 if (!metadata.isView(session, qualifiedTableName)) {
                     RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, qualifiedTableName);
-                    if (redirection.getTableHandle().isEmpty()) {
+                    if (redirection.tableHandle().isEmpty()) {
                         throw semanticException(TABLE_NOT_FOUND, showGrants, "Table '%s' does not exist", tableName);
                     }
-                    if (redirection.getRedirectedTableName().isPresent()) {
-                        throw semanticException(NOT_SUPPORTED, showGrants, "Table %s is redirected to %s and SHOW GRANTS is not supported with table redirections", tableName.get(), redirection.getRedirectedTableName().get());
+                    if (redirection.redirectedTableName().isPresent()) {
+                        throw semanticException(NOT_SUPPORTED, showGrants, "Table %s is redirected to %s and SHOW GRANTS is not supported with table redirections", tableName.get(), redirection.redirectedTableName().get());
                     }
                 }
 
@@ -441,7 +446,7 @@ public final class ShowQueriesRewrite
         @Override
         protected Node visitShowCatalogs(ShowCatalogs node, Void context)
         {
-            List<Expression> rows = listCatalogNames(session, metadata, accessControl).stream()
+            List<Expression> rows = listCatalogNames(session, metadata, accessControl, Domain.all(VARCHAR)).stream()
                     .map(name -> row(new StringLiteral(name)))
                     .collect(toImmutableList());
 
@@ -483,11 +488,11 @@ public final class ShowQueriesRewrite
                 // Check for table if view is not present
                 if (!isView) {
                     RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
-                    tableHandle = redirection.getTableHandle();
+                    tableHandle = redirection.tableHandle();
                     if (tableHandle.isEmpty()) {
                         throw semanticException(TABLE_NOT_FOUND, showColumns, "Table '%s' does not exist", tableName);
                     }
-                    targetTableName = redirection.getRedirectedTableName().orElse(tableName);
+                    targetTableName = redirection.redirectedTableName().orElse(tableName);
                 }
             }
 
@@ -658,10 +663,10 @@ public final class ShowQueriesRewrite
                 }
 
                 RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, objectName);
-                TableHandle tableHandle = redirection.getTableHandle()
+                TableHandle tableHandle = redirection.tableHandle()
                         .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", objectName));
 
-                QualifiedObjectName targetTableName = redirection.getRedirectedTableName().orElse(objectName);
+                QualifiedObjectName targetTableName = redirection.redirectedTableName().orElse(objectName);
                 accessControl.checkCanShowCreateTable(session.toSecurityContext(), targetTableName);
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle).getMetadata();
 
@@ -773,15 +778,19 @@ public final class ShowQueriesRewrite
         @Override
         protected Node visitShowFunctions(ShowFunctions node, Void context)
         {
-            List<Expression> rows = metadata.listFunctions(session).stream()
+            Collection<FunctionMetadata> functions;
+            if (node.getSchema().isPresent()) {
+                CatalogSchemaName schema = createCatalogSchemaName(session, node, node.getSchema());
+                accessControl.checkCanShowFunctions(session.toSecurityContext(), schema);
+                functions = listFunctions(schema);
+            }
+            else {
+                functions = listFunctions();
+            }
+
+            List<Expression> rows = functions.stream()
                     .filter(function -> !function.isHidden())
-                    .map(function -> row(
-                            new StringLiteral(function.getSignature().getName()),
-                            new StringLiteral(function.getSignature().getReturnType().toString()),
-                            new StringLiteral(Joiner.on(", ").join(function.getSignature().getArgumentTypes())),
-                            new StringLiteral(getFunctionType(function)),
-                            function.isDeterministic() ? TRUE_LITERAL : FALSE_LITERAL,
-                            new StringLiteral(nullToEmpty(function.getDescription()))))
+                    .flatMap(metadata -> metadata.getNames().stream().map(alias -> toRow(alias, metadata)))
                     .collect(toImmutableList());
 
             Map<String, String> columns = ImmutableMap.<String, String>builder()
@@ -792,6 +801,10 @@ public final class ShowQueriesRewrite
                     .put("deterministic", "Deterministic")
                     .put("description", "Description")
                     .buildOrThrow();
+
+            if (rows.isEmpty()) {
+                return emptyQuery(ImmutableList.copyOf(columns.values()));
+            }
 
             return simpleQuery(
                     selectAll(columns.entrySet().stream()
@@ -813,6 +826,42 @@ public final class ShowQueriesRewrite
                             ascending("return_type"),
                             ascending("argument_types"),
                             ascending("function_type")));
+        }
+
+        private static Row toRow(String alias, FunctionMetadata function)
+        {
+            return row(
+                    new StringLiteral(alias),
+                    new StringLiteral(function.getSignature().getReturnType().toString()),
+                    new StringLiteral(Joiner.on(", ").join(function.getSignature().getArgumentTypes())),
+                    new StringLiteral(getFunctionType(function)),
+                    function.isDeterministic() ? TRUE_LITERAL : FALSE_LITERAL,
+                    new StringLiteral(nullToEmpty(function.getDescription())));
+        }
+
+        private Collection<FunctionMetadata> listFunctions()
+        {
+            ImmutableList.Builder<FunctionMetadata> functions = ImmutableList.builder();
+            functions.addAll(metadata.listGlobalFunctions(session));
+            for (CatalogSchemaName name : session.getPath().getPath()) {
+                functions.addAll(metadata.listFunctions(session, name));
+            }
+            return functions.build();
+        }
+
+        private Collection<FunctionMetadata> listFunctions(CatalogSchemaName schema)
+        {
+            return filterFunctions(schema, metadata.listFunctions(session, schema));
+        }
+
+        private Collection<FunctionMetadata> filterFunctions(CatalogSchemaName schema, Iterable<FunctionMetadata> functions)
+        {
+            Multimap<SchemaFunctionName, FunctionMetadata> functionsByName = Multimaps.index(functions, function ->
+                    new SchemaFunctionName(schema.getSchemaName(), function.getCanonicalName()));
+
+            Set<SchemaFunctionName> filtered = accessControl.filterFunctions(session.toSecurityContext(), schema.getCatalogName(), functionsByName.keySet());
+
+            return Multimaps.filterKeys(functionsByName, filtered::contains).values();
         }
 
         private static String getFunctionType(FunctionMetadata function)
@@ -882,7 +931,7 @@ public final class ShowQueriesRewrite
         private Query parseView(String view, QualifiedObjectName name, Node node)
         {
             try {
-                Statement statement = sqlParser.createStatement(view, createParsingOptions(session));
+                Statement statement = sqlParser.createStatement(view);
                 return (Query) statement;
             }
             catch (ParsingException e) {

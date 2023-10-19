@@ -27,9 +27,10 @@ import io.trino.spi.Page;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Type;
 import io.trino.spiller.PartitioningSpiller.PartitioningSpillResult;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.UncheckedIOException;
 import java.nio.channels.ClosedChannelException;
@@ -51,8 +52,10 @@ import static java.lang.Math.toIntExact;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 
+@TestInstance(PER_CLASS)
 public class TestGenericPartitioningSpiller
 {
     private static final int FIRST_PARTITION_START = -10;
@@ -66,7 +69,7 @@ public class TestGenericPartitioningSpiller
     private GenericPartitioningSpillerFactory factory;
     private ScheduledExecutorService scheduledExecutor;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
             throws Exception
     {
@@ -84,7 +87,7 @@ public class TestGenericPartitioningSpiller
         scheduledExecutor = newSingleThreadScheduledExecutor();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws Exception
     {

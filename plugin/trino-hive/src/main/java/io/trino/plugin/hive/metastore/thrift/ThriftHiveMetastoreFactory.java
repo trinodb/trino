@@ -15,7 +15,7 @@ package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
-import io.trino.hdfs.HdfsEnvironment;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.spi.security.ConnectorIdentity;
 import org.weakref.jmx.Flatten;
@@ -30,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 public class ThriftHiveMetastoreFactory
         implements ThriftMetastoreFactory
 {
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final IdentityAwareMetastoreClientFactory metastoreClientFactory;
     private final double backoffScaleFactor;
     private final Duration minBackoffDelay;
@@ -43,6 +43,7 @@ public class ThriftHiveMetastoreFactory
     private final boolean translateHiveViews;
     private final boolean assumeCanonicalPartitionKeys;
     private final boolean useSparkTableStatisticsFallback;
+    private final boolean batchMetadataFetchEnabled;
     private final ExecutorService writeStatisticsExecutor;
     private final ThriftMetastoreStats stats = new ThriftMetastoreStats();
 
@@ -52,11 +53,11 @@ public class ThriftHiveMetastoreFactory
             @HideDeltaLakeTables boolean hideDeltaLakeTables,
             @TranslateHiveViews boolean translateHiveViews,
             ThriftMetastoreConfig thriftConfig,
-            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
             @ThriftHiveWriteStatisticsExecutor ExecutorService writeStatisticsExecutor)
     {
         this.metastoreClientFactory = requireNonNull(metastoreClientFactory, "metastoreClientFactory is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.backoffScaleFactor = thriftConfig.getBackoffScaleFactor();
         this.minBackoffDelay = thriftConfig.getMinBackoffDelay();
         this.maxBackoffDelay = thriftConfig.getMaxBackoffDelay();
@@ -70,6 +71,7 @@ public class ThriftHiveMetastoreFactory
 
         this.assumeCanonicalPartitionKeys = thriftConfig.isAssumeCanonicalPartitionKeys();
         this.useSparkTableStatisticsFallback = thriftConfig.isUseSparkTableStatisticsFallback();
+        this.batchMetadataFetchEnabled = thriftConfig.isBatchMetadataFetchEnabled();
         this.writeStatisticsExecutor = requireNonNull(writeStatisticsExecutor, "writeStatisticsExecutor is null");
     }
 
@@ -91,7 +93,7 @@ public class ThriftHiveMetastoreFactory
     {
         return new ThriftHiveMetastore(
                 identity,
-                hdfsEnvironment,
+                fileSystemFactory,
                 metastoreClientFactory,
                 backoffScaleFactor,
                 minBackoffDelay,
@@ -103,6 +105,7 @@ public class ThriftHiveMetastoreFactory
                 translateHiveViews,
                 assumeCanonicalPartitionKeys,
                 useSparkTableStatisticsFallback,
+                batchMetadataFetchEnabled,
                 stats,
                 writeStatisticsExecutor);
     }

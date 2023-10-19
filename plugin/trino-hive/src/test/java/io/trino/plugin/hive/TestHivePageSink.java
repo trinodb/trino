@@ -43,8 +43,7 @@ import io.trino.tpch.LineItemColumn;
 import io.trino.tpch.LineItemGenerator;
 import io.trino.tpch.TpchColumnType;
 import io.trino.tpch.TpchColumnTypes;
-import io.trino.type.BlockTypeOperators;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -70,7 +69,6 @@ import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
-import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProviders;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.trino.plugin.hive.HiveType.HIVE_DATE;
@@ -268,17 +266,13 @@ public class TestHivePageSink
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                false,
                 Optional.empty(),
                 SplitWeight.standard());
         ConnectorTableHandle table = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
         HivePageSourceProvider provider = new HivePageSourceProvider(
                 TESTING_TYPE_MANAGER,
-                HDFS_ENVIRONMENT,
                 config,
-                getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT, config),
-                getDefaultHiveRecordCursorProviders(config, HDFS_ENVIRONMENT),
-                new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, config));
+                getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT, config));
         return provider.createPageSource(transaction, getHiveSession(config), split, table, ImmutableList.copyOf(getColumnHandles()), DynamicFilter.EMPTY);
     }
 
@@ -301,15 +295,12 @@ public class TestHivePageSink
                 false,
                 false);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
-        TypeOperators typeOperators = new TypeOperators();
-        BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
         HivePageSinkProvider provider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, HDFS_ENVIRONMENT),
                 HDFS_FILE_SYSTEM_FACTORY,
-                HDFS_ENVIRONMENT,
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastore),
-                new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), blockTypeOperators),
+                new GroupByHashPageIndexerFactory(new JoinCompiler(new TypeOperators())),
                 TESTING_TYPE_MANAGER,
                 config,
                 sortingFileWriterConfig,

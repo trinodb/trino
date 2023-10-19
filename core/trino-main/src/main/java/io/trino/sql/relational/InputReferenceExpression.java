@@ -13,6 +13,7 @@
  */
 package io.trino.sql.relational;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.Type;
 
@@ -26,7 +27,10 @@ public final class InputReferenceExpression
     private final int field;
     private final Type type;
 
-    public InputReferenceExpression(int field, Type type)
+    @JsonCreator
+    public InputReferenceExpression(
+            @JsonProperty int field,
+            @JsonProperty Type type)
     {
         requireNonNull(type, "type is null");
 

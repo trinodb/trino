@@ -17,7 +17,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.function.FunctionKind;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
@@ -187,6 +187,12 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public Map<SchemaTableName, Set<String>> filterColumns(SecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        return tableColumns;
+    }
+
+    @Override
     public void checkCanAddColumns(SecurityContext context, QualifiedObjectName tableName)
     {
     }
@@ -282,13 +288,15 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
+    public boolean canExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
+        return true;
     }
 
     @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, Identity grantee, boolean grantOption)
+    public boolean canCreateViewWithExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
+        return true;
     }
 
     @Override
@@ -362,11 +370,6 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, Optional<String> catalogName)
-    {
-    }
-
-    @Override
     public void checkCanShowRoles(SecurityContext context, Optional<String> catalogName)
     {
     }
@@ -387,17 +390,18 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanExecuteFunction(SecurityContext context, String functionName)
-    {
-    }
-
-    @Override
-    public void checkCanExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
-    {
-    }
-
-    @Override
     public void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName tableName, String procedureName)
     {
+    }
+
+    @Override
+    public void checkCanShowFunctions(SecurityContext context, CatalogSchemaName schema)
+    {
+    }
+
+    @Override
+    public Set<SchemaFunctionName> filterFunctions(SecurityContext context, String catalogName, Set<SchemaFunctionName> functionNames)
+    {
+        return functionNames;
     }
 }

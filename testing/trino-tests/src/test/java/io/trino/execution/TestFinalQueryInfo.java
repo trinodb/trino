@@ -23,7 +23,8 @@ import io.trino.spi.QueryId;
 import io.trino.testing.DistributedQueryRunner;
 import okhttp3.Call;
 import okhttp3.OkHttpClient;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.time.ZoneId;
 import java.util.Locale;
@@ -38,7 +39,8 @@ import static org.testng.Assert.assertTrue;
 
 public class TestFinalQueryInfo
 {
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(240)
     public void testFinalQueryInfoSetOnAbort()
             throws Exception
     {

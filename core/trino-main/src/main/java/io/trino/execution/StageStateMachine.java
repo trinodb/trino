@@ -272,8 +272,8 @@ public class StageStateMachine
         int runningDrivers = 0;
         int completedDrivers = 0;
 
-        long cumulativeUserMemory = 0;
-        long failedCumulativeUserMemory = 0;
+        double cumulativeUserMemory = 0;
+        double failedCumulativeUserMemory = 0;
         long userMemoryReservation = 0;
         long totalMemoryReservation = 0;
 
@@ -416,8 +416,8 @@ public class StageStateMachine
         int blockedDrivers = 0;
         int completedDrivers = 0;
 
-        long cumulativeUserMemory = 0;
-        long failedCumulativeUserMemory = 0;
+        double cumulativeUserMemory = 0;
+        double failedCumulativeUserMemory = 0;
         long userMemoryReservation = currentUserMemory.get();
         long revocableMemoryReservation = currentRevocableMemory.get();
         long totalMemoryReservation = currentTotalMemory.get();

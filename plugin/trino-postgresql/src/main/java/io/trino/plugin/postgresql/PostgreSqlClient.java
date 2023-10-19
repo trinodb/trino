@@ -75,7 +75,7 @@ import io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.SingleMapBlock;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -662,6 +662,21 @@ public class PostgreSqlClient
     }
 
     @Override
+    public Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    {
+        if (type instanceof TimeType timeType && timeType.getPrecision() > POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
+            return Optional.of(createTimeType(POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION));
+        }
+        if (type instanceof TimestampType timestampType && timestampType.getPrecision() > POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
+            return Optional.of(createTimestampType(POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION));
+        }
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && timestampWithTimeZoneType.getPrecision() > POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
+            return Optional.of(createTimestampWithTimeZoneType(POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION));
+        }
+        return Optional.empty();
+    }
+
+    @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         if (type == BOOLEAN) {
@@ -720,29 +735,21 @@ public class PostgreSqlClient
         }
 
         if (type instanceof TimeType timeType) {
-            if (timeType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
-                return WriteMapping.longMapping(format("time(%s)", timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
-            }
-            return WriteMapping.longMapping(format("time(%s)", POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION), timeWriteFunction(POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION));
+            verify(timeType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION);
+            return WriteMapping.longMapping(format("time(%s)", timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
         }
 
         if (type instanceof TimestampType timestampType) {
-            if (timestampType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
-                verify(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION);
-                return WriteMapping.longMapping(format("timestamp(%s)", timestampType.getPrecision()), PostgreSqlClient::shortTimestampWriteFunction);
-            }
-            verify(timestampType.getPrecision() > TimestampType.MAX_SHORT_PRECISION);
-            return WriteMapping.objectMapping(format("timestamp(%s)", POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION), longTimestampWriteFunction());
+            verify(timestampType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION);
+            return WriteMapping.longMapping(format("timestamp(%s)", timestampType.getPrecision()), PostgreSqlClient::shortTimestampWriteFunction);
         }
         if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
-            if (timestampWithTimeZoneType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
-                String dataType = format("timestamptz(%d)", timestampWithTimeZoneType.getPrecision());
-                if (timestampWithTimeZoneType.getPrecision() <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
-                    return WriteMapping.longMapping(dataType, shortTimestampWithTimeZoneWriteFunction());
-                }
-                return WriteMapping.objectMapping(dataType, longTimestampWithTimeZoneWriteFunction());
+            verify(timestampWithTimeZoneType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION);
+            String dataType = format("timestamptz(%d)", timestampWithTimeZoneType.getPrecision());
+            if (timestampWithTimeZoneType.isShort()) {
+                return WriteMapping.longMapping(dataType, shortTimestampWithTimeZoneWriteFunction());
             }
-            return WriteMapping.objectMapping(format("timestamptz(%d)", POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION), longTimestampWithTimeZoneWriteFunction());
+            return WriteMapping.objectMapping(dataType, longTimestampWithTimeZoneWriteFunction());
         }
         if (type.equals(jsonType)) {
             return WriteMapping.sliceMapping("jsonb", typedVarcharWriteFunction("json"));
@@ -859,6 +866,7 @@ public class PostgreSqlClient
         checkArgument(handle.isNamedRelation(), "Unable to delete from synthetic table: %s", handle);
         checkArgument(handle.getLimit().isEmpty(), "Unable to delete when limit is set: %s", handle);
         checkArgument(handle.getSortOrder().isEmpty(), "Unable to delete when sort order is set: %s", handle);
+        checkArgument(handle.getUpdateAssignments().isEmpty(), "Unable to delete when update assignments are set: %s", handle);
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
             PreparedQuery preparedQuery = queryBuilder.prepareDeleteQuery(
@@ -873,6 +881,35 @@ public class PostgreSqlClient
                 // In getPreparedStatement we set autocommit to false so here we need an explicit commit
                 connection.commit();
                 return OptionalLong.of(affectedRowsCount);
+            }
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public OptionalLong update(ConnectorSession session, JdbcTableHandle handle)
+    {
+        checkArgument(handle.isNamedRelation(), "Unable to update from synthetic table: %s", handle);
+        checkArgument(handle.getLimit().isEmpty(), "Unable to update when limit is set: %s", handle);
+        checkArgument(handle.getSortOrder().isEmpty(), "Unable to update when sort order is set: %s", handle);
+        checkArgument(!handle.getUpdateAssignments().isEmpty(), "Unable to update when update assignments are not set: %s", handle);
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            verify(connection.getAutoCommit());
+            PreparedQuery preparedQuery = queryBuilder.prepareUpdateQuery(
+                    this,
+                    session,
+                    connection,
+                    handle.getRequiredNamedRelation(),
+                    handle.getConstraint(),
+                    getAdditionalPredicate(handle.getConstraintExpressions(), Optional.empty()),
+                    handle.getUpdateAssignments());
+            try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.empty())) {
+                int affectedRows = preparedStatement.executeUpdate();
+                // In getPreparedStatement we set autocommit to false so here we need an explicit commit
+                connection.commit();
+                return OptionalLong.of(affectedRows);
             }
         }
         catch (SQLException e) {
@@ -1252,7 +1289,7 @@ public class PostgreSqlClient
 
     private ObjectReadFunction varcharMapReadFunction()
     {
-        return ObjectReadFunction.of(Block.class, (resultSet, columnIndex) -> {
+        return ObjectReadFunction.of(SqlMap.class, (resultSet, columnIndex) -> {
             @SuppressWarnings("unchecked")
             Map<String, String> map = (Map<String, String>) resultSet.getObject(columnIndex);
             BlockBuilder keyBlockBuilder = varcharMapType.getKeyType().createBlockBuilder(null, map.size());
@@ -1270,17 +1307,23 @@ public class PostgreSqlClient
                 }
             }
             return varcharMapType.createBlockFromKeyValue(Optional.empty(), new int[] {0, map.size()}, keyBlockBuilder.build(), valueBlockBuilder.build())
-                    .getObject(0, Block.class);
+                    .getObject(0, SqlMap.class);
         });
     }
 
     private ObjectWriteFunction hstoreWriteFunction(ConnectorSession session)
     {
-        return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
-            checkArgument(block instanceof SingleMapBlock, "wrong block type: %s. expected SingleMapBlock", block.getClass().getSimpleName());
+        return ObjectWriteFunction.of(SqlMap.class, (statement, index, sqlMap) -> {
+            int rawOffset = sqlMap.getRawOffset();
+            Block rawKeyBlock = sqlMap.getRawKeyBlock();
+            Block rawValueBlock = sqlMap.getRawValueBlock();
+
+            Type keyType = varcharMapType.getKeyType();
+            Type valueType = varcharMapType.getValueType();
+
             Map<Object, Object> map = new HashMap<>();
-            for (int i = 0; i < block.getPositionCount(); i += 2) {
-                map.put(varcharMapType.getKeyType().getObjectValue(session, block, i), varcharMapType.getValueType().getObjectValue(session, block, i + 1));
+            for (int i = 0; i < sqlMap.getSize(); i++) {
+                map.put(keyType.getObjectValue(session, rawKeyBlock, rawOffset + i), valueType.getObjectValue(session, rawValueBlock, rawOffset + i));
             }
             statement.setObject(index, Collections.unmodifiableMap(map));
         });

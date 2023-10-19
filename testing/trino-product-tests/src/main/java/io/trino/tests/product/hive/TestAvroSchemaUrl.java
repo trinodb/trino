@@ -55,6 +55,7 @@ public class TestAvroSchemaUrl
         hdfsClient.createDirectory("/user/hive/warehouse/TestAvroSchemaUrl/schemas");
         saveResourceOnHdfs("avro/original_schema.avsc", "/user/hive/warehouse/TestAvroSchemaUrl/schemas/original_schema.avsc");
         saveResourceOnHdfs("avro/column_with_long_type_definition_schema.avsc", "/user/hive/warehouse/TestAvroSchemaUrl/schemas/column_with_long_type_definition_schema.avsc");
+        saveResourceOnHdfs("avro/camelCaseSchema.avsc", "/user/hive/warehouse/TestAvroSchemaUrl/schemas/camelCaseSchema.avsc");
 
         hdfsClient.createDirectory("/user/hive/warehouse/TestAvroSchemaUrl/data");
         saveResourceOnHdfs("avro/column_with_long_type_definition_data.avro", "/user/hive/warehouse/TestAvroSchemaUrl/data/column_with_long_type_definition_data.avro");
@@ -237,6 +238,30 @@ public class TestAvroSchemaUrl
                         "... \",\"record_field499\":\"val499\"}"));
 
         onHive().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_partitioned_long_column");
+    }
+
+    @Test(groups = {AVRO, STORAGE_FORMATS})
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    public void testHiveCreatedCamelCaseColumnTable()
+    {
+        onHive().executeQuery("DROP TABLE IF EXISTS test_camelCase_avro_schema_url_hive");
+        onHive().executeQuery("" +
+                "CREATE TABLE test_camelCase_avro_schema_url_hive " +
+                "ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
+                "STORED AS " +
+                "INPUTFORMAT 'org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat' " +
+                "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.avro.AvroContainerOutputFormat' " +
+                "TBLPROPERTIES ('avro.schema.url'='/user/hive/warehouse/TestAvroSchemaUrl/schemas/camelCaseSchema.avsc')");
+        onHive().executeQuery("INSERT INTO test_camelCase_avro_schema_url_hive VALUES ('hi', 1)");
+        onTrino().executeQuery("INSERT INTO test_camelCase_avro_schema_url_hive VALUES ('bye', 2)");
+        assertThat(onHive().executeQuery("SELECT * FROM test_camelCase_avro_schema_url_hive")).containsOnly(row("hi", 1), row("bye", 2));
+        assertThat(onTrino().executeQuery("SELECT * FROM test_camelCase_avro_schema_url_hive")).containsOnly(row("hi", 1), row("bye", 2));
+        assertThat(onHive().executeQuery("SELECT intCol, stringCol FROM test_camelCase_avro_schema_url_hive")).containsOnly(row(1, "hi"), row(2, "bye"));
+        assertThat(onTrino().executeQuery("SELECT intCol, stringCol FROM test_camelCase_avro_schema_url_hive")).containsOnly(row(1, "hi"), row(2, "bye"));
+        assertThat(onTrino().executeQuery("SELECT column_name FROM information_schema.columns WHERE table_name = 'test_camelcase_avro_schema_url_hive'"))
+                .containsOnly(row("stringcol"), row("intcol"));
+
+        onHive().executeQuery("DROP TABLE IF EXISTS test_camelCase_avro_schema_url_hive");
     }
 
     private boolean isOnHdp()

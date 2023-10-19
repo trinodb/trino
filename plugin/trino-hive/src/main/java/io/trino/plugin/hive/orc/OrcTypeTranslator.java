@@ -14,16 +14,20 @@
 package io.trino.plugin.hive.orc;
 
 import io.trino.orc.metadata.OrcType.OrcTypeKind;
+import io.trino.plugin.hive.coercions.DateCoercer.VarcharToDateCoercer;
+import io.trino.plugin.hive.coercions.DoubleToVarcharCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToVarcharCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToLongTimestampCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToShortTimestampCoercer;
 import io.trino.plugin.hive.coercions.TypeCoercer;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
 import java.util.Optional;
 
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.DOUBLE;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.STRING;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.VARCHAR;
@@ -39,11 +43,20 @@ public final class OrcTypeTranslator
         if (fromOrcType == TIMESTAMP && toTrinoType instanceof VarcharType varcharType) {
             return Optional.of(new LongTimestampToVarcharCoercer(TIMESTAMP_NANOS, varcharType));
         }
-        if (isVarcharType(fromOrcType) && toTrinoType instanceof TimestampType timestampType) {
-            if (timestampType.isShort()) {
-                return Optional.of(new VarcharToShortTimestampCoercer(createUnboundedVarcharType(), timestampType));
+        if (isVarcharType(fromOrcType)) {
+            if (toTrinoType instanceof TimestampType timestampType) {
+                if (timestampType.isShort()) {
+                    return Optional.of(new VarcharToShortTimestampCoercer(createUnboundedVarcharType(), timestampType));
+                }
+                return Optional.of(new VarcharToLongTimestampCoercer(createUnboundedVarcharType(), timestampType));
             }
-            return Optional.of(new VarcharToLongTimestampCoercer(createUnboundedVarcharType(), timestampType));
+            if (toTrinoType instanceof DateType toDateType) {
+                return Optional.of(new VarcharToDateCoercer(createUnboundedVarcharType(), toDateType));
+            }
+            return Optional.empty();
+        }
+        if (fromOrcType == DOUBLE && toTrinoType instanceof VarcharType varcharType) {
+            return Optional.of(new DoubleToVarcharCoercer(varcharType, true));
         }
         return Optional.empty();
     }

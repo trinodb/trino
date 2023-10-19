@@ -115,7 +115,8 @@ global_replacements = {
 
 myst_enable_extensions = [
     "colon_fence",
-    "deflist"
+    "deflist",
+    "substitution"
 ]
 
 # -- Options for HTML output ---------------------------------------------------
@@ -138,7 +139,7 @@ html_sidebars = {
 }
 
 html_theme_options = {
-    'base_url': '/',
+    'base_url': 'https://trino.io/docs/current/',
     'globaltoc_depth': -1,
     'theme_color': '2196f3',
     'color_primary': '',  # set in CSS

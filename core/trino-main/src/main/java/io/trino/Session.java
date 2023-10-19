@@ -14,6 +14,7 @@
 package io.trino;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -23,12 +24,14 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.trino.client.ProtocolHeaders;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
@@ -42,6 +45,7 @@ import io.trino.transaction.TransactionManager;
 import java.security.Principal;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -54,7 +58,9 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
+import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.sql.SqlPath.EMPTY_PATH;
 import static io.trino.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
 
@@ -65,6 +71,7 @@ public final class Session
     private final Optional<TransactionId> transactionId;
     private final boolean clientTransactionSupport;
     private final Identity identity;
+    private final Identity originalIdentity;
     private final Optional<String> source;
     private final Optional<String> catalog;
     private final Optional<String> schema;
@@ -93,6 +100,7 @@ public final class Session
             Optional<TransactionId> transactionId,
             boolean clientTransactionSupport,
             Identity identity,
+            Identity originalIdentity,
             Optional<String> source,
             Optional<String> catalog,
             Optional<String> schema,
@@ -119,6 +127,7 @@ public final class Session
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.clientTransactionSupport = clientTransactionSupport;
         this.identity = requireNonNull(identity, "identity is null");
+        this.originalIdentity = requireNonNull(originalIdentity, "originalIdentity is null");
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -167,6 +176,11 @@ public final class Session
     public Identity getIdentity()
     {
         return identity;
+    }
+
+    public Identity getOriginalIdentity()
+    {
+        return originalIdentity;
     }
 
     public Optional<String> getSource()
@@ -334,7 +348,7 @@ public final class Session
                 throw new TrinoException(NOT_FOUND, "Catalog for role does not exist: " + catalogName);
             }
             if (role.getType() == SelectedRole.Type.ROLE) {
-                accessControl.checkCanSetCatalogRole(new SecurityContext(transactionId, identity, queryId), role.getRole().orElseThrow(), catalogName);
+                accessControl.checkCanSetCatalogRole(new SecurityContext(transactionId, identity, queryId, start), role.getRole().orElseThrow(), catalogName);
             }
             connectorRoles.put(catalogName, role);
         }
@@ -347,6 +361,7 @@ public final class Session
                 Identity.from(identity)
                         .withConnectorRoles(connectorRoles.buildOrThrow())
                         .build(),
+                originalIdentity,
                 source,
                 catalog,
                 schema,
@@ -395,6 +410,7 @@ public final class Session
                 transactionId,
                 clientTransactionSupport,
                 identity,
+                originalIdentity,
                 source,
                 catalog,
                 schema,
@@ -426,6 +442,7 @@ public final class Session
                 transactionId,
                 clientTransactionSupport,
                 identity,
+                originalIdentity,
                 source,
                 catalog,
                 schema,
@@ -475,7 +492,9 @@ public final class Session
                 transactionId,
                 clientTransactionSupport,
                 identity.getUser(),
+                originalIdentity.getUser(),
                 identity.getGroups(),
+                originalIdentity.getGroups(),
                 identity.getPrincipal().map(Principal::toString),
                 identity.getEnabledRoles(),
                 source,
@@ -546,7 +565,7 @@ public final class Session
         for (Entry<String, String> property : catalogProperties.entrySet()) {
             // verify permissions
             if (transactionId.isPresent()) {
-                accessControl.checkCanSetCatalogSessionProperty(new SecurityContext(transactionId.get(), identity, queryId), catalogName, property.getKey());
+                accessControl.checkCanSetCatalogSessionProperty(new SecurityContext(transactionId.get(), identity, queryId, start), catalogName, property.getKey());
             }
 
             // validate catalog session property value
@@ -565,6 +584,34 @@ public final class Session
         }
     }
 
+    public Session createViewSession(Optional<String> catalog, Optional<String> schema, Identity identity, List<CatalogSchemaName> path)
+    {
+        // For a view, we prepend the global function schema to the path, which should not be in the path
+        // We do not change the raw path, as that is use for the current_path function
+        SqlPath sqlPath = new SqlPath(
+                ImmutableList.<CatalogSchemaName>builder()
+                        .add(new CatalogSchemaName(GlobalSystemConnector.NAME, BUILTIN_SCHEMA))
+                        .addAll(path)
+                        .build(),
+                getPath().getRawPath());
+        return builder(sessionPropertyManager)
+                .setQueryId(getQueryId())
+                .setTransactionId(getTransactionId().orElse(null))
+                .setIdentity(identity)
+                .setOriginalIdentity(getOriginalIdentity())
+                .setSource(getSource().orElse(null))
+                .setCatalog(catalog)
+                .setSchema(schema)
+                .setPath(sqlPath)
+                .setTimeZoneKey(getTimeZoneKey())
+                .setLocale(getLocale())
+                .setRemoteUserAddress(getRemoteUserAddress().orElse(null))
+                .setUserAgent(getUserAgent().orElse(null))
+                .setClientInfo(getClientInfo().orElse(null))
+                .setStart(getStart())
+                .build();
+    }
+
     public static SessionBuilder builder(SessionPropertyManager sessionPropertyManager)
     {
         return new SessionBuilder(sessionPropertyManager);
@@ -578,7 +625,7 @@ public final class Session
 
     public SecurityContext toSecurityContext()
     {
-        return new SecurityContext(getRequiredTransactionId(), getIdentity(), queryId);
+        return new SecurityContext(getRequiredTransactionId(), getIdentity(), queryId, start);
     }
 
     public static class SessionBuilder
@@ -588,10 +635,11 @@ public final class Session
         private TransactionId transactionId;
         private boolean clientTransactionSupport;
         private Identity identity;
+        private Identity originalIdentity;
         private String source;
         private String catalog;
         private String schema;
-        private SqlPath path;
+        private SqlPath path = EMPTY_PATH;
         private Optional<String> traceToken = Optional.empty();
         private TimeZoneKey timeZoneKey;
         private Locale locale;
@@ -622,6 +670,7 @@ public final class Session
             this.transactionId = session.transactionId.orElse(null);
             this.clientTransactionSupport = session.clientTransactionSupport;
             this.identity = session.identity;
+            this.originalIdentity = session.originalIdentity;
             this.source = session.source.orElse(null);
             this.catalog = session.catalog.orElse(null);
             this.path = session.path;
@@ -728,13 +777,6 @@ public final class Session
         }
 
         @CanIgnoreReturnValue
-        public SessionBuilder setPath(Optional<SqlPath> path)
-        {
-            this.path = path.orElse(null);
-            return this;
-        }
-
-        @CanIgnoreReturnValue
         public SessionBuilder setSource(String source)
         {
             this.source = source;
@@ -780,6 +822,13 @@ public final class Session
         public SessionBuilder setIdentity(Identity identity)
         {
             this.identity = identity;
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public SessionBuilder setOriginalIdentity(Identity originalIdentity)
+        {
+            this.originalIdentity = originalIdentity;
             return this;
         }
 
@@ -889,10 +938,11 @@ public final class Session
                     Optional.ofNullable(transactionId),
                     clientTransactionSupport,
                     identity,
+                    originalIdentity,
                     Optional.ofNullable(source),
                     Optional.ofNullable(catalog),
                     Optional.ofNullable(schema),
-                    path != null ? path : new SqlPath(Optional.empty()),
+                    path,
                     traceToken,
                     timeZoneKey != null ? timeZoneKey : TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID()),
                     locale != null ? locale : Locale.getDefault(),

@@ -21,7 +21,14 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.IntArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
+import io.trino.spi.function.FlatFixed;
+import io.trino.spi.function.FlatFixedOffset;
+import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
+
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.nio.ByteOrder;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
@@ -29,6 +36,7 @@ import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.String.format;
@@ -39,6 +47,7 @@ public abstract class AbstractIntType
         implements FixedWidthType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(AbstractIntType.class, lookup(), long.class);
+    private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
 
     protected AbstractIntType(TypeSignature signature)
     {
@@ -120,6 +129,12 @@ public abstract class AbstractIntType
     }
 
     @Override
+    public int getFlatFixedSize()
+    {
+        return Integer.BYTES;
+    }
+
+    @Override
     public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
         int maxBlockSizeInBytes;
@@ -144,6 +159,26 @@ public abstract class AbstractIntType
     public final BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
         return new IntArrayBlockBuilder(null, positionCount);
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static long readFlat(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice)
+    {
+        return (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static void writeFlat(
+            long value,
+            byte[] fixedSizeSlice,
+            int fixedSizeOffset,
+            byte[] unusedVariableSizeSlice,
+            int unusedVariableSizeOffset)
+    {
+        INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset, (int) value);
     }
 
     @ScalarOperator(EQUAL)

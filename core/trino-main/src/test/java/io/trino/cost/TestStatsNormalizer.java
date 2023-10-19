@@ -19,7 +19,7 @@ import com.google.common.primitives.Primitives;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 

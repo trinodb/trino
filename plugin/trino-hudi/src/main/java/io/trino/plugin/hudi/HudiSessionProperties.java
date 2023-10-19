@@ -28,6 +28,8 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
+import static io.trino.plugin.base.session.PropertyMetadataUtil.validateMaxDataSize;
+import static io.trino.plugin.hive.parquet.ParquetReaderConfig.PARQUET_READER_MAX_SMALL_FILE_THRESHOLD;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
@@ -40,10 +42,8 @@ public class HudiSessionProperties
         implements SessionPropertiesProvider
 {
     private static final String COLUMNS_TO_HIDE = "columns_to_hide";
-    private static final String METADATA_ENABLED = "metadata_enabled";
     private static final String USE_PARQUET_COLUMN_NAMES = "use_parquet_column_names";
-    private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
-    private static final String PARQUET_OPTIMIZED_NESTED_READER_ENABLED = "parquet_optimized_nested_reader_enabled";
+    private static final String PARQUET_SMALL_FILE_THRESHOLD = "parquet_small_file_threshold";
     private static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
     private static final String STANDARD_SPLIT_WEIGHT_SIZE = "standard_split_weight_size";
     private static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
@@ -69,24 +69,15 @@ public class HudiSessionProperties
                                 .collect(toImmutableList()),
                         value -> value),
                 booleanProperty(
-                        METADATA_ENABLED,
-                        "For Hudi tables prefer to fetch the list of files from its metadata",
-                        hudiConfig.isMetadataEnabled(),
-                        false),
-                booleanProperty(
                         USE_PARQUET_COLUMN_NAMES,
                         "Access parquet columns using names from the file. If disabled, then columns are accessed using index.",
                         hudiConfig.getUseParquetColumnNames(),
                         false),
-                booleanProperty(
-                        PARQUET_OPTIMIZED_READER_ENABLED,
-                        "Use optimized Parquet reader",
-                        parquetReaderConfig.isOptimizedReaderEnabled(),
-                        false),
-                booleanProperty(
-                        PARQUET_OPTIMIZED_NESTED_READER_ENABLED,
-                        "Use optimized Parquet reader for nested columns",
-                        parquetReaderConfig.isOptimizedNestedReaderEnabled(),
+                dataSizeProperty(
+                        PARQUET_SMALL_FILE_THRESHOLD,
+                        "Parquet: Size below which a parquet file will be read entirely",
+                        parquetReaderConfig.getSmallFileThreshold(),
+                        value -> validateMaxDataSize(PARQUET_SMALL_FILE_THRESHOLD, value, DataSize.valueOf(PARQUET_READER_MAX_SMALL_FILE_THRESHOLD)),
                         false),
                 booleanProperty(
                         SIZE_BASED_SPLIT_WEIGHTS_ENABLED,
@@ -137,24 +128,14 @@ public class HudiSessionProperties
         return (List<String>) session.getProperty(COLUMNS_TO_HIDE, List.class);
     }
 
-    public static boolean isHudiMetadataEnabled(ConnectorSession session)
-    {
-        return session.getProperty(METADATA_ENABLED, Boolean.class);
-    }
-
     public static boolean shouldUseParquetColumnNames(ConnectorSession session)
     {
         return session.getProperty(USE_PARQUET_COLUMN_NAMES, Boolean.class);
     }
 
-    public static boolean isParquetOptimizedReaderEnabled(ConnectorSession session)
+    public static DataSize getParquetSmallFileThreshold(ConnectorSession session)
     {
-        return session.getProperty(PARQUET_OPTIMIZED_READER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isParquetOptimizedNestedReaderEnabled(ConnectorSession session)
-    {
-        return session.getProperty(PARQUET_OPTIMIZED_NESTED_READER_ENABLED, Boolean.class);
+        return session.getProperty(PARQUET_SMALL_FILE_THRESHOLD, DataSize.class);
     }
 
     public static boolean isSizeBasedSplitWeightsEnabled(ConnectorSession session)

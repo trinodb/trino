@@ -13,48 +13,46 @@
  */
 package io.trino.spi.transaction;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.trino.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static io.trino.spi.transaction.IsolationLevel.REPEATABLE_READ;
 import static io.trino.spi.transaction.IsolationLevel.SERIALIZABLE;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIsolationLevel
 {
     @Test
     public void testMeetsRequirementOf()
     {
-        assertTrue(READ_UNCOMMITTED.meetsRequirementOf(READ_UNCOMMITTED));
-        assertFalse(READ_UNCOMMITTED.meetsRequirementOf(READ_COMMITTED));
-        assertFalse(READ_UNCOMMITTED.meetsRequirementOf(REPEATABLE_READ));
-        assertFalse(READ_UNCOMMITTED.meetsRequirementOf(SERIALIZABLE));
+        assertThat(READ_UNCOMMITTED.meetsRequirementOf(READ_UNCOMMITTED)).isTrue();
+        assertThat(READ_UNCOMMITTED.meetsRequirementOf(READ_COMMITTED)).isFalse();
+        assertThat(READ_UNCOMMITTED.meetsRequirementOf(REPEATABLE_READ)).isFalse();
+        assertThat(READ_UNCOMMITTED.meetsRequirementOf(SERIALIZABLE)).isFalse();
 
-        assertTrue(READ_COMMITTED.meetsRequirementOf(READ_UNCOMMITTED));
-        assertTrue(READ_COMMITTED.meetsRequirementOf(READ_COMMITTED));
-        assertFalse(READ_COMMITTED.meetsRequirementOf(REPEATABLE_READ));
-        assertFalse(READ_COMMITTED.meetsRequirementOf(SERIALIZABLE));
+        assertThat(READ_COMMITTED.meetsRequirementOf(READ_UNCOMMITTED)).isTrue();
+        assertThat(READ_COMMITTED.meetsRequirementOf(READ_COMMITTED)).isTrue();
+        assertThat(READ_COMMITTED.meetsRequirementOf(REPEATABLE_READ)).isFalse();
+        assertThat(READ_COMMITTED.meetsRequirementOf(SERIALIZABLE)).isFalse();
 
-        assertTrue(REPEATABLE_READ.meetsRequirementOf(READ_UNCOMMITTED));
-        assertTrue(REPEATABLE_READ.meetsRequirementOf(READ_COMMITTED));
-        assertTrue(REPEATABLE_READ.meetsRequirementOf(REPEATABLE_READ));
-        assertFalse(REPEATABLE_READ.meetsRequirementOf(SERIALIZABLE));
+        assertThat(REPEATABLE_READ.meetsRequirementOf(READ_UNCOMMITTED)).isTrue();
+        assertThat(REPEATABLE_READ.meetsRequirementOf(READ_COMMITTED)).isTrue();
+        assertThat(REPEATABLE_READ.meetsRequirementOf(REPEATABLE_READ)).isTrue();
+        assertThat(REPEATABLE_READ.meetsRequirementOf(SERIALIZABLE)).isFalse();
 
-        assertTrue(SERIALIZABLE.meetsRequirementOf(READ_UNCOMMITTED));
-        assertTrue(SERIALIZABLE.meetsRequirementOf(READ_COMMITTED));
-        assertTrue(SERIALIZABLE.meetsRequirementOf(REPEATABLE_READ));
-        assertTrue(SERIALIZABLE.meetsRequirementOf(SERIALIZABLE));
+        assertThat(SERIALIZABLE.meetsRequirementOf(READ_UNCOMMITTED)).isTrue();
+        assertThat(SERIALIZABLE.meetsRequirementOf(READ_COMMITTED)).isTrue();
+        assertThat(SERIALIZABLE.meetsRequirementOf(REPEATABLE_READ)).isTrue();
+        assertThat(SERIALIZABLE.meetsRequirementOf(SERIALIZABLE)).isTrue();
     }
 
     @Test
     public void testToString()
     {
-        assertEquals(READ_UNCOMMITTED.toString(), "READ UNCOMMITTED");
-        assertEquals(READ_COMMITTED.toString(), "READ COMMITTED");
-        assertEquals(REPEATABLE_READ.toString(), "REPEATABLE READ");
-        assertEquals(SERIALIZABLE.toString(), "SERIALIZABLE");
+        assertThat(READ_UNCOMMITTED.toString()).isEqualTo("READ UNCOMMITTED");
+        assertThat(READ_COMMITTED.toString()).isEqualTo("READ COMMITTED");
+        assertThat(REPEATABLE_READ.toString()).isEqualTo("REPEATABLE READ");
+        assertThat(SERIALIZABLE.toString()).isEqualTo("SERIALIZABLE");
     }
 }

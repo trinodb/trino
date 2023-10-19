@@ -14,9 +14,9 @@
 package io.trino.orc.metadata.statistics;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.airlift.slice.ByteArrays;
 import io.airlift.slice.Slice;
-import io.airlift.slice.UnsafeSlice;
+
+import java.lang.invoke.VarHandle;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -24,6 +24,8 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Double.doubleToLongBits;
+import static java.lang.invoke.MethodHandles.byteArrayViewVarHandle;
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
 /**
  * BloomFilter is a probabilistic data structure for set membership check. BloomFilters are
@@ -49,6 +51,8 @@ public class BloomFilter
         implements StatisticsHasher.Hashable
 {
     private static final int INSTANCE_SIZE = instanceSize(BloomFilter.class) + instanceSize(BitSet.class);
+
+    private static final VarHandle LONG_ARRAY_HANDLE = byteArrayViewVarHandle(long[].class, LITTLE_ENDIAN);
 
     // from 64-bit linear congruential generator
     private static final long NULL_HASHCODE = 2862933555777941757L;
@@ -344,7 +348,7 @@ public class BloomFilter
             // body
             int current = 0;
             while (current < fastLimit) {
-                long k = ByteArrays.getLong(data, current);
+                long k = (long) LONG_ARRAY_HANDLE.get(data, current);
                 current += SIZE_OF_LONG;
 
                 // mix functions
@@ -394,7 +398,7 @@ public class BloomFilter
             // body
             int current = 0;
             while (current < fastLimit) {
-                long k = UnsafeSlice.getLongUnchecked(data, current);
+                long k = data.getLongUnchecked(current);
                 current += SIZE_OF_LONG;
 
                 // mix functions
@@ -409,19 +413,19 @@ public class BloomFilter
             long k = 0;
             switch (data.length() - current) {
                 case 7:
-                    k ^= ((long) UnsafeSlice.getByteUnchecked(data, current + 6) & 0xff) << 48;
+                    k ^= ((long) data.getByteUnchecked(current + 6) & 0xff) << 48;
                 case 6:
-                    k ^= ((long) UnsafeSlice.getByteUnchecked(data, current + 5) & 0xff) << 40;
+                    k ^= ((long) data.getByteUnchecked(current + 5) & 0xff) << 40;
                 case 5:
-                    k ^= ((long) UnsafeSlice.getByteUnchecked(data, current + 4) & 0xff) << 32;
+                    k ^= ((long) data.getByteUnchecked(current + 4) & 0xff) << 32;
                 case 4:
-                    k ^= ((long) UnsafeSlice.getByteUnchecked(data, current + 3) & 0xff) << 24;
+                    k ^= ((long) data.getByteUnchecked(current + 3) & 0xff) << 24;
                 case 3:
-                    k ^= ((long) UnsafeSlice.getByteUnchecked(data, current + 2) & 0xff) << 16;
+                    k ^= ((long) data.getByteUnchecked(current + 2) & 0xff) << 16;
                 case 2:
-                    k ^= ((long) UnsafeSlice.getByteUnchecked(data, current + 1) & 0xff) << 8;
+                    k ^= ((long) data.getByteUnchecked(current + 1) & 0xff) << 8;
                 case 1:
-                    k ^= ((long) UnsafeSlice.getByteUnchecked(data, current) & 0xff);
+                    k ^= ((long) data.getByteUnchecked(current) & 0xff);
                     k *= C1;
                     k = Long.rotateLeft(k, R1);
                     k *= C2;

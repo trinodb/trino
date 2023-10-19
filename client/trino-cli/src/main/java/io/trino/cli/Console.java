@@ -14,17 +14,18 @@
 package io.trino.cli;
 
 import com.google.common.base.CharMatcher;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import io.airlift.units.Duration;
 import io.trino.cli.ClientOptions.OutputFormat;
 import io.trino.cli.ClientOptions.PropertyMapping;
 import io.trino.cli.Trino.VersionProvider;
+import io.trino.cli.lexer.StatementSplitter;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.ClientSession;
 import io.trino.client.uri.PropertyName;
 import io.trino.client.uri.TrinoUri;
-import io.trino.sql.parser.StatementSplitter;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.History;
 import org.jline.reader.UserInterruptException;
@@ -64,9 +65,9 @@ import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.cli.TerminalUtils.isRealTerminal;
 import static io.trino.cli.TerminalUtils.terminalEncoding;
 import static io.trino.cli.Trino.formatCliErrorMessage;
+import static io.trino.cli.lexer.StatementSplitter.Statement;
+import static io.trino.cli.lexer.StatementSplitter.isEmptyStatement;
 import static io.trino.client.ClientSession.stripTransactionId;
-import static io.trino.sql.parser.StatementSplitter.Statement;
-import static io.trino.sql.parser.StatementSplitter.isEmptyStatement;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
@@ -386,6 +387,17 @@ public class Console
             // update path if present
             if (query.getSetPath().isPresent()) {
                 builder = builder.path(query.getSetPath().get());
+            }
+
+            // update authorization user if present
+            if (query.getSetAuthorizationUser().isPresent()) {
+                builder = builder.authorizationUser(query.getSetAuthorizationUser());
+                builder = builder.roles(ImmutableMap.of());
+            }
+
+            if (query.isResetAuthorizationUser()) {
+                builder = builder.authorizationUser(Optional.empty());
+                builder = builder.roles(ImmutableMap.of());
             }
 
             // update session properties if present

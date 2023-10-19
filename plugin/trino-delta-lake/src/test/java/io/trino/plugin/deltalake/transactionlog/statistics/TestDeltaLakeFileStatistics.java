@@ -22,6 +22,7 @@ import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
+import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
@@ -35,7 +36,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.math.BigDecimal;
@@ -48,6 +49,7 @@ import static com.google.common.collect.Iterators.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
+import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -86,7 +88,7 @@ public class TestDeltaLakeFileStatistics
     public void testParseParquetStatistics()
             throws Exception
     {
-        File statsFile = new File(getClass().getResource("/databricks/pruning/parquet_struct_statistics/_delta_log/00000000000000000010.checkpoint.parquet").toURI());
+        File statsFile = new File(getClass().getResource("/databricks73/pruning/parquet_struct_statistics/_delta_log/00000000000000000010.checkpoint.parquet").toURI());
 
         TypeManager typeManager = TESTING_TYPE_MANAGER;
         CheckpointSchemaManager checkpointSchemaManager = new CheckpointSchemaManager(typeManager);
@@ -101,11 +103,26 @@ public class TestDeltaLakeFileStatistics
                 typeManager,
                 ImmutableSet.of(METADATA),
                 Optional.empty(),
+                Optional.empty(),
                 new FileFormatDataSourceStats(),
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 true,
                 new DeltaLakeConfig().getDomainCompactionThreshold());
         MetadataEntry metadataEntry = getOnlyElement(metadataEntryIterator).getMetaData();
+        CheckpointEntryIterator protocolEntryIterator = new CheckpointEntryIterator(
+                checkpointFile,
+                SESSION,
+                checkpointFile.length(),
+                checkpointSchemaManager,
+                typeManager,
+                ImmutableSet.of(PROTOCOL),
+                Optional.empty(),
+                Optional.empty(),
+                new FileFormatDataSourceStats(),
+                new ParquetReaderConfig().toParquetReaderOptions(),
+                true,
+                new DeltaLakeConfig().getDomainCompactionThreshold());
+        ProtocolEntry protocolEntry = getOnlyElement(protocolEntryIterator).getProtocol();
 
         CheckpointEntryIterator checkpointEntryIterator = new CheckpointEntryIterator(
                 checkpointFile,
@@ -115,6 +132,7 @@ public class TestDeltaLakeFileStatistics
                 typeManager,
                 ImmutableSet.of(CheckpointEntryIterator.EntryType.ADD),
                 Optional.of(metadataEntry),
+                Optional.of(protocolEntry),
                 new FileFormatDataSourceStats(),
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 true,

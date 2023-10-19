@@ -78,7 +78,7 @@ public class TestLongLong2LongOpenCustomBigHashMap
                 count++;
                 assertTrue(map.replace(key1, key2, count - 1, count));
                 assertFalse(map.isEmpty());
-                assertEquals(map.size(), values.size() * values.size());
+                assertEquals(map.size(), (long) values.size() * values.size());
             }
         }
 
@@ -145,7 +145,7 @@ public class TestLongLong2LongOpenCustomBigHashMap
                 count++;
                 assertTrue(map.replace(key1, key2, count - 1, count));
                 assertFalse(map.isEmpty());
-                assertEquals(map.size(), values.size() * values.size());
+                assertEquals(map.size(), (long) values.size() * values.size());
             }
         }
 

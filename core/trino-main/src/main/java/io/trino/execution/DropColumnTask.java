@@ -72,18 +72,18 @@ public class DropColumnTask
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
-        if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
+        if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             if (!statement.isTableExists()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
             }
             return immediateVoidFuture();
         }
-        TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
+        TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
 
         // Use getParts method because the column name should be lowercase
         String column = statement.getField().getParts().get(0);
 
-        QualifiedObjectName qualifiedTableName = redirectionAwareTableHandle.getRedirectedTableName().orElse(tableName);
+        QualifiedObjectName qualifiedTableName = redirectionAwareTableHandle.redirectedTableName().orElse(tableName);
         accessControl.checkCanDropColumn(session.toSecurityContext(), qualifiedTableName);
 
         ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(column);

@@ -14,7 +14,7 @@
 package io.trino.execution.scheduler;
 
 import io.trino.execution.buffer.PipelinedOutputBuffers;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.ARBITRARY;
 import static org.testng.Assert.assertEquals;

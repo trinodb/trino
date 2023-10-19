@@ -15,52 +15,47 @@ package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.trino.Session;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
-import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
-import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static io.trino.spi.type.BigintType.BIGINT;
 
+@NotThreadSafe
 public interface GroupByHash
 {
     static GroupByHash createGroupByHash(
             Session session,
-            List<? extends Type> hashTypes,
-            int[] hashChannels,
-            Optional<Integer> inputHashChannel,
+            List<Type> types,
+            boolean hasPrecomputedHash,
             int expectedSize,
             JoinCompiler joinCompiler,
-            BlockTypeOperators blockTypeOperators,
             UpdateMemory updateMemory)
     {
-        return createGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, isDictionaryAggregationEnabled(session), joinCompiler, blockTypeOperators, updateMemory);
+        boolean dictionaryAggregationEnabled = isDictionaryAggregationEnabled(session);
+        return createGroupByHash(types, hasPrecomputedHash, expectedSize, dictionaryAggregationEnabled, joinCompiler, updateMemory);
     }
 
     static GroupByHash createGroupByHash(
-            List<? extends Type> hashTypes,
-            int[] hashChannels,
-            Optional<Integer> inputHashChannel,
+            List<Type> types,
+            boolean hasPrecomputedHash,
             int expectedSize,
-            boolean processDictionary,
+            boolean dictionaryAggregationEnabled,
             JoinCompiler joinCompiler,
-            BlockTypeOperators blockTypeOperators,
             UpdateMemory updateMemory)
     {
-        if (hashTypes.size() == 1 && hashTypes.get(0).equals(BIGINT) && hashChannels.length == 1) {
-            return new BigintGroupByHash(hashChannels[0], inputHashChannel.isPresent(), expectedSize, updateMemory);
+        if (types.size() == 1 && types.get(0).equals(BIGINT)) {
+            return new BigintGroupByHash(hasPrecomputedHash, expectedSize, updateMemory);
         }
-        return new MultiChannelGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, processDictionary, joinCompiler, blockTypeOperators, updateMemory);
+        return new FlatGroupByHash(types, hasPrecomputedHash, expectedSize, dictionaryAggregationEnabled, joinCompiler, updateMemory);
     }
 
     long getEstimatedSize();
-
-    List<Type> getTypes();
 
     int getGroupCount();
 
@@ -77,14 +72,7 @@ public interface GroupByHash
      */
     Work<int[]> getGroupIds(Page page);
 
-    boolean contains(int position, Page page, int[] hashChannels);
-
-    default boolean contains(int position, Page page, int[] hashChannels, long rawHash)
-    {
-        return contains(position, page, hashChannels);
-    }
-
-    long getRawHash(int groupyId);
+    long getRawHash(int groupId);
 
     @VisibleForTesting
     int getCapacity();

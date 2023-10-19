@@ -209,14 +209,14 @@ public class TestJsonRepresentation
                         ImmutableList.of(new JoinNode.EquiJoinClause(pb.symbol("a", BIGINT), pb.symbol("d", BIGINT))),
                         ImmutableList.of(pb.symbol("b", BIGINT)),
                         ImmutableList.of(),
-                        Optional.empty(),
+                        Optional.of(expression("a < c")),
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableMap.of(new DynamicFilterId("DF"), pb.symbol("d", BIGINT))),
                 new JsonRenderedNode(
                         "2",
                         "InnerJoin",
-                        ImmutableMap.of("criteria", "(\"a\" = \"d\")", "hash", "[]"),
+                        ImmutableMap.of("criteria", "(\"a\" = \"d\")", "filter", "(\"a\" < \"c\")", "hash", "[]"),
                         ImmutableList.of(typedSymbol("b", "bigint")),
                         ImmutableList.of("dynamicFilterAssignments = {d -> #DF}"),
                         ImmutableList.of(),
@@ -261,18 +261,21 @@ public class TestJsonRepresentation
 
     private void assertJsonRepresentation(Function<PlanBuilder, PlanNode> sourceNodeSupplier, JsonRenderedNode expectedRepresentation)
     {
-        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), queryRunner.getMetadata(), queryRunner.getDefaultSession());
-        ValuePrinter valuePrinter = new ValuePrinter(queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getDefaultSession());
-        String jsonRenderedNode = new PlanPrinter(
-                sourceNodeSupplier.apply(planBuilder),
-                planBuilder.getTypes(),
-                scanNode -> TABLE_INFO,
-                ImmutableMap.of(),
-                valuePrinter,
-                StatsAndCosts.empty(),
-                Optional.empty(),
-                new NoOpAnonymizer())
-                .toJson();
-        assertThat(jsonRenderedNode).isEqualTo(JSON_RENDERED_NODE_CODEC.toJson(expectedRepresentation));
+        queryRunner.inTransaction(transactionSession -> {
+            PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), queryRunner.getPlannerContext(), transactionSession);
+            ValuePrinter valuePrinter = new ValuePrinter(queryRunner.getMetadata(), queryRunner.getFunctionManager(), transactionSession);
+            String jsonRenderedNode = new PlanPrinter(
+                    sourceNodeSupplier.apply(planBuilder),
+                    planBuilder.getTypes(),
+                    scanNode -> TABLE_INFO,
+                    ImmutableMap.of(),
+                    valuePrinter,
+                    StatsAndCosts.empty(),
+                    Optional.empty(),
+                    new NoOpAnonymizer())
+                    .toJson();
+            assertThat(jsonRenderedNode).isEqualTo(JSON_RENDERED_NODE_CODEC.toJson(expectedRepresentation));
+            return null;
+        });
     }
 }

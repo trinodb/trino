@@ -62,11 +62,33 @@ public class IndexLookupSourceFactory
         this.outputTypes = ImmutableList.copyOf(requireNonNull(outputTypes, "outputTypes is null"));
 
         if (shareIndexLoading) {
-            IndexLoader shared = new IndexLoader(lookupSourceInputChannels, keyOutputChannels, keyOutputHashChannel, outputTypes, indexBuildDriverFactoryProvider, 10_000, maxIndexMemorySize, stats, pagesIndexFactory, joinCompiler, blockTypeOperators);
+            IndexLoader shared = new IndexLoader(
+                    lookupSourceInputChannels,
+                    keyOutputChannels,
+                    keyOutputHashChannel,
+                    outputTypes,
+                    indexBuildDriverFactoryProvider,
+                    10_000,
+                    maxIndexMemorySize,
+                    stats,
+                    pagesIndexFactory,
+                    joinCompiler,
+                    blockTypeOperators);
             this.indexLoaderSupplier = () -> shared;
         }
         else {
-            this.indexLoaderSupplier = () -> new IndexLoader(lookupSourceInputChannels, keyOutputChannels, keyOutputHashChannel, outputTypes, indexBuildDriverFactoryProvider, 10_000, maxIndexMemorySize, stats, pagesIndexFactory, joinCompiler, blockTypeOperators);
+            this.indexLoaderSupplier = () -> new IndexLoader(
+                    lookupSourceInputChannels,
+                    keyOutputChannels,
+                    keyOutputHashChannel,
+                    outputTypes,
+                    indexBuildDriverFactoryProvider,
+                    10_000,
+                    maxIndexMemorySize,
+                    stats,
+                    pagesIndexFactory,
+                    joinCompiler,
+                    blockTypeOperators);
         }
     }
 

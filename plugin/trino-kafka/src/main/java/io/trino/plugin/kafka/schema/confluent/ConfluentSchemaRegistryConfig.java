@@ -75,7 +75,7 @@ public class ConfluentSchemaRegistryConfig
     }
 
     @Config("kafka.empty-field-strategy")
-    @ConfigDescription("How to handle struct types with no fields: ignore, add a boolean field named 'dummy' or fail the query")
+    @ConfigDescription("How to handle struct types with no fields: ignore, add a marker field named '$empty_field_marker' or fail the query")
     public ConfluentSchemaRegistryConfig setEmptyFieldStrategy(EmptyFieldStrategy emptyFieldStrategy)
     {
         this.emptyFieldStrategy = emptyFieldStrategy;

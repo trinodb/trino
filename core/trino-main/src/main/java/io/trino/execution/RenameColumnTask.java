@@ -76,18 +76,18 @@ public class RenameColumnTask
         Session session = stateMachine.getSession();
         QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getTable());
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, originalTableName);
-        if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
+        if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             if (!statement.isTableExists()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", originalTableName);
             }
             return immediateVoidFuture();
         }
-        TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
+        TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
 
         String source = statement.getSource().getParts().get(0).toLowerCase(ENGLISH);
         String target = statement.getTarget().getValue().toLowerCase(ENGLISH);
 
-        QualifiedObjectName qualifiedTableName = redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName);
+        QualifiedObjectName qualifiedTableName = redirectionAwareTableHandle.redirectedTableName().orElse(originalTableName);
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         ColumnHandle columnHandle = columnHandles.get(source);

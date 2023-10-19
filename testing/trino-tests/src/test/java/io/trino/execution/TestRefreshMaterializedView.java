@@ -30,12 +30,15 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.testng.services.ManageTestResources;
+import io.trino.testng.services.ReportOrphanedExecutors;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -50,30 +53,26 @@ import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
 public class TestRefreshMaterializedView
         extends AbstractTestQueryFramework
 {
-    private ListeningExecutorService executorService;
+    @ManageTestResources.Suppress(because = "Not a TestNG test class")
+    @ReportOrphanedExecutors.Suppress(because = "Not a TestNG test class")
+    private final ListeningExecutorService executorService = listeningDecorator(newCachedThreadPool());
     private SettableFuture<Void> startRefreshMaterializedView;
     private SettableFuture<Void> finishRefreshMaterializedView;
     private SettableFuture<Void> refreshInterrupted;
 
-    @BeforeClass
-    public void setUp()
-    {
-        executorService = listeningDecorator(newCachedThreadPool());
-    }
-
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void shutdown()
     {
         executorService.shutdownNow();
     }
 
-    @BeforeMethod
-    public void resetState()
+    private void resetState()
     {
         startRefreshMaterializedView = SettableFuture.create();
         finishRefreshMaterializedView = SettableFuture.create();
@@ -104,8 +103,10 @@ public class TestRefreshMaterializedView
                                                 Optional.of("mock"),
                                                 Optional.of("default"),
                                                 ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("nationkey", BIGINT.getTypeId())),
+                                                Optional.of(Duration.ZERO),
                                                 Optional.empty(),
                                                 Optional.of("alice"),
+                                                ImmutableList.of(),
                                                 ImmutableMap.of())))
                                 .withDelegateMaterializedViewRefreshToConnector((connectorSession, schemaTableName) -> true)
                                 .withRefreshMaterializedView(((connectorSession, schemaTableName) -> {
@@ -120,9 +121,12 @@ public class TestRefreshMaterializedView
         return queryRunner;
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testDelegateRefreshMaterializedViewToConnector()
     {
+        resetState();
+
         ListenableFuture<Void> queryFuture = assertUpdateAsync("REFRESH MATERIALIZED VIEW mock.default.delegate_refresh_to_connector");
 
         // wait for connector to start refreshing MV
@@ -142,9 +146,12 @@ public class TestRefreshMaterializedView
         getFutureValue(queryFuture);
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testDelegateRefreshMaterializedViewToConnectorWithCancellation()
     {
+        resetState();
+
         ListenableFuture<Void> queryFuture = assertUpdateAsync("REFRESH MATERIALIZED VIEW mock.default.delegate_refresh_to_connector");
 
         // wait for connector to start refreshing MV

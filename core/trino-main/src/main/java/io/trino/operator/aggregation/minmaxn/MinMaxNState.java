@@ -41,17 +41,10 @@ public interface MinMaxNState
     /**
      * Writes all values to the supplied block builder as an array entry.
      */
-    void writeAll(BlockBuilder out);
+    void writeAllSorted(BlockBuilder out);
 
     /**
      * Write this state to the specified block builder.
      */
     void serialize(BlockBuilder out);
-
-    /**
-     * Read the state to the specified block builder.
-     *
-     * @throws IllegalStateException if state is already initialized
-     */
-    void deserialize(Block rowBlock);
 }

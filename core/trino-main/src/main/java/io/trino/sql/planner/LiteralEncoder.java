@@ -19,7 +19,6 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.SliceUtf8;
-import io.trino.Session;
 import io.trino.block.BlockSerdeUtil;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.VarbinaryFunctions;
@@ -47,7 +46,6 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.TimestampLiteral;
 import jakarta.annotation.Nullable;
@@ -55,6 +53,7 @@ import jakarta.annotation.Nullable;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.metadata.LiteralFunction.typeForMagicLiteral;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -84,7 +83,7 @@ public final class LiteralEncoder
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
     }
 
-    public List<Expression> toExpressions(Session session, List<?> objects, List<? extends Type> types)
+    public List<Expression> toExpressions(List<?> objects, List<? extends Type> types)
     {
         requireNonNull(objects, "objects is null");
         requireNonNull(types, "types is null");
@@ -94,12 +93,12 @@ public final class LiteralEncoder
         for (int i = 0; i < objects.size(); i++) {
             Object object = objects.get(i);
             Type type = types.get(i);
-            expressions.add(toExpression(session, object, type));
+            expressions.add(toExpression(object, type));
         }
         return expressions.build();
     }
 
-    public Expression toExpression(Session session, @Nullable Object object, Type type)
+    public Expression toExpression(@Nullable Object object, Type type)
     {
         requireNonNull(type, "type is null");
 
@@ -139,18 +138,18 @@ public final class LiteralEncoder
         if (type.equals(DOUBLE)) {
             Double value = (Double) object;
             if (value.isNaN()) {
-                return FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                        .setName(QualifiedName.of("nan"))
+                return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                        .setName("nan")
                         .build();
             }
             if (value.equals(Double.NEGATIVE_INFINITY)) {
-                return ArithmeticUnaryExpression.negative(FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                        .setName(QualifiedName.of("infinity"))
+                return ArithmeticUnaryExpression.negative(BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                        .setName("infinity")
                         .build());
             }
             if (value.equals(Double.POSITIVE_INFINITY)) {
-                return FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                        .setName(QualifiedName.of("infinity"))
+                return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                        .setName("infinity")
                         .build();
             }
             return new DoubleLiteral(object.toString());
@@ -160,22 +159,22 @@ public final class LiteralEncoder
             Float value = intBitsToFloat(((Long) object).intValue());
             if (value.isNaN()) {
                 return new Cast(
-                        FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                                .setName(QualifiedName.of("nan"))
+                        BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                                .setName("nan")
                                 .build(),
                         toSqlType(REAL));
             }
             if (value.equals(Float.NEGATIVE_INFINITY)) {
                 return ArithmeticUnaryExpression.negative(new Cast(
-                        FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                                .setName(QualifiedName.of("infinity"))
+                        BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                                .setName("infinity")
                                 .build(),
                         toSqlType(REAL)));
             }
             if (value.equals(Float.POSITIVE_INFINITY)) {
                 return new Cast(
-                        FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                                .setName(QualifiedName.of("infinity"))
+                        BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                                .setName("infinity")
                                 .build(),
                         toSqlType(REAL));
             }
@@ -275,19 +274,18 @@ public final class LiteralEncoder
             // able to encode it in the plan that gets sent to workers.
             // We do this by transforming the in-memory varbinary into a call to from_base64(<base64-encoded value>)
             Slice encoded = VarbinaryFunctions.toBase64(slice);
-            argument = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                    .setName(QualifiedName.of("from_base64"))
+            argument = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    .setName("from_base64")
                     .addArgument(VARCHAR, new StringLiteral(encoded.toStringUtf8()))
                     .build();
         }
         else {
-            argument = toExpression(session, object, argumentType);
+            argument = toExpression(object, argumentType);
         }
 
-        ResolvedFunction resolvedFunction = plannerContext.getMetadata().getCoercion(session, QualifiedName.of(LITERAL_FUNCTION_NAME), argumentType, type);
-        return FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                .setName(resolvedFunction.toQualifiedName())
-                .addArgument(argumentType, argument)
+        ResolvedFunction resolvedFunction = plannerContext.getMetadata().getCoercion(builtinFunctionName(LITERAL_FUNCTION_NAME), argumentType, type);
+        return ResolvedFunctionCallBuilder.builder(resolvedFunction)
+                .addArgument(argument)
                 .build();
     }
 }

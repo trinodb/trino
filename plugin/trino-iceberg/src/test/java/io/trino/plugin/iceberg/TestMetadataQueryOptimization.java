@@ -36,7 +36,7 @@ import java.util.Optional;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
-import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -57,7 +57,7 @@ public class TestMetadataQueryOptimization
                 .setCatalog(ICEBERG_CATALOG)
                 .setSchema(SCHEMA_NAME)
                 // optimize_metadata_queries doesn't work when files are written by different writers
-                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "1")
+                .setSystemProperty(TASK_MAX_WRITER_COUNT, "1")
                 .build();
 
         try {

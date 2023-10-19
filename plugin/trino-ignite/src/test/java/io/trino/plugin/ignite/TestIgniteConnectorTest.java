@@ -63,56 +63,37 @@ public class TestIgniteConnectorTest
         return igniteServer::execute;
     }
 
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_TRUNCATE:
-                return false;
-
-            case SUPPORTS_CREATE_SCHEMA:
-            case SUPPORTS_RENAME_TABLE:
-            case SUPPORTS_RENAME_COLUMN:
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
-            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
-            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
-                return false;
-
-            case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT:
-            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
-            case SUPPORTS_SET_COLUMN_TYPE:
-                return false;
-
-            case SUPPORTS_ARRAY:
-            case SUPPORTS_ROW_TYPE:
-            case SUPPORTS_NEGATIVE_DATE:
-                return false;
-
-            case SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN:
-                return false;
-
-            case SUPPORTS_JOIN_PUSHDOWN:
-            case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE:
-            case SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR:
-                return true;
-
-            case SUPPORTS_NATIVE_QUERY:
-                return false;
-
-            case SUPPORTS_AGGREGATION_PUSHDOWN:
-                return true;
-            case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_AGGREGATION_PUSHDOWN,
+                    SUPPORTS_JOIN_PUSHDOWN,
+                    SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE,
+                    SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR -> true;
+            case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
+                    SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE,
+                    SUPPORTS_ARRAY,
+                    SUPPORTS_COMMENT_ON_COLUMN,
+                    SUPPORTS_COMMENT_ON_TABLE,
+                    SUPPORTS_CREATE_SCHEMA,
+                    SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                    SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
+                    SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
+                    SUPPORTS_NATIVE_QUERY,
+                    SUPPORTS_NEGATIVE_DATE,
+                    SUPPORTS_RENAME_COLUMN,
+                    SUPPORTS_RENAME_TABLE,
+                    SUPPORTS_ROW_TYPE,
+                    SUPPORTS_SET_COLUMN_TYPE,
+                    SUPPORTS_TRUNCATE -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     @Test

@@ -13,6 +13,8 @@
  */
 package io.trino.annotation;
 
+import com.google.errorprone.annotations.Keep;
+
 import java.lang.annotation.Target;
 
 import static java.lang.annotation.ElementType.CONSTRUCTOR;
@@ -25,6 +27,7 @@ import static java.lang.annotation.ElementType.TYPE;
  * This can be used to prevent warnings about program elements that
  * static analysis tools flag as unused.
  */
+@Keep
 @Target({TYPE, FIELD, METHOD, CONSTRUCTOR})
 public @interface UsedByGeneratedCode
 {

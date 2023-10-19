@@ -58,7 +58,10 @@ public class InsecureAuthenticator
         else {
             try {
                 ProtocolHeaders protocolHeaders = detectProtocol(alternateHeaderName, request.getHeaders().keySet());
-                user = emptyToNull(request.getHeaders().getFirst(protocolHeaders.requestUser()));
+                user = emptyToNull(request.getHeaders().getFirst(protocolHeaders.requestOriginalUser()));
+                if (user == null) {
+                    user = emptyToNull(request.getHeaders().getFirst(protocolHeaders.requestUser()));
+                }
             }
             catch (ProtocolDetectionException e) {
                 // ignored
@@ -67,7 +70,7 @@ public class InsecureAuthenticator
         }
 
         if (user == null) {
-            throw new AuthenticationException("Basic authentication or " + TRINO_HEADERS.requestUser() + " must be sent", BasicAuthCredentials.AUTHENTICATE_HEADER);
+            throw new AuthenticationException("Basic authentication or " + TRINO_HEADERS.requestOriginalUser() + " or " + TRINO_HEADERS.requestUser() + " must be sent", BasicAuthCredentials.AUTHENTICATE_HEADER);
         }
 
         try {

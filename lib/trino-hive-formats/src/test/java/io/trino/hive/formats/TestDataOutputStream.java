@@ -20,7 +20,6 @@ import org.testng.annotations.Test;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static org.testng.Assert.assertEquals;
@@ -120,8 +119,7 @@ public class TestDataOutputStream
     public void testEncodingBytes()
             throws Exception
     {
-        byte[] data = new byte[18000];
-        ThreadLocalRandom.current().nextBytes(data);
+        byte[] data = Slices.random(18000).byteArray();
 
         assertEncoding(sliceOutput -> sliceOutput.write(data), data);
         assertEncoding(sliceOutput -> sliceOutput.write(data, 0, 0), Arrays.copyOfRange(data, 0, 0));
@@ -138,9 +136,8 @@ public class TestDataOutputStream
     public void testEncodingSlice()
             throws Exception
     {
-        byte[] data = new byte[18000];
-        ThreadLocalRandom.current().nextBytes(data);
-        Slice slice = Slices.wrappedBuffer(data);
+        Slice slice = Slices.random(18000);
+        byte[] data = slice.byteArray();
 
         assertEncoding(sliceOutput -> sliceOutput.write(slice), data);
         assertEncoding(sliceOutput -> sliceOutput.write(slice, 0, 0), Arrays.copyOfRange(data, 0, 0));

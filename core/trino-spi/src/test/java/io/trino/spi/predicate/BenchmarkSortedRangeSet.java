@@ -13,6 +13,7 @@
  */
 package io.trino.spi.predicate;
 
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -25,7 +26,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.RunnerException;
-import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -239,7 +239,7 @@ public class BenchmarkSortedRangeSet
         {
             ranges = new ArrayList<>();
 
-            int factor = 0;
+            long factor = 0;
             for (int i = 0; i < 10_000; i++) {
                 long from = ThreadLocalRandom.current().nextLong(100) + factor * 100;
                 long to = ThreadLocalRandom.current().nextLong(100) + (factor + 1) * 100;

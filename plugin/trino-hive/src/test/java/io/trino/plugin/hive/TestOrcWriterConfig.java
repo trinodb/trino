@@ -18,7 +18,7 @@ import io.airlift.units.DataSize;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.trino.orc.OrcWriterOptions.WriterIdentification;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 

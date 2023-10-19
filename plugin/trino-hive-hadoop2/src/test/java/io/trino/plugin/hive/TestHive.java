@@ -103,7 +103,7 @@ public class TestHive
             // used to ingest data into partitioned hive tables.
             testUpdatePartitionStatistics(
                     tableName,
-                    PartitionStatistics.empty(),
+                    EMPTY_ROWCOUNT_STATISTICS,
                     ImmutableList.of(BASIC_STATISTICS_1, BASIC_STATISTICS_2),
                     ImmutableList.of(BASIC_STATISTICS_2, BASIC_STATISTICS_1));
         }
@@ -124,7 +124,7 @@ public class TestHive
             // used to ingest data into partitioned hive tables.
             testUpdatePartitionStatistics(
                     tableName,
-                    PartitionStatistics.empty(),
+                    EMPTY_ROWCOUNT_STATISTICS,
                     ImmutableList.of(STATISTICS_1_1, STATISTICS_1_2, STATISTICS_2),
                     ImmutableList.of(STATISTICS_1_2, STATISTICS_1_1, STATISTICS_2));
         }
@@ -145,7 +145,7 @@ public class TestHive
             // used to ingest data into partitioned hive tables.
             testUpdatePartitionStatistics(
                     tableName,
-                    PartitionStatistics.empty(),
+                    EMPTY_ROWCOUNT_STATISTICS,
                     ImmutableList.of(STATISTICS_EMPTY_OPTIONAL_FIELDS),
                     ImmutableList.of(STATISTICS_EMPTY_OPTIONAL_FIELDS));
         }
@@ -161,6 +161,24 @@ public class TestHive
         // When the table has partitions, but row count statistics are set to zero, we treat this case as empty
         // statistics to avoid underestimation in the CBO. This scenario may be caused when other engines are
         // used to ingest data into partitioned hive tables.
-        testStorePartitionWithStatistics(STATISTICS_PARTITIONED_TABLE_COLUMNS, STATISTICS_1, STATISTICS_2, STATISTICS_1_1, PartitionStatistics.empty());
+        testStorePartitionWithStatistics(STATISTICS_PARTITIONED_TABLE_COLUMNS, STATISTICS_1, STATISTICS_2, STATISTICS_1_1, EMPTY_ROWCOUNT_STATISTICS);
+    }
+
+    @Override
+    public void testDataColumnProperties()
+    {
+        // Column properties are currently not supported in ThriftHiveMetastore
+        assertThatThrownBy(super::testDataColumnProperties)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Persisting column properties is not supported: Column{name=id, type=bigint}");
+    }
+
+    @Override
+    public void testPartitionColumnProperties()
+    {
+        // Column properties are currently not supported in ThriftHiveMetastore
+        assertThatThrownBy(super::testPartitionColumnProperties)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Persisting column properties is not supported: Column{name=part_key, type=varchar(256)}");
     }
 }

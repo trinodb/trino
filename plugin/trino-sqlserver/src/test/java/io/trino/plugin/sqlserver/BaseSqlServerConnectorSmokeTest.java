@@ -15,27 +15,21 @@ package io.trino.plugin.sqlserver;
 
 import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseSqlServerConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
 {
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_RENAME_SCHEMA:
-                return false;
-
-            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_RENAME_SCHEMA,
+                    SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     @Test

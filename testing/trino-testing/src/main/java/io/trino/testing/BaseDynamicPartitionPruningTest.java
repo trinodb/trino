@@ -105,9 +105,6 @@ public abstract class BaseDynamicPartitionPruningTest
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
-        assertEquals(probeStats.getInputPositions(), 0L);
-
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
         assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
@@ -130,10 +127,6 @@ public abstract class BaseDynamicPartitionPruningTest
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
-        // Probe-side is partially scanned
-        assertEquals(probeStats.getInputPositions(), 615L);
-
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
         assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
@@ -153,10 +146,6 @@ public abstract class BaseDynamicPartitionPruningTest
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
-
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
-        // Probe-side is fully scanned
-        assertEquals(probeStats.getInputPositions(), LINEITEM_COUNT);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -178,10 +167,6 @@ public abstract class BaseDynamicPartitionPruningTest
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
-
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
-        // Probe-side is fully scanned because the build-side is too large for dynamic filtering
-        assertEquals(probeStats.getInputPositions(), LINEITEM_COUNT);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -209,10 +194,6 @@ public abstract class BaseDynamicPartitionPruningTest
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
-
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
-        // Probe-side is partially scanned
-        assertEquals(probeStats.getInputPositions(), 558L);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 2L);
@@ -266,9 +247,6 @@ public abstract class BaseDynamicPartitionPruningTest
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
-        assertEquals(probeStats.getInputPositions(), 0L);
-
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
         assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
@@ -288,10 +266,6 @@ public abstract class BaseDynamicPartitionPruningTest
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
-
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
-        // Probe-side is partially scanned
-        assertEquals(probeStats.getInputPositions(), 615L);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -313,10 +287,6 @@ public abstract class BaseDynamicPartitionPruningTest
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
-        // Probe-side is fully scanned
-        assertEquals(probeStats.getInputPositions(), LINEITEM_COUNT);
-
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
         assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
@@ -337,10 +307,6 @@ public abstract class BaseDynamicPartitionPruningTest
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
-
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
-        // Probe-side is fully scanned because the build-side is too large for dynamic filtering
-        assertEquals(probeStats.getInputPositions(), LINEITEM_COUNT);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -365,9 +331,6 @@ public abstract class BaseDynamicPartitionPruningTest
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
-        assertEquals(probeStats.getInputPositions(), 0L);
-
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
         assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
@@ -388,10 +351,6 @@ public abstract class BaseDynamicPartitionPruningTest
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
-        // Probe-side is partially scanned
-        assertEquals(probeStats.getInputPositions(), 615L);
-
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
         assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
@@ -411,10 +370,6 @@ public abstract class BaseDynamicPartitionPruningTest
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
         assertEqualsIgnoreOrder(result.getResult(), expected);
-
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
-        // Probe-side is fully scanned
-        assertEquals(probeStats.getInputPositions(), LINEITEM_COUNT);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -449,12 +404,12 @@ public abstract class BaseDynamicPartitionPruningTest
         assertUpdate("DROP TABLE IF EXISTS t0_bucketed");
         assertUpdate("DROP TABLE IF EXISTS t1_bucketed");
         assertUpdate("DROP TABLE IF EXISTS t2_bucketed");
-        createPartitionedAndBucketedTable("t0_bucketed", ImmutableList.of("v0 real", "k0 integer"), ImmutableList.of("k0"), ImmutableList.of("v0"));
-        createPartitionedAndBucketedTable("t1_bucketed", ImmutableList.of("v1 real", "i1 integer"), ImmutableList.of(), ImmutableList.of("v1"));
-        createPartitionedAndBucketedTable("t2_bucketed", ImmutableList.of("v2 real", "i2 integer", "k2 integer"), ImmutableList.of("k2"), ImmutableList.of("v2"));
-        assertUpdate("INSERT INTO t0_bucketed VALUES (1.0, 1), (1.0, 2)", 2);
-        assertUpdate("INSERT INTO t1_bucketed VALUES (2.0, 10), (2.0, 20)", 2);
-        assertUpdate("INSERT INTO t2_bucketed VALUES (3.0, 1, 1), (3.0, 2, 2)", 2);
+        createPartitionedAndBucketedTable("t0_bucketed", ImmutableList.of("v0 bigint", "k0 integer"), ImmutableList.of("k0"), ImmutableList.of("v0"));
+        createPartitionedAndBucketedTable("t1_bucketed", ImmutableList.of("v1 bigint", "i1 integer"), ImmutableList.of(), ImmutableList.of("v1"));
+        createPartitionedAndBucketedTable("t2_bucketed", ImmutableList.of("v2 bigint", "i2 integer", "k2 integer"), ImmutableList.of("k2"), ImmutableList.of("v2"));
+        assertUpdate("INSERT INTO t0_bucketed VALUES (1, 1), (1, 2)", 2);
+        assertUpdate("INSERT INTO t1_bucketed VALUES (2, 10), (2, 20)", 2);
+        assertUpdate("INSERT INTO t2_bucketed VALUES (3, 1, 1), (3, 2, 2)", 2);
         testJoinDynamicFilteringMultiJoin(PARTITIONED, "t0_bucketed", "t1_bucketed", "t2_bucketed");
     }
 

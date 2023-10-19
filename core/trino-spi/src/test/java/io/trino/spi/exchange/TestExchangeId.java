@@ -13,10 +13,10 @@
  */
 package io.trino.spi.exchange;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestExchangeId
 {
@@ -30,6 +30,6 @@ public class TestExchangeId
         assertThatThrownBy(() -> new ExchangeId("~"))
                 .isInstanceOf(IllegalArgumentException.class);
         String allLegalSymbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZ-abcdefghijklmnopqrstuvwxyz_1234567890";
-        assertEquals(new ExchangeId(allLegalSymbols).getId(), allLegalSymbols);
+        assertThat(new ExchangeId(allLegalSymbols).getId()).isEqualTo(allLegalSymbols);
     }
 }

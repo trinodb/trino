@@ -17,7 +17,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.function.FunctionKind;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
@@ -240,6 +240,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public Map<SchemaTableName, Set<String>> filterColumns(SecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        return delegate().filterColumns(context, catalogName, tableColumns);
+    }
+
+    @Override
     public void checkCanAddColumns(SecurityContext context, QualifiedObjectName tableName)
     {
         delegate().checkCanAddColumns(context, tableName);
@@ -348,18 +354,6 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
-    {
-        delegate().checkCanGrantExecuteFunctionPrivilege(context, functionName, grantee, grantOption);
-    }
-
-    @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, Identity grantee, boolean grantOption)
-    {
-        delegate().checkCanGrantExecuteFunctionPrivilege(context, functionKind, functionName, grantee, grantOption);
-    }
-
-    @Override
     public void checkCanGrantSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal grantee, boolean grantOption)
     {
         delegate().checkCanGrantSchemaPrivilege(context, privilege, schemaName, grantee, grantOption);
@@ -444,12 +438,6 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, Optional<String> catalogName)
-    {
-        delegate().checkCanShowRoleAuthorizationDescriptors(context, catalogName);
-    }
-
-    @Override
     public void checkCanShowRoles(SecurityContext context, Optional<String> catalogName)
     {
         delegate().checkCanShowRoles(context, catalogName);
@@ -474,21 +462,33 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public void checkCanExecuteFunction(SecurityContext context, String functionName)
+    public boolean canExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
-        delegate().checkCanExecuteFunction(context, functionName);
+        return delegate().canExecuteFunction(context, functionName);
     }
 
     @Override
-    public void checkCanExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName)
+    public boolean canCreateViewWithExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
-        delegate().checkCanExecuteFunction(context, functionKind, functionName);
+        return delegate().canCreateViewWithExecuteFunction(context, functionName);
     }
 
     @Override
     public void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName tableName, String procedureName)
     {
         delegate().checkCanExecuteTableProcedure(context, tableName, procedureName);
+    }
+
+    @Override
+    public void checkCanShowFunctions(SecurityContext context, CatalogSchemaName schema)
+    {
+        delegate().checkCanShowFunctions(context, schema);
+    }
+
+    @Override
+    public Set<SchemaFunctionName> filterFunctions(SecurityContext context, String catalogName, Set<SchemaFunctionName> functionNames)
+    {
+        return delegate().filterFunctions(context, catalogName, functionNames);
     }
 
     @Override

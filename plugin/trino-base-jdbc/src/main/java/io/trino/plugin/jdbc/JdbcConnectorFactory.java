@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.base.CatalogName;
 import io.trino.spi.NodeManager;
 import io.trino.spi.VersionEmbedder;
@@ -61,6 +62,7 @@ public class JdbcConnectorFactory
                 binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()),
                 binder -> binder.bind(NodeManager.class).toInstance(context.getNodeManager()),
                 binder -> binder.bind(VersionEmbedder.class).toInstance(context.getVersionEmbedder()),
+                binder -> binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry()),
                 binder -> binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName)),
                 new JdbcModule(),
                 module);

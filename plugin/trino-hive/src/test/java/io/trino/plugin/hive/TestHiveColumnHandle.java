@@ -21,7 +21,7 @@ import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.base.TypeDeserializer;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 

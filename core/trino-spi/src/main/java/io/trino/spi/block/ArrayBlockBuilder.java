@@ -17,18 +17,14 @@ import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
-import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.ArrayBlock.createArrayBlockInternal;
-import static io.trino.spi.block.BlockUtil.checkArrayRange;
-import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayBlockBuilder
-        extends AbstractArrayBlock
         implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = instanceSize(ArrayBlockBuilder.class);
@@ -105,46 +101,6 @@ public class ArrayBlockBuilder
     public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes + values.getRetainedSizeInBytes();
-    }
-
-    @Override
-    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
-    {
-        consumer.accept(values, values.getRetainedSizeInBytes());
-        consumer.accept(offsets, sizeOf(offsets));
-        consumer.accept(valueIsNull, sizeOf(valueIsNull));
-        consumer.accept(this, INSTANCE_SIZE);
-    }
-
-    @Override
-    protected Block getRawElementBlock()
-    {
-        return values;
-    }
-
-    @Override
-    protected int[] getOffsets()
-    {
-        return offsets;
-    }
-
-    @Override
-    protected int getOffsetBase()
-    {
-        return 0;
-    }
-
-    @Nullable
-    @Override
-    protected boolean[] getValueIsNull()
-    {
-        return hasNullValue ? valueIsNull : null;
-    }
-
-    @Override
-    public boolean mayHaveNull()
-    {
-        return hasNullValue;
     }
 
     public <E extends Throwable> void buildEntry(ArrayValueBuilder<E> builder)
@@ -236,41 +192,6 @@ public class ArrayBlockBuilder
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();
-    }
-
-    @Override
-    public Block copyPositions(int[] positions, int offset, int length)
-    {
-        checkArrayRange(positions, offset, length);
-
-        if (!hasNonNullRow) {
-            return nullRle(length);
-        }
-        return super.copyPositions(positions, offset, length);
-    }
-
-    @Override
-    public Block getRegion(int position, int length)
-    {
-        int positionCount = getPositionCount();
-        checkValidRegion(positionCount, position, length);
-
-        if (!hasNonNullRow) {
-            return nullRle(length);
-        }
-        return super.getRegion(position, length);
-    }
-
-    @Override
-    public Block copyRegion(int position, int length)
-    {
-        int positionCount = getPositionCount();
-        checkValidRegion(positionCount, position, length);
-
-        if (!hasNonNullRow) {
-            return nullRle(length);
-        }
-        return super.copyRegion(position, length);
     }
 
     private Block nullRle(int positionCount)

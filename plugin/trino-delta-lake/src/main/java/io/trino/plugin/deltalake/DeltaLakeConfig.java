@@ -77,6 +77,7 @@ public class DeltaLakeConfig
     private boolean legacyCreateTableWithExistingLocationEnabled;
     private boolean registerTableProcedureEnabled;
     private boolean projectionPushdownEnabled = true;
+    private boolean queryPartitionFilterRequired;
 
     public Duration getMetadataCacheTtl()
     {
@@ -486,6 +487,19 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setProjectionPushdownEnabled(boolean projectionPushdownEnabled)
     {
         this.projectionPushdownEnabled = projectionPushdownEnabled;
+        return this;
+    }
+
+    public boolean isQueryPartitionFilterRequired()
+    {
+        return queryPartitionFilterRequired;
+    }
+
+    @Config("delta.query-partition-filter-required")
+    @ConfigDescription("Require filter on at least one partition column")
+    public DeltaLakeConfig setQueryPartitionFilterRequired(boolean queryPartitionFilterRequired)
+    {
+        this.queryPartitionFilterRequired = queryPartitionFilterRequired;
         return this;
     }
 }

@@ -51,9 +51,15 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     }
 
     @Override
-    public void testScaleWriters()
+    public void testMultipleWriters()
     {
-        testWithAllStorageFormats(this::testSingleWriter);
+        // Not applicable for fault-tolerant mode.
+    }
+
+    @Override
+    public void testMultipleWritersWithSkewedData()
+    {
+        // Not applicable for fault-tolerant mode.
     }
 
     // We need to override this method because in the case of pipeline execution,
@@ -62,7 +68,8 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     @Override
     public void testTaskWritersDoesNotScaleWithLargeMinWriterSize()
     {
-        testTaskScaleWriters(getSession(), DataSize.of(2, GIGABYTE), 4, false).isEqualTo(1);
+        testTaskScaleWriters(getSession(), DataSize.of(2, GIGABYTE), 4, false, DataSize.of(64, GIGABYTE))
+                .isEqualTo(1);
     }
 
     @Override

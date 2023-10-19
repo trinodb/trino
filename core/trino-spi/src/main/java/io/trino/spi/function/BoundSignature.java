@@ -28,13 +28,13 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 @Experimental(eta = "2022-10-31")
 public class BoundSignature
 {
-    private final String name;
+    private final CatalogSchemaFunctionName name;
     private final Type returnType;
     private final List<Type> argumentTypes;
 
     @JsonCreator
     public BoundSignature(
-            @JsonProperty("name") String name,
+            @JsonProperty("name") CatalogSchemaFunctionName name,
             @JsonProperty("returnType") Type returnType,
             @JsonProperty("argumentTypes") List<Type> argumentTypes)
     {
@@ -43,8 +43,11 @@ public class BoundSignature
         this.argumentTypes = List.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
     }
 
+    /**
+     * The absolute canonical name of the function.
+     */
     @JsonProperty
-    public String getName()
+    public CatalogSchemaFunctionName getName()
     {
         return name;
     }
@@ -74,7 +77,6 @@ public class BoundSignature
     public Signature toSignature()
     {
         return Signature.builder()
-                .name(name)
                 .returnType(returnType)
                 .argumentTypes(argumentTypes.stream()
                         .map(Type::getTypeSignature)

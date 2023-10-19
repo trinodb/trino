@@ -39,7 +39,6 @@ import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.relational.RowExpression;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingSplit;
@@ -289,7 +288,7 @@ public class TestScanFilterAndProjectOperator
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(runner.getFunctionManager(), new PageFunctionCompiler(runner.getFunctionManager(), 0));
         ImmutableList.Builder<RowExpression> projections = ImmutableList.builder();
         for (int i = 0; i < totalColumns; i++) {
-            projections.add(call(runner.getMetadata().resolveFunction(session, QualifiedName.of("generic_long_page_col" + i), fromTypes(BIGINT)), field(0, BIGINT)));
+            projections.add(call(runner.getMetadata().resolveBuiltinFunction("generic_long_page_col" + i, fromTypes(BIGINT)), field(0, BIGINT)));
         }
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections.build(), "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections.build(), MAX_BATCH_SIZE);
@@ -354,7 +353,7 @@ public class TestScanFilterAndProjectOperator
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(functionManager, new PageFunctionCompiler(functionManager, 0));
 
         List<RowExpression> projections = ImmutableList.of(call(
-                runner.getMetadata().resolveFunction(session, QualifiedName.of("generic_long_record_cursor"), fromTypes(BIGINT)),
+                runner.getMetadata().resolveBuiltinFunction("generic_long_record_cursor", fromTypes(BIGINT)),
                 field(0, BIGINT)));
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections, "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections);

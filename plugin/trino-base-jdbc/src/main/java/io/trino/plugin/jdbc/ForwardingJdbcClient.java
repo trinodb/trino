@@ -125,6 +125,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    {
+        return delegate().getSupportedType(session, type);
+    }
+
+    @Override
     public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
     {
         return delegate().supportsAggregationPushdown(session, table, aggregates, assignments, groupingSets);
@@ -380,9 +386,9 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
+    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
-        delegate().dropSchema(session, schemaName);
+        delegate().dropSchema(session, schemaName, cascade);
     }
 
     @Override
@@ -425,6 +431,12 @@ public abstract class ForwardingJdbcClient
     public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
     {
         return delegate().delete(session, handle);
+    }
+
+    @Override
+    public OptionalLong update(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return delegate().update(session, handle);
     }
 
     @Override

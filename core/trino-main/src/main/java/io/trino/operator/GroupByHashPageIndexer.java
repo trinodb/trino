@@ -17,11 +17,8 @@ import io.trino.spi.Page;
 import io.trino.spi.PageIndexer;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
-import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.IntStream;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.operator.UpdateMemory.NOOP;
@@ -32,17 +29,9 @@ public class GroupByHashPageIndexer
 {
     private final GroupByHash hash;
 
-    public GroupByHashPageIndexer(List<? extends Type> hashTypes, JoinCompiler joinCompiler, BlockTypeOperators blockTypeOperators)
+    public GroupByHashPageIndexer(List<Type> hashTypes, JoinCompiler joinCompiler)
     {
-        this(GroupByHash.createGroupByHash(
-                hashTypes,
-                IntStream.range(0, hashTypes.size()).toArray(),
-                Optional.empty(),
-                20,
-                false,
-                joinCompiler,
-                blockTypeOperators,
-                NOOP));
+        this(GroupByHash.createGroupByHash(hashTypes, false, 20, false, joinCompiler, NOOP));
     }
 
     public GroupByHashPageIndexer(GroupByHash hash)

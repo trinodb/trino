@@ -23,7 +23,6 @@ import java.util.stream.Stream;
 import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.filesystem.Locations.areDirectoryLocationsEquivalent;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestLocations
 {
@@ -47,25 +46,10 @@ public class TestLocations
 
     @ParameterizedTest
     @MethodSource("locations")
+    @SuppressWarnings("deprecation") // we're testing a deprecated method
     public void testAppendPath(String location, String path, String expected)
     {
         assertThat(appendPath(location, path)).isEqualTo(expected);
-    }
-
-    private static Stream<Arguments> invalidLocations()
-    {
-        return Stream.of(
-                Arguments.of("location?", "location contains a query string.*"),
-                Arguments.of("location#", "location contains a fragment.*"));
-    }
-
-    @ParameterizedTest
-    @MethodSource("invalidLocations")
-    public void testInvalidLocationInAppendPath(String location, String exceptionMessageRegexp)
-    {
-        assertThatThrownBy(() -> appendPath(location, "test"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageMatching(exceptionMessageRegexp);
     }
 
     @Test

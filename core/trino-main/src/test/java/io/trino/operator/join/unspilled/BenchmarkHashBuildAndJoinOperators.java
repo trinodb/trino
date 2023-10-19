@@ -20,7 +20,6 @@ import io.airlift.units.DataSize;
 import io.trino.RowPagesBuilder;
 import io.trino.Session;
 import io.trino.operator.DriverContext;
-import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PagesIndex;
@@ -36,7 +35,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
-import io.trino.type.BlockTypeOperators;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -49,7 +48,6 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.RunnerException;
-import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.Iterator;
@@ -70,6 +68,7 @@ import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
+import static io.trino.operator.InterpretedHashGenerator.createChannelsHashGenerator;
 import static io.trino.operator.JoinOperatorType.innerJoin;
 import static io.trino.operator.OperatorFactories.join;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -94,7 +93,7 @@ public class BenchmarkHashBuildAndJoinOperators
     private static final int HASH_BUILD_OPERATOR_ID = 1;
     private static final int HASH_JOIN_OPERATOR_ID = 2;
     private static final PlanNodeId TEST_PLAN_NODE_ID = new PlanNodeId("test");
-    private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
+    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
 
     @State(Scope.Benchmark)
     public static class BuildContext
@@ -243,7 +242,7 @@ public class BenchmarkHashBuildAndJoinOperators
                     hashChannels,
                     hashChannel,
                     Optional.of(outputChannels),
-                    TYPE_OPERATOR_FACTORY);
+                    TYPE_OPERATORS);
             buildHash(this, lookupSourceFactory, outputChannels, partitionCount);
             initializeProbePages();
         }
@@ -327,7 +326,7 @@ public class BenchmarkHashBuildAndJoinOperators
                         .collect(toImmutableList()),
                 partitionCount,
                 false,
-                TYPE_OPERATOR_FACTORY);
+                TYPE_OPERATORS);
         return new JoinBridgeManager<>(
                 false,
                 factory,
@@ -364,12 +363,12 @@ public class BenchmarkHashBuildAndJoinOperators
         }
         else {
             PartitionFunction partitionGenerator = new LocalPartitionGenerator(
-                    new InterpretedHashGenerator(
+                    createChannelsHashGenerator(
                             buildContext.getHashChannels().stream()
                                     .map(channel -> buildContext.getTypes().get(channel))
                                     .collect(toImmutableList()),
-                            buildContext.getHashChannels(),
-                            TYPE_OPERATOR_FACTORY),
+                            Ints.toArray(buildContext.getHashChannels()),
+                            TYPE_OPERATORS),
                     partitionCount);
 
             for (Page page : buildContext.getBuildPages()) {

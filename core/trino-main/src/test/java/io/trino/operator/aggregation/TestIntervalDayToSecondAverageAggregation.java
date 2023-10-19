@@ -32,7 +32,7 @@ public class TestIntervalDayToSecondAverageAggregation
     {
         BlockBuilder blockBuilder = INTERVAL_DAY_TIME.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
-            INTERVAL_DAY_TIME.writeLong(blockBuilder, i * 250);
+            INTERVAL_DAY_TIME.writeLong(blockBuilder, i * 250L);
         }
         return new Block[] {blockBuilder.build()};
     }

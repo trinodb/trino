@@ -15,7 +15,6 @@ package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -595,11 +594,6 @@ public class DictionaryBlock
     public Block getDictionary()
     {
         return dictionary;
-    }
-
-    Slice getIds()
-    {
-        return Slices.wrappedIntArray(ids, idsOffset, positionCount);
     }
 
     boolean isSequentialIds()

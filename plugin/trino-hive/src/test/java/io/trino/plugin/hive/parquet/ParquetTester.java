@@ -29,7 +29,6 @@ import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.HiveFormatsConfig;
 import io.trino.plugin.hive.HiveSessionProperties;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.benchmark.FileFormat;
@@ -48,6 +47,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
@@ -157,11 +157,7 @@ public class ParquetTester
 {
     private static final int MAX_PRECISION_INT64 = toIntExact(maxPrecision(8));
 
-    private static final ConnectorSession SESSION = getHiveSession(
-            createHiveConfig(false), new ParquetReaderConfig().setOptimizedReaderEnabled(false));
-
-    private static final ConnectorSession SESSION_OPTIMIZED_READER = getHiveSession(
-            createHiveConfig(false), new ParquetReaderConfig().setOptimizedReaderEnabled(true));
+    private static final ConnectorSession SESSION = getHiveSession(createHiveConfig(false));
 
     private static final ConnectorSession SESSION_USE_NAME = getHiveSession(createHiveConfig(true));
 
@@ -187,23 +183,13 @@ public class ParquetTester
                 StandardFileFormats.TRINO_PARQUET);
     }
 
-    public static ParquetTester quickOptimizedParquetTester()
-    {
-        return new ParquetTester(
-                ImmutableSet.of(GZIP),
-                ImmutableSet.of(GZIP),
-                ImmutableSet.of(PARQUET_1_0),
-                ImmutableSet.of(SESSION_OPTIMIZED_READER),
-                StandardFileFormats.TRINO_PARQUET);
-    }
-
     public static ParquetTester fullParquetTester()
     {
         return new ParquetTester(
                 ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, LZO, LZ4, ZSTD),
                 ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, ZSTD),
                 ImmutableSet.copyOf(WriterVersion.values()),
-                ImmutableSet.of(SESSION, SESSION_USE_NAME, SESSION_OPTIMIZED_READER),
+                ImmutableSet.of(SESSION, SESSION_USE_NAME),
                 StandardFileFormats.TRINO_PARQUET);
     }
 
@@ -447,52 +433,48 @@ public class ParquetTester
             throws Exception
     {
         CompressionCodec compressionCodec = UNCOMPRESSED;
-        for (boolean optimizedReaderEnabled : ImmutableList.of(true, false)) {
-            HiveSessionProperties hiveSessionProperties = new HiveSessionProperties(
-                    new HiveConfig()
-                            .setHiveStorageFormat(HiveStorageFormat.PARQUET)
-                            .setUseParquetColumnNames(false),
-                    new HiveFormatsConfig(),
-                    new OrcReaderConfig(),
-                    new OrcWriterConfig(),
-                    new ParquetReaderConfig()
-                            .setMaxReadBlockSize(maxReadBlockSize)
-                            .setOptimizedReaderEnabled(optimizedReaderEnabled),
-                    new ParquetWriterConfig());
-            ConnectorSession session = TestingConnectorSession.builder()
-                    .setPropertyMetadata(hiveSessionProperties.getSessionProperties())
-                    .build();
+        HiveSessionProperties hiveSessionProperties = new HiveSessionProperties(
+                new HiveConfig()
+                        .setHiveStorageFormat(HiveStorageFormat.PARQUET)
+                        .setUseParquetColumnNames(false),
+                new OrcReaderConfig(),
+                new OrcWriterConfig(),
+                new ParquetReaderConfig()
+                        .setMaxReadBlockSize(maxReadBlockSize),
+                new ParquetWriterConfig());
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(hiveSessionProperties.getSessionProperties())
+                .build();
 
-            try (TempFile tempFile = new TempFile("test", "parquet")) {
-                JobConf jobConf = new JobConf(newEmptyConfiguration());
-                jobConf.setEnum(COMPRESSION, compressionCodec);
-                jobConf.setBoolean(ENABLE_DICTIONARY, true);
-                jobConf.setEnum(WRITER_VERSION, PARQUET_1_0);
-                writeParquetColumn(
-                        jobConf,
-                        tempFile.getFile(),
-                        compressionCodec,
-                        createTableProperties(columnNames, objectInspectors),
-                        getStandardStructObjectInspector(columnNames, objectInspectors),
-                        getIterators(writeValues),
-                        parquetSchema,
-                        false,
-                        DateTimeZone.getDefault());
+        try (TempFile tempFile = new TempFile("test", "parquet")) {
+            JobConf jobConf = new JobConf(newEmptyConfiguration());
+            jobConf.setEnum(COMPRESSION, compressionCodec);
+            jobConf.setBoolean(ENABLE_DICTIONARY, true);
+            jobConf.setEnum(WRITER_VERSION, PARQUET_1_0);
+            writeParquetColumn(
+                    jobConf,
+                    tempFile.getFile(),
+                    compressionCodec,
+                    createTableProperties(columnNames, objectInspectors),
+                    getStandardStructObjectInspector(columnNames, objectInspectors),
+                    getIterators(writeValues),
+                    parquetSchema,
+                    false,
+                    DateTimeZone.getDefault());
 
-                Iterator<?>[] expectedValues = getIterators(readValues);
-                try (ConnectorPageSource pageSource = fileFormat.createFileFormatReader(
-                        session,
-                        HDFS_ENVIRONMENT,
-                        tempFile.getFile(),
-                        columnNames,
-                        columnTypes)) {
-                    assertPageSource(
-                            columnTypes,
-                            expectedValues,
-                            pageSource,
-                            Optional.of(getParquetMaxReadBlockSize(session).toBytes()));
-                    assertFalse(stream(expectedValues).allMatch(Iterator::hasNext));
-                }
+            Iterator<?>[] expectedValues = getIterators(readValues);
+            try (ConnectorPageSource pageSource = fileFormat.createFileFormatReader(
+                    session,
+                    HDFS_ENVIRONMENT,
+                    tempFile.getFile(),
+                    columnNames,
+                    columnTypes)) {
+                assertPageSource(
+                        columnTypes,
+                        expectedValues,
+                        pageSource,
+                        Optional.of(getParquetMaxReadBlockSize(session).toBytes()));
+                assertFalse(stream(expectedValues).allMatch(Iterator::hasNext));
             }
         }
     }
@@ -568,15 +550,14 @@ public class ParquetTester
             return null;
         }
         if (isStructuralType(type)) {
-            Block block = (Block) fieldFromCursor;
             if (type instanceof ArrayType arrayType) {
-                return toArrayValue(block, arrayType.getElementType());
+                return toArrayValue((Block) fieldFromCursor, arrayType.getElementType());
             }
             if (type instanceof MapType mapType) {
-                return toMapValue(block, mapType.getKeyType(), mapType.getValueType());
+                return toMapValue((SqlMap) fieldFromCursor, mapType.getKeyType(), mapType.getValueType());
             }
             if (type instanceof RowType) {
-                return toRowValue(block, type.getTypeParameters());
+                return toRowValue((Block) fieldFromCursor, type.getTypeParameters());
             }
         }
         if (type instanceof DecimalType decimalType) {
@@ -597,11 +578,15 @@ public class ParquetTester
         return fieldFromCursor;
     }
 
-    private static Map<?, ?> toMapValue(Block mapBlock, Type keyType, Type valueType)
+    private static Map<?, ?> toMapValue(SqlMap sqlMap, Type keyType, Type valueType)
     {
-        Map<Object, Object> map = new HashMap<>(mapBlock.getPositionCount() * 2);
-        for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-            map.put(keyType.getObjectValue(SESSION, mapBlock, i), valueType.getObjectValue(SESSION, mapBlock, i + 1));
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+
+        Map<Object, Object> map = new HashMap<>(sqlMap.getSize());
+        for (int i = 0; i < sqlMap.getSize(); i++) {
+            map.put(keyType.getObjectValue(SESSION, rawKeyBlock, rawOffset + i), valueType.getObjectValue(SESSION, rawValueBlock, rawOffset + i));
         }
         return Collections.unmodifiableMap(map);
     }
@@ -793,7 +778,6 @@ public class ParquetTester
                         .build(),
                 compressionCodec,
                 "test-version",
-                false,
                 Optional.of(DateTimeZone.getDefault()),
                 Optional.of(new ParquetWriteValidationBuilder(types, columnNames)));
 

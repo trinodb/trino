@@ -14,7 +14,7 @@
 package io.trino.plugin.hive;
 
 import io.trino.spi.Page;
-import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.BucketFunction;
 
 import static io.trino.plugin.hive.HivePageSource.BUCKET_CHANNEL;
@@ -33,8 +33,8 @@ public class HiveUpdateBucketFunction
     @Override
     public int getBucket(Page page, int position)
     {
-        Block bucketBlock = page.getBlock(0).getObject(position, Block.class);
-        long value = INTEGER.getInt(bucketBlock, BUCKET_CHANNEL);
+        SqlRow bucketRow = page.getBlock(0).getObject(position, SqlRow.class);
+        long value = INTEGER.getInt(bucketRow.getRawFieldBlock(BUCKET_CHANNEL), bucketRow.getRawIndex());
         return (int) (value & Integer.MAX_VALUE) % bucketCount;
     }
 }

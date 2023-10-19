@@ -732,6 +732,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testNonTransactionalMetadataDelete()
     {
         withTemporaryTable("non_transactional_metadata_delete", false, true, NONE, tableName -> {
@@ -1903,7 +1904,7 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery("SET SESSION scale_writers = true");
             onTrino().executeQuery("SET SESSION writer_scaling_min_data_processed = '4kB'");
             onTrino().executeQuery("SET SESSION task_scale_writers_enabled = false");
-            onTrino().executeQuery("SET SESSION task_writer_count = 2");
+            onTrino().executeQuery("SET SESSION task_min_writer_count = 2");
             onTrino().executeQuery(format(
                     "CREATE TABLE %s WITH (transactional = true) AS SELECT * FROM tpch.sf1000.orders LIMIT 100000", tableName));
 
@@ -1924,7 +1925,7 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery("SET SESSION scale_writers = true");
             onTrino().executeQuery("SET SESSION writer_scaling_min_data_processed = '4kB'");
             onTrino().executeQuery("SET SESSION task_scale_writers_enabled = false");
-            onTrino().executeQuery("SET SESSION task_writer_count = 2");
+            onTrino().executeQuery("SET SESSION task_min_writer_count = 2");
             onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true) AS SELECT * FROM tpch.sf1000.orders LIMIT 100000", tableName));
 
             verify(onTrino().executeQuery(format("SELECT DISTINCT \"$path\" FROM %s", tableName)).getRowsCount() >= 2,
@@ -1990,8 +1991,8 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery("SET SESSION scale_writers = true");
             onTrino().executeQuery("SET SESSION writer_scaling_min_data_processed = '4kB'");
             onTrino().executeQuery("SET SESSION task_scale_writers_enabled = false");
-            onTrino().executeQuery("SET SESSION task_writer_count = 4");
-            onTrino().executeQuery("SET SESSION task_partitioned_writer_count = 4");
+            onTrino().executeQuery("SET SESSION task_min_writer_count = 4");
+            onTrino().executeQuery("SET SESSION task_max_writer_count = 4");
             onTrino().executeQuery("SET SESSION hive.target_max_file_size = '1MB'");
 
             onTrino().executeQuery(

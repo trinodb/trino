@@ -14,16 +14,23 @@
 package io.trino.plugin.deltalake;
 
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
+import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.DistributedQueryRunner;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 public final class TestingDeltaLakeUtils
 {
@@ -42,7 +49,26 @@ public final class TestingDeltaLakeUtils
         // force entries to have JSON serializable statistics
         transactionLogAccess.flushCache();
 
-        TableSnapshot snapshot = transactionLogAccess.loadSnapshot(dummyTable, tableLocation, SESSION);
-        return transactionLogAccess.getActiveFiles(snapshot, SESSION);
+        TableSnapshot snapshot = transactionLogAccess.getSnapshot(SESSION, dummyTable, tableLocation, Optional.empty());
+        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(snapshot, SESSION);
+        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, snapshot);
+        List<AddFileEntry> activeFiles = transactionLogAccess.getActiveFiles(snapshot, metadataEntry, protocolEntry, SESSION);
+        transactionLogAccess.cleanupQuery(SESSION);
+        return activeFiles;
+    }
+
+    public static void copyDirectoryContents(Path source, Path destination)
+            throws IOException
+    {
+        try (Stream<Path> stream = Files.walk(source)) {
+            stream.forEach(file -> {
+                try {
+                    Files.copy(file, destination.resolve(source.relativize(file)), REPLACE_EXISTING);
+                }
+                catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        }
     }
 }

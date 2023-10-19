@@ -290,7 +290,7 @@ public class RawColumnDecoder
         @Override
         public Slice getSlice()
         {
-            Slice slice = Slices.wrappedBuffer(value.slice());
+            Slice slice = Slices.wrappedHeapBuffer(value.slice());
             return Varchars.truncateToLength(slice, columnType);
         }
     }

@@ -261,9 +261,9 @@ public class KuduClientSession
         schemaEmulation.createSchema(client, schemaName);
     }
 
-    public void dropSchema(String schemaName)
+    public void dropSchema(String schemaName, boolean cascade)
     {
-        schemaEmulation.dropSchema(client, schemaName);
+        schemaEmulation.dropSchema(client, schemaName, cascade);
     }
 
     public void dropTable(SchemaTableName schemaTableName)

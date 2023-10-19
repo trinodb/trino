@@ -105,7 +105,7 @@ public class TestValidateStreamingAggregations
     private void validatePlan(Function<PlanBuilder, PlanNode> planProvider)
     {
         getQueryRunner().inTransaction(session -> {
-            PlanBuilder builder = new PlanBuilder(idAllocator, plannerContext.getMetadata(), session);
+            PlanBuilder builder = new PlanBuilder(idAllocator, plannerContext, session);
             PlanNode planNode = planProvider.apply(builder);
             TypeProvider types = builder.getTypes();
 

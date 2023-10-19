@@ -20,6 +20,7 @@ import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
+import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
@@ -37,8 +38,7 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.TypeManager;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -66,12 +66,11 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
 {
     private static final ColumnHandle COLUMN_HANDLE = new DeltaLakeColumnHandle("val", DoubleType.DOUBLE, OptionalInt.empty(), "val", DoubleType.DOUBLE, REGULAR, Optional.empty());
 
-    private TransactionLogAccess transactionLogAccess;
-    private CachingExtendedStatisticsAccess statistics;
-    private DeltaLakeTableStatisticsProvider tableStatisticsProvider;
+    private final TransactionLogAccess transactionLogAccess;
+    private final CachingExtendedStatisticsAccess statistics;
+    private final DeltaLakeTableStatisticsProvider tableStatisticsProvider;
 
-    @BeforeClass
-    public void setupMetastore()
+    public TestDeltaLakeFileBasedTableStatisticsProvider()
     {
         TestingConnectorContext context = new TestingConnectorContext();
         TypeManager typeManager = context.getTypeManager();
@@ -105,18 +104,20 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         SchemaTableName schemaTableName = new SchemaTableName("db_name", tableName);
         TableSnapshot tableSnapshot;
         try {
-            tableSnapshot = transactionLogAccess.loadSnapshot(schemaTableName, tableLocation, SESSION);
+            tableSnapshot = transactionLogAccess.getSnapshot(SESSION, schemaTableName, tableLocation, Optional.empty());
         }
         catch (IOException e) {
             throw new RuntimeException(e);
         }
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION);
+        transactionLogAccess.cleanupQuery(SESSION);
         return new DeltaLakeTableHandle(
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 false,
                 tableLocation,
                 metadataEntry,
+                new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),
                 TupleDomain.all(),
                 TupleDomain.all(),
                 Optional.empty(),
@@ -247,6 +248,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 tableHandle.isManaged(),
                 tableHandle.getLocation(),
                 tableHandle.getMetadataEntry(),
+                tableHandle.getProtocolEntry(),
                 TupleDomain.all(),
                 TupleDomain.withColumnDomains(ImmutableMap.of((DeltaLakeColumnHandle) COLUMN_HANDLE, Domain.singleValue(DOUBLE, 42.0))),
                 tableHandle.getWriteType(),
@@ -271,6 +273,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 tableHandle.isManaged(),
                 tableHandle.getLocation(),
                 tableHandle.getMetadataEntry(),
+                tableHandle.getProtocolEntry(),
                 TupleDomain.none(),
                 TupleDomain.all(),
                 tableHandle.getWriteType(),
@@ -285,6 +288,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 tableHandle.isManaged(),
                 tableHandle.getLocation(),
                 tableHandle.getMetadataEntry(),
+                tableHandle.getProtocolEntry(),
                 TupleDomain.all(),
                 TupleDomain.none(),
                 tableHandle.getWriteType(),
@@ -446,12 +450,14 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
     {
         TableSnapshot tableSnapshot;
         try {
-            tableSnapshot = transactionLogAccess.loadSnapshot(tableHandle.getSchemaTableName(), tableHandle.getLocation(), SESSION);
+            tableSnapshot = transactionLogAccess.getSnapshot(SESSION, tableHandle.getSchemaTableName(), tableHandle.getLocation(), Optional.empty());
         }
         catch (IOException e) {
             throw new RuntimeException(e);
         }
-        return tableStatisticsProvider.getTableStatistics(session, tableHandle, tableSnapshot);
+        TableStatistics tableStatistics = tableStatisticsProvider.getTableStatistics(session, tableHandle, tableSnapshot);
+        transactionLogAccess.cleanupQuery(SESSION);
+        return tableStatistics;
     }
 
     private Optional<ExtendedStatistics> readExtendedStatisticsFromTableResource(String tableLocationResourceName)

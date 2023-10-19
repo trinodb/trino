@@ -33,6 +33,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.bson.Document;
+import org.bson.types.Decimal128;
 import org.bson.types.ObjectId;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -94,37 +95,23 @@ public class TestMongoConnectorTest
         client = null;
     }
 
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_DELETE:
-                return true;
-            case SUPPORTS_UPDATE:
-            case SUPPORTS_MERGE:
-            case SUPPORTS_TRUNCATE:
-                return false;
-
-            case SUPPORTS_RENAME_SCHEMA:
-            case SUPPORTS_DROP_SCHEMA_CASCADE:
-                return false;
-
-            case SUPPORTS_ADD_FIELD:
-            case SUPPORTS_RENAME_FIELD:
-            case SUPPORTS_DROP_FIELD:
-                return false;
-
-            case SUPPORTS_CREATE_VIEW:
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
-                return false;
-
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_ADD_FIELD,
+                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                    SUPPORTS_CREATE_VIEW,
+                    SUPPORTS_DROP_FIELD,
+                    SUPPORTS_MERGE,
+                    SUPPORTS_NOT_NULL_CONSTRAINT,
+                    SUPPORTS_RENAME_FIELD,
+                    SUPPORTS_RENAME_SCHEMA,
+                    SUPPORTS_SET_FIELD_TYPE,
+                    SUPPORTS_TRUNCATE,
+                    SUPPORTS_UPDATE -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     @Override
@@ -328,8 +315,12 @@ public class TestMongoConnectorTest
     public void testPredicatePushdown(String value)
     {
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_predicate_pushdown", "AS SELECT %s col".formatted(value))) {
-            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col = " + value + ""))
-                    .isFullyPushedDown();
+            testPredicatePushdown(table.getName(), "col = " + value);
+            testPredicatePushdown(table.getName(), "col != " + value);
+            testPredicatePushdown(table.getName(), "col < " + value);
+            testPredicatePushdown(table.getName(), "col > " + value);
+            testPredicatePushdown(table.getName(), "col <= " + value);
+            testPredicatePushdown(table.getName(), "col >= " + value);
         }
     }
 
@@ -342,13 +333,100 @@ public class TestMongoConnectorTest
                 {"smallint '2'"},
                 {"integer '3'"},
                 {"bigint '4'"},
+                {"decimal '3.14'"},
+                {"decimal '1234567890.123456789'"},
                 {"'test'"},
+                {"char 'test'"},
                 {"objectid('6216f0c6c432d45190f25e7c')"},
                 {"date '1970-01-01'"},
                 {"time '00:00:00.000'"},
                 {"timestamp '1970-01-01 00:00:00.000'"},
                 {"timestamp '1970-01-01 00:00:00.000 UTC'"},
         };
+    }
+
+    @Test
+    public void testPredicatePushdownCharWithPaddedSpace()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_predicate_pushdown_char_with_padded_space",
+                "(k, v) AS VALUES" +
+                        "   (-1, CAST(NULL AS char(3))), " +
+                        "   (0, CAST('' AS char(3)))," +
+                        "   (1, CAST(' ' AS char(3))), " +
+                        "   (2, CAST('  ' AS char(3))), " +
+                        "   (3, CAST('   ' AS char(3)))," +
+                        "   (4, CAST('x' AS char(3)))," +
+                        "   (5, CAST('x ' AS char(3)))," +
+                        "   (6, CAST('x  ' AS char(3)))," +
+                        "   (7, CAST('\0' AS char(3)))," +
+                        "   (8, CAST('\0 ' AS char(3)))," +
+                        "   (9, CAST('\0  ' AS char(3)))")) {
+            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = ''"))
+                    // The value is included because both sides of the comparison are coerced to char(3)
+                    .matches("VALUES 0, 1, 2, 3")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = 'x '"))
+                    // The value is included because both sides of the comparison are coerced to char(3)
+                    .matches("VALUES 4, 5, 6")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = '\0  '"))
+                    // The value is included because both sides of the comparison are coerced to char(3)
+                    .matches("VALUES 7, 8, 9")
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testPredicatePushdownMultipleNotEquals()
+    {
+        // Regression test for https://github.com/trinodb/trino/issues/19404
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_predicate_pushdown_with_multiple_not_equals",
+                "(id, value) AS VALUES (1, 10), (2, 20), (3, 30)")) {
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE id != 1 AND value != 20"))
+                    .matches("VALUES (3, 30)")
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testHighPrecisionDecimalPredicate()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_high_precision_decimal_predicate",
+                "(col DECIMAL(34, 0))",
+                Arrays.asList("decimal '3141592653589793238462643383279502'", null))) {
+            // Filter clause with 38 precision decimal value
+            String predicateValue = "decimal '31415926535897932384626433832795028841'";
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col = " + predicateValue))
+                    // With EQUAL operator when column type precision is less than the predicate value's precision,
+                    // PushPredicateIntoTableScan#pushFilterIntoTableScan returns ValuesNode. So It is not possible to verify isFullyPushedDown.
+                    .returnsEmptyResult();
+            testPredicatePushdown(table.getName(), "col != " + predicateValue);
+            testPredicatePushdown(table.getName(), "col < " + predicateValue);
+            testPredicatePushdown(table.getName(), "col > " + predicateValue);
+            testPredicatePushdown(table.getName(), "col <= " + predicateValue);
+            testPredicatePushdown(table.getName(), "col >= " + predicateValue);
+
+            // Filter clause with 34 precision decimal value
+            predicateValue = "decimal '3141592653589793238462643383279502'";
+            testPredicatePushdown(table.getName(), "col = " + predicateValue);
+            testPredicatePushdown(table.getName(), "col != " + predicateValue);
+            testPredicatePushdown(table.getName(), "col < " + predicateValue);
+            testPredicatePushdown(table.getName(), "col > " + predicateValue);
+            testPredicatePushdown(table.getName(), "col <= " + predicateValue);
+            testPredicatePushdown(table.getName(), "col >= " + predicateValue);
+        }
+    }
+
+    private void testPredicatePushdown(String tableName, String whereClause)
+    {
+        assertThat(query("SELECT * FROM " + tableName + " WHERE " + whereClause))
+                .isFullyPushedDown();
     }
 
     @Test
@@ -444,6 +522,57 @@ public class TestMongoConnectorTest
         client.getDatabase("test").getCollection(allUnknownFieldTable).insertOne(document2);
         assertQueryReturnsEmptyResult("SHOW COLUMNS FROM test." + allUnknownFieldTable);
         assertUpdate("DROP TABLE test." + allUnknownFieldTable);
+    }
+
+    @Test
+    public void testSkipUnsupportedDecimal128()
+    {
+        String tableName = "test_unsupported_decimal128" + randomNameSuffix();
+
+        Document document = new Document(ImmutableMap.<String, Object>builder()
+                .put("col", 1)
+                .put("nan", Decimal128.NaN)
+                .put("negative_nan", Decimal128.NEGATIVE_NaN)
+                .put("positive_infinity", Decimal128.POSITIVE_INFINITY)
+                .put("negative_infinity", Decimal128.NEGATIVE_INFINITY)
+                .put("negative_zero", Decimal128.NEGATIVE_ZERO)
+                .buildOrThrow());
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
+        assertQuery("SHOW COLUMNS FROM test." + tableName, "SELECT 'col', 'bigint', '', ''");
+        assertQuery("SELECT col FROM test." + tableName, "SELECT 1");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testNegativeZeroDecimal()
+    {
+        String tableName = "test_negative_zero" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE test." + tableName + "(id int, short_decimal decimal(1), long_decimal decimal(38))");
+        client.getDatabase("test").getCollection(tableName)
+                .insertOne(new Document(ImmutableMap.<String, Object>builder()
+                        .put("id", 1)
+                        .put("short_decimal", Decimal128.NEGATIVE_ZERO)
+                        .put("long_decimal", Decimal128.NEGATIVE_ZERO)
+                        .buildOrThrow()));
+        client.getDatabase("test").getCollection(tableName)
+                .insertOne(new Document(ImmutableMap.<String, Object>builder()
+                        .put("id", 2)
+                        .put("short_decimal", Decimal128.parse("-0.000"))
+                        .put("long_decimal", Decimal128.parse("-0.000"))
+                        .buildOrThrow()));
+
+        assertThat(query("SELECT * FROM test." + tableName))
+                .matches("VALUES (1, CAST('0' AS decimal(1)), CAST('0' AS decimal(38))), (2, CAST('0' AS decimal(1)), CAST('0' AS decimal(38)))");
+
+        assertThat(query("SELECT id FROM test." + tableName + " WHERE short_decimal = decimal '0'"))
+                .matches("VALUES 1, 2");
+
+        assertThat(query("SELECT id FROM test." + tableName + " WHERE long_decimal = decimal '0'"))
+                .matches("VALUES 1, 2");
+
+        assertUpdate("DROP TABLE test." + tableName);
     }
 
     @Test(dataProvider = "dbRefProvider")

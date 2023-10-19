@@ -22,6 +22,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 
@@ -60,10 +61,14 @@ public class MapEncoding
     public void encodeValueInto(Block block, int position, SliceOutput output)
             throws FileCorruptionException
     {
-        Block map = block.getObject(position, Block.class);
+        SqlMap sqlMap = block.getObject(position, SqlMap.class);
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+
         boolean first = true;
-        for (int elementIndex = 0; elementIndex < map.getPositionCount(); elementIndex += 2) {
-            if (map.isNull(elementIndex)) {
+        for (int elementIndex = 0; elementIndex < sqlMap.getSize(); elementIndex++) {
+            if (rawKeyBlock.isNull(rawOffset + elementIndex)) {
                 throw new TrinoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Map must never contain null keys");
             }
 
@@ -71,13 +76,13 @@ public class MapEncoding
                 output.writeByte(elementSeparator);
             }
             first = false;
-            keyEncoding.encodeValueInto(map, elementIndex, output);
+            keyEncoding.encodeValueInto(rawKeyBlock, rawOffset + elementIndex, output);
             output.writeByte(keyValueSeparator);
-            if (map.isNull(elementIndex + 1)) {
+            if (rawValueBlock.isNull(rawOffset + elementIndex)) {
                 output.writeBytes(nullSequence);
             }
             else {
-                valueEncoding.encodeValueInto(map, elementIndex + 1, output);
+                valueEncoding.encodeValueInto(rawValueBlock, rawOffset + elementIndex, output);
             }
         }
     }

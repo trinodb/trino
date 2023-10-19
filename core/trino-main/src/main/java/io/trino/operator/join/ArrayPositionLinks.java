@@ -13,7 +13,6 @@
  */
 package io.trino.operator.join;
 
-import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import io.trino.spi.Page;
 
@@ -64,7 +63,11 @@ public final class ArrayPositionLinks
                 @Override
                 public long checksum()
                 {
-                    return XxHash64.hash(Slices.wrappedIntArray(positionLinks));
+                    long hash = 0;
+                    for (int positionLink : positionLinks) {
+                        hash = XxHash64.hash(hash, positionLink);
+                    }
+                    return hash;
                 }
             };
         }

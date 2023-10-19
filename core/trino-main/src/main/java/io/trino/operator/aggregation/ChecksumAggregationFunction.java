@@ -14,6 +14,8 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.operator.aggregation.state.NullableLongState;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -34,7 +36,6 @@ import io.trino.spi.function.TypeParameter;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -89,7 +90,9 @@ public final class ChecksumAggregationFunction
             out.appendNull();
         }
         else {
-            VARBINARY.writeSlice(out, wrappedLongArray(state.getValue()));
+            Slice value = Slices.allocate(Long.BYTES);
+            value.setLong(0, state.getValue());
+            VARBINARY.writeSlice(out, value);
         }
     }
 }

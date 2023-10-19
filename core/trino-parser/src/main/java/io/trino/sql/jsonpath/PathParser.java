@@ -13,9 +13,9 @@
  */
 package io.trino.sql.jsonpath;
 
-import io.trino.jsonpath.JsonPathBaseListener;
-import io.trino.jsonpath.JsonPathLexer;
-import io.trino.jsonpath.JsonPathParser;
+import io.trino.grammar.jsonpath.JsonPathBaseListener;
+import io.trino.grammar.jsonpath.JsonPathLexer;
+import io.trino.grammar.jsonpath.JsonPathParser;
 import io.trino.sql.jsonpath.tree.PathNode;
 import io.trino.sql.parser.ParsingException;
 import org.antlr.v4.runtime.BaseErrorListener;
@@ -28,12 +28,12 @@ import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.misc.Pair;
-import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.Arrays;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class PathParser
@@ -44,8 +44,8 @@ public final class PathParser
     {
         requireNonNull(startLocation, "startLocation is null");
 
-        int pathStartLine = startLocation.line;
-        int pathStartColumn = startLocation.column;
+        int pathStartLine = startLocation.line();
+        int pathStartColumn = startLocation.column();
         this.errorListener = new BaseErrorListener()
         {
             @Override
@@ -83,7 +83,7 @@ public final class PathParser
                 parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
                 tree = parser.path();
             }
-            catch (ParseCancellationException ex) {
+            catch (ParsingException ex) {
                 // if we fail, parse with LL mode
                 tokenStream.seek(0); // rewind input stream
                 parser.reset();
@@ -135,33 +135,12 @@ public final class PathParser
         }
     }
 
-    public static class Location
+    public record Location(int line, int column)
     {
-        private final int line;
-        private final int column;
-
-        public Location(int line, int column)
+        public Location
         {
-            if (line < 1) {
-                throw new IllegalArgumentException("line must be at least 1");
-            }
-
-            if (column < 0) {
-                throw new IllegalArgumentException("column must be at least 0");
-            }
-
-            this.line = line;
-            this.column = column;
-        }
-
-        public int getLine()
-        {
-            return line;
-        }
-
-        public int getColumn()
-        {
-            return column;
+            checkArgument(line >= 1, "line must be at least 1");
+            checkArgument(column >= 0, "column must be at least 0");
         }
     }
 }

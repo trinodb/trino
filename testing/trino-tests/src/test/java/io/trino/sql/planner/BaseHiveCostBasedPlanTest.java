@@ -23,8 +23,6 @@ import io.trino.spi.connector.ConnectorFactory;
 import org.testng.annotations.BeforeClass;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -55,18 +53,13 @@ public abstract class BaseHiveCostBasedPlanTest
         RecordingMetastoreConfig recordingConfig = new RecordingMetastoreConfig()
                 .setRecordingPath(getRecordingPath(metadataDir))
                 .setReplay(true);
-        try {
-            // The RecordingHiveMetastore loads the metadata files generated through HiveMetadataRecorder
-            // which essentially helps to generate the optimal query plans for validation purposes. These files
-            // contain all the metadata including statistics.
-            RecordingHiveMetastore metastore = new RecordingHiveMetastore(
-                    new UnimplementedHiveMetastore(),
-                    new HiveMetastoreRecording(recordingConfig, createJsonCodec()));
-            return new TestingHiveConnectorFactory(metastore);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        // The RecordingHiveMetastore loads the metadata files generated through HiveMetadataRecorder
+        // which essentially helps to generate the optimal query plans for validation purposes. These files
+        // contain all the metadata including statistics.
+        RecordingHiveMetastore metastore = new RecordingHiveMetastore(
+                new UnimplementedHiveMetastore(),
+                new HiveMetastoreRecording(recordingConfig, createJsonCodec()));
+        return new TestingHiveConnectorFactory(metastore);
     }
 
     private static String getSchema(String metadataDir)

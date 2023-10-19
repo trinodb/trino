@@ -132,6 +132,7 @@ public class TestMaterializedViews
                 Optional.of(STALE_MV_STALENESS.plusHours(1)),
                 Optional.empty(),
                 Identity.ofUser("some user"),
+                ImmutableList.of(),
                 Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "storage_table")),
                 ImmutableMap.of());
         queryRunner.inTransaction(session -> {
@@ -164,6 +165,7 @@ public class TestMaterializedViews
                 Optional.empty(),
                 Optional.empty(),
                 Identity.ofUser("some user"),
+                ImmutableList.of(),
                 Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "storage_table_with_casts")),
                 ImmutableMap.of());
         QualifiedObjectName materializedViewWithCasts = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "materialized_view_with_casts");
@@ -236,7 +238,7 @@ public class TestMaterializedViews
                 new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "materialized_view_with_casts"),
                 "a",
                 "user",
-                new ViewExpression(Optional.empty(), Optional.empty(), Optional.empty(), "a + 1"));
+                ViewExpression.builder().expression("a + 1").build());
         assertPlan("SELECT * FROM materialized_view_with_casts",
                 anyTree(
                         project(

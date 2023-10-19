@@ -13,8 +13,8 @@
  */
 package io.trino.operator.output;
 
-import io.trino.spi.block.AbstractRowBlock;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.RowType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -73,7 +73,7 @@ public class RowPositionsAppender
             return;
         }
         ensureCapacity(positions.size());
-        if (block instanceof AbstractRowBlock sourceRowBlock) {
+        if (block instanceof RowBlock sourceRowBlock) {
             IntArrayList nonNullPositions;
             if (sourceRowBlock.mayHaveNull()) {
                 nonNullPositions = processNullablePositions(positions, sourceRowBlock);
@@ -109,7 +109,7 @@ public class RowPositionsAppender
     public void appendRle(Block value, int rlePositionCount)
     {
         ensureCapacity(rlePositionCount);
-        if (value instanceof AbstractRowBlock sourceRowBlock) {
+        if (value instanceof RowBlock sourceRowBlock) {
             if (sourceRowBlock.isNull(0)) {
                 // append rlePositionCount nulls
                 Arrays.fill(rowIsNull, positionCount, positionCount + rlePositionCount, true);
@@ -141,7 +141,7 @@ public class RowPositionsAppender
     public void append(int position, Block value)
     {
         ensureCapacity(1);
-        if (value instanceof AbstractRowBlock sourceRowBlock) {
+        if (value instanceof RowBlock sourceRowBlock) {
             if (sourceRowBlock.isNull(position)) {
                 rowIsNull[positionCount] = true;
                 hasNullRow = true;
@@ -240,7 +240,7 @@ public class RowPositionsAppender
         return true;
     }
 
-    private IntArrayList processNullablePositions(IntArrayList positions, AbstractRowBlock sourceRowBlock)
+    private IntArrayList processNullablePositions(IntArrayList positions, RowBlock sourceRowBlock)
     {
         int[] nonNullPositions = new int[positions.size()];
         int nonNullPositionsCount = 0;
@@ -256,7 +256,7 @@ public class RowPositionsAppender
         return IntArrayList.wrap(nonNullPositions, nonNullPositionsCount);
     }
 
-    private IntArrayList processNonNullablePositions(IntArrayList positions, AbstractRowBlock sourceRowBlock)
+    private IntArrayList processNonNullablePositions(IntArrayList positions, RowBlock sourceRowBlock)
     {
         int[] nonNullPositions = new int[positions.size()];
         for (int i = 0; i < positions.size(); i++) {

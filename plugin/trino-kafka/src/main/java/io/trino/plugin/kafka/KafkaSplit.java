@@ -57,8 +57,8 @@ public class KafkaSplit
         this.topicName = requireNonNull(topicName, "topicName is null");
         this.keyDataFormat = requireNonNull(keyDataFormat, "keyDataFormat is null");
         this.messageDataFormat = requireNonNull(messageDataFormat, "messageDataFormat is null");
-        this.keyDataSchemaContents = keyDataSchemaContents;
-        this.messageDataSchemaContents = messageDataSchemaContents;
+        this.keyDataSchemaContents = requireNonNull(keyDataSchemaContents, "keyDataSchemaContents is null");
+        this.messageDataSchemaContents = requireNonNull(messageDataSchemaContents, "messageDataSchemaContents is null");
         this.partitionId = partitionId;
         this.messagesRange = requireNonNull(messagesRange, "messagesRange is null");
         this.leader = requireNonNull(leader, "leader is null");

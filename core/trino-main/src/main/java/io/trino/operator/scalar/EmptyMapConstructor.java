@@ -13,7 +13,7 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -27,7 +27,7 @@ import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 @ScalarFunction("map")
 public final class EmptyMapConstructor
 {
-    private final Block emptyMap;
+    private final SqlMap emptyMap;
 
     public EmptyMapConstructor(@TypeParameter("map(unknown,unknown)") Type mapType)
     {
@@ -35,7 +35,7 @@ public final class EmptyMapConstructor
     }
 
     @SqlType("map(unknown,unknown)")
-    public Block map()
+    public SqlMap map()
     {
         return emptyMap;
     }

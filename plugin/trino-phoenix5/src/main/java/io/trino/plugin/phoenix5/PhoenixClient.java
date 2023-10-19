@@ -117,6 +117,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.function.BiFunction;
@@ -174,6 +175,7 @@ import static io.trino.plugin.phoenix5.TypeUtils.jdbcObjectArrayToBlock;
 import static io.trino.plugin.phoenix5.TypeUtils.toBoxedArray;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -309,7 +311,7 @@ public class PhoenixClient
                 table,
                 columnHandles,
                 Optional.of(split));
-        QueryPlan queryPlan = getQueryPlan((PhoenixPreparedStatement) query);
+        QueryPlan queryPlan = getQueryPlan(query.unwrap(PhoenixPreparedStatement.class));
         ResultSet resultSet = getResultSet(((PhoenixSplit) split).getPhoenixInputSplit(), queryPlan);
         return new DelegatePreparedStatement(query)
         {
@@ -357,6 +359,12 @@ public class PhoenixClient
     {
         // There are multiple splits and TopN is not guaranteed across them.
         return false;
+    }
+
+    @Override
+    public OptionalLong update(ConnectorSession session, JdbcTableHandle handle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
     }
 
     @Override
@@ -944,7 +952,8 @@ public class PhoenixClient
                 Optional.of(getUpdatedScanColumnHandles(session, tableHandle, scanColumnHandles, mergeRowIdColumnHandle)),
                 tableHandle.getOtherReferencedTables(),
                 tableHandle.getNextSyntheticColumnId(),
-                tableHandle.getAuthorization());
+                tableHandle.getAuthorization(),
+                tableHandle.getUpdateAssignments());
     }
 
     private List<JdbcColumnHandle> getUpdatedScanColumnHandles(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> scanColumnHandles, JdbcColumnHandle mergeRowIdColumnHandle)

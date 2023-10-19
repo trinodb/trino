@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.accumulo.serializers;
 
+import org.junit.jupiter.api.Test;
+
 public class TestStringRowSerializer
         extends AbstractTestAccumuloRowSerializer
 {
@@ -21,12 +23,14 @@ public class TestStringRowSerializer
         super(StringRowSerializer.class);
     }
 
+    @Test
     @Override
     public void testArray()
     {
         // Arrays are not supported by StringRowSerializer
     }
 
+    @Test
     @Override
     public void testMap()
     {

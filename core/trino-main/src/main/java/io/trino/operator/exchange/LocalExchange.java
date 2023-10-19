@@ -23,17 +23,16 @@ import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.HashGenerator;
-import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.PrecomputedHashGenerator;
 import io.trino.operator.output.SkewedPartitionRebalancer;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.MergePartitioningHandle;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.SystemPartitioningHandle;
-import io.trino.type.BlockTypeOperators;
 
 import java.io.Closeable;
 import java.util.HashSet;
@@ -50,8 +49,11 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static io.trino.SystemSessionProperties.getSkewedPartitionMinDataProcessedRebalanceThreshold;
+import static io.trino.operator.InterpretedHashGenerator.createChannelsHashGenerator;
 import static io.trino.operator.exchange.LocalExchangeSink.finishedLocalExchangeSink;
+import static io.trino.operator.output.SkewedPartitionRebalancer.getScaleWritersMaxSkewedPartitions;
 import static io.trino.sql.planner.PartitioningHandle.isScaledWriterHashDistribution;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
@@ -59,6 +61,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUT
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -95,8 +98,9 @@ public class LocalExchange
             List<Type> partitionChannelTypes,
             Optional<Integer> partitionHashChannel,
             DataSize maxBufferedBytes,
-            BlockTypeOperators blockTypeOperators,
-            DataSize writerScalingMinDataProcessed)
+            TypeOperators typeOperators,
+            DataSize writerScalingMinDataProcessed,
+            Supplier<Long> totalMemoryUsed)
     {
         int bufferCount = computeBufferCount(partitioning, defaultConcurrency, partitionChannels);
 
@@ -132,7 +136,9 @@ public class LocalExchange
                     memoryManager,
                     maxBufferedBytes.toBytes(),
                     dataProcessed,
-                    writerScalingMinDataProcessed);
+                    writerScalingMinDataProcessed,
+                    totalMemoryUsed,
+                    getQueryMaxMemoryPerNode(session).toBytes());
         }
         else if (isScaledWriterHashDistribution(partitioning)) {
             int partitionCount = bufferCount * SCALE_WRITERS_MAX_PARTITIONS_PER_WRITER;
@@ -141,7 +147,12 @@ public class LocalExchange
                     bufferCount,
                     1,
                     writerScalingMinDataProcessed.toBytes(),
-                    getSkewedPartitionMinDataProcessedRebalanceThreshold(session).toBytes());
+                    getSkewedPartitionMinDataProcessedRebalanceThreshold(session).toBytes(),
+                    // Keep the maxPartitionsToRebalance to atleast writer count such that single partition writes do
+                    // not suffer from skewness and can scale uniformly across all writers. Additionally, note that
+                    // maxWriterCount is calculated considering memory into account. So, it is safe to set the
+                    // maxPartitionsToRebalance to maximum number of writers.
+                    max(getScaleWritersMaxSkewedPartitions(session), bufferCount));
             LocalExchangeMemoryManager memoryManager = new LocalExchangeMemoryManager(maxBufferedBytes.toBytes());
             sources = IntStream.range(0, bufferCount)
                     .mapToObj(i -> new LocalExchangeSource(memoryManager, source -> checkAllSourcesFinished()))
@@ -151,7 +162,7 @@ public class LocalExchange
                 PartitionFunction partitionFunction = createPartitionFunction(
                         nodePartitioningManager,
                         session,
-                        blockTypeOperators,
+                        typeOperators,
                         partitioning,
                         partitionCount,
                         partitionChannels,
@@ -164,7 +175,9 @@ public class LocalExchange
                         createPartitionPagePreparer(partitioning, partitionChannels),
                         partitionFunction,
                         partitionCount,
-                        skewedPartitionRebalancer);
+                        skewedPartitionRebalancer,
+                        totalMemoryUsed,
+                        getQueryMaxMemoryPerNode(session).toBytes());
             };
         }
         else if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent() ||
@@ -177,7 +190,7 @@ public class LocalExchange
                 PartitionFunction partitionFunction = createPartitionFunction(
                         nodePartitioningManager,
                         session,
-                        blockTypeOperators,
+                        typeOperators,
                         partitioning,
                         bufferCount,
                         partitionChannels,
@@ -232,7 +245,7 @@ public class LocalExchange
     private static PartitionFunction createPartitionFunction(
             NodePartitioningManager nodePartitioningManager,
             Session session,
-            BlockTypeOperators blockTypeOperators,
+            TypeOperators typeOperators,
             PartitioningHandle partitioning,
             int partitionCount,
             List<Integer> partitionChannels,
@@ -247,7 +260,7 @@ public class LocalExchange
                 hashGenerator = new PrecomputedHashGenerator(partitionHashChannel.get());
             }
             else {
-                hashGenerator = new InterpretedHashGenerator(partitionChannelTypes, Ints.toArray(partitionChannels), blockTypeOperators);
+                hashGenerator = createChannelsHashGenerator(partitionChannelTypes, Ints.toArray(partitionChannels), typeOperators);
             }
             return new LocalPartitionGenerator(hashGenerator, partitionCount);
         }

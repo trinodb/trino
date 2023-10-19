@@ -16,7 +16,7 @@ package io.trino.plugin.hive;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,28 +36,19 @@ public class TestHiveConnectorSmokeTest
                 .build();
     }
 
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_TRUNCATE:
-                return false;
-
-            case SUPPORTS_TOPN_PUSHDOWN:
-                return false;
-
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
-                return false;
-
-            case SUPPORTS_MULTI_STATEMENT_WRITES:
-                return true;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_MULTI_STATEMENT_WRITES -> true;
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                    SUPPORTS_TOPN_PUSHDOWN,
+                    SUPPORTS_TRUNCATE -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
+    @Test
     @Override
     public void testRowLevelDelete()
     {
@@ -65,6 +56,15 @@ public class TestHiveConnectorSmokeTest
                 .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @Test
+    @Override
+    public void testRowLevelUpdate()
+    {
+        assertThatThrownBy(super::testRowLevelUpdate)
+                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
+    }
+
+    @Test
     @Override
     public void testUpdate()
     {
@@ -72,6 +72,7 @@ public class TestHiveConnectorSmokeTest
                 .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @Test
     @Override
     public void testMerge()
     {
@@ -95,6 +96,7 @@ public class TestHiveConnectorSmokeTest
                         ")");
     }
 
+    @Test
     @Override
     public void testCreateSchemaWithNonLowercaseOwnerName()
     {

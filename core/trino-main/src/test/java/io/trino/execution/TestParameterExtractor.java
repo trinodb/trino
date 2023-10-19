@@ -13,12 +13,11 @@
  */
 package io.trino.execution;
 
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Statement;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -29,7 +28,7 @@ public class TestParameterExtractor
     @Test
     public void testNoParameter()
     {
-        Statement statement = sqlParser.createStatement("SELECT c1, c2 FROM test_table WHERE c1 = 1 AND c2 > 2", new ParsingOptions());
+        Statement statement = sqlParser.createStatement("SELECT c1, c2 FROM test_table WHERE c1 = 1 AND c2 > 2");
         assertThat(ParameterExtractor.extractParameters(statement)).isEmpty();
         assertThat(ParameterExtractor.getParameterCount(statement)).isEqualTo(0);
     }
@@ -37,7 +36,7 @@ public class TestParameterExtractor
     @Test
     public void testParameterCount()
     {
-        Statement statement = sqlParser.createStatement("SELECT c1, c2 FROM test_table WHERE c1 = ? AND c2 > ?", new ParsingOptions());
+        Statement statement = sqlParser.createStatement("SELECT c1, c2 FROM test_table WHERE c1 = ? AND c2 > ?");
         assertThat(ParameterExtractor.extractParameters(statement))
                 .containsExactly(
                         new Parameter(new NodeLocation(1, 41), 0),
@@ -48,7 +47,7 @@ public class TestParameterExtractor
     @Test
     public void testShowStats()
     {
-        Statement statement = sqlParser.createStatement("SHOW STATS FOR (SELECT c1, c2 FROM test_table WHERE c1 = ? AND c2 > ?)", new ParsingOptions());
+        Statement statement = sqlParser.createStatement("SHOW STATS FOR (SELECT c1, c2 FROM test_table WHERE c1 = ? AND c2 > ?)");
         assertThat(ParameterExtractor.extractParameters(statement))
                 .containsExactly(
                         new Parameter(new NodeLocation(1, 57), 0),
@@ -59,7 +58,7 @@ public class TestParameterExtractor
     @Test
     public void testLambda()
     {
-        Statement statement = sqlParser.createStatement("SELECT * FROM test_table WHERE any_match(items, x -> x > ?)", new ParsingOptions());
+        Statement statement = sqlParser.createStatement("SELECT * FROM test_table WHERE any_match(items, x -> x > ?)");
         assertThat(ParameterExtractor.extractParameters(statement))
                 .containsExactly(new Parameter(new NodeLocation(1, 58), 0));
 

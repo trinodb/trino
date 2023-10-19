@@ -25,6 +25,7 @@ import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.DOUBLE_SLASH;
 import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.TRIPLE_SLASH;
@@ -89,7 +90,7 @@ public class TestHiveS3AndGlueMetastoreTest
         {
             String locationDirectory = location.endsWith("/") ? location : location + "/";
             String partitionPart = partitionColumn.isEmpty() ? "" : partitionColumn + "=[a-z0-9]+/";
-            assertThat(dataFile).matches("^" + locationDirectory + partitionPart + "[a-zA-Z0-9_-]+$");
+            assertThat(dataFile).matches("^" + Pattern.quote(locationDirectory) + partitionPart + "[a-zA-Z0-9_-]+$");
             verifyPathExist(dataFile);
         });
     }
@@ -143,6 +144,32 @@ public class TestHiveS3AndGlueMetastoreTest
         }
     }
 
+    @Test(dataProvider = "locationPatternsDataProvider")
+    public void testBasicOperationsWithProvidedTableLocationNonCTAS(boolean partitioned, LocationPattern locationPattern)
+    {
+        // this test needed, because execution path for CTAS and simple create is different
+        String tableName = "test_basic_operations_" + randomNameSuffix();
+        String location = locationPattern.locationForTable(bucketName, schemaName, tableName);
+        String partitionQueryPart = (partitioned ? ",partitioned_by = ARRAY['col_int']" : "");
+
+        String create = "CREATE TABLE " + tableName + "(col_str varchar, col_int integer) WITH (external_location = '" + location + "' " + partitionQueryPart + ")";
+        if (locationPattern == DOUBLE_SLASH || locationPattern == TRIPLE_SLASH || locationPattern == TWO_TRAILING_SLASHES) {
+            assertQueryFails(create, "\\QUnsupported location that cannot be internally represented: " + location);
+            return;
+        }
+        assertUpdate(create);
+        try (UncheckedCloseable ignored = onClose("DROP TABLE " + tableName)) {
+            String actualTableLocation = getTableLocation(tableName);
+            assertThat(actualTableLocation).isEqualTo(location);
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)", 4);
+            assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
+
+            assertThat(getTableFiles(actualTableLocation)).isNotEmpty();
+            validateDataFiles(partitioned ? "col_int" : "", tableName, actualTableLocation);
+        }
+    }
+
     @Override // Row-level modifications are not supported for Hive tables
     @Test(dataProvider = "locationPatternsDataProvider")
     public void testBasicOperationsWithProvidedSchemaLocation(boolean partitioned, LocationPattern locationPattern)
@@ -160,7 +187,7 @@ public class TestHiveS3AndGlueMetastoreTest
 
             assertUpdate("CREATE TABLE " + qualifiedTableName + "(col_str varchar, col_int int)" + partitionQueryPart);
             try (UncheckedCloseable ignoredDropTable = onClose("DROP TABLE " + qualifiedTableName)) {
-                String expectedTableLocation = ((schemaLocation.endsWith("/") ? schemaLocation : schemaLocation + "/") + tableName)
+                String expectedTableLocation = Pattern.quote((schemaLocation.endsWith("/") ? schemaLocation : schemaLocation + "/") + tableName)
                         // Hive normalizes repeated slashes
                         .replaceAll("(?<!(s3:))/+", "/");
 
@@ -249,50 +276,6 @@ public class TestHiveS3AndGlueMetastoreTest
                         ('col_int', null, 4.0, 0.0, null, 1, 4),
                         (null, null, null, null, 4.0, null, null)""");
             }
-        }
-    }
-
-    @Test
-    public void testCreateTableWithIncorrectLocation()
-    {
-        String tableName = "test_create_table_with_incorrect_location_" + randomNameSuffix();
-        String location = "s3://%s/%s/a#hash/%s".formatted(bucketName, schemaName, tableName);
-
-        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + tableName + "(col_str varchar, col_int integer) WITH (external_location = '" + location + "')"))
-                .hasMessageContaining("External location is not a valid file system URI")
-                .hasStackTraceContaining("Fragment is not allowed in a file system location");
-    }
-
-    @Test
-    public void testCtasWithIncorrectLocation()
-    {
-        String tableName = "test_ctas_with_incorrect_location_" + randomNameSuffix();
-        String location = "s3://%s/%s/a#hash/%s".formatted(bucketName, schemaName, tableName);
-
-        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + tableName + "(col_str, col_int)" +
-                " WITH (external_location = '" + location + "')" +
-                " AS VALUES ('str1', 1)"))
-                .hasMessageContaining("External location is not a valid file system URI")
-                .hasStackTraceContaining("Fragment is not allowed in a file system location");
-    }
-
-    @Test
-    public void testCreateSchemaWithIncorrectLocation()
-    {
-        String schemaName = "test_create_schema_with_incorrect_location_" + randomNameSuffix();
-        String schemaLocation = "s3://%s/%2$s/a#hash/%2$s".formatted(bucketName, schemaName);
-        String tableName = "test_basic_operations_table_" + randomNameSuffix();
-        String qualifiedTableName = schemaName + "." + tableName;
-
-        assertUpdate("CREATE SCHEMA " + schemaName + " WITH (location = '" + schemaLocation + "')");
-        try (UncheckedCloseable ignored = onClose("DROP SCHEMA " + schemaName)) {
-            assertThat(getSchemaLocation(schemaName)).isEqualTo(schemaLocation);
-
-            assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + qualifiedTableName + "(col_str, col_int) AS VALUES ('str1', 1)"))
-                    .hasMessageContaining("Fragment is not allowed in a file system location");
-
-            assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + qualifiedTableName + "(col_str varchar, col_int integer)"))
-                    .hasMessageContaining("Fragment is not allowed in a file system location");
         }
     }
 

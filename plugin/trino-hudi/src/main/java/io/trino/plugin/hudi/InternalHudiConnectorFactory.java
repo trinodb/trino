@@ -28,7 +28,6 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.hdfs.HdfsModule;
 import io.trino.hdfs.authentication.HdfsAuthenticationModule;
-import io.trino.hdfs.azure.HiveAzureModule;
 import io.trino.hdfs.gcs.HiveGcsModule;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
@@ -74,7 +73,6 @@ public final class InternalHudiConnectorFactory
                     new HiveMetastoreModule(metastore),
                     new HdfsModule(),
                     new HiveGcsModule(),
-                    new HiveAzureModule(),
                     new HdfsAuthenticationModule(),
                     fileSystemFactory
                             .map(factory -> (Module) binder -> binder.bind(TrinoFileSystemFactory.class).toInstance(factory))

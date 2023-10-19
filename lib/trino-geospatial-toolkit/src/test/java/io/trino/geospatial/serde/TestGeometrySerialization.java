@@ -16,10 +16,10 @@ package io.trino.geospatial.serde;
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import io.airlift.slice.Slice;
+import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
-import org.testng.annotations.Test;
 
 import static com.esri.core.geometry.ogc.OGCGeometry.createFromEsriGeometry;
 import static io.trino.geospatial.serde.GeometrySerde.deserialize;
@@ -34,7 +34,7 @@ import static io.trino.geospatial.serde.GeometrySerializationType.MULTI_POINT;
 import static io.trino.geospatial.serde.GeometrySerializationType.MULTI_POLYGON;
 import static io.trino.geospatial.serde.GeometrySerializationType.POINT;
 import static io.trino.geospatial.serde.GeometrySerializationType.POLYGON;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGeometrySerialization
 {
@@ -141,9 +141,9 @@ public class TestGeometrySerialization
 
     private void testEnvelopeSerialization(Envelope envelope)
     {
-        assertEquals(deserialize(serialize(envelope)), createFromEsriGeometry(envelope, null));
-        assertEquals(deserializeEnvelope(serialize(envelope)), envelope);
-        assertEquals(JtsGeometrySerde.serialize(JtsGeometrySerde.deserialize(serialize(envelope))), serialize(createFromEsriGeometry(envelope, null)));
+        assertThat(deserialize(serialize(envelope))).isEqualTo(createFromEsriGeometry(envelope, null));
+        assertThat(deserializeEnvelope(serialize(envelope))).isEqualTo(envelope);
+        assertThat(JtsGeometrySerde.serialize(JtsGeometrySerde.deserialize(serialize(envelope)))).isEqualTo(serialize(createFromEsriGeometry(envelope, null)));
     }
 
     @Test
@@ -178,7 +178,7 @@ public class TestGeometrySerialization
         assertDeserializeType("GEOMETRYCOLLECTION (POINT (3 7), LINESTRING (4 6, 7 10))", GEOMETRY_COLLECTION);
         assertDeserializeType("GEOMETRYCOLLECTION EMPTY", GEOMETRY_COLLECTION);
 
-        assertEquals(deserializeType(serialize(new Envelope(1, 2, 3, 4))), ENVELOPE);
+        assertThat(deserializeType(serialize(new Envelope(1, 2, 3, 4)))).isEqualTo(ENVELOPE);
     }
 
     private static void testSerialization(String wkt)
@@ -201,7 +201,7 @@ public class TestGeometrySerialization
 
         Slice jtsSerialized = JtsGeometrySerde.serialize(jtsGeometry);
         Slice esriSerialized = GeometrySerde.serialize(esriGeometry);
-        assertEquals(jtsSerialized, esriSerialized);
+        assertThat(jtsSerialized).isEqualTo(esriSerialized);
 
         Geometry jtsDeserialized = JtsGeometrySerde.deserialize(jtsSerialized);
         assertGeometryEquals(jtsDeserialized, jtsGeometry);
@@ -227,17 +227,17 @@ public class TestGeometrySerialization
 
     private static void assertGeometryEquals(Geometry actual, Geometry expected)
     {
-        assertEquals(actual.norm(), expected.norm());
+        assertThat(actual.norm()).isEqualTo(expected.norm());
     }
 
     private static void assertDeserializeEnvelope(String geometry, Envelope expectedEnvelope)
     {
-        assertEquals(deserializeEnvelope(geometryFromText(geometry)), expectedEnvelope);
+        assertThat(deserializeEnvelope(geometryFromText(geometry))).isEqualTo(expectedEnvelope);
     }
 
     private static void assertDeserializeType(String wkt, GeometrySerializationType expectedType)
     {
-        assertEquals(deserializeType(geometryFromText(wkt)), expectedType);
+        assertThat(deserializeType(geometryFromText(wkt))).isEqualTo(expectedType);
     }
 
     private static void assertGeometryEquals(OGCGeometry actual, OGCGeometry expected)
@@ -246,7 +246,7 @@ public class TestGeometrySerialization
         expected.setSpatialReference(null);
         ensureEnvelopeLoaded(actual);
         ensureEnvelopeLoaded(expected);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     /**

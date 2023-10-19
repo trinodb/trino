@@ -22,7 +22,7 @@ import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.fs.FileSystemDirectoryLister;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
@@ -44,7 +44,6 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertTrue;
 
 // countDownLatch field is shared between tests
-@Test(singleThreaded = true)
 public class TestSemiTransactionalHiveMetastore
 {
     private static final Column TABLE_COLUMN = new Column(

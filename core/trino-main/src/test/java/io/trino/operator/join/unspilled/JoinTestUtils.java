@@ -38,7 +38,6 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.type.BlockTypeOperators;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -62,7 +61,7 @@ import static java.util.Objects.requireNonNull;
 public final class JoinTestUtils
 {
     private static final int PARTITION_COUNT = 4;
-    private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
+    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
 
     private JoinTestUtils() {}
 
@@ -90,7 +89,7 @@ public final class JoinTestUtils
                 probePages.getHashChannels().orElseThrow(),
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
-                TYPE_OPERATOR_FACTORY);
+                TYPE_OPERATORS);
     }
 
     public static void instantiateBuildDrivers(BuildSideSetup buildSideSetup, TaskContext taskContext)
@@ -148,8 +147,9 @@ public final class JoinTestUtils
                 hashChannelTypes,
                 buildPages.getHashChannel(),
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
-                TYPE_OPERATOR_FACTORY,
-                DataSize.of(32, DataSize.Unit.MEGABYTE));
+                TYPE_OPERATORS,
+                DataSize.of(32, DataSize.Unit.MEGABYTE),
+                () -> 0L);
 
         // collect input data into the partitioned exchange
         DriverContext collectDriverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
@@ -178,7 +178,7 @@ public final class JoinTestUtils
                         .collect(toImmutableList()),
                 partitionCount,
                 false,
-                TYPE_OPERATOR_FACTORY);
+                TYPE_OPERATORS);
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = new JoinBridgeManager<PartitionedLookupSourceFactory>(
                 false,
                 factory,

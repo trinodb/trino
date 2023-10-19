@@ -14,7 +14,6 @@
 package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -24,10 +23,8 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.BigintType;
-import io.trino.spi.type.Type;
 
 import java.util.Arrays;
-import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -50,10 +47,7 @@ public class BigintGroupByHash
     private static final int BATCH_SIZE = 1024;
 
     private static final float FILL_RATIO = 0.75f;
-    private static final List<Type> TYPES = ImmutableList.of(BIGINT);
-    private static final List<Type> TYPES_WITH_RAW_HASH = ImmutableList.of(BIGINT, BIGINT);
 
-    private final int hashChannel;
     private final boolean outputRawHash;
 
     private int hashCapacity;
@@ -78,12 +72,10 @@ public class BigintGroupByHash
     private long preallocatedMemoryInBytes;
     private long currentPageSizeInBytes;
 
-    public BigintGroupByHash(int hashChannel, boolean outputRawHash, int expectedSize, UpdateMemory updateMemory)
+    public BigintGroupByHash(boolean outputRawHash, int expectedSize, UpdateMemory updateMemory)
     {
-        checkArgument(hashChannel >= 0, "hashChannel must be at least zero");
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
-        this.hashChannel = hashChannel;
         this.outputRawHash = outputRawHash;
 
         hashCapacity = arraySize(expectedSize, FILL_RATIO);
@@ -109,12 +101,6 @@ public class BigintGroupByHash
                 sizeOf(values) +
                 sizeOf(valuesByGroupId) +
                 preallocatedMemoryInBytes;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return outputRawHash ? TYPES_WITH_RAW_HASH : TYPES;
     }
 
     @Override
@@ -150,7 +136,7 @@ public class BigintGroupByHash
     public Work<?> addPage(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
-        Block block = page.getBlock(hashChannel);
+        Block block = page.getBlock(0);
         if (block instanceof RunLengthEncodedBlock rleBlock) {
             return new AddRunLengthEncodedPageWork(rleBlock);
         }
@@ -165,7 +151,7 @@ public class BigintGroupByHash
     public Work<int[]> getGroupIds(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
-        Block block = page.getBlock(hashChannel);
+        Block block = page.getBlock(0);
         if (block instanceof RunLengthEncodedBlock rleBlock) {
             return new GetRunLengthEncodedGroupIdsWork(rleBlock);
         }
@@ -174,32 +160,6 @@ public class BigintGroupByHash
         }
 
         return new GetGroupIdsWork(block);
-    }
-
-    @Override
-    public boolean contains(int position, Page page, int[] hashChannels)
-    {
-        Block block = page.getBlock(hashChannel);
-        if (block.isNull(position)) {
-            return nullGroupId >= 0;
-        }
-
-        long value = BIGINT.getLong(block, position);
-        int hashPosition = getHashPosition(value, mask);
-
-        // look for an empty slot or a slot containing this key
-        while (true) {
-            int groupId = groupIds[hashPosition];
-            if (groupId == -1) {
-                return false;
-            }
-            if (value == values[hashPosition]) {
-                return true;
-            }
-
-            // increment position and mask to handle wrap around
-            hashPosition = (hashPosition + 1) & mask;
-        }
     }
 
     @Override

@@ -27,7 +27,6 @@ import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
-import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.Rule;
@@ -35,9 +34,10 @@ import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.LocalQueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
 import java.util.Map;
@@ -53,13 +53,15 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.IntStream.range;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.fail;
 
+@TestInstance(PER_CLASS)
 public class TestPlannerWarnings
 {
     private LocalQueryRunner queryRunner;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         queryRunner = LocalQueryRunner.create(testSessionBuilder()
@@ -73,7 +75,7 @@ public class TestPlannerWarnings
                 ImmutableMap.of());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         queryRunner.close();
@@ -100,12 +102,20 @@ public class TestPlannerWarnings
         PlanOptimizersStatsCollector planOptimizersStatsCollector = new PlanOptimizersStatsCollector(5);
         try {
             queryRunner.inTransaction(sessionBuilder.build(), transactionSession -> {
+                List<PlanOptimizer> planOptimizers;
                 if (rules.isPresent()) {
-                    createPlan(queryRunner, transactionSession, sql, warningCollector, planOptimizersStatsCollector, rules.get());
+                    // Warnings from testing rules will be added
+                    planOptimizers = ImmutableList.of(new IterativeOptimizer(
+                            queryRunner.getPlannerContext(),
+                            new RuleStatsRecorder(),
+                            queryRunner.getStatsCalculator(),
+                            queryRunner.getCostCalculator(),
+                            ImmutableSet.copyOf(rules.get())));
                 }
                 else {
-                    queryRunner.createPlan(transactionSession, sql, OPTIMIZED, false, warningCollector, planOptimizersStatsCollector);
+                    planOptimizers = queryRunner.getPlanOptimizers(false);
                 }
+                queryRunner.createPlan(transactionSession, sql, planOptimizers, OPTIMIZED, warningCollector, planOptimizersStatsCollector);
                 return null;
             });
         }
@@ -120,19 +130,6 @@ public class TestPlannerWarnings
                 fail("Expected warning: " + expectedWarning);
             }
         }
-    }
-
-    private static Plan createPlan(LocalQueryRunner queryRunner, Session session, String sql, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector, List<Rule<?>> rules)
-    {
-        // Warnings from testing rules will be added
-        PlanOptimizer optimizer = new IterativeOptimizer(
-                queryRunner.getPlannerContext(),
-                new RuleStatsRecorder(),
-                queryRunner.getStatsCalculator(),
-                queryRunner.getCostCalculator(),
-                ImmutableSet.copyOf(rules));
-
-        return queryRunner.createPlan(session, sql, ImmutableList.of(optimizer), OPTIMIZED, warningCollector, planOptimizersStatsCollector);
     }
 
     public static List<TrinoWarning> createTestWarnings(int numberOfWarnings)

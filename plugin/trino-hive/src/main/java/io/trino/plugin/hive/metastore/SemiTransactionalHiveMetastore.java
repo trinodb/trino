@@ -105,7 +105,8 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
-import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
+import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
+import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
@@ -470,28 +471,32 @@ public class SemiTransactionalHiveMetastore
 
     public synchronized void dropDatabase(ConnectorSession session, String schemaName)
     {
+        setExclusive((delegate, hdfsEnvironment) -> {
+            boolean deleteData = shouldDeleteDatabaseData(session, schemaName);
+            delegate.dropDatabase(schemaName, deleteData);
+        });
+    }
+
+    public boolean shouldDeleteDatabaseData(ConnectorSession session, String schemaName)
+    {
         Optional<Path> location = delegate.getDatabase(schemaName)
                 .orElseThrow(() -> new SchemaNotFoundException(schemaName))
                 .getLocation()
                 .map(Path::new);
 
-        setExclusive((delegate, hdfsEnvironment) -> {
-            // If we see files in the schema location, don't delete it.
-            // If we see no files, request deletion.
-            // If we fail to check the schema location, behave according to fallback.
-            boolean deleteData = location.map(path -> {
-                try {
-                    return !hdfsEnvironment.getFileSystem(new HdfsContext(session), path)
-                            .listLocatedStatus(path).hasNext();
-                }
-                catch (IOException | RuntimeException e) {
-                    log.warn(e, "Could not check schema directory '%s'", path);
-                    return deleteSchemaLocationsFallback;
-                }
-            }).orElse(deleteSchemaLocationsFallback);
-
-            delegate.dropDatabase(schemaName, deleteData);
-        });
+        // If we see files in the schema location, don't delete it.
+        // If we see no files, request deletion.
+        // If we fail to check the schema location, behave according to fallback.
+        return location.map(path -> {
+            try {
+                return !hdfsEnvironment.getFileSystem(new HdfsContext(session), path)
+                        .listLocatedStatus(path).hasNext();
+            }
+            catch (IOException | RuntimeException e) {
+                log.warn(e, "Could not check schema directory '%s'", path);
+                return deleteSchemaLocationsFallback;
+            }
+        }).orElse(deleteSchemaLocationsFallback);
     }
 
     public synchronized void renameDatabase(String source, String target)
@@ -3292,7 +3297,7 @@ public class SemiTransactionalHiveMetastore
             }
             tableCreated = true;
 
-            if (created && !isPrestoView(newTable)) {
+            if (created && !isTrinoView(newTable) && !isTrinoMaterializedView(newTable)) {
                 metastore.updateTableStatistics(newTable.getDatabaseName(), newTable.getTableName(), transaction, ignored -> statistics);
             }
         }

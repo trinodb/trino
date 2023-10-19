@@ -37,6 +37,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_WITH_HIDDEN_COLUMN;
@@ -86,7 +87,8 @@ public class TestColumnMask
                         new ConnectorViewDefinition.ViewColumn("name", VarcharType.createVarcharType(25).getTypeId(), Optional.empty())),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
-                false);
+                false,
+                ImmutableList.of());
 
         ConnectorViewDefinition viewWithNested = new ConnectorViewDefinition(
                 """
@@ -106,7 +108,8 @@ public class TestColumnMask
                         new ConnectorViewDefinition.ViewColumn("id", INTEGER.getTypeId(), Optional.empty())),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
-                false);
+                false,
+                ImmutableList.of());
 
         ConnectorMaterializedViewDefinition materializedView = new ConnectorMaterializedViewDefinition(
                 "SELECT * FROM local.tiny.nation",
@@ -118,8 +121,10 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("name", VarcharType.createVarcharType(25).getTypeId()),
                         new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId()),
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId())),
+                Optional.of(Duration.ZERO),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
+                ImmutableList.of(),
                 ImmutableMap.of());
 
         ConnectorMaterializedViewDefinition freshMaterializedView = new ConnectorMaterializedViewDefinition(
@@ -132,8 +137,10 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("name", VarcharType.createVarcharType(25).getTypeId()),
                         new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId()),
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId())),
+                Optional.of(Duration.ZERO),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
+                ImmutableList.of(),
                 ImmutableMap.of());
 
         ConnectorMaterializedViewDefinition materializedViewWithCasts = new ConnectorMaterializedViewDefinition(
@@ -146,8 +153,10 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("name", VarcharType.createVarcharType(2).getTypeId()),
                         new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId()),
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId())),
+                Optional.of(Duration.ZERO),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
+                ImmutableList.of(),
                 ImmutableMap.of());
 
         MockConnectorFactory mock = MockConnectorFactory.builder()
@@ -194,7 +203,10 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "custkey",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "-custkey"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("-custkey")
+                        .build());
         assertThat(assertions.query("SELECT custkey FROM orders WHERE orderkey = 1")).matches("VALUES BIGINT '-370'");
 
         accessControl.reset();
@@ -202,7 +214,10 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "custkey",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "NULL"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("NULL")
+                        .build());
         assertThat(assertions.query("SELECT custkey FROM orders WHERE orderkey = 1")).matches("VALUES CAST(NULL AS BIGINT)");
     }
 
@@ -214,7 +229,10 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "custkey",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "IF (orderkey < 2, null, -custkey)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("IF (orderkey < 2, null, -custkey)")
+                        .build());
         assertThat(assertions.query("SELECT custkey FROM orders LIMIT 2"))
                 .matches("VALUES (NULL), CAST('-781' AS BIGINT)");
     }
@@ -227,13 +245,18 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "custkey",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "-custkey"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("-custkey").build());
 
         accessControl.columnMask(
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "orderstatus",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "'X'"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("'X'")
+                        .build());
 
         assertThat(assertions.query("SELECT custkey, orderstatus FROM orders WHERE orderkey = 1"))
                 .matches("VALUES (BIGINT '-370', 'X')");
@@ -247,13 +270,19 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "orderkey",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "IF(orderkey = 1, -orderkey)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("IF(orderkey = 1, -orderkey)")
+                        .build());
 
         accessControl.columnMask(
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "lineitem"),
                 "orderkey",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "IF(orderkey = 1, -orderkey)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("IF(orderkey = 1, -orderkey)")
+                        .build());
 
         assertThat(assertions.query("SELECT count(*) FROM orders JOIN lineitem USING (orderkey)")).matches("VALUES BIGINT '6'");
     }
@@ -266,7 +295,10 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "clerk",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "CAST(clerk AS VARCHAR(5))"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("CAST(clerk AS VARCHAR(5))")
+                        .build());
         assertThat(assertions.query("SELECT clerk FROM orders WHERE orderkey = 1")).matches("VALUES CAST('Clerk' AS VARCHAR(15))");
     }
 
@@ -279,7 +311,12 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "clerk",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "(SELECT cast(max(name) AS VARCHAR(15)) FROM nation)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("(SELECT cast(max(name) AS VARCHAR(15)) FROM nation)")
+                        .build());
         assertThat(assertions.query("SELECT clerk FROM orders WHERE orderkey = 1")).matches("VALUES CAST('VIETNAM' AS VARCHAR(15))");
 
         // correlated
@@ -288,7 +325,12 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "clerk",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "(SELECT cast(max(name) AS VARCHAR(15)) FROM nation WHERE nationkey = orderkey)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("(SELECT cast(max(name) AS VARCHAR(15)) FROM nation WHERE nationkey = orderkey)")
+                        .build());
         assertThat(assertions.query("SELECT clerk FROM orders WHERE orderkey = 1")).matches("VALUES CAST('ARGENTINA' AS VARCHAR(15))");
     }
 
@@ -301,17 +343,26 @@ public class TestColumnMask
                 new QualifiedObjectName(MOCK_CATALOG, "default", "nation_fresh_materialized_view"),
                 "name",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "reverse(name)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("reverse(name)")
+                        .build());
         accessControl.columnMask(
                 new QualifiedObjectName(MOCK_CATALOG, "default", "nation_materialized_view"),
                 "name",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "reverse(name)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("reverse(name)")
+                        .build());
         accessControl.columnMask(
                 new QualifiedObjectName(MOCK_CATALOG, "default", "materialized_view_with_casts"),
                 "name",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "reverse(name)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("reverse(name)")
+                        .build());
 
         assertThat(assertions.query(
                 Session.builder(SESSION)
@@ -344,7 +395,10 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "nation"),
                 "name",
                 VIEW_OWNER,
-                new ViewExpression(Optional.of(VIEW_OWNER), Optional.empty(), Optional.empty(), "reverse(name)"));
+                ViewExpression.builder()
+                        .identity(VIEW_OWNER)
+                        .expression("reverse(name)")
+                        .build());
 
         assertThat(assertions.query(
                 Session.builder(SESSION)
@@ -359,7 +413,12 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "nation"),
                 "name",
                 VIEW_OWNER,
-                new ViewExpression(Optional.of(VIEW_OWNER), Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "reverse(name)"));
+                ViewExpression.builder()
+                        .identity(VIEW_OWNER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("reverse(name)")
+                        .build());
 
         assertThat(assertions.query(
                 Session.builder(SESSION)
@@ -374,7 +433,12 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "nation"),
                 "name",
                 RUN_AS_USER,
-                new ViewExpression(Optional.of(RUN_AS_USER), Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "reverse(name)"));
+                ViewExpression.builder()
+                        .identity(RUN_AS_USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("reverse(name)")
+                        .build());
 
         assertThat(assertions.query(
                 Session.builder(SESSION)
@@ -389,7 +453,12 @@ public class TestColumnMask
                 new QualifiedObjectName(MOCK_CATALOG, "default", "nation_view"),
                 "name",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "reverse(name)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("reverse(name)")
+                        .build());
         assertThat(assertions.query("SELECT name FROM mock.default.nation_view WHERE nationkey = 1")).matches("VALUES CAST('ANITNEGRA' AS VARCHAR(25))");
     }
 
@@ -401,7 +470,10 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "custkey",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "-custkey"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("-custkey")
+                        .build());
         assertThat(assertions.query("WITH t AS (SELECT custkey FROM orders WHERE orderkey = 1) SELECT * FROM t")).matches("VALUES BIGINT '-370'");
     }
 
@@ -413,7 +485,12 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "orderkey",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.of(LOCAL_CATALOG), Optional.of("sf1"), "(SELECT count(*) FROM customer)")); // count is 15000 only when evaluating against sf1
+                ViewExpression.builder()
+                        .identity(USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("sf1")  // count is 15000 only when evaluating against sf1
+                        .expression("(SELECT count(*) FROM customer)")
+                        .build());
         assertThat(assertions.query("SELECT max(orderkey) FROM orders")).matches("VALUES BIGINT '150000'");
     }
 
@@ -425,13 +502,23 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "orderkey",
                 RUN_AS_USER,
-                new ViewExpression(Optional.of(RUN_AS_USER), Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "100"));
+                ViewExpression.builder()
+                        .identity(RUN_AS_USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("100")
+                        .build());
 
         accessControl.columnMask(
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "orderkey",
                 USER,
-                new ViewExpression(Optional.of(RUN_AS_USER), Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "(SELECT sum(orderkey) FROM orders)"));
+                ViewExpression.builder()
+                        .identity(RUN_AS_USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("(SELECT sum(orderkey) FROM orders)")
+                        .build());
 
         assertThat(assertions.query("SELECT max(orderkey) FROM orders")).matches("VALUES BIGINT '1500000'");
     }
@@ -444,7 +531,12 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "orderkey",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "(SELECT orderkey FROM orders)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("(SELECT orderkey FROM orders)")
+                        .build());
 
         assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
                 .hasMessageMatching(".*\\QColumn mask for 'local.tiny.orders.orderkey' is recursive\\E.*");
@@ -455,7 +547,12 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "orderkey",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "(SELECT orderkey FROM local.tiny.orders)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("(SELECT orderkey FROM local.tiny.orders)")
+                        .build());
 
         assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
                 .hasMessageMatching(".*\\QColumn mask for 'local.tiny.orders.orderkey' is recursive\\E.*");
@@ -466,13 +563,23 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "orderkey",
                 RUN_AS_USER,
-                new ViewExpression(Optional.of(RUN_AS_USER), Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "(SELECT orderkey FROM orders)"));
+                ViewExpression.builder()
+                        .identity(RUN_AS_USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("(SELECT orderkey FROM orders)")
+                        .build());
 
         accessControl.columnMask(
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "orderkey",
                 USER,
-                new ViewExpression(Optional.of(RUN_AS_USER), Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "(SELECT orderkey FROM orders)"));
+                ViewExpression.builder()
+                        .identity(RUN_AS_USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("(SELECT orderkey FROM orders)")
+                        .build());
 
         assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
                 .hasMessageMatching(".*\\QColumn mask for 'local.tiny.orders.orderkey' is recursive\\E.*");
@@ -486,7 +593,12 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "customer"),
                 "custkey",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "orderkey"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("orderkey")
+                        .build());
         assertThatThrownBy(() -> assertions.query(
                 "SELECT (SELECT min(custkey) FROM customer WHERE customer.custkey = orders.custkey) FROM orders"))
                 .hasMessage("line 1:34: Invalid column mask for 'local.tiny.customer.custkey': Column 'orderkey' cannot be resolved");
@@ -500,7 +612,12 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "nation"),
                 "name",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "(SELECT name FROM region WHERE regionkey = 0)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("(SELECT name FROM region WHERE regionkey = 0)")
+                        .build());
         assertThat(assertions.query(
                 "WITH region(regionkey, name) AS (VALUES (0, 'ASIA'))" +
                         "SELECT name FROM nation ORDER BY name LIMIT 1"))
@@ -516,7 +633,12 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "orderkey",
                 USER,
-                new ViewExpression(Optional.of(RUN_AS_USER), Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "$$$"));
+                ViewExpression.builder()
+                        .identity(RUN_AS_USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("$$$")
+                        .build());
 
         assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
                 .hasMessage("line 1:22: Invalid column mask for 'local.tiny.orders.orderkey': mismatched input '$'. Expecting: <expression>");
@@ -527,7 +649,12 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "orderkey",
                 USER,
-                new ViewExpression(Optional.of(RUN_AS_USER), Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "unknown_column"));
+                ViewExpression.builder()
+                        .identity(RUN_AS_USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("unknown_column")
+                        .build());
 
         assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
                 .hasMessage("line 1:22: Invalid column mask for 'local.tiny.orders.orderkey': Column 'unknown_column' cannot be resolved");
@@ -538,7 +665,12 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "orderkey",
                 USER,
-                new ViewExpression(Optional.of(RUN_AS_USER), Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "'foo'"));
+                ViewExpression.builder()
+                        .identity(RUN_AS_USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("'foo'")
+                        .build());
 
         assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
                 .hasMessage("line 1:22: Expected column mask for 'local.tiny.orders.orderkey' to be of type bigint, but was varchar(3)");
@@ -549,7 +681,12 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "orderkey",
                 USER,
-                new ViewExpression(Optional.of(RUN_AS_USER), Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "count(*) > 0"));
+                ViewExpression.builder()
+                        .identity(RUN_AS_USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("count(*) > 0")
+                        .build());
 
         assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
                 .hasMessage("line 1:10: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [count(*)]");
@@ -560,7 +697,12 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "orderkey",
                 USER,
-                new ViewExpression(Optional.of(RUN_AS_USER), Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "row_number() OVER () > 0"));
+                ViewExpression.builder()
+                        .identity(RUN_AS_USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("row_number() OVER () > 0")
+                        .build());
 
         assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
                 .hasMessage("line 1:22: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [row_number() OVER ()]");
@@ -571,7 +713,12 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "orderkey",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "grouping(orderkey) = 0"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("grouping(orderkey) = 0")
+                        .build());
 
         assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
                 .hasMessage("line 1:20: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [GROUPING (orderkey)]");
@@ -585,7 +732,12 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "orderkey",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "7"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("7")
+                        .build());
 
         assertThat(assertions.query("SHOW STATS FOR (SELECT * FROM orders)"))
                 .containsAll("""
@@ -616,7 +768,12 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "orderkey",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.of(LOCAL_CATALOG), Optional.of("tiny"), "orderkey + 1"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("orderkey + 1")
+                        .build());
         assertThat(assertions.query("SELECT count(*) FROM orders JOIN orders USING (orderkey)")).matches("VALUES BIGINT '15000'");
     }
 
@@ -629,7 +786,10 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "orderkey",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "custkey"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("custkey")
+                        .build());
         assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
                 .hasMessage("Access Denied: Cannot select from columns [orderkey, custkey] in table or view local.tiny.orders");
     }
@@ -642,7 +802,10 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "clerk",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "clerk"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("clerk")
+                        .build());
         assertThatThrownBy(() -> assertions.query("INSERT INTO orders SELECT * FROM orders"))
                 .hasMessage("Insert into table with column masks is not supported");
     }
@@ -655,7 +818,10 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "clerk",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "clerk"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("clerk")
+                        .build());
         assertThatThrownBy(() -> assertions.query("DELETE FROM orders"))
                 .hasMessage("line 1:1: Delete from table with column mask");
     }
@@ -668,7 +834,10 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "clerk",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "clerk"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("clerk")
+                        .build());
         assertThatThrownBy(() -> assertions.query("UPDATE orders SET clerk = 'X'"))
                 .hasMessage("line 1:1: Updating a table with column masks is not supported");
         assertThatThrownBy(() -> assertions.query("UPDATE orders SET orderkey = -orderkey"))
@@ -687,7 +856,10 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "clerk",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "clerk"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("clerk")
+                        .build());
         assertThat(assertions.query("SELECT orderkey FROM orders WHERE orderkey = 1")).matches("VALUES BIGINT '1'");
 
         // mask on long column
@@ -697,7 +869,10 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "totalprice",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "totalprice"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("totalprice")
+                        .build());
         assertThat(assertions.query("SELECT orderkey FROM orders WHERE orderkey = 1")).matches("VALUES BIGINT '1'");
 
         // mask on not used varchar column with subquery masking
@@ -708,7 +883,10 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "clerk",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "(SELECT orderstatus FROM local.tiny.orders)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("(SELECT orderstatus FROM local.tiny.orders)")
+                        .build());
         assertThat(assertions.query("SELECT orderkey FROM orders WHERE orderkey = 1")).matches("VALUES BIGINT '1'");
     }
 
@@ -720,7 +898,10 @@ public class TestColumnMask
                 new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_hidden_column"),
                 "name",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "'POLAND'"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("'POLAND'")
+                        .build());
 
         assertions.query("SELECT * FROM mock.tiny.nation_with_hidden_column WHERE nationkey = 1")
                 .assertThat()
@@ -754,19 +935,28 @@ public class TestColumnMask
                 new QualifiedObjectName(TEST_CATALOG_NAME, "tiny", "orders"),
                 "comment",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "cast(regexp_replace(comment,'(password: [^ ]+)','password: ****') as varchar(79))"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("cast(regexp_replace(comment,'(password: [^ ]+)','password: ****') as varchar(79))")
+                        .build());
 
         accessControl.columnMask(
                 new QualifiedObjectName(TEST_CATALOG_NAME, "tiny", "orders"),
                 "orderstatus",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "if(regexp_extract(comment,'(country: [^ ]+)') IN ('country: 1'), '*', orderstatus)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("if(regexp_extract(comment,'(country: [^ ]+)') IN ('country: 1'), '*', orderstatus)")
+                        .build());
 
         accessControl.columnMask(
                 new QualifiedObjectName(TEST_CATALOG_NAME, "tiny", "orders"),
                 "clerk",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "if(regexp_extract(comment,'(country: [^ ]+)') IN ('country: 1'), '***', clerk)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("if(regexp_extract(comment,'(country: [^ ]+)') IN ('country: 1'), '***', clerk)")
+                        .build());
 
         assertThat(assertions.query(query)).matches(expected);
 
@@ -777,13 +967,19 @@ public class TestColumnMask
                 new QualifiedObjectName(TEST_CATALOG_NAME, "tiny", "orders"),
                 "clerk",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "cast(regexp_replace(clerk,'(password: [^ ]+)','password: ****') as varchar(15))"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("cast(regexp_replace(clerk,'(password: [^ ]+)','password: ****') as varchar(15))")
+                        .build());
 
         accessControl.columnMask(
                 new QualifiedObjectName(TEST_CATALOG_NAME, "tiny", "orders"),
                 "comment",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'(country: [^ ]+)') IN ('country: 1'), '***', comment)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("if(regexp_extract(clerk,'(country: [^ ]+)') IN ('country: 1'), '***', comment)")
+                        .build());
 
         assertThat(assertions.query(query)).matches(expected);
 
@@ -794,19 +990,28 @@ public class TestColumnMask
                 new QualifiedObjectName(TEST_CATALOG_NAME, "tiny", "orders"),
                 "clerk",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "cast(regexp_replace(clerk,'(password: [^ ]+)','password: ****') as varchar(15))"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("cast(regexp_replace(clerk,'(password: [^ ]+)','password: ****') as varchar(15))")
+                        .build());
 
         accessControl.columnMask(
                 new QualifiedObjectName(TEST_CATALOG_NAME, "tiny", "orders"),
                 "orderstatus",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'(country: [^ ]+)') IN ('country: 1'), '*', orderstatus)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("if(regexp_extract(clerk,'(country: [^ ]+)') IN ('country: 1'), '*', orderstatus)")
+                        .build());
 
         accessControl.columnMask(
                 new QualifiedObjectName(TEST_CATALOG_NAME, "tiny", "orders"),
                 "comment",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'(country: [^ ]+)') IN ('country: 1'), '***', comment)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("if(regexp_extract(clerk,'(country: [^ ]+)') IN ('country: 1'), '***', comment)")
+                        .build());
 
         assertThat(assertions.query(query)).matches(expected);
 
@@ -817,13 +1022,19 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "clerk",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "cast(regexp_replace(clerk,'(Clerk#)','***#') as varchar(15))"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("cast(regexp_replace(clerk,'(Clerk#)','***#') as varchar(15))")
+                        .build());
 
         accessControl.columnMask(
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "comment",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'([1-9]+)') IN ('951'), '***', comment)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("if(regexp_extract(clerk,'([1-9]+)') IN ('951'), '***', comment)")
+                        .build());
 
         assertThat(assertions.query(query))
                 .matches("VALUES (CAST('***' as varchar(79)), 'O', CAST('***#000000951' as varchar(15)))");
@@ -835,19 +1046,28 @@ public class TestColumnMask
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "clerk",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "cast('###' as varchar(15))"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("cast('###' as varchar(15))")
+                        .build());
 
         accessControl.columnMask(
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "orderstatus",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'([1-9]+)') IN ('951'), '*', orderstatus)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("if(regexp_extract(clerk,'([1-9]+)') IN ('951'), '*', orderstatus)")
+                        .build());
 
         accessControl.columnMask(
                 new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
                 "comment",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'([1-9]+)') IN ('951'), '***', comment)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("if(regexp_extract(clerk,'([1-9]+)') IN ('951'), '***', comment)")
+                        .build());
 
         assertThat(assertions.query(query))
                 .matches("VALUES (CAST('***' as varchar(79)), '*', CAST('###' as varchar(15)))");
@@ -861,7 +1081,10 @@ public class TestColumnMask
                 new QualifiedObjectName(MOCK_CATALOG, "default", "view_with_nested"),
                 "nested",
                 USER,
-                new ViewExpression(Optional.of(USER), Optional.empty(), Optional.empty(), "if(id = 0, nested)"));
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("if(id = 0, nested)")
+                        .build());
 
         assertThat(assertions.query("SELECT nested[1] FROM mock.default.view_with_nested"))
                 .matches("VALUES 1, NULL");

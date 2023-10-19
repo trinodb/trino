@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -55,7 +56,6 @@ public class HiveSplit
     private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<BucketConversion> bucketConversion;
     private final Optional<BucketValidation> bucketValidation;
-    private final boolean s3SelectPushdownEnabled;
     private final Optional<AcidInfo> acidInfo;
     private final SplitWeight splitWeight;
 
@@ -69,16 +69,53 @@ public class HiveSplit
             @JsonProperty("fileModifiedTime") long fileModifiedTime,
             @JsonProperty("schema") Properties schema,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
-            @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("readBucketNumber") OptionalInt readBucketNumber,
             @JsonProperty("tableBucketNumber") OptionalInt tableBucketNumber,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
             @JsonProperty("tableToPartitionMapping") TableToPartitionMapping tableToPartitionMapping,
             @JsonProperty("bucketConversion") Optional<BucketConversion> bucketConversion,
             @JsonProperty("bucketValidation") Optional<BucketValidation> bucketValidation,
-            @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled,
             @JsonProperty("acidInfo") Optional<AcidInfo> acidInfo,
             @JsonProperty("splitWeight") SplitWeight splitWeight)
+    {
+        this(
+                partitionName,
+                path,
+                start,
+                length,
+                estimatedFileSize,
+                fileModifiedTime,
+                schema,
+                partitionKeys,
+                ImmutableList.of(),
+                readBucketNumber,
+                tableBucketNumber,
+                forceLocalScheduling,
+                tableToPartitionMapping,
+                bucketConversion,
+                bucketValidation,
+                acidInfo,
+                splitWeight);
+    }
+
+    public HiveSplit(
+            String partitionName,
+            String path,
+            long start,
+            long length,
+            long estimatedFileSize,
+            long fileModifiedTime,
+            Properties schema,
+            List<HivePartitionKey> partitionKeys,
+            List<HostAddress> addresses,
+            OptionalInt readBucketNumber,
+            OptionalInt tableBucketNumber,
+            boolean forceLocalScheduling,
+            TableToPartitionMapping tableToPartitionMapping,
+            Optional<BucketConversion> bucketConversion,
+            Optional<BucketValidation> bucketValidation,
+            Optional<AcidInfo> acidInfo,
+            SplitWeight splitWeight)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -110,7 +147,6 @@ public class HiveSplit
         this.tableToPartitionMapping = tableToPartitionMapping;
         this.bucketConversion = bucketConversion;
         this.bucketValidation = bucketValidation;
-        this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.acidInfo = acidInfo;
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
     }
@@ -163,7 +199,8 @@ public class HiveSplit
         return partitionKeys;
     }
 
-    @JsonProperty
+    // do not serialize addresses as they are not needed on workers
+    @JsonIgnore
     @Override
     public List<HostAddress> getAddresses()
     {
@@ -213,12 +250,6 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public boolean isS3SelectPushdownEnabled()
-    {
-        return s3SelectPushdownEnabled;
-    }
-
-    @JsonProperty
     public Optional<AcidInfo> getAcidInfo()
     {
         return acidInfo;
@@ -261,7 +292,6 @@ public class HiveSplit
                 .put("forceLocalScheduling", forceLocalScheduling)
                 .put("partitionName", partitionName)
                 .put("deserializerClassName", getDeserializerClassName(schema))
-                .put("s3SelectPushdownEnabled", s3SelectPushdownEnabled)
                 .buildOrThrow();
     }
 

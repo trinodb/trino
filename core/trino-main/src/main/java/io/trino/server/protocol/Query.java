@@ -140,6 +140,12 @@ class Query
     private Optional<String> setPath = Optional.empty();
 
     @GuardedBy("this")
+    private Optional<String> setAuthorizationUser = Optional.empty();
+
+    @GuardedBy("this")
+    private boolean resetAuthorizationUser;
+
+    @GuardedBy("this")
     private Map<String, String> setSessionProperties = ImmutableMap.of();
 
     @GuardedBy("this")
@@ -463,6 +469,10 @@ class Query
         setSchema = queryInfo.getSetSchema();
         setPath = queryInfo.getSetPath();
 
+        // update setAuthorizationUser
+        setAuthorizationUser = queryInfo.getSetAuthorizationUser();
+        resetAuthorizationUser = queryInfo.isResetAuthorizationUser();
+
         // update setSessionProperties
         setSessionProperties = queryInfo.getSetSessionProperties();
         resetSessionProperties = queryInfo.getResetSessionProperties();
@@ -505,6 +515,8 @@ class Query
                 setCatalog,
                 setSchema,
                 setPath,
+                setAuthorizationUser,
+                resetAuthorizationUser,
                 setSessionProperties,
                 resetSessionProperties,
                 setRoles,

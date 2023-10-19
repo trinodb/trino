@@ -87,6 +87,7 @@ import io.trino.sql.tree.WindowOperation;
 import io.trino.transaction.TransactionId;
 import jakarta.annotation.Nullable;
 
+import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1154,7 +1155,7 @@ public class Analysis
     public List<RoutineInfo> getRoutines()
     {
         return resolvedFunctions.values().stream()
-                .map(value -> new RoutineInfo(value.function.getSignature().getName(), value.getAuthorization()))
+                .map(value -> new RoutineInfo(value.function.getSignature().getName().getFunctionName(), value.getAuthorization()))
                 .collect(toImmutableList());
     }
 
@@ -1687,6 +1688,30 @@ public class Analysis
         {
             return frameInherited;
         }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ResolvedWindow that = (ResolvedWindow) o;
+            return partitionByInherited == that.partitionByInherited &&
+                    orderByInherited == that.orderByInherited &&
+                    frameInherited == that.frameInherited &&
+                    partitionBy.equals(that.partitionBy) &&
+                    orderBy.equals(that.orderBy) &&
+                    frame.equals(that.frame);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(partitionBy, orderBy, frame, partitionByInherited, orderByInherited, frameInherited);
+        }
     }
 
     public static class MergeAnalysis
@@ -1817,9 +1842,9 @@ public class Analysis
             return accessControl;
         }
 
-        public SecurityContext getSecurityContext(TransactionId transactionId, QueryId queryId)
+        public SecurityContext getSecurityContext(TransactionId transactionId, QueryId queryId, Instant queryStart)
         {
-            return new SecurityContext(transactionId, identity, queryId);
+            return new SecurityContext(transactionId, identity, queryId, queryStart);
         }
 
         @Override

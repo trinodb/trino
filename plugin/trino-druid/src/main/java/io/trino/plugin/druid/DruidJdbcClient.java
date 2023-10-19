@@ -415,7 +415,8 @@ public class DruidJdbcClient
                     table.getColumns(),
                     table.getOtherReferencedTables(),
                     table.getNextSyntheticColumnId(),
-                    table.getAuthorization());
+                    table.getAuthorization(),
+                    table.getUpdateAssignments());
         }
 
         return table;
@@ -459,6 +460,12 @@ public class DruidJdbcClient
     public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
     {
         // DELETE statement is not yet support in Druid (Avatica JDBC, see https://issues.apache.org/jira/browse/CALCITE-706)
+        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+    }
+
+    @Override
+    public OptionalLong update(ConnectorSession session, JdbcTableHandle handle)
+    {
         throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
     }
 
@@ -517,6 +524,18 @@ public class DruidJdbcClient
     }
 
     @Override
+    public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables");
+    }
+
+    @Override
+    public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support truncating tables");
+    }
+
+    @Override
     public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
@@ -535,7 +554,7 @@ public class DruidJdbcClient
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
+    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
     }

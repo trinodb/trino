@@ -30,17 +30,23 @@ final class AzureUtils
     {
         if (exception instanceof BlobStorageException blobStorageException) {
             if (BlobErrorCode.BLOB_NOT_FOUND.equals(blobStorageException.getErrorCode())) {
-                throw new FileNotFoundException(location.toString());
+                throw withCause(new FileNotFoundException(location.toString()), exception);
             }
         }
         if (exception instanceof DataLakeStorageException dataLakeStorageException) {
             if ("PathNotFound".equals(dataLakeStorageException.getErrorCode())) {
-                throw new FileNotFoundException(location.toString());
+                throw withCause(new FileNotFoundException(location.toString()), exception);
             }
         }
         if (exception instanceof AzureException) {
             throw new IOException("Azure service error %s file: %s".formatted(action, location), exception);
         }
         throw new IOException("Error %s file: %s".formatted(action, location), exception);
+    }
+
+    private static <T extends Throwable> T withCause(T throwable, Throwable cause)
+    {
+        throwable.initCause(cause);
+        return throwable;
     }
 }

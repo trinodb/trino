@@ -15,7 +15,7 @@ package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -31,7 +31,6 @@ public class TestHudiConfig
     {
         assertRecordedDefaults(recordDefaults(HudiConfig.class)
                 .setColumnsToHide(null)
-                .setMetadataEnabled(false)
                 .setUseParquetColumnNames(true)
                 .setSizeBasedSplitWeightsEnabled(true)
                 .setStandardSplitWeightSize(DataSize.of(128, MEGABYTE))
@@ -48,7 +47,6 @@ public class TestHudiConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hudi.columns-to-hide", "_hoodie_record_key")
-                .put("hudi.metadata-enabled", "true")
                 .put("hudi.parquet.use-column-names", "false")
                 .put("hudi.size-based-split-weights-enabled", "false")
                 .put("hudi.standard-split-weight-size", "64MB")
@@ -62,7 +60,6 @@ public class TestHudiConfig
 
         HudiConfig expected = new HudiConfig()
                 .setColumnsToHide("_hoodie_record_key")
-                .setMetadataEnabled(true)
                 .setUseParquetColumnNames(false)
                 .setSizeBasedSplitWeightsEnabled(false)
                 .setStandardSplitWeightSize(DataSize.of(64, MEGABYTE))

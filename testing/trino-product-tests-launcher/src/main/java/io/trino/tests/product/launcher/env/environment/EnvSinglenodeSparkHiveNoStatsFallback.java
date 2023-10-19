@@ -55,7 +55,6 @@ public class EnvSinglenodeSparkHiveNoStatsFallback
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer(HADOOP, container -> container.setDockerImageName("ghcr.io/trinodb/testing/hdp3.1-hive:" + hadoopImagesVersion));
         builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
         builder.addContainer(createSpark()).containerDependsOn("spark", HADOOP);
     }

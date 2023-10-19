@@ -27,6 +27,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.TableProcedureMetadata;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
@@ -37,9 +38,9 @@ import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.LocalQueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
@@ -56,7 +57,6 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableWriter;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
@@ -75,19 +75,24 @@ public class TestAddLocalExchangesForTaskScaleWriters
     {
         LocalQueryRunner queryRunner = LocalQueryRunner.create(testSessionBuilder().build());
         queryRunner.createCatalog(
-                "mock_without_multiple_writer_per_partition",
-                createConnectorFactory("mock_without_multiple_writer_per_partition", false),
+                "mock_with_scaled_writers",
+                createConnectorFactory("mock_with_scaled_writers", true, true),
                 ImmutableMap.of());
         queryRunner.createCatalog(
-                "mock_with_multiple_writer_per_partition",
-                createConnectorFactory("mock_with_multiple_writer_per_partition", true),
+                "mock_without_scaled_writers",
+                createConnectorFactory("mock_without_scaled_writers", true, false),
+                ImmutableMap.of());
+        queryRunner.createCatalog(
+                "mock_without_multiple_writer_per_partition",
+                createConnectorFactory("mock_without_multiple_writer_per_partition", false, true),
                 ImmutableMap.of());
         return queryRunner;
     }
 
     private MockConnectorFactory createConnectorFactory(
             String catalogHandle,
-            boolean supportsMultipleWritersPerPartition)
+            boolean supportsMultipleWritersPerPartition,
+            boolean writerScalingEnabledWithinTask)
     {
         return MockConnectorFactory.builder()
                 .withGetTableHandle(((session, tableName) -> {
@@ -99,6 +104,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
                     }
                     return null;
                 }))
+                .withWriterScalingOptions(new WriterScalingOptions(true, writerScalingEnabledWithinTask))
                 .withGetTableStatistics(tableName -> {
                     if (tableName.getTableName().equals("source_table")) {
                         return new TableStatistics(
@@ -175,36 +181,96 @@ public class TestAddLocalExchangesForTaskScaleWriters
                                                 tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
     }
 
-    @Test(dataProvider = "taskScaleWritersOption")
-    public void testLocalScaledPartitionedWriterWithoutSupportForMultipleWritersPerPartition(boolean taskScaleWritersEnabled)
+    @Test
+    public void testLocalScaledUnpartitionedWriterWithPerTaskScalingDisabled()
     {
-        String catalogName = "mock_without_multiple_writer_per_partition";
-        PartitioningHandle partitioningHandle = new PartitioningHandle(
-                Optional.of(getCatalogHandle(catalogName)),
-                Optional.of(MockConnectorTransactionHandle.INSTANCE),
-                CONNECTOR_PARTITIONING_HANDLE);
-
         assertDistributedPlan(
-                "INSERT INTO connector_partitioned_table SELECT * FROM source_table",
+                "INSERT INTO unpartitioned_table SELECT * FROM source_table",
                 testSessionBuilder()
-                        .setCatalog(catalogName)
+                        .setCatalog("mock_without_scaled_writers")
                         .setSchema("mock")
-                        .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, String.valueOf(taskScaleWritersEnabled))
+                        .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "true")
                         .setSystemProperty(SCALE_WRITERS, "false")
                         .build(),
                 anyTree(
                         tableWriter(
                                 ImmutableList.of("customer", "year"),
                                 ImmutableList.of("customer", "year"),
-                                exchange(LOCAL, REPARTITION, partitioningHandle,
-                                        exchange(REMOTE, REPARTITION, partitioningHandle,
+                                exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
+                                        exchange(REMOTE, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
+
+        assertDistributedPlan(
+                "INSERT INTO unpartitioned_table SELECT * FROM source_table",
+                testSessionBuilder()
+                        .setCatalog("mock_without_scaled_writers")
+                        .setSchema("mock")
+                        .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
+                        .setSystemProperty(SCALE_WRITERS, "false")
+                        .build(),
+                anyTree(
+                        tableWriter(
+                                ImmutableList.of("customer", "year"),
+                                ImmutableList.of("customer", "year"),
+                                exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
+                                        exchange(REMOTE, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
                                                 tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
     }
 
-    @DataProvider
-    public Object[][] taskScaleWritersOption()
+    @Test
+    public void testLocalScaledPartitionedWriterWithoutSupportForMultipleWritersPerPartition()
     {
-        return new Object[][] {{true}, {false}};
+        for (boolean taskScaleWritersEnabled : Arrays.asList(true, false)) {
+            String catalogName = "mock_without_multiple_writer_per_partition";
+            PartitioningHandle partitioningHandle = new PartitioningHandle(
+                    Optional.of(getCatalogHandle(catalogName)),
+                    Optional.of(MockConnectorTransactionHandle.INSTANCE),
+                    CONNECTOR_PARTITIONING_HANDLE);
+
+            assertDistributedPlan(
+                    "INSERT INTO connector_partitioned_table SELECT * FROM source_table",
+                    testSessionBuilder()
+                            .setCatalog(catalogName)
+                            .setSchema("mock")
+                            .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, String.valueOf(taskScaleWritersEnabled))
+                            .setSystemProperty(SCALE_WRITERS, "false")
+                            .build(),
+                    anyTree(
+                            tableWriter(
+                                    ImmutableList.of("customer", "year"),
+                                    ImmutableList.of("customer", "year"),
+                                    exchange(LOCAL, REPARTITION, partitioningHandle,
+                                            exchange(REMOTE, REPARTITION, partitioningHandle,
+                                                    tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
+        }
+    }
+
+    @Test
+    public void testLocalScaledPartitionedWriterWithPerTaskScalingDisabled()
+    {
+        for (boolean taskScaleWritersEnabled : Arrays.asList(true, false)) {
+            String catalogName = "mock_without_scaled_writers";
+            PartitioningHandle partitioningHandle = new PartitioningHandle(
+                    Optional.of(getCatalogHandle(catalogName)),
+                    Optional.of(MockConnectorTransactionHandle.INSTANCE),
+                    CONNECTOR_PARTITIONING_HANDLE);
+
+            assertDistributedPlan(
+                    "INSERT INTO connector_partitioned_table SELECT * FROM source_table",
+                    testSessionBuilder()
+                            .setCatalog(catalogName)
+                            .setSchema("mock")
+                            .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, String.valueOf(taskScaleWritersEnabled))
+                            .setSystemProperty(SCALE_WRITERS, "false")
+                            .build(),
+                    anyTree(
+                            tableWriter(
+                                    ImmutableList.of("customer", "year"),
+                                    ImmutableList.of("customer", "year"),
+                                    exchange(LOCAL, REPARTITION, partitioningHandle,
+                                            exchange(REMOTE, REPARTITION, partitioningHandle,
+                                                    tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
+        }
     }
 
     @Test
@@ -213,7 +279,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
         assertDistributedPlan(
                 "INSERT INTO system_partitioned_table SELECT * FROM source_table",
                 testSessionBuilder()
-                        .setCatalog("mock_with_multiple_writer_per_partition")
+                        .setCatalog("mock_with_scaled_writers")
                         .setSchema("mock")
                         // Enforce preferred partitioning
                         .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
@@ -224,16 +290,14 @@ public class TestAddLocalExchangesForTaskScaleWriters
                         tableWriter(
                                 ImmutableList.of("customer", "year"),
                                 ImmutableList.of("customer", "year"),
-                                project(
-                                        exchange(LOCAL, REPARTITION, SCALED_WRITER_HASH_DISTRIBUTION,
-                                                exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                        project(
-                                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))))));
+                                exchange(LOCAL, REPARTITION, SCALED_WRITER_HASH_DISTRIBUTION,
+                                        exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
 
         assertDistributedPlan(
                 "INSERT INTO system_partitioned_table SELECT * FROM source_table",
                 testSessionBuilder()
-                        .setCatalog("mock_with_multiple_writer_per_partition")
+                        .setCatalog("mock_with_scaled_writers")
                         .setSchema("mock")
                         // Enforce preferred partitioning
                         .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
@@ -244,17 +308,15 @@ public class TestAddLocalExchangesForTaskScaleWriters
                         tableWriter(
                                 ImmutableList.of("customer", "year"),
                                 ImmutableList.of("customer", "year"),
-                                project(
-                                        exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                        project(
-                                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))))));
+                                exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                        exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
     }
 
     @Test
     public void testLocalScaledPartitionedWriterForConnectorPartitioning()
     {
-        String catalogName = "mock_with_multiple_writer_per_partition";
+        String catalogName = "mock_with_scaled_writers";
         PartitioningHandle partitioningHandle = new PartitioningHandle(
                 Optional.of(getCatalogHandle(catalogName)),
                 Optional.of(MockConnectorTransactionHandle.INSTANCE),
@@ -304,7 +366,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
         assertDistributedPlan(
                 "INSERT INTO system_partitioned_table SELECT * FROM source_table",
                 testSessionBuilder()
-                        .setCatalog("mock_with_multiple_writer_per_partition")
+                        .setCatalog("mock_with_scaled_writers")
                         .setSchema("mock")
                         .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "true")
                         .setSystemProperty(SCALE_WRITERS, "false")
@@ -313,16 +375,14 @@ public class TestAddLocalExchangesForTaskScaleWriters
                         tableWriter(
                                 ImmutableList.of("customer", "year"),
                                 ImmutableList.of("customer", "year"),
-                                project(
-                                        exchange(LOCAL, REPARTITION, SCALED_WRITER_HASH_DISTRIBUTION,
-                                                exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                        project(
-                                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))))));
+                                exchange(LOCAL, REPARTITION, SCALED_WRITER_HASH_DISTRIBUTION,
+                                        exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
 
         assertDistributedPlan(
                 "INSERT INTO system_partitioned_table SELECT * FROM source_table",
                 testSessionBuilder()
-                        .setCatalog("mock_with_multiple_writer_per_partition")
+                        .setCatalog("mock_with_scaled_writers")
                         .setSchema("mock")
                         .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
                         .setSystemProperty(SCALE_WRITERS, "false")
@@ -331,11 +391,9 @@ public class TestAddLocalExchangesForTaskScaleWriters
                         tableWriter(
                                 ImmutableList.of("customer", "year"),
                                 ImmutableList.of("customer", "year"),
-                                project(
-                                        exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                        project(
-                                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))))));
+                                exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                        exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                                tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))));
     }
 
     @Test
@@ -344,7 +402,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
         @Language("SQL") String query = "ALTER TABLE system_partitioned_table EXECUTE optimize(file_size_threshold => '10MB')";
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalog("mock_with_multiple_writer_per_partition")
+                .setCatalog("mock_with_scaled_writers")
                 .setSchema("mock")
                 .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "true")
                 .build();
@@ -354,11 +412,9 @@ public class TestAddLocalExchangesForTaskScaleWriters
                 session,
                 anyTree(
                         node(TableExecuteNode.class,
-                                project(
-                                        exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION,
-                                                exchange(REMOTE, REPARTITION, SCALED_WRITER_HASH_DISTRIBUTION,
-                                                        project(
-                                                                node(TableScanNode.class))))))));
+                                exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                        exchange(REMOTE, REPARTITION, SCALED_WRITER_HASH_DISTRIBUTION,
+                                                node(TableScanNode.class))))));
     }
 
     @Test
@@ -367,7 +423,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
         @Language("SQL") String query = "ALTER TABLE unpartitioned_table EXECUTE optimize(file_size_threshold => '10MB')";
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalog("mock_with_multiple_writer_per_partition")
+                .setCatalog("mock_with_scaled_writers")
                 .setSchema("mock")
                 .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "true")
                 .build();

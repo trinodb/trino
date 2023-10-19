@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.hive.util;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestAcidBucketCodec

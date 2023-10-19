@@ -14,12 +14,12 @@
 package io.trino.plugin.jmx;
 
 import io.airlift.testing.EquivalenceTester;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.jmx.MetadataUtil.COLUMN_CODEC;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJmxColumnHandle
 {
@@ -29,7 +29,7 @@ public class TestJmxColumnHandle
         JmxColumnHandle handle = new JmxColumnHandle("columnName", createUnboundedVarcharType());
         String json = COLUMN_CODEC.toJson(handle);
         JmxColumnHandle copy = COLUMN_CODEC.fromJson(json);
-        assertEquals(copy, handle);
+        assertThat(copy).isEqualTo(handle);
     }
 
     @Test

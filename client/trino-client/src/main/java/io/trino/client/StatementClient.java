@@ -50,6 +50,10 @@ public interface StatementClient
 
     Optional<String> getSetPath();
 
+    Optional<String> getSetAuthorizationUser();
+
+    boolean isResetAuthorizationUser();
+
     Map<String, String> getSetSessionProperties();
 
     Set<String> getResetSessionProperties();

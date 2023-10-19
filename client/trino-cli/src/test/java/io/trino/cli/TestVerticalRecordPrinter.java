@@ -14,7 +14,7 @@
 package io.trino.cli;
 
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.StringWriter;
 import java.util.List;
@@ -24,7 +24,6 @@ import static io.trino.cli.TestAlignedTablePrinter.row;
 import static io.trino.cli.TestAlignedTablePrinter.rows;
 import static org.testng.Assert.assertEquals;
 
-@SuppressWarnings("Duplicates")
 public class TestVerticalRecordPrinter
 {
     @Test

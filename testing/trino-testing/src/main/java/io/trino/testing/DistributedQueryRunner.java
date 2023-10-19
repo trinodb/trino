@@ -24,13 +24,11 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.testing.Assertions;
 import io.airlift.units.Duration;
-import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.Session.SessionBuilder;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryManager;
-import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AllNodes;
 import io.trino.metadata.FunctionBundle;
@@ -40,6 +38,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.SessionPropertyDefaults;
+import io.trino.server.testing.FactoryConfiguration;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
@@ -52,7 +51,6 @@ import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.sql.analyzer.QueryExplainer;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.Plan;
@@ -86,9 +84,6 @@ import static io.airlift.log.Level.WARN;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
-import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.System.getenv;
 import static java.util.Objects.requireNonNull;
@@ -131,9 +126,11 @@ public class DistributedQueryRunner
             String environment,
             Module additionalModule,
             Optional<Path> baseDataDir,
-            List<SystemAccessControl> systemAccessControls,
+            Optional<FactoryConfiguration> systemAccessControlConfiguration,
+            Optional<List<SystemAccessControl>> systemAccessControls,
             List<EventListener> eventListeners,
-            List<AutoCloseable> extraCloseables)
+            List<AutoCloseable> extraCloseables,
+            TestingTrinoClientFactory testingTrinoClientFactory)
             throws Exception
     {
         requireNonNull(defaultSession, "defaultSession is null");
@@ -147,7 +144,7 @@ public class DistributedQueryRunner
             closer.register(() -> extraCloseables.forEach(DistributedQueryRunner::closeUnchecked));
             log.info("Created TestingDiscoveryServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
-            registerNewWorker = () -> createServer(false, extraProperties, environment, additionalModule, baseDataDir, ImmutableList.of(), ImmutableList.of());
+            registerNewWorker = () -> createServer(false, extraProperties, environment, additionalModule, baseDataDir, Optional.empty(), Optional.of(ImmutableList.of()), ImmutableList.of());
 
             int coordinatorCount = backupCoordinatorProperties.isEmpty() ? 1 : 2;
             checkArgument(nodeCount >= coordinatorCount, "nodeCount includes coordinator(s) count, so must be at least %s, got: %s", coordinatorCount, nodeCount);
@@ -166,7 +163,7 @@ public class DistributedQueryRunner
                 extraCoordinatorProperties.put("web-ui.user", "admin");
             }
 
-            coordinator = createServer(true, extraCoordinatorProperties, environment, additionalModule, baseDataDir, systemAccessControls, eventListeners);
+            coordinator = createServer(true, extraCoordinatorProperties, environment, additionalModule, baseDataDir, systemAccessControlConfiguration, systemAccessControls, eventListeners);
             if (backupCoordinatorProperties.isPresent()) {
                 Map<String, String> extraBackupCoordinatorProperties = new HashMap<>();
                 extraBackupCoordinatorProperties.putAll(extraProperties);
@@ -177,6 +174,7 @@ public class DistributedQueryRunner
                         environment,
                         additionalModule,
                         baseDataDir,
+                        systemAccessControlConfiguration,
                         systemAccessControls,
                         eventListeners));
             }
@@ -195,7 +193,7 @@ public class DistributedQueryRunner
 
         // copy session using property manager in coordinator
         defaultSession = defaultSession.toSessionRepresentation().toSession(coordinator.getSessionPropertyManager(), defaultSession.getIdentity().getExtraCredentials(), defaultSession.getExchangeEncryptionKey());
-        this.trinoClient = closer.register(new TestingTrinoClient(coordinator, defaultSession));
+        this.trinoClient = closer.register(testingTrinoClientFactory.create(coordinator, defaultSession));
 
         waitForAllNodesGloballyVisible();
     }
@@ -206,7 +204,8 @@ public class DistributedQueryRunner
             String environment,
             Module additionalModule,
             Optional<Path> baseDataDir,
-            List<SystemAccessControl> systemAccessControls,
+            Optional<FactoryConfiguration> systemAccessControlConfiguration,
+            Optional<List<SystemAccessControl>> systemAccessControls,
             List<EventListener> eventListeners)
     {
         TestingTrinoServer server = closer.register(createTestingTrinoServer(
@@ -216,6 +215,7 @@ public class DistributedQueryRunner
                 environment,
                 additionalModule,
                 baseDataDir,
+                systemAccessControlConfiguration,
                 systemAccessControls,
                 eventListeners));
         servers.add(server);
@@ -240,7 +240,8 @@ public class DistributedQueryRunner
             String environment,
             Module additionalModule,
             Optional<Path> baseDataDir,
-            List<SystemAccessControl> systemAccessControls,
+            Optional<FactoryConfiguration> systemAccessControlConfiguration,
+            Optional<List<SystemAccessControl>> systemAccessControls,
             List<EventListener> eventListeners)
     {
         long start = System.nanoTime();
@@ -273,6 +274,7 @@ public class DistributedQueryRunner
                 .setDiscoveryUri(discoveryUri)
                 .setAdditionalModule(additionalModule)
                 .setBaseDataDir(baseDataDir)
+                .setSystemAccessControlConfiguration(systemAccessControlConfiguration)
                 .setSystemAccessControls(systemAccessControls)
                 .setEventListeners(eventListeners)
                 .build();
@@ -526,19 +528,13 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public Plan createPlan(Session session, String sql, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
+    public Plan createPlan(Session session, String sql)
     {
-        if (session.getTransactionId().isEmpty()) {
-            return transaction(getTransactionManager(), getAccessControl())
-                    .singleStatement()
-                    .execute(session, transactionSession -> {
-                        return createPlan(transactionSession, sql, warningCollector, planOptimizersStatsCollector);
-                    });
-        }
+        // session must be in a transaction registered with the transaction manager in this query runner
+        getTransactionManager().getTransactionInfo(session.getRequiredTransactionId());
 
         SqlParser sqlParser = coordinator.getInstance(Key.get(SqlParser.class));
-        Statement statement = sqlParser.createStatement(sql, new ParsingOptions(
-                new FeaturesConfig().isParseDecimalLiteralsAsDouble() ? AS_DOUBLE : AS_DECIMAL));
+        Statement statement = sqlParser.createStatement(sql);
         return coordinator.getQueryExplainer().getLogicalPlan(session, statement, ImmutableList.of(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
     }
 
@@ -645,9 +641,11 @@ public class DistributedQueryRunner
         private String environment = ENVIRONMENT;
         private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();
-        private List<SystemAccessControl> systemAccessControls = ImmutableList.of();
+        private Optional<FactoryConfiguration> systemAccessControlConfiguration = Optional.empty();
+        private Optional<List<SystemAccessControl>> systemAccessControls = Optional.empty();
         private List<EventListener> eventListeners = ImmutableList.of();
         private List<AutoCloseable> extraCloseables = ImmutableList.of();
+        private TestingTrinoClientFactory testingTrinoClientFactory = TestingTrinoClient::new;
 
         protected Builder(Session defaultSession)
         {
@@ -751,6 +749,13 @@ public class DistributedQueryRunner
             return self();
         }
 
+        @CanIgnoreReturnValue
+        public SELF setSystemAccessControl(String name, Map<String, String> configuration)
+        {
+            this.systemAccessControlConfiguration = Optional.of(new FactoryConfiguration(name, configuration));
+            return self();
+        }
+
         @SuppressWarnings("unused")
         @CanIgnoreReturnValue
         public SELF setSystemAccessControl(SystemAccessControl systemAccessControl)
@@ -762,7 +767,7 @@ public class DistributedQueryRunner
         @CanIgnoreReturnValue
         public SELF setSystemAccessControls(List<SystemAccessControl> systemAccessControls)
         {
-            this.systemAccessControls = ImmutableList.copyOf(requireNonNull(systemAccessControls, "systemAccessControls is null"));
+            this.systemAccessControls = Optional.of(ImmutableList.copyOf(requireNonNull(systemAccessControls, "systemAccessControls is null")));
             return self();
         }
 
@@ -778,6 +783,14 @@ public class DistributedQueryRunner
         public SELF setEventListeners(List<EventListener> eventListeners)
         {
             this.eventListeners = ImmutableList.copyOf(requireNonNull(eventListeners, "eventListeners is null"));
+            return self();
+        }
+
+        @SuppressWarnings("unused")
+        @CanIgnoreReturnValue
+        public SELF setTestingTrinoClientFactory(TestingTrinoClientFactory testingTrinoClientFactory)
+        {
+            this.testingTrinoClientFactory = requireNonNull(testingTrinoClientFactory, "testingTrinoClientFactory is null");
             return self();
         }
 
@@ -822,6 +835,12 @@ public class DistributedQueryRunner
                 withTracing();
             }
 
+            Optional<FactoryConfiguration> systemAccessControlConfiguration = this.systemAccessControlConfiguration;
+            Optional<List<SystemAccessControl>> systemAccessControls = this.systemAccessControls;
+            if (systemAccessControlConfiguration.isEmpty() && systemAccessControls.isEmpty()) {
+                systemAccessControls = Optional.of(ImmutableList.of());
+            }
+
             DistributedQueryRunner queryRunner = new DistributedQueryRunner(
                     defaultSession,
                     nodeCount,
@@ -831,9 +850,11 @@ public class DistributedQueryRunner
                     environment,
                     additionalModule,
                     baseDataDir,
+                    systemAccessControlConfiguration,
                     systemAccessControls,
                     eventListeners,
-                    extraCloseables);
+                    extraCloseables,
+                    testingTrinoClientFactory);
 
             try {
                 additionalSetup.accept(queryRunner);
@@ -861,5 +882,10 @@ public class DistributedQueryRunner
                     .put(requireNonNull(key, "key is null"), requireNonNull(value, "value is null"))
                     .buildOrThrow();
         }
+    }
+
+    public interface TestingTrinoClientFactory
+    {
+        TestingTrinoClient create(TestingTrinoServer server, Session session);
     }
 }

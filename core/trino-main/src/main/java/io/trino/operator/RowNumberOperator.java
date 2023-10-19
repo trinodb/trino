@@ -25,7 +25,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
@@ -55,7 +54,6 @@ public class RowNumberOperator
         private final int expectedPositions;
         private boolean closed;
         private final JoinCompiler joinCompiler;
-        private final BlockTypeOperators blockTypeOperators;
 
         public RowNumberOperatorFactory(
                 int operatorId,
@@ -67,8 +65,7 @@ public class RowNumberOperator
                 Optional<Integer> maxRowsPerPartition,
                 Optional<Integer> hashChannel,
                 int expectedPositions,
-                JoinCompiler joinCompiler,
-                BlockTypeOperators blockTypeOperators)
+                JoinCompiler joinCompiler)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -82,7 +79,6 @@ public class RowNumberOperator
             checkArgument(expectedPositions > 0, "expectedPositions < 0");
             this.expectedPositions = expectedPositions;
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-            this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
         }
 
         @Override
@@ -100,8 +96,7 @@ public class RowNumberOperator
                     maxRowsPerPartition,
                     hashChannel,
                     expectedPositions,
-                    joinCompiler,
-                    blockTypeOperators);
+                    joinCompiler);
         }
 
         @Override
@@ -113,7 +108,17 @@ public class RowNumberOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new RowNumberOperatorFactory(operatorId, planNodeId, sourceTypes, outputChannels, partitionChannels, partitionTypes, maxRowsPerPartition, hashChannel, expectedPositions, joinCompiler, blockTypeOperators);
+            return new RowNumberOperatorFactory(
+                    operatorId,
+                    planNodeId,
+                    sourceTypes,
+                    outputChannels,
+                    partitionChannels,
+                    partitionTypes,
+                    maxRowsPerPartition,
+                    hashChannel,
+                    expectedPositions,
+                    joinCompiler);
         }
     }
 
@@ -125,6 +130,7 @@ public class RowNumberOperator
     private final List<Type> types;
 
     private int[] partitionIds;
+    private int[] groupByChannels;
     private final Optional<GroupByHash> groupByHash;
 
     private Page inputPage;
@@ -146,8 +152,7 @@ public class RowNumberOperator
             Optional<Integer> maxRowsPerPartition,
             Optional<Integer> hashChannel,
             int expectedPositions,
-            JoinCompiler joinCompiler,
-            BlockTypeOperators blockTypeOperators)
+            JoinCompiler joinCompiler)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
@@ -167,8 +172,23 @@ public class RowNumberOperator
             this.groupByHash = Optional.empty();
         }
         else {
-            int[] channels = Ints.toArray(partitionChannels);
-            this.groupByHash = Optional.of(createGroupByHash(operatorContext.getSession(), partitionTypes, channels, hashChannel, expectedPositions, joinCompiler, blockTypeOperators, this::updateMemoryReservation));
+            if (hashChannel.isPresent()) {
+                this.groupByChannels = new int[partitionChannels.size() + 1];
+                for (int i = 0; i < partitionChannels.size(); i++) {
+                    this.groupByChannels[i] = partitionChannels.get(i);
+                }
+                this.groupByChannels[partitionChannels.size()] = hashChannel.get();
+            }
+            else {
+                this.groupByChannels = Ints.toArray(partitionChannels);
+            }
+            this.groupByHash = Optional.of(createGroupByHash(
+                    operatorContext.getSession(),
+                    partitionTypes,
+                    hashChannel.isPresent(),
+                    expectedPositions,
+                    joinCompiler,
+                    this::updateMemoryReservation));
         }
     }
 
@@ -215,7 +235,7 @@ public class RowNumberOperator
         checkState(!hasUnfinishedInput());
         inputPage = page;
         if (groupByHash.isPresent()) {
-            unfinishedWork = groupByHash.get().getGroupIds(inputPage);
+            unfinishedWork = groupByHash.get().getGroupIds(inputPage.getColumns(groupByChannels));
             processUnfinishedWork();
         }
         updateMemoryReservation();

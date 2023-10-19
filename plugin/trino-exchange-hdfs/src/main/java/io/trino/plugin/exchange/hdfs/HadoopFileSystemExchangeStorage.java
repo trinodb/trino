@@ -174,8 +174,13 @@ public class HadoopFileSystemExchangeStorage
                 return null;
             }
 
-            if (sliceInput != null && sliceInput.isReadable()) {
-                return sliceInput.readSlice(sliceInput.readInt());
+            if (sliceInput != null) {
+                if (sliceInput.isReadable()) {
+                    return sliceInput.readSlice(sliceInput.readInt());
+                }
+                else {
+                    sliceInput.close();
+                }
             }
 
             ExchangeSourceFile sourceFile = sourceFiles.poll();

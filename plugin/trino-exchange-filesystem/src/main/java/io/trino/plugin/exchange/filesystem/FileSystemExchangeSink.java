@@ -299,7 +299,9 @@ public class FileSystemExchangeSink
                 currentBuffer = null;
             }
 
-            writeInternal(Slices.wrappedIntArray(data.length()));
+            Slice sizeSlice = Slices.allocate(Integer.BYTES);
+            sizeSlice.setInt(0, data.length());
+            writeInternal(sizeSlice);
             writeInternal(data);
 
             currentFileSize += requiredPageStorageSize;

@@ -38,7 +38,7 @@ import io.trino.sql.planner.PathNodes;
 import org.assertj.core.api.AssertProvider;
 import org.assertj.core.api.RecursiveComparisonAssert;
 import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguration;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -1478,7 +1478,7 @@ public class TestJsonPathEvaluator
                 input,
                 PARAMETERS.values().toArray(),
                 new JsonPathEvaluator.Invoker(testSessionBuilder().build().toConnectorSession(), createTestingFunctionManager()),
-                new CachingResolver(createTestMetadataManager(), testSessionBuilder().build().toConnectorSession(), new TestingTypeManager()));
+                new CachingResolver(createTestMetadataManager(), new TestingTypeManager()));
     }
 
     private static PathPredicateEvaluationVisitor createPredicateVisitor(JsonNode input, boolean lax)
@@ -1487,6 +1487,6 @@ public class TestJsonPathEvaluator
                 lax,
                 createPathVisitor(input, lax),
                 new JsonPathEvaluator.Invoker(testSessionBuilder().build().toConnectorSession(), createTestingFunctionManager()),
-                new CachingResolver(createTestMetadataManager(), testSessionBuilder().build().toConnectorSession(), new TestingTypeManager()));
+                new CachingResolver(createTestMetadataManager(), new TestingTypeManager()));
     }
 }

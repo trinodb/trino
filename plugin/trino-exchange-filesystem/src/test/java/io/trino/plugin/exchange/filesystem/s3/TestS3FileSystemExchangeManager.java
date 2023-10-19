@@ -17,7 +17,7 @@ import io.trino.plugin.exchange.filesystem.AbstractTestExchangeManager;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeManagerFactory;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.spi.exchange.ExchangeManager;
-import org.testng.annotations.AfterClass;
+import org.junit.jupiter.api.AfterAll;
 
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static java.util.UUID.randomUUID;
@@ -37,7 +37,7 @@ public class TestS3FileSystemExchangeManager
     }
 
     @Override
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void destroy()
             throws Exception
     {

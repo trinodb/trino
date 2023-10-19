@@ -27,8 +27,7 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.Type;
-import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Constructor;
 import java.util.List;
@@ -146,7 +145,7 @@ public abstract class AbstractTestAggregationFunction
         pagesIndex.addPage(inputPage);
         WindowIndex windowIndex = new PagesWindowIndex(pagesIndex, 0, totalPositions - 1);
 
-        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of(getFunctionName()), fromTypes(getFunctionParameterTypes()));
+        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(getFunctionName(), fromTypes(getFunctionParameterTypes()));
         AggregationImplementation aggregationImplementation = functionResolution.getPlannerContext().getFunctionManager().getAggregationImplementation(resolvedFunction);
         WindowAccumulator aggregation = createWindowAccumulator(resolvedFunction, aggregationImplementation);
         int oldStart = 0;
@@ -221,7 +220,7 @@ public abstract class AbstractTestAggregationFunction
     {
         assertAggregation(
                 functionResolution,
-                QualifiedName.of(getFunctionName()),
+                getFunctionName(),
                 fromTypes(getFunctionParameterTypes()),
                 expectedValue,
                 blocks);

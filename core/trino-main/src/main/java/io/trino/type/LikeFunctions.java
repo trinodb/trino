@@ -50,10 +50,7 @@ public final class LikeFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean likeVarchar(@SqlType("varchar") Slice value, @SqlType(LikePatternType.NAME) LikePattern pattern)
     {
-        if (value.hasByteArray()) {
-            return pattern.getMatcher().match(value.byteArray(), value.byteArrayOffset(), value.length());
-        }
-        return pattern.getMatcher().match(value.getBytes(), 0, value.length());
+        return pattern.getMatcher().match(value.byteArray(), value.byteArrayOffset(), value.length());
     }
 
     @ScalarFunction(value = LIKE_PATTERN_FUNCTION_NAME, hidden = true)

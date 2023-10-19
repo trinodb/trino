@@ -28,7 +28,6 @@ import org.intellij.lang.annotations.Language;
 import java.util.function.Function;
 
 import static io.trino.sql.SqlFormatter.formatSql;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 public class ParserAssert
@@ -68,12 +67,12 @@ public class ParserAssert
 
     private static Expression createExpression(String expression)
     {
-        return new SqlParser().createExpression(expression, new ParsingOptions(AS_DECIMAL));
+        return new SqlParser().createExpression(expression);
     }
 
     private static Statement createStatement(String statement)
     {
-        return new SqlParser().createStatement(statement, new ParsingOptions(AS_DECIMAL));
+        return new SqlParser().createStatement(statement);
     }
 
     public static ThrowableAssertAlternative<ParsingException> assertExpressionIsInvalid(@Language("SQL") String sql)

@@ -89,15 +89,16 @@ public class TrinoConnection
     private final AtomicReference<String> catalog = new AtomicReference<>();
     private final AtomicReference<String> schema = new AtomicReference<>();
     private final AtomicReference<String> path = new AtomicReference<>();
+    private final AtomicReference<String> authorizationUser = new AtomicReference<>();
     private final AtomicReference<ZoneId> timeZoneId = new AtomicReference<>();
     private final AtomicReference<Locale> locale = new AtomicReference<>();
     private final AtomicReference<Integer> networkTimeoutMillis = new AtomicReference<>(Ints.saturatedCast(MINUTES.toMillis(2)));
     private final AtomicLong nextStatementId = new AtomicLong(1);
+    private final AtomicReference<Optional<String>> sessionUser = new AtomicReference<>();
 
     private final URI jdbcUri;
     private final URI httpUri;
     private final Optional<String> user;
-    private final Optional<String> sessionUser;
     private final boolean compressionDisabled;
     private final boolean assumeLiteralNamesInMetadataCallsForNonConformingClients;
     private final boolean assumeLiteralUnderscoreInMetadataCallsForNonConformingClients;
@@ -120,7 +121,7 @@ public class TrinoConnection
         uri.getSchema().ifPresent(schema::set);
         uri.getCatalog().ifPresent(catalog::set);
         this.user = uri.getUser();
-        this.sessionUser = uri.getSessionUser();
+        this.sessionUser.set(uri.getSessionUser());
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
         this.source = uri.getSource();
         this.extraCredentials = uri.getExtraCredentials();
@@ -140,7 +141,7 @@ public class TrinoConnection
         uri.getTraceToken().ifPresent(tags -> clientInfo.put(TRACE_TOKEN, tags));
 
         roles.putAll(uri.getRoles());
-        timeZoneId.set(ZoneId.systemDefault());
+        timeZoneId.set(uri.getTimeZone());
         locale.set(Locale.getDefault());
         sessionProperties.putAll(uri.getSessionProperties());
     }
@@ -325,7 +326,6 @@ public class TrinoConnection
         isolationLevel.set(level);
     }
 
-    @SuppressWarnings("MagicConstant")
     @Override
     public int getTransactionIsolation()
             throws SQLException
@@ -636,6 +636,17 @@ public class TrinoConnection
         sessionProperties.put(name, value);
     }
 
+    public void setSessionUser(String sessionUser)
+    {
+        requireNonNull(sessionUser, "sessionUser is null");
+        this.sessionUser.set(Optional.of(sessionUser));
+    }
+
+    public void clearSessionUser()
+    {
+        this.sessionUser.set(Optional.empty());
+    }
+
     @VisibleForTesting
     Map<String, ClientSelectedRole> getRoles()
     {
@@ -734,7 +745,8 @@ public class TrinoConnection
         ClientSession session = ClientSession.builder()
                 .server(httpUri)
                 .principal(user)
-                .user(sessionUser)
+                .user(sessionUser.get())
+                .authorizationUser(Optional.ofNullable(authorizationUser.get()))
                 .source(source)
                 .traceToken(Optional.ofNullable(clientInfo.get(TRACE_TOKEN)))
                 .clientTags(ImmutableSet.copyOf(clientTags))
@@ -770,6 +782,15 @@ public class TrinoConnection
         client.getSetSchema().ifPresent(schema::set);
         client.getSetPath().ifPresent(path::set);
 
+        if (client.getSetAuthorizationUser().isPresent()) {
+            authorizationUser.set(client.getSetAuthorizationUser().get());
+            roles.clear();
+        }
+        if (client.isResetAuthorizationUser()) {
+            authorizationUser.set(null);
+            roles.clear();
+        }
+
         if (client.getStartedTransactionId() != null) {
             transactionId.set(client.getStartedTransactionId());
         }
@@ -797,6 +818,12 @@ public class TrinoConnection
     int activeStatements()
     {
         return statements.size();
+    }
+
+    @VisibleForTesting
+    String getAuthorizationUser()
+    {
+        return authorizationUser.get();
     }
 
     private void checkOpen()

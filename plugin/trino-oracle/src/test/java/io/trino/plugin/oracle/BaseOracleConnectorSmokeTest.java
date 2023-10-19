@@ -15,7 +15,7 @@ package io.trino.plugin.oracle;
 
 import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -23,20 +23,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseOracleConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
 {
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_CREATE_SCHEMA:
-                return false;
-
-            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_CREATE_SCHEMA,
+                    SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     @Test

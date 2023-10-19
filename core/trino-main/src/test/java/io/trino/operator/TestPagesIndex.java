@@ -20,9 +20,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
-import io.trino.testing.DataProviders;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Iterator;
@@ -123,58 +121,54 @@ public class TestPagesIndex
         assertFalse(pages.hasNext());
     }
 
-    @DataProvider
-    public static Object[][] testGetEstimatedLookupSourceSizeInBytesProvider()
+    @Test
+    public void testGetEstimatedLookupSourceSizeInBytes()
     {
-        return DataProviders.cartesianProduct(
-                new Object[][] {{Optional.empty()}, {Optional.of(0)}, {Optional.of(1)}},
-                new Object[][] {{0}, {1}});
-    }
+        for (Optional<Integer> sortChannel : Arrays.asList(Optional.<Integer>empty(), Optional.of(0), Optional.of(1))) {
+            for (int joinChannel : Arrays.asList(0, 1)) {
+                List<Type> types = ImmutableList.of(BIGINT, VARCHAR);
+                PagesIndex pagesIndex = newPagesIndex(types, 50, false);
+                int pageCount = 100;
+                for (int i = 0; i < pageCount; i++) {
+                    pagesIndex.addPage(somePage(types));
+                }
+                long pageIndexSize = pagesIndex.getEstimatedSize().toBytes();
+                long estimatedMemoryRequiredToCreateLookupSource = pagesIndex.getEstimatedMemoryRequiredToCreateLookupSource(
+                        defaultHashArraySizeSupplier(),
+                        sortChannel,
+                        ImmutableList.of(joinChannel));
+                assertThat(estimatedMemoryRequiredToCreateLookupSource).isGreaterThan(pageIndexSize);
+                long estimatedLookupSourceSize = estimatedMemoryRequiredToCreateLookupSource -
+                        // subtract size of page positions
+                        sizeOfIntArray(pageCount);
+                long estimatedAdditionalSize = estimatedMemoryRequiredToCreateLookupSource - pageIndexSize;
 
-    @Test(dataProvider = "testGetEstimatedLookupSourceSizeInBytesProvider")
-    public void testGetEstimatedLookupSourceSizeInBytes(Optional<Integer> sortChannel, int joinChannel)
-    {
-        List<Type> types = ImmutableList.of(BIGINT, VARCHAR);
-        PagesIndex pagesIndex = newPagesIndex(types, 50, false);
-        int pageCount = 100;
-        for (int i = 0; i < pageCount; i++) {
-            pagesIndex.addPage(somePage(types));
+                JoinFilterFunctionCompiler.JoinFilterFunctionFactory filterFunctionFactory = (session, addresses, pages) -> (JoinFilterFunction) (leftPosition, rightPosition, rightPage) -> false;
+                LookupSource lookupSource = pagesIndex.createLookupSourceSupplier(
+                        TEST_SESSION,
+                        ImmutableList.of(joinChannel),
+                        OptionalInt.empty(),
+                        sortChannel.map(channel -> filterFunctionFactory),
+                        sortChannel,
+                        ImmutableList.of(filterFunctionFactory),
+                        Optional.of(ImmutableList.of(0, 1)),
+                        defaultHashArraySizeSupplier()).get();
+                long actualLookupSourceSize = lookupSource.getInMemorySizeInBytes();
+                assertThat(estimatedLookupSourceSize).isGreaterThanOrEqualTo(actualLookupSourceSize);
+                assertThat(estimatedLookupSourceSize).isCloseTo(actualLookupSourceSize, withPercentage(1));
+
+                long addressesSize = sizeOf(pagesIndex.getValueAddresses().elements());
+                long channelsArraySize = sizeOf(pagesIndex.getChannel(0).elements()) * types.size();
+                long blocksSize = 0;
+                for (int channel = 0; channel < 2; channel++) {
+                    blocksSize += pagesIndex.getChannel(channel).stream()
+                            .mapToLong(Block::getRetainedSizeInBytes)
+                            .sum();
+                }
+                long actualAdditionalSize = actualLookupSourceSize - (addressesSize + channelsArraySize + blocksSize);
+                assertThat(estimatedAdditionalSize).isCloseTo(actualAdditionalSize, withPercentage(1));
+            }
         }
-        long pageIndexSize = pagesIndex.getEstimatedSize().toBytes();
-        long estimatedMemoryRequiredToCreateLookupSource = pagesIndex.getEstimatedMemoryRequiredToCreateLookupSource(
-                defaultHashArraySizeSupplier(),
-                sortChannel,
-                ImmutableList.of(joinChannel));
-        assertThat(estimatedMemoryRequiredToCreateLookupSource).isGreaterThan(pageIndexSize);
-        long estimatedLookupSourceSize = estimatedMemoryRequiredToCreateLookupSource -
-                // subtract size of page positions
-                sizeOfIntArray(pageCount);
-        long estimatedAdditionalSize = estimatedMemoryRequiredToCreateLookupSource - pageIndexSize;
-
-        JoinFilterFunctionCompiler.JoinFilterFunctionFactory filterFunctionFactory = (session, addresses, pages) -> (JoinFilterFunction) (leftPosition, rightPosition, rightPage) -> false;
-        LookupSource lookupSource = pagesIndex.createLookupSourceSupplier(
-                TEST_SESSION,
-                ImmutableList.of(joinChannel),
-                OptionalInt.empty(),
-                sortChannel.map(channel -> filterFunctionFactory),
-                sortChannel,
-                ImmutableList.of(filterFunctionFactory),
-                Optional.of(ImmutableList.of(0, 1)),
-                defaultHashArraySizeSupplier()).get();
-        long actualLookupSourceSize = lookupSource.getInMemorySizeInBytes();
-        assertThat(estimatedLookupSourceSize).isGreaterThanOrEqualTo(actualLookupSourceSize);
-        assertThat(estimatedLookupSourceSize).isCloseTo(actualLookupSourceSize, withPercentage(1));
-
-        long addressesSize = sizeOf(pagesIndex.getValueAddresses().elements());
-        long channelsArraySize = sizeOf(pagesIndex.getChannel(0).elements()) * types.size();
-        long blocksSize = 0;
-        for (int channel = 0; channel < 2; channel++) {
-            blocksSize += pagesIndex.getChannel(channel).stream()
-                    .mapToLong(Block::getRetainedSizeInBytes)
-                    .sum();
-        }
-        long actualAdditionalSize = actualLookupSourceSize - (addressesSize + channelsArraySize + blocksSize);
-        assertThat(estimatedAdditionalSize).isCloseTo(actualAdditionalSize, withPercentage(1));
     }
 
     private static PagesIndex newPagesIndex(List<Type> types, int expectedPositions, boolean eagerCompact)

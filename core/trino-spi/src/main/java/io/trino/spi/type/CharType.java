@@ -42,6 +42,7 @@ public final class CharType
         extends AbstractVariableWidthType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = TypeOperatorDeclaration.builder(Slice.class)
+            .addOperators(DEFAULT_READ_OPERATORS)
             .addOperators(DEFAULT_COMPARABLE_OPERATORS)
             .addOperators(CharType.class, lookup())
             .build();
@@ -176,17 +177,6 @@ public final class CharType
         // If bound on length of char is smaller than EXPECTED_BYTES_PER_ENTRY, use that as expectedBytesPerEntry
         // The data can take up to 4 bytes per character due to UTF-8 encoding, but we assume it is ASCII and only needs one byte.
         return createBlockBuilder(blockBuilderStatus, expectedEntries, Math.min(length, EXPECTED_BYTES_PER_ENTRY));
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            ((VariableWidthBlockBuilder) blockBuilder).buildEntry(valueBuilder -> block.writeSliceTo(position, 0, block.getSliceLength(position), valueBuilder));
-        }
     }
 
     @Override

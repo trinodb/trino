@@ -20,8 +20,8 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
+import org.junit.jupiter.api.Test;
 import org.testng.SkipException;
-import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -60,46 +60,25 @@ public class TestKuduConnectorTest
                 REQUIRED_TPCH_TABLES);
     }
 
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_TRUNCATE:
-                return false;
-
-            case SUPPORTS_TOPN_PUSHDOWN:
-                return false;
-
-            case SUPPORTS_RENAME_SCHEMA:
-            case SUPPORTS_DROP_SCHEMA_CASCADE:
-                return false;
-
-            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
-                return false;
-
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
-                return false;
-
-            case SUPPORTS_SET_COLUMN_TYPE:
-                return false;
-
-            case SUPPORTS_CREATE_VIEW:
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
-                return false;
-
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
-                return false;
-
-            case SUPPORTS_ARRAY:
-            case SUPPORTS_ROW_TYPE:
-            case SUPPORTS_NEGATIVE_DATE:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_ARRAY,
+                    SUPPORTS_COMMENT_ON_COLUMN,
+                    SUPPORTS_COMMENT_ON_TABLE,
+                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                    SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                    SUPPORTS_CREATE_VIEW,
+                    SUPPORTS_NEGATIVE_DATE,
+                    SUPPORTS_NOT_NULL_CONSTRAINT,
+                    SUPPORTS_RENAME_SCHEMA,
+                    SUPPORTS_ROW_TYPE,
+                    SUPPORTS_SET_COLUMN_TYPE,
+                    SUPPORTS_TOPN_PUSHDOWN,
+                    SUPPORTS_TRUNCATE -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     @Override
@@ -127,6 +106,7 @@ public class TestKuduConnectorTest
                 .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
     }
 
+    @Test
     @Override
     public void testCreateSchemaWithNonLowercaseOwnerName()
     {
@@ -134,6 +114,7 @@ public class TestKuduConnectorTest
                 .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
     }
 
+    @Test
     @Override
     public void testCreateSchemaWithLongName()
     {
@@ -150,6 +131,7 @@ public class TestKuduConnectorTest
                 .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
     }
 
+    @Test
     @Override
     public void testDropSchemaCascade()
     {
@@ -232,7 +214,7 @@ public class TestKuduConnectorTest
                         "   comment varchar COMMENT '' WITH ( nullable = true )\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   number_of_replicas = 3,\n" +
+                        "   number_of_replicas = 1,\n" +
                         "   partition_by_hash_buckets = 2,\n" +
                         "   partition_by_hash_columns = ARRAY['row_uuid'],\n" +
                         "   partition_by_range_columns = ARRAY['row_uuid'],\n" +
@@ -708,7 +690,7 @@ public class TestKuduConnectorTest
      * This test fails intermittently because Kudu doesn't have strong enough
      * semantics to support writing from multiple threads.
      */
-    @Test(enabled = false)
+    @org.testng.annotations.Test(enabled = false)
     @Override
     public void testUpdateWithPredicates()
     {
@@ -730,7 +712,6 @@ public class TestKuduConnectorTest
      * This test fails intermittently because Kudu doesn't have strong enough
      * semantics to support writing from multiple threads.
      */
-    @Test(enabled = false)
     @Override
     public void testUpdateAllValues()
     {
@@ -742,12 +723,10 @@ public class TestKuduConnectorTest
         });
     }
 
-    @Test
     @Override
     public void testWrittenStats()
     {
         // TODO Kudu connector supports CTAS and inserts, but the test would fail
-        throw new SkipException("TODO");
     }
 
     @Override
@@ -807,7 +786,6 @@ public class TestKuduConnectorTest
         throw new SkipException("TODO: implement the test for Kudu");
     }
 
-    @Test
     @Override
     public void testCharVarcharComparison()
     {
@@ -969,9 +947,25 @@ public class TestKuduConnectorTest
      * This test fails intermittently because Kudu doesn't have strong enough
      * semantics to support writing from multiple threads.
      */
-    @Test(enabled = false)
+    @org.testng.annotations.Test(enabled = false)
     @Override
     public void testUpdate()
+    {
+        withTableName("test_update", tableName -> {
+            assertUpdate(createTableForWrites("CREATE TABLE %s %s".formatted(tableName, NATION_COLUMNS)));
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM nation", 25);
+            assertUpdate("UPDATE " + tableName + " SET nationkey = 100 WHERE regionkey = 2", 5);
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE nationkey = 100", "VALUES 5");
+        });
+    }
+
+    /**
+     * This test fails intermittently because Kudu doesn't have strong enough
+     * semantics to support writing from multiple threads.
+     */
+    @org.testng.annotations.Test(enabled = false)
+    @Override
+    public void testRowLevelUpdate()
     {
         withTableName("test_update", tableName -> {
             assertUpdate(createTableForWrites("CREATE TABLE %s %s".formatted(tableName, NATION_COLUMNS)));
@@ -997,6 +991,7 @@ public class TestKuduConnectorTest
         throw new SkipException("Kudu doesn't support concurrent update of different columns in a row");
     }
 
+    @Test
     @Override
     public void testCreateTableWithTableComment()
     {

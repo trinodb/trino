@@ -36,7 +36,6 @@ import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.Optional;
 
@@ -79,7 +78,6 @@ public class TransformExistsApplyToCorrelatedJoin
 {
     private static final Pattern<ApplyNode> PATTERN = applyNode();
 
-    private static final QualifiedName COUNT = QualifiedName.of("count");
     private final PlannerContext plannerContext;
 
     public TransformExistsApplyToCorrelatedJoin(PlannerContext plannerContext)
@@ -165,8 +163,8 @@ public class TransformExistsApplyToCorrelatedJoin
 
     private PlanNode rewriteToDefaultAggregation(ApplyNode applyNode, Context context)
     {
-        ResolvedFunction countFunction = plannerContext.getMetadata().resolveFunction(context.getSession(), COUNT, ImmutableList.of());
-        Symbol count = context.getSymbolAllocator().newSymbol(COUNT.toString(), BIGINT);
+        ResolvedFunction countFunction = plannerContext.getMetadata().resolveBuiltinFunction("count", ImmutableList.of());
+        Symbol count = context.getSymbolAllocator().newSymbol("count", BIGINT);
         Symbol exists = getOnlyElement(applyNode.getSubqueryAssignments().getSymbols());
 
         return new CorrelatedJoinNode(

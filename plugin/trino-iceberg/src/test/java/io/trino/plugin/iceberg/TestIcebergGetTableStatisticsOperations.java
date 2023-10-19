@@ -18,9 +18,7 @@ import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.InternalFunctionBundle;
-import io.trino.metadata.MetadataManager;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
@@ -44,10 +42,10 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
+import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.transaction.TransactionBuilder.transaction;
 import static org.assertj.core.api.Assertions.assertThat;
 
 // Cost-based optimizers' behaviors are affected by the statistics returned by the Connectors. Here is to count the getTableStatistics calls
@@ -71,8 +69,7 @@ public class TestIcebergGetTableStatisticsOperations
                 .build();
 
         localQueryRunner = LocalQueryRunner.builder(testSessionBuilder().build())
-                .withMetadataProvider((systemSecurityMetadata, transactionManager, globalFunctionCatalog, typeManager)
-                        -> new TracingMetadata(tracerProvider.get("test"), new MetadataManager(systemSecurityMetadata, transactionManager, globalFunctionCatalog, typeManager)))
+                .withMetadataDecorator(metadata -> new TracingMetadata(tracerProvider.get("test"), metadata))
                 .build();
         localQueryRunner.installPlugin(new TpchPlugin());
         localQueryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
@@ -137,10 +134,13 @@ public class TestIcebergGetTableStatisticsOperations
 
     private void planDistributedQuery(@Language("SQL") String sql)
     {
-        transaction(localQueryRunner.getTransactionManager(), localQueryRunner.getAccessControl())
-                .execute(localQueryRunner.getDefaultSession(), session -> {
-                    localQueryRunner.createPlan(session, sql, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
-                });
+        localQueryRunner.inTransaction(transactionSession -> localQueryRunner.createPlan(
+                transactionSession,
+                sql,
+                localQueryRunner.getPlanOptimizers(false),
+                OPTIMIZED_AND_VALIDATED,
+                NOOP,
+                createPlanOptimizersStatsCollector()));
     }
 
     private long getTableStatisticsMethodInvocations()

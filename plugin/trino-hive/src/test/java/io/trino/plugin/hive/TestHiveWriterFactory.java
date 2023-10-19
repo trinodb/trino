@@ -15,7 +15,7 @@ package io.trino.plugin.hive;
 
 import io.trino.filesystem.Location;
 import org.apache.hadoop.fs.Path;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 

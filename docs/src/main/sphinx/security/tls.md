@@ -220,9 +220,8 @@ http-server.https.keystore.path=/usr/local/certs/clustercoord.p12
 Relative paths are relative to the Trino server's root directory. In a
 `tar.gz` installation, the root directory is one level above `etc`.
 
-JKS keystores always require a password, while PEM format certificates can
-optionally require a password. For cases where you need a password, add the
-following line to the configuration.
+JKS keystores always require a password, while PEM files with passwords are not
+supported by Trino. For JKS, add the following line to the configuration:
 
 ```text
 http-server.https.keystore.key=<keystore-password>

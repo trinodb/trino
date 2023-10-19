@@ -21,10 +21,8 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
-import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.operator.GroupByHash.createGroupByHash;
@@ -34,14 +32,9 @@ public class MarkDistinctHash
     private final GroupByHash groupByHash;
     private long nextDistinctId;
 
-    public MarkDistinctHash(Session session, List<Type> types, int[] channels, Optional<Integer> hashChannel, JoinCompiler joinCompiler, BlockTypeOperators blockTypeOperators, UpdateMemory updateMemory)
+    public MarkDistinctHash(Session session, List<Type> types, boolean hasPrecomputedHash, JoinCompiler joinCompiler, UpdateMemory updateMemory)
     {
-        this(session, types, channels, hashChannel, 10_000, joinCompiler, blockTypeOperators, updateMemory);
-    }
-
-    public MarkDistinctHash(Session session, List<Type> types, int[] channels, Optional<Integer> hashChannel, int expectedDistinctValues, JoinCompiler joinCompiler, BlockTypeOperators blockTypeOperators, UpdateMemory updateMemory)
-    {
-        this.groupByHash = createGroupByHash(session, types, channels, hashChannel, expectedDistinctValues, joinCompiler, blockTypeOperators, updateMemory);
+        this.groupByHash = createGroupByHash(session, types, hasPrecomputedHash, 10_000, joinCompiler, updateMemory);
     }
 
     public long getEstimatedSize()

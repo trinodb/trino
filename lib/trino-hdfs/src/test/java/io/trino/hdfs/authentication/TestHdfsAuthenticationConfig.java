@@ -15,7 +15,7 @@ package io.trino.hdfs.authentication;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.hdfs.authentication.HdfsAuthenticationConfig.HdfsAuthenticationType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 

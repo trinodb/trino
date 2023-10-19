@@ -27,12 +27,14 @@ import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
@@ -96,6 +98,8 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnMetadata;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.iceberg.IcebergMetadata.ORC_BLOOM_FILTER_COLUMNS_KEY;
@@ -165,6 +169,10 @@ import static org.apache.iceberg.types.Type.TypeID.FIXED;
 
 public final class IcebergUtil
 {
+    public static final String TRINO_TABLE_METADATA_INFO_VALID_FOR = "trino_table_metadata_info_valid_for";
+    public static final String COLUMN_TRINO_NOT_NULL_PROPERTY = "trino_not_null";
+    public static final String COLUMN_TRINO_TYPE_ID_PROPERTY = "trino_type_id";
+
     public static final String METADATA_FOLDER_NAME = "metadata";
     public static final String METADATA_FILE_EXTENSION = ".metadata.json";
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
@@ -252,6 +260,25 @@ public final class IcebergUtil
         return schema.columns().stream()
                 .map(column -> getColumnHandle(column, typeManager))
                 .collect(toImmutableList());
+    }
+
+    public static List<ColumnMetadata> getColumnMetadatas(Schema schema, TypeManager typeManager)
+    {
+        List<NestedField> icebergColumns = schema.columns();
+        ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builderWithExpectedSize(icebergColumns.size() + 2);
+
+        icebergColumns.stream()
+                .map(column ->
+                        ColumnMetadata.builder()
+                                .setName(column.name())
+                                .setType(toTrinoType(column.type(), typeManager))
+                                .setNullable(column.isOptional())
+                                .setComment(Optional.ofNullable(column.doc()))
+                                .build())
+                .forEach(columns::add);
+        columns.add(pathColumnMetadata());
+        columns.add(fileModifiedTimeColumnMetadata());
+        return columns.build();
     }
 
     public static IcebergColumnHandle getColumnHandle(NestedField column, TypeManager typeManager)
@@ -562,6 +589,22 @@ public final class IcebergUtil
         });
 
         return partitionKeys.buildOrThrow();
+    }
+
+    public static Map<ColumnHandle, NullableValue> getPartitionValues(
+            Set<IcebergColumnHandle> identityPartitionColumns,
+            Map<Integer, Optional<String>> partitionKeys)
+    {
+        ImmutableMap.Builder<ColumnHandle, NullableValue> bindings = ImmutableMap.builder();
+        for (IcebergColumnHandle partitionColumn : identityPartitionColumns) {
+            Object partitionValue = deserializePartitionValue(
+                    partitionColumn.getType(),
+                    partitionKeys.get(partitionColumn.getId()).orElse(null),
+                    partitionColumn.getName());
+            NullableValue bindingValue = new NullableValue(partitionColumn.getType(), partitionValue);
+            bindings.put(partitionColumn, bindingValue);
+        }
+        return bindings.buildOrThrow();
     }
 
     public static LocationProvider getLocationProvider(SchemaTableName schemaTableName, String tableLocation, Map<String, String> storageProperties)

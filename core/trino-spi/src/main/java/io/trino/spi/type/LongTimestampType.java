@@ -22,8 +22,14 @@ import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
+import io.trino.spi.function.FlatFixed;
+import io.trino.spi.function.FlatFixedOffset;
+import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.nio.ByteOrder;
 import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -31,6 +37,7 @@ import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.rescale;
@@ -48,6 +55,8 @@ class LongTimestampType
         extends TimestampType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(LongTimestampType.class, lookup(), LongTimestamp.class);
+    private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
+    private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
     private final Range range;
 
     public LongTimestampType(int precision)
@@ -128,7 +137,7 @@ class LongTimestampType
         write(blockBuilder, timestamp.getEpochMicros(), timestamp.getPicosOfMicro());
     }
 
-    public void write(BlockBuilder blockBuilder, long epochMicros, int fraction)
+    private static void write(BlockBuilder blockBuilder, long epochMicros, int fraction)
     {
         ((Fixed12BlockBuilder) blockBuilder).writeFixed12(epochMicros, fraction);
     }
@@ -146,6 +155,12 @@ class LongTimestampType
         return SqlTimestamp.newInstance(getPrecision(), epochMicros, fraction);
     }
 
+    @Override
+    public int getFlatFixedSize()
+    {
+        return Long.BYTES + Integer.BYTES;
+    }
+
     private static long getEpochMicros(Block block, int position)
     {
         return block.getLong(position, 0);
@@ -160,6 +175,54 @@ class LongTimestampType
     public Optional<Range> getRange()
     {
         return Optional.of(range);
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static LongTimestamp readFlat(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice)
+    {
+        return new LongTimestamp(
+                (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset),
+                (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset + Long.BYTES));
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static void readFlatToBlock(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            BlockBuilder blockBuilder)
+    {
+        write(blockBuilder,
+                (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset),
+                (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG));
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static void writeFlat(
+            LongTimestamp value,
+            byte[] fixedSizeSlice,
+            int fixedSizeOffset,
+            byte[] unusedVariableSizeSlice,
+            int unusedVariableSizeOffset)
+    {
+        LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset, value.getEpochMicros());
+        INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG, value.getPicosOfMicro());
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static void writeBlockFlat(
+            @BlockPosition Block block,
+            @BlockIndex int position,
+            byte[] fixedSizeSlice,
+            int fixedSizeOffset,
+            byte[] unusedVariableSizeSlice,
+            int unusedVariableSizeOffset)
+    {
+        LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset, getEpochMicros(block, position));
+        INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG, getFraction(block, position));
     }
 
     @ScalarOperator(EQUAL)

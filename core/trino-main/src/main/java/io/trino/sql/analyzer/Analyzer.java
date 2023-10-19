@@ -21,7 +21,8 @@ import io.opentelemetry.context.Context;
 import io.trino.Session;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.FunctionResolver;
+import io.trino.security.AccessControl;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
@@ -32,7 +33,6 @@ import io.trino.sql.tree.Statement;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
@@ -94,7 +94,7 @@ public class Analyzer
         StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
 
         try (var ignored = scopedSpan(tracer, "analyze")) {
-            analyzer.analyze(rewrittenStatement, Optional.empty());
+            analyzer.analyze(rewrittenStatement);
         }
 
         try (var ignored = scopedSpan(tracer, "access-control")) {
@@ -102,7 +102,7 @@ public class Analyzer
             analysis.getTableColumnReferences().forEach((accessControlInfo, tableColumnReferences) ->
                     tableColumnReferences.forEach((tableName, columns) ->
                             accessControlInfo.getAccessControl().checkCanSelectFromColumns(
-                                    accessControlInfo.getSecurityContext(session.getRequiredTransactionId(), session.getQueryId()),
+                                    accessControlInfo.getSecurityContext(session.getRequiredTransactionId(), session.getQueryId(), session.getStart()),
                                     tableName,
                                     columns)));
         }
@@ -110,11 +110,11 @@ public class Analyzer
         return analysis;
     }
 
-    static void verifyNoAggregateWindowOrGroupingFunctions(Session session, Metadata metadata, Expression predicate, String clause)
+    static void verifyNoAggregateWindowOrGroupingFunctions(Session session, FunctionResolver functionResolver, AccessControl accessControl, Expression predicate, String clause)
     {
-        List<FunctionCall> aggregates = extractAggregateFunctions(ImmutableList.of(predicate), session, metadata);
+        List<FunctionCall> aggregates = extractAggregateFunctions(ImmutableList.of(predicate), session, functionResolver, accessControl);
 
-        List<Expression> windowExpressions = extractWindowExpressions(ImmutableList.of(predicate), session, metadata);
+        List<Expression> windowExpressions = extractWindowExpressions(ImmutableList.of(predicate), session, functionResolver, accessControl);
 
         List<GroupingOperation> groupingOperations = extractExpressions(ImmutableList.of(predicate), GroupingOperation.class);
 

@@ -13,19 +13,18 @@
  */
 package io.trino.spi.connector;
 
-import io.trino.spi.function.FunctionKind;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.AccessDeniedException;
-import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
@@ -47,10 +46,8 @@ import static io.trino.spi.security.AccessDeniedException.denyDropRole;
 import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
-import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
-import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
@@ -76,14 +73,13 @@ import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyShowCurrentRoles;
-import static io.trino.spi.security.AccessDeniedException.denyShowRoleAuthorizationDescriptors;
+import static io.trino.spi.security.AccessDeniedException.denyShowFunctions;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoles;
 import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
 import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
-import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 
@@ -279,10 +275,24 @@ public interface ConnectorAccessControl
 
     /**
      * Filter the list of columns to those visible to the identity.
+     *
+     * @deprecated Use {@link #filterColumns(ConnectorSecurityContext, Map)}
      */
+    @Deprecated
     default Set<String> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columns)
     {
         return emptySet();
+    }
+
+    /**
+     * Filter lists of columns of multiple tables to those visible to the identity.
+     */
+    default Map<SchemaTableName, Set<String>> filterColumns(ConnectorSecurityContext context, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        return tableColumns.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> filterColumns(context, entry.getKey(), entry.getValue())));
     }
 
     /**
@@ -486,17 +496,6 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to grant an access to the function execution to grantee.
-     *
-     * @throws AccessDeniedException if not allowed
-     */
-    default void checkCanGrantExecuteFunctionPrivilege(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
-    {
-        String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(Locale.ENGLISH), grantee.getName());
-        denyGrantExecuteFunctionPrivilege(functionName.toString(), Identity.ofUser(context.getIdentity().getUser()), granteeAsString);
-    }
-
-    /**
      * Check if identity is allowed to set the specified property.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
@@ -587,16 +586,6 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to show role authorization descriptors (i.e. RoleGrants).
-     *
-     * @throws io.trino.spi.security.AccessDeniedException if not allowed
-     */
-    default void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context)
-    {
-        denyShowRoleAuthorizationDescriptors();
-    }
-
-    /**
      * Check if identity is allowed to show roles.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
@@ -637,13 +626,41 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to execute function
-     *
-     * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     * Is the identity allowed to execute the specified function?
      */
-    default void checkCanExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
+    default boolean canExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)
     {
-        denyExecuteFunction(function.toString());
+        return false;
+    }
+
+    /**
+     * Is identity allowed to create a view that executes the specified function?
+     */
+    default boolean canCreateViewWithExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)
+    {
+        return false;
+    }
+
+    /**
+     * Check if identity is allowed to show functions by executing SHOW FUNCTIONS.
+     * <p>
+     * NOTE: This method is only present to give users an error message when listing is not allowed.
+     * The {@link #filterFunctions} method must filter all results for unauthorized users,
+     * since there are multiple ways to list functions.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanShowFunctions(ConnectorSecurityContext context, String schemaName)
+    {
+        denyShowFunctions(schemaName);
+    }
+
+    /**
+     * Filter the list of functions to those visible to the identity.
+     */
+    default Set<SchemaFunctionName> filterFunctions(ConnectorSecurityContext context, Set<SchemaFunctionName> functionNames)
+    {
+        return emptySet();
     }
 
     /**
@@ -668,17 +685,6 @@ public interface ConnectorAccessControl
      */
     default Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
-        List<ViewExpression> masks = getColumnMasks(context, tableName, columnName, type);
-        if (masks.size() > 1) {
-            throw new UnsupportedOperationException("Multiple masks on a single column are no longer supported");
-        }
-
-        return masks.stream().findFirst();
-    }
-
-    @Deprecated
-    default List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
-    {
-        return emptyList();
+        return Optional.empty();
     }
 }

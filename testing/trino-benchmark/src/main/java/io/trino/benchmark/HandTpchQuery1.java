@@ -120,7 +120,7 @@ public class HandTpchQuery1
                 10_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 new JoinCompiler(localQueryRunner.getTypeOperators()),
-                localQueryRunner.getBlockTypeOperators(),
+                localQueryRunner.getTypeOperators(),
                 Optional.empty());
 
         return ImmutableList.of(tableScanOperator, tpchQuery1Operator, aggregationOperator);

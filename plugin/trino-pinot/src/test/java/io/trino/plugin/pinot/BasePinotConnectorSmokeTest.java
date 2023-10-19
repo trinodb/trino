@@ -55,7 +55,7 @@ import org.apache.pinot.spi.data.DateTimeFormatSpec;
 import org.apache.pinot.spi.data.readers.GenericRow;
 import org.apache.pinot.spi.data.readers.RecordReader;
 import org.apache.pinot.spi.utils.builder.TableNameBuilder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.InputStream;
@@ -298,7 +298,7 @@ public abstract class BasePinotConnectorSmokeTest
         for (int i = 0; i < MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1; i++) {
             tooManyRowsRecordsBuilder.add(new ProducerRecord<>(TOO_MANY_ROWS_TABLE, "key" + i, new GenericRecordBuilder(tooManyRowsAvroSchema)
                     .set("string_col", "string_" + i)
-                    .set("updatedAt", initialUpdatedAt.plusMillis(i * 1000).toEpochMilli())
+                    .set("updatedAt", initialUpdatedAt.plusMillis(i * 1000L).toEpochMilli())
                     .build()));
         }
         kafka.sendMessages(tooManyRowsRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
@@ -320,7 +320,7 @@ public abstract class BasePinotConnectorSmokeTest
         for (int i = 0; i < MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES + 1; i++) {
             tooManyBrokerRowsRecordsBuilder.add(new ProducerRecord<>(TOO_MANY_BROKER_ROWS_TABLE, "key" + i, new GenericRecordBuilder(tooManyBrokerRowsAvroSchema)
                     .set("string_col", "string_" + i)
-                    .set("updatedAt", initialUpdatedAt.plusMillis(i * 1000).toEpochMilli())
+                    .set("updatedAt", initialUpdatedAt.plusMillis(i * 1000L).toEpochMilli())
                     .build()));
         }
         kafka.sendMessages(tooManyBrokerRowsRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
@@ -390,7 +390,7 @@ public abstract class BasePinotConnectorSmokeTest
             jsonTableRecordsBuilder.add(new ProducerRecord<>(JSON_TYPE_TABLE, "key" + i, new GenericRecordBuilder(jsonTableAvroSchema)
                     .set("string_col", "string_" + i)
                     .set("json_col", "{ \"name\": \"user_" + i + "\", \"id\": " + i + "}")
-                    .set("updatedAt", initialUpdatedAt.plusMillis(i * 1000).toEpochMilli())
+                    .set("updatedAt", initialUpdatedAt.plusMillis(i * 1000L).toEpochMilli())
                     .build()));
         }
         kafka.sendMessages(jsonTableRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
@@ -465,7 +465,7 @@ public abstract class BasePinotConnectorSmokeTest
                 GenericRow row = new GenericRow();
                 row.putValue("stringCol", "string_" + i);
                 row.putValue("longCol", (long) i);
-                row.putValue("updatedAt", startInstant.plus(1, DAYS).plusMillis(1000 * (i - 4)).toEpochMilli());
+                row.putValue("updatedAt", startInstant.plus(1, DAYS).plusMillis(1000L * (i - 4)).toEpochMilli());
                 offlineRowsBuilder.add(row);
             }
             Path segmentPath = createSegment(getClass().getClassLoader().getResourceAsStream("hybrid_offlineSpec.json"), getClass().getClassLoader().getResourceAsStream("hybrid_schema.json"), new GenericRowRecordReader(offlineRowsBuilder.build()), temporaryDirectory.toString(), 0);
@@ -478,7 +478,7 @@ public abstract class BasePinotConnectorSmokeTest
                 GenericRow row = new GenericRow();
                 row.putValue("stringCol", "string_" + i);
                 row.putValue("longCol", (long) i);
-                row.putValue("updatedAt", startInstant.minus(1, DAYS).plusMillis(1000 * (i - 7)).toEpochMilli());
+                row.putValue("updatedAt", startInstant.minus(1, DAYS).plusMillis(1000L * (i - 7)).toEpochMilli());
                 offlineRowsBuilder.add(row);
             }
             segmentPath = createSegment(getClass().getClassLoader().getResourceAsStream("hybrid_offlineSpec.json"), getClass().getClassLoader().getResourceAsStream("hybrid_schema.json"), new GenericRowRecordReader(offlineRowsBuilder.build()), temporaryDirectory.toString(), 1);
@@ -646,23 +646,19 @@ public abstract class BasePinotConnectorSmokeTest
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("nation_realtimeSpec.json"), nationTableName);
     }
 
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_CREATE_SCHEMA -> false;
-
-            case SUPPORTS_CREATE_TABLE, SUPPORTS_RENAME_TABLE -> false;
-
-            case SUPPORTS_INSERT -> false;
-            case SUPPORTS_UPDATE -> false;
-            case SUPPORTS_DELETE -> false;
-            case SUPPORTS_MERGE -> false;
-
-            case SUPPORTS_CREATE_VIEW -> false;
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW -> false;
-
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                    SUPPORTS_CREATE_SCHEMA,
+                    SUPPORTS_CREATE_TABLE,
+                    SUPPORTS_CREATE_VIEW,
+                    SUPPORTS_DELETE,
+                    SUPPORTS_INSERT,
+                    SUPPORTS_MERGE,
+                    SUPPORTS_RENAME_TABLE,
+                    SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -972,6 +968,7 @@ public abstract class BasePinotConnectorSmokeTest
         }
     }
 
+    @Test
     @Override
     public void testShowCreateTable()
     {
@@ -987,6 +984,7 @@ public abstract class BasePinotConnectorSmokeTest
                         getSession().getSchema().orElseThrow());
     }
 
+    @Test
     @Override
     public void testSelectInformationSchemaColumns()
     {
@@ -996,6 +994,7 @@ public abstract class BasePinotConnectorSmokeTest
                 .matches("VALUES 'regionkey', 'name', 'comment', 'updated_at_seconds'");
     }
 
+    @Test
     @Override
     public void testTopN()
     {
@@ -1004,6 +1003,7 @@ public abstract class BasePinotConnectorSmokeTest
                 format("Segment query returned '%2$s' rows per split, maximum allowed is '%1$s' rows. with query \"SELECT \"regionkey\", \"name\" FROM nation_REALTIME  LIMIT 12\"", MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1));
     }
 
+    @Test
     @Override
     public void testJoin()
     {
@@ -1103,7 +1103,7 @@ public abstract class BasePinotConnectorSmokeTest
         long rowCount = (long) computeScalar("SELECT COUNT(*) FROM " + MIXED_CASE_COLUMN_NAMES_TABLE);
         List<String> rows = new ArrayList<>();
         for (int i = 0; i < rowCount; i++) {
-            rows.add(format("('string_%s', '%s', '%s')", i, i, initialUpdatedAt.plusMillis(i * 1000).getEpochSecond()));
+            rows.add(format("('string_%s', '%s', '%s')", i, i, initialUpdatedAt.plusMillis(i * 1000L).getEpochSecond()));
         }
         String mixedCaseColumnNamesTableValues = rows.stream().collect(joining(",", "VALUES ", ""));
 
@@ -1154,7 +1154,7 @@ public abstract class BasePinotConnectorSmokeTest
         long rowCount = (long) computeScalar("SELECT COUNT(*) FROM " + MIXED_CASE_TABLE_NAME);
         List<String> rows = new ArrayList<>();
         for (int i = 0; i < rowCount; i++) {
-            rows.add(format("('string_%s', '%s', '%s')", i, i, initialUpdatedAt.plusMillis(i * 1000).getEpochSecond()));
+            rows.add(format("('string_%s', '%s', '%s')", i, i, initialUpdatedAt.plusMillis(i * 1000L).getEpochSecond()));
         }
 
         String mixedCaseColumnNamesTableValues = rows.stream().collect(joining(",", "VALUES ", ""));
@@ -1284,7 +1284,7 @@ public abstract class BasePinotConnectorSmokeTest
         // ingest the row from kafka.
         List<String> tooManyRowsTableValues = new ArrayList<>();
         for (int i = 0; i < MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1; i++) {
-            tooManyRowsTableValues.add(format("('string_%s', '%s')", i, initialUpdatedAt.plusMillis(i * 1000).getEpochSecond()));
+            tooManyRowsTableValues.add(format("('string_%s', '%s')", i, initialUpdatedAt.plusMillis(i * 1000L).getEpochSecond()));
         }
 
         // Explicit limit is necessary otherwise pinot returns 10 rows.
@@ -1314,7 +1314,7 @@ public abstract class BasePinotConnectorSmokeTest
 
         List<String> tooManyBrokerRowsTableValues = new ArrayList<>();
         for (int i = 0; i < MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES; i++) {
-            tooManyBrokerRowsTableValues.add(format("('string_%s', '%s')", i, initialUpdatedAt.plusMillis(i * 1000).getEpochSecond()));
+            tooManyBrokerRowsTableValues.add(format("('string_%s', '%s')", i, initialUpdatedAt.plusMillis(i * 1000L).getEpochSecond()));
         }
 
         // Explicit limit is necessary otherwise pinot returns 10 rows.
@@ -1923,11 +1923,11 @@ public abstract class BasePinotConnectorSmokeTest
         // Passthrough queries with aggregates will not push down more aggregations.
         assertThat(query("SELECT bool_col, \"count(*)\", COUNT(*) FROM \"SELECT bool_col, count(*) FROM " +
                 ALL_TYPES_TABLE + " GROUP BY bool_col\" GROUP BY bool_col, \"count(*)\""))
-                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
 
         assertThat(query("SELECT bool_col, \"max(long_col)\", COUNT(*) FROM \"SELECT bool_col, max(long_col) FROM " +
                 ALL_TYPES_TABLE + " GROUP BY bool_col\" GROUP BY bool_col, \"max(long_col)\""))
-                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
 
         assertThat(query("SELECT int_col, COUNT(*) FROM " + ALL_TYPES_TABLE + " GROUP BY int_col LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
                 .isFullyPushedDown();
@@ -1935,30 +1935,30 @@ public abstract class BasePinotConnectorSmokeTest
         // count(<column>) should not be pushed down, as pinot currently only implements count(*)
         assertThat(query("SELECT bool_col, COUNT(long_col)" +
                 "  FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
-                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
 
         // AVG on INTEGER columns is not pushed down
         assertThat(query("SELECT string_col, AVG(int_col) FROM " + ALL_TYPES_TABLE + " GROUP BY string_col"))
-                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
 
         // SUM on INTEGER columns is not pushed down
         assertThat(query("SELECT string_col, SUM(int_col) FROM " + ALL_TYPES_TABLE + " GROUP BY string_col"))
-                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
 
         // MIN on VARCHAR columns is not pushed down
         assertThat(query("SELECT bool_col, MIN(string_col)" +
                 "  FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
-                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
 
         // MAX on VARCHAR columns is not pushed down
         assertThat(query("SELECT bool_col, MAX(string_col)" +
                 "  FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
-                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
 
         // COUNT on VARCHAR columns is not pushed down
         assertThat(query("SELECT bool_col, COUNT(string_col)" +
                 "  FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
-                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
 
         // Distinct on varchar is pushed down
         assertThat(query("SELECT DISTINCT string_col FROM " + ALL_TYPES_TABLE))
@@ -2066,22 +2066,22 @@ public abstract class BasePinotConnectorSmokeTest
 
         // Aggregation is not pushed down for queries with count distinct and other aggregations
         assertThat(query("SELECT bool_col, MAX(long_col), COUNT(DISTINCT long_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
-                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class);
         assertThat(query("SELECT bool_col, COUNT(DISTINCT long_col), MAX(long_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
-                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class);
         assertThat(query("SELECT bool_col, COUNT(*), COUNT(DISTINCT long_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
-                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class);
         assertThat(query("SELECT bool_col, COUNT(DISTINCT long_col), COUNT(*) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
-                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class);
         // Test queries with no grouping columns
         assertThat(query("SELECT MAX(long_col), COUNT(DISTINCT long_col) FROM " + ALL_TYPES_TABLE))
-                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class);
         assertThat(query("SELECT COUNT(DISTINCT long_col), MAX(long_col) FROM " + ALL_TYPES_TABLE))
-                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class);
         assertThat(query("SELECT COUNT(*), COUNT(DISTINCT long_col) FROM " + ALL_TYPES_TABLE))
-                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class);
         assertThat(query("SELECT COUNT(DISTINCT long_col), COUNT(*) FROM " + ALL_TYPES_TABLE))
-                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class);
 
         Session countDistinctPushdownDisabledSession = Session.builder(getQueryRunner().getDefaultSession())
                 .setCatalogSessionProperty("pinot", "count_distinct_pushdown_enabled", "false")
@@ -2089,7 +2089,7 @@ public abstract class BasePinotConnectorSmokeTest
 
         // Distinct count is partially pushed down when the distinct_count_pushdown_enabled session property is disabled
         assertThat(query(countDistinctPushdownDisabledSession, "SELECT bool_col, COUNT(DISTINCT long_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
-                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
         // Test query with no grouping columns
         assertThat(query(countDistinctPushdownDisabledSession, "SELECT COUNT(DISTINCT long_col) FROM " + ALL_TYPES_TABLE))
                 .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
@@ -2102,7 +2102,7 @@ public abstract class BasePinotConnectorSmokeTest
         // Ensure that count(<column name>) is not pushed down even when a broker query is present and has grouping columns
         // This is also done as the second step of count distinct but should not be pushed down in this case.
         assertThat(query("SELECT bool_col, COUNT(long_col) FROM \"SELECT bool_col, long_col FROM " + ALL_TYPES_TABLE + "\" GROUP BY bool_col"))
-                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
 
         // Ensure that count(<column name>) is not pushed down even if the query contains a matching grouping column
         assertThatExceptionOfType(RuntimeException.class)
@@ -2160,7 +2160,7 @@ public abstract class BasePinotConnectorSmokeTest
                 GROUP BY bool_col
                 """))
                 .matches("VALUES (TRUE, BIGINT '-28327352787'), (FALSE, BIGINT '0')")
-                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
         assertThat(query("""
                 SELECT AVG(long_col) FROM
                 (SELECT long_col FROM alltypes GROUP BY long_col)
@@ -2173,7 +2173,7 @@ public abstract class BasePinotConnectorSmokeTest
                 GROUP BY bool_col
                 """))
                 .matches("VALUES (TRUE, DOUBLE '-3.147483643E9'), (FALSE, DOUBLE '0.0')")
-                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
         assertThat(query("""
                 SELECT MIN(long_col) FROM
                 (SELECT long_col FROM alltypes GROUP BY long_col)
@@ -2186,7 +2186,7 @@ public abstract class BasePinotConnectorSmokeTest
                 GROUP BY bool_col
                 """))
                 .matches("VALUES (TRUE, BIGINT '-3147483647'), (FALSE, BIGINT '0')")
-                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
         assertThat(query("""
                 SELECT MAX(long_col) FROM
                 (SELECT long_col FROM alltypes GROUP BY long_col)
@@ -2199,7 +2199,7 @@ public abstract class BasePinotConnectorSmokeTest
                 GROUP BY bool_col
                 """))
                 .matches("VALUES (TRUE, BIGINT '-3147483639'), (FALSE, BIGINT '0')")
-                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
     }
 
     @Test
@@ -2604,7 +2604,7 @@ public abstract class BasePinotConnectorSmokeTest
                         "  (BIGINT '-3147483640', BIGINT '1', BIGINT '-3147483640')," +
                         "  (BIGINT '-3147483641', BIGINT '1', BIGINT '-3147483641')," +
                         "  (BIGINT '-3147483639', BIGINT '1', BIGINT '-3147483639')")
-                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class, AggregationNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
 
         assertThat(query("SELECT long_col, string_col, COUNT(*), MAX(long_col)" +
                 "  FROM \"SELECT * FROM " + ALL_TYPES_TABLE +
@@ -2615,7 +2615,7 @@ public abstract class BasePinotConnectorSmokeTest
                         "  (BIGINT '-3147483640', VARCHAR 'string_8400', BIGINT '1', BIGINT '-3147483640')," +
                         "  (BIGINT '-3147483642', VARCHAR 'string_6000', BIGINT '1', BIGINT '-3147483642')," +
                         "  (BIGINT '-3147483639', VARCHAR 'string_9600', BIGINT '1', BIGINT '-3147483639')")
-                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
 
         // Note that the offset is the first parameter
         assertThat(query("SELECT long_col" +
@@ -2706,9 +2706,9 @@ public abstract class BasePinotConnectorSmokeTest
     public void testAggregationPushdownWithArrays()
     {
         assertThat(query("SELECT string_array_col, count(*) FROM " + ALL_TYPES_TABLE + " WHERE int_col = 54 GROUP BY 1"))
-                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
         assertThat(query("SELECT int_array_col, string_array_col, count(*) FROM " + ALL_TYPES_TABLE + " WHERE int_col = 54 GROUP BY 1, 2"))
-                .isNotFullyPushedDown(ProjectNode.class, AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class, ProjectNode.class);
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class, AggregationNode.class);
         assertThat(query("SELECT int_array_col, \"count(*)\"" +
                 "  FROM \"SELECT int_array_col, COUNT(*) FROM " + ALL_TYPES_TABLE +
                 "  WHERE int_col = 54 GROUP BY 1\""))
@@ -2777,7 +2777,7 @@ public abstract class BasePinotConnectorSmokeTest
         assertThat(query("SELECT ts FROM " + ALL_TYPES_TABLE + " ORDER BY ts DESC LIMIT 1")).matches("SELECT max(ts) FROM " + ALL_TYPES_TABLE);
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(ZoneOffset.UTC);
         for (int i = 0, step = 1200; i < MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES - 2; i++) {
-            String initialUpdatedAtStr = formatter.format(initialUpdatedAt.plusMillis(i * step));
+            String initialUpdatedAtStr = formatter.format(initialUpdatedAt.plusMillis((long) i * step));
             assertThat(query("SELECT ts FROM " + ALL_TYPES_TABLE + " WHERE ts >= TIMESTAMP '" + initialUpdatedAtStr + "' ORDER BY ts LIMIT 1"))
                     .matches("SELECT ts FROM " + ALL_TYPES_TABLE + " WHERE ts <= TIMESTAMP '" + initialUpdatedAtStr + "' ORDER BY ts DESC LIMIT 1");
             assertThat(query("SELECT ts FROM " + ALL_TYPES_TABLE + " WHERE ts = TIMESTAMP '" + initialUpdatedAtStr + "' LIMIT 1"))
@@ -2835,6 +2835,20 @@ public abstract class BasePinotConnectorSmokeTest
                 "  WHERE city != 'New York'" +
                 "  GROUP BY city HAVING SUM(long_number) > 10000"))
                 .matches("VALUES (VARCHAR 'Los Angeles', BIGINT '50000')")
+                .isFullyPushedDown();
+    }
+
+    @Test
+    public void testQueryOptions()
+    {
+        assertThat(query("SELECT city, \"sum(long_number)\" FROM" +
+                         " \"SET skipUpsert = 'true';" +
+                         " SET numReplicaGroupsToQuery = '1';" +
+                         " SELECT city, SUM(long_number)" +
+                         "  FROM my_table" +
+                         "  GROUP BY city" +
+                         "  HAVING SUM(long_number) > 10000\""))
+                .matches("VALUES (VARCHAR 'Los Angeles', DOUBLE '50000.0'), (VARCHAR 'New York', DOUBLE '20000.0')")
                 .isFullyPushedDown();
     }
 }

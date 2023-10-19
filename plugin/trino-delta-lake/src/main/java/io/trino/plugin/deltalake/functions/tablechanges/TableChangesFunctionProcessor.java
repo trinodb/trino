@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -46,8 +47,6 @@ import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_TYPE_COLUMN_
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMaxReadBlockRowCount;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMaxReadBlockSize;
-import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetOptimizedNestedReaderEnabled;
-import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetOptimizedReaderEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetUseColumnIndex;
 import static io.trino.plugin.deltalake.functions.tablechanges.TableChangesFileType.CDF_FILE;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
@@ -176,9 +175,7 @@ public class TableChangesFunctionProcessor
         parquetReaderOptions = parquetReaderOptions
                 .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
                 .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
-                .withUseColumnIndex(isParquetUseColumnIndex(session))
-                .withBatchColumnReaders(isParquetOptimizedReaderEnabled(session))
-                .withBatchNestedColumnReaders(isParquetOptimizedNestedReaderEnabled(session));
+                .withUseColumnIndex(isParquetUseColumnIndex(session));
 
         List<DeltaLakeColumnHandle> splitColumns = switch (split.fileType()) {
             case CDF_FILE -> ImmutableList.<DeltaLakeColumnHandle>builder().addAll(handle.columns())
@@ -205,7 +202,8 @@ public class TableChangesFunctionProcessor
                 fileFormatDataSourceStats,
                 parquetReaderOptions,
                 Optional.empty(),
-                domainCompactionThreshold);
+                domainCompactionThreshold,
+                OptionalLong.empty());
 
         verify(pageSource.getReaderColumns().isEmpty(), "Unexpected reader columns: %s", pageSource.getReaderColumns().orElse(null));
 
@@ -218,6 +216,7 @@ public class TableChangesFunctionProcessor
                 Optional.empty(),
                 split.path(),
                 split.fileSize(),
-                0L);
+                0L,
+                Optional::empty);
     }
 }

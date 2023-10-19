@@ -23,7 +23,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.minio.MinioClient;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;

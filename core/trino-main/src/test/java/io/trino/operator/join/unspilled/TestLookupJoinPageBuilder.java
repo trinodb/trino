@@ -22,7 +22,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.OptionalInt;
@@ -118,8 +118,8 @@ public class TestLookupJoinPageBuilder
         assertTrue(output.getBlock(0) instanceof DictionaryBlock);
         assertEquals(output.getPositionCount(), entries / 2);
         for (int i = 0; i < entries / 2; i++) {
-            assertEquals(output.getBlock(0).getLong(i, 0), i * 2);
-            assertEquals(output.getBlock(1).getLong(i, 0), i * 2);
+            assertEquals(output.getBlock(0).getLong(i, 0), i * 2L);
+            assertEquals(output.getBlock(1).getLong(i, 0), i * 2L);
         }
         lookupJoinPageBuilder.reset();
 

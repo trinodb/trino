@@ -26,7 +26,6 @@ import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
@@ -68,44 +67,24 @@ import static org.testng.Assert.assertNotNull;
 public abstract class BaseRaptorConnectorTest
         extends BaseConnectorTest
 {
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_TRUNCATE:
-                return false;
-
-            case SUPPORTS_TOPN_PUSHDOWN:
-                return false;
-
-            case SUPPORTS_CREATE_SCHEMA:
-                return false;
-
-            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
-            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
-                return false;
-
-            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
-            case SUPPORTS_SET_COLUMN_TYPE:
-                return false;
-
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
-                return false;
-
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
-                return false;
-
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
-                return false;
-
-            case SUPPORTS_ROW_TYPE:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+                    SUPPORTS_COMMENT_ON_COLUMN,
+                    SUPPORTS_COMMENT_ON_TABLE,
+                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                    SUPPORTS_CREATE_SCHEMA,
+                    SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                    SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
+                    SUPPORTS_NOT_NULL_CONSTRAINT,
+                    SUPPORTS_ROW_TYPE,
+                    SUPPORTS_SET_COLUMN_TYPE,
+                    SUPPORTS_TOPN_PUSHDOWN,
+                    SUPPORTS_TRUNCATE -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     @Override
@@ -802,7 +781,6 @@ public abstract class BaseRaptorConnectorTest
         assertEquals(computeActual("SELECT * FROM system.tables WHERE table_schema IN ('foo', 'bar')").getRowCount(), 0);
     }
 
-    @SuppressWarnings("OverlyStrongTypeCast")
     @Test
     public void testTableStatsSystemTable()
     {
@@ -1049,8 +1027,16 @@ public abstract class BaseRaptorConnectorTest
         assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Arches'), ('Bill', 7, 'Buena'), ('Dave', 22, 'Darbyshire'), ('Ed', 7, 'Etherville')");
     }
 
-    @Test(dataProvider = "partitionedBucketedFailure")
-    public void testMergeMultipleRowsMatchFails(String createTableSql)
+    @Test
+    public void testMergeMultipleRows()
+    {
+        testMergeMultipleRowsMatchFails("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)");
+        testMergeMultipleRowsMatchFails("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['customer'])");
+        testMergeMultipleRowsMatchFails("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 4, bucketed_on = ARRAY['address'])");
+        testMergeMultipleRowsMatchFails("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 4, bucketed_on = ARRAY['address', 'purchases', 'customer'])");
+    }
+
+    private void testMergeMultipleRowsMatchFails(String createTableSql)
     {
         String targetTable = "merge_all_matches_deleted_target_" + randomNameSuffix();
         assertUpdate(format(createTableSql, targetTable));
@@ -1075,23 +1061,28 @@ public abstract class BaseRaptorConnectorTest
         assertUpdate("DROP TABLE " + targetTable);
     }
 
-    @DataProvider
-    public Object[][] partitionedBucketedFailure()
+    @Test
+    public void testMergeWithDifferentBucketing()
     {
-        return new Object[][] {
-                {"CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)"},
-                {"CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['customer'])"},
-                {"CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 4, bucketed_on = ARRAY['address'])"},
-                {"CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 4, bucketed_on = ARRAY['address', 'purchases', 'customer'])"}};
+        testMergeWithDifferentBucketing(
+                "target_and_source_with_different_bucketing_counts",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 5, bucketed_on = ARRAY['customer'])",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['purchases', 'address'])");
+        testMergeWithDifferentBucketing(
+                "target_and_source_with_different_bucketing_columns",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['address'])",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['customer'])");
+        testMergeWithDifferentBucketing(
+                "target_flat_source_bucketed_by_customer",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['customer'])");
+        testMergeWithDifferentBucketing(
+                "target_bucketed_by_customer_source_flat",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['customer'])",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)");
     }
 
-    @Test(dataProvider = "targetAndSourceWithDifferentBucketing")
-    public void testMergeWithDifferentBucketing(String testDescription, String createTargetTableSql, String createSourceTableSql)
-    {
-        testMergeWithDifferentBucketingInternal(testDescription, createTargetTableSql, createSourceTableSql);
-    }
-
-    private void testMergeWithDifferentBucketingInternal(String testDescription, String createTargetTableSql, String createSourceTableSql)
+    private void testMergeWithDifferentBucketing(String testDescription, String createTargetTableSql, String createSourceTableSql)
     {
         String targetTable = format("%s_target_%s", testDescription, randomNameSuffix());
         assertUpdate(format(createTargetTableSql, targetTable));
@@ -1114,33 +1105,6 @@ public abstract class BaseRaptorConnectorTest
 
         assertUpdate("DROP TABLE " + sourceTable);
         assertUpdate("DROP TABLE " + targetTable);
-    }
-
-    @DataProvider
-    public Object[][] targetAndSourceWithDifferentBucketing()
-    {
-        return new Object[][] {
-                {
-                        "target_and_source_with_different_bucketing_counts",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 5, bucketed_on = ARRAY['customer'])",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['purchases', 'address'])",
-                },
-                {
-                        "target_and_source_with_different_bucketing_columns",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['address'])",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['customer'])",
-                },
-                {
-                        "target_flat_source_bucketed_by_customer",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['customer'])",
-                },
-                {
-                        "target_bucketed_by_customer_source_flat",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count = 3, bucketed_on = ARRAY['customer'])",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)",
-                },
-        };
     }
 
     @Test

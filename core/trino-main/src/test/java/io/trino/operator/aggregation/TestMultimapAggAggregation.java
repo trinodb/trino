@@ -28,8 +28,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -175,17 +174,17 @@ public class TestMultimapAggAggregation
         GroupedAggregator groupedAggregator = aggregationFunction.createAggregatorFactory(SINGLE, Ints.asList(), OptionalInt.empty()).createGroupedAggregator();
         BlockBuilder blockBuilder = aggregationFunction.getFinalType().createBlockBuilder(null, 1);
         groupedAggregator.evaluate(0, blockBuilder);
-        assertTrue(blockBuilder.isNull(0));
+        assertTrue(blockBuilder.build().isNull(0));
     }
 
     private static TestingAggregationFunction getAggregationFunction(Type keyType, Type valueType)
     {
-        return FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("multimap_agg"), fromTypes(keyType, valueType));
+        return FUNCTION_RESOLUTION.getAggregateFunction("multimap_agg", fromTypes(keyType, valueType));
     }
 
     /**
      * Given a list of keys and a list of corresponding values, manually
-     * aggregate them into a map of list and check that Trino's aggregation has
+     * aggregate them into a map of list and check that the aggregation has
      * the same results.
      */
     private static <K, V> void testMultimapAgg(Type keyType, List<K> expectedKeys, Type valueType, List<V> expectedValues)
@@ -206,7 +205,7 @@ public class TestMultimapAggAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of("multimap_agg"),
+                "multimap_agg",
                 fromTypes(keyType, valueType),
                 map.isEmpty() ? null : map,
                 builder.build());

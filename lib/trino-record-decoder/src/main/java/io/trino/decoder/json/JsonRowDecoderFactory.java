@@ -18,7 +18,9 @@ import com.google.inject.Inject;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.RowDecoder;
 import io.trino.decoder.RowDecoderFactory;
+import io.trino.decoder.RowDecoderSpec;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Map;
 import java.util.Optional;
@@ -43,10 +45,9 @@ public class JsonRowDecoderFactory
     }
 
     @Override
-    public RowDecoder create(Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
+    public RowDecoder create(ConnectorSession session, RowDecoderSpec rowDecoderSpec)
     {
-        requireNonNull(columns, "columns is null");
-        return new JsonRowDecoder(objectMapper, chooseFieldDecoders(columns));
+        return new JsonRowDecoder(objectMapper, chooseFieldDecoders(rowDecoderSpec.columns()));
     }
 
     private Map<DecoderColumnHandle, JsonFieldDecoder> chooseFieldDecoders(Set<DecoderColumnHandle> columns)

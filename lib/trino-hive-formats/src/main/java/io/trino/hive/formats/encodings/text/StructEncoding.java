@@ -19,6 +19,7 @@ import io.trino.hive.formats.FileCorruptionException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -48,17 +49,19 @@ public class StructEncoding
     public void encodeValueInto(Block block, int position, SliceOutput output)
             throws FileCorruptionException
     {
-        Block row = block.getObject(position, Block.class);
+        SqlRow row = block.getObject(position, SqlRow.class);
+        int rawIndex = row.getRawIndex();
         for (int fieldIndex = 0; fieldIndex < structFields.size(); fieldIndex++) {
             if (fieldIndex > 0) {
                 output.writeByte(separator);
             }
 
-            if (row.isNull(fieldIndex)) {
+            Block fieldBlock = row.getRawFieldBlock(fieldIndex);
+            if (fieldBlock.isNull(rawIndex)) {
                 output.writeBytes(nullSequence);
             }
             else {
-                structFields.get(fieldIndex).encodeValueInto(row, fieldIndex, output);
+                structFields.get(fieldIndex).encodeValueInto(fieldBlock, rawIndex, output);
             }
         }
     }

@@ -146,6 +146,7 @@ public class TestPruneTableScanColumns
                 .build();
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(factory).build()) {
             ruleTester.assertThat(new PruneTableScanColumns(ruleTester.getMetadata()))
+                    .withSession(testSessionBuilder().setCatalog(TEST_CATALOG_NAME).setSchema(testSchema).build())
                     .on(p -> {
                         Symbol symbolA = p.symbol("cola", DATE);
                         Symbol symbolB = p.symbol("colb", DOUBLE);
@@ -158,7 +159,6 @@ public class TestPruneTableScanColumns
                                                 symbolA, columnHandleA,
                                                 symbolB, columnHandleB)));
                     })
-                    .withSession(testSessionBuilder().setCatalog(TEST_CATALOG_NAME).setSchema(testSchema).build())
                     .matches(
                             strictProject(
                                     ImmutableMap.of("expr", PlanMatchPattern.expression("COLB")),

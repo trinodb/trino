@@ -44,6 +44,7 @@ import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortingProperty;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
@@ -160,8 +161,12 @@ public class PhoenixMetadata
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
+    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
+        if (cascade) {
+            // Phoenix doesn't support CASCADE option https://phoenix.apache.org/language/index.html#drop_schema
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas with CASCADE option");
+        }
         if (DEFAULT_SCHEMA.equalsIgnoreCase(schemaName)) {
             throw new TrinoException(NOT_SUPPORTED, "Can't drop 'default' schema which maps to Phoenix empty schema");
         }
@@ -176,6 +181,13 @@ public class PhoenixMetadata
         catch (SQLException e) {
             throw new TrinoException(PHOENIX_METADATA_ERROR, "Couldn't get casing for the schema name", e);
         }
+    }
+
+    @Override
+    public Optional<ConnectorTableHandle> applyUpdate(ConnectorSession session, ConnectorTableHandle handle, Map<ColumnHandle, Constant> assignments)
+    {
+        // Phoenix support row level update, so we should reject this path, earlier than in JDBC client
+        return Optional.empty();
     }
 
     @Override

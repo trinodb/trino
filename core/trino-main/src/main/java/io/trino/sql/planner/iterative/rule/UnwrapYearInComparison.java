@@ -45,6 +45,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -136,7 +137,7 @@ public class UnwrapYearInComparison
             Expression valueList = inPredicate.getValueList();
 
             if (!(value instanceof FunctionCall call) ||
-                    !extractFunctionName(call.getName()).equals("year") ||
+                    !extractFunctionName(call.getName()).equals(builtinFunctionName("year")) ||
                     call.getArguments().size() != 1 ||
                     !(valueList instanceof InListExpression inListExpression)) {
                 return inPredicate;
@@ -163,7 +164,7 @@ public class UnwrapYearInComparison
             // Expect year on the left side and value on the right side of the comparison.
             // This is provided by CanonicalizeExpressionRewriter.
             if (!(expression.getLeft() instanceof FunctionCall call) ||
-                    !extractFunctionName(call.getName()).equals("year") ||
+                    !extractFunctionName(call.getName()).equals(builtinFunctionName("year")) ||
                     call.getArguments().size() != 1) {
                 return expression;
             }
@@ -220,7 +221,7 @@ public class UnwrapYearInComparison
 
         private Expression toExpression(Object value, Type type)
         {
-            return literalEncoder.toExpression(session, value, type);
+            return literalEncoder.toExpression(value, type);
         }
     }
 

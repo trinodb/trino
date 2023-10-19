@@ -23,13 +23,13 @@ import java.util.Optional;
 
 public class SqlEnvironmentConfig
 {
-    private Optional<String> path = Optional.empty();
+    private String path = "";
     private Optional<String> defaultCatalog = Optional.empty();
     private Optional<String> defaultSchema = Optional.empty();
     private Optional<TimeZoneKey> forcedSessionTimeZone = Optional.empty();
 
     @NotNull
-    public Optional<String> getPath()
+    public String getPath()
     {
         return path;
     }
@@ -37,7 +37,7 @@ public class SqlEnvironmentConfig
     @Config("sql.path")
     public SqlEnvironmentConfig setPath(String path)
     {
-        this.path = Optional.ofNullable(path);
+        this.path = path;
         return this;
     }
 

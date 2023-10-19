@@ -49,6 +49,7 @@ import java.sql.Types;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.zone.ZoneRulesException;
 import java.util.ArrayList;
 import java.util.GregorianCalendar;
 import java.util.List;
@@ -666,6 +667,32 @@ public class TestTrinoDriver
                 assertEquals(rs.getTimestamp("ts"), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
             }
         }
+
+        try (Connection connection = createConnectionWithParameter("timezone=Asia/Kolkata")) {
+            try (Statement statement = connection.createStatement();
+                    ResultSet rs = statement.executeQuery(sql)) {
+                assertTrue(rs.next());
+                assertEquals(rs.getString("zone"), "Asia/Kolkata");
+                // setting the session timezone has no effect on the interpretation of timestamps in the JDBC driver
+                assertEquals(rs.getTimestamp("ts"), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
+            }
+        }
+
+        try (Connection connection = createConnectionWithParameter("timezone=UTC+05:30")) {
+            try (Statement statement = connection.createStatement();
+                    ResultSet rs = statement.executeQuery(sql)) {
+                assertTrue(rs.next());
+                assertEquals(rs.getString("zone"), "+05:30");
+                // setting the session timezone has no effect on the interpretation of timestamps in the JDBC driver
+                assertEquals(rs.getTimestamp("ts"), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
+            }
+        }
+
+        assertThatThrownBy(() -> createConnectionWithParameter("timezone=Asia/NOT_FOUND"))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property timezone value is invalid: Asia/NOT_FOUND")
+                .hasRootCauseInstanceOf(ZoneRulesException.class)
+                .hasRootCauseMessage("Unknown time-zone ID: Asia/NOT_FOUND");
     }
 
     @Test
@@ -1105,6 +1132,47 @@ public class TestTrinoDriver
         }
     }
 
+    @Test(timeOut = 10000)
+    public void testResetSessionAuthorization()
+            throws Exception
+    {
+        try (TrinoConnection connection = createConnection("blackhole", "blackhole").unwrap(TrinoConnection.class);
+                Statement statement = connection.createStatement()) {
+            assertEquals(connection.getAuthorizationUser(), null);
+            assertEquals(getCurrentUser(connection), "test");
+            statement.execute("SET SESSION AUTHORIZATION john");
+            assertEquals(connection.getAuthorizationUser(), "john");
+            assertEquals(getCurrentUser(connection), "john");
+            statement.execute("SET SESSION AUTHORIZATION bob");
+            assertEquals(connection.getAuthorizationUser(), "bob");
+            assertEquals(getCurrentUser(connection), "bob");
+            statement.execute("RESET SESSION AUTHORIZATION");
+            assertEquals(connection.getAuthorizationUser(), null);
+            assertEquals(getCurrentUser(connection), "test");
+        }
+    }
+
+    @Test(timeOut = 10000)
+    public void testSetRoleAfterSetSessionAuthorization()
+            throws Exception
+    {
+        try (TrinoConnection connection = createConnection("blackhole", "blackhole").unwrap(TrinoConnection.class);
+                Statement statement = connection.createStatement()) {
+            statement.execute("SET SESSION AUTHORIZATION john");
+            assertEquals(connection.getAuthorizationUser(), "john");
+            statement.execute("SET ROLE ALL");
+            assertEquals(connection.getRoles(), ImmutableMap.of("system", new ClientSelectedRole(ClientSelectedRole.Type.ALL, Optional.empty())));
+            statement.execute("SET SESSION AUTHORIZATION bob");
+            assertEquals(connection.getAuthorizationUser(), "bob");
+            assertEquals(connection.getRoles(), ImmutableMap.of());
+            statement.execute("SET ROLE NONE");
+            assertEquals(connection.getRoles(), ImmutableMap.of("system", new ClientSelectedRole(ClientSelectedRole.Type.NONE, Optional.empty())));
+            statement.execute("RESET SESSION AUTHORIZATION");
+            assertEquals(connection.getAuthorizationUser(), null);
+            assertEquals(connection.getRoles(), ImmutableMap.of());
+        }
+    }
+
     private QueryState getQueryState(String queryId)
             throws SQLException
     {
@@ -1159,11 +1227,31 @@ public class TestTrinoDriver
         return DriverManager.getConnection(url, "test", null);
     }
 
+    private Connection createConnectionWithParameter(String parameter)
+            throws SQLException
+    {
+        String url = format("jdbc:trino://%s?%s", server.getAddress(), parameter);
+        return DriverManager.getConnection(url, "test", null);
+    }
+
     private static Properties toProperties(Map<String, String> map)
     {
         Properties properties = new Properties();
         map.forEach(properties::setProperty);
         return properties;
+    }
+
+    private static String getCurrentUser(Connection connection)
+            throws SQLException
+    {
+        try (Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery("SELECT current_user")) {
+            while (rs.next()) {
+                return rs.getString(1);
+            }
+        }
+
+        throw new RuntimeException("Failed to get CURRENT_USER");
     }
 
     public static class TestingDnsResolver

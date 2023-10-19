@@ -18,7 +18,7 @@ import io.trino.Session;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 
-import static io.trino.plugin.hive.util.MultisetAssertions.assertMultisetsEqual;
+import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 
 public final class CountingAccessHiveMetastoreUtil
 {

@@ -16,6 +16,7 @@ package io.trino.plugin.kafka.encoder.json;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.kafka.KafkaColumnHandle;
+import io.trino.plugin.kafka.encoder.RowEncoderSpec;
 import io.trino.plugin.kafka.encoder.json.format.DateTimeFormat;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
@@ -25,6 +26,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.plugin.kafka.encoder.KafkaFieldType.MESSAGE;
 import static io.trino.plugin.kafka.encoder.json.format.DateTimeFormat.CUSTOM_DATE_TIME;
 import static io.trino.plugin.kafka.encoder.json.format.DateTimeFormat.ISO8601;
 import static io.trino.plugin.kafka.encoder.json.format.DateTimeFormat.MILLISECONDS_SINCE_EPOCH;
@@ -53,6 +55,7 @@ public class TestJsonEncoder
 {
     private static final ConnectorSession SESSION = TestingConnectorSession.builder().build();
     private static final JsonRowEncoderFactory ENCODER_FACTORY = new JsonRowEncoderFactory(new ObjectMapper());
+    private static final String TOPIC = "topic";
 
     private static void assertUnsupportedColumnTypeException(ThrowableAssert.ThrowingCallable callable)
     {
@@ -81,17 +84,17 @@ public class TestJsonEncoder
 
     private static void singleColumnEncoder(Type type)
     {
-        ENCODER_FACTORY.create(SESSION, Optional.empty(), ImmutableList.of(new KafkaColumnHandle("default", type, "default", null, null, false, false, false)));
+        ENCODER_FACTORY.create(SESSION, new RowEncoderSpec(JsonRowEncoder.NAME, Optional.empty(), ImmutableList.of(new KafkaColumnHandle("default", type, "default", null, null, false, false, false)), TOPIC, MESSAGE));
     }
 
     private static void singleColumnEncoder(Type type, DateTimeFormat dataFormat, String formatHint)
     {
         requireNonNull(dataFormat, "dataFormat is null");
         if (dataFormat.equals(CUSTOM_DATE_TIME)) {
-            ENCODER_FACTORY.create(SESSION, Optional.empty(), ImmutableList.of(new KafkaColumnHandle("default", type, "default", dataFormat.toString(), formatHint, false, false, false)));
+            ENCODER_FACTORY.create(SESSION, new RowEncoderSpec(JsonRowEncoder.NAME, Optional.empty(), ImmutableList.of(new KafkaColumnHandle("default", type, "default", dataFormat.toString(), formatHint, false, false, false)), TOPIC, MESSAGE));
         }
         else {
-            ENCODER_FACTORY.create(SESSION, Optional.empty(), ImmutableList.of(new KafkaColumnHandle("default", type, "default", dataFormat.toString(), null, false, false, false)));
+            ENCODER_FACTORY.create(SESSION, new RowEncoderSpec(JsonRowEncoder.NAME, Optional.empty(), ImmutableList.of(new KafkaColumnHandle("default", type, "default", dataFormat.toString(), null, false, false, false)), TOPIC, MESSAGE));
         }
     }
 

@@ -14,6 +14,7 @@
 package io.trino.spi.connector;
 
 import io.airlift.slice.Slice;
+import io.trino.spi.ErrorCode;
 import io.trino.spi.Experimental;
 import io.trino.spi.TrinoException;
 import io.trino.spi.expression.Call;
@@ -44,21 +45,33 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
+import java.util.function.UnaryOperator;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.stream.Stream;
 
+import static io.trino.spi.ErrorType.EXTERNAL;
+import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.expression.Constant.FALSE;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static java.util.stream.Collectors.toUnmodifiableSet;
 
 public interface ConnectorMetadata
 {
@@ -96,8 +109,10 @@ public interface ConnectorMetadata
      * cannot be queried.
      * @see #getView(ConnectorSession, SchemaTableName)
      * @see #getMaterializedView(ConnectorSession, SchemaTableName)
+     * @deprecated Implement {@link #getTableHandle(ConnectorSession, SchemaTableName, Optional, Optional)}.
      */
     @Nullable
+    @Deprecated
     default ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         return null;
@@ -133,8 +148,7 @@ public interface ConnectorMetadata
     /**
      * Create initial handle for execution of table procedure. The handle will be used through planning process. It will be converted to final
      * handle used for execution via @{link {@link ConnectorMetadata#beginTableExecute}
-     *
-     * <p/>
+     * <p>
      * If connector does not support execution with retries, the method should throw:
      * <pre>
      *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
@@ -299,11 +313,125 @@ public interface ConnectorMetadata
     /**
      * Gets the metadata for all columns that match the specified table prefix. Redirected table names are included, but
      * the column metadata for them is not. Views and materialized views are not included.
+     *
+     * @deprecated Implement {@link #streamRelationColumns}.
      */
+    @Deprecated
     default Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         return listTableColumns(session, prefix).entrySet().stream()
                 .map(entry -> TableColumnsMetadata.forTable(entry.getKey(), entry.getValue()))
+                .iterator();
+    }
+
+    /**
+     * Gets columns for all relations (tables, views, materialized views), possibly filtered by schemaName.
+     * (e.g. for all relations that would be returned by {@link #listTables(ConnectorSession, Optional)}).
+     * Redirected table names are included, but the comment for them is not.
+     */
+    @Experimental(eta = "2024-01-01")
+    default Iterator<RelationColumnsMetadata> streamRelationColumns(
+            ConnectorSession session,
+            Optional<String> schemaName,
+            UnaryOperator<Set<SchemaTableName>> relationFilter)
+    {
+        Map<SchemaTableName, RelationColumnsMetadata> relationColumns = new HashMap<>();
+
+        // Collect column metadata from tables
+        SchemaTablePrefix prefix = schemaName.map(SchemaTablePrefix::new)
+                .orElseGet(SchemaTablePrefix::new);
+        streamTableColumns(session, prefix)
+                .forEachRemaining(columnsMetadata -> {
+                    SchemaTableName name = columnsMetadata.getTable();
+                    relationColumns.put(name, columnsMetadata.getColumns()
+                            .map(columns -> RelationColumnsMetadata.forTable(name, columns))
+                            .orElseGet(() -> RelationColumnsMetadata.forRedirectedTable(name)));
+                });
+
+        // Collect column metadata from views. if table and view names overlap, the view wins
+        for (Map.Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, schemaName).entrySet()) {
+            relationColumns.put(entry.getKey(), RelationColumnsMetadata.forView(entry.getKey(), entry.getValue().getColumns()));
+        }
+
+        // if view and materialized view names overlap, the materialized view wins
+        for (Map.Entry<SchemaTableName, ConnectorMaterializedViewDefinition> entry : getMaterializedViews(session, schemaName).entrySet()) {
+            relationColumns.put(entry.getKey(), RelationColumnsMetadata.forMaterializedView(entry.getKey(), entry.getValue().getColumns()));
+        }
+
+        return relationFilter.apply(relationColumns.keySet()).stream()
+                .map(relationColumns::get)
+                .iterator();
+    }
+
+    /**
+     * Gets comments for all relations (tables, views, materialized views), possibly filtered by schemaName.
+     * (e.g. for all relations that would be returned by {@link #listTables(ConnectorSession, Optional)}).
+     * Redirected table names are included, but the comment for them is not.
+     */
+    @Experimental(eta = "2024-01-01")
+    default Iterator<RelationCommentMetadata> streamRelationComments(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
+    {
+        List<RelationCommentMetadata> materializedViews = getMaterializedViews(session, schemaName).entrySet().stream()
+                .map(entry -> RelationCommentMetadata.forRelation(entry.getKey(), entry.getValue().getComment()))
+                .toList();
+        Set<SchemaTableName> mvNames = materializedViews.stream()
+                .map(RelationCommentMetadata::name)
+                .collect(toUnmodifiableSet());
+
+        List<RelationCommentMetadata> views = getViews(session, schemaName).entrySet().stream()
+                .map(entry -> RelationCommentMetadata.forRelation(entry.getKey(), entry.getValue().getComment()))
+                .filter(commentMetadata -> !mvNames.contains(commentMetadata.name()))
+                .toList();
+        Set<SchemaTableName> mvAndViewNames = Stream.concat(mvNames.stream(), views.stream().map(RelationCommentMetadata::name))
+                .collect(toUnmodifiableSet());
+
+        List<RelationCommentMetadata> tables = listTables(session, schemaName).stream()
+                .filter(tableName -> !mvAndViewNames.contains(tableName))
+                .collect(collectingAndThen(toUnmodifiableSet(), relationFilter)).stream()
+                .map(tableName -> {
+                    if (redirectTable(session, tableName).isPresent()) {
+                        return RelationCommentMetadata.forRedirectedTable(tableName);
+                    }
+                    try {
+                        ConnectorTableHandle tableHandle = getTableHandle(session, tableName, Optional.empty(), Optional.empty());
+                        if (tableHandle == null) {
+                            // disappeared during listing
+                            return null;
+                        }
+                        return RelationCommentMetadata.forRelation(tableName, getTableMetadata(session, tableHandle).getComment());
+                    }
+                    catch (RuntimeException e) {
+                        boolean silent = false;
+                        if (e instanceof TrinoException trinoException) {
+                            ErrorCode errorCode = trinoException.getErrorCode();
+                            silent = errorCode.equals(UNSUPPORTED_TABLE_TYPE.toErrorCode()) ||
+                                    // e.g. table deleted concurrently
+                                    errorCode.equals(NOT_FOUND.toErrorCode()) ||
+                                    // e.g. Iceberg/Delta table being deleted concurrently resulting in failure to load metadata from filesystem
+                                    errorCode.getType() == EXTERNAL;
+                        }
+                        if (silent) {
+                            Helper.juliLogger.log(Level.FINE, e, () -> "Failed to get metadata for table: " + tableName);
+                        }
+                        else {
+                            // getTableHandle or getTableMetadata failed call may fail if table disappeared during listing or is unsupported.
+                            Helper.juliLogger.log(Level.WARNING, e, () -> "Failed to get metadata for table: " + tableName);
+                        }
+                        // Since the getTableHandle did not return null (i.e. succeeded or failed), we assume the table would be returned by listTables
+                        return RelationCommentMetadata.forRelation(tableName, Optional.empty());
+                    }
+                })
+                .filter(Objects::nonNull)
+                .toList();
+
+        Set<SchemaTableName> availableMvAndViews = relationFilter.apply(mvAndViewNames);
+        return Stream.of(
+                        materializedViews.stream()
+                                .filter(commentMetadata -> availableMvAndViews.contains(commentMetadata.name())),
+                        views.stream()
+                                .filter(commentMetadata -> availableMvAndViews.contains(commentMetadata.name())),
+                        tables.stream())
+                .flatMap(identity())
                 .iterator();
     }
 
@@ -329,21 +457,6 @@ public interface ConnectorMetadata
      * @throws TrinoException with {@code SCHEMA_NOT_EMPTY} if {@code cascade} is false and the schema is not empty
      */
     default void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
-    {
-        if (!cascade) {
-            dropSchema(session, schemaName);
-            return;
-        }
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas with CASCADE option");
-    }
-
-    /**
-     * Drops the specified schema.
-     *
-     * @deprecated use {@link #dropSchema(ConnectorSession, String, boolean)}
-     */
-    @Deprecated
-    default void dropSchema(ConnectorSession session, String schemaName)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
     }
@@ -435,6 +548,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Comments to the specified materialized view column.
+     */
+    default void setMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting materialized view column comments");
+    }
+
+    /**
      * Comments to the specified column
      */
     default void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Optional<String> comment)
@@ -468,6 +589,17 @@ public interface ConnectorMetadata
     default void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Type type)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
+    }
+
+    /**
+     * Set the specified field type
+     *
+     * @param fieldPath path starting with column name. The path is always lower-cased. It cannot be an empty or a single element.
+     */
+    @Experimental(eta = "2023-09-01")
+    default void setFieldType(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, Type type)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting field types");
     }
 
     /**
@@ -526,6 +658,17 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Return the effective {@link io.trino.spi.type.Type} that is supported by the connector for the given type.
+     * If {@link Optional#empty()} is returned, the type will be used as is during table creation which may or may not be supported by the connector.
+     * The effective type shall be a type that is cast-compatible with the input type.
+     */
+    @Experimental(eta = "2024-01-31")
+    default Optional<Type> getSupportedType(ConnectorSession session, Map<String, Object> tableProperties, Type type)
+    {
+        return Optional.empty();
+    }
+
+    /**
      * Get the physical layout for inserting into an existing table.
      */
     default Optional<ConnectorTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
@@ -534,7 +677,7 @@ public interface ConnectorMetadata
         return properties.getTablePartitioning()
                 .map(partitioning -> {
                     Map<ColumnHandle, String> columnNamesByHandle = getColumnHandles(session, tableHandle).entrySet().stream()
-                            .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
+                            .collect(toMap(Map.Entry::getValue, Map.Entry::getKey));
                     List<String> partitionColumns = partitioning.getPartitioningColumns().stream()
                             .map(columnNamesByHandle::get)
                             .collect(toUnmodifiableList());
@@ -577,8 +720,7 @@ public interface ConnectorMetadata
 
     /**
      * Begin the atomic creation of a table with data.
-     *
-     * <p/>
+     * <p>
      * If connector does not support execution with retries, the method should throw:
      * <pre>
      *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
@@ -611,8 +753,7 @@ public interface ConnectorMetadata
 
     /**
      * Begin insert query.
-     *
-     * <p/>
+     * <p>
      * If connector does not support execution with retries, the method should throw:
      * <pre>
      *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
@@ -658,8 +799,7 @@ public interface ConnectorMetadata
 
     /**
      * Begin materialized view query.
-     *
-     * <p/>
+     * <p>
      * If connector does not support execution with retries, the method should throw:
      * <pre>
      *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
@@ -819,6 +959,25 @@ public interface ConnectorMetadata
     default Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, String schemaName)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Attempt to push down an update operation into the connector. If a connector
+     * can execute an update for the table handle on its own, it should return a
+     * table handle, which will be passed back to {@link #executeUpdate} during
+     * query executing to actually execute the update.
+     */
+    default Optional<ConnectorTableHandle> applyUpdate(ConnectorSession session, ConnectorTableHandle handle, Map<ColumnHandle, Constant> assignments)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Execute the update operation on the handle returned from {@link #applyUpdate}.
+     */
+    default OptionalLong executeUpdate(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "ConnectorMetadata applyUpdate() is implemented without executeUpdate()");
     }
 
     /**
@@ -1246,6 +1405,11 @@ public interface ConnectorMetadata
             Map<String, ColumnHandle> assignments,
             List<List<ColumnHandle>> groupingSets)
     {
+        // Global aggregation is represented by [[]]
+        if (groupingSets.isEmpty()) {
+            throw new IllegalArgumentException("No grouping sets provided");
+        }
+
         return Optional.empty();
     }
 
@@ -1474,22 +1638,25 @@ public interface ConnectorMetadata
         return Optional.empty();
     }
 
-    // TODO - Remove this method since now it is only used in test BaseConnectorTest#testWrittenDataSize()
-    @Deprecated
-    default boolean supportsReportingWrittenBytes(ConnectorSession session, SchemaTableName schemaTableName, Map<String, Object> tableProperties)
-    {
-        return false;
-    }
-
-    // TODO - Remove this method since now it is only used in test BaseConnectorTest#testWrittenDataSize()
-    @Deprecated
-    default boolean supportsReportingWrittenBytes(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
-    {
-        return false;
-    }
-
     default OptionalInt getMaxWriterTasks(ConnectorSession session)
     {
         return OptionalInt.empty();
+    }
+
+    default WriterScalingOptions getNewTableWriterScalingOptions(ConnectorSession session, SchemaTableName tableName, Map<String, Object> tableProperties)
+    {
+        return WriterScalingOptions.DISABLED;
+    }
+
+    default WriterScalingOptions getInsertWriterScalingOptions(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return WriterScalingOptions.DISABLED;
+    }
+
+    final class Helper
+    {
+        private Helper() {}
+
+        static final Logger juliLogger = Logger.getLogger(ConnectorMetadata.class.getName());
     }
 }

@@ -130,7 +130,7 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
         }
     }
 
-    protected static void assertNoColumnStatistics(ColumnStatistics columnStatistics, int expectedNumberOfValues)
+    protected static void assertNoColumnStatistics(ColumnStatistics columnStatistics, long expectedNumberOfValues)
     {
         assertEquals(columnStatistics.getNumberOfValues(), expectedNumberOfValues);
         assertNull(columnStatistics.getBooleanStatistics());
@@ -158,7 +158,7 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
         assertColumnStatistics(columnStatistics, expectedNumberOfValues, expectedMin, expectedMax);
 
         // merge in forward order
-        int totalCount = aggregateColumnStatistics.getTotalCount();
+        long totalCount = aggregateColumnStatistics.getTotalCount();
         assertColumnStatistics(aggregateColumnStatistics.getMergedColumnStatistics(Optional.empty()), totalCount, expectedMin, expectedMax);
         assertColumnStatistics(aggregateColumnStatistics.getMergedColumnStatisticsPairwise(Optional.empty()), totalCount, expectedMin, expectedMax);
 
@@ -181,7 +181,7 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
         return newStatisticsList;
     }
 
-    protected void assertColumnStatistics(ColumnStatistics columnStatistics, int expectedNumberOfValues, T expectedMin, T expectedMax)
+    protected void assertColumnStatistics(ColumnStatistics columnStatistics, long expectedNumberOfValues, T expectedMin, T expectedMax)
     {
         assertEquals(columnStatistics.getNumberOfValues(), expectedNumberOfValues);
 
@@ -239,7 +239,7 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
 
     public static class AggregateColumnStatistics
     {
-        private int totalCount;
+        private long totalCount;
         private final ImmutableList.Builder<ColumnStatistics> statisticsList = ImmutableList.builder();
 
         public void add(ColumnStatistics columnStatistics)
@@ -248,7 +248,7 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
             statisticsList.add(columnStatistics);
         }
 
-        public int getTotalCount()
+        public long getTotalCount()
         {
             return totalCount;
         }

@@ -32,7 +32,9 @@ import static java.util.Objects.requireNonNull;
 public class QueryContext
 {
     private final String user;
+    private final String originalUser;
     private final Optional<String> principal;
+    private final Set<String> enabledRoles;
     private final Set<String> groups;
     private final Optional<String> traceToken;
     private final Optional<String> remoteClientAddress;
@@ -41,6 +43,7 @@ public class QueryContext
     private final Set<String> clientTags;
     private final Set<String> clientCapabilities;
     private final Optional<String> source;
+    private final String timezone;
 
     private final Optional<String> catalog;
     private final Optional<String> schema;
@@ -62,7 +65,9 @@ public class QueryContext
     @Unstable
     public QueryContext(
             String user,
+            String originalUser,
             Optional<String> principal,
+            Set<String> enabledRoles,
             Set<String> groups,
             Optional<String> traceToken,
             Optional<String> remoteClientAddress,
@@ -71,6 +76,7 @@ public class QueryContext
             Set<String> clientTags,
             Set<String> clientCapabilities,
             Optional<String> source,
+            String timezone,
             Optional<String> catalog,
             Optional<String> schema,
             Optional<ResourceGroupId> resourceGroupId,
@@ -83,7 +89,9 @@ public class QueryContext
             String retryPolicy)
     {
         this.user = requireNonNull(user, "user is null");
+        this.originalUser = requireNonNull(originalUser, "originalUser is null");
         this.principal = requireNonNull(principal, "principal is null");
+        this.enabledRoles = requireNonNull(enabledRoles, "enabledRoles is null");
         this.groups = requireNonNull(groups, "groups is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.remoteClientAddress = requireNonNull(remoteClientAddress, "remoteClientAddress is null");
@@ -92,6 +100,7 @@ public class QueryContext
         this.clientTags = requireNonNull(clientTags, "clientTags is null");
         this.clientCapabilities = requireNonNull(clientCapabilities, "clientCapabilities is null");
         this.source = requireNonNull(source, "source is null");
+        this.timezone = requireNonNull(timezone, "timezone is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
@@ -111,9 +120,21 @@ public class QueryContext
     }
 
     @JsonProperty
+    public String getOriginalUser()
+    {
+        return originalUser;
+    }
+
+    @JsonProperty
     public Optional<String> getPrincipal()
     {
         return principal;
+    }
+
+    @JsonProperty
+    public Set<String> getEnabledRoles()
+    {
+        return enabledRoles;
     }
 
     @JsonProperty
@@ -162,6 +183,12 @@ public class QueryContext
     public Optional<String> getSource()
     {
         return source;
+    }
+
+    @JsonProperty
+    public String getTimezone()
+    {
+        return timezone;
     }
 
     @JsonProperty

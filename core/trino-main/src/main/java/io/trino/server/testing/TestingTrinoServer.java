@@ -72,6 +72,7 @@ import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.GracefulShutdownHandler;
 import io.trino.server.PluginInstaller;
+import io.trino.server.PrefixObjectNameGeneratorModule;
 import io.trino.server.Server;
 import io.trino.server.ServerMainModule;
 import io.trino.server.SessionPropertyDefaults;
@@ -123,6 +124,7 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -221,7 +223,8 @@ public class TestingTrinoServer
             Optional<URI> discoveryUri,
             Module additionalModule,
             Optional<Path> baseDataDir,
-            List<SystemAccessControl> systemAccessControls,
+            Optional<FactoryConfiguration> systemAccessControlConfiguration,
+            Optional<List<SystemAccessControl>> systemAccessControls,
             List<EventListener> eventListeners)
     {
         this.coordinator = coordinator;
@@ -241,16 +244,14 @@ public class TestingTrinoServer
                 .put("catalog.management", "dynamic")
                 .put("task.concurrency", "4")
                 .put("task.max-worker-threads", "4")
-                // Use task.writer-count > 1, as this allows to expose writer-concurrency related bugs.
-                .put("task.writer-count", "2")
+                // Use task.min-writer-count > 1, as this allows to expose writer-concurrency related bugs.
+                .put("task.min-writer-count", "2")
                 .put("exchange.client-threads", "4")
                 // Reduce memory footprint in tests
                 .put("exchange.max-buffer-size", "4MB")
                 .put("internal-communication.shared-secret", "internal-shared-secret");
 
         if (coordinator) {
-            // TODO: enable failure detector
-            serverProperties.put("failure-detector.enabled", "false");
             serverProperties.put("catalog.store", "memory");
 
             // Reduce memory footprint in tests
@@ -265,6 +266,7 @@ public class TestingTrinoServer
                 .add(new JsonModule())
                 .add(new JaxrsModule())
                 .add(new MBeanModule())
+                .add(new PrefixObjectNameGeneratorModule("io.trino"))
                 .add(new TestingJmxModule())
                 .add(new JmxOpenMetricsModule())
                 .add(new EventModule())
@@ -380,7 +382,12 @@ public class TestingTrinoServer
         failureInjector = injector.getInstance(FailureInjector.class);
         exchangeManagerRegistry = injector.getInstance(ExchangeManagerRegistry.class);
 
-        accessControl.setSystemAccessControls(systemAccessControls);
+        systemAccessControlConfiguration.ifPresentOrElse(
+                configuration -> {
+                    checkArgument(systemAccessControls.isEmpty(), "systemAccessControlConfiguration and systemAccessControls cannot be both present");
+                    accessControl.loadSystemAccessControl(configuration.factoryName(), configuration.configuration());
+                },
+                () -> accessControl.setSystemAccessControls(systemAccessControls.orElseThrow()));
 
         EventListenerManager eventListenerManager = injector.getInstance(EventListenerManager.class);
         eventListeners.forEach(eventListenerManager::addEventListener);
@@ -705,7 +712,8 @@ public class TestingTrinoServer
         private Optional<URI> discoveryUri = Optional.empty();
         private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();
-        private List<SystemAccessControl> systemAccessControls = ImmutableList.of();
+        private Optional<FactoryConfiguration> systemAccessControlConfiguration = Optional.empty();
+        private Optional<List<SystemAccessControl>> systemAccessControls = Optional.of(ImmutableList.of());
         private List<EventListener> eventListeners = ImmutableList.of();
 
         public Builder setCoordinator(boolean coordinator)
@@ -744,9 +752,20 @@ public class TestingTrinoServer
             return this;
         }
 
-        public Builder setSystemAccessControls(List<SystemAccessControl> systemAccessControls)
+        public Builder setSystemAccessControlConfiguration(Optional<FactoryConfiguration> systemAccessControlConfiguration)
         {
-            this.systemAccessControls = ImmutableList.copyOf(requireNonNull(systemAccessControls, "systemAccessControls is null"));
+            this.systemAccessControlConfiguration = requireNonNull(systemAccessControlConfiguration, "systemAccessControlConfiguration is null");
+            return this;
+        }
+
+        public Builder setSystemAccessControl(SystemAccessControl systemAccessControl)
+        {
+            return setSystemAccessControls(Optional.of(ImmutableList.of(requireNonNull(systemAccessControl, "systemAccessControl is null"))));
+        }
+
+        public Builder setSystemAccessControls(Optional<List<SystemAccessControl>> systemAccessControls)
+        {
+            this.systemAccessControls = systemAccessControls.map(ImmutableList::copyOf);
             return this;
         }
 
@@ -765,6 +784,7 @@ public class TestingTrinoServer
                     discoveryUri,
                     additionalModule,
                     baseDataDir,
+                    systemAccessControlConfiguration,
                     systemAccessControls,
                     eventListeners);
         }

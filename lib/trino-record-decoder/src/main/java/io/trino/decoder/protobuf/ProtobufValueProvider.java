@@ -25,6 +25,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -52,6 +54,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
+import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
@@ -131,7 +134,7 @@ public class ProtobufValueProvider
     }
 
     @Override
-    public Block getBlock()
+    public Object getObject()
     {
         return serializeObject(null, value, columnType, columnName);
     }
@@ -155,7 +158,7 @@ public class ProtobufValueProvider
     }
 
     @Nullable
-    private Block serializeObject(BlockBuilder builder, Object value, Type type, String columnName)
+    private Object serializeObject(BlockBuilder builder, Object value, Type type, String columnName)
     {
         if (type instanceof ArrayType) {
             return serializeList(builder, value, type, columnName);
@@ -242,7 +245,7 @@ public class ProtobufValueProvider
     }
 
     @Nullable
-    private Block serializeMap(BlockBuilder parentBlockBuilder, @Nullable Object value, MapType type, String columnName)
+    private SqlMap serializeMap(BlockBuilder parentBlockBuilder, @Nullable Object value, MapType type, String columnName)
     {
         if (value == null) {
             checkState(parentBlockBuilder != null, "parentBlockBuilder is null");
@@ -256,31 +259,25 @@ public class ProtobufValueProvider
         Type keyType = type.getKeyType();
         Type valueType = type.getValueType();
 
-        MapBlockBuilder blockBuilder;
         if (parentBlockBuilder != null) {
-            blockBuilder = (MapBlockBuilder) parentBlockBuilder;
+            ((MapBlockBuilder) parentBlockBuilder).buildEntry((keyBuilder, valueBuilder) -> buildMap(columnName, dynamicMessages, keyType, valueType, keyBuilder, valueBuilder));
+            return null;
         }
-        else {
-            blockBuilder = type.createBlockBuilder(null, 1);
-        }
+        return buildMapValue(type, dynamicMessages.size(), (keyBuilder, valueBuilder) -> buildMap(columnName, dynamicMessages, keyType, valueType, keyBuilder, valueBuilder));
+    }
 
-        blockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
-            for (DynamicMessage dynamicMessage : dynamicMessages) {
-                if (dynamicMessage.getField(dynamicMessage.getDescriptorForType().findFieldByNumber(1)) != null) {
-                    serializeObject(keyBuilder, dynamicMessage.getField(getFieldDescriptor(dynamicMessage, 1)), keyType, columnName);
-                    serializeObject(valueBuilder, dynamicMessage.getField(getFieldDescriptor(dynamicMessage, 2)), valueType, columnName);
-                }
+    private void buildMap(String columnName, Collection<DynamicMessage> dynamicMessages, Type keyType, Type valueType, BlockBuilder keyBuilder, BlockBuilder valueBuilder)
+    {
+        for (DynamicMessage dynamicMessage : dynamicMessages) {
+            if (dynamicMessage.getField(dynamicMessage.getDescriptorForType().findFieldByNumber(1)) != null) {
+                serializeObject(keyBuilder, dynamicMessage.getField(getFieldDescriptor(dynamicMessage, 1)), keyType, columnName);
+                serializeObject(valueBuilder, dynamicMessage.getField(getFieldDescriptor(dynamicMessage, 2)), valueType, columnName);
             }
-        });
-
-        if (parentBlockBuilder == null) {
-            return blockBuilder.getObject(0, Block.class);
         }
-        return null;
     }
 
     @Nullable
-    private Block serializeRow(BlockBuilder blockBuilder, @Nullable Object value, Type type, String columnName)
+    private SqlRow serializeRow(BlockBuilder blockBuilder, @Nullable Object value, Type type, String columnName)
     {
         if (value == null) {
             checkState(blockBuilder != null, "parent block builder is null");

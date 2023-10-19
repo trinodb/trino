@@ -13,25 +13,25 @@
  */
 package io.trino.verifier;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.verifier.Validator.precisionCompare;
 import static java.lang.Double.NaN;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestValidator
 {
     @Test
     public void testDoubleComparison()
     {
-        assertEquals(precisionCompare(0.9045, 0.9045000000000001, 3), 0);
-        assertEquals(precisionCompare(0.9045, 0.9045000000000001, 2), 0);
-        assertEquals(precisionCompare(0.9041, 0.9042, 3), 0);
-        assertEquals(precisionCompare(0.9041, 0.9042, 4), 0);
-        assertEquals(precisionCompare(0.9042, 0.9041, 4), 0);
-        assertEquals(precisionCompare(-0.9042, -0.9041, 4), 0);
-        assertEquals(precisionCompare(-0.9042, -0.9041, 3), 0);
-        assertEquals(precisionCompare(0.899, 0.901, 3), 0);
-        assertEquals(precisionCompare(NaN, NaN, 4), Double.compare(NaN, NaN));
+        assertThat(precisionCompare(0.9045, 0.9045000000000001, 3)).isEqualTo(0);
+        assertThat(precisionCompare(0.9045, 0.9045000000000001, 2)).isEqualTo(0);
+        assertThat(precisionCompare(0.9041, 0.9042, 3)).isEqualTo(0);
+        assertThat(precisionCompare(0.9041, 0.9042, 4)).isEqualTo(0);
+        assertThat(precisionCompare(0.9042, 0.9041, 4)).isEqualTo(0);
+        assertThat(precisionCompare(-0.9042, -0.9041, 4)).isEqualTo(0);
+        assertThat(precisionCompare(-0.9042, -0.9041, 3)).isEqualTo(0);
+        assertThat(precisionCompare(0.899, 0.901, 3)).isEqualTo(0);
+        assertThat(precisionCompare(NaN, NaN, 4)).isEqualTo(Double.compare(NaN, NaN));
     }
 }

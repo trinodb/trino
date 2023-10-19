@@ -35,6 +35,7 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
+import io.trino.execution.BaseTestSqlTaskManager;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.NodeTaskMap;
@@ -49,7 +50,6 @@ import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.TaskTestUtils;
-import io.trino.execution.TestSqlTaskManager;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.HandleJsonModule;
@@ -94,7 +94,8 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -159,33 +160,37 @@ public class TestHttpRemoteTask
     private static final Duration FAIL_TIMEOUT = new Duration(20, SECONDS);
     private static final TaskManagerConfig TASK_MANAGER_CONFIG = new TaskManagerConfig()
             // Shorten status refresh wait and info update interval so that we can have a shorter test timeout
-            .setStatusRefreshMaxWait(new Duration(IDLE_TIMEOUT.roundTo(MILLISECONDS) / 100, MILLISECONDS))
-            .setInfoUpdateInterval(new Duration(IDLE_TIMEOUT.roundTo(MILLISECONDS) / 10, MILLISECONDS));
+            .setStatusRefreshMaxWait(new Duration(IDLE_TIMEOUT.roundTo(MILLISECONDS) / 100.0, MILLISECONDS))
+            .setInfoUpdateInterval(new Duration(IDLE_TIMEOUT.roundTo(MILLISECONDS) / 10.0, MILLISECONDS));
 
     private static final boolean TRACE_HTTP = false;
 
-    @Test(timeOut = 30000)
+    @Test
+    @Timeout(30)
     public void testRemoteTaskMismatch()
             throws Exception
     {
         runTest(FailureScenario.TASK_MISMATCH);
     }
 
-    @Test(timeOut = 30000)
+    @Test
+    @Timeout(30)
     public void testRejectedExecutionWhenVersionIsHigh()
             throws Exception
     {
         runTest(FailureScenario.TASK_MISMATCH_WHEN_VERSION_IS_HIGH);
     }
 
-    @Test(timeOut = 30000)
+    @Test
+    @Timeout(30)
     public void testRejectedExecution()
             throws Exception
     {
         runTest(FailureScenario.REJECTED_EXECUTION);
     }
 
-    @Test(timeOut = 30000)
+    @Test
+    @Timeout(30)
     public void testRegular()
             throws Exception
     {
@@ -213,7 +218,8 @@ public class TestHttpRemoteTask
         httpRemoteTaskFactory.stop();
     }
 
-    @Test(timeOut = 30000)
+    @Test
+    @Timeout(30)
     public void testDynamicFilters()
             throws Exception
     {
@@ -293,7 +299,8 @@ public class TestHttpRemoteTask
         httpRemoteTaskFactory.stop();
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testOutboundDynamicFilters()
             throws Exception
     {
@@ -387,7 +394,8 @@ public class TestHttpRemoteTask
         httpRemoteTaskFactory.stop();
     }
 
-    @Test(timeOut = 300000)
+    @Test
+    @Timeout(300)
     public void testAdaptiveRemoteTaskRequestSize()
             throws Exception
     {
@@ -583,7 +591,7 @@ public class TestHttpRemoteTask
                                 new QueryManagerConfig(),
                                 TASK_MANAGER_CONFIG,
                                 testingHttpClient,
-                                new TestSqlTaskManager.MockLocationFactory(),
+                                new BaseTestSqlTaskManager.MockLocationFactory(),
                                 taskStatusCodec,
                                 dynamicFilterDomainsCodec,
                                 taskInfoCodec,

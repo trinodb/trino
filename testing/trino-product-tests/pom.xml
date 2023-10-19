@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>423-SNAPSHOT</version>
+        <version>430-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -302,6 +302,13 @@
             It is required by SchemaRegistryClient. The actual dependencies
             are excluded from SchemaRegistryClient as it conflicts with Trino's dependency
             -->
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- TODO: move it to airlift -->
+        <dependency>
+            <groupId>org.codehaus.plexus</groupId>
+            <artifactId>plexus-xml</artifactId>
             <scope>runtime</scope>
         </dependency>
 

@@ -39,10 +39,14 @@ Trino requires a 64-bit version of Java 17, with a minimum required version of 1
 Earlier major versions such as Java 8 or Java 11 do not work.
 Newer major versions such as Java 18 or 19, are not supported -- they may work, but are not tested.
 
-We recommend using [Azul Zulu](https://www.azul.com/downloads/zulu-community/)
-as the JDK for Trino, as Trino is tested against that distribution.
-Zulu is also the JDK used by the
-[Trino Docker image](https://hub.docker.com/r/trinodb/trino).
+We recommend using the Eclipse Temurin OpenJDK distribution from
+[Adoptium](https://adoptium.net/) as the JDK for Trino, as Trino is tested
+against that distribution. Eclipse Temurin is also the JDK used by the [Trino
+Docker image](https://hub.docker.com/r/trinodb/trino).
+
+If you are using Java 17 or 18, the JVM must be configured to use UTF-8 as the default charset by
+adding `-Dfile.encoding=UTF-8` to `etc/jvm.config`. Starting with Java 19, the Java default 
+charset is UTF-8, so this configuration is not needed.
 
 (requirements-python)=
 
@@ -136,8 +140,11 @@ The following provides a good starting point for creating `etc/jvm.config`:
 -Djdk.nio.maxCachedBufferSize=2000000
 -XX:+UnlockDiagnosticVMOptions
 -XX:+UseAESCTRIntrinsics
+-Dfile.encoding=UTF-8
 # Disable Preventive GC for performance reasons (JDK-8293861)
--XX:-G1UsePreventiveGC
+-XX:-G1UsePreventiveGC  
+# Reduce starvation of threads by GClocker, recommend to set about the number of cpu cores (JDK-8192647)
+-XX:GCLockerRetryAllocationCount=32
 ```
 
 You must adjust the value for the memory used by Trino, specified with `-Xmx`
@@ -168,8 +175,9 @@ prevents Trino from starting. You can workaround this by overriding the
 temporary directory by adding `-Djava.io.tmpdir=/path/to/other/tmpdir` to the
 list of JVM options.
 
-We enable `-XX:+UnlockDiagnosticVMOptions` and `-XX:+UseAESCTRIntrinsics` to improve AES performance for S3, etc. on ARM64 ([JDK-8271567](https://bugs.openjdk.java.net/browse/JDK-8271567))
-We disable Preventive GC (`-XX:-G1UsePreventiveGC`) for performance reasons (see [JDK-8293861](https://bugs.openjdk.org/browse/JDK-8293861))
+We enable `-XX:+UnlockDiagnosticVMOptions` and `-XX:+UseAESCTRIntrinsics` to improve AES performance for S3, etc. on ARM64 ([JDK-8271567](https://bugs.openjdk.java.net/browse/JDK-8271567))  
+We disable Preventive GC (`-XX:-G1UsePreventiveGC`) for performance reasons (see [JDK-8293861](https://bugs.openjdk.org/browse/JDK-8293861))  
+We set GCLocker retry allocation count (`-XX:GCLockerRetryAllocationCount=32`) to avoid OOM too early (see [JDK-8192647](https://bugs.openjdk.org/browse/JDK-8192647))
 
 (config-properties)=
 

@@ -1,15 +1,14 @@
-Predicate pushdown support
-""""""""""""""""""""""""""
+#### Predicate pushdown support
 
 The connector does not support pushdown of any predicates on columns with
-:ref:`textual types <string-data-types>` like ``CHAR`` or ``VARCHAR``.
+{ref}`textual types <string-data-types>` like `CHAR` or `VARCHAR`.
 This ensures correctness of results since the data source may compare strings
 case-insensitively.
 
 In the following example, the predicate is not pushed down for either query
-since ``name`` is a column of type ``VARCHAR``:
+since `name` is a column of type `VARCHAR`:
 
-.. code-block:: sql
-
-    SELECT * FROM nation WHERE name > 'CANADA';
-    SELECT * FROM nation WHERE name = 'CANADA';
+```sql
+SELECT * FROM nation WHERE name > 'CANADA';
+SELECT * FROM nation WHERE name = 'CANADA';
+```

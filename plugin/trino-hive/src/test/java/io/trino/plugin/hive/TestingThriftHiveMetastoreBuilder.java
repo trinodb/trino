@@ -13,20 +13,10 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
-import io.trino.hdfs.DynamicHdfsConfiguration;
-import io.trino.hdfs.HdfsConfig;
-import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.authentication.NoHdfsAuthentication;
-import io.trino.hdfs.azure.HiveAzureConfig;
-import io.trino.hdfs.azure.TrinoAzureConfigurationInitializer;
-import io.trino.hdfs.gcs.GoogleGcsConfigurationInitializer;
-import io.trino.hdfs.gcs.HiveGcsConfig;
-import io.trino.hdfs.s3.HiveS3Config;
-import io.trino.hdfs.s3.TrinoS3ConfigurationInitializer;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.TestingTokenAwareMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreFactory;
@@ -40,24 +30,13 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.base.security.UserNameProvider.SIMPLE_USER_NAME_PROVIDER;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
 public final class TestingThriftHiveMetastoreBuilder
 {
-    private static final HdfsEnvironment HDFS_ENVIRONMENT = new HdfsEnvironment(
-            new DynamicHdfsConfiguration(
-                    new HdfsConfigurationInitializer(
-                            new HdfsConfig()
-                                    .setSocksProxy(HiveTestUtils.SOCKS_PROXY.orElse(null)),
-                            ImmutableSet.of(
-                                    new TrinoS3ConfigurationInitializer(new HiveS3Config()),
-                                    new GoogleGcsConfigurationInitializer(new HiveGcsConfig()),
-                                    new TrinoAzureConfigurationInitializer(new HiveAzureConfig()))),
-                    ImmutableSet.of()),
-            new HdfsConfig(),
-            new NoHdfsAuthentication());
-
     private TokenAwareMetastoreClientFactory tokenAwareMetastoreClientFactory;
     private HiveConfig hiveConfig = new HiveConfig();
     private ThriftMetastoreConfig thriftMetastoreConfig = new ThriftMetastoreConfig();
@@ -121,7 +100,7 @@ public final class TestingThriftHiveMetastoreBuilder
                 new HiveMetastoreConfig().isHideDeltaLakeTables(),
                 hiveConfig.isTranslateHiveViews(),
                 thriftMetastoreConfig,
-                hdfsEnvironment,
+                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
                 newFixedThreadPool(thriftMetastoreConfig.getWriteStatisticsThreads()));
         return metastoreFactory.createMetastore(Optional.empty());
     }

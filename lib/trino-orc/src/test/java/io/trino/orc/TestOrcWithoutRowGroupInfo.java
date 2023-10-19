@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.type.RowType;
 import org.joda.time.DateTimeZone;
@@ -84,9 +85,8 @@ public class TestOrcWithoutRowGroupInfo
             Block rowBlock = page.getBlock(5);
 
             for (int position = 0; position < page.getPositionCount(); position++) {
-                BIGINT.getLong(
-                        rowType.getObject(rowBlock, 0),
-                        0);
+                SqlRow sqlRow = rowType.getObject(rowBlock, 0);
+                BIGINT.getLong(sqlRow.getRawFieldBlock(0), sqlRow.getRawIndex());
             }
         }
 

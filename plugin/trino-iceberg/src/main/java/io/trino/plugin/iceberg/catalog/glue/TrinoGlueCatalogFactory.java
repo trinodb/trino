@@ -39,6 +39,7 @@ public class TrinoGlueCatalogFactory
     private final CatalogName catalogName;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TypeManager typeManager;
+    private final boolean cacheTableMetadata;
     private final IcebergTableOperationsProvider tableOperationsProvider;
     private final String trinoVersion;
     private final Optional<String> defaultSchemaLocation;
@@ -55,12 +56,14 @@ public class TrinoGlueCatalogFactory
             NodeVersion nodeVersion,
             GlueHiveMetastoreConfig glueConfig,
             IcebergConfig icebergConfig,
+            IcebergGlueCatalogConfig catalogConfig,
             GlueMetastoreStats stats,
             AWSGlueAsync glueClient)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.cacheTableMetadata = catalogConfig.isCacheTableMetadata();
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
         this.trinoVersion = nodeVersion.toString();
         this.defaultSchemaLocation = glueConfig.getDefaultWarehouseDir();
@@ -83,6 +86,7 @@ public class TrinoGlueCatalogFactory
                 catalogName,
                 fileSystemFactory,
                 typeManager,
+                cacheTableMetadata,
                 tableOperationsProvider,
                 trinoVersion,
                 glueClient,

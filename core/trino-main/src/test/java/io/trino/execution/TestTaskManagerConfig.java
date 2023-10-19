@@ -16,7 +16,7 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -34,13 +34,13 @@ import static java.lang.Math.min;
 public class TestTaskManagerConfig
 {
     private static final int DEFAULT_PROCESSOR_COUNT = min(max(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 2), 32);
-    private static final int DEFAULT_SCALE_WRITERS_MAX_WRITER_COUNT = min(getAvailablePhysicalProcessorCount(), 32) * 2;
-    private static final int DEFAULT_PARTITIONED_WRITER_COUNT = min(max(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 2), 32) * 2;
+    private static final int DEFAULT_MAX_WRITER_COUNT = min(max(nextPowerOfTwo(getAvailablePhysicalProcessorCount() * 2), 2), 64);
 
     @Test
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(TaskManagerConfig.class)
+                .setThreadPerDriverSchedulerEnabled(false)
                 .setInitialSplitsPerNode(Runtime.getRuntime().availableProcessors() * 2)
                 .setSplitConcurrencyAdjustmentInterval(new Duration(100, TimeUnit.MILLISECONDS))
                 .setStatusRefreshMaxWait(new Duration(1, TimeUnit.SECONDS))
@@ -64,9 +64,8 @@ public class TestTaskManagerConfig
                 .setMaxPagePartitioningBufferSize(DataSize.of(32, Unit.MEGABYTE))
                 .setPagePartitioningBufferPoolSize(8)
                 .setScaleWritersEnabled(true)
-                .setScaleWritersMaxWriterCount(DEFAULT_SCALE_WRITERS_MAX_WRITER_COUNT)
-                .setWriterCount(1)
-                .setPartitionedWriterCount(DEFAULT_PARTITIONED_WRITER_COUNT)
+                .setMinWriterCount(1)
+                .setMaxWriterCount(DEFAULT_MAX_WRITER_COUNT)
                 .setTaskConcurrency(DEFAULT_PROCESSOR_COUNT)
                 .setHttpResponseThreads(100)
                 .setHttpTimeoutThreads(3)
@@ -84,9 +83,9 @@ public class TestTaskManagerConfig
     public void testExplicitPropertyMappings()
     {
         int processorCount = DEFAULT_PROCESSOR_COUNT == 32 ? 16 : 32;
-        int maxWriterCount = DEFAULT_SCALE_WRITERS_MAX_WRITER_COUNT == 32 ? 16 : 32;
-        int partitionedWriterCount = DEFAULT_PARTITIONED_WRITER_COUNT == 64 ? 32 : 64;
+        int maxWriterCount = DEFAULT_MAX_WRITER_COUNT == 32 ? 16 : 32;
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("experimental.thread-per-driver-scheduler-enabled", "true")
                 .put("task.initial-splits-per-node", "1")
                 .put("task.split-concurrency-adjustment-interval", "1s")
                 .put("task.status-refresh-max-wait", "2s")
@@ -110,9 +109,8 @@ public class TestTaskManagerConfig
                 .put("driver.max-page-partitioning-buffer-size", "40MB")
                 .put("driver.page-partitioning-buffer-pool-size", "0")
                 .put("task.scale-writers.enabled", "false")
-                .put("task.scale-writers.max-writer-count", Integer.toString(maxWriterCount))
-                .put("task.writer-count", "4")
-                .put("task.partitioned-writer-count", Integer.toString(partitionedWriterCount))
+                .put("task.min-writer-count", "4")
+                .put("task.max-writer-count", Integer.toString(maxWriterCount))
                 .put("task.concurrency", Integer.toString(processorCount))
                 .put("task.http-response-threads", "4")
                 .put("task.http-timeout-threads", "10")
@@ -127,6 +125,7 @@ public class TestTaskManagerConfig
                 .buildOrThrow();
 
         TaskManagerConfig expected = new TaskManagerConfig()
+                .setThreadPerDriverSchedulerEnabled(true)
                 .setInitialSplitsPerNode(1)
                 .setSplitConcurrencyAdjustmentInterval(new Duration(1, TimeUnit.SECONDS))
                 .setStatusRefreshMaxWait(new Duration(2, TimeUnit.SECONDS))
@@ -150,9 +149,8 @@ public class TestTaskManagerConfig
                 .setMaxPagePartitioningBufferSize(DataSize.of(40, Unit.MEGABYTE))
                 .setPagePartitioningBufferPoolSize(0)
                 .setScaleWritersEnabled(false)
-                .setScaleWritersMaxWriterCount(maxWriterCount)
-                .setWriterCount(4)
-                .setPartitionedWriterCount(partitionedWriterCount)
+                .setMinWriterCount(4)
+                .setMaxWriterCount(maxWriterCount)
                 .setTaskConcurrency(processorCount)
                 .setHttpResponseThreads(4)
                 .setHttpTimeoutThreads(10)

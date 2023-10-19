@@ -16,6 +16,7 @@ package io.trino.sql.planner.assertions;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -28,8 +29,10 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.metadata.ResolvedFunction.extractFunctionName;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.metadata.ResolvedFunction.isResolved;
 import static java.util.Objects.requireNonNull;
 
 public class WindowFunctionMatcher
@@ -91,9 +94,13 @@ public class WindowFunctionMatcher
             return false;
         }
 
+        checkArgument(!isResolved(expectedCall.getName()), "Expected function call must not be resolved");
+        checkArgument(expectedCall.getName().getParts().size() == 1, "Expected function call name must not be qualified: %s", expectedCall.getName());
+        CatalogSchemaFunctionName expectedFunctionName = builtinFunctionName(expectedCall.getName().getSuffix());
+
         return resolvedFunction.map(windowFunction.getResolvedFunction()::equals).orElse(true) &&
                 expectedFrame.map(windowFunction.getFrame()::equals).orElse(true) &&
-                Objects.equals(extractFunctionName(expectedCall.getName()), windowFunction.getResolvedFunction().getSignature().getName()) &&
+                Objects.equals(expectedFunctionName, windowFunction.getResolvedFunction().getSignature().getName()) &&
                 Objects.equals(expectedCall.getArguments(), windowFunction.getArguments());
     }
 

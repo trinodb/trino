@@ -35,6 +35,7 @@ public final class VarcharType
         extends AbstractVariableWidthType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = TypeOperatorDeclaration.builder(Slice.class)
+            .addOperators(DEFAULT_READ_OPERATORS)
             .addOperators(DEFAULT_COMPARABLE_OPERATORS)
             .addOperators(DEFAULT_ORDERING_OPERATORS)
             .build();
@@ -178,17 +179,6 @@ public final class VarcharType
             this.range = range;
         }
         return range;
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            ((VariableWidthBlockBuilder) blockBuilder).buildEntry(valueBuilder -> block.writeSliceTo(position, 0, block.getSliceLength(position), valueBuilder));
-        }
     }
 
     @Override

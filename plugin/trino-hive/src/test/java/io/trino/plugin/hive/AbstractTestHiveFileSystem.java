@@ -53,6 +53,7 @@ import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.security.SqlStandardAccessControlMetadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
@@ -75,7 +76,6 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingNodeManager;
-import io.trino.type.BlockTypeOperators;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem;
@@ -91,6 +91,7 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -106,12 +107,12 @@ import static io.trino.plugin.hive.AbstractTestHive.filterNonHiddenColumnHandles
 import static io.trino.plugin.hive.AbstractTestHive.filterNonHiddenColumnMetadata;
 import static io.trino.plugin.hive.AbstractTestHive.getAllSplits;
 import static io.trino.plugin.hive.AbstractTestHive.getSplits;
+import static io.trino.plugin.hive.HiveTableProperties.EXTERNAL_LOCATION_PROPERTY;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
-import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProviders;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.trino.plugin.hive.HiveTestUtils.getTypes;
 import static io.trino.plugin.hive.HiveType.HIVE_LONG;
@@ -123,6 +124,7 @@ import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingPageSinkId.TESTING_PAGE_SINK_ID;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -144,6 +146,7 @@ public abstract class AbstractTestHiveFileSystem
     protected SchemaTableName tableWithHeader;
     protected SchemaTableName tableWithHeaderAndFooter;
     protected SchemaTableName temporaryCreateTable;
+    protected SchemaTableName temporaryCreateTableWithExternalLocation;
 
     protected HdfsEnvironment hdfsEnvironment;
     protected LocationService locationService;
@@ -182,7 +185,7 @@ public abstract class AbstractTestHiveFileSystem
 
     protected void onSetupComplete() {}
 
-    protected void setup(String host, int port, String databaseName, boolean s3SelectPushdownEnabled, HdfsConfiguration hdfsConfiguration)
+    protected void setup(String host, int port, String databaseName, HdfsConfiguration hdfsConfiguration)
     {
         database = databaseName;
         table = new SchemaTableName(database, "trino_test_external_fs");
@@ -191,8 +194,10 @@ public abstract class AbstractTestHiveFileSystem
 
         String random = randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
         temporaryCreateTable = new SchemaTableName(database, "tmp_trino_test_create_" + random);
+        temporaryCreateTableWithExternalLocation = new SchemaTableName(database, "tmp_trino_test_create_external" + random);
 
-        config = new HiveConfig().setS3SelectPushdownEnabled(s3SelectPushdownEnabled);
+        config = new HiveConfig()
+                .setWritesToNonManagedTablesEnabled(true);
 
         HivePartitionManager hivePartitionManager = new HivePartitionManager(config);
 
@@ -240,7 +245,6 @@ public abstract class AbstractTestHiveFileSystem
                 hivePartitionManager,
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
                 new HdfsNamenodeStats(),
-                hdfsEnvironment,
                 new BoundedExecutor(executor, config.getMaxSplitIteratorThreads()),
                 new CounterStat(),
                 config.getMaxOutstandingSplits(),
@@ -253,15 +257,12 @@ public abstract class AbstractTestHiveFileSystem
                 config.getRecursiveDirWalkerEnabled(),
                 TESTING_TYPE_MANAGER,
                 config.getMaxPartitionsPerScan());
-        TypeOperators typeOperators = new TypeOperators();
-        BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, hdfsEnvironment),
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
-                hdfsEnvironment,
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastoreClient),
-                new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), blockTypeOperators),
+                new GroupByHashPageIndexerFactory(new JoinCompiler(new TypeOperators())),
                 TESTING_TYPE_MANAGER,
                 config,
                 new SortingFileWriterConfig(),
@@ -273,11 +274,8 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveWriterStats());
         pageSourceProvider = new HivePageSourceProvider(
                 TESTING_TYPE_MANAGER,
-                hdfsEnvironment,
                 config,
-                getDefaultHivePageSourceFactories(hdfsEnvironment, config),
-                getDefaultHiveRecordCursorProviders(config, hdfsEnvironment),
-                new GenericHiveRecordCursorProvider(hdfsEnvironment, config));
+                getDefaultHivePageSourceFactories(hdfsEnvironment, config));
 
         onSetupComplete();
     }
@@ -296,12 +294,6 @@ public abstract class AbstractTestHiveFileSystem
             throws IOException
     {
         return HiveFileSystemTestUtils.readTable(tableName, transactionManager, config, pageSourceProvider, splitManager);
-    }
-
-    protected MaterializedResult filterTable(SchemaTableName tableName, List<ColumnHandle> projectedColumns)
-            throws IOException
-    {
-        return HiveFileSystemTestUtils.filterTable(tableName, projectedColumns, transactionManager, config, pageSourceProvider, splitManager);
     }
 
     @Test
@@ -672,6 +664,24 @@ public abstract class AbstractTestHiveFileSystem
         }
     }
 
+    @Test
+    public void testTableCreationExternalLocation()
+            throws Exception
+    {
+        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            if (storageFormat == HiveStorageFormat.CSV) {
+                // CSV supports only unbounded VARCHAR type
+                continue;
+            }
+            if (storageFormat == HiveStorageFormat.REGEX) {
+                // REGEX format is read-only
+                continue;
+            }
+            createExternalTableOnNonExistingPath(temporaryCreateTableWithExternalLocation, storageFormat);
+            dropTable(temporaryCreateTableWithExternalLocation);
+        }
+    }
+
     private void createTable(SchemaTableName tableName, HiveStorageFormat storageFormat)
             throws Exception
     {
@@ -721,6 +731,84 @@ public abstract class AbstractTestHiveFileSystem
             // verify the metadata
             ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, getTableHandle(metadata, tableName));
             assertEquals(filterNonHiddenColumnMetadata(tableMetadata.getColumns()), columns);
+
+            // verify the data
+            metadata.beginQuery(session);
+            ConnectorSplitSource splitSource = getSplits(splitManager, transaction, session, tableHandle);
+            ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
+
+            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, tableHandle, columnHandles, DynamicFilter.EMPTY)) {
+                MaterializedResult result = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
+                assertEqualsIgnoreOrder(result.getMaterializedRows(), data.getMaterializedRows());
+            }
+
+            metadata.cleanupQuery(session);
+        }
+    }
+
+    private void createExternalTableOnNonExistingPath(SchemaTableName tableName, HiveStorageFormat storageFormat)
+            throws Exception
+    {
+        List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("id", BIGINT));
+        String externalLocation = getBasePath() + "/external_" + randomNameSuffix();
+
+        MaterializedResult data = MaterializedResult.resultBuilder(newSession(), BIGINT)
+                .row(1L)
+                .row(3L)
+                .row(2L)
+                .build();
+
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+
+            Map<String, Object> tableProperties = ImmutableMap.<String, Object>builder()
+                    .putAll(createTableProperties(storageFormat))
+                    .put(EXTERNAL_LOCATION_PROPERTY, externalLocation)
+                    .buildOrThrow();
+
+            // begin creating the table
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, tableProperties);
+            metadata.createTable(session, tableMetadata, true);
+
+            transaction.commit();
+
+            // Hack to work around the metastore not being configured for S3 or other FS.
+            // The metastore tries to validate the location when creating the
+            // table, which fails without explicit configuration for file system.
+            // We work around that by using a dummy location when creating the
+            // table and update it here to the correct location.
+            Location location = locationService.getTableWriteInfo(new LocationHandle(externalLocation, externalLocation, LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY), false).targetPath();
+            metastoreClient.updateTableLocation(database, tableName.getTableName(), location.toString());
+        }
+
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+
+            ConnectorTableHandle connectorTableHandle = getTableHandle(metadata, tableName);
+            ConnectorInsertTableHandle outputHandle = metadata.beginInsert(session, connectorTableHandle, ImmutableList.of(), NO_RETRIES);
+
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle, TESTING_PAGE_SINK_ID);
+            sink.appendPage(data.toPage());
+            Collection<Slice> fragments = getFutureValue(sink.finish());
+
+            metadata.finishInsert(session, outputHandle, fragments, ImmutableList.of());
+            transaction.commit();
+        }
+
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+
+            // load the new table
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+            List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
+
+            // verify the metadata
+            ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, getTableHandle(metadata, tableName));
+            assertEquals(filterNonHiddenColumnMetadata(tableMetadata.getColumns()), columns);
+            assertEquals(tableMetadata.getProperties().get("external_location"), externalLocation);
 
             // verify the data
             metadata.beginQuery(session);

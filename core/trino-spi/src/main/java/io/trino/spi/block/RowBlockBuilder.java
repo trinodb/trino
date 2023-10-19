@@ -19,18 +19,14 @@ import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.spi.block.BlockUtil.checkArrayRange;
-import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.RowBlock.createRowBlockInternal;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RowBlockBuilder
-        extends AbstractRowBlock
         implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = instanceSize(RowBlockBuilder.class);
@@ -59,8 +55,6 @@ public class RowBlockBuilder
 
     private RowBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, BlockBuilder[] fieldBlockBuilders, int[] fieldBlockOffsets, boolean[] rowIsNull)
     {
-        super(fieldBlockBuilders.length);
-
         this.blockBuilderStatus = blockBuilderStatus;
         this.positionCount = 0;
         this.fieldBlockOffsets = requireNonNull(fieldBlockOffsets, "fieldBlockOffsets is null");
@@ -80,38 +74,6 @@ public class RowBlockBuilder
     }
 
     @Override
-    protected Block[] getRawFieldBlocks()
-    {
-        return fieldBlockBuilders;
-    }
-
-    @Override
-    @Nullable
-    protected int[] getFieldBlockOffsets()
-    {
-        return hasNullRow ? fieldBlockOffsets : null;
-    }
-
-    @Override
-    protected int getOffsetBase()
-    {
-        return 0;
-    }
-
-    @Nullable
-    @Override
-    protected boolean[] getRowIsNull()
-    {
-        return hasNullRow ? rowIsNull : null;
-    }
-
-    @Override
-    public boolean mayHaveNull()
-    {
-        return hasNullRow;
-    }
-
-    @Override
     public int getPositionCount()
     {
         return positionCount;
@@ -121,8 +83,8 @@ public class RowBlockBuilder
     public long getSizeInBytes()
     {
         long sizeInBytes = (Integer.BYTES + Byte.BYTES) * (long) positionCount;
-        for (int i = 0; i < numFields; i++) {
-            sizeInBytes += fieldBlockBuilders[i].getSizeInBytes();
+        for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
+            sizeInBytes += fieldBlockBuilder.getSizeInBytes();
         }
         return sizeInBytes;
     }
@@ -131,24 +93,13 @@ public class RowBlockBuilder
     public long getRetainedSizeInBytes()
     {
         long size = INSTANCE_SIZE + sizeOf(fieldBlockOffsets) + sizeOf(rowIsNull);
-        for (int i = 0; i < numFields; i++) {
-            size += fieldBlockBuilders[i].getRetainedSizeInBytes();
+        for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
+            size += fieldBlockBuilder.getRetainedSizeInBytes();
         }
         if (blockBuilderStatus != null) {
             size += BlockBuilderStatus.INSTANCE_SIZE;
         }
         return size;
-    }
-
-    @Override
-    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
-    {
-        for (int i = 0; i < numFields; i++) {
-            consumer.accept(fieldBlockBuilders[i], fieldBlockBuilders[i].getRetainedSizeInBytes());
-        }
-        consumer.accept(fieldBlockOffsets, sizeOf(fieldBlockOffsets));
-        consumer.accept(rowIsNull, sizeOf(rowIsNull));
-        consumer.accept(this, INSTANCE_SIZE);
     }
 
     public <E extends Throwable> void buildEntry(RowValueBuilder<E> builder)
@@ -193,7 +144,7 @@ public class RowBlockBuilder
         hasNonNullRow |= !isNull;
         positionCount++;
 
-        for (int i = 0; i < numFields; i++) {
+        for (int i = 0; i < fieldBlockBuilders.length; i++) {
             if (fieldBlockBuilders[i].getPositionCount() != fieldBlockOffsets[positionCount]) {
                 throw new IllegalStateException(format("field %s has unexpected position count. Expected: %s, actual: %s", i, fieldBlockOffsets[positionCount], fieldBlockBuilders[i].getPositionCount()));
             }
@@ -213,8 +164,8 @@ public class RowBlockBuilder
         if (!hasNonNullRow) {
             return nullRle(positionCount);
         }
-        Block[] fieldBlocks = new Block[numFields];
-        for (int i = 0; i < numFields; i++) {
+        Block[] fieldBlocks = new Block[fieldBlockBuilders.length];
+        for (int i = 0; i < fieldBlockBuilders.length; i++) {
             fieldBlocks[i] = fieldBlockBuilders[i].build();
         }
         return createRowBlockInternal(0, positionCount, hasNullRow ? rowIsNull : null, hasNullRow ? fieldBlockOffsets : null, fieldBlocks);
@@ -223,58 +174,23 @@ public class RowBlockBuilder
     @Override
     public String toString()
     {
-        return format("RowBlockBuilder{numFields=%d, positionCount=%d", numFields, getPositionCount());
+        return format("RowBlockBuilder{numFields=%d, positionCount=%d", fieldBlockBuilders.length, getPositionCount());
     }
 
     @Override
     public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
     {
-        BlockBuilder[] newBlockBuilders = new BlockBuilder[numFields];
-        for (int i = 0; i < numFields; i++) {
+        BlockBuilder[] newBlockBuilders = new BlockBuilder[fieldBlockBuilders.length];
+        for (int i = 0; i < fieldBlockBuilders.length; i++) {
             newBlockBuilders[i] = fieldBlockBuilders[i].newBlockBuilderLike(blockBuilderStatus);
         }
         return new RowBlockBuilder(blockBuilderStatus, newBlockBuilders, new int[expectedEntries + 1], new boolean[expectedEntries]);
     }
 
-    @Override
-    public Block copyPositions(int[] positions, int offset, int length)
-    {
-        checkArrayRange(positions, offset, length);
-
-        if (!hasNonNullRow) {
-            return nullRle(length);
-        }
-        return super.copyPositions(positions, offset, length);
-    }
-
-    @Override
-    public Block getRegion(int position, int length)
-    {
-        int positionCount = getPositionCount();
-        checkValidRegion(positionCount, position, length);
-
-        if (!hasNonNullRow) {
-            return nullRle(length);
-        }
-        return super.getRegion(position, length);
-    }
-
-    @Override
-    public Block copyRegion(int position, int length)
-    {
-        int positionCount = getPositionCount();
-        checkValidRegion(positionCount, position, length);
-
-        if (!hasNonNullRow) {
-            return nullRle(length);
-        }
-        return super.copyRegion(position, length);
-    }
-
     private Block nullRle(int length)
     {
-        Block[] fieldBlocks = new Block[numFields];
-        for (int i = 0; i < numFields; i++) {
+        Block[] fieldBlocks = new Block[fieldBlockBuilders.length];
+        for (int i = 0; i < fieldBlockBuilders.length; i++) {
             fieldBlocks[i] = fieldBlockBuilders[i].newBlockBuilderLike(null).build();
         }
 

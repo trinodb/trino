@@ -14,7 +14,7 @@
 package io.trino.plugin.elasticsearch;
 
 import io.airlift.slice.Slices;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -34,6 +34,10 @@ public class TestElasticsearchMetadata
         assertEquals(likeToRegexp("s_.m%ex\\t", Optional.of("$")), "s.\\.m.*ex\\\\t");
         assertEquals(likeToRegexp("\000%", Optional.empty()), "\000.*");
         assertEquals(likeToRegexp("\000%", Optional.of("\000")), "%");
+        assertEquals(likeToRegexp("中文%", Optional.empty()), "中文.*");
+        assertEquals(likeToRegexp("こんにちは%", Optional.empty()), "こんにちは.*");
+        assertEquals(likeToRegexp("안녕하세요%", Optional.empty()), "안녕하세요.*");
+        assertEquals(likeToRegexp("Привет%", Optional.empty()), "Привет.*");
     }
 
     private static String likeToRegexp(String pattern, Optional<String> escapeChar)

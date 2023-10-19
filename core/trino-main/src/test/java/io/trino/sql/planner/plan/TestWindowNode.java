@@ -31,13 +31,11 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FrameBound;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeSignatureDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.Optional;
@@ -51,12 +49,6 @@ import static org.testng.Assert.assertEquals;
 public class TestWindowNode
 {
     private final TestingFunctionResolution functionResolution;
-    private SymbolAllocator symbolAllocator;
-    private ValuesNode sourceNode;
-    private Symbol columnA;
-    private Symbol columnB;
-    private Symbol columnC;
-
     private final ObjectMapper objectMapper;
 
     public TestWindowNode()
@@ -77,26 +69,22 @@ public class TestWindowNode
         objectMapper = provider.get();
     }
 
-    @BeforeClass
-    public void setUp()
-    {
-        symbolAllocator = new SymbolAllocator();
-        columnA = symbolAllocator.newSymbol("a", BIGINT);
-        columnB = symbolAllocator.newSymbol("b", BIGINT);
-        columnC = symbolAllocator.newSymbol("c", BIGINT);
-
-        sourceNode = new ValuesNode(
-                newId(),
-                ImmutableList.of(columnA, columnB, columnC),
-                ImmutableList.of());
-    }
-
     @Test
     public void testSerializationRoundtrip()
             throws Exception
     {
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        Symbol columnA = symbolAllocator.newSymbol("a", BIGINT);
+        Symbol columnB = symbolAllocator.newSymbol("b", BIGINT);
+        Symbol columnC = symbolAllocator.newSymbol("c", BIGINT);
+
+        ValuesNode sourceNode = new ValuesNode(
+                newId(),
+                ImmutableList.of(columnA, columnB, columnC),
+                ImmutableList.of());
+
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", BIGINT);
-        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(BIGINT));
+        ResolvedFunction resolvedFunction = functionResolution.resolveFunction("sum", fromTypes(BIGINT));
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,
                 FrameBound.Type.UNBOUNDED_PRECEDING,

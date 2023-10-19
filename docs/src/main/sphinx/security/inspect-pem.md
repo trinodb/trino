@@ -3,20 +3,18 @@
 PEM (Privacy Enhanced Mail) is a standard for public key and certificate
 information, and an encoding standard used to transmit keys and certificates.
 
-Trino supports PEM-encoded certificates. If you want to use other supported
-formats, see:
+Trino supports PEM files. If you want to use other supported formats, see:
 
 - {doc}`JKS keystores </security/inspect-jks>`
 - {ref}`PKCS 12 <glossPKCS12>` stores. (Look up alternate commands for these in
   `openssl` references.)
 
-A single PEM-encoded file can contain either certificate or key pair
-information, or both in the same file. Certified keys can contain a chain of
-certificates from successive certificate authorities.
+A single PEM file can contain either certificate or key pair information, or
+both in the same file. Certified keys can contain a chain of certificates from
+successive certificate authorities.
 
-Follow the steps in this topic to inspect and validate PEM-encoded key and
-certificate files. See {ref}`troubleshooting-keystore` to validate JKS
-keystores.
+Follow the steps in this topic to inspect and validate key and certificate in
+PEM files. See {ref}`troubleshooting-keystore` to validate JKS keystores.
 
 (inspect-pems)=
 
@@ -52,7 +50,8 @@ MIIEowIBAAKCAQEAwJL8CLeDFAHhZe3QOOF1vWt4Vuk9vyO38Y1y9SgBfB02b2jW
 If your key section reports `BEGIN ENCRYPTED PRIVATE KEY` instead, this means
 the key is encrypted and you must use the password to open or inspect the key.
 You may have specified the password when requesting the key, or the password
-could be assigned by your site's network managers.
+could be assigned by your site's network managers. Note that password protected
+PEM files are not supported by Trino.
 
 If your key section reports `BEGIN EC PRIVATE KEY` or `BEGIN DSA PRIVATE
 KEY`, this designates a key using Elliptical Curve or DSA alternatives to RSA.
@@ -107,6 +106,7 @@ openssl x509 -in clustercoord.pem -text -noout
 ```
 
 If your certificate was generated with a password, `openssl` prompts for it.
+Note that password protected PEM files are not supported by Trino.
 
 In the output of the `openssl` command, look for the following
 characteristics:
@@ -120,6 +120,5 @@ characteristics:
   `DNS:clustercoord.example.com`. Certificates without SANs are not
   supported.
 
-If your PEM certificate shows valid information for your cluster, proceed to
-configure the server, as described in {ref}`cert-placement` and
-{ref}`configure-https`.
+If your PEM file shows valid information for your cluster, proceed to configure
+the server, as described in {ref}`cert-placement` and {ref}`configure-https`.

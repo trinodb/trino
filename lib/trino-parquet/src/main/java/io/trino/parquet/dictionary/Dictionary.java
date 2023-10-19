@@ -13,11 +13,11 @@
  */
 package io.trino.parquet.dictionary;
 
-import org.apache.parquet.io.api.Binary;
+import io.airlift.slice.Slice;
 
 public interface Dictionary
 {
-    default Binary decodeToBinary(int id)
+    default Slice decodeToSlice(int id)
     {
         throw new UnsupportedOperationException();
     }

@@ -1,11 +1,10 @@
-Cost-based join pushdown
-""""""""""""""""""""""""
+#### Cost-based join pushdown
 
-The connector supports cost-based :ref:`join-pushdown` to make intelligent
+The connector supports cost-based {ref}`join-pushdown` to make intelligent
 decisions about whether to push down a join operation to the data source.
 
 When cost-based join pushdown is enabled, the connector only pushes down join
-operations if the available :doc:`/optimizer/statistics` suggest that doing so
+operations if the available {doc}`/optimizer/statistics` suggest that doing so
 improves performance. Note that if no table statistics are available, join
 operation pushdown does not occur to avoid a potential decrease in query
 performance.
@@ -13,6 +12,7 @@ performance.
 The following table describes catalog configuration properties for
 join pushdown:
 
+```{eval-rst}
 .. list-table::
   :widths: 30, 40, 30
   :header-rows: 1
@@ -33,3 +33,4 @@ join pushdown:
       query performance. Because of this, ``EAGER`` is only recommended for
       testing and troubleshooting purposes.
     - ``AUTOMATIC``
+```

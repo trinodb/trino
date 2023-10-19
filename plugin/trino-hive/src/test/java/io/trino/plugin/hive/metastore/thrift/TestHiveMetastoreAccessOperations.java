@@ -24,7 +24,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 
@@ -40,7 +40,7 @@ import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
-@Test(singleThreaded = true) // metastore invocation counters shares mutable state so can't be run from many threads simultaneously
+// metastore invocation counters shares mutable state so can't be run from many threads simultaneously
 public class TestHiveMetastoreAccessOperations
         extends AbstractTestQueryFramework
 {
@@ -65,6 +65,15 @@ public class TestHiveMetastoreAccessOperations
 
         queryRunner.execute("CREATE SCHEMA test_schema");
         return queryRunner;
+    }
+
+    @Test
+    public void testUse()
+    {
+        assertMetastoreInvocations("USE " + getSession().getSchema().orElseThrow(),
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .build());
     }
 
     @Test
@@ -200,6 +209,18 @@ public class TestHiveMetastoreAccessOperations
                 ImmutableMultiset.builder()
                         .add(GET_TABLE)
                         .add(GET_TABLE_STATISTICS)
+                        .build());
+    }
+
+    @Test
+    public void testDescribe()
+    {
+        assertUpdate("CREATE TABLE test_describe(id VARCHAR, age INT)");
+
+        assertMetastoreInvocations("DESCRIBE test_describe",
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .add(GET_TABLE)
                         .build());
     }
 

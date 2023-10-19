@@ -29,7 +29,10 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.io.UnsupportedEncodingException;
+import java.net.ProtocolException;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
@@ -47,6 +50,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.HttpHeaders.ACCEPT_ENCODING;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
@@ -79,6 +83,8 @@ class StatementClientV1
     private final AtomicReference<String> setCatalog = new AtomicReference<>();
     private final AtomicReference<String> setSchema = new AtomicReference<>();
     private final AtomicReference<String> setPath = new AtomicReference<>();
+    private final AtomicReference<String> setAuthorizationUser = new AtomicReference<>();
+    private final AtomicBoolean resetAuthorizationUser = new AtomicBoolean();
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
     private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
     private final Map<String, ClientSelectedRole> setRoles = new ConcurrentHashMap<>();
@@ -89,6 +95,7 @@ class StatementClientV1
     private final ZoneId timeZone;
     private final Duration requestTimeoutNanos;
     private final Optional<String> user;
+    private final Optional<String> originalUser;
     private final String clientCapabilities;
     private final boolean compressionDisabled;
 
@@ -104,7 +111,11 @@ class StatementClientV1
         this.timeZone = session.getTimeZone();
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout();
-        this.user = Stream.of(session.getUser(), session.getPrincipal())
+        this.user = Stream.of(session.getAuthorizationUser(), session.getUser(), session.getPrincipal())
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .findFirst();
+        this.originalUser = Stream.of(session.getUser(), session.getPrincipal())
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst();
@@ -271,6 +282,18 @@ class StatementClientV1
     }
 
     @Override
+    public Optional<String> getSetAuthorizationUser()
+    {
+        return Optional.ofNullable(setAuthorizationUser.get());
+    }
+
+    @Override
+    public boolean isResetAuthorizationUser()
+    {
+        return resetAuthorizationUser.get();
+    }
+
+    @Override
     public Map<String, String> getSetSessionProperties()
     {
         return ImmutableMap.copyOf(setSessionProperties);
@@ -319,6 +342,7 @@ class StatementClientV1
                 .addHeader(USER_AGENT, USER_AGENT_VALUE)
                 .url(url);
         user.ifPresent(requestUser -> builder.addHeader(TRINO_HEADERS.requestUser(), requestUser));
+        originalUser.ifPresent(originalUser -> builder.addHeader(TRINO_HEADERS.requestOriginalUser(), originalUser));
         if (compressionDisabled) {
             builder.header(ACCEPT_ENCODING, "identity");
         }
@@ -380,6 +404,10 @@ class StatementClientV1
                 cause = e;
                 continue;
             }
+            if (isTransient(response.getException())) {
+                cause = response.getException();
+                continue;
+            }
 
             if ((response.getStatusCode() == HTTP_OK) && response.hasValue()) {
                 processResponse(response.getHeaders(), response.getValue());
@@ -393,11 +421,29 @@ class StatementClientV1
         }
     }
 
+    private boolean isTransient(Throwable exception)
+    {
+        return exception != null && getCausalChain(exception).stream()
+                .anyMatch(e -> (e instanceof InterruptedIOException && e.getMessage().equals("timeout")
+                        || e instanceof ProtocolException
+                        || e instanceof SocketTimeoutException));
+    }
+
     private void processResponse(Headers headers, QueryResults results)
     {
         setCatalog.set(headers.get(TRINO_HEADERS.responseSetCatalog()));
         setSchema.set(headers.get(TRINO_HEADERS.responseSetSchema()));
         setPath.set(headers.get(TRINO_HEADERS.responseSetPath()));
+
+        String setAuthorizationUser = headers.get(TRINO_HEADERS.responseSetAuthorizationUser());
+        if (setAuthorizationUser != null) {
+            this.setAuthorizationUser.set(setAuthorizationUser);
+        }
+
+        String resetAuthorizationUser = headers.get(TRINO_HEADERS.responseResetAuthorizationUser());
+        if (resetAuthorizationUser != null) {
+            this.resetAuthorizationUser.set(Boolean.parseBoolean(resetAuthorizationUser));
+        }
 
         for (String setSession : headers.values(TRINO_HEADERS.responseSetSession())) {
             List<String> keyValue = COLLECTION_HEADER_SPLITTER.splitToList(setSession);

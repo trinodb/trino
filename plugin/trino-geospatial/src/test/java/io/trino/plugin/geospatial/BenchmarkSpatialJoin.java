@@ -20,6 +20,7 @@ import io.trino.metadata.TableHandle;
 import io.trino.plugin.memory.MemoryConnectorFactory;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -31,7 +32,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
-import org.testng.annotations.Test;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -45,9 +45,9 @@ import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 import static org.openjdk.jmh.annotations.Scope.Thread;
-import static org.testng.Assert.assertTrue;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Thread)
@@ -111,7 +111,9 @@ public class BenchmarkSpatialJoin
                 Metadata metadata = queryRunner.getMetadata();
                 QualifiedObjectName tableName = QualifiedObjectName.valueOf("memory.default.points");
                 Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, tableName);
-                assertTrue(tableHandle.isPresent(), "Table memory.default.points does not exist");
+                assertThat(tableHandle.isPresent())
+                        .describedAs("Table memory.default.points does not exist")
+                        .isTrue();
                 metadata.dropTable(transactionSession, tableHandle.get(), tableName.asCatalogSchemaTableName());
                 return null;
             });

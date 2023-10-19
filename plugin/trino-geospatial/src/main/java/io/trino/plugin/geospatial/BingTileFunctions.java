@@ -22,6 +22,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BufferedRowValueBuilder;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -116,7 +117,7 @@ public final class BingTileFunctions
         }
 
         @SqlType("row(x integer,y integer)")
-        public Block bingTileCoordinates(@SqlType(BingTileType.NAME) long input)
+        public SqlRow bingTileCoordinates(@SqlType(BingTileType.NAME) long input)
         {
             BingTile tile = BingTile.decode(input);
             return rowValueBuilder.build(fields -> {
@@ -500,10 +501,10 @@ public final class BingTileFunctions
         checkArgument(leftUpperTile.getZoomLevel() > zoomLevel);
 
         int divisor = 1 << (leftUpperTile.getZoomLevel() - zoomLevel);
-        int minX = (int) Math.floor(leftUpperTile.getX() / divisor);
-        int maxX = (int) Math.floor(rightLowerTile.getX() / divisor);
-        int minY = (int) Math.floor(leftUpperTile.getY() / divisor);
-        int maxY = (int) Math.floor(rightLowerTile.getY() / divisor);
+        int minX = leftUpperTile.getX() / divisor;
+        int maxX = rightLowerTile.getX() / divisor;
+        int minY = leftUpperTile.getY() / divisor;
+        int maxY = rightLowerTile.getY() / divisor;
 
         BingTile[] tiles = new BingTile[(maxX - minX + 1) * (maxY - minY + 1)];
         int index = 0;

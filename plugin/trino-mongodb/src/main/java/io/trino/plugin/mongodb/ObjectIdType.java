@@ -29,6 +29,7 @@ public class ObjectIdType
         extends AbstractVariableWidthType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = TypeOperatorDeclaration.builder(Slice.class)
+            .addOperators(DEFAULT_READ_OPERATORS)
             .addOperators(DEFAULT_COMPARABLE_OPERATORS)
             .addOperators(DEFAULT_ORDERING_OPERATORS)
             .build();
@@ -68,17 +69,6 @@ public class ObjectIdType
 
         // TODO: There's no way to represent string value of a custom type
         return new SqlVarbinary(block.getSlice(position, 0, block.getSliceLength(position)).getBytes());
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            ((VariableWidthBlockBuilder) blockBuilder).buildEntry(valueBuilder -> block.writeSliceTo(position, 0, block.getSliceLength(position), valueBuilder));
-        }
     }
 
     @Override

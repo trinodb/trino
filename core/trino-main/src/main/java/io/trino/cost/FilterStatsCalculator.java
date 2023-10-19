@@ -125,7 +125,7 @@ public class FilterStatsCalculator
             // Expression evaluates to SQL null, which in Filter is equivalent to false. This assumes the expression is a top-level expression (eg. not in NOT).
             value = false;
         }
-        return new LiteralEncoder(plannerContext).toExpression(session, value, BOOLEAN);
+        return new LiteralEncoder(plannerContext).toExpression(value, BOOLEAN);
     }
 
     private class FilterExpressionStatsCalculatingVisitor
@@ -314,7 +314,8 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitBetweenPredicate(BetweenPredicate node, Void context)
         {
-            if (!(node.getValue() instanceof SymbolReference)) {
+            SymbolStatsEstimate valueStats = getExpressionStats(node.getValue());
+            if (valueStats.isUnknown()) {
                 return PlanNodeStatsEstimate.unknown();
             }
             if (!getExpressionStats(node.getMin()).isSingleValue()) {
@@ -324,7 +325,6 @@ public class FilterStatsCalculator
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            SymbolStatsEstimate valueStats = input.getSymbolStatistics(Symbol.from(node.getValue()));
             Expression lowerBound = new ComparisonExpression(GREATER_THAN_OR_EQUAL, node.getValue(), node.getMin());
             Expression upperBound = new ComparisonExpression(LESS_THAN_OR_EQUAL, node.getValue(), node.getMax());
 

@@ -24,6 +24,7 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
@@ -65,9 +66,8 @@ public class JsonToRowCast
 
     private JsonToRowCast()
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
-                        .operatorType(CAST)
                         .typeVariableConstraint(
                                 // this is technically a recursive constraint for cast, but TypeRegistry.canCast has explicit handling for json to row cast
                                 TypeVariableConstraint.builder("T")
@@ -97,7 +97,7 @@ public class JsonToRowCast
     }
 
     @UsedByGeneratedCode
-    public static Block toRow(
+    public static SqlRow toRow(
             RowType rowType,
             BlockBuilderAppender rowAppender,
             ConnectorSession connectorSession,
@@ -109,12 +109,13 @@ public class JsonToRowCast
                 return null;
             }
 
-            BlockBuilder rowBlockBuilder = rowType.createBlockBuilder(null, 1);
-            rowAppender.append(jsonParser, rowBlockBuilder);
+            BlockBuilder blockBuilder = rowType.createBlockBuilder(null, 1);
+            rowAppender.append(jsonParser, blockBuilder);
             if (jsonParser.nextToken() != null) {
                 throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getText()));
             }
-            return rowType.getObject(rowBlockBuilder, 0);
+            Block block = blockBuilder.build();
+            return rowType.getObject(block, 0);
         }
         catch (TrinoException | JsonCastException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", rowType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);

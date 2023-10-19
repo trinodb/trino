@@ -22,6 +22,7 @@ import io.trino.cost.TableStatsProvider;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -42,7 +43,6 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -54,6 +54,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.isOptimizeDistinctAggregationEnabled;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
@@ -78,6 +79,10 @@ import static java.util.Objects.requireNonNull;
 public class OptimizeMixedDistinctAggregations
         implements PlanOptimizer
 {
+    private static final CatalogSchemaFunctionName COUNT_NAME = builtinFunctionName("count");
+    private static final CatalogSchemaFunctionName COUNT_IF_NAME = builtinFunctionName("count_if");
+    private static final CatalogSchemaFunctionName APPROX_DISTINCT_NAME = builtinFunctionName("approx_distinct");
+
     private final Metadata metadata;
 
     public OptimizeMixedDistinctAggregations(Metadata metadata)
@@ -181,16 +186,15 @@ public class OptimizeMixedDistinctAggregations
                 else {
                     // Aggregations on non-distinct are already done by new node, just extract the non-null value
                     Symbol argument = aggregateInfo.getNewNonDistinctAggregateSymbols().get(entry.getKey());
-                    QualifiedName functionName = QualifiedName.of("arbitrary");
                     Aggregation newAggregation = new Aggregation(
-                            metadata.resolveFunction(session, functionName, fromTypes(symbolAllocator.getTypes().get(argument))),
+                            metadata.resolveBuiltinFunction("arbitrary", fromTypes(symbolAllocator.getTypes().get(argument))),
                             ImmutableList.of(argument.toSymbolReference()),
                             false,
                             Optional.empty(),
                             Optional.empty(),
                             Optional.empty());
-                    String signatureName = aggregation.getResolvedFunction().getSignature().getName();
-                    if (signatureName.equals("count") || signatureName.equals("count_if") || signatureName.equals("approx_distinct")) {
+                    CatalogSchemaFunctionName signatureName = aggregation.getResolvedFunction().getSignature().getName();
+                    if (signatureName.equals(COUNT_NAME) || signatureName.equals(COUNT_IF_NAME) || signatureName.equals(APPROX_DISTINCT_NAME)) {
                         Symbol newSymbol = symbolAllocator.newSymbol("expr", symbolAllocator.getTypes().get(entry.getKey()));
                         aggregations.put(newSymbol, newAggregation);
                         coalesceSymbolsBuilder.put(newSymbol, entry.getKey());

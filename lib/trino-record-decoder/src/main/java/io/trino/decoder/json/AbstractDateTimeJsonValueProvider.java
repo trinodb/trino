@@ -84,7 +84,7 @@ public abstract class AbstractDateTimeJsonValueProvider
         }
         if (type.equals(TIME_TZ_MILLIS)) {
             int offsetMinutes = getTimeZone().getZoneId().getRules().getOffset(Instant.ofEpochMilli(millis)).getTotalSeconds() / 60;
-            return packTimeWithTimeZone((millis + (offsetMinutes * 60 * MILLISECONDS_PER_SECOND)) * NANOSECONDS_PER_MILLISECOND, offsetMinutes);
+            return packTimeWithTimeZone((millis + (offsetMinutes * 60L * MILLISECONDS_PER_SECOND)) * NANOSECONDS_PER_MILLISECOND, offsetMinutes);
         }
 
         throw new IllegalStateException("Unsupported type: " + type);
