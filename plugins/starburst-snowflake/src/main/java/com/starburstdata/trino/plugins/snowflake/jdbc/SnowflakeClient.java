@@ -313,6 +313,19 @@ public class SnowflakeClient
     }
 
     @Override
+    protected void renameSchema(ConnectorSession session, Connection connection, String remoteSchemaName, String newRemoteSchemaName)
+            throws SQLException
+    {
+        if (!databasePrefixForSchemaEnabled) {
+            super.renameSchema(session, connection, remoteSchemaName, newRemoteSchemaName);
+            return;
+        }
+        String qualifiedOldName = quoted(parseDatabaseSchemaName(remoteSchemaName));
+        String qualifiedNewName = quoted(parseDatabaseSchemaName(newRemoteSchemaName));
+        execute(session, connection, "ALTER SCHEMA " + qualifiedOldName + " RENAME TO " + qualifiedNewName);
+    }
+
+    @Override
     protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName, boolean cascade)
             throws SQLException
     {
@@ -659,6 +672,22 @@ public class SnowflakeClient
                     outputTableHandle.getPageSinkIdColumnName());
         }
         return outputTableHandle;
+    }
+
+    @Override
+    protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+            throws SQLException
+    {
+        String newCatalogName = catalogName;
+        if (databasePrefixForSchemaEnabled) {
+            DatabaseSchemaName databaseSchemaName = parseDatabaseSchemaName(newRemoteSchemaName);
+            newCatalogName = databaseSchemaName.getDatabaseName();
+            newRemoteSchemaName = databaseSchemaName.getSchemaName();
+        }
+        execute(session, connection, format(
+                "ALTER TABLE %s RENAME TO %s",
+                quoted(catalogName, remoteSchemaName, remoteTableName),
+                quoted(newCatalogName, newRemoteSchemaName, newRemoteTableName)));
     }
 
     @Override

@@ -37,8 +37,11 @@ public class TestSnowflakeDatabasePrefixIntegrationSmokeTest
     @ManageTestResources.Suppress(because = "Mock to remote server")
     private SnowflakeServer server;
     private TestDatabase testDatabase;
+    private TestDatabase testDatabase2;
     private String normalizedDatabaseName;
+    private String normalizedDatabaseName2;
     private final SqlExecutor snowflakeExecutor = (sql) -> server.safeExecuteOnDatabase(testDatabase.getName(), sql);
+    private final SqlExecutor snowflakeExecutor2 = (sql) -> server.safeExecuteOnDatabase(testDatabase2.getName(), sql);
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -46,7 +49,9 @@ public class TestSnowflakeDatabasePrefixIntegrationSmokeTest
     {
         server = new SnowflakeServer();
         testDatabase = closeAfterClass(server.createTestDatabase());
+        testDatabase2 = closeAfterClass(server.createTestDatabase());
         normalizedDatabaseName = testDatabase.getName().toLowerCase(ENGLISH);
+        normalizedDatabaseName2 = testDatabase2.getName().toLowerCase(ENGLISH);
 
         return createBuilder()
                 .withServer(server)
@@ -66,6 +71,7 @@ public class TestSnowflakeDatabasePrefixIntegrationSmokeTest
     {
         server = null;
         testDatabase = null;
+        testDatabase2 = null;
     }
 
     @Test
@@ -92,6 +98,44 @@ public class TestSnowflakeDatabasePrefixIntegrationSmokeTest
         // verify DROP SCHEMA for non-existing schema
         assertQueryFails(format("DROP SCHEMA \"%s\"", schemaName), format("line 1:1: Schema '.*\\.%s' does not exist", schemaName));
         assertUpdate(format("DROP SCHEMA IF EXISTS \"%s\"", schemaName));
+    }
+
+    @Test
+    public void testRenameSchema()
+    {
+        testRenameSchema(normalizedDatabaseName, snowflakeExecutor);
+    }
+
+    @Test
+    public void testRenameSchemaMovingToAnotherDatabase()
+    {
+        testRenameSchema(normalizedDatabaseName2, snowflakeExecutor2);
+    }
+
+    private void testRenameSchema(String targetNormalizedDatabaseName, SqlExecutor targetSnowflakeExecutor)
+    {
+        String oldName = "test_schema_rename_" + randomNameSuffix();
+        String newName = oldName + "_renamed";
+        String oldNormalizedSchemaName = "%s.%s".formatted(normalizedDatabaseName, oldName);
+        String newNormalizedSchemaName = "%s.%s".formatted(targetNormalizedDatabaseName, newName);
+
+        snowflakeExecutor.execute("CREATE SCHEMA " + oldName);
+
+        assertUpdate("ALTER SCHEMA \"%s\" RENAME TO \"%s\"".formatted(oldNormalizedSchemaName, newNormalizedSchemaName));
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet())
+                .doesNotContain(oldNormalizedSchemaName)
+                .contains(newNormalizedSchemaName);
+
+        String tableName = "test_table_for_rename_schema" + randomNameSuffix();
+        String snowflakeTableName = "%s.%s".formatted(newName, tableName);
+        String trinoTableName = databaseSchemaTableName(targetNormalizedDatabaseName, newName, tableName);
+        // verify new schema name is accessible for underlying objects
+        assertUpdate("CREATE TABLE %s (a BIGINT)".formatted(trinoTableName));
+        // DROP also verifies that table is accessible by new schema name from snowflake
+        targetSnowflakeExecutor.execute("DROP TABLE " + snowflakeTableName);
+
+        // DROP also verifies that schema is accessible by new name from snowflake
+        targetSnowflakeExecutor.execute("DROP SCHEMA " + newName);
     }
 
     @Test
@@ -228,6 +272,56 @@ public class TestSnowflakeDatabasePrefixIntegrationSmokeTest
             assertUpdate("DROP TABLE IF EXISTS " + newTableName);
             assertUpdate("DROP TABLE IF EXISTS " + baseTable);
         }
+    }
+
+    @Test
+    public void testRenameTable()
+    {
+        testRenameTable(snowflakeExecutor, normalizedDatabaseName, "public");
+    }
+
+    @Test
+    public void testRenameTableMovingToAnotherSchema()
+    {
+        String targetSchemaName = "new_schema_name";
+        snowflakeExecutor.execute("CREATE SCHEMA " + targetSchemaName);
+        testRenameTable(snowflakeExecutor, normalizedDatabaseName, targetSchemaName);
+        snowflakeExecutor.execute("DROP SCHEMA " + targetSchemaName);
+    }
+
+    @Test
+    public void testRenameTableMovingToAnotherDatabase()
+    {
+        String targetSchemaName = "new_schema_name";
+        snowflakeExecutor2.execute("CREATE SCHEMA " + targetSchemaName);
+        testRenameTable(snowflakeExecutor2, normalizedDatabaseName2, targetSchemaName);
+        snowflakeExecutor2.execute("DROP SCHEMA " + targetSchemaName);
+    }
+
+    private void testRenameTable(SqlExecutor targetSnowflakeExecutor, String targetNormalizedDatabaseName, String targetSchemaName)
+    {
+        String schemaName = "public";
+        String oldName = "test_table_rename" + randomNameSuffix();
+        String newName = oldName + "_renamed";
+        String oldSnowflakeName = schemaName + "." + oldName;
+        String newSnowflakeName = targetSchemaName + "." + newName;
+        String oldQualifiedTableName = databaseSchemaTableName(normalizedDatabaseName, schemaName, oldName);
+        String newQualifiedTableName = databaseSchemaTableName(targetNormalizedDatabaseName, targetSchemaName, newName);
+
+        snowflakeExecutor.execute("CREATE TABLE %s (a STRING)".formatted(oldSnowflakeName));
+
+        // verify table is accessible from trino
+        assertUpdate(format("INSERT INTO %s (a) VALUES ('value-1')", oldQualifiedTableName), 1L);
+        assertQuery("SELECT * FROM " + oldQualifiedTableName, "VALUES 'value-1'");
+
+        assertUpdate(format("ALTER TABLE %s RENAME TO %s", oldQualifiedTableName, newQualifiedTableName));
+
+        // verify table is still accessible from trino
+        assertUpdate(format("INSERT INTO %s (a) VALUES ('value-2')", newQualifiedTableName), 1L);
+        assertQuery("SELECT * FROM " + newQualifiedTableName, "VALUES 'value-1', 'value-2'");
+
+        // DROP also verifies table is accessible from snowflake
+        targetSnowflakeExecutor.execute("DROP TABLE " + newSnowflakeName);
     }
 
     @Test
