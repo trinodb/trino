@@ -21,6 +21,8 @@ import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.connector.informationschema.InformationSchemaTable;
 import io.trino.connector.informationschema.InformationSchemaTableHandle;
+import io.trino.connector.system.GlobalSystemConnector;
+import io.trino.connector.system.SystemTableHandle;
 import io.trino.cost.StatsAndCosts;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.RetryPolicy;
@@ -130,6 +132,34 @@ public class TestNoMemoryAwarePartitionMemoryEstimator
         assertThat(estimator).isInstanceOf(MockDelegatePatitionMemoryEstimator.class);
     }
 
+    @Test
+    public void testSystemJdbcTableScan()
+    {
+        PartitionMemoryEstimator estimator = createEstimator(tableScanPlanFragment(
+                "ts",
+                new TableHandle(
+                        GlobalSystemConnector.CATALOG_HANDLE,
+                        new SystemTableHandle("jdbc", "tables", TupleDomain.all()),
+                        TestingTransactionHandle.create())));
+        assertThat(estimator).isInstanceOf(NoMemoryPartitionMemoryEstimator.class);
+        PartitionMemoryEstimator.MemoryRequirements noMemoryRequirements = new PartitionMemoryEstimator.MemoryRequirements(DataSize.ofBytes(0));
+        assertThat(estimator.getInitialMemoryRequirements()).isEqualTo(noMemoryRequirements);
+    }
+
+    @Test
+    public void testSystemMetadataTableScan()
+    {
+        PartitionMemoryEstimator estimator = createEstimator(tableScanPlanFragment(
+                "ts",
+                new TableHandle(
+                        GlobalSystemConnector.CATALOG_HANDLE,
+                        new SystemTableHandle("metadata", "blah", TupleDomain.all()),
+                        TestingTransactionHandle.create())));
+        assertThat(estimator).isInstanceOf(NoMemoryPartitionMemoryEstimator.class);
+        PartitionMemoryEstimator.MemoryRequirements noMemoryRequirements = new PartitionMemoryEstimator.MemoryRequirements(DataSize.ofBytes(0));
+        assertThat(estimator.getInitialMemoryRequirements()).isEqualTo(noMemoryRequirements);
+    }
+
     private static PlanFragment getParentFragment(PlanFragment... childFragments)
     {
         ImmutableList<PlanFragmentId> childFragmentIds = Stream.of(childFragments)
@@ -162,12 +192,17 @@ public class TestNoMemoryAwarePartitionMemoryEstimator
 
     private static PlanFragment tableScanPlanFragment(String fragmentId, ConnectorTableHandle tableHandle)
     {
+        return tableScanPlanFragment(fragmentId, new TableHandle(
+                TEST_CATALOG_HANDLE,
+                tableHandle,
+                TestingTransactionHandle.create()));
+    }
+
+    private static PlanFragment tableScanPlanFragment(String fragmentId, TableHandle tableHandle)
+    {
         TableScanNode informationSchemaViewsTableScan = new TableScanNode(
                 new PlanNodeId("tableScan"),
-                new TableHandle(
-                        TEST_CATALOG_HANDLE,
-                        tableHandle,
-                        TestingTransactionHandle.create()),
+                tableHandle,
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 TupleDomain.all(),
