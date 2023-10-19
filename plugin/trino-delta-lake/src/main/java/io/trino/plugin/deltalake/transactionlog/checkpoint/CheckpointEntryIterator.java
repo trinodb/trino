@@ -74,7 +74,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
-import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_DATA;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
@@ -138,6 +137,7 @@ public class CheckpointEntryIterator
     private MetadataEntry metadataEntry;
     private ProtocolEntry protocolEntry;
     private List<DeltaLakeColumnMetadata> schema; // Use DeltaLakeColumnMetadata?
+    private List<DeltaLakeColumnMetadata> columnsWithMinMaxStats;
     private Page page;
     private long pageIndex;
     private int pagePosition;
@@ -177,6 +177,7 @@ public class CheckpointEntryIterator
             checkArgument(protocolEntry.isPresent(), "Protocol entry must be provided when reading ADD entries from Checkpoint files");
             this.protocolEntry = protocolEntry.get();
             this.schema = extractSchema(this.metadataEntry, this.protocolEntry, typeManager);
+            this.columnsWithMinMaxStats = columnsWithStats(schema, this.metadataEntry.getOriginalPartitionColumns());
         }
 
         List<HiveColumnHandle> columns = fields.stream()
@@ -484,12 +485,6 @@ public class CheckpointEntryIterator
 
     private DeltaLakeParquetFileStatistics parseStatisticsFromParquet(SqlRow statsRow)
     {
-        if (metadataEntry == null) {
-            throw new TrinoException(DELTA_LAKE_BAD_DATA, "Checkpoint file found without metadata entry");
-        }
-        // Block ordering is determined by TransactionLogAccess#buildAddColumnHandle, using the same method to ensure blocks are matched with the correct column
-        List<DeltaLakeColumnMetadata> columnsWithMinMaxStats = columnsWithStats(schema, metadataEntry.getOriginalPartitionColumns());
-
         int rawIndex = statsRow.getRawIndex();
         long numRecords = getLong(statsRow.getRawFieldBlock(0), rawIndex);
 
