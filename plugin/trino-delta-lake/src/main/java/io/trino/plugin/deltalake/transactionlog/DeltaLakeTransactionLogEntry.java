@@ -17,6 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.annotation.Nullable;
 
+import java.util.Objects;
+
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeTransactionLogEntry
@@ -154,6 +156,31 @@ public class DeltaLakeTransactionLogEntry
     public DeltaLakeTransactionLogEntry withCommitInfo(CommitInfoEntry commitInfo)
     {
         return new DeltaLakeTransactionLogEntry(txn, add, remove, metaData, protocol, commitInfo, cdcEntry);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        DeltaLakeTransactionLogEntry that = (DeltaLakeTransactionLogEntry) o;
+        return Objects.equals(txn, that.txn) &&
+                Objects.equals(add, that.add) &&
+                Objects.equals(remove, that.remove) &&
+                Objects.equals(metaData, that.metaData) &&
+                Objects.equals(protocol, that.protocol) &&
+                Objects.equals(commitInfo, that.commitInfo) &&
+                Objects.equals(cdcEntry, that.cdcEntry);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(txn, add, remove, metaData, protocol, commitInfo, cdcEntry);
     }
 
     @Override
