@@ -35,7 +35,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.acid.AcidOperation.INSERT;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -78,7 +78,8 @@ public class TestSemiTransactionalHiveMetastore
 
     private SemiTransactionalHiveMetastore getSemiTransactionalHiveMetastoreWithDropExecutor(Executor dropExecutor)
     {
-        return new SemiTransactionalHiveMetastore(HDFS_ENVIRONMENT,
+        return new SemiTransactionalHiveMetastore(
+                HDFS_FILE_SYSTEM_FACTORY,
                 new HiveMetastoreClosure(new TestingHiveMetastore()),
                 directExecutor(),
                 dropExecutor,
@@ -118,7 +119,8 @@ public class TestSemiTransactionalHiveMetastore
 
     private SemiTransactionalHiveMetastore getSemiTransactionalHiveMetastoreWithUpdateExecutor(Executor updateExecutor)
     {
-        return new SemiTransactionalHiveMetastore(HDFS_ENVIRONMENT,
+        return new SemiTransactionalHiveMetastore(
+                HDFS_FILE_SYSTEM_FACTORY,
                 new HiveMetastoreClosure(new TestingHiveMetastore()),
                 directExecutor(),
                 directExecutor(),
