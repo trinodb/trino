@@ -126,6 +126,8 @@ public abstract class BaseCaseInsensitiveMappingTest
     public void testSchemaNameClash()
             throws Exception
     {
+        updateRuleBasedIdentifierMappingFile(getMappingFile(), ImmutableList.of(), ImmutableList.of());
+
         String[] nameVariants = {"casesensitivename", "CaseSensitiveName", "CASESENSITIVENAME"};
         assertThat(Stream.of(nameVariants)
                 .map(name -> name.toLowerCase(ENGLISH))
@@ -155,6 +157,8 @@ public abstract class BaseCaseInsensitiveMappingTest
     public void testTableNameClash()
             throws Exception
     {
+        updateRuleBasedIdentifierMappingFile(getMappingFile(), ImmutableList.of(), ImmutableList.of());
+
         String[] nameVariants = {"casesensitivename", "CaseSensitiveName", "CASESENSITIVENAME"};
         assertThat(Stream.of(nameVariants)
                 .map(name -> name.toLowerCase(ENGLISH))
