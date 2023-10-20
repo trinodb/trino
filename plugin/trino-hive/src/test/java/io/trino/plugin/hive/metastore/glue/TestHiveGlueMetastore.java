@@ -126,6 +126,7 @@ import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -972,6 +973,13 @@ public class TestHiveGlueMetastore
 
         testGetPartitionsFilterUnsupported(CREATE_TABLE_COLUMNS_PARTITIONED_DATE, Domain.notNull(DateType.DATE), "2022-07-11");
         testGetPartitionsFilterUnsupported(CREATE_TABLE_COLUMNS_PARTITIONED_TIMESTAMP, Domain.notNull(TimestampType.TIMESTAMP_MILLIS), "2022-07-11 01:02:03.123");
+    }
+
+    @Test
+    @Override
+    public void testPartitionSchemaMismatch()
+    {
+        abort("tests using existing tables are not supported");
     }
 
     private void testGetPartitionsFilterUnsupported(List<ColumnMetadata> columnMetadata, Domain domain, String partitionValue)
