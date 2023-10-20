@@ -9,12 +9,13 @@
  */
 package com.starburstdata.trino.plugins.snowflake.parallel;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import net.snowflake.client.core.SessionUtil;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -23,6 +24,8 @@ import java.util.Map.Entry;
 
 import static com.starburstdata.trino.plugins.snowflake.parallel.Chunk.newFileChunk;
 import static com.starburstdata.trino.plugins.snowflake.parallel.Chunk.newInlineChunk;
+import static com.starburstdata.trino.plugins.snowflake.parallel.SnowflakeParallelSessionProperties.getTargetSplitSize;
+import static java.util.Collections.emptyMap;
 import static net.snowflake.client.core.ResultUtil.effectiveParamValue;
 
 final class ChunkParser
@@ -39,7 +42,7 @@ final class ChunkParser
     /**
      * Originates from {@link net.snowflake.client.jdbc.SnowflakeResultSetSerializableV1#parseChunkFiles()}
      */
-    public static List<ConnectorSplit> parseChunks(JsonNode rootNode)
+    public static List<ConnectorSplit> parseChunks(ConnectorSession session, JsonNode rootNode)
     {
         JsonNode data = rootNode.path("data");
         JsonNode chunksNode = data.path("chunks");
@@ -66,30 +69,43 @@ final class ChunkParser
         JsonNode rowsetBase64 = data.path("rowsetBase64");
         boolean encodedChunkIsPresentInJson = !rowsetBase64.isMissingNode() && !rowsetBase64.asText("").isBlank();
 
-        int chunkFileCount = chunksNode.size();
-        List<ConnectorSplit> splits = new ArrayList<>(encodedChunkIsPresentInJson ? chunkFileCount + 1 : chunkFileCount);
+        ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
+        ImmutableList.Builder<Chunk> chunks = ImmutableList.builder();
+
+        long limitInBytes = getTargetSplitSize(session).toBytes();
+        int currentBatchSize = 0;
 
         if (encodedChunkIsPresentInJson) {
-            String inlineEncodedChunk = rowsetBase64.asText();
-            splits.add(new SnowflakeArrowSplit(resultVersion, newInlineChunk(inlineEncodedChunk), parameters));
+            Chunk inlineChunk = newInlineChunk(rowsetBase64.asText());
+            chunks.add(inlineChunk);
+            currentBatchSize += inlineChunk.compressedByteSize();
         }
 
-        if (chunkFileCount <= 0) {
-            return splits;
-        }
-
-        Map<String, String> headers = buildSecurityHeaders(chunkHeadersMap, qrmk);
-        // parse chunk files metadata, e.g. url and row count
-        for (int index = 0; index < chunkFileCount; index++) {
+        Map<String, String> headers = chunksNode.isEmpty() ? emptyMap() : buildSecurityHeaders(chunkHeadersMap, qrmk);
+        // parse chunk files metadata, e.g. url
+        for (int index = 0; index < chunksNode.size(); index++) {
             JsonNode chunkNode = chunksNode.get(index);
             String url = chunkNode.path("url").asText();
             int compressedSize = chunkNode.path("compressedSize").asInt();
             int uncompressedSize = chunkNode.path("uncompressedSize").asInt();
+            Chunk chunk = newFileChunk(url, uncompressedSize, compressedSize, headers);
 
-            splits.add(new SnowflakeArrowSplit(resultVersion, newFileChunk(url, uncompressedSize, compressedSize, headers), parameters));
+            if (currentBatchSize + chunk.compressedByteSize() > limitInBytes) {
+                splits.add(new SnowflakeArrowSplit(resultVersion, chunks.build(), parameters));
+                chunks = ImmutableList.builder();
+                currentBatchSize = 0;
+            }
+
+            chunks.add(chunk);
+            currentBatchSize += chunk.compressedByteSize();
         }
 
-        return splits;
+        ImmutableList<Chunk> remainingChunks = chunks.build();
+        if (!remainingChunks.isEmpty()) {
+            splits.add(new SnowflakeArrowSplit(resultVersion, remainingChunks, parameters));
+        }
+
+        return splits.build();
     }
 
     private static Map<String, String> buildSecurityHeaders(Map<String, String> chunkHeaders, String queryMasterKey)

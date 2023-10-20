@@ -18,12 +18,14 @@ import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static java.util.Comparator.naturalOrder;
 import static java.util.Objects.requireNonNull;
 
 public record SnowflakeArrowSplit(
         long resultVersion,
-        Chunk chunk,
+        List<Chunk> chunks,
         SnowflakeSessionParameters snowflakeSessionParameters)
         implements ConnectorSplit
 {
@@ -32,12 +34,18 @@ public record SnowflakeArrowSplit(
     @JsonCreator
     public SnowflakeArrowSplit(
             @JsonProperty("resultVersion") long resultVersion,
-            @JsonProperty("chunk") Chunk chunk,
+            @JsonProperty("chunks") List<Chunk> chunks,
             @JsonProperty("snowflakeSessionParameters") SnowflakeSessionParameters snowflakeSessionParameters)
     {
         this.resultVersion = resultVersion;
-        this.chunk = requireNonNull(chunk, "chunk is null");
+        this.chunks = requireNonNull(chunks, "chunks are null");
         this.snowflakeSessionParameters = requireNonNull(snowflakeSessionParameters, "snowflakeSessionParameters are null");
+    }
+
+    @JsonIgnore
+    public long getLargestChunkUncompressedBytes()
+    {
+        return chunks.stream().map(Chunk::uncompressedByteSize).max(naturalOrder()).orElseThrow();
     }
 
     @JsonIgnore
@@ -66,13 +74,7 @@ public record SnowflakeArrowSplit(
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE
-                + chunk.getRetainedSizeInBytes()
+                + estimatedSizeOf(chunks, Chunk::getRetainedSizeInBytes)
                 + snowflakeSessionParameters.getRetainedSizeInBytes();
-    }
-
-    @JsonIgnore
-    public int uncompressedByteSize()
-    {
-        return chunk.uncompressedByteSize();
     }
 }

@@ -132,7 +132,7 @@ public class SnowflakeSplitManager
                 logFiltered(jsonResult);
             }
 
-            return new FixedSplitSource(parseChunks(jsonResult));
+            return new FixedSplitSource(parseChunks(session, jsonResult));
         }
         catch (SFException | SQLException e) {
             // TODO: https://starburstdata.atlassian.net/browse/SEP-6500

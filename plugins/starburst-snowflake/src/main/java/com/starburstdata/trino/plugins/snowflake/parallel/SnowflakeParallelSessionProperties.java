@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static java.util.Objects.requireNonNull;
@@ -30,6 +31,8 @@ public class SnowflakeParallelSessionProperties
 {
     public static final String CLIENT_RESULT_CHUNK_SIZE = "client_result_chunk_size";
     public static final String QUOTED_IDENTIFIERS_IGNORE_CASE = "quoted_identifiers_ignore_case";
+    private static final String TARGET_SPLIT_SIZE = "target_split_size";
+    private static final DataSize DEFAULT_TARGET_SPLIT_SIZE = DataSize.of(256, MEGABYTE);
 
     private final MappingConfig mappingConfig;
 
@@ -56,6 +59,11 @@ public class SnowflakeParallelSessionProperties
                         value -> checkArgument(
                                 !(value && mappingConfig.isCaseInsensitiveNameMatching()),
                                 "Enabling quoted_identifiers_ignore_case not supported for Snowflake when case-insensitive-name-matching is enabled"),
+                        true),
+                dataSizeProperty(
+                        TARGET_SPLIT_SIZE,
+                        "Target size of a single split",
+                        DEFAULT_TARGET_SPLIT_SIZE,
                         true));
     }
 
@@ -67,5 +75,10 @@ public class SnowflakeParallelSessionProperties
     public static boolean getQuotedIdentifiersIgnoreCase(ConnectorSession session)
     {
         return session.getProperty(QUOTED_IDENTIFIERS_IGNORE_CASE, Boolean.class);
+    }
+
+    public static DataSize getTargetSplitSize(ConnectorSession session)
+    {
+        return session.getProperty(TARGET_SPLIT_SIZE, DataSize.class);
     }
 }

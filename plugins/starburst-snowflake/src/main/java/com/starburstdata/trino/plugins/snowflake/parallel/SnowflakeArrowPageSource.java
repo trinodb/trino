@@ -36,7 +36,7 @@ import java.nio.channels.SeekableByteChannel;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletionException;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -47,6 +47,7 @@ import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.function.UnaryOperator.identity;
 
 public class SnowflakeArrowPageSource
@@ -60,8 +61,8 @@ public class SnowflakeArrowPageSource
     private final StarburstDataConversionContext conversionContext;
     private final ChunkFetcher fetcher;
     private final long splitRetainedSize;
-    private CompletableFuture<byte[]> downloadFuture;
     private long completedBytes;
+    private CompletableFuture<byte[]> chunkFuture;
     private boolean finished;
 
     public SnowflakeArrowPageSource(ConnectorSession session, SnowflakeArrowSplit split, List<JdbcColumnHandle> columns, StarburstResultStreamProvider streamProvider)
@@ -76,7 +77,8 @@ public class SnowflakeArrowPageSource
 
         this.bufferAllocator = ROOT_ALLOCATOR.newChildAllocator(
                 "snowflakeArrowSplit" + split.hashCode(),
-                split.uncompressedByteSize(),
+                // Allocator is used sequentially, largest chunk is what it will need to hold at most at the same time
+                split.getLargestChunkUncompressedBytes(),
                 Long.MAX_VALUE);
 
         int[] decimalColumnScales = columns.stream()
@@ -90,7 +92,7 @@ public class SnowflakeArrowPageSource
                 decimalColumnScales,
                 split.resultVersion());
 
-        this.fetcher = new ChunkFetcher(requireNonNull(streamProvider, "streamProvider is null"), split.chunk());
+        this.fetcher = new ChunkFetcher(requireNonNull(streamProvider, "streamProvider is null"), split.chunks());
     }
 
     @Override
@@ -114,7 +116,7 @@ public class SnowflakeArrowPageSource
     @Override
     public CompletableFuture<?> isBlocked()
     {
-        return downloadFuture == null ? NOT_BLOCKED : downloadFuture;
+        return requireNonNullElse(chunkFuture, NOT_BLOCKED);
     }
 
     @Override
@@ -122,27 +124,33 @@ public class SnowflakeArrowPageSource
     {
         checkState(pageBuilder.isEmpty(), "PageBuilder is not empty at the beginning of a new page");
 
-        // getNextPage is not called concurrently hence there is no need for synchronization here
-        if (!fetcher.startedFetching()) {
-            this.downloadFuture = fetcher.startFetching();
+        if (finished) {
             return null;
         }
-        if (!downloadFuture.isDone()) {
+
+        // getNextPage is not called concurrently hence there is no need for synchronization here
+        if (chunkFuture == null) {
+            chunkFuture = fetcher.fetchNextChunk();
             return null;
         }
 
         try {
-            processChunk(downloadFuture.get());
+            processChunk(chunkFuture.join());
         }
-        catch (ExecutionException | InterruptedException e) {
-            throw new TrinoException(JDBC_ERROR, "Couldn't fetch chunk files", e);
+        catch (CompletionException e) {
+            throw new TrinoException(JDBC_ERROR, "Failed fetching Arrow chunk", e);
         }
 
+        // fetcher might be 'done', but page source is not 'finished' until fetched result is consumed
+        finished = fetcher.isDone();
+        if (!finished) {
+            chunkFuture = fetcher.fetchNextChunk();
+        }
         Page page = pageBuilder.build();
-        // A single split maps to a chunk file, which holds up to a certain amount of records (from a few hundred up to a few million)
+        // A single split maps to a multiple chunk files,
+        // each holding up to a certain amount of records (from a few hundred up to a few million)
         pageBuilder.reset();
-        completedBytes = page.getSizeInBytes();
-        finished = true;
+        completedBytes += page.getSizeInBytes();
 
         return page;
     }
@@ -178,12 +186,7 @@ public class SnowflakeArrowPageSource
     @Override
     public void close()
     {
-        if (downloadFuture != null) {
-            if (!downloadFuture.isDone()) {
-                downloadFuture.cancel(true);
-            }
-            downloadFuture = null;
-        }
+        fetcher.close();
         bufferAllocator.close();
     }
 
