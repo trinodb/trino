@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.base.util.MoreLists.containsAll;
 import static java.util.Objects.requireNonNull;
 
 public class IndexSourceNode
@@ -57,7 +58,7 @@ public class IndexSourceNode
         checkArgument(!lookupSymbols.isEmpty(), "lookupSymbols is empty");
         checkArgument(!outputSymbols.isEmpty(), "outputSymbols is empty");
         checkArgument(assignments.keySet().containsAll(lookupSymbols), "Assignments do not include all lookup symbols");
-        checkArgument(outputSymbols.containsAll(lookupSymbols), "Lookup symbols need to be part of the output symbols");
+        checkArgument(containsAll(outputSymbols, lookupSymbols), "Lookup symbols need to be part of the output symbols");
     }
 
     @JsonProperty

@@ -39,6 +39,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static io.trino.operator.PositionSearcher.findEndPosition;
+import static io.trino.plugin.base.util.MoreLists.containsAll;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -130,7 +131,7 @@ public class TableFunctionOperator
             requireNonNull(passThroughSpecifications, "passThroughSpecifications is null");
             requireNonNull(partitionChannels, "partitionChannels is null");
             requireNonNull(prePartitionedChannels, "prePartitionedChannels is null");
-            checkArgument(partitionChannels.containsAll(prePartitionedChannels), "prePartitionedChannels must be a subset of partitionChannels");
+            checkArgument(containsAll(partitionChannels, prePartitionedChannels), "prePartitionedChannels must be a subset of partitionChannels");
             requireNonNull(sortChannels, "sortChannels is null");
             requireNonNull(sortOrders, "sortOrders is null");
             checkArgument(sortChannels.size() == sortOrders.size(), "The number of sort channels must be equal to the number of sort orders");
@@ -251,7 +252,7 @@ public class TableFunctionOperator
         requireNonNull(passThroughSpecifications, "passThroughSpecifications is null");
         requireNonNull(partitionChannels, "partitionChannels is null");
         requireNonNull(prePartitionedChannels, "prePartitionedChannels is null");
-        checkArgument(partitionChannels.containsAll(prePartitionedChannels), "prePartitionedChannels must be a subset of partitionChannels");
+        checkArgument(containsAll(partitionChannels, prePartitionedChannels), "prePartitionedChannels must be a subset of partitionChannels");
         requireNonNull(sortChannels, "sortChannels is null");
         requireNonNull(sortOrders, "sortOrders is null");
         checkArgument(sortChannels.size() == sortOrders.size(), "The number of sort channels must be equal to the number of sort orders");
@@ -416,10 +417,8 @@ public class TableFunctionOperator
                     processEmptyInput = false;
                     return WorkProcessor.TransformationState.ofResult(pagesIndex, false);
                 }
-                else {
-                    memoryContext.close();
-                    return WorkProcessor.TransformationState.finished();
-                }
+                memoryContext.close();
+                return WorkProcessor.TransformationState.finished();
             }
 
             // there is input, so we are not interested in processing empty input

@@ -18,6 +18,7 @@ import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
@@ -260,7 +261,7 @@ public class CassandraMetadata
         Optional<List<CassandraPartition>> currentPartitions = handle.getPartitions();
         if (currentPartitions.isPresent() &&
                 // TODO: we should skip only when new table handle does not narrow down enforced predicate
-                currentPartitions.get().containsAll(partitionResult.getPartitions()) &&
+                ImmutableSet.copyOf(currentPartitions.get()).containsAll(partitionResult.getPartitions()) &&
                 handle.getClusteringKeyPredicates().equals(clusteringKeyPredicates)) {
             return Optional.empty();
         }

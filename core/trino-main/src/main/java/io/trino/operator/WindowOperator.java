@@ -58,6 +58,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.trino.operator.PositionSearcher.findEndPosition;
 import static io.trino.operator.WorkProcessor.TransformationState.needsMoreData;
+import static io.trino.plugin.base.util.MoreLists.containsAll;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
 import static io.trino.sql.tree.FrameBound.Type.PRECEDING;
@@ -116,7 +117,7 @@ public class WindowOperator
             requireNonNull(windowFunctionDefinitions, "windowFunctionDefinitions is null");
             requireNonNull(partitionChannels, "partitionChannels is null");
             requireNonNull(preGroupedChannels, "preGroupedChannels is null");
-            checkArgument(partitionChannels.containsAll(preGroupedChannels), "preGroupedChannels must be a subset of partitionChannels");
+            checkArgument(containsAll(partitionChannels, preGroupedChannels), "preGroupedChannels must be a subset of partitionChannels");
             requireNonNull(sortChannels, "sortChannels is null");
             requireNonNull(sortOrder, "sortOrder is null");
             requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
@@ -244,7 +245,7 @@ public class WindowOperator
                 "FrameInfo must be equally present or empty for all window functions");
         requireNonNull(partitionChannels, "partitionChannels is null");
         requireNonNull(preGroupedChannels, "preGroupedChannels is null");
-        checkArgument(partitionChannels.containsAll(preGroupedChannels), "preGroupedChannels must be a subset of partitionChannels");
+        checkArgument(containsAll(partitionChannels, preGroupedChannels), "preGroupedChannels must be a subset of partitionChannels");
         requireNonNull(sortChannels, "sortChannels is null");
         requireNonNull(sortOrder, "sortOrder is null");
         requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");

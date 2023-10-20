@@ -91,6 +91,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.trino.SystemSessionProperties.isPredicatePushdownUseTableProperties;
+import static io.trino.plugin.base.util.MoreLists.containsAll;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
@@ -266,7 +267,7 @@ public class PredicatePushDown
             // pre-projected symbols.
             Predicate<Expression> isSupported = conjunct ->
                     isDeterministic(conjunct, metadata) &&
-                            partitionSymbols.containsAll(extractUnique(conjunct));
+                            containsAll(partitionSymbols, extractUnique(conjunct));
 
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(isSupported));
 
@@ -510,7 +511,7 @@ public class PredicatePushDown
                 if (joinEqualityExpression(conjunct, node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols())) {
                     ComparisonExpression equality = (ComparisonExpression) conjunct;
 
-                    boolean alignedComparison = node.getLeft().getOutputSymbols().containsAll(extractUnique(equality.getLeft()));
+                    boolean alignedComparison = containsAll(node.getLeft().getOutputSymbols(), extractUnique(equality.getLeft()));
                     Expression leftExpression = (alignedComparison) ? equality.getLeft() : equality.getRight();
                     Expression rightExpression = (alignedComparison) ? equality.getRight() : equality.getLeft();
 
@@ -635,7 +636,7 @@ public class PredicatePushDown
                                         ComparisonExpression comparison = expression.getComparison();
                                         Expression leftExpression = comparison.getLeft();
                                         Expression rightExpression = comparison.getRight();
-                                        boolean alignedComparison = node.getLeft().getOutputSymbols().containsAll(extractUnique(leftExpression));
+                                        boolean alignedComparison = containsAll(node.getLeft().getOutputSymbols(), extractUnique(leftExpression));
                                         return new DynamicFilterExpression(
                                                 new ComparisonExpression(
                                                         alignedComparison ? comparison.getOperator() : comparison.getOperator().flip(),

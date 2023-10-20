@@ -57,6 +57,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.plugin.base.util.MoreLists.containsAll;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static java.util.Objects.requireNonNull;
 
@@ -158,7 +159,7 @@ public class MetadataQueryOptimizer
             DiscretePredicates predicates = layout.getDiscretePredicates().get();
 
             // the optimization is only valid if the aggregation node only relies on partition keys
-            if (!predicates.getColumns().containsAll(columns.values())) {
+            if (!containsAll(predicates.getColumns(), columns.values())) {
                 return context.defaultRewrite(node);
             }
 

@@ -31,7 +31,6 @@ import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.type.FunctionType;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -39,6 +38,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.base.util.MoreLists.containsAll;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static java.util.Objects.requireNonNull;
 
@@ -96,7 +96,7 @@ public class AggregationNode
         this.hashSymbol = hashSymbol;
 
         requireNonNull(preGroupedSymbols, "preGroupedSymbols is null");
-        checkArgument(preGroupedSymbols.isEmpty() || groupingSets.getGroupingKeys().containsAll(preGroupedSymbols), "Pre-grouped symbols must be a subset of the grouping keys");
+        checkArgument(preGroupedSymbols.isEmpty() || containsAll(groupingSets.getGroupingKeys(), preGroupedSymbols), "Pre-grouped symbols must be a subset of the grouping keys");
         this.preGroupedSymbols = ImmutableList.copyOf(preGroupedSymbols);
 
         ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
@@ -234,7 +234,7 @@ public class AggregationNode
         return aggregations.isEmpty() &&
                 !groupingSets.getGroupingKeys().isEmpty() &&
                 outputs.size() == groupingSets.getGroupingKeys().size() &&
-                outputs.containsAll(new HashSet<>(groupingSets.getGroupingKeys()));
+                containsAll(outputs, groupingSets.getGroupingKeys());
     }
 
     public boolean isDecomposable(Session session, Metadata metadata)

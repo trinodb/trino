@@ -27,6 +27,7 @@ import io.trino.sql.tree.QuantifiedComparisonExpression;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.base.util.MoreLists.containsAll;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -84,7 +85,7 @@ public class ApplyNode
         requireNonNull(correlation, "correlation is null");
         requireNonNull(originSubquery, "originSubquery is null");
 
-        checkArgument(input.getOutputSymbols().containsAll(correlation), "Input does not contain symbols from correlation");
+        checkArgument(containsAll(input.getOutputSymbols(), correlation), "Input does not contain symbols from correlation");
         checkArgument(
                 subqueryAssignments.getExpressions().stream().allMatch(ApplyNode::isSupportedSubqueryExpression),
                 "Unexpected expression used for subquery expression");

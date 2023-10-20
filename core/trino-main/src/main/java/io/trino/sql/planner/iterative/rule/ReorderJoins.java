@@ -73,6 +73,7 @@ import static com.google.common.collect.Sets.powerSet;
 import static io.trino.SystemSessionProperties.getJoinDistributionType;
 import static io.trino.SystemSessionProperties.getJoinReorderingStrategy;
 import static io.trino.SystemSessionProperties.getMaxReorderedJoins;
+import static io.trino.plugin.base.util.MoreLists.containsAll;
 import static io.trino.sql.ExpressionUtils.and;
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
@@ -498,7 +499,7 @@ public class ReorderJoins
             this.pushedProjectionThroughJoin = pushedProjectionThroughJoin;
 
             List<Symbol> inputSymbols = sources.stream().flatMap(source -> source.getOutputSymbols().stream()).collect(toImmutableList());
-            checkArgument(inputSymbols.containsAll(outputSymbols), "inputs do not contain all output symbols");
+            checkArgument(containsAll(inputSymbols, outputSymbols), "inputs do not contain all output symbols");
         }
 
         public Expression getFilter()
