@@ -1955,9 +1955,6 @@ public final class MetadataManager
 
     private void verifyProjection(TableHandle table, List<ConnectorExpression> projections, List<Assignment> assignments, int expectedProjectionSize)
     {
-        projections.forEach(projection -> requireNonNull(projection, "one of the projections is null"));
-        assignments.forEach(assignment -> requireNonNull(assignment, "one of the assignments is null"));
-
         verify(
                 expectedProjectionSize == projections.size(),
                 "ConnectorMetadata returned invalid number of projections: %s instead of %s for %s",
@@ -1966,14 +1963,14 @@ public final class MetadataManager
                 table);
 
         Set<String> assignedVariables = assignments.stream()
+                .peek(assignment -> requireNonNull(assignment, "one of the assignments is null"))
                 .map(Assignment::getVariable)
                 .collect(toImmutableSet());
         projections.stream()
-                .flatMap(connectorExpression -> ConnectorExpressions.extractVariables(connectorExpression).stream())
+                .peek(projection -> requireNonNull(projection, "one of the projections is null"))
+                .flatMap(projection -> ConnectorExpressions.extractVariables(projection).stream())
                 .map(Variable::getName)
-                .filter(variableName -> !assignedVariables.contains(variableName))
-                .findAny()
-                .ifPresent(variableName -> { throw new IllegalStateException("Unbound variable: " + variableName); });
+                .forEach(variableName -> checkState(assignedVariables.contains(variableName), "Unbound variable: %s", variableName));
     }
 
     @Override
