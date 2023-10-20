@@ -360,8 +360,8 @@ The example below defines the following table access policy:
 These rules control the user's ability to execute functions.
 
 :::{note}
-By default, all users have access to functions in the `system.builtin` schema.
-You can override this behavior by adding a rule, but this will break most queries.
+Users always have access to functions in the `system.builtin` schema, and
+you cannot override this behavior by adding a rule.
 :::
 
 Each function rule is composed of the following fields:
