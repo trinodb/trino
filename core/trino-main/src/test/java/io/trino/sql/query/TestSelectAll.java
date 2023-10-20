@@ -226,7 +226,7 @@ public class TestSelectAll
         assertThat(assertions.query("SELECT t.a, t2.d FROM (VALUES (0, 1), (2, 3)) t(a, b), LATERAL (SELECT t.*) t2(c, d)")).matches("VALUES (0, 1), (2, 3)");
         // limit in lateral relation
         assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* LIMIT 5)")).matches("VALUES (0, 0), (1, 1)");
-        assertThatThrownBy(() -> assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* LIMIT 0)")).hasMessageMatching(UNSUPPORTED_DECORRELATION_MESSAGE);
+        assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* LIMIT 0)")).matches(result -> result.getMaterializedRows().isEmpty());
         // filter in lateral relation
         assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* WHERE true)")).matches("VALUES (0, 0), (1, 1)");
         assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t.* WHERE 0 = 0)")).matches("VALUES (0, 0), (1, 1)");
