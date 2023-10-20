@@ -21,6 +21,8 @@ import io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.TestInstance.Lifecycle;
 
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Collection;
@@ -36,6 +38,7 @@ import static java.lang.String.join;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 
+@TestInstance(Lifecycle.PER_CLASS)
 public class TestBigQueryInstanceCleaner
 {
     public static final Logger LOG = Logger.get(TestBigQueryInstanceCleaner.class);
