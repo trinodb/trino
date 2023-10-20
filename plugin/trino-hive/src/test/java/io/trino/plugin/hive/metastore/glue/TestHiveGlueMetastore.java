@@ -1333,6 +1333,7 @@ public class TestHiveGlueMetastore
         }
     }
 
+    @Test
     @Override
     public void testPartitionColumnProperties()
     {
