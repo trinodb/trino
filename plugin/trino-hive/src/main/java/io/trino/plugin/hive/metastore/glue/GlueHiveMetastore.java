@@ -361,6 +361,12 @@ public class GlueHiveMetastore
     @Override
     public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
     {
+        Failsafe.with(CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY)
+                .run(() -> updateTableStatisticsInternal(databaseName, tableName, transaction, update));
+    }
+
+    private void updateTableStatisticsInternal(String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
+    {
         Table table = getExistingTable(databaseName, tableName);
         if (transaction.isAcidTransactionRunning()) {
             table = Table.builder(table).setWriteId(OptionalLong.of(transaction.getWriteId())).build();
