@@ -151,17 +151,7 @@ public class PushProjectionIntoTableScan
 
         // Translate partial connector projections back to new partial projections
         List<Expression> newPartialProjections = newConnectorPartialProjections.stream()
-                .map(expression -> {
-                    Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings, literalEncoder);
-                    // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
-                    // by ensuring expression is optimized.
-                    Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(session, context.getSymbolAllocator().getTypes(), translated);
-                    translated = literalEncoder.toExpression(
-                            new ExpressionInterpreter(translated, plannerContext, session, translatedExpressionTypes)
-                                    .optimize(NoOpSymbolResolver.INSTANCE),
-                            translatedExpressionTypes.get(NodeRef.of(translated)));
-                    return translated;
-                })
+                .map(expression -> translateAndOptimize(plannerContext, typeAnalyzer, literalEncoder, context, variableMappings, expression))
                 .collect(toImmutableList());
 
         // Map internal node references to new partial projections
@@ -227,5 +217,25 @@ public class PushProjectionIntoTableScan
         Optional<TablePartitioning> oldTablePartitioning = plannerContext.getMetadata().getTableProperties(context.getSession(), oldTableScan.getTable()).getTablePartitioning();
         Optional<TablePartitioning> newTablePartitioning = plannerContext.getMetadata().getTableProperties(context.getSession(), newTable).getTablePartitioning();
         verify(newTablePartitioning.equals(oldTablePartitioning), "Partitioning must not change after projection is pushed down");
+    }
+
+    public static Expression translateAndOptimize(
+            PlannerContext plannerContext,
+            TypeAnalyzer typeAnalyzer,
+            LiteralEncoder literalEncoder,
+            Context context,
+            Map<String, Symbol> variableMappings,
+            ConnectorExpression expression)
+    {
+        Session session = context.getSession();
+        Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings, literalEncoder);
+        // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
+        // by ensuring expression is optimized.
+        Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(session, context.getSymbolAllocator().getTypes(), translated);
+        translated = literalEncoder.toExpression(
+                new ExpressionInterpreter(translated, plannerContext, session, translatedExpressionTypes)
+                        .optimize(NoOpSymbolResolver.INSTANCE),
+                translatedExpressionTypes.get(NodeRef.of(translated)));
+        return translated;
     }
 }
