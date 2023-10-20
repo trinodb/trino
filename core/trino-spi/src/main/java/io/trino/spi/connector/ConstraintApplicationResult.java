@@ -36,7 +36,6 @@ public class ConstraintApplicationResult<T>
      *
      * @deprecated use {@link #ConstraintApplicationResult(boolean, java.util.List)}
      */
-    @Deprecated
     public ConstraintApplicationResult(T handle, TupleDomain<ColumnHandle> remainingFilter, boolean precalculateStatistics)
     {
         this(false, List.of(new Alternative<>(handle, remainingFilter, Optional.empty(), precalculateStatistics)));
@@ -48,7 +47,6 @@ public class ConstraintApplicationResult<T>
      * as the connector may be unable to provide good table statistics for {@code handle}.
      * @deprecated use {@link #ConstraintApplicationResult(boolean, java.util.List)}
      */
-    @Deprecated
     public ConstraintApplicationResult(T handle, TupleDomain<ColumnHandle> remainingFilter, ConnectorExpression remainingExpression, boolean precalculateStatistics)
     {
         this(false, List.of(new Alternative<>(handle, remainingFilter, Optional.of(remainingExpression), precalculateStatistics)));
