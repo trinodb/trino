@@ -128,7 +128,7 @@ public final class CoercionUtils
             return Optional.of(new IntegerNumberUpscaleCoercer<>(fromType, toType));
         }
         if (fromHiveType.equals(HIVE_INT) && toHiveType.equals(HIVE_LONG)) {
-            return Optional.of(new IntegerNumberUpscaleCoercer<>(fromType, toType));
+            return Optional.of(new IntegerToBigintCoercer());
         }
         if (fromHiveType.equals(HIVE_FLOAT) && toHiveType.equals(HIVE_DOUBLE)) {
             return Optional.of(new FloatToDoubleCoercer());
