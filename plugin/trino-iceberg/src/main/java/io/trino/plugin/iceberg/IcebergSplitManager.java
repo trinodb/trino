@@ -14,10 +14,12 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
+import io.trino.plugin.iceberg.IcebergAggregationTableHandle.Aggregation;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionHandle;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesSplitSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -33,6 +35,9 @@ import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 
+import java.util.Set;
+
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
@@ -70,7 +75,23 @@ public class IcebergSplitManager
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
-        IcebergTableHandle table = (IcebergTableHandle) handle;
+        IcebergTableHandle table;
+        Set<Aggregation> aggregations;
+        Set<Integer> projectedBaseColumns;
+        if (handle instanceof IcebergAggregationTableHandle aggregationHandle) {
+            aggregations = ImmutableSet.copyOf(aggregationHandle.intermediateAggregations());
+            table = aggregationHandle.source();
+            projectedBaseColumns = aggregationHandle.groupBy().stream()
+                    .map(column -> column.getBaseColumnIdentity().getId())
+                    .collect(toImmutableSet());
+        }
+        else {
+            aggregations = ImmutableSet.of();
+            table = (IcebergTableHandle) handle;
+            projectedBaseColumns = table.getProjectedColumns().stream()
+                    .map(column -> column.getBaseColumnIdentity().getId())
+                    .collect(toImmutableSet());
+        }
 
         if (table.getSnapshotId().isEmpty()) {
             if (table.isRecordScannedFiles()) {
@@ -93,6 +114,8 @@ public class IcebergSplitManager
                 table,
                 tableScan,
                 table.getMaxScannedFileSize(),
+                aggregations,
+                projectedBaseColumns,
                 dynamicFilter,
                 dynamicFilteringWaitTimeout,
                 constraint,

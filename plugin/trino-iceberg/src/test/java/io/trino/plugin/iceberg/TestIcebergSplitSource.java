@@ -66,6 +66,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
@@ -169,6 +170,10 @@ public class TestIcebergSplitSource
                 tableHandle,
                 nationTable.newScan(),
                 Optional.empty(),
+                ImmutableSet.of(),
+                tableHandle.getProjectedColumns().stream()
+                        .map(column -> column.getBaseColumnIdentity().getId())
+                        .collect(toImmutableSet()),
                 new DynamicFilter()
                 {
                     @Override

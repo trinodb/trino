@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import com.google.inject.Key;
@@ -108,7 +109,10 @@ public class TestIcebergFileOperations
                     newOptionalBinder(binder, Key.get(boolean.class, AsyncIcebergSplitProducer.class))
                             .setBinding().toInstance(false);
                 }));
-        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg");
+        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.<String, String>builder()
+                .put("iceberg.aggregation-pushdown.enabled", "true")
+                .put("iceberg.aggregation-pushdown.on-varchar", "true")
+                .buildOrThrow());
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 
@@ -293,7 +297,6 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM))
                         .add(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH))
                         .add(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM))
-                        .addCopies(new FileOperation(DATA, INPUT_FILE_NEW_STREAM), 4)
                         .build());
 
         // Read partition column only

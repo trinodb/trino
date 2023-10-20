@@ -16,17 +16,22 @@ package io.trino.plugin.iceberg;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.plugin.iceberg.IcebergAggregationTableHandle.Aggregation;
+import io.trino.plugin.iceberg.IcebergAggregationTableHandle.AggregationType;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
@@ -37,9 +42,12 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.Utils;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
+import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpecParser;
@@ -63,18 +71,23 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.intersection;
 import static com.google.common.math.LongMath.saturatedAdd;
+import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.IcebergAggregationTableHandle.AggregationType.MIN;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
+import static io.trino.plugin.iceberg.IcebergEmptySplit.ICEBERG_EMPTY_SPLIT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getSplitSize;
@@ -99,6 +112,9 @@ public class IcebergSplitSource
     private static final ConnectorSplitBatch EMPTY_BATCH = new ConnectorSplitBatch(ImmutableList.of(), false);
     private static final ConnectorSplitBatch NO_MORE_SPLITS_BATCH = new ConnectorSplitBatch(ImmutableList.of(), true);
 
+    // TODO what should be the value?
+    private static final int MIN_MAX_TRUSTED_VARCHAR_LENGTH_LIMIT = 16;
+
     private final TrinoFileSystemFactory fileSystemFactory;
     private final ConnectorSession session;
     private final IcebergTableHandle tableHandle;
@@ -112,7 +128,8 @@ public class IcebergSplitSource
     private final TypeManager typeManager;
     private final Closer closer = Closer.create();
     private final double minimumAssignedSplitWeight;
-    private final Set<Integer> projectedBaseColumns;
+    private final Set<Aggregation> aggregations;
+    private final Set<Integer> unconditionallyProjectedBaseColumns;
     private final TupleDomain<IcebergColumnHandle> dataColumnPredicate;
     private final Domain pathDomain;
     private final Domain fileModifiedTimeDomain;
@@ -122,12 +139,14 @@ public class IcebergSplitSource
     private CloseableIterable<FileScanTask> fileScanIterable;
     private long targetSplitSize;
     private CloseableIterator<FileScanTask> fileScanIterator;
+    private Optional<List<Block>> fileAggregateValues = Optional.empty();
     private Iterator<FileScanTask> fileTasksIterator = emptyIterator();
     private boolean fileHasAnyDeletions;
 
     private final boolean recordScannedFiles;
     private final ImmutableSet.Builder<DataFileWithDeleteFiles> scannedFiles = ImmutableSet.builder();
     private long outputRowsLowerBound;
+    private boolean needOneSplit;
 
     public IcebergSplitSource(
             TrinoFileSystemFactory fileSystemFactory,
@@ -135,6 +154,8 @@ public class IcebergSplitSource
             IcebergTableHandle tableHandle,
             TableScan tableScan,
             Optional<DataSize> maxScannedFileSize,
+            Set<Aggregation> aggregations,
+            Set<Integer> unconditionallyProjectedBaseColumns,
             DynamicFilter dynamicFilter,
             Duration dynamicFilteringWaitTimeout,
             Constraint constraint,
@@ -153,11 +174,10 @@ public class IcebergSplitSource
         this.dynamicFilterWaitStopwatch = Stopwatch.createStarted();
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.aggregations = ImmutableSet.copyOf(requireNonNull(aggregations, "aggregations is null"));
+        this.unconditionallyProjectedBaseColumns = ImmutableSet.copyOf(requireNonNull(unconditionallyProjectedBaseColumns, "unconditionallyProjectedBaseColumns is null"));
         this.recordScannedFiles = recordScannedFiles;
         this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
-        this.projectedBaseColumns = tableHandle.getProjectedColumns().stream()
-                .map(column -> column.getBaseColumnIdentity().getId())
-                .collect(toImmutableSet());
         this.dataColumnPredicate = tableHandle.getEnforcedPredicate().filter((column, domain) -> !isMetadataColumnId(column.getId()));
         this.pathDomain = getPathDomain(tableHandle.getEnforcedPredicate());
         checkArgument(
@@ -165,6 +185,7 @@ public class IcebergSplitSource
                 "Cannot enforce LIMIT %s with unenforced predicate %s present",
                 tableHandle.getLimit(),
                 tableHandle.getUnenforcedPredicate());
+        this.needOneSplit = unconditionallyProjectedBaseColumns.isEmpty() /* global aggregation */ && aggregations.stream().anyMatch(Aggregation::nonNullOnEmpty);
         this.limit = tableHandle.getLimit();
         this.fileModifiedTimeDomain = getFileModifiedTimePathDomain(tableHandle.getEnforcedPredicate());
     }
@@ -182,7 +203,9 @@ public class IcebergSplitSource
         if (fileScanIterable == null) {
             // Used to avoid duplicating work if the Dynamic Filter was already pushed down to the Iceberg API
             boolean dynamicFilterIsComplete = dynamicFilter.isComplete();
-            this.pushedDownDynamicFilterPredicate = dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast);
+            this.pushedDownDynamicFilterPredicate = dynamicFilter.getCurrentPredicate()
+                    .filter((columnHandle, domain) -> !(columnHandle instanceof Aggregation))
+                    .transformKeys(IcebergColumnHandle.class::cast);
             TupleDomain<IcebergColumnHandle> fullPredicate = tableHandle.getUnenforcedPredicate()
                     .intersect(pushedDownDynamicFilterPredicate);
             // TODO: (https://github.com/trinodb/trino/issues/9743): Consider removing TupleDomain#simplify
@@ -203,7 +226,7 @@ public class IcebergSplitSource
 
             Expression filterExpression = toIcebergExpression(effectivePredicate);
             // If the Dynamic Filter will be evaluated against each file, stats are required. Otherwise, skip them.
-            boolean requiresColumnStats = usedSimplifiedPredicate || !dynamicFilterIsComplete;
+            boolean requiresColumnStats = usedSimplifiedPredicate || !dynamicFilterIsComplete || !aggregations.isEmpty();
             TableScan scan = tableScan.filter(filterExpression);
             if (requiresColumnStats) {
                 scan = scan.includeColumnStats();
@@ -217,9 +240,14 @@ public class IcebergSplitSource
         }
 
         TupleDomain<IcebergColumnHandle> dynamicFilterPredicate = dynamicFilter.getCurrentPredicate()
+                .filter((columnHandle, domain) -> !(columnHandle instanceof Aggregation))
                 .transformKeys(IcebergColumnHandle.class::cast);
         if (dynamicFilterPredicate.isNone()) {
             finish();
+            if (needOneSplit) {
+                needOneSplit = false;
+                return completedFuture(new ConnectorSplitBatch(ImmutableList.of(ICEBERG_EMPTY_SPLIT), true));
+            }
             return completedFuture(NO_MORE_SPLITS_BATCH);
         }
 
@@ -227,7 +255,8 @@ public class IcebergSplitSource
         while (splits.size() < maxSize && (fileTasksIterator.hasNext() || fileScanIterator.hasNext())) {
             if (!fileTasksIterator.hasNext()) {
                 FileScanTask wholeFileTask = fileScanIterator.next();
-                if (wholeFileTask.deletes().isEmpty() && noDataColumnsProjected(wholeFileTask)) {
+                this.fileAggregateValues = Optional.empty();
+                if (wholeFileTask.deletes().isEmpty() && noDataColumnsProjected(wholeFileTask) && satisfyAggregations(wholeFileTask)) {
                     fileTasksIterator = List.of(wholeFileTask).iterator();
                 }
                 else {
@@ -302,6 +331,10 @@ public class IcebergSplitSource
             }
             splits.add(icebergSplit);
         }
+        if (needOneSplit && splits.isEmpty()) {
+            splits.add(ICEBERG_EMPTY_SPLIT);
+        }
+        needOneSplit = false;
         return completedFuture(new ConnectorSplitBatch(splits, isFinished()));
     }
 
@@ -311,7 +344,63 @@ public class IcebergSplitSource
                 .filter(partitionField -> partitionField.transform().isIdentity())
                 .map(PartitionField::sourceId)
                 .collect(toImmutableSet())
-                .containsAll(projectedBaseColumns);
+                .containsAll(unconditionallyProjectedBaseColumns);
+    }
+
+    private boolean satisfyAggregations(FileScanTask wholeFileTask)
+    {
+        checkState(fileAggregateValues.isEmpty(), "fileAggregateValues already set");
+
+        // Invoked only for files where unconditionallyProjectedBaseColumns (groupBy) is only partitioning columns
+        ImmutableList.Builder<Block> values = ImmutableList.builder();
+        for (Aggregation aggregation : aggregations) {
+            Optional<Object> value = satisfy(wholeFileTask.file(), aggregation);
+            if (value.isEmpty()) {
+                return false;
+            }
+            values.add(Utils.nativeValueToBlock(aggregation.outputType(), value.get()));
+        }
+        fileAggregateValues = Optional.of(values.build());
+        return true;
+    }
+
+    private Optional<Object> satisfy(DataFile dataFile, Aggregation aggregation)
+    {
+        AggregationType aggregationType = aggregation.aggregationType();
+        return switch (aggregationType) {
+            case COUNT_ALL -> Optional.of(dataFile.recordCount());
+            case COUNT_NON_NULL -> {
+                IcebergColumnHandle argument = getOnlyElement(aggregation.arguments());
+                int fieldId = argument.getId();
+                Long valueCount = firstNonNull(dataFile.valueCounts(), ImmutableMap.<Integer, Long>of()).get(fieldId);
+                Long nullCount = firstNonNull(dataFile.nullValueCounts(), ImmutableMap.<Integer, Long>of()).get(fieldId);
+                if (valueCount == null || nullCount == null) {
+                    yield Optional.empty();
+                }
+                yield Optional.of(valueCount - nullCount);
+            }
+            case MIN, MAX -> {
+                IcebergColumnHandle argument = getOnlyElement(aggregation.arguments());
+                io.trino.spi.type.Type argumentTrinoType = argument.getType();
+                int fieldId = argument.getId();
+                Map<Integer, ByteBuffer> bounds = firstNonNull((aggregationType == MIN) ? dataFile.lowerBounds() : dataFile.upperBounds(), ImmutableMap.of());
+                if (!bounds.containsKey(fieldId)) {
+                    yield Optional.empty();
+                }
+                Type icebergType = fieldIdToType.get(fieldId);
+                Object value = convertIcebergValueToTrino(icebergType, fromByteBuffer(icebergType, bounds.get(fieldId)));
+                if (argumentTrinoType instanceof VarcharType) {
+                    // TODO consult org.apache.iceberg.MetricsModes.MetricsMode
+                    // TODO this is incorrect for max: truncate("abc<max-code-point><max-code-point>...<max-code-point>") -> "abd", so upper bound value being "abd"
+                    //  does not imply the max value is "abd". For this to work Iceberg would need to track upper bound exactness, like Parquet https://github.com/apache/parquet-format/pull/216
+                    if (countCodePoints((Slice) value) >= MIN_MAX_TRUSTED_VARCHAR_LENGTH_LIMIT) {
+                        // Might be truncated
+                        yield Optional.empty();
+                    }
+                }
+                yield Optional.of(value);
+            }
+        };
     }
 
     private long getModificationTime(String path)
@@ -474,6 +563,7 @@ public class IcebergSplitSource
                 task.length(),
                 task.file().fileSizeInBytes(),
                 task.file().recordCount(),
+                fileAggregateValues,
                 IcebergFileFormat.fromIceberg(task.file().format()),
                 PartitionSpecParser.toJson(task.spec()),
                 PartitionData.toJson(task.file().partition()),

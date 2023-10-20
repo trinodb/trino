@@ -22,9 +22,11 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -41,6 +43,7 @@ public class IcebergSplit
     private final long length;
     private final long fileSize;
     private final long fileRecordCount;
+    private final Optional<List<Block>> fileAggregateValues;
     private final IcebergFileFormat fileFormat;
     private final String partitionSpecJson;
     private final String partitionDataJson;
@@ -54,6 +57,7 @@ public class IcebergSplit
             @JsonProperty("length") long length,
             @JsonProperty("fileSize") long fileSize,
             @JsonProperty("fileRecordCount") long fileRecordCount,
+            @JsonProperty("fileAggregateValues") Optional<List<Block>> fileAggregateValues,
             @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
             @JsonProperty("partitionSpecJson") String partitionSpecJson,
             @JsonProperty("partitionDataJson") String partitionDataJson,
@@ -65,6 +69,7 @@ public class IcebergSplit
         this.length = length;
         this.fileSize = fileSize;
         this.fileRecordCount = fileRecordCount;
+        this.fileAggregateValues = fileAggregateValues.map(ImmutableList::copyOf);
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.partitionSpecJson = requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
@@ -116,6 +121,12 @@ public class IcebergSplit
     }
 
     @JsonProperty
+    public Optional<List<Block>> getFileAggregateValues()
+    {
+        return fileAggregateValues;
+    }
+
+    @JsonProperty
     public IcebergFileFormat getFileFormat()
     {
         return fileFormat;
@@ -161,6 +172,7 @@ public class IcebergSplit
     {
         return INSTANCE_SIZE
                 + estimatedSizeOf(path)
+                + fileAggregateValues.map(values -> estimatedSizeOf(values, Block::getRetainedSizeInBytes)).orElse(0L)
                 + estimatedSizeOf(partitionSpecJson)
                 + estimatedSizeOf(partitionDataJson)
                 + estimatedSizeOf(deletes, DeleteFile::getRetainedSizeInBytes)

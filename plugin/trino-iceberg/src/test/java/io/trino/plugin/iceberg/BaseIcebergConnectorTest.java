@@ -186,6 +186,8 @@ public abstract class BaseIcebergConnectorTest
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.file-format", format.name())
+                        .put("iceberg.aggregation-pushdown.enabled", "true")
+                        .put("iceberg.aggregation-pushdown.on-varchar", "true")
                         // Allows testing the sorting writer flushing to the file system with smaller tables
                         .put("iceberg.writer-sort-buffer-size", "1MB")
                         .buildOrThrow())

@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.graph.Traverser;
+import com.google.common.primitives.Ints;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.annotation.NotThreadSafe;
@@ -58,6 +59,7 @@ import io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.plugin.iceberg.IcebergAggregationTableHandle.Aggregation;
 import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteFilter;
@@ -68,6 +70,7 @@ import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -126,19 +129,23 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -249,6 +256,16 @@ public class IcebergPageSourceProvider
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
+        if (connectorTable instanceof IcebergAggregationTableHandle aggregationHandle) {
+            return createAggregationPageSource(
+                    transaction,
+                    session,
+                    connectorSplit,
+                    aggregationHandle,
+                    columns,
+                    dynamicFilter);
+        }
+
         IcebergSplit split = (IcebergSplit) connectorSplit;
         List<IcebergColumnHandle> icebergColumns = columns.stream()
                 .map(IcebergColumnHandle.class::cast)
@@ -277,6 +294,132 @@ public class IcebergPageSourceProvider
                 split.getPartitionDataJson(),
                 split.getFileFormat(),
                 tableHandle.getNameMappingJson().map(NameMappingParser::fromJson));
+    }
+
+    private ConnectorPageSource createAggregationPageSource(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorSplit connectorSplit,
+            IcebergAggregationTableHandle aggregationHandle,
+            List<ColumnHandle> columns,
+            DynamicFilter dynamicFilter)
+    {
+        if (connectorSplit instanceof IcebergEmptySplit) {
+            Block[] blocks = columns.stream()
+                    .map(Aggregation.class::cast)
+                    .map(aggregation -> nativeValueToBlock(aggregation.outputType(), aggregation.valueOnEmpty()))
+                    .toArray(Block[]::new);
+            return new FixedPageSource(ImmutableList.of(new Page(1, blocks)));
+        }
+
+        if (columns.isEmpty()) {
+            // All columns (aggregations, groupBy) pruned away, but the row count should match
+            return createPageSource(
+                    transaction,
+                    session,
+                    connectorSplit,
+                    aggregationHandle.source(),
+                    columns,
+                    // Since no columns were selected, the DynamicFilter must be no-op.
+                    DynamicFilter.EMPTY);
+        }
+
+        IcebergSplit split = (IcebergSplit) connectorSplit;
+        List<Aggregation> intermediateAggregations = aggregationHandle.intermediateAggregations();
+        Optional<List<Block>> aggregateValues = split.getFileAggregateValues();
+        boolean hasPrecomputedAggregateValues = aggregateValues.isPresent();
+        verify(
+                !hasPrecomputedAggregateValues || aggregateValues.get().size() == intermediateAggregations.size(),
+                "Mismatch size of %s != size of %s",
+                intermediateAggregations,
+                aggregateValues.orElse(null));
+
+        Map<Aggregation, Integer> firstOccurrence = new HashMap<>();
+        for (int i = 0; i < intermediateAggregations.size(); i++) {
+            firstOccurrence.putIfAbsent(intermediateAggregations.get(i), i);
+        }
+
+        List<Function<Page, Block>> blockSuppliers = new ArrayList<>(columns.size());
+        LinkedHashMap<ColumnHandle, Integer /* index */> sourceColumns = new LinkedHashMap<>(); // indexed list
+        for (ColumnHandle columnHandle : columns) {
+            Function<Page, Block> blockSupplier;
+            if (columnHandle instanceof Aggregation aggregation) {
+                if (!hasPrecomputedAggregateValues) {
+                    int[] argumentIndexes = addColumns(sourceColumns, aggregation.arguments());
+                    blockSupplier = partialAggregation(aggregation, argumentIndexes);
+                }
+                else {
+                    Block value = aggregateValues.get().get(firstOccurrence.get(aggregation));
+                    blockSupplier = page -> value;
+                }
+            }
+            else {
+                int sourceColumnIndex = getOnlyElement(Ints.asList(addColumns(sourceColumns, ImmutableList.of(columnHandle))));
+                if (!hasPrecomputedAggregateValues) {
+                    blockSupplier = page -> page.getBlock(sourceColumnIndex);
+                }
+                else {
+                    // precomputed aggregate values are only present when groupBy ⊆ partitioning column, so all values must be the same
+                    blockSupplier = page -> page.getBlock(sourceColumnIndex).getRegion(0, 1);
+                }
+            }
+            blockSuppliers.add(blockSupplier);
+        }
+
+        ConnectorPageSource source = createPageSource(
+                transaction,
+                session,
+                split,
+                aggregationHandle.source(),
+                ImmutableList.copyOf(sourceColumns.keySet()),
+                // TODO can we pass dynamic filter as-is? Maybe need to filter it by grouping columns.
+                dynamicFilter);
+
+        return new DecoratingPageSource(source, page -> {
+            if (page == null || page.getPositionCount() == 0) {
+                return null;
+            }
+            Block[] blocks = new Block[blockSuppliers.size()];
+            for (int columnIndex = 0; columnIndex < blockSuppliers.size(); columnIndex++) {
+                blocks[columnIndex] = blockSuppliers.get(columnIndex).apply(page);
+            }
+            return new Page(blocks);
+        });
+    }
+
+    private static <T> int[] addColumns(LinkedHashMap<T, Integer/* index */> indexedList, List<? extends T> elementsToAdd)
+    {
+        int[] indexes = new int[elementsToAdd.size()];
+        for (int i = 0; i < elementsToAdd.size(); i++) {
+            int freeIndex = indexedList.size();
+            indexes[i] = firstNonNull(indexedList.putIfAbsent(elementsToAdd.get(i), freeIndex), freeIndex);
+        }
+        return indexes;
+    }
+
+    private static Function<Page, Block> partialAggregation(Aggregation aggregation, int[] argumentIndexes)
+    {
+        return switch (aggregation.aggregationType()) {
+            case COUNT_ALL -> page -> RunLengthEncodedBlock.create(nativeValueToBlock(BIGINT, 1L), page.getPositionCount());
+            // TODO return number of non-null values from Row Group statistics (if present), without reading the data
+            case COUNT_NON_NULL -> {
+                int sourceColumnsIndex = getOnlyElement(Ints.asList(argumentIndexes));
+                yield page -> {
+                    int positionCount = page.getPositionCount();
+                    Block sourceBlock = page.getBlock(sourceColumnsIndex);
+                    long[] values = new long[positionCount];
+                    for (int position = 0; position < positionCount; position++) {
+                        values[position] = sourceBlock.isNull(position) ? 0 : 1;
+                    }
+                    return new LongArrayBlock(positionCount, Optional.empty(), values);
+                };
+            }
+            // TODO return min, max from Row Group statistics (if present & accurate), without reading the data
+            case MIN, MAX -> {
+                int sourceColumnsIndex = getOnlyElement(Ints.asList(argumentIndexes));
+                yield page -> page.getBlock(sourceColumnsIndex);
+            }
+        };
     }
 
     public ConnectorPageSource createPageSource(

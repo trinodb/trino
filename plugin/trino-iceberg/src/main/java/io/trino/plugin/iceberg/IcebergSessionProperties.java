@@ -86,6 +86,8 @@ public final class IcebergSessionProperties
     private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
     public static final String COLLECT_EXTENDED_STATISTICS_ON_WRITE = "collect_extended_statistics_on_write";
     private static final String HIVE_CATALOG_NAME = "hive_catalog_name";
+    private static final String AGGREGATION_PUSHDOWN_ENABLED = "aggregation_pushdown_enabled";
+    private static final String AGGREGATION_PUSHDOWN_ON_VARCHAR = "aggregation_pushdown_on_varchar";
     private static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
     public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "expire_snapshots_min_retention";
     public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "remove_orphan_files_min_retention";
@@ -291,6 +293,16 @@ public final class IcebergSessionProperties
                         // Session-level redirections configuration does not work well with views, as view body is analyzed in context
                         // of a session with properties stripped off. Thus, this property is more of a test-only, or at most POC usefulness.
                         true))
+                .add(booleanProperty(
+                        AGGREGATION_PUSHDOWN_ENABLED,
+                        "Enable aggregation pushdown based on file statistics",
+                        icebergConfig.isAggregationPushdownEnabled(),
+                        false))
+                .add(booleanProperty(
+                        AGGREGATION_PUSHDOWN_ON_VARCHAR,
+                        IcebergConfig.AGGREGATION_ON_VARCHAR_DESCRIPTION,
+                        icebergConfig.isAggregationPushdownOnVarchar(),
+                        false))
                 .add(doubleProperty(
                         MINIMUM_ASSIGNED_SPLIT_WEIGHT,
                         "Minimum assigned split weight",
@@ -495,6 +507,16 @@ public final class IcebergSessionProperties
     public static Optional<String> getHiveCatalogName(ConnectorSession session)
     {
         return Optional.ofNullable(session.getProperty(HIVE_CATALOG_NAME, String.class));
+    }
+
+    public static boolean isAggregationPushdownEnabled(ConnectorSession session)
+    {
+        return session.getProperty(AGGREGATION_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isAggregationPushdownOnVarchar(ConnectorSession session)
+    {
+        return session.getProperty(AGGREGATION_PUSHDOWN_ON_VARCHAR, Boolean.class);
     }
 
     public static Duration getExpireSnapshotMinRetention(ConnectorSession session)

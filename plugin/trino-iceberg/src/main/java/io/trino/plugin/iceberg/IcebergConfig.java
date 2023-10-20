@@ -41,6 +41,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 })
 public class IcebergConfig
 {
+    public static final String AGGREGATION_ON_VARCHAR_DESCRIPTION = "Enable aggregation pushdown based on file statistics also for varchar columns. May produce incorrect results if bounds are very truncated or it table data contains U+10FFFF Unicode code points";
     public static final int FORMAT_VERSION_SUPPORT_MIN = 1;
     public static final int FORMAT_VERSION_SUPPORT_MAX = 2;
     public static final String EXTENDED_STATISTICS_CONFIG = "iceberg.extended-statistics.enabled";
@@ -62,6 +63,8 @@ public class IcebergConfig
     private boolean projectionPushdownEnabled = true;
     private boolean registerTableProcedureEnabled;
     private Optional<String> hiveCatalogName = Optional.empty();
+    private boolean aggregationPushdownEnabled;
+    private boolean aggregationPushdownOnVarchar;
     private int formatVersion = FORMAT_VERSION_SUPPORT_MAX;
     private Duration expireSnapshotsMinRetention = new Duration(7, DAYS);
     private Duration removeOrphanFilesMinRetention = new Duration(7, DAYS);
@@ -253,6 +256,32 @@ public class IcebergConfig
     public IcebergConfig setHiveCatalogName(String hiveCatalogName)
     {
         this.hiveCatalogName = Optional.ofNullable(hiveCatalogName);
+        return this;
+    }
+
+    public boolean isAggregationPushdownEnabled()
+    {
+        return aggregationPushdownEnabled;
+    }
+
+    @Config("iceberg.aggregation-pushdown.enabled")
+    @ConfigDescription("Enable aggregation pushdown based on file statistics")
+    public IcebergConfig setAggregationPushdownEnabled(boolean aggregationPushdownEnabled)
+    {
+        this.aggregationPushdownEnabled = aggregationPushdownEnabled;
+        return this;
+    }
+
+    public boolean isAggregationPushdownOnVarchar()
+    {
+        return aggregationPushdownOnVarchar;
+    }
+
+    @Config("iceberg.aggregation-pushdown.on-varchar")
+    @ConfigDescription(AGGREGATION_ON_VARCHAR_DESCRIPTION)
+    public IcebergConfig setAggregationPushdownOnVarchar(boolean aggregationPushdownOnVarchar)
+    {
+        this.aggregationPushdownOnVarchar = aggregationPushdownOnVarchar;
         return this;
     }
 

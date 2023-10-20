@@ -37,6 +37,7 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.base.projection.ApplyProjectionUtil;
 import io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.trino.plugin.hive.HiveWrittenPartitions;
+import io.trino.plugin.iceberg.IcebergAggregationTableHandle.Aggregation;
 import io.trino.plugin.iceberg.aggregation.DataSketchStateSerializer;
 import io.trino.plugin.iceberg.aggregation.IcebergThetaSketchForStats;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -50,6 +51,8 @@ import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.AggregateFunction;
+import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.spi.connector.CatalogHandle;
@@ -91,6 +94,7 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
@@ -99,6 +103,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ComputedStatistics;
+import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.LongTimestamp;
@@ -193,6 +198,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.collect.Sets.difference;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
@@ -201,6 +207,10 @@ import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.plugin.iceberg.ConstraintExtractor.extractTupleDomain;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.IcebergAggregationTableHandle.AggregationType.COUNT_ALL;
+import static io.trino.plugin.iceberg.IcebergAggregationTableHandle.AggregationType.COUNT_NON_NULL;
+import static io.trino.plugin.iceberg.IcebergAggregationTableHandle.AggregationType.MAX;
+import static io.trino.plugin.iceberg.IcebergAggregationTableHandle.AggregationType.MIN;
 import static io.trino.plugin.iceberg.IcebergAnalyzeProperties.getColumnNames;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_DATA;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_SPEC_ID;
@@ -218,6 +228,8 @@ import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getExpireSnapshotMinRetention;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getHiveCatalogName;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getRemoveOrphanFilesMinRetention;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isAggregationPushdownEnabled;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isAggregationPushdownOnVarchar;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isCollectExtendedStatisticsOnWrite;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isMergeManifestsOnWrite;
@@ -273,6 +285,7 @@ import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
@@ -555,6 +568,10 @@ public class IcebergMetadata
     @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
+        if (tableHandle instanceof IcebergAggregationTableHandle) {
+            return new ConnectorTableProperties();
+        }
+
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
 
         if (table.getSnapshotId().isEmpty()) {
@@ -634,6 +651,9 @@ public class IcebergMetadata
     @Override
     public SchemaTableName getTableName(ConnectorSession session, ConnectorTableHandle table)
     {
+        if (table instanceof IcebergAggregationTableHandle aggregationTableHandle) {
+            return aggregationTableHandle.source().getSchemaTableName();
+        }
         if (table instanceof CorruptedIcebergTableHandle corruptedTableHandle) {
             return corruptedTableHandle.schemaTableName();
         }
@@ -673,6 +693,12 @@ public class IcebergMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
+        if (columnHandle instanceof IcebergAggregationTableHandle.Aggregation aggregation) {
+            return ColumnMetadata.builder()
+                    .setName(aggregation.aggregationType().name())
+                    .setType(aggregation.outputType())
+                    .build();
+        }
         IcebergColumnHandle column = (IcebergColumnHandle) columnHandle;
         return ColumnMetadata.builder()
                 .setName(column.getName())
@@ -1667,6 +1693,10 @@ public class IcebergMetadata
     @Override
     public Optional<Object> getInfo(ConnectorTableHandle tableHandle)
     {
+        if (tableHandle instanceof IcebergAggregationTableHandle aggregationHandle) {
+            return getInfo(aggregationHandle.source());
+        }
+
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         Optional<Boolean> partitioned = icebergTableHandle.getPartitionSpecJson()
                 .map(partitionSpecJson -> PartitionSpecParser.fromJson(SchemaParser.fromJson(icebergTableHandle.getTableSchemaJson()), partitionSpecJson).isPartitioned());
@@ -2440,6 +2470,13 @@ public class IcebergMetadata
     @Override
     public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle handle, long limit)
     {
+        if (handle instanceof IcebergAggregationTableHandle aggregationHandle) {
+            if (aggregationHandle.groupBy().isEmpty() && limit >= 1) {
+                return Optional.of(new LimitApplicationResult<>(handle, true, false));
+            }
+            return Optional.empty();
+        }
+
         IcebergTableHandle table = (IcebergTableHandle) handle;
 
         if (table.getLimit().isPresent() && table.getLimit().getAsLong() <= limit) {
@@ -2476,6 +2513,38 @@ public class IcebergMetadata
     @Override
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
+        if (handle instanceof IcebergAggregationTableHandle aggregationHandle) {
+            ConstraintExtractor.ExtractionResult extractionResult = extractTupleDomain(constraint);
+            TupleDomain<IcebergColumnHandle> predicate = extractionResult.tupleDomain();
+            Set<IcebergColumnHandle> groupingKeys = ImmutableSet.copyOf(aggregationHandle.groupBy());
+            if (predicate.isNone() || groupingKeys.containsAll(predicate.getDomains().orElseThrow().keySet())) {
+                // Predicate on grouping keys
+                return applyFilter(session, aggregationHandle.source(), new Constraint(predicate.transformKeys(ColumnHandle.class::cast)))
+                        .flatMap(result -> {
+                            List<ConstraintApplicationResult.Alternative<ConnectorTableHandle>> aggregateAlternatives = new ArrayList<>(result.getAlternatives().size());
+                            for (ConstraintApplicationResult.Alternative<ConnectorTableHandle> alternative : result.getAlternatives()) {
+                                // Remaining filter is on grouping keys
+                                if ((alternative.remainingFilter().isNone() || groupingKeys.containsAll(alternative.remainingFilter().getDomains().get().keySet())) &&
+                                        (alternative.remainingExpression().isEmpty() || alternative.remainingExpression().get().equals(Constant.TRUE))) {
+                                    aggregateAlternatives.add(new ConstraintApplicationResult.Alternative<>(
+                                            new IcebergAggregationTableHandle(
+                                                    (IcebergTableHandle) alternative.handle(),
+                                                    aggregationHandle.intermediateAggregations(),
+                                                    aggregationHandle.groupBy()),
+                                            alternative.remainingFilter(),
+                                            alternative.remainingExpression(),
+                                            true));
+                                }
+                            }
+                            if (aggregateAlternatives.isEmpty()) {
+                                return Optional.empty();
+                            }
+                            return Optional.of(new ConstraintApplicationResult<>(result.isRetainOriginalPlan(), aggregateAlternatives));
+                        });
+            }
+            return Optional.empty();
+        }
+
         IcebergTableHandle table = (IcebergTableHandle) handle;
         ConstraintExtractor.ExtractionResult extractionResult = extractTupleDomain(constraint);
         TupleDomain<IcebergColumnHandle> predicate = extractionResult.tupleDomain();
@@ -2599,6 +2668,10 @@ public class IcebergMetadata
             return Optional.empty();
         }
 
+        if (handle instanceof IcebergAggregationTableHandle) {
+            return Optional.empty();
+        }
+
         // Create projected column representations for supported sub expressions. Simple column references and chain of
         // dereferences on a variable are supported right now.
         Set<ConnectorExpression> projectedExpressions = projections.stream()
@@ -2690,8 +2763,118 @@ public class IcebergMetadata
     }
 
     @Override
+    public Optional<AggregationApplicationResult<ConnectorTableHandle>> applyAggregation(
+            ConnectorSession session,
+            ConnectorTableHandle handle,
+            List<AggregateFunction> aggregates,
+            Map<String, ColumnHandle> assignments,
+            List<List<ColumnHandle>> groupingSets)
+    {
+        if (!isAggregationPushdownEnabled(session)) {
+            return Optional.empty();
+        }
+
+        if (handle instanceof IcebergAggregationTableHandle) {
+            return Optional.empty();
+        }
+
+        if (groupingSets.size() != 1) {
+            return Optional.empty();
+        }
+
+        int nextVariableId = 0;
+        ImmutableList.Builder<Aggregation> intermediateAggregations = ImmutableList.builder();
+        ImmutableList.Builder<Assignment> newAssignments = ImmutableList.builder();
+        ImmutableList.Builder<AggregateFunction> postAggregations = ImmutableList.builder();
+
+        for (AggregateFunction aggregate : aggregates) {
+            Optional<Aggregation> converted = intermediateAggregation(session, aggregate, assignments);
+            if (converted.isEmpty()) {
+                return Optional.empty();
+            }
+            Aggregation intermediate = converted.get();
+
+            String variable = "var" + (nextVariableId++);
+            intermediateAggregations.add(intermediate);
+            newAssignments.add(new Assignment(variable, intermediate, intermediate.outputType()));
+            postAggregations.add(intermediate.finalAggregation(new Variable(variable, intermediate.outputType())));
+        }
+
+        return Optional.of(new AggregationApplicationResult<>(
+                new IcebergAggregationTableHandle(
+                        (IcebergTableHandle) handle,
+                        intermediateAggregations.build(),
+                        getOnlyElement(groupingSets).stream()
+                                .map(IcebergColumnHandle.class::cast)
+                                .collect(toImmutableList())),
+                Optional.empty(),
+                Optional.of(postAggregations.build()),
+                newAssignments.build(),
+                ImmutableMap.of(),
+                // Do not precalculate statistics, they may be unused later, and TODO calculating stats over whole table is currently very expensive.
+                false));
+    }
+
+    private Optional<Aggregation> intermediateAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        if (aggregate.getFilter().isPresent() || !aggregate.getSortItems().isEmpty()) {
+            return Optional.empty();
+        }
+        io.trino.spi.type.Type outputType = aggregate.getOutputType();
+        if (aggregate.getFunctionName().equals("count") && aggregate.getArguments().isEmpty()) {
+            verify(outputType.equals(BIGINT), "Unexpected result type of aggregation %s: %s", aggregate, outputType);
+            return Optional.of(new Aggregation(COUNT_ALL, BIGINT, ImmutableList.of()));
+        }
+        if (aggregate.getArguments().size() == 1 && getOnlyElement(aggregate.getArguments()) instanceof Variable argument) {
+            IcebergColumnHandle columnHandle = (IcebergColumnHandle) assignments.get(argument.getName());
+            switch (aggregate.getFunctionName()) {
+                case "count" -> {
+                    verify(outputType.equals(BIGINT), "Unexpected result type of aggregation %s: %s", aggregate, outputType);
+                    return Optional.of(new Aggregation(COUNT_NON_NULL, BIGINT, ImmutableList.of(columnHandle)));
+                }
+                case "min" -> {
+                    verify(outputType.equals(columnHandle.getType()), "Unexpected result type of aggregation %s on %s: %s", aggregate, columnHandle, outputType);
+                    if (supportedTypeForMinMax(session, columnHandle.getType())) {
+                        return Optional.of(new Aggregation(MIN, outputType, ImmutableList.of(columnHandle)));
+                    }
+                }
+                case "max" -> {
+                    verify(outputType.equals(columnHandle.getType()), "Unexpected result type of aggregation %s on %s: %s", aggregate, columnHandle, outputType);
+                    if (supportedTypeForMinMax(session, columnHandle.getType())) {
+                        return Optional.of(new Aggregation(MAX, outputType, ImmutableList.of(columnHandle)));
+                    }
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private boolean supportedTypeForMinMax(ConnectorSession session, io.trino.spi.type.Type type)
+    {
+        // No TINYINT, SMALLINT in Icebeg
+        if (type == INTEGER || type == BIGINT) {
+            return true;
+        }
+        if (type instanceof VarcharType) {
+            return isAggregationPushdownOnVarchar(session);
+        }
+        // TODO support DATE
+        // TODO support DECIMAL
+        return false;
+    }
+
+    @Override
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
+        if (tableHandle instanceof IcebergAggregationTableHandle aggregationHandle) {
+            if (aggregationHandle.groupBy().isEmpty()) {
+                return TableStatistics.builder()
+                        .setRowCount(Estimate.of(1))
+                        .build();
+            }
+            return TableStatistics.empty();
+        }
+
         if (!isStatisticsEnabled(session)) {
             return TableStatistics.empty();
         }
