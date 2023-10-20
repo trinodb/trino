@@ -229,6 +229,16 @@ public class TestClientOptions
     }
 
     @Test
+    public void testExtraHeaders()
+    {
+        Console console = createConsole("--extra-header", "X-Trino-Routing-Group=foo", "--extra-header", "x-foo=bar");
+        ClientOptions options = console.clientOptions;
+        assertEquals(options.extraHeaders, ImmutableList.of(
+                new ClientOptions.ExtraHeader("X-Trino-Routing-Group", "foo"),
+                new ClientOptions.ExtraHeader("x-foo", "bar")));
+    }
+
+    @Test
     public void testSessionProperties()
     {
         Console console = createConsole("--session", "system=system-value", "--session", "catalog.name=catalog-property");

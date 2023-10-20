@@ -52,6 +52,7 @@ import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -96,6 +97,17 @@ public final class OkHttpUtil
         return chain -> chain.proceed(chain.request().newBuilder()
                 .addHeader(AUTHORIZATION, "Bearer " + accessToken)
                 .build());
+    }
+
+    public static Interceptor extraHeaders(Map<String, String> extraHeaders)
+    {
+        requireNonNull(extraHeaders, "extraHeaders is null");
+
+        return chain -> {
+            okhttp3.Request.Builder builder = chain.request().newBuilder();
+            extraHeaders.forEach((k, v) -> builder.addHeader(k, v));
+            return chain.proceed(builder.build());
+        };
     }
 
     public static void setupTimeouts(OkHttpClient.Builder clientBuilder, int timeout, TimeUnit unit)

@@ -92,6 +92,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
     public static final ConnectionProperty<String, String> CLIENT_INFO = new ClientInfo();
     public static final ConnectionProperty<String, String> CLIENT_TAGS = new ClientTags();
+    public static final ConnectionProperty<String, Map<String, String>> EXTRA_HEADERS = new ExtraHeaders();
     public static final ConnectionProperty<String, String> TRACE_TOKEN = new TraceToken();
     public static final ConnectionProperty<String, Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
     public static final ConnectionProperty<String, String> SOURCE = new Source();
@@ -133,6 +134,7 @@ final class ConnectionProperties
             .add(EXTRA_CREDENTIALS)
             .add(CLIENT_INFO)
             .add(CLIENT_TAGS)
+            .add(EXTRA_HEADERS)
             .add(TRACE_TOKEN)
             .add(SESSION_PROPERTIES)
             .add(SOURCE)
@@ -636,6 +638,22 @@ final class ConnectionProperties
         public static Map<String, String> parseExtraCredentials(String extraCredentialString)
         {
             return new MapPropertyParser(PropertyName.EXTRA_CREDENTIALS.toString()).parse(extraCredentialString);
+        }
+    }
+
+    private static class ExtraHeaders
+            extends AbstractConnectionProperty<String, Map<String, String>>
+    {
+        public ExtraHeaders()
+        {
+            super(PropertyName.EXTRA_HEADERS, NOT_REQUIRED, ALLOWED, ExtraHeaders::parseExtraHeaders);
+        }
+
+        // Extra credentials consists of a list of credential name value pairs.
+        // E.g., `jdbc:trino://example.net:8080/?extraHeaders=abc:xyz;foo:bar` will create credentials `abc=xyz` and `foo=bar`
+        public static Map<String, String> parseExtraHeaders(String extraHeadersString)
+        {
+            return new MapPropertyParser(PropertyName.EXTRA_CREDENTIALS.toString()).parse(extraHeadersString);
         }
     }
 

@@ -55,6 +55,7 @@ import static io.trino.client.uri.PropertyName.CLIENT_TAGS;
 import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION;
 import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS;
 import static io.trino.client.uri.PropertyName.EXTRA_CREDENTIALS;
+import static io.trino.client.uri.PropertyName.EXTRA_HEADERS;
 import static io.trino.client.uri.PropertyName.HTTP_PROXY;
 import static io.trino.client.uri.PropertyName.KERBEROS_CONFIG_PATH;
 import static io.trino.client.uri.PropertyName.KERBEROS_CREDENTIAL_CACHE_PATH;
@@ -193,6 +194,10 @@ public class ClientOptions
     @Option(names = "--client-tags", paramLabel = "<tags>", description = "Client tags")
     public Optional<String> clientTags;
 
+    @PropertyMapping(EXTRA_HEADERS)
+    @Option(names = "--extra-header", paramLabel = "<header>", description = "Extra HTTP header to attach to Trino queries (property can be used multiple times; format is key=value)")
+    public final List<ExtraHeader> extraHeaders = new ArrayList<>();
+
     @PropertyMapping(TRACE_TOKEN)
     @Option(names = "--trace-token", paramLabel = "<token>", description = "Trace token")
     public Optional<String> traceToken;
@@ -322,6 +327,7 @@ public class ClientOptions
                 .source(source.orElse("trino-cli"))
                 .traceToken(traceToken)
                 .clientTags(parseClientTags(clientTags.orElse("")))
+                .extraHeaders(toExtraHeaders(extraHeaders))
                 .clientInfo(clientInfo.orElse(null))
                 .catalog(uri.getCatalog().orElse(catalog.orElse(null)))
                 .schema(uri.getSchema().orElse(schema.orElse(null)))
@@ -406,6 +412,9 @@ public class ClientOptions
         source.ifPresent(builder::setSource);
         clientInfo.ifPresent(builder::setClientInfo);
         clientTags.ifPresent(builder::setClientTags);
+        if (!extraHeaders.isEmpty()) {
+            builder.setExtraHeaders(toExtraHeaders(extraHeaders));
+        }
         traceToken.ifPresent(builder::setTraceToken);
         socksProxy.ifPresent(builder::setSocksProxy);
         httpProxy.ifPresent(builder::setHttpProxy);
@@ -476,6 +485,15 @@ public class ClientOptions
     {
         Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
         return ImmutableSet.copyOf(splitter.split(nullToEmpty(clientTagsString)));
+    }
+
+    public static Map<String, String> toExtraHeaders(List<ExtraHeader> extraHeaders)
+    {
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        for (ExtraHeader extraHeader : extraHeaders) {
+            builder.put(extraHeader.getHeader(), extraHeader.getValue());
+        }
+        return builder.buildOrThrow();
     }
 
     public static Map<String, String> toProperties(List<ClientSessionProperty> sessionProperties)
@@ -569,6 +587,58 @@ public class ClientOptions
         public int hashCode()
         {
             return Objects.hash(resource, estimate);
+        }
+    }
+
+    public static final class ExtraHeader
+    {
+        private final String header;
+        private final String value;
+
+        public ExtraHeader(String headerAndValue)
+        {
+            List<String> nameValue = NAME_VALUE_SPLITTER.splitToList(headerAndValue);
+            checkArgument(nameValue.size() == 2, "Header and value: %s", headerAndValue);
+
+            this.header = nameValue.get(0);
+            this.value = nameValue.get(1);
+            checkArgument(!header.isEmpty(), "Header name is empty");
+            checkArgument(!value.isEmpty(), "Header value is empty");
+        }
+
+        public ExtraHeader(String header, String value)
+        {
+            this.header = header;
+            this.value = value;
+        }
+
+        public String getHeader()
+        {
+            return header;
+        }
+
+        public String getValue()
+        {
+            return value;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ExtraHeader other = (ExtraHeader) o;
+            return Objects.equals(header, other.header) && Objects.equals(value, other.value);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(header, value);
         }
     }
 

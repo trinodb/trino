@@ -58,6 +58,7 @@ public enum PropertyName
     EXTRA_CREDENTIALS("extraCredentials"),
     CLIENT_INFO("clientInfo"),
     CLIENT_TAGS("clientTags"),
+    EXTRA_HEADERS("extraHeaders"),
     TRACE_TOKEN("traceToken"),
     SESSION_PROPERTIES("sessionProperties"),
     SOURCE("source"),

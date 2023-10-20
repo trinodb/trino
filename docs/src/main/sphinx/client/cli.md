@@ -155,6 +155,9 @@ mode:
   * - ``--editing-mode``
     - Sets key bindings in the CLI to be compatible with VI or
       EMACS editors. Defaults to ``EMACS``.
+  * - ``--extra-header``
+    - Arbitrary headers to attach to HTTP requests made by the CLI. Property can be
+      used multiple times with the format ``header=value``.
   * - ``--http-proxy``
     - Configures the URL of the HTTP proxy to connect to Trino.
   * - ``--history-file``
