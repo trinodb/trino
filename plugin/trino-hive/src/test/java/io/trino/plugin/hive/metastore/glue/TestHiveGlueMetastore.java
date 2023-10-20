@@ -212,11 +212,7 @@ public class TestHiveGlueMetastore
         // uncomment to get extra AWS debug information
 //        Logging logging = Logging.initialize();
 //        logging.setLevel("com.amazonaws.request", Level.DEBUG);
-    }
 
-    @BeforeAll
-    public void setup()
-    {
         metastore = new HiveMetastoreClosure(metastoreClient);
         glueClient = AWSGlueAsyncClientBuilder.defaultClient();
     }
