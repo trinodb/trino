@@ -346,6 +346,26 @@ FROM
 The connector includes a number of performance improvements, detailed in the
 following sections.
 
+(mariadb-table-statistics)=
+### Table statistics
+
+The MariaDB connector can use [table and column
+statistics](/optimizer/statistics) for [cost based
+optimizations](/optimizer/cost-based-optimizations) to improve query processing
+performance based on the actual data in the data source.
+
+The statistics are collected by MariaDB and retrieved by the connector.
+
+To collect statistics for a table, execute the following statement in
+MariaDB.
+
+```text
+ANALYZE TABLE table_name;
+```
+
+Refer to [MariaDB documentation](https://mariadb.com/kb/en/analyze-table/) for
+additional information.
+
 (mariadb-pushdown)=
 
 ### Pushdown
