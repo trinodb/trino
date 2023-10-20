@@ -17,18 +17,18 @@ package io.trino.plugin.hive.coercions;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.LongArrayBlock;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.RealType;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.IntegerType;
 
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 
-public class FloatToDoubleCoercer
-        extends TypeCoercer<RealType, DoubleType>
+public class IntegerToBigintCoercer
+        extends TypeCoercer<IntegerType, BigintType>
 {
-    public FloatToDoubleCoercer()
+    public IntegerToBigintCoercer()
     {
-        super(REAL, DOUBLE);
+        super(INTEGER, BIGINT);
     }
 
     @Override
@@ -44,6 +44,6 @@ public class FloatToDoubleCoercer
     @Override
     protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
     {
-        DOUBLE.writeDouble(blockBuilder, REAL.getFloat(block, position));
+        BIGINT.writeLong(blockBuilder, INTEGER.getInt(block, position));
     }
 }
