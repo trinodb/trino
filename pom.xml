@@ -253,7 +253,7 @@
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-bom</artifactId>
-                <version>1.58.0</version>
+                <version>1.59.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
