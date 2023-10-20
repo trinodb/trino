@@ -1850,11 +1850,31 @@ public final class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
         return metadata.applyAggregation(connectorSession, table.getConnectorHandle(), aggregations, assignments, groupingSets)
                 .map(result -> {
-                    verifyProjection(table, result.getProjections(), result.getAssignments(), aggregations.size());
+                    result.getProjections().ifPresent(projections -> verifyProjection(table, projections, result.getAssignments(), OptionalInt.of(aggregations.size())));
+                    result.getAggregations().ifPresent(resultAggregations -> {
+                        verify(
+                                aggregations.size() == resultAggregations.size(),
+                                "Returned %s aggregations for %s input aggregations",
+                                resultAggregations,
+                                aggregations);
+                        verifyProjection(
+                                table,
+                                resultAggregations.stream()
+                                        .peek(aggregation -> requireNonNull(aggregation, "one of the aggregation is null"))
+                                        .peek(aggregation -> checkState(
+                                                aggregation.getFilter().isEmpty() && aggregation.getSortItems().isEmpty(),
+                                                "Unsupported filter or sorting: %s",
+                                                aggregation))
+                                        .flatMap(aggregation -> aggregation.getArguments().stream())
+                                        .collect(toImmutableList()),
+                                result.getAssignments(),
+                                OptionalInt.empty());
+                    });
 
                     return new AggregationApplicationResult<>(
                             new TableHandle(catalogHandle, result.getHandle(), table.getTransaction()),
                             result.getProjections(),
+                            result.getAggregations(),
                             result.getAssignments(),
                             result.getGroupingColumnMapping(),
                             result.isPrecalculateStatistics());
@@ -1953,14 +1973,15 @@ public final class MetadataManager
                         result.getColumnHandles()));
     }
 
-    private void verifyProjection(TableHandle table, List<ConnectorExpression> projections, List<Assignment> assignments, int expectedProjectionSize)
+    private void verifyProjection(TableHandle table, List<ConnectorExpression> projections, List<Assignment> assignments, OptionalInt expectedProjectionSize)
     {
-        verify(
-                expectedProjectionSize == projections.size(),
-                "ConnectorMetadata returned invalid number of projections: %s instead of %s for %s",
-                projections.size(),
-                expectedProjectionSize,
-                table);
+        expectedProjectionSize.ifPresent(expectedSize ->
+                verify(
+                        expectedSize == projections.size(),
+                        "ConnectorMetadata returned invalid number of projections: %s instead of %s for %s",
+                        projections.size(),
+                        expectedProjectionSize,
+                        table));
 
         Set<String> assignedVariables = assignments.stream()
                 .peek(assignment -> requireNonNull(assignment, "one of the assignments is null"))
@@ -2001,7 +2022,7 @@ public final class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
         return metadata.applyProjection(connectorSession, table.getConnectorHandle(), projections, assignments)
                 .map(result -> {
-                    verifyProjection(table, result.getProjections(), result.getAssignments(), projections.size());
+                    verifyProjection(table, result.getProjections(), result.getAssignments(), OptionalInt.of(projections.size()));
 
                     return new ProjectionApplicationResult<>(
                             new TableHandle(catalogHandle, result.getHandle(), table.getTransaction()),

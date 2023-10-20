@@ -17,13 +17,16 @@ import io.trino.spi.expression.ConnectorExpression;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import static io.trino.spi.connector.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class AggregationApplicationResult<T>
 {
     private final T handle;
-    private final List<ConnectorExpression> projections;
+    private final Optional<List<ConnectorExpression>> projections;
+    private final Optional<List<AggregateFunction>> aggregations;
     private final List<Assignment> assignments;
     private final Map<ColumnHandle, ColumnHandle> groupingColumnMapping;
     private final boolean precalculateStatistics;
@@ -39,12 +42,25 @@ public class AggregationApplicationResult<T>
             Map<ColumnHandle, ColumnHandle> groupingColumnMapping,
             boolean precalculateStatistics)
     {
+        this(handle, Optional.of(projections), Optional.empty(), assignments, groupingColumnMapping, precalculateStatistics);
+    }
+
+    public AggregationApplicationResult(
+            T handle,
+            Optional<List<ConnectorExpression>> projections,
+            Optional<List<AggregateFunction>> aggregations,
+            List<Assignment> assignments,
+            Map<ColumnHandle, ColumnHandle> groupingColumnMapping,
+            boolean precalculateStatistics)
+    {
         this.handle = requireNonNull(handle, "handle is null");
         requireNonNull(groupingColumnMapping, "groupingColumnMapping is null");
         requireNonNull(projections, "projections is null");
         requireNonNull(assignments, "assignments is null");
         this.groupingColumnMapping = Map.copyOf(groupingColumnMapping);
-        this.projections = List.copyOf(projections);
+        checkArgument(projections.isPresent() != aggregations.isPresent(), "Expected exactly one to be present from: %s, %s", projections, aggregations);
+        this.projections = projections.map(List::copyOf);
+        this.aggregations = aggregations.map(List::copyOf);
         this.assignments = List.copyOf(assignments);
         this.precalculateStatistics = precalculateStatistics;
     }
@@ -54,9 +70,14 @@ public class AggregationApplicationResult<T>
         return handle;
     }
 
-    public List<ConnectorExpression> getProjections()
+    public Optional<List<ConnectorExpression>> getProjections()
     {
         return projections;
+    }
+
+    public Optional<List<AggregateFunction>> getAggregations()
+    {
+        return aggregations;
     }
 
     public List<Assignment> getAssignments()

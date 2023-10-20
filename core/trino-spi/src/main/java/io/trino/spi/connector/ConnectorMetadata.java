@@ -1486,6 +1486,25 @@ public interface ConnectorMetadata
      * }
      * </pre>
      * </p>
+     *
+     * <p>
+     * Another example is where the connector can cheaply produce a partially aggregated result. E.g. the connector stores pre-computed aggregations per split.
+     * In this case the input can stay same as in the above example and the connector can return
+     * <pre>
+     * {@link AggregationApplicationResult} {
+     *      handle = TH1 (could capture any relevant information about the partial aggregations produced by the connector)
+     *      projections = [{@link Variable} synthetic_name0, {@link Variable} synthetic_name1] -- <b>The order in the list must be same as input list of aggregates</b>
+     *      assignments = [
+     *          synthetic_name0, CH3 ({@link ColumnHandle} with information captured by the connector to produce the partially aggregated result of agg_fn1(a))
+     *          synthetic_name1, CH4 ({@link ColumnHandle} with information captured by the connector to produce the partially aggregated result of agg_fn2(b,2))
+     *          synthetic_name2, CH5 ({@link ColumnHandle} with information captured by the connector to produce the partially aggregated result of group by column c)
+     *      ]
+     *      aggregations = [{@link AggregateFunction} rewritten_aggregation_function0, {@link AggregateFunction} rewritten_aggregation_function1] -- <b>The order in the list must be same as input list of aggregates</b>
+     * }
+     * </pre>
+     * The rewritten aggregation functions are expected to take the partially aggregated results produced by connector as input and produce the same output as the original aggregation.
+     * This may require the connector to register it's own custom aggregation functions with the engine and use them here.
+     * </p>
      */
     default Optional<AggregationApplicationResult<ConnectorTableHandle>> applyAggregation(
             ConnectorSession session,

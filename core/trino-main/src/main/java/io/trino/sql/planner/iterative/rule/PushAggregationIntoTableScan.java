@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
@@ -29,6 +30,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.OrderingScheme;
@@ -36,6 +38,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -48,13 +51,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.stream.IntStream;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.iterative.rule.PushProjectionIntoTableScan.translateAndOptimize;
 import static io.trino.sql.planner.iterative.rule.Rules.deriveTableStatisticsForPushdown;
 import static io.trino.sql.planner.plan.Patterns.Aggregation.step;
@@ -127,7 +131,7 @@ public class PushAggregationIntoTableScan
             Context context,
             PlanNode aggregationNode,
             TableScanNode tableScan,
-            Map<Symbol, AggregationNode.Aggregation> aggregations,
+            Map<Symbol, Aggregation> aggregations,
             List<Symbol> groupingKeys)
     {
         LiteralEncoder literalEncoder = new LiteralEncoder(plannerContext);
@@ -142,7 +146,7 @@ public class PushAggregationIntoTableScan
                 .entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getKey().getName(), Entry::getValue));
 
-        List<Entry<Symbol, AggregationNode.Aggregation>> aggregationsList = ImmutableList.copyOf(aggregations.entrySet());
+        List<Entry<Symbol, Aggregation>> aggregationsList = ImmutableList.copyOf(aggregations.entrySet());
 
         List<AggregateFunction> aggregateFunctions = aggregationsList.stream()
                 .map(Entry::getValue)
@@ -187,15 +191,45 @@ public class PushAggregationIntoTableScan
             variableMappings.put(assignment.getVariable(), symbol);
         }
 
-        List<Expression> newProjections = result.getProjections().stream()
-                .map(expression -> translateAndOptimize(plannerContext, typeAnalyzer, literalEncoder, context, variableMappings, expression))
-                .collect(toImmutableList());
-
-        verify(aggregationOutputSymbols.size() == newProjections.size());
-
         Assignments.Builder assignmentBuilder = Assignments.builder();
-        IntStream.range(0, aggregationOutputSymbols.size())
-                .forEach(index -> assignmentBuilder.put(aggregationOutputSymbols.get(index), newProjections.get(index)));
+        ImmutableMap.Builder<Symbol, Aggregation> aggregationBuilder = null;
+        if (result.getProjections().isPresent()) {
+            List<ConnectorExpression> newProjections = result.getProjections().get();
+            verify(aggregationOutputSymbols.size() == newProjections.size());
+            for (int index = 0; index < newProjections.size(); index++) {
+                Expression translated = translateAndOptimize(plannerContext, typeAnalyzer, literalEncoder, context, variableMappings, newProjections.get(index));
+                assignmentBuilder.put(aggregationOutputSymbols.get(index), translated);
+            }
+        }
+        else {
+            aggregationBuilder = ImmutableMap.builder();
+            List<AggregateFunction> newAggregations = result.getAggregations().orElseThrow();
+            verify(aggregationOutputSymbols.size() == newAggregations.size());
+            for (int index = 0; index < newAggregations.size(); index++) {
+                AggregateFunction aggregateFunction = newAggregations.get(index);
+                ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
+                ImmutableList.Builder<Type> argumentTypes = ImmutableList.builder();
+                for (ConnectorExpression argument : aggregateFunction.getArguments()) {
+                    Expression translated = translateAndOptimize(plannerContext, typeAnalyzer, literalEncoder, context, variableMappings, argument);
+                    Symbol argumentSymbol = context.getSymbolAllocator().newSymbol(translated, argument.getType());
+                    assignmentBuilder.put(argumentSymbol, translated);
+                    arguments.add(argumentSymbol.toSymbolReference());
+                    argumentTypes.add(argument.getType());
+                }
+
+                verify(aggregateFunction.getFilter().isEmpty(), "Unsupported filter");
+                verify(aggregateFunction.getSortItems().isEmpty(), "Unsupported sortItems");
+                Aggregation newAggregation = new Aggregation(
+                        plannerContext.getMetadata().resolveBuiltinFunction(aggregateFunction.getFunctionName(), fromTypes(argumentTypes.build())),
+                        arguments.build(),
+                        aggregateFunction.isDistinct(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty());
+
+                aggregationBuilder.put(aggregationOutputSymbols.get(index), newAggregation);
+            }
+        }
 
         ImmutableBiMap<Symbol, ColumnHandle> scanAssignments = newScanAssignments.build();
         ImmutableBiMap<ColumnHandle, Symbol> columnHandleToSymbol = scanAssignments.inverse();
@@ -209,7 +243,7 @@ public class PushAggregationIntoTableScan
                     assignmentBuilder.put(groupBySymbol, columnHandleToSymbol.get(groupByColumnHandle).toSymbolReference());
                 });
 
-        return Optional.of(
+        PlanNode projectNode = (
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
                         new TableScanNode(
@@ -223,9 +257,23 @@ public class PushAggregationIntoTableScan
                                 // table scan partitioning might have changed with new table handle
                                 Optional.empty()),
                         assignmentBuilder.build()));
+
+        if (result.getAggregations().isEmpty()) {
+            return Optional.of(projectNode);
+        }
+
+        return Optional.of(new AggregationNode(
+                context.getIdAllocator().getNextId(),
+                projectNode,
+                verifyNotNull(aggregationBuilder).buildOrThrow(),
+                AggregationNode.singleGroupingSet(groupingKeys),
+                ImmutableList.of(),
+                AggregationNode.Step.SINGLE,
+                Optional.empty(),
+                Optional.empty()));
     }
 
-    private static AggregateFunction toAggregateFunction(Context context, AggregationNode.Aggregation aggregation)
+    private static AggregateFunction toAggregateFunction(Context context, Aggregation aggregation)
     {
         BoundSignature signature = aggregation.getResolvedFunction().getSignature();
 
