@@ -679,10 +679,10 @@ public abstract class BaseBigQueryConnectorTest
                         SELECT * FROM UNNEST(labels) AS label WHERE label.key = 'trino_query' AND label.value = '%s'
                     )""".formatted(expectedLabel);
 
-        assertThat(bigQuerySqlExecutor.executeQuery(checkForLabelQuery).getValues())
+        assertEventually(() -> assertThat(bigQuerySqlExecutor.executeQuery(checkForLabelQuery).getValues())
                 .extracting(values -> values.get("query").getStringValue())
                 .singleElement()
-                .matches(statement -> statement.contains(expectedView));
+                .matches(statement -> statement.contains(expectedView)));
     }
 
     @Test
