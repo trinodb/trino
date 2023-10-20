@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.elasticsearch.client.AwsSecurityRestClientConfigurator;
 import io.trino.plugin.elasticsearch.client.BasicSecurityRestClientConfigurator;
 import io.trino.plugin.elasticsearch.client.ElasticRestClientConfigurator;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
@@ -61,7 +62,10 @@ public class ElasticsearchConnectorModule
                 config -> config.getSecurity()
                         .filter(isEqual(AWS))
                         .isPresent(),
-                conditionalBinder -> configBinder(conditionalBinder).bindConfig(AwsSecurityConfig.class)));
+                conditionalBinder -> {
+                    configBinder(conditionalBinder).bindConfig(AwsSecurityConfig.class);
+                    configurators.addBinding().to(AwsSecurityRestClientConfigurator.class).in(Scopes.SINGLETON);
+                }));
 
         install(conditionalModule(
                 ElasticsearchConfig.class,
