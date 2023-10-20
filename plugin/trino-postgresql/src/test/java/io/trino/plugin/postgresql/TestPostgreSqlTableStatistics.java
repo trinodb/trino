@@ -54,26 +54,38 @@ public class TestPostgreSqlTableStatistics
     }
 
     @Override
-    @Test(invocationCount = 10, successPercentage = 50) // PostgreSQL can auto-analyze data before we SHOW STATS
+    @Test
     public void testNotAnalyzed()
     {
         String tableName = "test_stats_not_analyzed";
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
+
+        Exception failure = null;
         try {
-            assertQuery(
-                    "SHOW STATS FOR " + tableName,
-                    "VALUES " +
-                            "('orderkey', null, null, null, null, null, null)," +
-                            "('custkey', null, null, null, null, null, null)," +
-                            "('orderstatus', null, null, null, null, null, null)," +
-                            "('totalprice', null, null, null, null, null, null)," +
-                            "('orderdate', null, null, null, null, null, null)," +
-                            "('orderpriority', null, null, null, null, null, null)," +
-                            "('clerk', null, null, null, null, null, null)," +
-                            "('shippriority', null, null, null, null, null, null)," +
-                            "('comment', null, null, null, null, null, null)," +
-                            "(null, null, null, null, 15000, null, null)");
+            for (int i = 0; i < 10; i++) {
+                try {
+                    assertQuery(
+                            "SHOW STATS FOR " + tableName,
+                            "VALUES " +
+                                    "('orderkey', null, null, null, null, null, null)," +
+                                    "('custkey', null, null, null, null, null, null)," +
+                                    "('orderstatus', null, null, null, null, null, null)," +
+                                    "('totalprice', null, null, null, null, null, null)," +
+                                    "('orderdate', null, null, null, null, null, null)," +
+                                    "('orderpriority', null, null, null, null, null, null)," +
+                                    "('clerk', null, null, null, null, null, null)," +
+                                    "('shippriority', null, null, null, null, null, null)," +
+                                    "('comment', null, null, null, null, null, null)," +
+                                    "(null, null, null, null, 15000, null, null)");
+                    return;
+                }
+                catch (Exception e) {
+                    failure = e;
+                }
+            }
+
+            throw new AssertionError(failure);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
