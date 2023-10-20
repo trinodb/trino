@@ -68,7 +68,11 @@ public class ChangeOnlyUpdatedColumnsMergeProcessor
         checkArgument(positionCount > 0, "positionCount should be > 0, but is %s", positionCount);
 
         ColumnarRow mergeRow = toColumnarRow(inputPage.getBlock(mergeRowChannel));
-        checkArgument(!mergeRow.mayHaveNull(), "The mergeRow may not have null rows");
+        if (mergeRow.mayHaveNull()) {
+            for (int position = 0; position < positionCount; position++) {
+                checkArgument(!mergeRow.isNull(position), "The mergeRow may not have null rows");
+            }
+        }
 
         // We've verified that the mergeRow block has no null rows, so it's okay to get the field blocks
 
