@@ -10,14 +10,18 @@
 package com.starburstdata.trino.plugins.snowflake.parallel;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 public class ChunkFetcher
 {
     private final StarburstResultStreamProvider streamProvider;
     private final Chunk chunk;
+    private final ExecutorService executor;
     private long readTimeNanos;
     private CompletableFuture<byte[]> future;
 
@@ -25,6 +29,7 @@ public class ChunkFetcher
     {
         this.streamProvider = requireNonNull(streamProvider, "streamProvider is null");
         this.chunk = requireNonNull(chunk, "chunk is null");
+        this.executor = newSingleThreadExecutor(threadsNamed("snowflake-chunk-file-fetcher-%s"));
     }
 
     public long getReadTimeNanos()
@@ -45,7 +50,7 @@ public class ChunkFetcher
             byte[] data = chunk.getInputStream(streamProvider);
             readTimeNanos = System.nanoTime() - start;
             return data;
-        });
+        }, executor);
         return future;
     }
 }
