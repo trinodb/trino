@@ -34,7 +34,7 @@ import static io.trino.spi.block.BlockUtil.compactSlice;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
 
-public class VariableWidthBlock
+public final class VariableWidthBlock
         implements ValueBlock
 {
     private static final int INSTANCE_SIZE = instanceSize(VariableWidthBlock.class);
@@ -101,7 +101,7 @@ public class VariableWidthBlock
         return getPositionOffset(position);
     }
 
-    protected final int getPositionOffset(int position)
+    int getPositionOffset(int position)
     {
         return offsets[position + arrayOffset];
     }
