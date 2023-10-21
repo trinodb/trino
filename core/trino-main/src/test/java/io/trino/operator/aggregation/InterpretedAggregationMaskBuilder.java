@@ -54,6 +54,7 @@ public class InterpretedAggregationMaskBuilder
                 return AggregationMask.createSelectNone(positionCount);
             }
             // mask block is always true, so do not evaluate mask block
+            maskBlock = null;
             hasMaskBlock = false;
             maskBlockMayHaveNull = false;
         }

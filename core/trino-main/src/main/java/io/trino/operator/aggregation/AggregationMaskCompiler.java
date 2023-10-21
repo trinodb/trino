@@ -27,30 +27,37 @@ import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.RunLengthBlockEncoding;
+import io.trino.spi.block.ByteArrayBlock;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ValueBlock;
 
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Verify.verify;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
+import static io.airlift.bytecode.expression.BytecodeExpressions.add;
 import static io.airlift.bytecode.expression.BytecodeExpressions.and;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantString;
 import static io.airlift.bytecode.expression.BytecodeExpressions.equal;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.isNotNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.isNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
+import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.not;
 import static io.airlift.bytecode.expression.BytecodeExpressions.notEqual;
 import static io.airlift.bytecode.expression.BytecodeExpressions.or;
@@ -97,6 +104,11 @@ public final class AggregationMaskCompiler
                 .ifTrue(invokeStatic(AggregationMask.class, "createSelectNone", AggregationMask.class, positionCount).ret()));
 
         Variable maskBlock = scope.declareVariable("maskBlock", body, maskBlockParameter.invoke("orElse", Object.class, constantNull(Object.class)).cast(Block.class));
+        body.append(new IfStatement()
+                .condition(maskBlock.instanceOf(LazyBlock.class))
+                .ifTrue(new BytecodeBlock()
+                        .append(newInstance(IllegalArgumentException.class, constantString("mask block must not be a LazyBlock")))
+                        .throwObject()));
         Variable hasMaskBlock = scope.declareVariable("hasMaskBlock", body, isNotNull(maskBlock));
         Variable maskBlockMayHaveNull = scope.declareVariable(
                 "maskBlockMayHaveNull",
@@ -104,15 +116,18 @@ public final class AggregationMaskCompiler
                 and(hasMaskBlock, maskBlock.invoke("mayHaveNull", boolean.class)));
 
         // if mask is RLE it will be, either all allowed, or all denied
+        Variable rleValue = scope.declareVariable(ByteArrayBlock.class, "rleValue");
         body.append(new IfStatement()
-                .condition(maskBlock.instanceOf(RunLengthBlockEncoding.class))
+                .condition(maskBlock.instanceOf(RunLengthEncodedBlock.class))
                 .ifTrue(new BytecodeBlock()
+                        .append(rleValue.set(maskBlock.cast(RunLengthEncodedBlock.class).invoke("getValue", ValueBlock.class).cast(ByteArrayBlock.class)))
                         .append(new IfStatement()
-                                .condition(testMaskBlock(
-                                        maskBlock.cast(RunLengthEncodedBlock.class).invoke("getValue", Block.class),
+                                .condition(not(testMaskBlock(
+                                        rleValue,
                                         maskBlockMayHaveNull,
-                                        constantInt(0)))
+                                        constantInt(0))))
                                 .ifTrue(invokeStatic(AggregationMask.class, "createSelectNone", AggregationMask.class, positionCount).ret()))
+                        .append(maskBlock.set(constantNull(Block.class)))
                         .append(hasMaskBlock.set(constantFalse()))
                         .append(maskBlockMayHaveNull.set(constantFalse()))));
 
@@ -145,24 +160,49 @@ public final class AggregationMaskCompiler
                         .append(selectedPositions.set(newArray(type(int[].class), positionCount)))
                         .append(method.getThis().setField(selectedPositionsField, selectedPositions))));
 
-        // add all positions that pass the tests
+        // create expression to test if a position is selected
+        Variable maskValueBlock = scope.declareVariable(ByteArrayBlock.class, "maskValueBlock");
         Variable position = scope.declareVariable("position", body, constantInt(0));
-        BytecodeExpression isPositionSelected = testMaskBlock(maskBlock, maskBlockMayHaveNull, position);
+        BytecodeExpression isPositionSelected = testMaskBlock(maskValueBlock, maskBlockMayHaveNull, position);
         for (int i = 0; i < nonNullArgs.size(); i++) {
             Variable arg = nonNullArgs.get(i);
             Variable mayHaveNull = nonNullArgMayHaveNulls.get(i);
             isPositionSelected = and(isPositionSelected, testPositionIsNotNull(arg, mayHaveNull, position));
         }
 
+        // add all positions that pass the tests
+        // at this point the mask block can only be a DictionaryBlock, ByteArrayBlock, or null
         Variable selectedPositionsIndex = scope.declareVariable("selectedPositionsIndex", body, constantInt(0));
-        body.append(new ForLoop()
-                .condition(lessThan(position, positionCount))
-                .update(position.increment())
-                .body(new IfStatement()
-                        .condition(isPositionSelected)
+        Variable rawIds = scope.declareVariable(int[].class, "rawIds");
+        Variable rawIdsOffset = scope.declareVariable(int.class, "rawIdsOffset");
+        body.append(new IfStatement()
+                .condition(maskBlock.instanceOf(DictionaryBlock.class))
                         .ifTrue(new BytecodeBlock()
-                                .append(selectedPositions.setElement(selectedPositionsIndex, position))
-                                .append(selectedPositionsIndex.increment()))));
+                                .append(maskValueBlock.set(maskBlock.cast(DictionaryBlock.class).invoke("getDictionary", ValueBlock.class, position).cast(ByteArrayBlock.class)))
+                                .append(rawIds.set(maskBlock.cast(DictionaryBlock.class).invoke("getRawIds", int[].class)))
+                                .append(rawIdsOffset.set(maskBlock.cast(DictionaryBlock.class).invoke("getRawIdsOffset", int.class)))
+                                .append(new ForLoop()
+                                        .initialize(position.set(constantInt(0)))
+                                        .condition(lessThan(position, positionCount))
+                                        .update(position.increment())
+                                        .body(new BytecodeBlock()
+                                                .append(position.set(rawIds.getElement(add(rawIdsOffset, position))))
+                                                .append(new IfStatement()
+                                                        .condition(isPositionSelected)
+                                                        .ifTrue(new BytecodeBlock()
+                                                                .append(selectedPositions.setElement(selectedPositionsIndex, position))
+                                                                .append(selectedPositionsIndex.increment()))))))
+                        .ifFalse(new BytecodeBlock()
+                                .append(maskValueBlock.set(maskBlock.cast(ByteArrayBlock.class)))
+                                .append(new ForLoop()
+                                        .initialize(position.set(constantInt(0)))
+                                        .condition(lessThan(position, positionCount))
+                                        .update(position.increment())
+                                        .body(new IfStatement()
+                                                .condition(isPositionSelected)
+                                                .ifTrue(new BytecodeBlock()
+                                                        .append(selectedPositions.setElement(selectedPositionsIndex, position))
+                                                        .append(selectedPositionsIndex.increment()))))));
 
         body.append(invokeStatic(
                 AggregationMask.class,
@@ -194,11 +234,12 @@ public final class AggregationMaskCompiler
 
     private static BytecodeExpression testMaskBlock(BytecodeExpression block, BytecodeExpression mayHaveNulls, BytecodeExpression position)
     {
+        verify(block.getType().equals(type(ByteArrayBlock.class)));
         return or(
                 isNull(block),
                 and(
                         testPositionIsNotNull(block, mayHaveNulls, position),
-                        notEqual(block.invoke("getByte", byte.class, position, constantInt(0)).cast(int.class), constantInt(0))));
+                        notEqual(block.invoke("getByte", byte.class, position).cast(int.class), constantInt(0))));
     }
 
     @UsedByGeneratedCode

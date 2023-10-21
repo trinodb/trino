@@ -125,6 +125,8 @@ public class TestAggregationMaskCompiler
         AggregationMaskBuilder maskBuilder = maskBuilderSupplier.get();
 
         for (int positionCount = 7; positionCount < 10; positionCount++) {
+            assertAggregationMaskAll(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlockRle(positionCount, (byte) 1))), positionCount);
+
             byte[] mask = new byte[positionCount];
             Arrays.fill(mask, (byte) 1);
 
