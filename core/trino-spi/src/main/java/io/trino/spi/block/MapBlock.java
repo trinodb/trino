@@ -40,7 +40,7 @@ import static io.trino.spi.block.MapHashTables.HashBuildMode.DUPLICATE_NOT_CHECK
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class MapBlock
+public final class MapBlock
         implements ValueBlock
 {
     private static final int INSTANCE_SIZE = instanceSize(MapBlock.class);
@@ -187,27 +187,27 @@ public class MapBlock
         this.retainedSizeInBytes = INSTANCE_SIZE + sizeOf(offsets) + sizeOf(mapIsNull);
     }
 
-    protected Block getRawKeyBlock()
+    Block getRawKeyBlock()
     {
         return keyBlock;
     }
 
-    protected Block getRawValueBlock()
+    Block getRawValueBlock()
     {
         return valueBlock;
     }
 
-    protected MapHashTables getHashTables()
+    MapHashTables getHashTables()
     {
         return hashTables;
     }
 
-    protected int[] getOffsets()
+    int[] getOffsets()
     {
         return offsets;
     }
 
-    protected int getOffsetBase()
+    int getOffsetBase()
     {
         return startOffset;
     }
@@ -302,7 +302,7 @@ public class MapBlock
                 hashTables);
     }
 
-    protected void ensureHashTableLoaded()
+    void ensureHashTableLoaded()
     {
         hashTables.buildAllHashTablesIfNecessary(keyBlock, offsets, mapIsNull);
     }
@@ -325,12 +325,12 @@ public class MapBlock
     }
 
     @Override
-    public final List<Block> getChildren()
+    public List<Block> getChildren()
     {
         return List.of(keyBlock, valueBlock);
     }
 
-    protected MapType getMapType()
+    MapType getMapType()
     {
         return mapType;
     }
@@ -460,7 +460,7 @@ public class MapBlock
     }
 
     @Override
-    public final long getPositionsSizeInBytes(boolean[] positions, int selectedMapPositions)
+    public long getPositionsSizeInBytes(boolean[] positions, int selectedMapPositions)
     {
         int positionCount = getPositionCount();
         checkValidPositions(positions, positionCount);

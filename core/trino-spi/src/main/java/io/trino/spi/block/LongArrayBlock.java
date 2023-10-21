@@ -29,7 +29,7 @@ import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
 import static java.lang.Math.toIntExact;
 
-public class LongArrayBlock
+public final class LongArrayBlock
         implements ValueBlock
 {
     private static final int INSTANCE_SIZE = instanceSize(LongArrayBlock.class);

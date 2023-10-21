@@ -36,7 +36,7 @@ import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
-public class ArrayBlock
+public final class ArrayBlock
         implements ValueBlock
 {
     private static final int INSTANCE_SIZE = instanceSize(ArrayBlock.class);
@@ -73,7 +73,7 @@ public class ArrayBlock
     }
 
     /**
-     * Create an array block directly without per element validations.
+     * Create an array block directly without per-element validations.
      */
     static ArrayBlock createArrayBlockInternal(int arrayOffset, int positionCount, @Nullable boolean[] valueIsNull, int[] offsets, Block values)
     {
@@ -167,23 +167,23 @@ public class ArrayBlock
         consumer.accept(this, INSTANCE_SIZE);
     }
 
-    protected Block getRawElementBlock()
+    Block getRawElementBlock()
     {
         return values;
     }
 
-    protected int[] getOffsets()
+    int[] getOffsets()
     {
         return offsets;
     }
 
-    protected int getOffsetBase()
+    int getOffsetBase()
     {
         return arrayOffset;
     }
 
     @Override
-    public final List<Block> getChildren()
+    public List<Block> getChildren()
     {
         return singletonList(values);
     }
@@ -310,7 +310,7 @@ public class ArrayBlock
     }
 
     @Override
-    public final long getPositionsSizeInBytes(boolean[] positions, int selectedArrayPositions)
+    public long getPositionsSizeInBytes(boolean[] positions, int selectedArrayPositions)
     {
         int positionCount = getPositionCount();
         checkValidPositions(positions, positionCount);
