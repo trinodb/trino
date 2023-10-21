@@ -13,7 +13,7 @@
  */
 package io.trino.spi.block;
 
-public interface ValueBlock
+public non-sealed interface ValueBlock
         extends Block
 {
     @Override

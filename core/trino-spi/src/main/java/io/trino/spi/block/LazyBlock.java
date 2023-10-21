@@ -30,7 +30,7 @@ import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 // This class is not considered thread-safe.
-public class LazyBlock
+public final class LazyBlock
         implements Block
 {
     private static final int INSTANCE_SIZE = instanceSize(LazyBlock.class) + instanceSize(LazyData.class);
@@ -213,7 +213,7 @@ public class LazyBlock
     }
 
     @Override
-    public final List<Block> getChildren()
+    public List<Block> getChildren()
     {
         return singletonList(getBlock());
     }
@@ -390,7 +390,7 @@ public class LazyBlock
         }
 
         /**
-         * If block is unloaded, add the listeners; otherwise call this method on child blocks
+         * If the block is unloaded, add the listeners; otherwise call this method on child blocks
          */
         @SuppressWarnings("AccessingNonPublicFieldOfAnotherObject")
         private static void addListenersRecursive(Block block, List<Consumer<Block>> listeners)

@@ -32,7 +32,7 @@ import static java.lang.Math.min;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
-public class DictionaryBlock
+public final class DictionaryBlock
         implements Block
 {
     private static final int INSTANCE_SIZE = instanceSize(DictionaryBlock.class) + instanceSize(DictionaryId.class);
@@ -526,7 +526,7 @@ public class DictionaryBlock
     }
 
     @Override
-    public final List<Block> getChildren()
+    public List<Block> getChildren()
     {
         return singletonList(getDictionary());
     }
@@ -694,7 +694,7 @@ public class DictionaryBlock
                         positionCount,
                         compactDictionary,
                         newIds,
-                        !(compactDictionary instanceof DictionaryBlock),
+                        true,
                         false,
                         newDictionaryId));
             }

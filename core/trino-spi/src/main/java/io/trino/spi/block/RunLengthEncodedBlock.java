@@ -31,7 +31,7 @@ import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
-public class RunLengthEncodedBlock
+public final class RunLengthEncodedBlock
         implements Block
 {
     private static final int INSTANCE_SIZE = instanceSize(RunLengthEncodedBlock.class);
@@ -91,7 +91,7 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public final List<Block> getChildren()
+    public List<Block> getChildren()
     {
         return singletonList(value);
     }
@@ -102,7 +102,7 @@ public class RunLengthEncodedBlock
     }
 
     /**
-     * Positions count will always be at least 2
+     * Position count will always be at least 2
      */
     @Override
     public int getPositionCount()

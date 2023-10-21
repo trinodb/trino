@@ -29,7 +29,7 @@ import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
 
-public class Int128ArrayBlock
+public final class Int128ArrayBlock
         implements ValueBlock
 {
     private static final int INSTANCE_SIZE = instanceSize(Int128ArrayBlock.class);
