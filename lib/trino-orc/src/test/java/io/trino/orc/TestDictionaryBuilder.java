@@ -14,7 +14,6 @@
 package io.trino.orc;
 
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
 import io.trino.orc.writer.DictionaryBuilder;
 import io.trino.spi.block.VariableWidthBlock;
 import org.testng.annotations.Test;
@@ -34,18 +33,9 @@ public class TestDictionaryBuilder
         Set<Integer> positions = new HashSet<>();
         DictionaryBuilder dictionaryBuilder = new DictionaryBuilder(64);
         for (int i = 0; i < 64; i++) {
-            positions.add(dictionaryBuilder.putIfAbsent(new TestHashCollisionBlock(1, wrappedBuffer(new byte[] {1}), new int[] {0, 1}, new boolean[] {false}), 0));
-            positions.add(dictionaryBuilder.putIfAbsent(new TestHashCollisionBlock(1, wrappedBuffer(new byte[] {2}), new int[] {0, 1}, new boolean[] {false}), 0));
+            positions.add(dictionaryBuilder.putIfAbsent(new VariableWidthBlock(1, wrappedBuffer(new byte[] {1}), new int[] {0, 1}, Optional.of(new boolean[] {false})), 0));
+            positions.add(dictionaryBuilder.putIfAbsent(new VariableWidthBlock(1, wrappedBuffer(new byte[] {2}), new int[] {0, 1}, Optional.of(new boolean[] {false})), 0));
         }
         assertEquals(positions, ImmutableSet.of(1, 2));
-    }
-
-    private static class TestHashCollisionBlock
-            extends VariableWidthBlock
-    {
-        public TestHashCollisionBlock(int positionCount, Slice slice, int[] offsets, boolean[] valueIsNull)
-        {
-            super(positionCount, slice, offsets, Optional.of(valueIsNull));
-        }
     }
 }
