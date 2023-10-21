@@ -947,6 +947,95 @@
                                     <old>method void io.trino.spi.type.AbstractIntType::checkValueValid(long)</old>
                                     <new>method void io.trino.spi.type.AbstractIntType::checkValueValid(long)</new>
                                 </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ArrayBlock::copyPositions(int[], int, int)</old>
+                                    <new>method io.trino.spi.block.ArrayBlock io.trino.spi.block.ArrayBlock::copyPositions(int[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ArrayBlock::copyRegion(int, int)</old>
+                                    <new>method io.trino.spi.block.ArrayBlock io.trino.spi.block.ArrayBlock::copyRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ArrayBlock::getRegion(int, int)</old>
+                                    <new>method io.trino.spi.block.ArrayBlock io.trino.spi.block.ArrayBlock::getRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ArrayBlock::getSingleValueBlock(int)</old>
+                                    <new>method io.trino.spi.block.ArrayBlock io.trino.spi.block.ArrayBlock::getSingleValueBlock(int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.MapBlock::copyPositions(int[], int, int)</old>
+                                    <new>method io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::copyPositions(int[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.MapBlock::copyRegion(int, int)</old>
+                                    <new>method io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::copyRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.MapBlock::getRegion(int, int)</old>
+                                    <new>method io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::getRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.MapBlock::getSingleValueBlock(int)</old>
+                                    <new>method io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::getSingleValueBlock(int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.RowBlock::copyPositions(int[], int, int)</old>
+                                    <new>method io.trino.spi.block.RowBlock io.trino.spi.block.RowBlock::copyPositions(int[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.RowBlock::copyRegion(int, int)</old>
+                                    <new>method io.trino.spi.block.RowBlock io.trino.spi.block.RowBlock::copyRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.RowBlock::getRegion(int, int)</old>
+                                    <new>method io.trino.spi.block.RowBlock io.trino.spi.block.RowBlock::getRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.RowBlock::getSingleValueBlock(int)</old>
+                                    <new>method io.trino.spi.block.RowBlock io.trino.spi.block.RowBlock::getSingleValueBlock(int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.VariableWidthBlock::bytesCompare(int, int, int, io.airlift.slice.Slice, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.block.VariableWidthBlock::bytesEqual(int, int, io.airlift.slice.Slice, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.VariableWidthBlock::compareTo(int, int, int, io.trino.spi.block.Block, int, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.block.VariableWidthBlock::equals(int, int, io.trino.spi.block.Block, int, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.VariableWidthBlock::getSingleValueBlock(int)</old>
+                                    <new>method io.trino.spi.block.VariableWidthBlock io.trino.spi.block.VariableWidthBlock::getSingleValueBlock(int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.VariableWidthBlock::hash(int, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.block.VariableWidthBlock::writeSliceTo(int, int, int, io.airlift.slice.SliceOutput)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
