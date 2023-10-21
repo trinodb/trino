@@ -35,7 +35,7 @@ import static io.trino.spi.block.BlockUtil.ensureBlocksAreLoaded;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class RowBlock
+public final class RowBlock
         implements ValueBlock
 {
     private static final int INSTANCE_SIZE = instanceSize(RowBlock.class);
@@ -144,18 +144,18 @@ public class RowBlock
         this.retainedSizeInBytes = INSTANCE_SIZE + sizeOf(fieldBlockOffsets) + sizeOf(rowIsNull);
     }
 
-    protected List<Block> getRawFieldBlocks()
+    List<Block> getRawFieldBlocks()
     {
         return fieldBlocksList;
     }
 
     @Nullable
-    protected int[] getFieldBlockOffsets()
+    int[] getFieldBlockOffsets()
     {
         return fieldBlockOffsets;
     }
 
-    protected int getOffsetBase()
+    int getOffsetBase()
     {
         return startOffset;
     }
@@ -281,13 +281,13 @@ public class RowBlock
     }
 
     @Override
-    public final List<Block> getChildren()
+    public List<Block> getChildren()
     {
         return List.of(fieldBlocks);
     }
 
     // the offset in each field block, it can also be viewed as the "entry-based" offset in the RowBlock
-    public final int getFieldBlockOffset(int position)
+    public int getFieldBlockOffset(int position)
     {
         int[] offsets = fieldBlockOffsets;
         if (offsets != null) {
@@ -363,14 +363,14 @@ public class RowBlock
     }
 
     @Override
-    public final OptionalInt fixedSizeInBytesPerPosition()
+    public OptionalInt fixedSizeInBytesPerPosition()
     {
         if (!mayHaveNull()) {
             // when null rows are present, we can't use the fixed field sizes to infer the correct
             // size for arbitrary position selection
             OptionalInt fieldSize = fixedSizeInBytesPerFieldPosition();
             if (fieldSize.isPresent()) {
-                // must include the row block overhead in addition to the per position size in bytes
+                // must include the row block overhead in addition to the per-position size in bytes
                 return OptionalInt.of(fieldSize.getAsInt() + (Integer.BYTES + Byte.BYTES)); // offsets + rowIsNull
             }
         }
@@ -415,7 +415,7 @@ public class RowBlock
     }
 
     @Override
-    public final long getPositionsSizeInBytes(boolean[] positions, int selectedRowPositions)
+    public long getPositionsSizeInBytes(boolean[] positions, int selectedRowPositions)
     {
         int positionCount = getPositionCount();
         checkValidPositions(positions, positionCount);
@@ -432,7 +432,7 @@ public class RowBlock
             int selectedFieldPositionCount = selectedRowPositions;
             boolean[] rowIsNull = this.rowIsNull;
             if (rowIsNull != null) {
-                // Some positions in usedPositions may be null which must be removed from the selectedFieldPositionCount
+                // Some positions of usedPositions may be null, and these must be removed from the selectedFieldPositionCount
                 int offsetBase = startOffset;
                 for (int i = 0; i < positions.length; i++) {
                     if (positions[i] && rowIsNull[i + offsetBase]) {

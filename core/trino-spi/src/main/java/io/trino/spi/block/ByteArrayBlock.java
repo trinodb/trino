@@ -30,7 +30,7 @@ import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
 
-public class ByteArrayBlock
+public final class ByteArrayBlock
         implements ValueBlock
 {
     private static final int INSTANCE_SIZE = instanceSize(ByteArrayBlock.class);

@@ -1036,6 +1036,169 @@
                                     <code>java.method.removed</code>
                                     <old>method void io.trino.spi.block.VariableWidthBlock::writeSliceTo(int, int, int, io.airlift.slice.SliceOutput)</old>
                                 </item>
+                                <item>
+                                    <code>java.class.nowFinal</code>
+                                    <old>class io.trino.spi.block.ArrayBlock</old>
+                                    <new>class io.trino.spi.block.ArrayBlock</new>
+                                </item>
+                                <item>
+                                    <code>java.class.nowFinal</code>
+                                    <old>class io.trino.spi.block.ByteArrayBlock</old>
+                                    <new>class io.trino.spi.block.ByteArrayBlock</new>
+                                </item>
+                                <item>
+                                    <code>java.class.nowFinal</code>
+                                    <old>class io.trino.spi.block.DictionaryBlock</old>
+                                    <new>class io.trino.spi.block.DictionaryBlock</new>
+                                </item>
+                                <item>
+                                    <code>java.class.nowFinal</code>
+                                    <old>class io.trino.spi.block.Fixed12Block</old>
+                                    <new>class io.trino.spi.block.Fixed12Block</new>
+                                </item>
+                                <item>
+                                    <code>java.class.nowFinal</code>
+                                    <old>class io.trino.spi.block.Int128ArrayBlock</old>
+                                    <new>class io.trino.spi.block.Int128ArrayBlock</new>
+                                </item>
+                                <item>
+                                    <code>java.class.nowFinal</code>
+                                    <old>class io.trino.spi.block.IntArrayBlock</old>
+                                    <new>class io.trino.spi.block.IntArrayBlock</new>
+                                </item>
+                                <item>
+                                    <code>java.class.nowFinal</code>
+                                    <old>class io.trino.spi.block.LazyBlock</old>
+                                    <new>class io.trino.spi.block.LazyBlock</new>
+                                </item>
+                                <item>
+                                    <code>java.class.nowFinal</code>
+                                    <old>class io.trino.spi.block.LongArrayBlock</old>
+                                    <new>class io.trino.spi.block.LongArrayBlock</new>
+                                </item>
+                                <item>
+                                    <code>java.class.nowFinal</code>
+                                    <old>class io.trino.spi.block.MapBlock</old>
+                                    <new>class io.trino.spi.block.MapBlock</new>
+                                </item>
+                                <item>
+                                    <code>java.class.nowFinal</code>
+                                    <old>class io.trino.spi.block.RowBlock</old>
+                                    <new>class io.trino.spi.block.RowBlock</new>
+                                </item>
+                                <item>
+                                    <code>java.class.nowFinal</code>
+                                    <old>class io.trino.spi.block.RunLengthEncodedBlock</old>
+                                    <new>class io.trino.spi.block.RunLengthEncodedBlock</new>
+                                </item>
+                                <item>
+                                    <code>java.class.nowFinal</code>
+                                    <old>class io.trino.spi.block.ShortArrayBlock</old>
+                                    <new>class io.trino.spi.block.ShortArrayBlock</new>
+                                </item>
+                                <item>
+                                    <code>java.class.nowFinal</code>
+                                    <old>class io.trino.spi.block.VariableWidthBlock</old>
+                                    <new>class io.trino.spi.block.VariableWidthBlock</new>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method int io.trino.spi.block.ArrayBlock::getOffsetBase()</old>
+                                    <new>method int io.trino.spi.block.ArrayBlock::getOffsetBase()</new>
+                                    <oldVisibility>protected</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method int[] io.trino.spi.block.ArrayBlock::getOffsets()</old>
+                                    <new>method int[] io.trino.spi.block.ArrayBlock::getOffsets()</new>
+                                    <oldVisibility>protected</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ArrayBlock::getRawElementBlock()</old>
+                                    <new>method io.trino.spi.block.Block io.trino.spi.block.ArrayBlock::getRawElementBlock()</new>
+                                    <oldVisibility>protected</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method void io.trino.spi.block.MapBlock::ensureHashTableLoaded()</old>
+                                    <new>method void io.trino.spi.block.MapBlock::ensureHashTableLoaded()</new>
+                                    <oldVisibility>protected</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method io.trino.spi.block.MapHashTables io.trino.spi.block.MapBlock::getHashTables()</old>
+                                    <new>method io.trino.spi.block.MapHashTables io.trino.spi.block.MapBlock::getHashTables()</new>
+                                    <oldVisibility>protected</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method io.trino.spi.type.MapType io.trino.spi.block.MapBlock::getMapType()</old>
+                                    <new>method io.trino.spi.type.MapType io.trino.spi.block.MapBlock::getMapType()</new>
+                                    <oldVisibility>protected</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method int io.trino.spi.block.MapBlock::getOffsetBase()</old>
+                                    <new>method int io.trino.spi.block.MapBlock::getOffsetBase()</new>
+                                    <oldVisibility>protected</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method int[] io.trino.spi.block.MapBlock::getOffsets()</old>
+                                    <new>method int[] io.trino.spi.block.MapBlock::getOffsets()</new>
+                                    <oldVisibility>protected</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.MapBlock::getRawKeyBlock()</old>
+                                    <new>method io.trino.spi.block.Block io.trino.spi.block.MapBlock::getRawKeyBlock()</new>
+                                    <oldVisibility>protected</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.MapBlock::getRawValueBlock()</old>
+                                    <new>method io.trino.spi.block.Block io.trino.spi.block.MapBlock::getRawValueBlock()</new>
+                                    <oldVisibility>protected</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method int[] io.trino.spi.block.RowBlock::getFieldBlockOffsets()</old>
+                                    <new>method int[] io.trino.spi.block.RowBlock::getFieldBlockOffsets()</new>
+                                    <oldVisibility>protected</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method int io.trino.spi.block.RowBlock::getOffsetBase()</old>
+                                    <new>method int io.trino.spi.block.RowBlock::getOffsetBase()</new>
+                                    <oldVisibility>protected</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method java.util.List&lt;io.trino.spi.block.Block&gt; io.trino.spi.block.RowBlock::getRawFieldBlocks()</old>
+                                    <new>method java.util.List&lt;io.trino.spi.block.Block&gt; io.trino.spi.block.RowBlock::getRawFieldBlocks()</new>
+                                    <oldVisibility>protected</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method int io.trino.spi.block.VariableWidthBlock::getPositionOffset(int)</old>
+                                    <new>method int io.trino.spi.block.VariableWidthBlock::getPositionOffset(int)</new>
+                                    <oldVisibility>protected</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

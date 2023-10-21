@@ -28,7 +28,7 @@ import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
 
-public class Fixed12Block
+public final class Fixed12Block
         implements ValueBlock
 {
     private static final int INSTANCE_SIZE = instanceSize(Fixed12Block.class);

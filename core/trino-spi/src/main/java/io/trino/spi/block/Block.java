@@ -23,7 +23,8 @@ import java.util.function.ObjLongConsumer;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 
-public interface Block
+public sealed interface Block
+        permits DictionaryBlock, RunLengthEncodedBlock, LazyBlock, ValueBlock
 {
     /**
      * Gets the length of the value at the {@code position}.
