@@ -386,7 +386,7 @@ public abstract class BaseClickHouseTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("double", "3.1415926835", DOUBLE, "DOUBLE '3.1415926835'")
                 .addRoundTrip("double", "1.79769E308", DOUBLE, "DOUBLE '1.79769E308'")
-                .addRoundTrip("double", "2.225E-307", DOUBLE, "DOUBLE '2.225E-307'")
+                .addRoundTrip("double", "2.2250738585072014E-308", DOUBLE, "DOUBLE '2.2250738585072014E-308'")
 
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_double"))
 

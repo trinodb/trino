@@ -588,9 +588,9 @@ public class ClickHouseClient
                         longDecimalReadFunction(UINT64_TYPE, UNNECESSARY),
                         uInt64WriteFunction(getClickHouseServerVersion(session))));
             case IPv4:
-                return Optional.of(ipAddressColumnMapping("IPv4StringToNum(?)"));
+                return Optional.of(ipAddressColumnMapping("IPv4StringToNum(CAST(?, 'Nullable(String)'))"));
             case IPv6:
-                return Optional.of(ipAddressColumnMapping("IPv6StringToNum(?)"));
+                return Optional.of(ipAddressColumnMapping("IPv6StringToNum(CAST(?, 'Nullable(String)'))"));
             case Enum8:
             case Enum16:
                 return Optional.of(ColumnMapping.sliceMapping(
