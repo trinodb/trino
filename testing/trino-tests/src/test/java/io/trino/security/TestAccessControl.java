@@ -115,7 +115,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -1277,7 +1276,8 @@ public class TestAccessControl
                 List<String> keys = properties.keySet()
                         .stream()
                         .map(Object::toString)
-                        .sorted().collect(toList());
+                        .sorted()
+                        .toList();
                 throw new AccessDeniedException("Cannot access properties: " + keys);
             }
         }
