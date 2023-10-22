@@ -309,7 +309,7 @@ public class SnowflakeClient
             return;
         }
         DatabaseSchemaName databaseSchema = parseDatabaseSchemaName(remoteSchemaName);
-        execute(session, connection, format("CREATE SCHEMA %s%s%s", quoted(databaseSchema.getDatabaseName()), DATABASE_SEPARATOR, quoted(databaseSchema.getSchemaName())));
+        execute(session, connection, "CREATE SCHEMA " + quoted(databaseSchema));
     }
 
     @Override
@@ -321,7 +321,7 @@ public class SnowflakeClient
             return;
         }
         DatabaseSchemaName databaseSchema = parseDatabaseSchemaName(remoteSchemaName);
-        execute(session, format("DROP SCHEMA %s%s%s", quoted(databaseSchema.getDatabaseName()), DATABASE_SEPARATOR, quoted(databaseSchema.getSchemaName())));
+        execute(session, "DROP SCHEMA " + quoted(databaseSchema));
     }
 
     @Override
@@ -734,6 +734,11 @@ public class SnowflakeClient
                 columns,
                 ImmutableMap.of(),
                 split);
+    }
+
+    private String quoted(DatabaseSchemaName databaseSchemaName)
+    {
+        return quoted(databaseSchemaName.getDatabaseName()) + DATABASE_SEPARATOR + quoted(databaseSchemaName.getSchemaName());
     }
 
     public static void checkColumnsForInvalidCharacters(List<ColumnMetadata> columns)
