@@ -23,6 +23,7 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.connector.TestingUdfFunctionsPlugin;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SystemSecurityMetadata;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
@@ -272,6 +273,7 @@ public class TestAccessControl
         queryRunner.createCatalog("mock", "mock");
         queryRunner.installPlugin(new JdbcPlugin("base_jdbc", new TestingH2JdbcModule()));
         queryRunner.createCatalog("jdbc", "base_jdbc", TestingH2JdbcModule.createProperties());
+        queryRunner.installPlugin(new TestingUdfFunctionsPlugin());
         for (String tableName : ImmutableList.of("orders", "nation", "region", "lineitem")) {
             queryRunner.execute(format("CREATE TABLE %1$s AS SELECT * FROM tpch.tiny.%1$s WITH NO DATA", tableName));
         }
@@ -607,14 +609,13 @@ public class TestAccessControl
                 "Cannot execute function my_function",
                 new TestingPrivilege(Optional.empty(), "mock.function.my_function", EXECUTE_FUNCTION));
 
-        // builtin functions are always allowed, and there are no security checks
-        TestingPrivilege denyAllFunctionCalls = new TestingPrivilege(Optional.empty(), name -> true, EXECUTE_FUNCTION);
-        assertAccessAllowed("SELECT abs(42)", denyAllFunctionCalls);
-        assertAccessDenied("SELECT my_function(42)", "Cannot execute function my_function", denyAllFunctionCalls);
-
         TestingPrivilege denyNonMyFunctionCalls = new TestingPrivilege(Optional.empty(), name -> !name.equals("mock.function.my_function"), EXECUTE_FUNCTION);
         assertAccessAllowed("SELECT my_function(42)", denyNonMyFunctionCalls);
         assertAccessDenied("SELECT other_function(42)", "Cannot execute function other_function", denyNonMyFunctionCalls);
+
+        TestingPrivilege denyNonTestingUdfCalls = new TestingPrivilege(Optional.empty(), name -> !name.equals("system.builtin.testing_udf"), EXECUTE_FUNCTION);
+        assertAccessAllowed("SELECT testing_udf()", denyNonTestingUdfCalls);
+        assertAccessDenied("SELECT other_testing_udf()", "Cannot execute function other_testing_udf", denyNonTestingUdfCalls);
     }
 
     @Test
