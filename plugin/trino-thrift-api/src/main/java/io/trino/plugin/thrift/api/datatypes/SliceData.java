@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.plugin.thrift.api.TrinoThriftBlock;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
@@ -67,7 +68,7 @@ final class SliceData
     }
 
     @Override
-    public Block toBlock(Type desiredType)
+    public ValueBlock toBlock(Type desiredType)
     {
         checkArgument(desiredType.getJavaType() == Slice.class, "type doesn't match: %s", desiredType);
         Slice values = bytes == null ? Slices.EMPTY_SLICE : Slices.wrappedBuffer(bytes);

@@ -16,6 +16,7 @@ package io.trino.plugin.thrift.api.datatypes;
 import io.trino.plugin.thrift.api.TrinoThriftBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.LongArrayBlock;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -38,7 +39,7 @@ public class TestTrinoThriftBigint
         TrinoThriftBlock columnsData = longColumn(
                 new boolean[] {false, true, false, false, false, false, true},
                 new long[] {2, 0, 1, 3, 8, 4, 0});
-        Block actual = columnsData.toBlock(BIGINT);
+        LongArrayBlock actual = (LongArrayBlock) columnsData.toBlock(BIGINT);
         assertBlockEquals(actual, list(2L, null, 1L, 3L, 8L, 4L, null));
     }
 
@@ -48,7 +49,7 @@ public class TestTrinoThriftBigint
         TrinoThriftBlock columnsData = longColumn(
                 new boolean[] {true, true, true, true, true, true, true},
                 null);
-        Block actual = columnsData.toBlock(BIGINT);
+        LongArrayBlock actual = (LongArrayBlock) columnsData.toBlock(BIGINT);
         assertBlockEquals(actual, list(null, null, null, null, null, null, null));
     }
 
@@ -58,7 +59,7 @@ public class TestTrinoThriftBigint
         TrinoThriftBlock columnsData = longColumn(
                 new boolean[] {true, true, true, true, true, true, true},
                 new long[] {0, 0, 0, 0, 0, 0, 0});
-        Block actual = columnsData.toBlock(BIGINT);
+        LongArrayBlock actual = (LongArrayBlock) columnsData.toBlock(BIGINT);
         assertBlockEquals(actual, list(null, null, null, null, null, null, null));
     }
 
@@ -68,7 +69,7 @@ public class TestTrinoThriftBigint
         TrinoThriftBlock columnsData = longColumn(
                 null,
                 new long[] {2, 7, 1, 3, 8, 4, 5});
-        Block actual = columnsData.toBlock(BIGINT);
+        LongArrayBlock actual = (LongArrayBlock) columnsData.toBlock(BIGINT);
         assertBlockEquals(actual, list(2L, 7L, 1L, 3L, 8L, 4L, 5L));
     }
 
@@ -78,7 +79,7 @@ public class TestTrinoThriftBigint
         TrinoThriftBlock columnsData = longColumn(
                 new boolean[] {false, false, false, false, false, false, false},
                 new long[] {2, 7, 1, 3, 8, 4, 5});
-        Block actual = columnsData.toBlock(BIGINT);
+        LongArrayBlock actual = (LongArrayBlock) columnsData.toBlock(BIGINT);
         assertBlockEquals(actual, list(2L, 7L, 1L, 3L, 8L, 4L, 5L));
     }
 
@@ -148,7 +149,7 @@ public class TestTrinoThriftBigint
         assertThat(column.getBigintData().getLongs()).isEqualTo(new long[] {1});
     }
 
-    private void assertBlockEquals(Block block, List<Long> expected)
+    private void assertBlockEquals(LongArrayBlock block, List<Long> expected)
     {
         assertThat(block.getPositionCount()).isEqualTo(expected.size());
         for (int i = 0; i < expected.size(); i++) {
@@ -156,7 +157,7 @@ public class TestTrinoThriftBigint
                 assertThat(block.isNull(i)).isTrue();
             }
             else {
-                assertThat(block.getLong(i, 0)).isEqualTo(expected.get(i).longValue());
+                assertThat(block.getLong(i)).isEqualTo(expected.get(i).longValue());
             }
         }
     }
