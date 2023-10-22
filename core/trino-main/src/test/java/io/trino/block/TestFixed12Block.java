@@ -124,23 +124,17 @@ public class TestFixed12Block
     }
 
     @Override
-    protected void assertPositionEquals(Block block, int position, Slice expectedBytes)
+    protected <T> void assertPositionValue(Block block, int position, T expectedValue)
     {
+        if (expectedValue == null) {
+            assertThat(block.isNull(position)).isTrue();
+            return;
+        }
+
         Fixed12Block fixed12Block = (Fixed12Block) block;
+        Slice expectedBytes = (Slice) expectedValue;
         assertThat(fixed12Block.getFixed12First(position)).isEqualTo(expectedBytes.getLong(0));
         assertThat(fixed12Block.getFixed12Second(position)).isEqualTo(expectedBytes.getInt(8));
-    }
-
-    @Override
-    protected boolean isLongAccessSupported()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean isAlignedLongAccessSupported()
-    {
-        return false;
     }
 
     @Override

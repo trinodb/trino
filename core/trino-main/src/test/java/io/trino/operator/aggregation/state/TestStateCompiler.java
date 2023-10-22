@@ -220,11 +220,11 @@ public class TestStateCompiler
         assertThat(deserializedState.getSlice()).isEqualTo(singleState.getSlice());
         assertThat(deserializedState.getAnotherSlice()).isEqualTo(singleState.getAnotherSlice());
         assertThat(deserializedState.getYetAnotherSlice()).isEqualTo(singleState.getYetAnotherSlice());
-        assertThat(deserializedState.getBlock().getLong(0, 0)).isEqualTo(singleState.getBlock().getLong(0, 0));
+        assertThat(BIGINT.getLong(deserializedState.getBlock(), 0)).isEqualTo(BIGINT.getLong(singleState.getBlock(), 0));
 
         SqlMap deserializedMap = deserializedState.getSqlMap();
         SqlMap expectedMap = singleState.getSqlMap();
-        assertThat(deserializedMap.getRawKeyBlock().getLong(deserializedMap.getRawOffset(), 0)).isEqualTo(expectedMap.getRawKeyBlock().getLong(expectedMap.getRawOffset(), 0));
+        assertThat(BIGINT.getLong(deserializedMap.getRawKeyBlock(), deserializedMap.getRawOffset())).isEqualTo(BIGINT.getLong(expectedMap.getRawKeyBlock(), expectedMap.getRawOffset()));
         assertThat(deserializedMap.getRawValueBlock().getSlice(deserializedMap.getRawOffset(), 0, 9)).isEqualTo(expectedMap.getRawValueBlock().getSlice(expectedMap.getRawOffset(), 0, 9));
 
         SqlRow sqlRow = deserializedState.getSqlRow();

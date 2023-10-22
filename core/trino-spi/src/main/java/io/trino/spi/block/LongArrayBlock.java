@@ -123,15 +123,6 @@ public final class LongArrayBlock
         return positionCount;
     }
 
-    @Override
-    public long getLong(int position, int offset)
-    {
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
-        return getLong(position);
-    }
-
     public long getLong(int position)
     {
         checkReadablePosition(this, position);

@@ -984,7 +984,7 @@ public class TestPagePartitioner
         {
             long value = 0;
             for (int hashChannel : hashChannels) {
-                value += page.getBlock(hashChannel).getLong(position, 0);
+                value += BIGINT.getLong(page.getBlock(hashChannel), position);
             }
 
             return toIntExact(Math.abs(value) % partitionCount);

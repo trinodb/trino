@@ -30,7 +30,6 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.spi.type.Int128Math.addWithOverflow;
 
 @AggregationFunction("sum")
@@ -74,8 +73,8 @@ public final class DecimalSumAggregation
         long[] decimal = state.getDecimalArray();
         int offset = state.getDecimalArrayOffset();
 
-        long rightHigh = block.getLong(position, 0);
-        long rightLow = block.getLong(position, SIZE_OF_LONG);
+        long rightHigh = block.getInt128High(position);
+        long rightLow = block.getInt128Low(position);
 
         long overflow = addWithOverflow(
                 decimal[offset],

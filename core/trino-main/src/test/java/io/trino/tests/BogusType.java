@@ -14,6 +14,7 @@
 package io.trino.tests;
 
 import io.trino.spi.block.Block;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.TypeSignature;
@@ -32,7 +33,9 @@ public final class BogusType
     @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
-        if (block.getLong(position, 0) != 0) {
+        LongArrayBlock valueBlock = (LongArrayBlock) block.getUnderlyingValueBlock();
+        int valueBlockPosition = block.getUnderlyingValuePosition(position);
+        if (valueBlock.getLong(valueBlockPosition) != 0) {
             throw new RuntimeException("This is bogus exception");
         }
 
