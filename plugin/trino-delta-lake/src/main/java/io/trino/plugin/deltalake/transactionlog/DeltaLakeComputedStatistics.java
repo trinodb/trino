@@ -31,6 +31,7 @@ import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.trino.spi.statistics.ColumnStatisticType.MIN_VALUE;
 import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -41,7 +42,7 @@ public final class DeltaLakeComputedStatistics
 
     public static DeltaLakeJsonFileStatistics toDeltaLakeJsonFileStatistics(ComputedStatistics stats, Map</* lowercase */ String, DeltaLakeColumnHandle> lowercaseToColumnsHandles)
     {
-        Optional<Long> rowCount = getLongValue(stats.getTableStatistics().get(ROW_COUNT)).stream().boxed().findFirst();
+        Optional<Long> rowCount = getBigintValue(stats.getTableStatistics().get(ROW_COUNT)).stream().boxed().findFirst();
 
         Optional<Map<String, Object>> minValues = Optional.of(getColumnStatistics(stats, MIN_VALUE, lowercaseToColumnsHandles));
         Optional<Map<String, Object>> maxValues = Optional.of(getColumnStatistics(stats, MAX_VALUE, lowercaseToColumnsHandles));
@@ -59,7 +60,7 @@ public final class DeltaLakeComputedStatistics
         return statistics.getColumnStatistics().entrySet().stream()
                 .filter(stats -> stats.getKey().getStatisticType() == NUMBER_OF_NON_NULL_VALUES
                         && lowercaseToColumnsHandles.containsKey(stats.getKey().getColumnName()))
-                .map(stats -> Map.entry(lowercaseToColumnsHandles.get(stats.getKey().getColumnName()).getBasePhysicalColumnName(), getLongValue(stats.getValue())))
+                .map(stats -> Map.entry(lowercaseToColumnsHandles.get(stats.getKey().getColumnName()).getBasePhysicalColumnName(), getBigintValue(stats.getValue())))
                 .filter(stats -> stats.getValue().isPresent())
                 .map(nonNullCount -> Map.entry(nonNullCount.getKey(), rowCount - nonNullCount.getValue().getAsLong()))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -92,11 +93,11 @@ public final class DeltaLakeComputedStatistics
         return Optional.empty();
     }
 
-    private static OptionalLong getLongValue(Block block)
+    private static OptionalLong getBigintValue(Block block)
     {
         if (block == null || block.isNull(0)) {
             return OptionalLong.empty();
         }
-        return OptionalLong.of(block.getLong(0, 0));
+        return OptionalLong.of(BIGINT.getLong(block, 0));
     }
 }

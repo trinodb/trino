@@ -122,7 +122,7 @@ public class TestBrokerQueries
         String value = block.getSlice(0, 0, block.getSliceLength(0)).toStringUtf8();
         assertThat(value).isEqualTo(getOnlyElement(RESPONSE.getResultTable().getRows())[0]);
         block = page.getBlock(1);
-        assertThat(block.getLong(0, 0)).isEqualTo((long) getOnlyElement(RESPONSE.getResultTable().getRows())[1]);
+        assertThat(BIGINT.getLong(block, 0)).isEqualTo((long) getOnlyElement(RESPONSE.getResultTable().getRows())[1]);
         block = page.getBlock(2);
         value = block.getSlice(0, 0, block.getSliceLength(0)).toStringUtf8();
         assertThat(value).isEqualTo(getOnlyElement(RESPONSE.getResultTable().getRows())[2]);
