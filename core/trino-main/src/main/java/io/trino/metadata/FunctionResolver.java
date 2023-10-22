@@ -81,24 +81,24 @@ public class FunctionResolver
      * Is the named function an aggregation function?
      * This does not need type parameters because overloads between aggregation and other function types are not allowed.
      */
-    public boolean isAggregationFunction(Session session, QualifiedName name, AccessControl accessControl)
+    public boolean isAggregationFunction(Session session, QualifiedName name)
     {
-        return isFunctionKind(session, name, AGGREGATE, accessControl);
+        return isFunctionKind(session, name, AGGREGATE);
     }
 
-    public boolean isWindowFunction(Session session, QualifiedName name, AccessControl accessControl)
+    public boolean isWindowFunction(Session session, QualifiedName name)
     {
-        return isFunctionKind(session, name, WINDOW, accessControl);
+        return isFunctionKind(session, name, WINDOW);
     }
 
-    private boolean isFunctionKind(Session session, QualifiedName name, FunctionKind functionKind, AccessControl accessControl)
+    private boolean isFunctionKind(Session session, QualifiedName name, FunctionKind functionKind)
     {
         Optional<ResolvedFunction> resolvedFunction = functionDecoder.fromQualifiedName(name);
         if (resolvedFunction.isPresent()) {
             return resolvedFunction.get().getFunctionKind() == functionKind;
         }
 
-        for (CatalogSchemaFunctionName catalogSchemaFunctionName : toPath(session, name, accessControl)) {
+        for (CatalogSchemaFunctionName catalogSchemaFunctionName : toPath(session, name)) {
             Collection<CatalogFunctionMetadata> candidates = metadata.getFunctions(session, catalogSchemaFunctionName);
             if (!candidates.isEmpty()) {
                 return candidates.stream()
@@ -161,7 +161,7 @@ public class FunctionResolver
             AccessControl accessControl)
     {
         ImmutableList.Builder<CatalogFunctionMetadata> allCandidates = ImmutableList.builder();
-        List<CatalogSchemaFunctionName> fullPath = toPath(session, name, accessControl);
+        List<CatalogSchemaFunctionName> fullPath = toPath(session, name);
         List<CatalogSchemaFunctionName> authorizedPath = fullPath.stream()
                 .filter(catalogSchemaFunctionName -> canExecuteFunction(session, accessControl, catalogSchemaFunctionName))
                 .collect(toImmutableList());
@@ -259,7 +259,7 @@ public class FunctionResolver
     }
 
     // this is visible for the table function resolution, which should be merged into this class
-    public static List<CatalogSchemaFunctionName> toPath(Session session, QualifiedName name, AccessControl accessControl)
+    public static List<CatalogSchemaFunctionName> toPath(Session session, QualifiedName name)
     {
         List<String> parts = name.getParts();
         if (parts.size() > 3) {

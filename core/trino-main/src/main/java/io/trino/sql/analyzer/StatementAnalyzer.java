@@ -1777,7 +1777,7 @@ class StatementAnalyzer
         private Optional<TableFunctionMetadata> resolveTableFunction(TableFunctionInvocation node)
         {
             boolean unauthorized = false;
-            for (CatalogSchemaFunctionName name : toPath(session, node.getName(), accessControl)) {
+            for (CatalogSchemaFunctionName name : toPath(session, node.getName())) {
                 CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, name.getCatalogName());
                 Optional<ConnectorTableFunction> resolved = tableFunctionRegistry.resolve(catalogHandle, name.getSchemaFunctionName());
                 if (resolved.isPresent()) {
@@ -3091,7 +3091,7 @@ class StatementAnalyzer
             if (analysis.isAggregation(node) && node.getOrderBy().isPresent()) {
                 ImmutableList.Builder<Expression> aggregates = ImmutableList.<Expression>builder()
                         .addAll(groupByAnalysis.getOriginalExpressions())
-                        .addAll(extractAggregateFunctions(orderByExpressions, session, functionResolver, accessControl))
+                        .addAll(extractAggregateFunctions(orderByExpressions, session, functionResolver))
                         .addAll(extractExpressions(orderByExpressions, GroupingOperation.class));
 
                 analysis.setOrderByAggregates(node.getOrderBy().get(), aggregates.build());
@@ -4050,7 +4050,7 @@ class StatementAnalyzer
             if (node.getHaving().isPresent()) {
                 Expression predicate = node.getHaving().get();
 
-                List<Expression> windowExpressions = extractWindowExpressions(ImmutableList.of(predicate), session, functionResolver, accessControl);
+                List<Expression> windowExpressions = extractWindowExpressions(ImmutableList.of(predicate), session, functionResolver);
                 if (!windowExpressions.isEmpty()) {
                     throw semanticException(NESTED_WINDOW, windowExpressions.get(0), "HAVING clause cannot contain window functions or row pattern measures");
                 }
@@ -4202,7 +4202,7 @@ class StatementAnalyzer
                     .addAll(getSortItemsFromOrderBy(node.getOrderBy()))
                     .build();
 
-            List<FunctionCall> aggregates = extractAggregateFunctions(toExtract, session, functionResolver, accessControl);
+            List<FunctionCall> aggregates = extractAggregateFunctions(toExtract, session, functionResolver);
 
             return !aggregates.isEmpty();
         }
@@ -4590,7 +4590,7 @@ class StatementAnalyzer
         {
             checkState(orderByExpressions.isEmpty() || orderByScope.isPresent(), "non-empty orderByExpressions list without orderByScope provided");
 
-            List<FunctionCall> aggregates = extractAggregateFunctions(Iterables.concat(outputExpressions, orderByExpressions), session, functionResolver, accessControl);
+            List<FunctionCall> aggregates = extractAggregateFunctions(Iterables.concat(outputExpressions, orderByExpressions), session, functionResolver);
             analysis.setAggregates(node, aggregates);
 
             if (analysis.isAggregation(node)) {

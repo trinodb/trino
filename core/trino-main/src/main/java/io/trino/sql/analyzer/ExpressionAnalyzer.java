@@ -1189,7 +1189,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitFunctionCall(FunctionCall node, StackableAstVisitorContext<Context> context)
         {
-            boolean isAggregation = functionResolver.isAggregationFunction(session, node.getName(), accessControl);
+            boolean isAggregation = functionResolver.isAggregationFunction(session, node.getName());
             boolean isRowPatternCount = context.getContext().isPatternRecognition() &&
                     isAggregation &&
                     node.getName().getSuffix().equalsIgnoreCase("count");
@@ -1927,7 +1927,7 @@ public class ExpressionAnalyzer
         private void checkNoNestedAggregations(FunctionCall node)
         {
             extractExpressions(node.getArguments(), FunctionCall.class).stream()
-                    .filter(function -> functionResolver.isAggregationFunction(session, function.getName(), accessControl))
+                    .filter(function -> functionResolver.isAggregationFunction(session, function.getName()))
                     .findFirst()
                     .ifPresent(aggregation -> {
                         throw semanticException(

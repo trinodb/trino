@@ -374,9 +374,9 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitFunctionCall(FunctionCall node, Void context)
         {
-            if (functionResolver.isAggregationFunction(session, node.getName(), accessControl)) {
+            if (functionResolver.isAggregationFunction(session, node.getName())) {
                 if (node.getWindow().isEmpty()) {
-                    List<FunctionCall> aggregateFunctions = extractAggregateFunctions(node.getArguments(), session, functionResolver, accessControl);
+                    List<FunctionCall> aggregateFunctions = extractAggregateFunctions(node.getArguments(), session, functionResolver);
                     List<Expression> windowExpressions = extractWindowExpressions(node.getArguments());
 
                     if (!aggregateFunctions.isEmpty()) {
