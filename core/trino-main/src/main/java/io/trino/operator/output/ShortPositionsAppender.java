@@ -165,7 +165,8 @@ public class ShortPositionsAppender
         return sizeInBytes;
     }
 
-    private void reset()
+    @Override
+    public void reset()
     {
         initialEntryCount = calculateBlockResetSize(positionCount);
         initialized = false;

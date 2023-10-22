@@ -11,33 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.block;
+package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.ColumnarMap;
-import io.trino.spi.block.MapBlockBuilder;
-import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.TypeOperators;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
-import static io.trino.block.ColumnarTestUtils.alternatingNullValues;
-import static io.trino.block.ColumnarTestUtils.assertBlock;
-import static io.trino.block.ColumnarTestUtils.assertBlockPosition;
-import static io.trino.block.ColumnarTestUtils.createTestDictionaryBlock;
-import static io.trino.block.ColumnarTestUtils.createTestDictionaryExpectedValues;
-import static io.trino.block.ColumnarTestUtils.createTestRleBlock;
-import static io.trino.block.ColumnarTestUtils.createTestRleExpectedValues;
 import static io.trino.spi.block.ColumnarMap.toColumnarMap;
+import static io.trino.spi.block.ColumnarTestUtils.alternatingNullValues;
+import static io.trino.spi.block.ColumnarTestUtils.assertBlock;
+import static io.trino.spi.block.ColumnarTestUtils.assertBlockPosition;
+import static io.trino.spi.block.ColumnarTestUtils.createTestDictionaryBlock;
+import static io.trino.spi.block.ColumnarTestUtils.createTestDictionaryExpectedValues;
+import static io.trino.spi.block.ColumnarTestUtils.createTestRleBlock;
+import static io.trino.spi.block.ColumnarTestUtils.createTestRleExpectedValues;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestColumnarMap
 {
@@ -112,21 +106,21 @@ public class TestColumnarMap
     private static void assertColumnarMap(Block block, Slice[][][] expectedValues)
     {
         ColumnarMap columnarMap = toColumnarMap(block);
-        assertEquals(columnarMap.getPositionCount(), expectedValues.length);
+        assertThat(columnarMap.getPositionCount()).isEqualTo(expectedValues.length);
 
         Block keysBlock = columnarMap.getKeysBlock();
         Block valuesBlock = columnarMap.getValuesBlock();
         int elementsPosition = 0;
         for (int position = 0; position < expectedValues.length; position++) {
             Slice[][] expectedMap = expectedValues[position];
-            assertEquals(columnarMap.isNull(position), expectedMap == null);
+            assertThat(columnarMap.isNull(position)).isEqualTo(expectedMap == null);
             if (expectedMap == null) {
-                assertEquals(columnarMap.getEntryCount(position), 0);
+                assertThat(columnarMap.getEntryCount(position)).isEqualTo(0);
                 continue;
             }
 
-            assertEquals(columnarMap.getEntryCount(position), expectedMap.length);
-            assertEquals(columnarMap.getOffset(position), elementsPosition);
+            assertThat(columnarMap.getEntryCount(position)).isEqualTo(expectedMap.length);
+            assertThat(columnarMap.getOffset(position)).isEqualTo(elementsPosition);
 
             for (int i = 0; i < columnarMap.getEntryCount(position); i++) {
                 Slice[] expectedEntry = expectedMap[i];
@@ -153,7 +147,7 @@ public class TestColumnarMap
                 blockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
                     for (Slice[] entry : expectedMap) {
                         Slice key = entry[0];
-                        assertNotNull(key);
+                        assertThat(key).isNotNull();
                         VARCHAR.writeSlice(keyBuilder, key);
 
                         Slice value = entry[1];

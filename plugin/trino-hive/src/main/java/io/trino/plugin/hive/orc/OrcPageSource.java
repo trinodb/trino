@@ -422,7 +422,6 @@ public class OrcPageSource
             requireNonNull(page, "page is null");
             return maskDeletedRowsFunction.apply(fromFieldBlocks(
                     page.getPositionCount(),
-                    Optional.empty(),
                     new Block[] {
                             page.getBlock(ORIGINAL_TRANSACTION_CHANNEL),
                             page.getBlock(BUCKET_CHANNEL),
@@ -454,7 +453,6 @@ public class OrcPageSource
             int positionCount = sourcePage.getPositionCount();
             return maskDeletedRowsFunction.apply(fromFieldBlocks(
                     positionCount,
-                    Optional.empty(),
                     new Block[] {
                             RunLengthEncodedBlock.create(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
                             RunLengthEncodedBlock.create(bucketBlock, positionCount),

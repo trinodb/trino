@@ -21,7 +21,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
-import io.trino.spi.block.ColumnarRow;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
@@ -494,27 +494,18 @@ public final class TestingUnnesterUtil
     {
         ColumnarArray columnarArray = ColumnarArray.toColumnarArray(block);
         Block elementBlock = columnarArray.getElementsBlock();
-        ColumnarRow columnarRow = ColumnarRow.toColumnarRow(elementBlock);
+        List<Block> fields = RowBlock.getRowFieldsFromBlock(elementBlock);
 
-        int fieldCount = columnarRow.getFieldCount();
-        Block[] blocks = new Block[fieldCount];
-
+        Block[] blocks = new Block[fields.size()];
         int positionCount = block.getPositionCount();
-        for (int i = 0; i < fieldCount; i++) {
+        for (int i = 0; i < fields.size(); i++) {
             BlockBuilder blockBuilder = rowTypes.get(i).createBlockBuilder(null, totalEntries);
 
-            int nullRowsEncountered = 0;
             for (int j = 0; j < positionCount; j++) {
                 int rowBlockIndex = columnarArray.getOffset(j);
                 int cardinality = columnarArray.getLength(j);
                 for (int k = 0; k < cardinality; k++) {
-                    if (columnarRow.isNull(rowBlockIndex + k)) {
-                        blockBuilder.appendNull();
-                        nullRowsEncountered++;
-                    }
-                    else {
-                        rowTypes.get(i).appendTo(columnarRow.getField(i), rowBlockIndex + k - nullRowsEncountered, blockBuilder);
-                    }
+                    rowTypes.get(i).appendTo(fields.get(i), rowBlockIndex + k, blockBuilder);
                 }
 
                 int maxCardinality = maxCardinalities[j];

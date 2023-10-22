@@ -35,7 +35,6 @@ public class RowBlockBuilder
     private final BlockBuilderStatus blockBuilderStatus;
 
     private int positionCount;
-    private int[] fieldBlockOffsets;
     private boolean[] rowIsNull;
     private final BlockBuilder[] fieldBlockBuilders;
     private final List<BlockBuilder> fieldBlockBuildersList;
@@ -49,15 +48,13 @@ public class RowBlockBuilder
         this(
                 blockBuilderStatus,
                 createFieldBlockBuilders(fieldTypes, blockBuilderStatus, expectedEntries),
-                new int[expectedEntries + 1],
                 new boolean[expectedEntries]);
     }
 
-    private RowBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, BlockBuilder[] fieldBlockBuilders, int[] fieldBlockOffsets, boolean[] rowIsNull)
+    private RowBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, BlockBuilder[] fieldBlockBuilders, boolean[] rowIsNull)
     {
         this.blockBuilderStatus = blockBuilderStatus;
         this.positionCount = 0;
-        this.fieldBlockOffsets = requireNonNull(fieldBlockOffsets, "fieldBlockOffsets is null");
         this.rowIsNull = requireNonNull(rowIsNull, "rowIsNull is null");
         this.fieldBlockBuilders = requireNonNull(fieldBlockBuilders, "fieldBlockBuilders is null");
         this.fieldBlockBuildersList = List.of(fieldBlockBuilders);
@@ -92,7 +89,7 @@ public class RowBlockBuilder
     @Override
     public long getRetainedSizeInBytes()
     {
-        long size = INSTANCE_SIZE + sizeOf(fieldBlockOffsets) + sizeOf(rowIsNull);
+        long size = INSTANCE_SIZE + sizeOf(rowIsNull);
         for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
             size += fieldBlockBuilder.getRetainedSizeInBytes();
         }
@@ -121,6 +118,11 @@ public class RowBlockBuilder
         if (currentEntryOpened) {
             throw new IllegalStateException("Current entry must be closed before a null can be written");
         }
+
+        for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
+            fieldBlockBuilder.appendNull();
+        }
+
         entryAdded(true);
         return this;
     }
@@ -130,23 +132,16 @@ public class RowBlockBuilder
         if (rowIsNull.length <= positionCount) {
             int newSize = BlockUtil.calculateNewArraySize(rowIsNull.length);
             rowIsNull = Arrays.copyOf(rowIsNull, newSize);
-            fieldBlockOffsets = Arrays.copyOf(fieldBlockOffsets, newSize + 1);
         }
 
-        if (isNull) {
-            fieldBlockOffsets[positionCount + 1] = fieldBlockOffsets[positionCount];
-        }
-        else {
-            fieldBlockOffsets[positionCount + 1] = fieldBlockOffsets[positionCount] + 1;
-        }
         rowIsNull[positionCount] = isNull;
         hasNullRow |= isNull;
         hasNonNullRow |= !isNull;
         positionCount++;
 
         for (int i = 0; i < fieldBlockBuilders.length; i++) {
-            if (fieldBlockBuilders[i].getPositionCount() != fieldBlockOffsets[positionCount]) {
-                throw new IllegalStateException(format("field %s has unexpected position count. Expected: %s, actual: %s", i, fieldBlockOffsets[positionCount], fieldBlockBuilders[i].getPositionCount()));
+            if (fieldBlockBuilders[i].getPositionCount() != positionCount) {
+                throw new IllegalStateException(format("field %s has unexpected position count. Expected: %s, actual: %s", i, positionCount, fieldBlockBuilders[i].getPositionCount()));
             }
         }
 
@@ -178,7 +173,7 @@ public class RowBlockBuilder
         for (int i = 0; i < fieldBlockBuilders.length; i++) {
             fieldBlocks[i] = fieldBlockBuilders[i].build();
         }
-        return createRowBlockInternal(0, positionCount, hasNullRow ? rowIsNull : null, hasNullRow ? fieldBlockOffsets : null, fieldBlocks);
+        return createRowBlockInternal(positionCount, hasNullRow ? rowIsNull : null, fieldBlocks);
     }
 
     @Override
@@ -194,17 +189,17 @@ public class RowBlockBuilder
         for (int i = 0; i < fieldBlockBuilders.length; i++) {
             newBlockBuilders[i] = fieldBlockBuilders[i].newBlockBuilderLike(blockBuilderStatus);
         }
-        return new RowBlockBuilder(blockBuilderStatus, newBlockBuilders, new int[expectedEntries + 1], new boolean[expectedEntries]);
+        return new RowBlockBuilder(blockBuilderStatus, newBlockBuilders, new boolean[expectedEntries]);
     }
 
     private Block nullRle(int length)
     {
         Block[] fieldBlocks = new Block[fieldBlockBuilders.length];
         for (int i = 0; i < fieldBlockBuilders.length; i++) {
-            fieldBlocks[i] = fieldBlockBuilders[i].newBlockBuilderLike(null).build();
+            fieldBlocks[i] = fieldBlockBuilders[i].newBlockBuilderLike(null).appendNull().build();
         }
 
-        RowBlock nullRowBlock = createRowBlockInternal(0, 1, new boolean[] {true}, new int[] {0, 0}, fieldBlocks);
+        RowBlock nullRowBlock = createRowBlockInternal(1, new boolean[] {true}, fieldBlocks);
         return RunLengthEncodedBlock.create(nullRowBlock, length);
     }
 }

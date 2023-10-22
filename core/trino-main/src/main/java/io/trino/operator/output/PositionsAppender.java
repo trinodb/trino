@@ -44,6 +44,11 @@ public interface PositionsAppender
     Block build();
 
     /**
+     * Reset this appender without creating a block.
+     */
+    void reset();
+
+    /**
      * Returns number of bytes retained by this instance in memory including over-allocations.
      */
     long getRetainedSizeInBytes();

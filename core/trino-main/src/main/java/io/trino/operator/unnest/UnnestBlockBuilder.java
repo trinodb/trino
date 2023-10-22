@@ -15,7 +15,6 @@ package io.trino.operator.unnest;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
-import jakarta.annotation.Nullable;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.operator.unnest.UnnestBlockBuilder.NullElementFinder.NULL_NOT_FOUND;
@@ -23,39 +22,27 @@ import static java.util.Objects.requireNonNull;
 
 public class UnnestBlockBuilder
 {
-    // checks for existence of null element in the source when required
+    // checks for the existence of a null element in the source when required
     private final NullElementFinder nullFinder = new NullElementFinder();
 
     private Block source;
     private int sourcePosition;
-    private Block nullCheckBlock;
-    private int nullCheckBlockPosition;
-
-    public void resetInputBlock(Block block)
-    {
-        resetInputBlock(block, null);
-    }
 
     /**
      * Replaces input source block with {@code block}. The old data structures for output have to be
      * reset as well, because they are based on the source.
      */
-    public void resetInputBlock(Block block, @Nullable Block nullCheckBlock)
+    public void resetInputBlock(Block block)
     {
         this.source = requireNonNull(block, "block is null");
         this.nullFinder.resetCheck(block);
         this.sourcePosition = 0;
-        this.nullCheckBlock = nullCheckBlock;
-        this.nullCheckBlockPosition = 0;
     }
 
     public Block buildWithoutNulls(int outputPositionCount)
     {
         Block output = source.getRegion(sourcePosition, outputPositionCount);
         sourcePosition += outputPositionCount;
-        if (nullCheckBlock != null) {
-            nullCheckBlockPosition += outputPositionCount;
-        }
         return output;
     }
 
@@ -91,20 +78,8 @@ public class UnnestBlockBuilder
         for (int i = 0; i < inputBatchSize; i++) {
             int entryCount = lengths[offset + i];
 
-            if (nullCheckBlock == null) {
-                for (int j = 0; j < entryCount; j++) {
-                    ids[position++] = sourcePosition++;
-                }
-            }
-            else {
-                for (int j = 0; j < entryCount; j++) {
-                    if (nullCheckBlock.isNull(nullCheckBlockPosition++)) {
-                        ids[position++] = nullIndex;
-                    }
-                    else {
-                        ids[position++] = sourcePosition++;
-                    }
-                }
+            for (int j = 0; j < entryCount; j++) {
+                ids[position++] = sourcePosition++;
             }
 
             int maxEntryCount = requiredOutputEntries[offset + i];

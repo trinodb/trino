@@ -19,14 +19,13 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.type.Type;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static io.trino.spi.block.ColumnarRow.toColumnarRow;
+import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static io.trino.spi.connector.ConnectorMergeSink.DELETE_OPERATION_NUMBER;
 import static io.trino.spi.connector.ConnectorMergeSink.INSERT_OPERATION_NUMBER;
 import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_DELETE_OPERATION_NUMBER;
@@ -100,8 +99,8 @@ public class DeleteAndInsertMergeProcessor
         int originalPositionCount = inputPage.getPositionCount();
         checkArgument(originalPositionCount > 0, "originalPositionCount should be > 0, but is %s", originalPositionCount);
 
-        ColumnarRow mergeRow = toColumnarRow(inputPage.getBlock(mergeRowChannel));
-        Block operationChannelBlock = mergeRow.getField(mergeRow.getFieldCount() - 2);
+        List<Block> fields = getRowFieldsFromBlock(inputPage.getBlock(mergeRowChannel));
+        Block operationChannelBlock = fields.get(fields.size() - 2);
 
         int updatePositions = 0;
         int insertPositions = 0;
@@ -137,7 +136,7 @@ public class DeleteAndInsertMergeProcessor
                 }
                 // Insert and update because both create an insert row
                 if (operation == INSERT_OPERATION_NUMBER || operation == UPDATE_OPERATION_NUMBER) {
-                    addInsertRow(pageBuilder, mergeRow, position, operation != INSERT_OPERATION_NUMBER);
+                    addInsertRow(pageBuilder, fields, position, operation != INSERT_OPERATION_NUMBER);
                 }
             }
         }
@@ -179,14 +178,14 @@ public class DeleteAndInsertMergeProcessor
         pageBuilder.declarePosition();
     }
 
-    private void addInsertRow(PageBuilder pageBuilder, ColumnarRow mergeCaseBlock, int position, boolean causedByUpdate)
+    private void addInsertRow(PageBuilder pageBuilder, List<Block> fields, int position, boolean causedByUpdate)
     {
         // Copy the values from the merge block
         for (int targetChannel : dataColumnChannels) {
             Type columnType = dataColumnTypes.get(targetChannel);
             BlockBuilder targetBlock = pageBuilder.getBlockBuilder(targetChannel);
             // The value comes from that column of the page
-            columnType.appendTo(mergeCaseBlock.getField(targetChannel), position, targetBlock);
+            columnType.appendTo(fields.get(targetChannel), position, targetBlock);
         }
 
         // Add the operation column == insert

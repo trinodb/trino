@@ -13,10 +13,12 @@
  */
 package io.trino.parquet.writer.repdef;
 
+import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
-import io.trino.spi.block.ColumnarRow;
+import io.trino.spi.block.MapBlock;
+import io.trino.spi.block.RowBlock;
 import org.apache.parquet.column.values.ValuesWriter;
 
 import java.util.Optional;
@@ -31,12 +33,10 @@ public class DefLevelWriterProviders
 
     public static DefLevelWriterProvider of(Block block, int maxDefinitionLevel)
     {
+        if (block.getUnderlyingValueBlock() instanceof RowBlock) {
+            return new RowDefLevelWriterProvider(block, maxDefinitionLevel);
+        }
         return new PrimitiveDefLevelWriterProvider(block, maxDefinitionLevel);
-    }
-
-    public static DefLevelWriterProvider of(ColumnarRow columnarRow, int maxDefinitionLevel)
-    {
-        return new ColumnRowDefLevelWriterProvider(columnarRow, maxDefinitionLevel);
     }
 
     public static DefLevelWriterProvider of(ColumnarArray columnarArray, int maxDefinitionLevel)
@@ -59,6 +59,9 @@ public class DefLevelWriterProviders
         {
             this.block = requireNonNull(block, "block is null");
             this.maxDefinitionLevel = maxDefinitionLevel;
+            checkArgument(!(block.getUnderlyingValueBlock() instanceof RowBlock), "block is a row block");
+            checkArgument(!(block.getUnderlyingValueBlock() instanceof ArrayBlock), "block is an array block");
+            checkArgument(!(block.getUnderlyingValueBlock() instanceof MapBlock), "block is a map block");
         }
 
         @Override
@@ -100,16 +103,17 @@ public class DefLevelWriterProviders
         }
     }
 
-    static class ColumnRowDefLevelWriterProvider
+    static class RowDefLevelWriterProvider
             implements DefLevelWriterProvider
     {
-        private final ColumnarRow columnarRow;
+        private final Block block;
         private final int maxDefinitionLevel;
 
-        ColumnRowDefLevelWriterProvider(ColumnarRow columnarRow, int maxDefinitionLevel)
+        RowDefLevelWriterProvider(Block block, int maxDefinitionLevel)
         {
-            this.columnarRow = requireNonNull(columnarRow, "columnarRow is null");
+            this.block = requireNonNull(block, "block is null");
             this.maxDefinitionLevel = maxDefinitionLevel;
+            checkArgument(block.getUnderlyingValueBlock() instanceof RowBlock, "block is not a row block");
         }
 
         @Override
@@ -125,21 +129,21 @@ public class DefLevelWriterProviders
                 @Override
                 public ValuesCount writeDefinitionLevels()
                 {
-                    return writeDefinitionLevels(columnarRow.getPositionCount());
+                    return writeDefinitionLevels(block.getPositionCount());
                 }
 
                 @Override
                 public ValuesCount writeDefinitionLevels(int positionsCount)
                 {
-                    checkValidPosition(offset, positionsCount, columnarRow.getPositionCount());
-                    if (!columnarRow.mayHaveNull()) {
+                    checkValidPosition(offset, positionsCount, block.getPositionCount());
+                    if (!block.mayHaveNull()) {
                         offset += positionsCount;
                         return nestedWriter.writeDefinitionLevels(positionsCount);
                     }
                     int maxDefinitionValuesCount = 0;
                     int totalValuesCount = 0;
                     for (int position = offset; position < offset + positionsCount; ) {
-                        if (columnarRow.isNull(position)) {
+                        if (block.isNull(position)) {
                             encoder.writeInteger(maxDefinitionLevel - 1);
                             totalValuesCount++;
                             position++;
@@ -147,7 +151,7 @@ public class DefLevelWriterProviders
                         else {
                             int consecutiveNonNullsCount = 1;
                             position++;
-                            while (position < offset + positionsCount && !columnarRow.isNull(position)) {
+                            while (position < offset + positionsCount && !block.isNull(position)) {
                                 position++;
                                 consecutiveNonNullsCount++;
                             }

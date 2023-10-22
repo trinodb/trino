@@ -30,7 +30,7 @@ import io.trino.operator.window.InternalWindowIndex;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.ColumnarRow;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.RowValueBuilder;
 import io.trino.spi.block.ValueBlock;
@@ -686,19 +686,11 @@ public final class AccumulatorCompiler
             block = ImmutableList.of(scope.getVariable("block"));
         }
         else {
-            // ColumnarRow is used to get the column blocks represents each state, this allows to
-            //  1. handle single state and multiple states in a unified way
-            //  2. avoid the cost of constructing SingleRowBlock for each group
-            Variable columnarRow = scope.declareVariable(ColumnarRow.class, "columnarRow");
-            body.append(columnarRow.set(
-                    invokeStatic(ColumnarRow.class, "toColumnarRow", ColumnarRow.class, scope.getVariable("block"))));
+            Variable fields = scope.declareVariable("fields", body, invokeStatic(RowBlock.class, "getRowFieldsFromBlock", List.class, scope.getVariable("block")));
 
             block = new ArrayList<>();
             for (int i = 0; i < stateCount; i++) {
-                Variable columnBlock = scope.declareVariable(Block.class, "columnBlock_" + i);
-                body.append(columnBlock.set(
-                        columnarRow.invoke("getField", Block.class, constantInt(i))));
-                block.add(columnBlock);
+                block.add(scope.declareVariable("columnBlock_" + i, body, fields.invoke("get", Object.class, constantInt(i)).cast(Block.class)));
             }
         }
 

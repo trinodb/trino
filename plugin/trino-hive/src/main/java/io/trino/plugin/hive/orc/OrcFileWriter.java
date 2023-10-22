@@ -52,6 +52,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
@@ -150,23 +151,21 @@ public class OrcFileWriter
     public void appendRows(Page dataPage)
     {
         Block[] blocks = new Block[fileInputColumnIndexes.length];
-        boolean[] nullBlocksArray = new boolean[fileInputColumnIndexes.length];
-        boolean hasNullBlocks = false;
+        boolean hasUnwrittenColumn = false;
         int positionCount = dataPage.getPositionCount();
         for (int i = 0; i < fileInputColumnIndexes.length; i++) {
             int inputColumnIndex = fileInputColumnIndexes[i];
             if (inputColumnIndex < 0) {
-                hasNullBlocks = true;
                 blocks[i] = RunLengthEncodedBlock.create(nullBlocks.get(i), positionCount);
+                hasUnwrittenColumn = true;
             }
             else {
                 blocks[i] = dataPage.getBlock(inputColumnIndex);
             }
-            nullBlocksArray[i] = inputColumnIndex < 0;
         }
         if (transaction.isInsert() && useAcidSchema) {
-            Optional<boolean[]> nullBlocks = hasNullBlocks ? Optional.of(nullBlocksArray) : Optional.empty();
-            Block rowBlock = RowBlock.fromFieldBlocks(positionCount, nullBlocks, blocks);
+            verify(!hasUnwrittenColumn, "Unwritten columns are not supported for ACID transactional insert");
+            Block rowBlock = RowBlock.fromFieldBlocks(positionCount, blocks);
             blocks = buildAcidColumns(rowBlock, transaction);
         }
         Page page = new Page(dataPage.getPositionCount(), blocks);

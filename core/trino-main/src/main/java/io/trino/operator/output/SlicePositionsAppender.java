@@ -262,7 +262,8 @@ public class SlicePositionsAppender
         System.arraycopy(bytes, startOffset, bytes, startOffset + duplicatedBytes, totalDuplicatedBytes - duplicatedBytes);
     }
 
-    private void reset()
+    @Override
+    public void reset()
     {
         initialEntryCount = calculateBlockResetSize(positionCount);
         initialBytesSize = calculateBlockResetBytes(getCurrentOffset());

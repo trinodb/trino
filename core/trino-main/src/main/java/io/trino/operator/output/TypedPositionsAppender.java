@@ -63,8 +63,16 @@ class TypedPositionsAppender
     public Block build()
     {
         Block result = blockBuilder.build();
-        blockBuilder = blockBuilder.newBlockBuilderLike(null);
+        reset();
         return result;
+    }
+
+    @Override
+    public void reset()
+    {
+        if (blockBuilder.getPositionCount() > 0) {
+            blockBuilder = blockBuilder.newBlockBuilderLike(null);
+        }
     }
 
     @Override

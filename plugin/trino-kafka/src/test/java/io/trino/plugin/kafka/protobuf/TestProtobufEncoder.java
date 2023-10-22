@@ -286,10 +286,7 @@ public class TestProtobufEncoder
         listType.appendTo(arrayBlock, 0, listBlockBuilder);
 
         BlockBuilder nestedBlockBuilder = nestedRowType.createBlockBuilder(null, 1);
-        Block rowBlock = fromFieldBlocks(
-                1,
-                Optional.empty(),
-                new Block[]{listBlockBuilder.build(), mapBlockBuilder.build(), rowBlockBuilder.build()});
+        Block rowBlock = fromFieldBlocks(1, new Block[]{listBlockBuilder.build(), mapBlockBuilder.build(), rowBlockBuilder.build()});
         nestedRowType.appendTo(rowBlock, 0, nestedBlockBuilder);
 
         rowEncoder.appendColumnValue(nestedBlockBuilder.build(), 0);

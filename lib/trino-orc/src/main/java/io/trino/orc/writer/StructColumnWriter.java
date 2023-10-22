@@ -28,7 +28,6 @@ import io.trino.orc.metadata.statistics.ColumnStatistics;
 import io.trino.orc.stream.PresentOutputStream;
 import io.trino.orc.stream.StreamDataOutput;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.ColumnarRow;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -41,7 +40,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static io.trino.orc.metadata.CompressionKind.NONE;
-import static io.trino.spi.block.ColumnarRow.toColumnarRow;
+import static io.trino.spi.block.RowBlock.getNullSuppressedRowFieldsFromBlock;
 import static java.util.Objects.requireNonNull;
 
 public class StructColumnWriter
@@ -106,27 +105,20 @@ public class StructColumnWriter
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
 
-        ColumnarRow columnarRow = toColumnarRow(block);
-        writeColumnarRow(columnarRow);
-    }
-
-    private void writeColumnarRow(ColumnarRow columnarRow)
-    {
         // record nulls
-        for (int position = 0; position < columnarRow.getPositionCount(); position++) {
-            boolean present = !columnarRow.isNull(position);
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            boolean present = !block.isNull(position);
             presentStream.writeBoolean(present);
             if (present) {
                 nonNullValueCount++;
             }
         }
 
-        // write field values
-        for (int i = 0; i < structFields.size(); i++) {
-            ColumnWriter columnWriter = structFields.get(i);
-            Block fieldBlock = columnarRow.getField(i);
-            if (fieldBlock.getPositionCount() > 0) {
-                columnWriter.writeBlock(fieldBlock);
+        // write null-suppressed field values
+        List<Block> fields = getNullSuppressedRowFieldsFromBlock(block);
+        if (fields.get(0).getPositionCount() > 0) {
+            for (int i = 0; i < structFields.size(); i++) {
+                structFields.get(i).writeBlock(fields.get(i));
             }
         }
     }
