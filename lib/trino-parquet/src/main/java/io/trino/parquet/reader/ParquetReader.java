@@ -34,6 +34,7 @@ import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.metrics.Metric;
@@ -42,7 +43,6 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.filter2.compat.FilterCompat;
@@ -381,25 +381,67 @@ public class ParquetReader
     private ColumnChunk readStruct(GroupField field)
             throws IOException
     {
-        List<TypeSignatureParameter> fields = field.getType().getTypeSignature().getParameters();
-        Block[] blocks = new Block[fields.size()];
+        Block[] blocks = new Block[field.getType().getTypeParameters().size()];
         ColumnChunk columnChunk = null;
         List<Optional<Field>> parameters = field.getChildren();
-        for (int i = 0; i < fields.size(); i++) {
+        for (int i = 0; i < blocks.length; i++) {
             Optional<Field> parameter = parameters.get(i);
             if (parameter.isPresent()) {
                 columnChunk = readColumnChunk(parameter.get());
                 blocks[i] = columnChunk.getBlock();
             }
         }
-        for (int i = 0; i < fields.size(); i++) {
+
+        if (columnChunk == null) {
+            throw new ParquetCorruptionException("Struct field does not have any children: " + field);
+        }
+
+        StructColumnReader.RowBlockPositions structIsNull = StructColumnReader.calculateStructOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
+        Optional<boolean[]> isNull = structIsNull.isNull();
+        for (int i = 0; i < blocks.length; i++) {
             if (blocks[i] == null) {
-                blocks[i] = RunLengthEncodedBlock.create(field.getType().getTypeParameters().get(i), null, columnChunk.getBlock().getPositionCount());
+                blocks[i] = RunLengthEncodedBlock.create(field.getType().getTypeParameters().get(i), null, structIsNull.positionsCount());
+            }
+            else if (isNull.isPresent()) {
+                blocks[i] = toNotNullSupressedBlock(structIsNull.positionsCount(), isNull.get(), blocks[i]);
             }
         }
-        StructColumnReader.RowBlockPositions structIsNull = StructColumnReader.calculateStructOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
-        Block rowBlock = RowBlock.fromFieldBlocks(structIsNull.positionsCount(), structIsNull.isNull(), blocks);
+        Block rowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(structIsNull.positionsCount(), structIsNull.isNull(), blocks);
         return new ColumnChunk(rowBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
+    }
+
+    private static Block toNotNullSupressedBlock(int positionCount, boolean[] rowIsNull, Block fieldBlock)
+    {
+        // find a existing position in the block that is null
+        int nullIndex = -1;
+        if (fieldBlock.mayHaveNull()) {
+            for (int position = 0; position < fieldBlock.getPositionCount(); position++) {
+                if (fieldBlock.isNull(position)) {
+                    nullIndex = position;
+                    break;
+                }
+            }
+        }
+        // if there are no null positions, append a null to the end of the block
+        if (nullIndex == -1) {
+            fieldBlock = fieldBlock.getLoadedBlock();
+            nullIndex = fieldBlock.getPositionCount();
+            fieldBlock = fieldBlock.copyWithAppendedNull();
+        }
+
+        // create a dictionary that maps null positions to the null index
+        int[] dictionaryIds = new int[positionCount];
+        int nullSuppressedPosition = 0;
+        for (int position = 0; position < positionCount; position++) {
+            if (rowIsNull[position]) {
+                dictionaryIds[position] = nullIndex;
+            }
+            else {
+                dictionaryIds[position] = nullSuppressedPosition;
+                nullSuppressedPosition++;
+            }
+        }
+        return DictionaryBlock.create(positionCount, fieldBlock, dictionaryIds);
     }
 
     @Nullable

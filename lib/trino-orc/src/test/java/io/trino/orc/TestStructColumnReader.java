@@ -16,6 +16,7 @@ package io.trino.orc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.local.LocalOutputFile;
@@ -49,7 +50,6 @@ import static io.trino.orc.TestingOrcPredicate.ORC_STRIPE_SIZE;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -234,19 +234,17 @@ public class TestStructColumnReader
         Block[] fieldBlocks = new Block[data.size()];
 
         int entries = 10;
-        boolean[] rowIsNull = new boolean[entries];
-        Arrays.fill(rowIsNull, false);
 
-        VariableWidthBlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, entries);
-        for (int i = 0; i < data.size(); i++) {
-            byte[] bytes = data.get(i).getBytes(UTF_8);
-            for (int j = 0; j < entries; j++) {
-                blockBuilder.writeEntry(Slices.wrappedBuffer(bytes));
+        VariableWidthBlockBuilder fieldBlockBuilder = VARCHAR.createBlockBuilder(null, entries);
+        for (int fieldId = 0; fieldId < data.size(); fieldId++) {
+            Slice fieldValue = Slices.utf8Slice(data.get(fieldId));
+            for (int rowId = 0; rowId < entries; rowId++) {
+                fieldBlockBuilder.writeEntry(fieldValue);
             }
-            fieldBlocks[i] = blockBuilder.build();
-            blockBuilder = (VariableWidthBlockBuilder) blockBuilder.newBlockBuilderLike(null);
+            fieldBlocks[fieldId] = fieldBlockBuilder.build();
+            fieldBlockBuilder = (VariableWidthBlockBuilder) fieldBlockBuilder.newBlockBuilderLike(null);
         }
-        Block rowBlock = RowBlock.fromFieldBlocks(rowIsNull.length, Optional.of(rowIsNull), fieldBlocks);
+        Block rowBlock = RowBlock.fromFieldBlocks(entries, fieldBlocks);
         writer.write(new Page(rowBlock));
         writer.close();
     }

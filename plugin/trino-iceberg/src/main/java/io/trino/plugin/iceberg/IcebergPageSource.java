@@ -164,7 +164,7 @@ public class IcebergPageSource
         Block[] fullPage = new Block[page.getChannelCount()];
         for (int channel = 0; channel < page.getChannelCount(); channel++) {
             if (channel == rowIdColumnIndex) {
-                fullPage[channel] = RowBlock.fromFieldBlocks(page.getPositionCount(), Optional.empty(), rowIdFields);
+                fullPage[channel] = RowBlock.fromFieldBlocks(page.getPositionCount(), rowIdFields);
                 continue;
             }
 

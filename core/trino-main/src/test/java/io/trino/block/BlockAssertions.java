@@ -240,7 +240,7 @@ public final class BlockAssertions
                 fieldBlocks[i] = createRandomBlockForType(fieldTypes.get(i), positionCount, nullRate);
             }
 
-            return RowBlock.fromFieldBlocks(positionCount, Optional.ofNullable(isNull), fieldBlocks);
+            return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, Optional.ofNullable(isNull), fieldBlocks);
         }
 
         throw new IllegalArgumentException(format("type %s is not supported.", type));
