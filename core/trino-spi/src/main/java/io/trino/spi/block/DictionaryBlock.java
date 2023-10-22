@@ -140,12 +140,6 @@ public final class DictionaryBlock
     }
 
     @Override
-    public long getLong(int position, int offset)
-    {
-        return dictionary.getLong(getId(position), offset);
-    }
-
-    @Override
     public Slice getSlice(int position, int offset, int length)
     {
         return dictionary.getSlice(getId(position), offset, length);

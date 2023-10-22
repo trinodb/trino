@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.function.BiPredicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static java.util.Objects.requireNonNull;
@@ -117,7 +118,7 @@ public record MockPlanAlternativeTableHandle(ConnectorTableHandle delegate, Colu
         public BiPredicate<Block, Integer> asPredicate(ConnectorSession session)
         {
             return (block, position) -> {
-                long value = block.getLong(position, 0);
+                long value = BIGINT.getLong(block, position);
                 for (int i = 0; i < values.length; i++) {
                     if (value == values[i]) {
                         return true;

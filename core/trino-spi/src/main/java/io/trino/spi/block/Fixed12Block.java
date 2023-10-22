@@ -124,16 +124,6 @@ public final class Fixed12Block
         return positionCount;
     }
 
-    @Override
-    public long getLong(int position, int offset)
-    {
-        if (offset != 0) {
-            // If needed, we can add support for offset 4
-            throw new IllegalArgumentException("offset must be 0");
-        }
-        return getFixed12First(position);
-    }
-
     public int getInt(int position, int offset)
     {
         checkReadablePosition(this, position);

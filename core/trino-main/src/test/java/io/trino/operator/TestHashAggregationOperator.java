@@ -462,7 +462,7 @@ public class TestHashAggregationOperator
             // value + hash + aggregation result
             assertThat(page.getChannelCount()).isEqualTo(3);
             for (int i = 0; i < page.getPositionCount(); i++) {
-                assertThat(page.getBlock(2).getLong(i, 0)).isEqualTo(1);
+                assertThat(BIGINT.getLong(page.getBlock(2), i)).isEqualTo(1);
                 count++;
             }
         }

@@ -33,6 +33,7 @@ import java.util.Arrays;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -190,7 +191,7 @@ public class TestDictionaryAwareColumnarFilter
         IntSet actualSelectedPositions = new IntArraySet(Arrays.copyOfRange(outputPositions, 0, outputPositionsCount));
         IntSet expectedSelectedPositions = new IntArraySet(block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {
-            if (isSelected(selectRange, block.getLong(position, 0))) {
+            if (isSelected(selectRange, BIGINT.getLong(block, position))) {
                 expectedSelectedPositions.add(position);
             }
         }
@@ -256,7 +257,7 @@ public class TestDictionaryAwareColumnarFilter
 
             int outputPositionsCount = 0;
             for (int position = offset; position < offset + size; position++) {
-                long value = block.getLong(position, 0);
+                long value = BIGINT.getLong(block, position);
                 verifyPositive(value);
 
                 boolean selected = isSelected(selectRange, value);
@@ -283,7 +284,7 @@ public class TestDictionaryAwareColumnarFilter
             int outputPositionsCount = 0;
             for (int index = offset; index < offset + size; index++) {
                 int position = activePositions[index];
-                long value = block.getLong(position, 0);
+                long value = BIGINT.getLong(block, position);
                 verifyPositive(value);
 
                 boolean selected = isSelected(selectRange, value);

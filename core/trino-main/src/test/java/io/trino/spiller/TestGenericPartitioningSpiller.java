@@ -251,7 +251,7 @@ public class TestGenericPartitioningSpiller
         @Override
         public int getPartition(Page page, int position)
         {
-            long value = page.getBlock(valueChannel).getLong(position, 0);
+            long value = BIGINT.getLong(page.getBlock(valueChannel), position);
             if (value >= FOURTH_PARTITION_START) {
                 return 3;
             }
@@ -287,7 +287,7 @@ public class TestGenericPartitioningSpiller
         @Override
         public int getPartition(Page page, int position)
         {
-            long value = page.getBlock(valueChannel).getLong(position, 0);
+            long value = BIGINT.getLong(page.getBlock(valueChannel), position);
             return toIntExact(Math.abs(value) % partitionCount);
         }
     }

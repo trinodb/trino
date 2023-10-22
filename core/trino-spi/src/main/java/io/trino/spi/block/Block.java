@@ -34,14 +34,6 @@ public sealed interface Block
     }
 
     /**
-     * Gets a little endian long at {@code offset} in the value at {@code position}.
-     */
-    default long getLong(int position, int offset)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
      * Gets a slice at {@code offset} in the value at {@code position}.
      */
     default Slice getSlice(int position, int offset, int length)

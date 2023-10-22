@@ -137,8 +137,10 @@ public class TestInt96Timestamp
     @DataProvider(name = "testVariousTimestampsDataProvider")
     public Object[][] testVariousTimestampsDataProvider()
     {
-        BiFunction<Block, Integer, DecodedTimestamp> shortTimestamp = (block, i) ->
-                new DecodedTimestamp(floorDiv(block.getLong(i, 0), MICROSECONDS_PER_SECOND), floorMod(block.getLong(i, 0), MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND);
+        BiFunction<Block, Integer, DecodedTimestamp> shortTimestamp = (block, i) -> {
+            long value = TIMESTAMP_MICROS.getLong(block, i);
+            return new DecodedTimestamp(floorDiv(value, MICROSECONDS_PER_SECOND), floorMod(value, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND);
+        };
         BiFunction<Block, Integer, DecodedTimestamp> longTimestamp = (block, i) ->
         {
             Fixed12Block fixed12Block = (Fixed12Block) block;
