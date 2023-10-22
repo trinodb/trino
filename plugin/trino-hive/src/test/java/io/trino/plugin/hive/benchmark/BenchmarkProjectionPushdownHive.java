@@ -272,7 +272,7 @@ public class BenchmarkProjectionPushdownHive
                     fieldBlocks[field] = createBlock(parameters.get(field), rowCount);
                 }
 
-                return RowBlock.fromFieldBlocks(rowCount, Optional.empty(), fieldBlocks);
+                return RowBlock.fromFieldBlocks(rowCount, fieldBlocks);
             }
             if (type instanceof VarcharType) {
                 BlockBuilder builder = VARCHAR.createBlockBuilder(null, rowCount);

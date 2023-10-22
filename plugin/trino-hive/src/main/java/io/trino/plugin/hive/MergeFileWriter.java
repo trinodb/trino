@@ -21,7 +21,6 @@ import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -52,7 +51,7 @@ import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat
 import static io.trino.plugin.hive.orc.OrcFileWriter.computeBucketValue;
 import static io.trino.plugin.hive.util.AcidTables.deleteDeltaSubdir;
 import static io.trino.plugin.hive.util.AcidTables.deltaSubdir;
-import static io.trino.spi.block.ColumnarRow.toColumnarRow;
+import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static io.trino.spi.connector.MergePage.createDeleteAndInsertPages;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -154,7 +153,7 @@ public class MergeFileWriter
                 .filter(column -> !column.isPartitionKey() && !column.isHidden())
                 .map(column -> insertPage.getBlock(column.getBaseHiveColumnIndex()))
                 .collect(toImmutableList());
-        Block mergedColumnsBlock = RowBlock.fromFieldBlocks(positionCount, Optional.empty(), dataColumns.toArray(new Block[] {}));
+        Block mergedColumnsBlock = RowBlock.fromFieldBlocks(positionCount, dataColumns.toArray(new Block[] {}));
         Block currentTransactionBlock = RunLengthEncodedBlock.create(BIGINT, writeId, positionCount);
         Block[] blockArray = {
                 RunLengthEncodedBlock.create(INSERT_OPERATION_BLOCK, positionCount),
@@ -227,19 +226,18 @@ public class MergeFileWriter
 
     private Page buildDeletePage(Block rowIds, long writeId)
     {
-        ColumnarRow columnarRow = toColumnarRow(rowIds);
         int positionCount = rowIds.getPositionCount();
-        if (columnarRow.mayHaveNull()) {
+        if (rowIds.mayHaveNull()) {
             for (int position = 0; position < positionCount; position++) {
-                checkArgument(!columnarRow.isNull(position), "The rowIdsRowBlock may not have null rows");
+                checkArgument(!rowIds.isNull(position), "The rowIdsRowBlock may not have null rows");
             }
         }
-        // We've verified that the rowIds block has no null rows, so it's okay to get the field blocks
+        List<Block> fields = getRowFieldsFromBlock(rowIds);
         Block[] blockArray = {
                 RunLengthEncodedBlock.create(DELETE_OPERATION_BLOCK, positionCount),
-                columnarRow.getField(ORIGINAL_TRANSACTION_CHANNEL),
-                columnarRow.getField(BUCKET_CHANNEL),
-                columnarRow.getField(ROW_ID_CHANNEL),
+                fields.get(ORIGINAL_TRANSACTION_CHANNEL),
+                fields.get(BUCKET_CHANNEL),
+                fields.get(ROW_ID_CHANNEL),
                 RunLengthEncodedBlock.create(BIGINT, writeId, positionCount),
                 RunLengthEncodedBlock.create(hiveRowTypeNullsBlock, positionCount),
         };

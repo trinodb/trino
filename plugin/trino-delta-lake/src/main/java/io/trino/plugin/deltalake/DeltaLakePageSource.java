@@ -208,7 +208,7 @@ public class DeltaLakePageSource
                 rowIndexBlock,
                 RunLengthEncodedBlock.create(partitionsBlock, positions),
         };
-        return RowBlock.fromFieldBlocks(positions, Optional.empty(), fields);
+        return RowBlock.fromFieldBlocks(positions, fields);
     }
 
     @Override

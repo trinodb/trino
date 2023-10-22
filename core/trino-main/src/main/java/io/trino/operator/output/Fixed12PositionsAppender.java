@@ -182,7 +182,8 @@ public class Fixed12PositionsAppender
         return sizeInBytes;
     }
 
-    private void reset()
+    @Override
+    public void reset()
     {
         initialEntryCount = calculateBlockResetSize(positionCount);
         initialized = false;

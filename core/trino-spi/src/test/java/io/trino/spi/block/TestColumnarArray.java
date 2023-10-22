@@ -11,31 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.block;
+package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.ColumnarArray;
-import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.ArrayType;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Array;
 import java.util.Arrays;
 
-import static io.trino.block.ColumnarTestUtils.alternatingNullValues;
-import static io.trino.block.ColumnarTestUtils.assertBlock;
-import static io.trino.block.ColumnarTestUtils.assertBlockPosition;
-import static io.trino.block.ColumnarTestUtils.createTestDictionaryBlock;
-import static io.trino.block.ColumnarTestUtils.createTestDictionaryExpectedValues;
-import static io.trino.block.ColumnarTestUtils.createTestRleBlock;
-import static io.trino.block.ColumnarTestUtils.createTestRleExpectedValues;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
+import static io.trino.spi.block.ColumnarTestUtils.alternatingNullValues;
+import static io.trino.spi.block.ColumnarTestUtils.assertBlock;
+import static io.trino.spi.block.ColumnarTestUtils.assertBlockPosition;
+import static io.trino.spi.block.ColumnarTestUtils.createTestDictionaryBlock;
+import static io.trino.spi.block.ColumnarTestUtils.createTestDictionaryExpectedValues;
+import static io.trino.spi.block.ColumnarTestUtils.createTestRleBlock;
+import static io.trino.spi.block.ColumnarTestUtils.createTestRleExpectedValues;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestColumnarArray
 {
@@ -106,15 +102,15 @@ public class TestColumnarArray
     private static <T> void assertColumnarArray(Block block, T[] expectedValues)
     {
         ColumnarArray columnarArray = toColumnarArray(block);
-        assertEquals(columnarArray.getPositionCount(), expectedValues.length);
+        assertThat(columnarArray.getPositionCount()).isEqualTo(expectedValues.length);
 
         Block elementsBlock = columnarArray.getElementsBlock();
         int elementsPosition = 0;
         for (int position = 0; position < expectedValues.length; position++) {
             T expectedArray = expectedValues[position];
-            assertEquals(columnarArray.isNull(position), expectedArray == null);
-            assertEquals(columnarArray.getLength(position), expectedArray == null ? 0 : Array.getLength(expectedArray));
-            assertEquals(elementsPosition, columnarArray.getOffset(position));
+            assertThat(columnarArray.isNull(position)).isEqualTo(expectedArray == null);
+            assertThat(columnarArray.getLength(position)).isEqualTo(expectedArray == null ? 0 : Array.getLength(expectedArray));
+            assertThat(elementsPosition).isEqualTo(columnarArray.getOffset(position));
 
             for (int i = 0; i < columnarArray.getLength(position); i++) {
                 Object expectedElement = Array.get(expectedArray, i);

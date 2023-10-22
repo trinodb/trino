@@ -27,6 +27,7 @@ import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidPositions;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
+import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static java.lang.Math.min;
 import static java.util.Collections.singletonList;
@@ -430,16 +431,18 @@ public final class DictionaryBlock
             // therefore it makes sense to unwrap this outer dictionary layer directly
             return dictionary.copyPositions(ids, idsOffset + position, length);
         }
-        int[] newIds = Arrays.copyOfRange(ids, idsOffset + position, idsOffset + position + length);
-        DictionaryBlock dictionaryBlock = new DictionaryBlock(
+        int[] newIds = compactArray(ids, idsOffset + position, length);
+        if (newIds == ids) {
+            return this;
+        }
+        return new DictionaryBlock(
                 0,
-                newIds.length,
+                length,
                 dictionary,
                 newIds,
                 false,
                 false,
-                randomDictionaryId());
-        return dictionaryBlock.compact();
+                randomDictionaryId()).compact();
     }
 
     @Override
@@ -546,6 +549,34 @@ public final class DictionaryBlock
     public ValueBlock getDictionary()
     {
         return dictionary;
+    }
+
+    public Block createProjection(Block newDictionary)
+    {
+        if (newDictionary.getPositionCount() != dictionary.getPositionCount()) {
+            throw new IllegalArgumentException("newDictionary must have the same position count");
+        }
+
+        // if the new dictionary is lazy be careful to not materialize it
+        if (newDictionary instanceof LazyBlock lazyBlock) {
+            return new LazyBlock(positionCount, () -> {
+                Block newDictionaryBlock = lazyBlock.getBlock();
+                return createProjection(newDictionaryBlock);
+            });
+        }
+        if (newDictionary instanceof ValueBlock valueBlock) {
+            return new DictionaryBlock(idsOffset, positionCount, valueBlock, ids, isCompact(), false, dictionarySourceId);
+        }
+        if (newDictionary instanceof RunLengthEncodedBlock rle) {
+            return RunLengthEncodedBlock.create(rle.getValue(), positionCount);
+        }
+
+        // unwrap dictionary in dictionary
+        int[] newIds = new int[positionCount];
+        for (int position = 0; position < positionCount; position++) {
+            newIds[position] = newDictionary.getUnderlyingValuePosition(getIdUnchecked(position));
+        }
+        return new DictionaryBlock(0, positionCount, newDictionary.getUnderlyingValueBlock(), newIds, false, false, randomDictionaryId());
     }
 
     boolean isSequentialIds()

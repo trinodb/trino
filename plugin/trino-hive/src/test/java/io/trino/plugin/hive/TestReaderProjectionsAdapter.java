@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.SqlRow;
@@ -41,8 +40,6 @@ import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.ROWTYPE_OF_ROW_
 import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.createProjectedColumnHandle;
 import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.createTestFullColumns;
 import static io.trino.plugin.hive.TestReaderProjectionsAdapter.RowData.rowData;
-import static io.trino.spi.block.ColumnarRow.toColumnarRow;
-import static io.trino.spi.block.RowBlock.fromFieldBlocks;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -112,18 +109,16 @@ public class TestReaderProjectionsAdapter
         assertFalse(rowBlockLevel1.isLoaded());
 
         // Assertion for "col.f_row_0" and col.f_bigint_0"
-        ColumnarRow columnarRowLevel1 = toColumnarRow(rowBlockLevel1);
-        assertFalse(columnarRowLevel1.getField(0).isLoaded());
-        assertFalse(columnarRowLevel1.getField(1).isLoaded());
+        assertFalse(rowBlockLevel1.getFieldBlock(0).isLoaded());
+        assertFalse(rowBlockLevel1.getFieldBlock(1).isLoaded());
 
-        Block lazyBlockLevel2 = columnarRowLevel1.getField(0);
+        Block lazyBlockLevel2 = rowBlockLevel1.getFieldBlock(0);
         assertTrue(lazyBlockLevel2 instanceof LazyBlock);
         RowBlock rowBlockLevel2 = ((RowBlock) (((LazyBlock) lazyBlockLevel2).getBlock()));
         assertFalse(rowBlockLevel2.isLoaded());
-        ColumnarRow columnarRowLevel2 = toColumnarRow(rowBlockLevel2);
         // Assertion for "col.f_row_0.f_bigint_0" and "col.f_row_0.f_bigint_1"
-        assertTrue(columnarRowLevel2.getField(0).isLoaded());
-        assertFalse(columnarRowLevel2.getField(1).isLoaded());
+        assertTrue(rowBlockLevel2.getFieldBlock(0).isLoaded());
+        assertFalse(rowBlockLevel2.getFieldBlock(1).isLoaded());
     }
 
     private void verifyPageAdaptation(ReaderProjectionsAdapter adapter, List<List<Object>> inputPageData)
@@ -188,6 +183,9 @@ public class TestReaderProjectionsAdapter
             RowData row = (RowData) data.get(position);
             if (row == null) {
                 isNull[position] = true;
+                for (int field = 0; field < fieldCount; field++) {
+                    fieldsData.get(field).add(null);
+                }
             }
             else {
                 for (int field = 0; field < fieldCount; field++) {
@@ -201,7 +199,7 @@ public class TestReaderProjectionsAdapter
             fieldBlocks[field] = createInputBlock(fieldsData.get(field), rowType.getFields().get(field).getType());
         }
 
-        return fromFieldBlocks(positionCount, Optional.of(isNull), fieldBlocks);
+        return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, Optional.of(isNull), fieldBlocks);
     }
 
     private static Block createLongArrayBlock(List<Object> data)

@@ -29,7 +29,6 @@ import org.openjdk.jmh.annotations.Warmup;
 import java.util.Optional;
 import java.util.Random;
 import java.util.stream.IntStream;
-import java.util.stream.LongStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.jmh.Benchmarks.benchmark;
@@ -101,7 +100,9 @@ public class BenchmarkCopyPositions
                 block = createBlockBuilderWithValues(slices).build();
             }
             else if (type.equals("ROW(BIGINT)")) {
-                block = createRowBlock(POSITIONS, createRandomLongArrayBlock());
+                Optional<boolean[]> rowIsNull = nullsAllowed ? Optional.of(generateIsNull(POSITIONS)) : Optional.empty();
+                LongArrayBlock randomLongArrayBlock = new LongArrayBlock(POSITIONS, rowIsNull, new Random(SEED).longs().limit(POSITIONS).toArray());
+                block = RowBlock.fromNotNullSuppressedFieldBlocks(POSITIONS, rowIsNull, new Block[]{randomLongArrayBlock});
             }
         }
 
@@ -144,19 +145,7 @@ public class BenchmarkCopyPositions
             return blockBuilder;
         }
 
-        private static LongArrayBlock createRandomLongArrayBlock()
-        {
-            Random random = new Random(SEED);
-            return new LongArrayBlock(POSITIONS, Optional.empty(), LongStream.range(0, POSITIONS).map(i -> random.nextLong()).toArray());
-        }
-
-        private Block createRowBlock(int positionCount, Block... field)
-        {
-            Optional<boolean[]> rowIsNull = nullsAllowed ? Optional.of(generateIsNull(positionCount)) : Optional.empty();
-            return RowBlock.fromFieldBlocks(positionCount, rowIsNull, field);
-        }
-
-        private boolean[] generateIsNull(int positionCount)
+        private static boolean[] generateIsNull(int positionCount)
         {
             Random random = new Random(SEED);
             boolean[] result = new boolean[positionCount];

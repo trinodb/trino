@@ -448,8 +448,10 @@ public class TestCheckpointWriter
         for (String key : stats.keySet()) {
             Object statsValue = stats.get(key);
             if (statsValue instanceof SqlRow sqlRow) {
-                ImmutableList<Long> logicalSizes = sqlRow.getRawFieldBlocks().stream()
-                        .map(Block::getLogicalSizeInBytes)
+                // todo: this validation is just broken. The only way to compare values is to use types.
+                // see https://github.com/trinodb/trino/issues/19557
+                ImmutableList<String> logicalSizes = sqlRow.getRawFieldBlocks().stream()
+                        .map(block -> block.getUnderlyingValueBlock().getClass().getName())
                         .collect(toImmutableList());
                 comparableStats.put(key, logicalSizes);
             }

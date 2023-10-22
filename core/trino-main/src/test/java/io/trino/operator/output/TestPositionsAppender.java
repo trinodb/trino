@@ -348,7 +348,7 @@ public class TestPositionsAppender
     public void testRowWithNestedFields()
     {
         RowType type = anonymousRow(BIGINT, BIGINT, VARCHAR);
-        Block rowBLock = RowBlock.fromFieldBlocks(2, Optional.empty(), new Block[] {
+        Block rowBLock = RowBlock.fromFieldBlocks(2, new Block[] {
                 notNullBlock(TestType.BIGINT, 2),
                 dictionaryBlock(TestType.BIGINT, 2, 2, 0.5F),
                 rleBlock(TestType.VARCHAR, 2)
@@ -366,7 +366,7 @@ public class TestPositionsAppender
     public static Object[][] complexTypesWithNullElementBlock()
     {
         return new Object[][] {
-                {TestType.ROW_BIGINT_VARCHAR, RowBlock.fromFieldBlocks(1, Optional.empty(), new Block[] {nullBlock(BIGINT, 1), nullBlock(VARCHAR, 1)})},
+                {TestType.ROW_BIGINT_VARCHAR, RowBlock.fromFieldBlocks(1, new Block[] {nullBlock(BIGINT, 1), nullBlock(VARCHAR, 1)})},
                 {TestType.ARRAY_BIGINT, ArrayBlock.fromElementBlock(1, Optional.empty(), new int[] {0, 1}, nullBlock(BIGINT, 1))}};
     }
 
