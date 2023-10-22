@@ -30,6 +30,7 @@ import io.trino.plugin.thrift.api.datatypes.TrinoThriftTimestamp;
 import io.trino.plugin.thrift.api.datatypes.TrinoThriftVarchar;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.ArrayType;
@@ -178,7 +179,7 @@ public final class TrinoThriftBlock
         return bigintArrayData;
     }
 
-    public Block toBlock(Type desiredType)
+    public ValueBlock toBlock(Type desiredType)
     {
         return dataReference.toBlock(desiredType);
     }
