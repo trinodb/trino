@@ -36,7 +36,6 @@ import io.trino.spi.type.Type;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.Decimals.writeShortDecimal;
 import static io.trino.spi.type.Int128Math.addWithOverflow;
@@ -88,8 +87,8 @@ public final class DecimalAverageAggregation
         long[] decimal = state.getDecimalArray();
         int offset = state.getDecimalArrayOffset();
 
-        long rightHigh = block.getLong(position, 0);
-        long rightLow = block.getLong(position, SIZE_OF_LONG);
+        long rightHigh = block.getInt128High(position);
+        long rightLow = block.getInt128Low(position);
 
         long overflow = addWithOverflow(
                 decimal[offset],

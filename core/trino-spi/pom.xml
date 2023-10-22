@@ -336,6 +336,38 @@
                                     <code>java.method.removed</code>
                                     <old>method int io.trino.spi.block.VariableWidthBlock::getInt(int, int)</old>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.Block::getLong(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.DictionaryBlock::getLong(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.Fixed12Block::getLong(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.Int128ArrayBlock::getLong(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.LazyBlock::getLong(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.LongArrayBlock::getLong(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.RunLengthEncodedBlock::getLong(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.VariableWidthBlock::getLong(int, int)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
