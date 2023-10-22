@@ -29,9 +29,10 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
-import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.CharType;
@@ -51,6 +52,7 @@ import io.trino.spi.type.VarcharType;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.hive.HiveType.HIVE_BYTE;
 import static io.trino.plugin.hive.HiveType.HIVE_DOUBLE;
 import static io.trino.plugin.hive.HiveType.HIVE_FLOAT;
@@ -67,7 +69,6 @@ import static io.trino.plugin.hive.coercions.DecimalCoercers.createRealToDecimal
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
 import static io.trino.spi.block.ColumnarMap.toColumnarMap;
-import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
@@ -365,47 +366,80 @@ public final class CoercionUtils
             extends TypeCoercer<RowType, RowType>
     {
         private final List<Optional<TypeCoercer<? extends Type, ? extends Type>>> coercers;
-        private final Block[] nullBlocks;
 
         public StructCoercer(RowType fromType, RowType toType, List<Optional<TypeCoercer<? extends Type, ? extends Type>>> coercers)
         {
             super(fromType, toType);
+            checkArgument(toType.getTypeParameters().size() == coercers.size());
+            checkArgument(fromType.getTypeParameters().size() <= coercers.size());
             this.coercers = ImmutableList.copyOf(requireNonNull(coercers, "coercers is null"));
-            List<Field> toTypeFields = toType.getFields();
-            this.nullBlocks = new Block[toTypeFields.size()];
-            for (int i = 0; i < toTypeFields.size(); i++) {
-                if (i >= fromType.getFields().size()) {
-                    nullBlocks[i] = toTypeFields.get(i).getType().createBlockBuilder(null, 1).appendNull().build();
-                }
-            }
         }
 
         @Override
         public Block apply(Block block)
         {
-            ColumnarRow rowBlock = toColumnarRow(block);
-            Block[] fields = new Block[coercers.size()];
-            int[] ids = new int[rowBlock.getField(0).getPositionCount()];
+            if (block instanceof LazyBlock lazyBlock) {
+                // only load the top level block so non-coerced fields are not loaded
+                block = lazyBlock.getBlock();
+            }
+
+            if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
+                RowBlock rowBlock = (RowBlock) runLengthEncodedBlock.getValue();
+                RowBlock newRowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(
+                        1,
+                        rowBlock.isNull(0) ? Optional.of(new boolean[]{true}) : Optional.empty(),
+                        coerceFields(rowBlock.getFieldBlocks()));
+                return RunLengthEncodedBlock.create(newRowBlock, runLengthEncodedBlock.getPositionCount());
+            }
+            if (block instanceof DictionaryBlock dictionaryBlock) {
+                RowBlock rowBlock = (RowBlock) dictionaryBlock.getDictionary();
+                // create a dictionary block for each field, by rewraping the nested fields in a new dictionary
+                List<Block> fieldBlocks = rowBlock.getFieldBlocks().stream()
+                        .map(dictionaryBlock::createProjection)
+                        .toList();
+                // coerce the wrapped fields, so only the used dictionary values are coerced
+                Block[] newFields = coerceFields(fieldBlocks);
+                return RowBlock.fromNotNullSuppressedFieldBlocks(
+                        dictionaryBlock.getPositionCount(),
+                        getNulls(dictionaryBlock),
+                        newFields);
+            }
+            RowBlock rowBlock = (RowBlock) block;
+            return RowBlock.fromNotNullSuppressedFieldBlocks(
+                    rowBlock.getPositionCount(),
+                    getNulls(rowBlock),
+                    coerceFields(rowBlock.getFieldBlocks()));
+        }
+
+        private static Optional<boolean[]> getNulls(Block rowBlock)
+        {
+            if (!rowBlock.mayHaveNull()) {
+                return Optional.empty();
+            }
+
+            boolean[] valueIsNull = new boolean[rowBlock.getPositionCount()];
+            for (int i = 0; i < rowBlock.getPositionCount(); i++) {
+                valueIsNull[i] = rowBlock.isNull(i);
+            }
+            return Optional.of(valueIsNull);
+        }
+
+        private Block[] coerceFields(List<Block> fields)
+        {
+            Block[] newFields = new Block[coercers.size()];
             for (int i = 0; i < coercers.size(); i++) {
                 Optional<TypeCoercer<? extends Type, ? extends Type>> coercer = coercers.get(i);
                 if (coercer.isPresent()) {
-                    fields[i] = coercer.get().apply(rowBlock.getField(i));
+                    newFields[i] = coercer.get().apply(fields.get(i));
                 }
-                else if (i < rowBlock.getFieldCount()) {
-                    fields[i] = rowBlock.getField(i);
+                else if (i < fields.size()) {
+                    newFields[i] = fields.get(i);
                 }
                 else {
-                    fields[i] = DictionaryBlock.create(ids.length, nullBlocks[i], ids);
+                    newFields[i] = RunLengthEncodedBlock.create(toType.getTypeParameters().get(i), null, fields.get(0).getPositionCount());
                 }
             }
-            boolean[] valueIsNull = null;
-            if (rowBlock.mayHaveNull()) {
-                valueIsNull = new boolean[rowBlock.getPositionCount()];
-                for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-                    valueIsNull[i] = rowBlock.isNull(i);
-                }
-            }
-            return RowBlock.fromFieldBlocks(rowBlock.getPositionCount(), Optional.ofNullable(valueIsNull), fields);
+            return newFields;
         }
 
         @Override

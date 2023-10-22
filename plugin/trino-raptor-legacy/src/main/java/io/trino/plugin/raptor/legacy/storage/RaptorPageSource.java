@@ -30,7 +30,6 @@ import io.trino.spi.type.UuidType;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
 
@@ -264,7 +263,6 @@ public class RaptorPageSource
             Block rowIdBlock = RowIdColumn.INSTANCE.block(sourcePage, filePosition);
             return RowBlock.fromFieldBlocks(
                     sourcePage.getPositionCount(),
-                    Optional.empty(),
                     new Block[] {bucketNumberBlock, shardUuidBlock, rowIdBlock});
         }
     }

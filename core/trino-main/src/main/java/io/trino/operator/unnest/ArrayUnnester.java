@@ -61,8 +61,8 @@ public class ArrayUnnester
     @Override
     public Block[] buildOutputBlocks(int[] outputEntriesPerPosition, int startPosition, int inputBatchSize, int outputRowCount)
     {
-        int unnestedLength = columnarArray.getOffset(startPosition + inputBatchSize) - columnarArray.getOffset(startPosition);
-        boolean nullRequired = unnestedLength < outputRowCount;
+        int unnestLength = columnarArray.getOffset(startPosition + inputBatchSize) - columnarArray.getOffset(startPosition);
+        boolean nullRequired = unnestLength < outputRowCount;
 
         Block[] outputBlocks = new Block[1];
         if (nullRequired) {

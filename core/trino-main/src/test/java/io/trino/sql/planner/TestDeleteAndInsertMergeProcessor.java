@@ -62,14 +62,14 @@ public class TestDeleteAndInsertMergeProcessor
                 2,
                 Optional.empty(),
                 new Block[] {
-                        makeLongArrayBlock(1, 1),               // TransactionId
-                        makeLongArrayBlock(1, 0),                // rowId
+                        makeLongArrayBlock(1, 1), // TransactionId
+                        makeLongArrayBlock(1, 0), // rowId
                         makeIntArrayBlock(536870912, 536870912)}, // bucket
                 new Block[] {
-                        makeVarcharArrayBlock("", "Dave"),      // customer
-                        makeIntArrayBlock(0, 11),               // purchases
-                        makeVarcharArrayBlock("", "Devon"),     // address
-                        makeByteArrayBlock(1, 1),                // "present" boolean
+                        makeVarcharArrayBlock("", "Dave"), // customer
+                        makeIntArrayBlock(0, 11), // purchases
+                        makeVarcharArrayBlock("", "Devon"), // address
+                        makeByteArrayBlock(1, 1), // "present" boolean
                         makeByteArrayBlock(DEFAULT_CASE_OPERATION_NUMBER, DELETE_OPERATION_NUMBER),
                         makeIntArrayBlock(-1, 0)});
 
@@ -104,10 +104,10 @@ public class TestDeleteAndInsertMergeProcessor
         Page inputPage = makePageFromBlocks(
                 5,
                 Optional.of(rowIdNulls),
-                new Block[] {
-                        makeLongArrayBlockWithNulls(rowIdNulls, 5, 2, 1, 2, 2),               // TransactionId
-                        makeLongArrayBlockWithNulls(rowIdNulls, 5, 0, 3, 1, 2),                // rowId
-                        makeIntArrayBlockWithNulls(rowIdNulls, 5, 536870912, 536870912, 536870912, 536870912)}, // bucket
+                new Block[]{
+                        new LongArrayBlock(5, Optional.of(rowIdNulls), new long[]{2, 0, 1, 2, 2}), // TransactionId
+                        new LongArrayBlock(5, Optional.of(rowIdNulls), new long[]{0, 0, 3, 1, 2}), // rowId
+                        new IntArrayBlock(5, Optional.of(rowIdNulls), new int[]{536870912, 0, 536870912, 536870912, 536870912})}, // bucket
                 new Block[] {
                         // customer
                         makeVarcharArrayBlock("Aaron", "Carol", "Dave", "Dave", "Ed"),
@@ -145,9 +145,9 @@ Page[positions=8 0:Dict[VarWidth["Aaron", "Dave", "Dave", "Ed", "Aaron", "Carol"
                 5,
                 Optional.of(rowIdNulls),
                 new Block[] {
-                        makeLongArrayBlockWithNulls(rowIdNulls, 5, 2, 1, 2, 2),                // TransactionId
-                        makeLongArrayBlockWithNulls(rowIdNulls, 5, 0, 3, 1, 2),                // rowId
-                        makeIntArrayBlockWithNulls(rowIdNulls, 5, 536870912, 536870912, 536870912, 536870912)}, // bucket
+                        new LongArrayBlock(5, Optional.of(rowIdNulls), new long[]{2, 0, 1, 2, 2}), // TransactionId
+                        new LongArrayBlock(5, Optional.of(rowIdNulls), new long[]{0, 0, 3, 1, 2}), // rowId
+                        new IntArrayBlock(5, Optional.of(rowIdNulls), new int[]{536870912, 0, 536870912, 536870912, 536870912})}, // bucket
                 new Block[] {
                         // customer
                         makeVarcharArrayBlock("Aaron", "Carol", "Dave", "Dave", "Ed"),
@@ -169,11 +169,11 @@ Page[positions=8 0:Dict[VarWidth["Aaron", "Dave", "Dave", "Ed", "Aaron", "Carol"
         assertThat(getString(outputPage.getBlock(2), 1)).isEqualTo("Arches/Arches");
     }
 
-    private Page makePageFromBlocks(int positionCount, Optional<boolean[]> rowIdNulls, Block[] rowIdBlocks, Block[] mergeCaseBlocks)
+    private static Page makePageFromBlocks(int positionCount, Optional<boolean[]> rowIdNulls, Block[] rowIdBlocks, Block[] mergeCaseBlocks)
     {
         Block[] pageBlocks = new Block[] {
-                RowBlock.fromFieldBlocks(positionCount, rowIdNulls, rowIdBlocks),
-                RowBlock.fromFieldBlocks(positionCount, Optional.empty(), mergeCaseBlocks)
+                RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, rowIdNulls, rowIdBlocks),
+                RowBlock.fromFieldBlocks(positionCount, mergeCaseBlocks)
         };
         return new Page(pageBlocks);
     }
@@ -197,32 +197,9 @@ Page[positions=8 0:Dict[VarWidth["Aaron", "Dave", "Dave", "Ed", "Aaron", "Carol"
         return new LongArrayBlock(elements.length, Optional.empty(), elements);
     }
 
-    private LongArrayBlock makeLongArrayBlockWithNulls(boolean[] nulls, int positionCount, long... elements)
-    {
-        assertThat(countNonNull(nulls) + elements.length).isEqualTo(positionCount);
-        return new LongArrayBlock(elements.length, Optional.of(nulls), elements);
-    }
-
     private IntArrayBlock makeIntArrayBlock(int... elements)
     {
         return new IntArrayBlock(elements.length, Optional.empty(), elements);
-    }
-
-    private IntArrayBlock makeIntArrayBlockWithNulls(boolean[] nulls, int positionCount, int... elements)
-    {
-        assertThat(countNonNull(nulls) + elements.length).isEqualTo(positionCount);
-        return new IntArrayBlock(elements.length, Optional.of(nulls), elements);
-    }
-
-    private int countNonNull(boolean[] nulls)
-    {
-        int count = 0;
-        for (int position = 0; position < nulls.length; position++) {
-            if (nulls[position]) {
-                count++;
-            }
-        }
-        return count;
     }
 
     private ByteArrayBlock makeByteArrayBlock(int... elements)

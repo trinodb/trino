@@ -25,13 +25,13 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.block.RowBlock.fromFieldBlocks;
+import static io.trino.spi.block.RowBlock.fromNotNullSuppressedFieldBlocks;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
@@ -69,19 +69,14 @@ public class TestRowBlock
     @Test
     public void testFromFieldBlocksNoNullsDetection()
     {
-        Block emptyBlock = new ByteArrayBlock(0, Optional.empty(), new byte[0]);
-        Block fieldBlock = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(5).getBytes());
-
-        boolean[] rowIsNull = new boolean[fieldBlock.getPositionCount()];
-        Arrays.fill(rowIsNull, false);
-
-        // Blocks may discard the null mask during creation if no values are null
-        assertFalse(fromFieldBlocks(5, Optional.of(rowIsNull), new Block[]{fieldBlock}).mayHaveNull());
-        // Last position is null must retain the nulls mask
+        // Blocks does not discard the null mask during creation if no values are null
+        boolean[] rowIsNull = new boolean[5];
+        assertTrue(fromNotNullSuppressedFieldBlocks(5, Optional.of(rowIsNull), new Block[]{new ByteArrayBlock(5, Optional.empty(), createExpectedValue(5).getBytes())}).mayHaveNull());
         rowIsNull[rowIsNull.length - 1] = true;
-        assertTrue(fromFieldBlocks(5, Optional.of(rowIsNull), new Block[]{fieldBlock}).mayHaveNull());
+        assertTrue(fromNotNullSuppressedFieldBlocks(5, Optional.of(rowIsNull), new Block[]{new ByteArrayBlock(5, Optional.of(rowIsNull), createExpectedValue(5).getBytes())}).mayHaveNull());
+
         // Empty blocks have no nulls and can also discard their null mask
-        assertFalse(fromFieldBlocks(0, Optional.of(new boolean[0]), new Block[]{emptyBlock}).mayHaveNull());
+        assertFalse(fromNotNullSuppressedFieldBlocks(0, Optional.of(new boolean[0]), new Block[]{new ByteArrayBlock(0, Optional.empty(), new byte[0])}).mayHaveNull());
 
         // Normal blocks should have null masks preserved
         List<Type> fieldTypes = ImmutableList.of(VARCHAR, BIGINT);
@@ -104,19 +99,13 @@ public class TestRowBlock
     public void testCompactBlock()
     {
         Block emptyBlock = new ByteArrayBlock(0, Optional.empty(), new byte[0]);
-        Block compactFieldBlock1 = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(5).getBytes());
-        Block compactFieldBlock2 = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(5).getBytes());
-        Block incompactFieldBlock1 = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(6).getBytes());
-        Block incompactFieldBlock2 = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(6).getBytes());
         boolean[] rowIsNull = {false, true, false, false, false, false};
 
-        assertCompact(fromFieldBlocks(0, Optional.empty(), new Block[] {emptyBlock, emptyBlock}));
-        assertCompact(fromFieldBlocks(rowIsNull.length, Optional.of(rowIsNull), new Block[] {compactFieldBlock1, compactFieldBlock2}));
-        // TODO: add test case for a sliced RowBlock
-
-        // underlying field blocks are not compact
-        testIncompactBlock(fromFieldBlocks(rowIsNull.length, Optional.of(rowIsNull), new Block[] {incompactFieldBlock1, incompactFieldBlock2}));
-        testIncompactBlock(fromFieldBlocks(rowIsNull.length, Optional.of(rowIsNull), new Block[] {incompactFieldBlock1, incompactFieldBlock2}));
+        // NOTE: nested row blocks are required to have the exact same size so they are always compact
+        assertCompact(fromFieldBlocks(0, new Block[] {emptyBlock, emptyBlock}));
+        assertCompact(fromNotNullSuppressedFieldBlocks(rowIsNull.length, Optional.of(rowIsNull), new Block[]{
+                new ByteArrayBlock(6, Optional.of(rowIsNull), createExpectedValue(6).getBytes()),
+                new ByteArrayBlock(6, Optional.of(rowIsNull), createExpectedValue(6).getBytes())}));
     }
 
     private void testWith(List<Type> fieldTypes, List<Object>[] expectedValues)
