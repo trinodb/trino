@@ -16,6 +16,7 @@ package io.trino.security;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
@@ -82,6 +83,12 @@ public class ViewAccessControl
     public boolean canCreateViewWithExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
         return delegate.canCreateViewWithExecuteFunction(context, functionName);
+    }
+
+    @Override
+    public Set<SchemaFunctionName> filterFunctions(SecurityContext context, String catalogName, Set<SchemaFunctionName> functionNames)
+    {
+        return delegate.filterFunctions(context, catalogName, functionNames);
     }
 
     @Override

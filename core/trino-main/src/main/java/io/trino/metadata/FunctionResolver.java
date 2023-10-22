@@ -48,6 +48,7 @@ import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.metadata.FunctionBinder.functionNotFound;
 import static io.trino.metadata.SignatureBinder.applyBoundVariables;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
@@ -58,6 +59,8 @@ import static io.trino.spi.function.FunctionKind.WINDOW;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.mapping;
 
 public class FunctionResolver
 {
@@ -161,9 +164,7 @@ public class FunctionResolver
     {
         ImmutableList.Builder<CatalogFunctionMetadata> allCandidates = ImmutableList.builder();
         List<CatalogSchemaFunctionName> fullPath = toPath(session, name);
-        List<CatalogSchemaFunctionName> authorizedPath = fullPath.stream()
-                .filter(catalogSchemaFunctionName -> canExecuteFunction(session, accessControl, catalogSchemaFunctionName))
-                .collect(toImmutableList());
+        Set<CatalogSchemaFunctionName> authorizedPath = filterFunctions(session, accessControl, fullPath);
         for (CatalogSchemaFunctionName catalogSchemaFunctionName : authorizedPath) {
             Collection<CatalogFunctionMetadata> candidates = candidateLoader.apply(catalogSchemaFunctionName);
             Optional<CatalogFunctionBinding> match = functionBinder.tryBindFunction(parameterTypes, candidates);
@@ -283,10 +284,15 @@ public class FunctionResolver
         return names.build();
     }
 
-    private static boolean canExecuteFunction(Session session, AccessControl accessControl, CatalogSchemaFunctionName functionName)
+    private static Set<CatalogSchemaFunctionName> filterFunctions(Session session, AccessControl accessControl, List<CatalogSchemaFunctionName> functions)
     {
-        return accessControl.canExecuteFunction(
-                SecurityContext.of(session),
-                new QualifiedObjectName(functionName.getCatalogName(), functionName.getSchemaName(), functionName.getFunctionName()));
+        return functions.stream()
+                .collect(groupingBy(
+                        CatalogSchemaFunctionName::getCatalogName,
+                        mapping(CatalogSchemaFunctionName::getSchemaFunctionName, toImmutableSet()))).entrySet().stream()
+                .flatMap(entry -> accessControl.filterFunctions(SecurityContext.of(session), entry.getKey(), entry.getValue())
+                        .stream()
+                        .map(function -> new CatalogSchemaFunctionName(entry.getKey(), function)))
+                .collect(toImmutableSet());
     }
 }
