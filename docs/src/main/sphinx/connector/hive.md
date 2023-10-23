@@ -658,6 +658,8 @@ type conversions.
 * - `DECIMAL`
   - `DOUBLE`, `REAL`, `VARCHAR`, `TINYINT`, `SMALLINT`, `INTEGER`, `BIGINT`, as
     well as narrowing and widening conversions for `DECIMAL`
+* - `DATE`
+  - `VARCHAR`
 * - `TIMESTAMP`
   - `VARCHAR`, `DATE`
 :::

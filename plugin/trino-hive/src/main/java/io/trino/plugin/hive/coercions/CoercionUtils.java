@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.coercions.BooleanCoercer.BooleanToVarcharCoercer;
+import io.trino.plugin.hive.coercions.DateCoercer.DateToVarcharCoercer;
 import io.trino.plugin.hive.coercions.DateCoercer.VarcharToDateCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToDateCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToVarcharCoercer;
@@ -213,6 +214,9 @@ public final class CoercionUtils
                 return Optional.of(new LongTimestampToDateCoercer(TIMESTAMP_NANOS, toDateType));
             }
             return Optional.empty();
+        }
+        if (fromType instanceof DateType && toType instanceof VarcharType toVarcharType) {
+            return Optional.of(new DateToVarcharCoercer(toVarcharType));
         }
         if (fromType == DOUBLE && toType instanceof VarcharType toVarcharType) {
             return Optional.of(new DoubleToVarcharCoercer(toVarcharType, coercionContext.treatNaNAsNull()));
