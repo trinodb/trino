@@ -107,6 +107,8 @@ public class TestHiveCoercionOnUnpartitionedTable
                             string_to_double                   STRING,
                             varchar_to_double_infinity         VARCHAR(40),
                             varchar_to_special_double          VARCHAR(40),
+                            date_to_string                     DATE,
+                            date_to_bounded_varchar            DATE,
                             char_to_bigger_char                CHAR(3),
                             char_to_smaller_char               CHAR(3),
                             timestamp_millis_to_date           TIMESTAMP,
