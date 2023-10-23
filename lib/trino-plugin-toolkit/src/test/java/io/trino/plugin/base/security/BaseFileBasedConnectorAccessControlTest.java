@@ -551,10 +551,10 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     private static void assertFilterSchemas(ConnectorAccessControl accessControl)
     {
-        ImmutableSet<String> allSchemas = ImmutableSet.of("specific-schema", "alice-schema", "bob-schema", "unknown", "ptf_schema");
+        ImmutableSet<String> allSchemas = ImmutableSet.of("specific-schema", "alice-schema", "bob-schema", "unknown", "ptf_schema", "procedure-schema");
         assertEquals(accessControl.filterSchemas(ADMIN, allSchemas), allSchemas);
         assertEquals(accessControl.filterSchemas(ALICE, allSchemas), ImmutableSet.of("specific-schema", "alice-schema", "ptf_schema"));
-        assertEquals(accessControl.filterSchemas(BOB, allSchemas), ImmutableSet.of("specific-schema", "bob-schema"));
+        assertEquals(accessControl.filterSchemas(BOB, allSchemas), ImmutableSet.of("specific-schema", "bob-schema", "procedure-schema"));
         assertEquals(accessControl.filterSchemas(CHARLIE, allSchemas), ImmutableSet.of("specific-schema"));
     }
 
@@ -633,6 +633,20 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertThat(accessControl.canExecuteFunction(CHARLIE, new SchemaRoutineName("any", "some_function"))).isFalse();
         assertThat(accessControl.canExecuteFunction(CHARLIE, new SchemaRoutineName("any", "some_function"))).isFalse();
         assertThat(accessControl.canExecuteFunction(CHARLIE, new SchemaRoutineName("any", "some_function"))).isFalse();
+    }
+
+    @Test
+    public void testProcedureRulesForCheckCanExecute()
+    {
+        ConnectorAccessControl accessControl = createAccessControl("visibility.json");
+
+        accessControl.checkCanExecuteProcedure(BOB, new SchemaRoutineName("procedure-schema", "some_procedure"));
+        assertDenied(() -> accessControl.checkCanExecuteProcedure(BOB, new SchemaRoutineName("some-schema", "some_procedure")));
+        assertDenied(() -> accessControl.checkCanExecuteProcedure(BOB, new SchemaRoutineName("procedure-schema", "another_procedure")));
+
+        assertDenied(() -> accessControl.checkCanExecuteProcedure(CHARLIE, new SchemaRoutineName("procedure-schema", "some_procedure")));
+
+        assertDenied(() -> accessControl.checkCanExecuteProcedure(ALICE, new SchemaRoutineName("procedure-schema", "some_procedure")));
     }
 
     @Test

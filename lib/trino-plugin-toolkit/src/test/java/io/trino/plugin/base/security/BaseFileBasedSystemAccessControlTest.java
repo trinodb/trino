@@ -21,6 +21,7 @@ import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.AccessDeniedException;
@@ -127,6 +128,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
     private static final String SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE = "Cannot set catalog session property .*";
     private static final String EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE = "Cannot execute function .*";
     private static final String GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE = ".* cannot grant .*";
+    private static final String EXECUTE_PROCEDURE_ACCESS_DENIED_MESSAGE = "Cannot execute procedure .*";
 
     protected abstract SystemAccessControl newFileBasedSystemAccessControl(File configFile, Map<String, String> properties);
 
@@ -1405,6 +1407,28 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertEquals(actual.getSchema(), expected.getSchema(), "Schema");
         assertEquals(actual.getExpression(), expected.getExpression(), "Expression");
         assertEquals(actual.getPath(), expected.getPath(), "Path");
+    }
+
+    @Test
+    public void testProcedureRulesForCheckCanExecute()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-visibility.json");
+
+        accessControl.checkCanExecuteProcedure(BOB, new CatalogSchemaRoutineName("alice-catalog", new SchemaRoutineName("procedure-schema", "some_procedure")));
+        assertAccessDenied(
+                () -> accessControl.checkCanExecuteProcedure(BOB, new CatalogSchemaRoutineName("alice-catalog", new SchemaRoutineName("some-schema", "some_procedure"))),
+                EXECUTE_PROCEDURE_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(
+                () -> accessControl.checkCanExecuteProcedure(BOB, new CatalogSchemaRoutineName("alice-catalog", new SchemaRoutineName("procedure-schema", "another_procedure"))),
+                EXECUTE_PROCEDURE_ACCESS_DENIED_MESSAGE);
+
+        assertAccessDenied(
+                () -> accessControl.checkCanExecuteProcedure(CHARLIE, new CatalogSchemaRoutineName("open-to-all", new SchemaRoutineName("some-schema", "some_procedure"))),
+                EXECUTE_PROCEDURE_ACCESS_DENIED_MESSAGE);
+
+        assertAccessDenied(
+                () -> accessControl.checkCanExecuteProcedure(ALICE, new CatalogSchemaRoutineName("alice-catalog", new SchemaRoutineName("procedure-schema", "some_procedure"))),
+                EXECUTE_PROCEDURE_ACCESS_DENIED_MESSAGE);
     }
 
     @Test
