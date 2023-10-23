@@ -126,10 +126,10 @@ public class TestColumnarMap
                 Slice[] expectedEntry = expectedMap[i];
 
                 Slice expectedKey = expectedEntry[0];
-                assertBlockPosition(MAP_TYPE, keysBlock, elementsPosition, expectedKey);
+                assertBlockPosition(MAP_TYPE.getKeyType(), keysBlock, elementsPosition, expectedKey);
 
                 Slice expectedValue = expectedEntry[1];
-                assertBlockPosition(MAP_TYPE, valuesBlock, elementsPosition, expectedValue);
+                assertBlockPosition(MAP_TYPE.getValueType(), valuesBlock, elementsPosition, expectedValue);
 
                 elementsPosition++;
             }
