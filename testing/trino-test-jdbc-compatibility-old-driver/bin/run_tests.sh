@@ -24,6 +24,8 @@ if (( (previous_released_version - first_tested_version) % version_step != 0 ));
     tested_versions="${tested_versions} ${previous_released_version}"
 fi
 
+tested_versions="422 ${tested_versions}"
+
 exit_code=0
 failed_versions=()
 
