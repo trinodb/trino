@@ -15,6 +15,7 @@ package io.trino.plugin.hive.orc;
 
 import io.trino.orc.metadata.OrcType.OrcTypeKind;
 import io.trino.plugin.hive.coercions.BooleanCoercer.BooleanToVarcharCoercer;
+import io.trino.plugin.hive.coercions.DateCoercer.DateToVarcharCoercer;
 import io.trino.plugin.hive.coercions.DateCoercer.VarcharToDateCoercer;
 import io.trino.plugin.hive.coercions.DoubleToVarcharCoercer;
 import io.trino.plugin.hive.coercions.IntegerNumberToDoubleCoercer;
@@ -35,6 +36,7 @@ import java.util.Optional;
 
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.BOOLEAN;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.BYTE;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.DATE;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.DOUBLE;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.INT;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.LONG;
@@ -64,6 +66,9 @@ public final class OrcTypeTranslator
                 return Optional.of(new LongTimestampToDateCoercer(TIMESTAMP_NANOS, toDateType));
             }
             return Optional.empty();
+        }
+        if (fromOrcType == DATE && toTrinoType instanceof VarcharType varcharType) {
+            return Optional.of(new DateToVarcharCoercer(varcharType));
         }
         if (isVarcharType(fromOrcType)) {
             if (toTrinoType instanceof TimestampType timestampType) {
