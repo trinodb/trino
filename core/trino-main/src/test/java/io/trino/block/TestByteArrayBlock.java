@@ -78,7 +78,7 @@ public class TestByteArrayBlock
 
         testCompactBlock(new ByteArrayBlock(0, Optional.empty(), new byte[0]));
         testCompactBlock(new ByteArrayBlock(byteArray.length, Optional.of(valueIsNull), byteArray));
-        testIncompactBlock(new ByteArrayBlock(byteArray.length - 1, Optional.of(valueIsNull), byteArray));
+        testNotCompactBlock(new ByteArrayBlock(byteArray.length - 1, Optional.of(valueIsNull), byteArray));
     }
 
     private void assertFixedWithValues(Slice[] expectedValues)
