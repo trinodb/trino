@@ -81,6 +81,7 @@ public final class HiveCoercionPolicy
                     fromHiveType.equals(HIVE_LONG) ||
                     fromHiveType.equals(HIVE_TIMESTAMP) ||
                     fromHiveType.equals(HIVE_DOUBLE) ||
+                    fromHiveType.equals(HIVE_DATE) ||
                     fromType instanceof DecimalType;
         }
         if (toHiveType.equals(HIVE_DATE)) {
