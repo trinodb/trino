@@ -106,7 +106,6 @@ public final class VariableWidthBlock
         return offsets[position + arrayOffset];
     }
 
-    @Override
     public int getSliceLength(int position)
     {
         checkReadablePosition(this, position);
@@ -176,13 +175,6 @@ public final class VariableWidthBlock
             consumer.accept(valueIsNull, sizeOf(valueIsNull));
         }
         consumer.accept(this, INSTANCE_SIZE);
-    }
-
-    @Override
-    public Slice getSlice(int position, int offset, int length)
-    {
-        checkReadablePosition(this, position);
-        return slice.slice(getPositionOffset(position) + offset, length);
     }
 
     public Slice getSlice(int position)
