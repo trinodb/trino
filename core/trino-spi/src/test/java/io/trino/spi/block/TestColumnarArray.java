@@ -58,7 +58,7 @@ public class TestColumnarArray
         verifyBlock(blockWithNull, expectedValuesWithNull);
     }
 
-    private static <T> void verifyBlock(Block block, T[] expectedValues)
+    private static <T> void verifyBlock(Block block, T[][] expectedValues)
     {
         assertBlock(ARRAY_TYPE, block, expectedValues);
 
@@ -69,7 +69,7 @@ public class TestColumnarArray
         int offset = 1;
         int length = expectedValues.length - 2;
         Block blockRegion = block.getRegion(offset, length);
-        T[] expectedValuesRegion = Arrays.copyOfRange(expectedValues, offset, offset + length);
+        T[][] expectedValuesRegion = Arrays.copyOfRange(expectedValues, offset, offset + length);
 
         assertBlock(ARRAY_TYPE, blockRegion, expectedValuesRegion);
 
@@ -78,28 +78,28 @@ public class TestColumnarArray
         assertRunLengthEncodedBlock(blockRegion, expectedValuesRegion);
     }
 
-    private static <T> void assertDictionaryBlock(Block block, T[] expectedValues)
+    private static <T> void assertDictionaryBlock(Block block, T[][] expectedValues)
     {
         Block dictionaryBlock = createTestDictionaryBlock(block);
-        T[] expectedDictionaryValues = createTestDictionaryExpectedValues(expectedValues);
+        T[][] expectedDictionaryValues = createTestDictionaryExpectedValues(expectedValues);
 
         assertBlock(ARRAY_TYPE, dictionaryBlock, expectedDictionaryValues);
         assertColumnarArray(dictionaryBlock, expectedDictionaryValues);
         assertRunLengthEncodedBlock(dictionaryBlock, expectedDictionaryValues);
     }
 
-    private static <T> void assertRunLengthEncodedBlock(Block block, T[] expectedValues)
+    private static <T> void assertRunLengthEncodedBlock(Block block, T[][] expectedValues)
     {
         for (int position = 0; position < block.getPositionCount(); position++) {
             RunLengthEncodedBlock runLengthEncodedBlock = createTestRleBlock(block, position);
-            T[] expectedDictionaryValues = createTestRleExpectedValues(expectedValues, position);
+            T[][] expectedDictionaryValues = createTestRleExpectedValues(expectedValues, position);
 
             assertBlock(ARRAY_TYPE, runLengthEncodedBlock, expectedDictionaryValues);
             assertColumnarArray(runLengthEncodedBlock, expectedDictionaryValues);
         }
     }
 
-    private static <T> void assertColumnarArray(Block block, T[] expectedValues)
+    private static <T> void assertColumnarArray(Block block, T[][] expectedValues)
     {
         ColumnarArray columnarArray = toColumnarArray(block);
         assertThat(columnarArray.getPositionCount()).isEqualTo(expectedValues.length);
@@ -107,14 +107,14 @@ public class TestColumnarArray
         Block elementsBlock = columnarArray.getElementsBlock();
         int elementsPosition = 0;
         for (int position = 0; position < expectedValues.length; position++) {
-            T expectedArray = expectedValues[position];
+            T[] expectedArray = expectedValues[position];
             assertThat(columnarArray.isNull(position)).isEqualTo(expectedArray == null);
             assertThat(columnarArray.getLength(position)).isEqualTo(expectedArray == null ? 0 : Array.getLength(expectedArray));
             assertThat(elementsPosition).isEqualTo(columnarArray.getOffset(position));
 
             for (int i = 0; i < columnarArray.getLength(position); i++) {
-                Object expectedElement = Array.get(expectedArray, i);
-                assertBlockPosition(ARRAY_TYPE, elementsBlock, elementsPosition, expectedElement);
+                T expectedElement = expectedArray[i];
+                assertBlockPosition(ARRAY_TYPE.getElementType(), elementsBlock, elementsPosition, expectedElement);
                 elementsPosition++;
             }
         }
