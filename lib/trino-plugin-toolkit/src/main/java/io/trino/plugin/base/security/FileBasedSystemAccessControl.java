@@ -78,6 +78,7 @@ import static io.trino.spi.security.AccessDeniedException.denyDropRole;
 import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
+import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
@@ -132,6 +133,7 @@ public class FileBasedSystemAccessControl
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
     private final List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules;
     private final List<CatalogFunctionAccessControlRule> functionRules;
+    private final List<CatalogProcedureAccessControlRule> procedureRules;
     private final Set<AnyCatalogPermissionsRule> anyCatalogPermissionsRules;
     private final Set<AnyCatalogSchemaPermissionsRule> anyCatalogSchemaPermissionsRules;
 
@@ -146,7 +148,8 @@ public class FileBasedSystemAccessControl
             List<CatalogTableAccessControlRule> tableRules,
             List<SessionPropertyAccessControlRule> sessionPropertyRules,
             List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules,
-            List<CatalogFunctionAccessControlRule> functionRules)
+            List<CatalogFunctionAccessControlRule> functionRules,
+            List<CatalogProcedureAccessControlRule> procedureRules)
     {
         this.catalogRules = catalogRules;
         this.queryAccessRules = queryAccessRules;
@@ -159,6 +162,7 @@ public class FileBasedSystemAccessControl
         this.sessionPropertyRules = sessionPropertyRules;
         this.catalogSessionPropertyRules = catalogSessionPropertyRules;
         this.functionRules = functionRules;
+        this.procedureRules = procedureRules;
 
         ImmutableSet.Builder<AnyCatalogPermissionsRule> anyCatalogPermissionsRules = ImmutableSet.builder();
         schemaRules.stream()
@@ -177,6 +181,10 @@ public class FileBasedSystemAccessControl
                 .map(CatalogFunctionAccessControlRule::toAnyCatalogPermissionsRule)
                 .flatMap(Optional::stream)
                 .forEach(anyCatalogPermissionsRules::add);
+        procedureRules.stream()
+                .map(CatalogProcedureAccessControlRule::toAnyCatalogPermissionsRule)
+                .flatMap(Optional::stream)
+                .forEach(anyCatalogPermissionsRules::add);
         this.anyCatalogPermissionsRules = anyCatalogPermissionsRules.build();
 
         ImmutableSet.Builder<AnyCatalogSchemaPermissionsRule> anyCatalogSchemaPermissionsRules = ImmutableSet.builder();
@@ -190,6 +198,10 @@ public class FileBasedSystemAccessControl
                 .forEach(anyCatalogSchemaPermissionsRules::add);
         functionRules.stream()
                 .map(CatalogFunctionAccessControlRule::toAnyCatalogSchemaPermissionsRule)
+                .flatMap(Optional::stream)
+                .forEach(anyCatalogSchemaPermissionsRules::add);
+        procedureRules.stream()
+                .map(CatalogProcedureAccessControlRule::toAnyCatalogSchemaPermissionsRule)
                 .flatMap(Optional::stream)
                 .forEach(anyCatalogSchemaPermissionsRules::add);
         this.anyCatalogSchemaPermissionsRules = anyCatalogSchemaPermissionsRules.build();
@@ -912,6 +924,16 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanExecuteProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName procedure)
     {
+        Identity identity = systemSecurityContext.getIdentity();
+        boolean allowed = canAccessCatalog(systemSecurityContext, procedure.getCatalogName(), READ_ONLY) &&
+                procedureRules.stream()
+                        .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), procedure))
+                        .findFirst()
+                        .filter(CatalogProcedureAccessControlRule::canExecuteProcedure)
+                        .isPresent();
+        if (!allowed) {
+            denyExecuteProcedure(procedure.toString());
+        }
     }
 
     @Override
@@ -1130,6 +1152,7 @@ public class FileBasedSystemAccessControl
         private List<SessionPropertyAccessControlRule> sessionPropertyRules = ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL);
         private List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules = ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL);
         private List<CatalogFunctionAccessControlRule> functionRules = ImmutableList.of(CatalogFunctionAccessControlRule.ALLOW_BUILTIN);
+        private List<CatalogProcedureAccessControlRule> procedureRules = ImmutableList.of(CatalogProcedureAccessControlRule.ALLOW_BUILTIN);
 
         @SuppressWarnings("unused")
         public Builder denyAllAccess()
@@ -1145,6 +1168,7 @@ public class FileBasedSystemAccessControl
             sessionPropertyRules = ImmutableList.of();
             catalogSessionPropertyRules = ImmutableList.of();
             functionRules = ImmutableList.of();
+            procedureRules = ImmutableList.of();
             return this;
         }
 
@@ -1214,6 +1238,12 @@ public class FileBasedSystemAccessControl
             return this;
         }
 
+        public Builder setProcedureRules(List<CatalogProcedureAccessControlRule> procedureRules)
+        {
+            this.procedureRules = procedureRules;
+            return this;
+        }
+
         public FileBasedSystemAccessControl build()
         {
             return new FileBasedSystemAccessControl(
@@ -1227,7 +1257,8 @@ public class FileBasedSystemAccessControl
                     tableRules,
                     sessionPropertyRules,
                     catalogSessionPropertyRules,
-                    functionRules);
+                    functionRules,
+                    procedureRules);
         }
     }
 }

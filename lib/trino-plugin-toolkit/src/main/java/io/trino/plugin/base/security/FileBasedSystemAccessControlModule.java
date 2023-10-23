@@ -109,6 +109,7 @@ public class FileBasedSystemAccessControlModule
                 .setSessionPropertyRules(rules.getSessionPropertyRules().orElse(ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL)))
                 .setCatalogSessionPropertyRules(rules.getCatalogSessionPropertyRules().orElse(ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL)))
                 .setFunctionRules(rules.getFunctionRules().orElse(ImmutableList.of(CatalogFunctionAccessControlRule.ALLOW_BUILTIN)))
+                .setProcedureRules(rules.getProcedureRules().orElse(ImmutableList.of(CatalogProcedureAccessControlRule.ALLOW_BUILTIN)))
                 .build();
     }
 
