@@ -49,14 +49,14 @@ import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
-import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.DATA;
-import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.MANIFEST;
-import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.METADATA_JSON;
-import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.SNAPSHOT;
-import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.STATS;
-import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.fromFilePath;
-import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.Scope.ALL_FILES;
-import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.Scope.METADATA_FILES;
+import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.DATA;
+import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.MANIFEST;
+import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.METADATA_JSON;
+import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.SNAPSHOT;
+import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.STATS;
+import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.fromFilePath;
+import static io.trino.plugin.iceberg.TestIcebergFileOperations.Scope.ALL_FILES;
+import static io.trino.plugin.iceberg.TestIcebergFileOperations.Scope.METADATA_FILES;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -67,7 +67,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 
 @Test(singleThreaded = true) // e.g. trackingFileSystemFactory is shared mutable state
-public class TestIcebergMetadataFileOperations
+public class TestIcebergFileOperations
         extends AbstractTestQueryFramework
 {
     private static final int MAX_PREFIXES_COUNT = 10;
