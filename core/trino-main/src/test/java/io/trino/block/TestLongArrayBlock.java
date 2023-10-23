@@ -78,7 +78,7 @@ public class TestLongArrayBlock
 
         testCompactBlock(new LongArrayBlock(0, Optional.empty(), new long[0]));
         testCompactBlock(new LongArrayBlock(longArray.length, Optional.of(valueIsNull), longArray));
-        testIncompactBlock(new LongArrayBlock(longArray.length - 1, Optional.of(valueIsNull), longArray));
+        testNotCompactBlock(new LongArrayBlock(longArray.length - 1, Optional.of(valueIsNull), longArray));
     }
 
     private void assertFixedWithValues(Slice[] expectedValues)

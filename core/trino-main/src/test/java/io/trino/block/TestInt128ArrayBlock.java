@@ -78,7 +78,7 @@ public class TestInt128ArrayBlock
 
         testCompactBlock(new Int128ArrayBlock(0, Optional.empty(), new long[0]));
         testCompactBlock(new Int128ArrayBlock(valueIsNull.length, Optional.of(valueIsNull), longArray));
-        testIncompactBlock(new Int128ArrayBlock(valueIsNull.length - 2, Optional.of(valueIsNull), longArray));
+        testNotCompactBlock(new Int128ArrayBlock(valueIsNull.length - 2, Optional.of(valueIsNull), longArray));
     }
 
     private void assertFixedWithValues(Slice[] expectedValues)
