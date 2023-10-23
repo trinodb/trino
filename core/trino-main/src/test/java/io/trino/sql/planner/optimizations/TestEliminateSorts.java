@@ -35,6 +35,7 @@ import java.util.Optional;
 
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
@@ -56,7 +57,7 @@ public class TestEliminateSorts
             ImmutableMap.of(QUANTITY_ALIAS, "quantity"));
 
     @Test
-    public void testNotEliminateSorts()
+    public void testNotEliminateSortsIfSortKeyIsDifferent()
     {
         @Language("SQL") String sql = "SELECT quantity, row_number() OVER (ORDER BY quantity) FROM lineitem ORDER BY tax";
 
@@ -68,6 +69,24 @@ public class TestEliminateSorts
                                                         .specification(windowSpec)
                                                         .addFunction(functionCall("row_number", Optional.empty(), ImmutableList.of())),
                                                 anyTree(LINEITEM_TABLESCAN_Q)))));
+
+        assertUnitPlan(sql, pattern);
+    }
+
+    @Test
+    public void testNotEliminateSortsIfFilterExists()
+    {
+        @Language("SQL") String sql = "SELECT * FROM (SELECT quantity, row_number() OVER (ORDER BY quantity) FROM lineitem) WHERE quantity > 10 ORDER BY quantity";
+
+        PlanMatchPattern pattern =
+                anyTree(
+                        sort(
+                                anyTree(
+                                        filter("QUANTITY > CAST(10 AS DOUBLE)",
+                                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                                .specification(windowSpec)
+                                                                .addFunction(functionCall("row_number", Optional.empty(), ImmutableList.of())),
+                                                        anyTree(LINEITEM_TABLESCAN_Q))))));
 
         assertUnitPlan(sql, pattern);
     }
