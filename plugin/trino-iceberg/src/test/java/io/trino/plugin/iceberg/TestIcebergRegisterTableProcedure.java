@@ -32,10 +32,11 @@ import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.types.Types;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.io.File;
 import java.io.IOException;
@@ -43,7 +44,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -80,28 +80,21 @@ public class TestIcebergRegisterTableProcedure
                 .build();
     }
 
-    @BeforeClass
+    @BeforeAll
     public void initFileSystem()
     {
         fileSystem = getFileSystemFactory(getDistributedQueryRunner()).create(SESSION);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws IOException
     {
         deleteRecursively(metastoreDir.toPath(), ALLOW_INSECURE);
     }
 
-    @DataProvider
-    public static Object[][] fileFormats()
-    {
-        return Stream.of(IcebergFileFormat.values())
-                .map(icebergFileFormat -> new Object[] {icebergFileFormat})
-                .toArray(Object[][]::new);
-    }
-
-    @Test(dataProvider = "fileFormats")
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
     public void testRegisterTableWithTableLocation(IcebergFileFormat icebergFileFormat)
     {
         String tableName = "test_register_table_with_table_location_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
@@ -123,7 +116,8 @@ public class TestIcebergRegisterTableProcedure
         assertUpdate(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "fileFormats")
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
     public void testRegisterPartitionedTable(IcebergFileFormat icebergFileFormat)
     {
         String tableName = "test_register_partitioned_table_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
@@ -145,7 +139,8 @@ public class TestIcebergRegisterTableProcedure
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "fileFormats")
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
     public void testRegisterTableWithComments(IcebergFileFormat icebergFileFormat)
     {
         String tableName = "test_register_table_with_comments_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
@@ -171,7 +166,8 @@ public class TestIcebergRegisterTableProcedure
         assertUpdate(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "fileFormats")
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
     public void testRegisterTableWithShowCreateTable(IcebergFileFormat icebergFileFormat)
     {
         String tableName = "test_register_table_with_show_create_table_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
@@ -191,7 +187,8 @@ public class TestIcebergRegisterTableProcedure
         assertUpdate(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "fileFormats")
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
     public void testRegisterTableWithReInsert(IcebergFileFormat icebergFileFormat)
     {
         String tableName = "test_register_table_with_re_insert_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
@@ -215,7 +212,8 @@ public class TestIcebergRegisterTableProcedure
         assertUpdate(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "fileFormats")
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
     public void testRegisterTableWithDroppedTable(IcebergFileFormat icebergFileFormat)
     {
         String tableName = "test_register_table_with_dropped_table_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
@@ -233,7 +231,8 @@ public class TestIcebergRegisterTableProcedure
                 ".*No versioned metadata file exists at location.*");
     }
 
-    @Test(dataProvider = "fileFormats")
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
     public void testRegisterTableWithDifferentTableName(IcebergFileFormat icebergFileFormat)
     {
         String tableName = "test_register_table_with_different_table_name_old_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
@@ -258,7 +257,8 @@ public class TestIcebergRegisterTableProcedure
         assertUpdate(format("DROP TABLE %s", tableNameNew));
     }
 
-    @Test(dataProvider = "fileFormats")
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
     public void testRegisterTableWithMetadataFile(IcebergFileFormat icebergFileFormat)
     {
         String tableName = "test_register_table_with_metadata_file_" + icebergFileFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
