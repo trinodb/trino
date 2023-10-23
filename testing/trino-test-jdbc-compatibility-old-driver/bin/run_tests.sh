@@ -15,14 +15,6 @@ first_tested_version=352
 version_step=$(( (previous_released_version - first_tested_version) / 7 ))
 
 echo "Current version: ${current_version}"
-
-if (( previous_released_version == 404 )); then
-    # 404 was skipped
-    previous_released_version=403
-fi
-
-(( previous_released_version >= first_tested_version )) || exit 0
-
 echo "Testing every ${version_step}. version between ${first_tested_version} and ${previous_released_version}"
 
 # 404 was skipped
