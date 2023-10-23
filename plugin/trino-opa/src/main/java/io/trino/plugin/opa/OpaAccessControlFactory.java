@@ -70,7 +70,7 @@ public class OpaAccessControlFactory
                     jsonCodecBinder(binder).bindJsonCodec(OpaQueryResult.class);
                     httpClient.ifPresentOrElse(
                             client -> binder.bind(Key.get(HttpClient.class, ForOpa.class)).toInstance(client),
-                            () -> httpClientBinder(binder).bindHttpClient("opa-access-control", ForOpa.class));
+                            () -> httpClientBinder(binder).bindHttpClient("opa", ForOpa.class));
                     binder.bind(OpaHighLevelClient.class);
                     binder.bind(Key.get(Executor.class, ForOpa.class))
                             .toProvider(ExecutorProvider.class)

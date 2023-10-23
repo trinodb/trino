@@ -68,4 +68,18 @@ public class TestFactory
                 NullPointerException.class,
                 () -> factory.create(null));
     }
+
+    @Test
+    public void testSupportsAirliftHttpConfigs()
+    {
+        OpaAccessControlFactory factory = new OpaAccessControlFactory();
+        SystemAccessControl opaAuthorizer = factory.create(
+                ImmutableMap.<String, String>builder()
+                        .put("opa.policy.uri", "foo")
+                        .put("opa.http-client.log.enabled", "true")
+                        .buildOrThrow());
+
+        assertInstanceOf(OpaAccessControl.class, opaAuthorizer);
+        assertFalse(opaAuthorizer instanceof OpaBatchAccessControl);
+    }
 }
