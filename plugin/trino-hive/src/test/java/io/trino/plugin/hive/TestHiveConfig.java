@@ -43,7 +43,7 @@ public class TestHiveConfig
                 .setMaxSplitSize(DataSize.of(64, Unit.MEGABYTE))
                 .setMaxPartitionsPerScan(1_000_000)
                 .setMaxPartitionsForEagerLoad(100_000)
-                .setMaxOutstandingSplits(1_000)
+                .setMaxOutstandingSplits(3_000)
                 .setMaxOutstandingSplitsSize(DataSize.of(256, Unit.MEGABYTE))
                 .setMaxSplitIteratorThreads(1_000)
                 .setPerTransactionMetastoreCacheMaximumSize(1000)
