@@ -1708,6 +1708,35 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testLimitPushdownThroughUnionNesting()
+    {
+        assertPlan(
+                """
+                SELECT col FROM (
+                    SELECT nationkey FROM nation
+                    UNION ALL
+                    SELECT nationkey FROM nation
+                    UNION ALL
+                    SELECT nationkey FROM nation
+                ) AS t(col)
+                LIMIT 2""",
+                output(
+                        limit(
+                                2,
+                                ImmutableList.of(),
+                                false,
+                                exchange(
+                                        LOCAL,
+                                        GATHER,
+                                        exchange(
+                                                LOCAL,
+                                                REPARTITION,
+                                                limit(2, ImmutableList.of(), true, tableScan("nation")),
+                                                limit(2, ImmutableList.of(), true, tableScan("nation")),
+                                                limit(2, ImmutableList.of(), true, tableScan("nation")))))));
+    }
+
+    @Test
     public void testRemoveSingleRowSort()
     {
         String query = "SELECT count(*) FROM orders ORDER BY 1";
