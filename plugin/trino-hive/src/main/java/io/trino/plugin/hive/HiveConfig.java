@@ -75,7 +75,7 @@ public class HiveConfig
     private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
     private int maxPartitionsPerScan = 1_000_000;
     private int maxPartitionsForEagerLoad = 100_000;
-    private int maxOutstandingSplits = 1_000;
+    private int maxOutstandingSplits = 3_000;
     private DataSize maxOutstandingSplitsSize = DataSize.of(256, MEGABYTE);
     private int maxSplitIteratorThreads = 1_000;
     private int minPartitionBatchSize = 10;
