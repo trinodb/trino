@@ -769,10 +769,10 @@ public class FileBasedAccessControl
     {
         ConnectorIdentity identity = context.getIdentity();
         return functionRules.stream()
-                        .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledSystemRoles(), identity.getGroups(), functionName))
-                        .findFirst()
-                        .filter(executePredicate)
-                        .isPresent();
+                .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledSystemRoles(), identity.getGroups(), functionName))
+                .findFirst()
+                .filter(executePredicate)
+                .isPresent();
     }
 
     private boolean checkCanSetAuthorization(ConnectorSecurityContext context, TrinoPrincipal principal)
