@@ -550,13 +550,6 @@ public class ClickHouseClient
     }
 
     @Override
-    public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
-    {
-        // ClickHouse does not support DELETE syntax, but is using custom: ALTER TABLE [db.]table [ON CLUSTER cluster] DELETE WHERE filter_expr
-        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
-    }
-
-    @Override
     public OptionalLong update(ConnectorSession session, JdbcTableHandle handle)
     {
         throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);

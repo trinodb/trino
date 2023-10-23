@@ -15,9 +15,12 @@ package io.trino.plugin.clickhouse;
 
 import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
 
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseClickHouseConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
@@ -27,7 +30,6 @@ public abstract class BaseClickHouseConnectorSmokeTest
     {
         switch (connectorBehavior) {
             case SUPPORTS_UPDATE:
-            case SUPPORTS_DELETE:
                 return false;
             case SUPPORTS_TRUNCATE:
                 return true;
@@ -52,5 +54,47 @@ public abstract class BaseClickHouseConnectorSmokeTest
                         "WITH (\n" +
                         "   engine = 'LOG'\n" +
                         ")");
+    }
+
+    @Test
+    @Override
+    public void testDeleteAllDataFromTable()
+    {
+        // Override because default storage engine doesn't support delete
+        String tableDefinition = "(" +
+                " regionkey BIGINT NOT NULL," +
+                " name VARCHAR(25) NOT NULL," +
+                " comment VARCHAR(115) NOT NULL" +
+                "    ) WITH (engine='MergeTree',  order_by=ARRAY['regionkey'])";
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_all_data", tableDefinition)) {
+            assertQuerySucceeds(format("INSERT INTO %s SELECT * FROM region", table.getName()));
+
+            assertThatThrownBy(() -> getQueryRunner().execute("DELETE FROM " + table.getName()))
+                    .hasMessageContaining("Expected one of: ON, WHERE");
+        }
+    }
+
+    @Test
+    @Override
+    public void testRowLevelDelete()
+    {
+        // Override because default storage engine doesn't support delete
+        String tableDefinition = "(" +
+                " regionkey BIGINT NOT NULL," +
+                " name VARCHAR(25) NOT NULL," +
+                " comment VARCHAR(115) NOT NULL" +
+                "    ) WITH (engine='MergeTree',  order_by=ARRAY['regionkey'])";
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_delete", tableDefinition)) {
+            assertQuerySucceeds(format("INSERT INTO %s SELECT * FROM region", table.getName()));
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 2", 1);
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE regionkey = 2"))
+                    .returnsEmptyResult();
+            assertThat(query("SELECT cast(regionkey AS integer) FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES 0, 1, 3, 4");
+        }
     }
 }

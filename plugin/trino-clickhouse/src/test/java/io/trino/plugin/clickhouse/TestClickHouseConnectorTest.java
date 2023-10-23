@@ -43,6 +43,7 @@ import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PRIMARY_KEY_P
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PROPERTY;
 import static io.trino.plugin.clickhouse.TestingClickHouseServer.CLICKHOUSE_LATEST_IMAGE;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTION_THRESHOLD;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -71,7 +72,6 @@ public class TestClickHouseConnectorTest
                     SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
                     SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE,
                     SUPPORTS_ARRAY,
-                    SUPPORTS_DELETE,
                     SUPPORTS_NATIVE_QUERY,
                     SUPPORTS_NEGATIVE_DATE,
                     SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
@@ -787,6 +787,156 @@ public class TestClickHouseConnectorTest
         assertQuery(
                 "SHOW SESSION LIKE '" + propertyName + "'",
                 "VALUES('" + propertyName + "','1000', '1000', 'integer', 'Maximum ranges to allow in a tuple domain without simplifying it')");
+    }
+
+    @Test
+    @Override
+    public void testDelete()
+    {
+        // Override because default storage engine doesn't support delete
+        String tableDefinition = "(" +
+                "         orderkey BIGINT NOT NULL," +
+                "         custkey BIGINT NOT NULL," +
+                "         orderstatus VARCHAR(1)," +
+                "         totalprice DOUBLE," +
+                "         orderdate DATE," +
+                "         orderpriority VARCHAR(15)," +
+                "         clerk VARCHAR(15)," +
+                "         shippriority INTEGER," +
+                "         comment VARCHAR(79)" +
+                "    ) WITH (engine='MergeTree', order_by=ARRAY['custkey', 'orderkey'])";
+
+        // delete successive parts of the table
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_",
+                tableDefinition)) {
+            assertQuerySucceeds(format("INSERT INTO %s SELECT * FROM orders", table.getName()));
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders");
+
+            assertQuerySucceeds(format("DELETE FROM %s WHERE custkey <= 100", table.getName()));
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders WHERE custkey > 100");
+
+            assertQuerySucceeds(format("DELETE FROM %s WHERE custkey <= 300", table.getName()));
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders WHERE custkey > 300");
+
+            assertQuerySucceeds(format("DELETE FROM %s WHERE custkey <= 500", table.getName()));
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders WHERE custkey > 500");
+        }
+
+        // delete without matching any rows
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_",
+                tableDefinition)) {
+            assertQuerySucceeds(format("INSERT INTO %s SELECT * FROM orders", table.getName()));
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders");
+
+            assertQuerySucceeds("DELETE FROM " + table.getName() + " WHERE orderkey < 0");
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders");
+        }
+
+        // delete with a predicate that optimizes to false
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_",
+                tableDefinition)) {
+            assertQuerySucceeds(format("INSERT INTO %s SELECT * FROM orders", table.getName()));
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders");
+
+            assertQuerySucceeds("DELETE FROM " + table.getName() + " WHERE orderkey > 5 AND orderkey < 4");
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders");
+        }
+
+        String tableName = "test_delete_" + randomNameSuffix();
+        try {
+            // test EXPLAIN ANALYZE with CTAS
+            assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT CAST(orderstatus AS VARCHAR(15)) orderstatus FROM orders");
+            assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders");
+            // check that INSERT works also
+            assertExplainAnalyze("EXPLAIN ANALYZE INSERT INTO " + tableName + " SELECT clerk FROM orders");
+            assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders UNION ALL SELECT clerk FROM orders");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithLike()
+    {
+        // Override because default storage engine doesn't support delete
+        String tableDefinition = "(" +
+                " nationkey BIGINT NOT NULL," +
+                " name VARCHAR(25) NOT NULL," +
+                " comment VARCHAR(115) NOT NULL," +
+                " regionkey BIGINT NOT NULL" +
+                "    ) WITH (engine='MergeTree',  order_by=ARRAY['nationkey'])";
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_with_like_", tableDefinition)) {
+            assertThatThrownBy(() -> assertUpdate("DELETE FROM " + table.getName() + " WHERE name LIKE '%a%'"))
+                    .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
+
+            assertThatThrownBy(() -> assertUpdate("DELETE FROM " + table.getName() + " WHERE name LIKE '%A%'"))
+                    .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
+        }
+    }
+
+    @Test
+    @Override
+    public void testDeleteAllDataFromTable()
+    {
+        // Override because default storage engine doesn't support delete
+        String tableDefinition = "(" +
+                " regionkey BIGINT NOT NULL," +
+                " name VARCHAR(25) NOT NULL," +
+                " comment VARCHAR(115) NOT NULL" +
+                "    ) WITH (engine='MergeTree',  order_by=ARRAY['regionkey'])";
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_all_data", tableDefinition)) {
+            assertQuerySucceeds(format("INSERT INTO %s SELECT * FROM region", table.getName()));
+
+            assertThatThrownBy(() -> getQueryRunner().execute("DELETE FROM " + table.getName()))
+                    .hasMessageContaining("Deleting without constraint is not supported");
+        }
+    }
+
+    @Test
+    @Override
+    public void testRowLevelDelete()
+    {
+        String tableDefinition = "(" +
+                " regionkey BIGINT NOT NULL," +
+                " name VARCHAR(25) NOT NULL," +
+                " comment VARCHAR(115) NOT NULL" +
+                "    ) WITH (engine='MergeTree',  order_by=ARRAY['regionkey'])";
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_delete", tableDefinition)) {
+            assertQuerySucceeds(format("INSERT INTO %s SELECT * FROM region", table.getName()));
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 2", 1);
+            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 4");
+        }
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithBigintEqualityPredicate()
+    {
+        // Override because default storage engine doesn't support delete
+        String tableDefinition = "(" +
+                " regionkey BIGINT NOT NULL," +
+                " name VARCHAR(25) NOT NULL," +
+                " comment VARCHAR(115) NOT NULL" +
+                "    ) WITH (engine='MergeTree',  order_by=ARRAY['regionkey'])";
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_bigint", tableDefinition)) {
+            assertQuerySucceeds(format("INSERT INTO %s SELECT * from region", table.getName()));
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 1", 1);
+            assertQuery(
+                    "SELECT regionkey, name FROM " + table.getName(),
+                    "VALUES "
+                            + "(0, 'AFRICA'),"
+                            + "(2, 'ASIA'),"
+                            + "(3, 'EUROPE'),"
+                            + "(4, 'MIDDLE EAST')");
+        }
     }
 
     @Override

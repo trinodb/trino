@@ -394,6 +394,15 @@ public abstract class BaseClickHouseTypeMapping
 
                 .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"));
 
+        // This test will need to be updated once https://github.com/ClickHouse/ClickHouse/issues/56381 is resolved in a later version of clickhouse
+        SqlDataTypeTest.create()
+                .addRoundTrip("double", "2.225E-307", DOUBLE, "DOUBLE '2.2249999999999998E-307'")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_double"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("double", "2.225E-307", DOUBLE, "DOUBLE '2.225E-307'")
+                .execute(getQueryRunner(), trinoCreateAsSelect("tpch.test_double"));
+
         SqlDataTypeTest.create()
                 .addRoundTrip("Nullable(double)", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.trino_test_nullable_double"));
