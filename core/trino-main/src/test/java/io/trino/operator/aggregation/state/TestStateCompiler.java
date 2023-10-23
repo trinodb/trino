@@ -225,7 +225,7 @@ public class TestStateCompiler
         SqlMap deserializedMap = deserializedState.getSqlMap();
         SqlMap expectedMap = singleState.getSqlMap();
         assertThat(BIGINT.getLong(deserializedMap.getRawKeyBlock(), deserializedMap.getRawOffset())).isEqualTo(BIGINT.getLong(expectedMap.getRawKeyBlock(), expectedMap.getRawOffset()));
-        assertThat(deserializedMap.getRawValueBlock().getSlice(deserializedMap.getRawOffset(), 0, 9)).isEqualTo(expectedMap.getRawValueBlock().getSlice(expectedMap.getRawOffset(), 0, 9));
+        assertThat(VARCHAR.getSlice(deserializedMap.getRawValueBlock(), deserializedMap.getRawOffset())).isEqualTo(VARCHAR.getSlice(expectedMap.getRawValueBlock(), expectedMap.getRawOffset()));
 
         SqlRow sqlRow = deserializedState.getSqlRow();
         SqlRow expectedSqlRow = singleState.getSqlRow();

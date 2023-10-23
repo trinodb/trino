@@ -13,8 +13,6 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -131,18 +129,6 @@ public final class DictionaryBlock
     public int getRawIdsOffset()
     {
         return idsOffset;
-    }
-
-    @Override
-    public int getSliceLength(int position)
-    {
-        return dictionary.getSliceLength(getId(position));
-    }
-
-    @Override
-    public Slice getSlice(int position, int offset, int length)
-    {
-        return dictionary.getSlice(getId(position), offset, length);
     }
 
     @Override

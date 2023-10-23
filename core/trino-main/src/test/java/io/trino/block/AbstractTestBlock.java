@@ -258,21 +258,7 @@ public abstract class AbstractTestBlock
 
         assertThat(block.isNull(position)).isFalse();
 
-        if (expectedValue instanceof Slice expectedSliceValue) {
-            if (isSliceAccessSupported()) {
-                assertThat(block.getSliceLength(position)).isEqualTo(expectedSliceValue.length());
-
-                int length = block.getSliceLength(position);
-                assertThat(length).isEqualTo(expectedSliceValue.length());
-
-                for (int offset = 0; offset < length - 3; offset++) {
-                    assertThat(block.getSlice(position, offset, 3)).isEqualTo(expectedSliceValue.slice(offset, 3));
-                }
-            }
-
-            assertPositionEquals(block, position, expectedSliceValue);
-        }
-        else if (expectedValue instanceof Byte[] expected) {
+        if (expectedValue instanceof Byte[] expected) {
             Block actual = block.getObject(position, Block.class);
             assertThat(actual.getPositionCount()).isEqualTo(expected.length);
             for (int i = 0; i < expected.length; i++) {
@@ -308,17 +294,6 @@ public abstract class AbstractTestBlock
         else {
             throw new IllegalArgumentException("Unsupported type: " + expectedValue.getClass().getSimpleName());
         }
-    }
-
-    protected boolean isSliceAccessSupported()
-    {
-        return true;
-    }
-
-    // Subclasses can implement this method to customize how the position is compared
-    // with the expected bytes
-    protected void assertPositionEquals(Block block, int position, Slice expectedBytes)
-    {
     }
 
     private static long getCompactedBlockSizeInBytes(Block block)

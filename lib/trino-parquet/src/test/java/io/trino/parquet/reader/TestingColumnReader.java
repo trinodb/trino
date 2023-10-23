@@ -93,6 +93,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.toDataProvider;
@@ -509,8 +510,7 @@ public class TestingColumnReader
     }
 
     private static final Assertion<String> ASSERT_BINARY = (values, block, offset, blockOffset) -> {
-        int positionLength = block.getSliceLength(blockOffset);
-        assertThat(block.getSlice(blockOffset, 0, positionLength).getBytes()).isEqualTo(values[offset].getBytes(UTF_8));
+        assertThat(VARBINARY.getSlice(block, blockOffset).getBytes()).isEqualTo(values[offset].getBytes(UTF_8));
     };
 
     private static Assertion<Number> assertTime(TimeType timeType, int precision)

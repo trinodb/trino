@@ -628,20 +628,21 @@ public class TestPositionsAppender
             return RunLengthEncodedBlock.create(new VariableWidthBlock(1, EMPTY_SLICE, new int[] {0, 0}, Optional.of(new boolean[] {true})), block.getPositionCount());
         }
 
-        int[] offsets = new int[block.getPositionCount() + 1];
-        boolean[] valueIsNull = new boolean[block.getPositionCount()];
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
+        int[] offsets = new int[variableWidthBlock.getPositionCount() + 1];
+        boolean[] valueIsNull = new boolean[variableWidthBlock.getPositionCount()];
         boolean hasNullValue = false;
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            if (block.isNull(i)) {
+        for (int i = 0; i < variableWidthBlock.getPositionCount(); i++) {
+            if (variableWidthBlock.isNull(i)) {
                 valueIsNull[i] = true;
                 hasNullValue = true;
                 offsets[i + 1] = offsets[i];
             }
             else {
-                offsets[i + 1] = offsets[i] + block.getSliceLength(i);
+                offsets[i + 1] = offsets[i] + variableWidthBlock.getSliceLength(i);
             }
         }
 
-        return new VariableWidthBlock(block.getPositionCount(), ((VariableWidthBlock) block).getRawSlice(), offsets, hasNullValue ? Optional.of(valueIsNull) : Optional.empty());
+        return new VariableWidthBlock(variableWidthBlock.getPositionCount(), variableWidthBlock.getRawSlice(), offsets, hasNullValue ? Optional.of(valueIsNull) : Optional.empty());
     }
 }

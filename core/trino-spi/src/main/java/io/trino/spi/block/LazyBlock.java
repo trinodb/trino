@@ -13,7 +13,6 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
 import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
@@ -48,18 +47,6 @@ public final class LazyBlock
     public int getPositionCount()
     {
         return positionCount;
-    }
-
-    @Override
-    public int getSliceLength(int position)
-    {
-        return getBlock().getSliceLength(position);
-    }
-
-    @Override
-    public Slice getSlice(int position, int offset, int length)
-    {
-        return getBlock().getSlice(position, offset, length);
     }
 
     @Override

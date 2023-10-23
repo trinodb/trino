@@ -387,7 +387,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     assertThat(page).isNotNull();
                     assertThat(page.getPositionCount()).isEqualTo(1);
                     assertThat(INTEGER.getInt(page.getBlock(0), 0)).isEqualTo(dateColumnValue);
-                    assertThat(page.getBlock(1).getSlice(0, 0, page.getBlock(1).getSliceLength(0)).toStringUtf8()).isEqualTo(receiptColumnValue);
+                    assertThat(VARCHAR.getSlice(page.getBlock(1), 0).toStringUtf8()).isEqualTo(receiptColumnValue);
                     assertThat(((SqlDecimal) amountColumnType.getObjectValue(null, page.getBlock(2), 0)).toBigDecimal()).isEqualTo(amountColumnValue);
                 }
             }
@@ -552,7 +552,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     assertThat(page.getPositionCount()).isEqualTo(1);
                     assertThat(INTEGER.getInt(page.getBlock(0), 0)).isEqualTo(2023L);
                     assertThat(INTEGER.getInt(page.getBlock(1), 0)).isEqualTo(1L);
-                    assertThat(page.getBlock(2).getSlice(0, 0, page.getBlock(2).getSliceLength(0)).toStringUtf8()).isEqualTo(receiptColumnValue);
+                    assertThat(VARCHAR.getSlice(page.getBlock(2), 0).toStringUtf8()).isEqualTo(receiptColumnValue);
                     assertThat(((SqlDecimal) amountColumnType.getObjectValue(null, page.getBlock(3), 0)).toBigDecimal()).isEqualTo(amountColumnValue);
                 }
             }

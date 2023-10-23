@@ -35,6 +35,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public record MockPlanAlternativeTableHandle(ConnectorTableHandle delegate, ColumnHandle filterColumn, FilterDefinition filterDefinition)
@@ -89,9 +90,7 @@ public record MockPlanAlternativeTableHandle(ConnectorTableHandle delegate, Colu
         {
             return (block, position) -> {
                 for (int i = 0; i < values.getPositionCount(); i++) {
-                    int leftLength = block.getSliceLength(position);
-                    int rightLength = values.getSliceLength(i);
-                    if (leftLength == rightLength && block.getSlice(position, 0, leftLength).equals(values.getSlice(i, 0, rightLength))) {
+                    if (VARCHAR.getSlice(block, position).equals(VARCHAR.getSlice(values, i))) {
                         return true;
                     }
                 }

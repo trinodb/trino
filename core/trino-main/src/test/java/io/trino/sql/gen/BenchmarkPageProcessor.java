@@ -179,7 +179,7 @@ public class BenchmarkPageProcessor
             VariableWidthBlock leftBlock = (VariableWidthBlock) left.getUnderlyingValueBlock();
             Slice leftSlice = leftBlock.getRawSlice();
             int leftOffset = leftBlock.getRawSliceOffset(leftPosition);
-            int leftLength = left.getSliceLength(leftPosition);
+            int leftLength = leftBlock.getSliceLength(leftPosition);
             return leftSlice.compareTo(leftOffset, leftLength, right, 0, right.length()) < 0;
         }
 
@@ -188,7 +188,7 @@ public class BenchmarkPageProcessor
             VariableWidthBlock leftBlock = (VariableWidthBlock) left.getUnderlyingValueBlock();
             Slice leftSlice = leftBlock.getRawSlice();
             int leftOffset = leftBlock.getRawSliceOffset(leftPosition);
-            int leftLength = left.getSliceLength(leftPosition);
+            int leftLength = leftBlock.getSliceLength(leftPosition);
             return leftSlice.compareTo(leftOffset, leftLength, right, 0, right.length()) >= 0;
         }
     }
