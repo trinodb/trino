@@ -23,6 +23,8 @@ import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
+import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -384,16 +386,16 @@ public final class BlockAssertions
         return chooseRandomUnique(positionCount, nullCount);
     }
 
-    public static ValueBlock createStringsBlock(String... values)
+    public static VariableWidthBlock createStringsBlock(String... values)
     {
         requireNonNull(values, "values is null");
 
         return createStringsBlock(Arrays.asList(values));
     }
 
-    public static ValueBlock createStringsBlock(Iterable<String> values)
+    public static VariableWidthBlock createStringsBlock(Iterable<String> values)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 100);
+        VariableWidthBlockBuilder builder = VARCHAR.createBlockBuilder(null, 100);
 
         for (String value : values) {
             if (value == null) {

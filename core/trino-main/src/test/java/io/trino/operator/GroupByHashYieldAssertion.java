@@ -23,6 +23,8 @@ import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.type.Type;
 import io.trino.spiller.SpillSpaceTracker;
 
@@ -108,7 +110,8 @@ public final class GroupByHashYieldAssertion
             if (hashKeyType == VARCHAR) {
                 long oldVariableWidthSize = variableWidthData.getRetainedSizeBytes();
                 for (int position = 0; position < page.getPositionCount(); position++) {
-                    variableWidthData.allocate(pointer, 0, page.getBlock(0).getSliceLength(position));
+                    Block block = page.getBlock(0);
+                    variableWidthData.allocate(pointer, 0, ((VariableWidthBlock) block.getUnderlyingValueBlock()).getSliceLength(block.getUnderlyingValuePosition(position)));
                 }
                 pageVariableWidthSize = variableWidthData.getRetainedSizeBytes() - oldVariableWidthSize;
             }

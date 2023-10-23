@@ -99,7 +99,8 @@ public final class KdbTreeType
     @Override
     public int getFlatVariableWidthSize(Block block, int position)
     {
-        return block.getSliceLength(position);
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        return variableWidthBlock.getSliceLength(block.getUnderlyingValuePosition(position));
     }
 
     @Override

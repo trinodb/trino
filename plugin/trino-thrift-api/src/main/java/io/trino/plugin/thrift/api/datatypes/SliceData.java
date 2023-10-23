@@ -163,9 +163,10 @@ final class SliceData
     private static int totalSliceBytes(Block block)
     {
         int totalBytes = 0;
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
         int positions = block.getPositionCount();
         for (int position = 0; position < positions; position++) {
-            totalBytes += block.getSliceLength(position);
+            totalBytes += variableWidthBlock.getSliceLength(block.getUnderlyingValuePosition(position));
         }
         return totalBytes;
     }

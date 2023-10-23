@@ -13,8 +13,6 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
-
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
@@ -24,23 +22,6 @@ import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 public sealed interface Block
         permits DictionaryBlock, RunLengthEncodedBlock, LazyBlock, ValueBlock
 {
-    /**
-     * Gets the length of the value at the {@code position}.
-     * This method must be implemented if @{code getSlice} is implemented.
-     */
-    default int getSliceLength(int position)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    /**
-     * Gets a slice at {@code offset} in the value at {@code position}.
-     */
-    default Slice getSlice(int position, int offset, int length)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
     /**
      * Gets an object in the value at {@code position}.
      */
