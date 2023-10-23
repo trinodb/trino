@@ -23,8 +23,10 @@ import com.google.inject.Inject;
 import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
+import io.airlift.http.client.JsonBodyGenerator;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.trino.plugin.opa.schema.OpaBatchQueryResult;
 import io.trino.plugin.opa.schema.OpaQuery;
 import io.trino.plugin.opa.schema.OpaQueryInput;
@@ -49,6 +51,7 @@ import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.preparePost;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -57,30 +60,46 @@ public class OpaHttpClient
     private final HttpClient httpClient;
     private final JsonCodec<OpaQuery> serializer;
     private final Executor executor;
+    private final boolean logRequests;
+    private final boolean logResponses;
+    private static final Logger log = Logger.get(OpaHttpClient.class);
 
     @Inject
     public OpaHttpClient(
             @ForOpa HttpClient httpClient,
             JsonCodec<OpaQuery> serializer,
-            @ForOpa Executor executor)
+            @ForOpa Executor executor,
+            OpaConfig config)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.serializer = requireNonNull(serializer, "serializer is null");
         this.executor = requireNonNull(executor, "executor is null");
+        this.logRequests = config.getLogRequests();
+        this.logResponses = config.getLogResponses();
     }
 
     public <T> FluentFuture<T> submitOpaRequest(OpaQueryInput input, URI uri, JsonCodec<T> deserializer)
     {
         Request request;
+        JsonBodyGenerator<OpaQuery> requestBodyGenerator;
         try {
+            requestBodyGenerator = jsonBodyGenerator(serializer, new OpaQuery(input));
             request = preparePost()
                     .addHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                     .setUri(uri)
-                    .setBodyGenerator(jsonBodyGenerator(serializer, new OpaQuery(input)))
+                    .setBodyGenerator(requestBodyGenerator)
                     .build();
         }
         catch (IllegalArgumentException e) {
+            log.error(e, "Failed to serialize OPA request body when attempting to send request to URI \"%s\"", uri.toString());
             throw new OpaQueryException.SerializeFailed(e);
+        }
+        if (logRequests) {
+            log.debug(
+                    "Sending OPA request to URI \"%s\" ; request body = %s ; request headers = %s",
+                    uri.toString(),
+                    tryConvertBytesToString(requestBodyGenerator.getBody()),
+                    request.getHeaders());
         }
         return FluentFuture.from(httpClient.executeAsync(request, createFullJsonResponseHandler(deserializer)))
                 .transform(response -> parseOpaResponse(response, uri), executor);
@@ -95,9 +114,11 @@ public class OpaHttpClient
             if (e.getCause() instanceof OpaQueryException queryException) {
                 throw queryException;
             }
+            log.error(e, "Failed to obtain response from OPA due to an unknown error");
             throw new OpaQueryException.QueryFailed(e);
         }
         catch (InterruptedException e) {
+            log.error(e, "OPA request was interrupted in flight");
             Thread.currentThread().interrupt();
             throw new RuntimeException(e);
         }
@@ -163,15 +184,39 @@ public class OpaHttpClient
     private <T> T parseOpaResponse(FullJsonResponseHandler.JsonResponse<T> response, URI uri)
     {
         int statusCode = response.getStatusCode();
+        String uriString = uri.toString();
         if (HttpStatus.familyForStatusCode(statusCode) != HttpStatus.Family.SUCCESSFUL) {
             if (statusCode == HttpStatus.NOT_FOUND.code()) {
-                throw new OpaQueryException.PolicyNotFound(uri.toString());
+                log.warn("OPA responded with not found error for policy with URI \"%s\"", uriString);
+                throw new OpaQueryException.PolicyNotFound(uriString);
             }
-            throw new OpaQueryException.OpaServerError(uri.toString(), statusCode, response.toString());
+
+            log.error("Received unknown error from OPA for URI \"%s\" with status code = %d", uriString, statusCode);
+            throw new OpaQueryException.OpaServerError(uriString, statusCode, response.toString());
         }
         if (!response.hasValue()) {
+            log.error(response.getException(), "OPA response for URI \"%s\" with status code = %d could not be deserialized", uriString, statusCode);
             throw new OpaQueryException.DeserializeFailed(response.getException());
         }
+        if (logResponses) {
+            log.debug(
+                    "OPA response for URI \"%s\" received: status code = %d ; response payload = %s ; response headers = %s",
+                    uriString,
+                    statusCode,
+                    tryConvertBytesToString(response.getJsonBytes()),
+                    response.getHeaders());
+        }
         return response.getValue();
+    }
+
+    private static String tryConvertBytesToString(byte[] bytes)
+    {
+        try {
+            return new String(bytes, UTF_8);
+        }
+        catch (Exception e) {
+            log.error(e, "Failed to convert JSON bytes to string for logging");
+            return "<Failed to convert>";
+        }
     }
 }

@@ -42,6 +42,22 @@ opa.policy.uri=https://your-opa-endpoint/v1/data/allow
 opa.policy.batched-uri=https://your-opa-endpoint/v1/data/batch
 ```
 
+### All configuration entries
+
+| Configuration name       | Required | Default | Description                                                                                                                  |
+|--------------------------|:--------:|:-------:|------------------------------------------------------------------------------------------------------------------------------|
+| `opa.policy.uri`         |   Yes    |   N/A   | Endpoint to query OPA                                                                                                        |
+| `opa.policy.batched-uri` |    No    |  Unset  | Endpoint for batch OPA requests                                                                                              |
+| `opa.log-requests`       |    No    | `false` | Determines whether requests (URI, headers and entire body) are logged prior to sending them to OPA                           |
+| `opa.log-responses`      |    No    | `false` | Determines whether OPA responses (URI, status code, headers and entire body) are logged                                      |
+| `opa.http-client.*`      |    No    |  Unset  | Additional HTTP client configurations that get passed down. E.g. `opa.http-client.http-proxy` for configuring the HTTP proxy |
+
+> When request / response logging is enabled, they will be logged at DEBUG level under the `io.trino.plugin.opa.OpaHttpClient` logger, you will need to update
+> your log configuration accordingly.
+>
+> Be aware that enabling these options will produce very large amounts of logs
+
+
 ## OPA queries
 
 The plugin will contact OPA for each authorization request as defined on the SPI.

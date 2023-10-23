@@ -25,6 +25,8 @@ public class OpaConfig
     private URI opaUri;
 
     private Optional<URI> opaBatchUri = Optional.empty();
+    private boolean logRequests;
+    private boolean logResponses;
 
     @Config("opa.policy.uri")
     @ConfigDescription("URI for OPA policies")
@@ -42,6 +44,22 @@ public class OpaConfig
         return this;
     }
 
+    @Config("opa.log-requests")
+    @ConfigDescription("Whether to log requests (URI, entire body and headers) prior to sending them to OPA")
+    public OpaConfig setLogRequests(boolean logRequests)
+    {
+        this.logRequests = logRequests;
+        return this;
+    }
+
+    @Config("opa.log-responses")
+    @ConfigDescription("Whether to log responses (URI, entire body, status code and headers) received from OPA")
+    public OpaConfig setLogResponses(boolean logResponses)
+    {
+        this.logResponses = logResponses;
+        return this;
+    }
+
     @NotNull
     public URI getOpaUri()
     {
@@ -51,5 +69,15 @@ public class OpaConfig
     public Optional<URI> getOpaBatchUri()
     {
         return opaBatchUri;
+    }
+
+    public boolean getLogRequests()
+    {
+        return this.logRequests;
+    }
+
+    public boolean getLogResponses()
+    {
+        return this.logResponses;
     }
 }
