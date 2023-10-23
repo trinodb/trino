@@ -193,6 +193,30 @@ public class TestAddExchangesPlans
     }
 
     @Test
+    public void testSingleGatheringExchangeForUnionAllWithLimit()
+    {
+        assertDistributedPlan("""
+                SELECT * FROM (
+                    SELECT nationkey FROM nation
+                    UNION ALL
+                    SELECT nationkey FROM nation
+                    UNION ALL
+                    SELECT nationkey FROM nation
+                )
+                LIMIT 2
+                """,
+                output(
+                        limit(2, ImmutableList.of(), false,
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE, GATHER,
+                                            limit(2, ImmutableList.of(), true,
+                                                    exchange(LOCAL, REPARTITION,
+                                                            limit(2, ImmutableList.of(), true, tableScan("nation")),
+                                                            limit(2, ImmutableList.of(), true, tableScan("nation")),
+                                                            limit(2, ImmutableList.of(), true, tableScan("nation")))))))));
+    }
+
+    @Test
     public void testNonSpillableBroadcastJoinAboveTableScan()
     {
         assertDistributedPlan(
