@@ -67,7 +67,7 @@ public class TestMapBlock
         // TODO: Add test case for a sliced MapBlock
 
         // underlying key/value block is not compact
-        testIncompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(Optional.of(mapIsNull), offsets, inCompactKeyBlock, inCompactValueBlock));
+        testNotCompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(Optional.of(mapIsNull), offsets, inCompactKeyBlock, inCompactValueBlock));
     }
 
     @Test
