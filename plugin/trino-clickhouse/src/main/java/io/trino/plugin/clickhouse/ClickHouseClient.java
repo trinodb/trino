@@ -588,9 +588,9 @@ public class ClickHouseClient
                         longDecimalReadFunction(UINT64_TYPE, UNNECESSARY),
                         uInt64WriteFunction(getClickHouseServerVersion(session))));
             case IPv4:
-                return Optional.of(ipAddressColumnMapping("IPv4StringToNum(?)"));
+                return Optional.of(ipAddressColumnMapping("IPv4StringToNum(CAST(?, 'Nullable(String)'))"));
             case IPv6:
-                return Optional.of(ipAddressColumnMapping("IPv6StringToNum(?)"));
+                return Optional.of(ipAddressColumnMapping("IPv6StringToNum(CAST(?, 'Nullable(String)'))"));
             case Enum8:
             case Enum16:
                 return Optional.of(ColumnMapping.sliceMapping(
@@ -661,7 +661,7 @@ public class ClickHouseClient
                         DISABLE_PUSHDOWN));
 
             case Types.DATE:
-                return Optional.of(dateColumnMappingUsingLocalDate(getClickHouseServerVersion(session)));
+                return Optional.of(dateColumnMappingUsingLocalDate());
 
             case Types.TIMESTAMP:
                 if (columnDataType == ClickHouseDataType.DateTime) {
@@ -670,7 +670,7 @@ public class ClickHouseClient
                     return Optional.of(ColumnMapping.longMapping(
                             TIMESTAMP_SECONDS,
                             timestampReadFunction(TIMESTAMP_SECONDS),
-                            timestampSecondsWriteFunction(getClickHouseServerVersion(session))));
+                            timestampSecondsWriteFunction()));
                 }
                 // TODO (https://github.com/trinodb/trino/issues/10537) Add support for Datetime64 type
                 return Optional.of(timestampColumnMappingUsingSqlTimestampWithRounding(TIMESTAMP_MILLIS));
@@ -734,10 +734,10 @@ public class ClickHouseClient
             return WriteMapping.sliceMapping("String", varbinaryWriteFunction());
         }
         if (type == DATE) {
-            return WriteMapping.longMapping("Date", dateWriteFunctionUsingLocalDate(getClickHouseServerVersion(session)));
+            return WriteMapping.longMapping("Date", dateWriteFunctionUsingLocalDate());
         }
         if (type == TIMESTAMP_SECONDS) {
-            return WriteMapping.longMapping("DateTime", timestampSecondsWriteFunction(getClickHouseServerVersion(session)));
+            return WriteMapping.longMapping("DateTime", timestampSecondsWriteFunction());
         }
         if (type.equals(uuidType)) {
             return WriteMapping.sliceMapping("UUID", uuidWriteFunction());
@@ -789,7 +789,7 @@ public class ClickHouseClient
     {
         return (statement, index, value) -> {
             // ClickHouse stores incorrect results when the values are out of supported range.
-            UINT8.validate(version, value);
+            UINT8.validate(value);
             statement.setShort(index, Shorts.checkedCast(value));
         };
     }
@@ -798,7 +798,7 @@ public class ClickHouseClient
     {
         return (statement, index, value) -> {
             // ClickHouse stores incorrect results when the values are out of supported range.
-            UINT16.validate(version, value);
+            UINT16.validate(value);
             statement.setInt(index, toIntExact(value));
         };
     }
@@ -807,7 +807,7 @@ public class ClickHouseClient
     {
         return (preparedStatement, parameterIndex, value) -> {
             // ClickHouse stores incorrect results when the values are out of supported range.
-            UINT32.validate(version, value);
+            UINT32.validate(value);
             preparedStatement.setLong(parameterIndex, value);
         };
     }
@@ -820,30 +820,30 @@ public class ClickHouseClient
                     BigInteger unscaledValue = value.toBigInteger();
                     BigDecimal bigDecimal = new BigDecimal(unscaledValue, UINT64_TYPE.getScale(), new MathContext(UINT64_TYPE.getPrecision()));
                     // ClickHouse stores incorrect results when the values are out of supported range.
-                    UINT64.validate(version, bigDecimal);
+                    UINT64.validate(bigDecimal);
                     statement.setBigDecimal(index, bigDecimal);
                 });
     }
 
-    private static ColumnMapping dateColumnMappingUsingLocalDate(ClickHouseVersion version)
+    private static ColumnMapping dateColumnMappingUsingLocalDate()
     {
         return ColumnMapping.longMapping(
                 DATE,
                 dateReadFunctionUsingLocalDate(),
-                dateWriteFunctionUsingLocalDate(version));
+                dateWriteFunctionUsingLocalDate());
     }
 
-    private static LongWriteFunction dateWriteFunctionUsingLocalDate(ClickHouseVersion version)
+    private static LongWriteFunction dateWriteFunctionUsingLocalDate()
     {
         return (statement, index, value) -> {
             LocalDate date = LocalDate.ofEpochDay(value);
             // Deny unsupported dates eagerly to prevent unexpected results. ClickHouse stores '1970-01-01' when the date is out of supported range.
-            TrinoToClickHouseWriteChecker.DATE.validate(version, date);
+            TrinoToClickHouseWriteChecker.DATE.validate(date);
             statement.setObject(index, date);
         };
     }
 
-    private static LongWriteFunction timestampSecondsWriteFunction(ClickHouseVersion version)
+    private static LongWriteFunction timestampSecondsWriteFunction()
     {
         return (statement, index, value) -> {
             long epochSecond = floorDiv(value, MICROSECONDS_PER_SECOND);
@@ -851,7 +851,7 @@ public class ClickHouseClient
             verify(nanoFraction == 0, "Nanos of second must be zero: '%s'", value);
             LocalDateTime timestamp = LocalDateTime.ofEpochSecond(epochSecond, 0, UTC);
             // ClickHouse stores incorrect results when the values are out of supported range.
-            DATETIME.validate(version, timestamp);
+            DATETIME.validate(timestamp);
             statement.setObject(index, timestamp);
         };
     }

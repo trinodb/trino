@@ -387,11 +387,7 @@ public abstract class BaseClickHouseTypeMapping
                 .addRoundTrip("double", "3.1415926835", DOUBLE, "DOUBLE '3.1415926835'")
                 .addRoundTrip("double", "1.79769E308", DOUBLE, "DOUBLE '1.79769E308'")
                 .addRoundTrip("double", "2.225E-307", DOUBLE, "DOUBLE '2.225E-307'")
-
-                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_double"))
-
                 .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
-
                 .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"));
 
         SqlDataTypeTest.create()
