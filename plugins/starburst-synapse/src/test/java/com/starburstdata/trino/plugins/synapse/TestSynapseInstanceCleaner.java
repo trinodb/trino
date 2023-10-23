@@ -86,15 +86,24 @@ public class TestSynapseInstanceCleaner
         LOG.info("Identified %d views to drop.", viewsToDrop.size());
         LOG.info("Views to drop: %s", viewsToDrop);
         // Azure Synapse does not support "DROP TABLE IF EXISTS"
-        try {
-            tablesToDrop.stream()
-                    .forEach(tableName -> synapseServer.execute(format("DROP TABLE %s.[%s]", TEST_SCHEMA, tableName)));
-            viewsToDrop.stream()
-                    .forEach(viewName -> synapseServer.execute(format("DROP VIEW %s.[%s]", TEST_SCHEMA, viewName)));
+        for (String tableName : tablesToDrop) {
+            try {
+                synapseServer.execute(format("DROP TABLE %s.[%s]", TEST_SCHEMA, tableName));
+            }
+            catch (RuntimeException e) {
+                if (e.getCause() instanceof SQLServerException && ((SQLServerException) e.getCause()).getErrorCode() != ERROR_OBJECT_NOT_FOUND) {
+                    throw e;
+                }
+            }
         }
-        catch (RuntimeException e) {
-            if (e.getCause() instanceof SQLServerException && ((SQLServerException) e.getCause()).getErrorCode() != ERROR_OBJECT_NOT_FOUND) {
-                throw e;
+        for (String viewName : viewsToDrop) {
+            try {
+                synapseServer.execute(format("DROP VIEW %s.[%s]", TEST_SCHEMA, viewName));
+            }
+            catch (RuntimeException e) {
+                if (e.getCause() instanceof SQLServerException && ((SQLServerException) e.getCause()).getErrorCode() != ERROR_OBJECT_NOT_FOUND) {
+                    throw e;
+                }
             }
         }
         logObjectsCount();
