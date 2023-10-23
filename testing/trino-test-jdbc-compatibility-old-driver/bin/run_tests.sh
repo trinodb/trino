@@ -29,8 +29,10 @@ echo "Testing every ${version_step}. version between ${first_tested_version} and
 tested_versions=$(seq "${first_tested_version}" ${version_step} "${previous_released_version}" | grep -vx 404)
 
 if (( (previous_released_version - first_tested_version) % version_step != 0 )); then
-    tested_versions="${tested_versions} ${previous_released_version}"
+    tested_versions+=("${previous_released_version}")
 fi
+
+tested_versions+=("422")
 
 exit_code=0
 failed_versions=()
