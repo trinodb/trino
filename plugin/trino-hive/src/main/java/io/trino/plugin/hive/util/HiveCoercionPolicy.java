@@ -28,6 +28,7 @@ import io.trino.spi.type.VarcharType;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.hive.HiveType.HIVE_BOOLEAN;
 import static io.trino.plugin.hive.HiveType.HIVE_BYTE;
 import static io.trino.plugin.hive.HiveType.HIVE_DATE;
 import static io.trino.plugin.hive.HiveType.HIVE_DOUBLE;
@@ -72,7 +73,8 @@ public final class HiveCoercionPolicy
             return toType instanceof CharType;
         }
         if (toType instanceof VarcharType) {
-            return fromHiveType.equals(HIVE_BYTE) ||
+            return fromHiveType.equals(HIVE_BOOLEAN) ||
+                    fromHiveType.equals(HIVE_BYTE) ||
                     fromHiveType.equals(HIVE_SHORT) ||
                     fromHiveType.equals(HIVE_INT) ||
                     fromHiveType.equals(HIVE_LONG) ||

@@ -103,6 +103,7 @@ public class TestHiveCoercionOnPartitionedTable
                         "    row_to_row                 STRUCT<keep: STRING, ti2si: TINYINT, si2int: SMALLINT, int2bi: INT, bi2vc: BIGINT, lower2uppercase: BIGINT>, " +
                         "    list_to_list               ARRAY<STRUCT<ti2int: TINYINT, si2bi: SMALLINT, bi2vc: BIGINT, remove: STRING>>, " +
                         "    map_to_map                 MAP<TINYINT, STRUCT<ti2bi: TINYINT, int2bi: INT, float2double: " + floatType + ">>, " +
+                        "    boolean_to_varchar         BOOLEAN," +
                         "    tinyint_to_smallint        TINYINT," +
                         "    tinyint_to_int             TINYINT," +
                         "    tinyint_to_bigint          TINYINT," +
