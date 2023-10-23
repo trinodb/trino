@@ -250,5 +250,5 @@ may not be specified using both methods.
   - Defaults to `true`. When set to `false`, prepared statements are executed
     calling a single `EXECUTE IMMEDIATE` query instead of the standard
     `PREPARE <statement>` followed by `EXECUTE <statement>`. This reduces
-    network overhead and uses smaller HTTP headers but requires Trino 431 or
+    network overhead and uses smaller HTTP headers and requires Trino 431 or
     greater.
