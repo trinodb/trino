@@ -29,8 +29,11 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.apache.iceberg.util.ThreadPools;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.File;
 import java.util.Optional;
@@ -66,7 +69,7 @@ import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 
-@Test(singleThreaded = true) // e.g. trackingFileSystemFactory is shared mutable state
+@Execution(ExecutionMode.SAME_THREAD) // e.g. trackingFileSystemFactory is shared mutable state
 public class TestIcebergFileOperations
         extends AbstractTestQueryFramework
 {
@@ -167,7 +170,8 @@ public class TestIcebergFileOperations
                         .build());
     }
 
-    @Test(dataProvider = "testSelectWithLimitDataProvider")
+    @ParameterizedTest
+    @MethodSource("testSelectWithLimitDataProvider")
     public void testSelectWithLimit(int numberOfFiles)
     {
         assertUpdate("DROP TABLE IF EXISTS test_select_with_limit"); // test is parameterized
@@ -210,7 +214,6 @@ public class TestIcebergFileOperations
         assertUpdate("DROP TABLE test_select_with_limit");
     }
 
-    @DataProvider
     public Object[][] testSelectWithLimitDataProvider()
     {
         return new Object[][] {
@@ -594,7 +597,8 @@ public class TestIcebergFileOperations
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "metadataQueriesTestTableCountDataProvider")
+    @ParameterizedTest
+    @MethodSource("metadataQueriesTestTableCountDataProvider")
     public void testInformationSchemaColumns(int tables)
     {
         String schemaName = "test_i_s_columns_schema" + randomNameSuffix();
@@ -636,7 +640,8 @@ public class TestIcebergFileOperations
         }
     }
 
-    @Test(dataProvider = "metadataQueriesTestTableCountDataProvider")
+    @ParameterizedTest
+    @MethodSource("metadataQueriesTestTableCountDataProvider")
     public void testSystemMetadataTableComments(int tables)
     {
         String schemaName = "test_s_m_table_comments" + randomNameSuffix();
@@ -678,7 +683,6 @@ public class TestIcebergFileOperations
         }
     }
 
-    @DataProvider
     public Object[][] metadataQueriesTestTableCountDataProvider()
     {
         return new Object[][] {

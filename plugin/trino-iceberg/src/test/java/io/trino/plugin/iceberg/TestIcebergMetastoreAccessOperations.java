@@ -22,8 +22,11 @@ import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogMo
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.File;
 import java.util.Optional;
@@ -50,7 +53,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test(singleThreaded = true) // metastore invocation counters shares mutable state so can't be run from many threads simultaneously
+@Execution(ExecutionMode.SAME_THREAD) // metastore invocation counters shares mutable state so can't be run from many threads simultaneously
 public class TestIcebergMetastoreAccessOperations
         extends AbstractTestQueryFramework
 {
@@ -326,7 +329,8 @@ public class TestIcebergMetastoreAccessOperations
                         .build());
     }
 
-    @Test(dataProvider = "metadataQueriesTestTableCountDataProvider")
+    @ParameterizedTest
+    @MethodSource("metadataQueriesTestTableCountDataProvider")
     public void testInformationSchemaColumns(int tables)
     {
         String schemaName = "test_i_s_columns_schema" + randomNameSuffix();
@@ -371,7 +375,8 @@ public class TestIcebergMetastoreAccessOperations
         }
     }
 
-    @Test(dataProvider = "metadataQueriesTestTableCountDataProvider")
+    @ParameterizedTest
+    @MethodSource("metadataQueriesTestTableCountDataProvider")
     public void testSystemMetadataTableComments(int tables)
     {
         String schemaName = "test_s_m_table_comments" + randomNameSuffix();
@@ -417,7 +422,6 @@ public class TestIcebergMetastoreAccessOperations
         }
     }
 
-    @DataProvider
     public Object[][] metadataQueriesTestTableCountDataProvider()
     {
         return new Object[][] {
