@@ -699,15 +699,21 @@ public final class PropertyDerivations
                     if (inputProperty.isEffectivelySinglePartition() && node.getOrderingScheme().isEmpty()) {
                         verify(node.getInputs().size() == 1);
                         verify(node.getSources().size() == 1);
-                        PlanNode source = node.getSources().get(0);
-                        StreamPropertyDerivations.StreamProperties streamProperties = StreamPropertyDerivations.derivePropertiesRecursively(source, plannerContext, session, types, typeAnalyzer);
-                        if (streamProperties.isSingleStream()) {
+                        List<LocalProperty<Symbol>> inputLocalProperties = inputProperty.getLocalProperties();
+                        if (!inputLocalProperties.isEmpty()) {
                             Map<Symbol, Symbol> inputToOutput = exchangeInputToOutput(node, 0);
-                            // Single stream input's local sorting and grouping properties are preserved
-                            // In case of merging exchange, it's orderingScheme takes precedence
-                            localProperties.addAll(LocalProperties.translate(
-                                    inputProperty.getLocalProperties(),
-                                    symbol -> Optional.ofNullable(inputToOutput.get(symbol))));
+                            inputLocalProperties = LocalProperties.translate(inputLocalProperties, symbol -> Optional.ofNullable(inputToOutput.get(symbol)));
+                        }
+                        // If no local properties are present to propagate, then we can skip recursive stream properties derivation
+                        // which traverses all child plan nodes again and is therefore expensive to check
+                        if (!inputLocalProperties.isEmpty()) {
+                            PlanNode source = node.getSources().get(0);
+                            StreamPropertyDerivations.StreamProperties streamProperties = StreamPropertyDerivations.derivePropertiesRecursively(source, plannerContext, session, types, typeAnalyzer);
+                            if (streamProperties.isSingleStream()) {
+                                // Single stream input's local sorting and grouping properties are preserved
+                                // In case of merging exchange, it's orderingScheme takes precedence
+                                localProperties.addAll(inputLocalProperties);
+                            }
                         }
                     }
                 }
