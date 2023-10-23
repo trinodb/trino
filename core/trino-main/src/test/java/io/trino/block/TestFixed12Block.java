@@ -84,7 +84,7 @@ public class TestFixed12Block
 
         testCompactBlock(new Fixed12Block(0, Optional.empty(), new int[0]));
         testCompactBlock(new Fixed12Block(valueIsNull.length, Optional.of(valueIsNull), intArray));
-        testIncompactBlock(new Fixed12Block(valueIsNull.length - 2, Optional.of(valueIsNull), intArray));
+        testNotCompactBlock(new Fixed12Block(valueIsNull.length - 2, Optional.of(valueIsNull), intArray));
     }
 
     private void assertFixedWithValues(Slice[] expectedValues)
