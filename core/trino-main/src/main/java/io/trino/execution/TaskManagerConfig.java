@@ -56,10 +56,10 @@ public class TaskManagerConfig
     private boolean shareIndexLoading;
     private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 2;
     private Integer minDrivers;
-    private Integer initialSplitsPerNode;
+    private int initialSplitsPerNode = Runtime.getRuntime().availableProcessors() * 4;
     private int minDriversPerTask = 3;
     private int maxDriversPerTask = Integer.MAX_VALUE;
-    private Duration splitConcurrencyAdjustmentInterval = new Duration(100, TimeUnit.MILLISECONDS);
+    private Duration splitConcurrencyAdjustmentInterval = new Duration(1, TimeUnit.SECONDS);
 
     private DataSize sinkMaxBufferSize = DataSize.of(32, Unit.MEGABYTE);
     private DataSize sinkMaxBroadcastBufferSize = DataSize.of(200, Unit.MEGABYTE);
@@ -294,9 +294,6 @@ public class TaskManagerConfig
     @Min(1)
     public int getInitialSplitsPerNode()
     {
-        if (initialSplitsPerNode == null) {
-            return maxWorkerThreads;
-        }
         return initialSplitsPerNode;
     }
 
