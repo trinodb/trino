@@ -27,6 +27,7 @@ public class AccessControlRules
     private final List<TableAccessControlRule> tableRules;
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
     private final List<FunctionAccessControlRule> functionRules;
+    private final List<ProcedureAccessControlRule> procedureRules;
     private final List<AuthorizationRule> authorizationRules;
 
     @JsonCreator
@@ -35,6 +36,7 @@ public class AccessControlRules
             @JsonProperty("tables") Optional<List<TableAccessControlRule>> tableRules,
             @JsonProperty("session_properties") @JsonAlias("sessionProperties") Optional<List<SessionPropertyAccessControlRule>> sessionPropertyRules,
             @JsonProperty("functions") Optional<List<FunctionAccessControlRule>> functionRules,
+            @JsonProperty("procedures") Optional<List<ProcedureAccessControlRule>> procedureRules,
             @JsonProperty("authorization") Optional<List<AuthorizationRule>> authorizationRules)
     {
         this.schemaRules = schemaRules.orElse(ImmutableList.of(SchemaAccessControlRule.ALLOW_ALL));
@@ -42,6 +44,8 @@ public class AccessControlRules
         this.sessionPropertyRules = sessionPropertyRules.orElse(ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL));
         // functions are not allowed by default
         this.functionRules = functionRules.orElse(ImmutableList.of());
+        // procedures are not allowed by default
+        this.procedureRules = procedureRules.orElse(ImmutableList.of());
         this.authorizationRules = authorizationRules.orElse(ImmutableList.of());
     }
 
@@ -65,6 +69,11 @@ public class AccessControlRules
         return functionRules;
     }
 
+    public List<ProcedureAccessControlRule> getProcedureRules()
+    {
+        return procedureRules;
+    }
+
     public List<AuthorizationRule> getAuthorizationRules()
     {
         return authorizationRules;
@@ -76,6 +85,7 @@ public class AccessControlRules
                 tableRules.stream().anyMatch(rule -> rule.getRoleRegex().isPresent()) ||
                 sessionPropertyRules.stream().anyMatch(rule -> rule.getRoleRegex().isPresent()) ||
                 functionRules.stream().anyMatch(rule -> rule.getRoleRegex().isPresent()) ||
+                procedureRules.stream().anyMatch(rule -> rule.getRoleRegex().isPresent()) ||
                 authorizationRules.stream().anyMatch(rule -> rule.getOriginalRolePattern().isPresent()) ||
                 authorizationRules.stream().anyMatch(rule -> rule.getNewRolePattern().isPresent());
     }

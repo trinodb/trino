@@ -145,5 +145,23 @@
                 "GRANT_EXECUTE"
             ]
         }
+    ],
+    "procedures": [
+        {
+            "user": "bob",
+            "catalog": "alice-catalog",
+            "schema": "procedure-schema",
+            "procedure": "some_procedure",
+            "privileges": [
+                "EXECUTE"
+            ]
+        },
+        {
+            "user": "alice",
+            "catalog": "alice-catalog",
+            "procedure": "some_procedure",
+            "privileges": [
+            ]
+        }
     ]
 }
