@@ -164,4 +164,16 @@ public class TestVariableWidthBlock
         }
         return blockBuilder;
     }
+
+    @Override
+    protected <T> void assertPositionValue(Block block, int position, T expectedValue)
+    {
+        if (expectedValue == null) {
+            assertThat(block.isNull(position)).isTrue();
+            return;
+        }
+
+        assertThat(block.isNull(position)).isFalse();
+        assertThat(((VariableWidthBlock) block).getSlice(position)).isEqualTo(expectedValue);
+    }
 }

@@ -25,6 +25,7 @@ import io.trino.geospatial.Rectangle;
 import io.trino.operator.PagesRTreeIndex.GeometryWithPosition;
 import io.trino.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -104,15 +105,16 @@ public class PagesSpatialIndexSupplier
         for (int position = 0; position < addresses.size(); position++) {
             long pageAddress = addresses.getLong(position);
             int blockIndex = decodeSliceIndex(pageAddress);
-            int blockPosition = decodePosition(pageAddress);
+            Block chennelBlock = channels.get(geometryChannel).get(blockIndex);
+            VariableWidthBlock block = (VariableWidthBlock) chennelBlock.getUnderlyingValueBlock();
+            int blockPosition = chennelBlock.getUnderlyingValuePosition(decodePosition(pageAddress));
 
-            Block block = channels.get(geometryChannel).get(blockIndex);
             // TODO Consider pushing is-null and is-empty checks into a filter below the join
             if (block.isNull(blockPosition)) {
                 continue;
             }
 
-            Slice slice = block.getSlice(blockPosition, 0, block.getSliceLength(blockPosition));
+            Slice slice = block.getSlice(blockPosition);
             OGCGeometry ogcGeometry = deserialize(slice);
             verifyNotNull(ogcGeometry);
             if (ogcGeometry.isEmpty()) {

@@ -13,8 +13,7 @@
  */
 package io.trino.operator.aggregation.state;
 
-import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import org.junit.jupiter.api.Test;
 
@@ -67,11 +66,11 @@ public class TestLongDecimalWithOverflowStateSerializer
     private LongDecimalWithOverflowState roundTrip(LongDecimalWithOverflowState state, int expectedLength)
     {
         LongDecimalWithOverflowStateSerializer serializer = new LongDecimalWithOverflowStateSerializer();
-        BlockBuilder out = new VariableWidthBlockBuilder(null, 1, 0);
+        VariableWidthBlockBuilder out = new VariableWidthBlockBuilder(null, 1, 0);
 
         serializer.serialize(state, out);
 
-        Block serialized = out.build();
+        VariableWidthBlock serialized = out.buildValueBlock();
         assertThat(serialized.getSliceLength(0)).isEqualTo(expectedLength * Long.BYTES);
         LongDecimalWithOverflowState outState = STATE_FACTORY.createSingleState();
         serializer.deserialize(serialized, 0, outState);

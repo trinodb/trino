@@ -13,7 +13,6 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
 import io.trino.spi.predicate.Utils;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
@@ -194,20 +193,6 @@ public final class RunLengthEncodedBlock
     {
         checkValidRegion(positionCount, positionOffset, length);
         return create(value.copyRegion(0, 1), length);
-    }
-
-    @Override
-    public int getSliceLength(int position)
-    {
-        checkReadablePosition(this, position);
-        return value.getSliceLength(0);
-    }
-
-    @Override
-    public Slice getSlice(int position, int offset, int length)
-    {
-        checkReadablePosition(this, position);
-        return value.getSlice(0, offset, length);
     }
 
     @Override

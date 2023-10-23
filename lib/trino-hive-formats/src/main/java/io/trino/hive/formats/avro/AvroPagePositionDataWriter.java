@@ -24,7 +24,6 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.VarbinaryType;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.io.DatumWriter;
@@ -55,6 +54,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -206,16 +206,16 @@ public class AvroPagePositionDataWriter
             }
             case STRING -> {
                 if (VARCHAR.equals(type)) {
-                    return new StringOrBytesPositionEncoder(nullIdx);
+                    return new StringPositionEncoder(nullIdx);
                 }
             }
             case BYTES -> {
-                if (VarbinaryType.VARBINARY.equals(type)) {
-                    return new StringOrBytesPositionEncoder(nullIdx);
+                if (VARBINARY.equals(type)) {
+                    return new BytesPositionEncoder(nullIdx);
                 }
             }
             case FIXED -> {
-                if (VarbinaryType.VARBINARY.equals(type)) {
+                if (VARBINARY.equals(type)) {
                     return new FixedBlockPositionEncoder(nullIdx, schema.getFixedSize());
                 }
             }
@@ -337,10 +337,10 @@ public class AvroPagePositionDataWriter
         }
     }
 
-    private static class StringOrBytesPositionEncoder
+    private static class StringPositionEncoder
             extends BlockPositionEncoder
     {
-        public StringOrBytesPositionEncoder(Optional<SimpleUnionNullIndex> isNullWithIndex)
+        public StringPositionEncoder(Optional<SimpleUnionNullIndex> isNullWithIndex)
         {
             super(isNullWithIndex);
         }
@@ -349,9 +349,27 @@ public class AvroPagePositionDataWriter
         void encodeFromBlock(int position, Encoder encoder)
                 throws IOException
         {
-            int length = block.getSliceLength(position);
-            encoder.writeLong(length);
-            encoder.writeFixed(block.getSlice(position, 0, length).getBytes());
+            Slice value = VARCHAR.getSlice(block, position);
+            encoder.writeLong(value.length());
+            encoder.writeFixed(value.getBytes());
+        }
+    }
+
+    private static class BytesPositionEncoder
+            extends BlockPositionEncoder
+    {
+        public BytesPositionEncoder(Optional<SimpleUnionNullIndex> isNullWithIndex)
+        {
+            super(isNullWithIndex);
+        }
+
+        @Override
+        void encodeFromBlock(int position, Encoder encoder)
+                throws IOException
+        {
+            Slice value = VARBINARY.getSlice(block, position);
+            encoder.writeLong(value.length());
+            encoder.writeFixed(value.getBytes());
         }
     }
 
@@ -370,11 +388,11 @@ public class AvroPagePositionDataWriter
         void encodeFromBlock(int position, Encoder encoder)
                 throws IOException
         {
-            int length = block.getSliceLength(position);
-            if (length != fixedSize) {
-                throw new IOException("Unable to write Avro fixed with size %s from slice of length %s".formatted(fixedSize, length));
+            Slice value = VARBINARY.getSlice(block, position);
+            if (value.length() != fixedSize) {
+                throw new IOException("Unable to write Avro fixed with size %s from slice of length %s".formatted(fixedSize, value.length()));
             }
-            encoder.writeFixed(block.getSlice(position, 0, length).getBytes());
+            encoder.writeFixed(value.getBytes());
         }
     }
 
@@ -397,11 +415,11 @@ public class AvroPagePositionDataWriter
         void encodeFromBlock(int position, Encoder encoder)
                 throws IOException
         {
-            int length = block.getSliceLength(position);
-            Integer symbolIndex = symbolToIndex.get(block.getSlice(position, 0, length));
+            Slice value = VARCHAR.getSlice(block, position);
+            Integer symbolIndex = symbolToIndex.get(value);
             if (symbolIndex == null) {
                 throw new IOException("Unable to write Avro Enum symbol %s. Not found in set %s".formatted(
-                        block.getSlice(position, 0, length).toStringUtf8(),
+                        value.toStringUtf8(),
                         symbolToIndex.keySet().stream().map(Slice::toStringUtf8).toList()));
             }
             encoder.writeEnum(symbolIndex);
@@ -443,7 +461,7 @@ public class AvroPagePositionDataWriter
     private static class MapBlockPositionEncoder
             extends BlockPositionEncoder
     {
-        private final BlockPositionEncoder keyBlockPositionEncoder = new StringOrBytesPositionEncoder(Optional.empty());
+        private final BlockPositionEncoder keyBlockPositionEncoder = new StringPositionEncoder(Optional.empty());
         private final BlockPositionEncoder valueBlockPositionEncoder;
         private final MapType type;
 
