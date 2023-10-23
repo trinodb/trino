@@ -51,11 +51,6 @@ public class RequestTestUtilities
     public static void assertJsonRequestsEqual(
             Collection<JsonNode> expectedRequests, Collection<String> actualRequests, String extractPath)
     {
-        assertEquals(
-                expectedRequests.size(),
-                actualRequests.size(),
-                "Mismatch in expected vs. actual request count");
-
         Set<JsonNode> parsedActualRequests = actualRequests.stream()
                 .map(actualRequest -> {
                     try {
@@ -71,6 +66,11 @@ public class RequestTestUtilities
                     }
                 })
                 .collect(toImmutableSet());
-        assertEquals(ImmutableSet.copyOf(expectedRequests), parsedActualRequests, "Requests do not match");
+        Set<JsonNode> expectedRequestSet = ImmutableSet.copyOf(expectedRequests);
+        assertEquals(
+                expectedRequestSet.size(),
+                parsedActualRequests.size(),
+                "Mismatch in expected vs. actual request count");
+        assertEquals(expectedRequestSet, parsedActualRequests, "Requests do not match");
     }
 }

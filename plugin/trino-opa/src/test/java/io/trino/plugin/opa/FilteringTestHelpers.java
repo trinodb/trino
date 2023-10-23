@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SystemSecurityContext;
 import org.junit.jupiter.api.Named;
@@ -38,8 +39,9 @@ public class FilteringTestHelpers
                 (authorizer, context) -> authorizer.filterViewQueryOwnedBy(context.getIdentity(), ImmutableSet.<Identity>of()),
                 (authorizer, context) -> authorizer.filterCatalogs(context, ImmutableSet.of()),
                 (authorizer, context) -> authorizer.filterSchemas(context, "my_catalog", ImmutableSet.of()),
-                (authorizer, context) -> authorizer.filterTables(context, "my_catalog", ImmutableSet.of()));
-        Stream<String> testNames = Stream.of("filterViewQueryOwnedBy", "filterCatalogs", "filterSchemas", "filterTables");
+                (authorizer, context) -> authorizer.filterTables(context, "my_catalog", ImmutableSet.of()),
+                (authorizer, context) -> authorizer.filterFunctions(context, "my_catalog", ImmutableSet.of()));
+        Stream<String> testNames = Stream.of("filterViewQueryOwnedBy", "filterCatalogs", "filterSchemas", "filterTables", "filterFunctions");
         return Streams.zip(testNames, callables, (name, method) -> Arguments.of(Named.of(name, method)));
     }
 
@@ -55,8 +57,12 @@ public class FilteringTestHelpers
                         "my_catalog",
                         ImmutableMap.of(
                                 SchemaTableName.schemaTableName("my_schema", "my_table"),
-                                ImmutableSet.of("some_column"))));
-        Stream<String> testNames = Stream.of("filterViewQueryOwnedBy", "filterCatalogs", "filterSchemas", "filterTables", "filterColumns");
+                                ImmutableSet.of("some_column"))),
+                (authorizer, context) -> authorizer.filterFunctions(
+                        context,
+                        "my_catalog",
+                        ImmutableSet.of(new SchemaFunctionName("some_schema", "some_function"))));
+        Stream<String> testNames = Stream.of("filterViewQueryOwnedBy", "filterCatalogs", "filterSchemas", "filterTables", "filterColumns", "filterFunctions");
         return createIllegalResponseTestCases(Streams.zip(testNames, callables, (name, method) -> Arguments.of(Named.of(name, method))));
     }
 }

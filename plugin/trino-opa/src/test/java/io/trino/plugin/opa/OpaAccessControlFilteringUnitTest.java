@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SystemSecurityContext;
 import org.junit.jupiter.api.AfterEach;
@@ -284,6 +285,36 @@ public class OpaAccessControlFilteringUnitTest
 
         assertTrue(mockClient.getRequests().isEmpty());
         assertTrue(Maps.difference(result, requestedColumns).areEqual());
+    }
+
+    @Test
+    public void testFilterFunctions()
+    {
+        SchemaFunctionName functionOne = new SchemaFunctionName("my_schema", "function_one");
+        SchemaFunctionName functionTwo = new SchemaFunctionName("my_schema", "function_two");
+        Set<SchemaFunctionName> requestedFunctions = ImmutableSet.of(functionOne, functionTwo);
+        this.mockClient.setHandler(buildHandler("/input/action/resource/function/functionName", "function_two"));
+
+        Set<SchemaFunctionName> result = authorizer.filterFunctions(
+                requestingSecurityContext,
+                "my_catalog",
+                requestedFunctions);
+        assertEquals(ImmutableSet.copyOf(result), ImmutableSet.of(functionTwo));
+
+        List<String> expectedRequests = requestedFunctions.stream()
+                .map(function -> """
+                    {
+                        "operation": "FilterFunctions",
+                        "resource": {
+                            "function": {
+                                "catalogName": "my_catalog",
+                                "schemaName": "%s",
+                                "functionName": "%s"
+                            }
+                        }
+                    }""".formatted(function.getSchemaName(), function.getFunctionName()))
+                .collect(toImmutableList());
+        assertStringRequestsEqual(expectedRequests, this.mockClient.getRequests(), "/input/action");
     }
 
     @ParameterizedTest(name = "{index}: {0}")

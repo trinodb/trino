@@ -23,7 +23,6 @@ import com.google.common.collect.Streams;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
-import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.Privilege;
@@ -47,15 +46,19 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.trino.plugin.opa.HttpClientUtils.InstrumentedHttpClient;
 import static io.trino.plugin.opa.RequestTestUtilities.assertJsonRequestsEqual;
 import static io.trino.plugin.opa.RequestTestUtilities.assertStringRequestsEqual;
+import static io.trino.plugin.opa.TestHelpers.NO_ACCESS_RESPONSE;
 import static io.trino.plugin.opa.TestHelpers.OK_RESPONSE;
 import static io.trino.plugin.opa.TestHelpers.convertSystemSecurityContextToIdentityArgument;
 import static io.trino.plugin.opa.TestHelpers.createFailingTestCases;
+import static io.trino.plugin.opa.TestHelpers.createIllegalResponseTestCases;
 import static io.trino.plugin.opa.TestHelpers.systemSecurityContextFromIdentity;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -378,21 +381,17 @@ public class OpaAccessControlUnitTest
         Stream<FunctionalHelpers.Consumer3<OpaAccessControl, SystemSecurityContext, String>> methods = Stream.of(
                 convertSystemSecurityContextToIdentityArgument(OpaAccessControl::checkCanImpersonateUser),
                 convertSystemSecurityContextToIdentityArgument(OpaAccessControl::checkCanSetSystemSessionProperty),
-                OpaAccessControl::checkCanAccessCatalog,
                 OpaAccessControl::checkCanCreateCatalog,
                 OpaAccessControl::checkCanDropCatalog,
                 OpaAccessControl::checkCanShowSchemas,
-                OpaAccessControl::checkCanDropRole,
-                OpaAccessControl::checkCanExecuteFunction);
+                OpaAccessControl::checkCanDropRole);
         Stream<FunctionalHelpers.Pair<String, String>> actionAndResource = Stream.of(
                 FunctionalHelpers.Pair.of("ImpersonateUser", "user"),
                 FunctionalHelpers.Pair.of("SetSystemSessionProperty", "systemSessionProperty"),
-                FunctionalHelpers.Pair.of("AccessCatalog", "catalog"),
                 FunctionalHelpers.Pair.of("CreateCatalog", "catalog"),
                 FunctionalHelpers.Pair.of("DropCatalog", "catalog"),
                 FunctionalHelpers.Pair.of("ShowSchemas", "catalog"),
-                FunctionalHelpers.Pair.of("DropRole", "role"),
-                FunctionalHelpers.Pair.of("ExecuteFunction", "function"));
+                FunctionalHelpers.Pair.of("DropRole", "role"));
         return Streams.zip(
                 actionAndResource,
                 methods,
@@ -448,16 +447,57 @@ public class OpaAccessControlUnitTest
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
     }
 
+    @Test
+    public void testCanAccessCatalog()
+    {
+        mockClient.setHandler(request -> OK_RESPONSE);
+        assertTrue(authorizer.canAccessCatalog(requestingSecurityContext, "my_catalog_one"));
+
+        mockClient.setHandler(request -> NO_ACCESS_RESPONSE);
+        assertFalse(authorizer.canAccessCatalog(requestingSecurityContext, "my_catalog_two"));
+
+        Set<String> expectedRequests = ImmutableSet.of("my_catalog_one", "my_catalog_two").stream().map("""
+                {
+                    "operation": "AccessCatalog",
+                    "resource": {
+                        "catalog": {
+                            "name": "%s"
+                        }
+                    }
+                }
+                """::formatted)
+                .collect(toImmutableSet());
+        assertStringRequestsEqual(expectedRequests, mockClient.getRequests(), "/input/action");
+    }
+
+    @ParameterizedTest(name = "{index}: {0} - {3}")
+    @MethodSource("io.trino.plugin.opa.TestHelpers#illegalResponseArgumentProvider")
+    public void testCanAccessCatalogIllegalResponses(
+            HttpClientUtils.MockResponse failureResponse,
+            Class<? extends Throwable> expectedException,
+            String expectedErrorMessage)
+    {
+        mockClient.setHandler(request -> failureResponse);
+
+        Throwable actualError = assertThrows(
+                expectedException,
+                () -> authorizer.canAccessCatalog(requestingSecurityContext, "my_catalog"));
+        assertTrue(actualError.getMessage().contains(expectedErrorMessage),
+                String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
+    }
+
     private static Stream<Arguments> schemaResourceTestCases()
     {
         Stream<FunctionalHelpers.Consumer3<OpaAccessControl, SystemSecurityContext, CatalogSchemaName>> methods = Stream.of(
                 OpaAccessControl::checkCanDropSchema,
                 OpaAccessControl::checkCanShowCreateSchema,
-                OpaAccessControl::checkCanShowTables);
+                OpaAccessControl::checkCanShowTables,
+                OpaAccessControl::checkCanShowFunctions);
         Stream<String> actions = Stream.of(
                 "DropSchema",
                 "ShowCreateSchema",
-                "ShowTables");
+                "ShowTables",
+                "ShowFunctions");
         return Streams.zip(actions, methods, (action, method) -> Arguments.of(Named.of(action, action), method));
     }
 
@@ -875,117 +915,6 @@ public class OpaAccessControlUnitTest
     }
 
     @Test
-    public void testCanGrantExecuteFunctionPrivilege()
-    {
-        authorizer.checkCanGrantExecuteFunctionPrivilege(
-                requestingSecurityContext,
-                "my_function",
-                new TrinoPrincipal(PrincipalType.USER, "my_user"),
-                true);
-
-        String expectedRequest = """
-                {
-                    "operation": "GrantExecuteFunctionPrivilege",
-                    "resource": {
-                        "function": {
-                            "name": "my_function"
-                        }
-                    },
-                    "grantee": {
-                        "principals": [
-                            {
-                                "name": "my_user",
-                                "type": "USER"
-                            }
-                        ],
-                        "grantOption": true
-                    }
-                }
-                """;
-        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
-    }
-
-    @ParameterizedTest(name = "{index}: {0}")
-    @MethodSource("io.trino.plugin.opa.TestHelpers#allErrorCasesArgumentProvider")
-    public void testCanGrantExecuteFunctionPrivilegeFailure(
-            HttpClientUtils.MockResponse failureResponse,
-            Class<? extends Throwable> expectedException,
-            String expectedErrorMessage)
-    {
-        mockClient.setHandler(request -> failureResponse);
-
-        Throwable actualError = assertThrows(
-                expectedException,
-                () -> authorizer.checkCanGrantExecuteFunctionPrivilege(
-                        requestingSecurityContext,
-                        "my_function",
-                        new TrinoPrincipal(PrincipalType.USER, "my_user"),
-                        true));
-        assertTrue(
-                actualError.getMessage().contains(expectedErrorMessage),
-                String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
-    }
-
-    @Test
-    public void testCanGrantExecuteFunctionPrivilegeWithFunctionKind()
-    {
-        authorizer.checkCanGrantExecuteFunctionPrivilege(
-                requestingSecurityContext,
-                FunctionKind.AGGREGATE,
-                new CatalogSchemaRoutineName("my_catalog", "my_schema", "my_routine"),
-                new TrinoPrincipal(PrincipalType.USER, "my_user"),
-                true);
-
-        String expectedRequest = """
-                {
-                    "operation": "GrantExecuteFunctionPrivilege",
-                    "resource": {
-                        "function": {
-                            "name": "my_routine",
-                            "functionKind": "AGGREGATE"
-                        },
-                        "schema": {
-                            "catalogName": "my_catalog",
-                            "schemaName": "my_schema"
-                        }
-                    },
-                    "grantee": {
-                        "principals": [
-                            {
-                                "name": "my_user",
-                                "type": "USER"
-                            }
-                        ],
-                        "grantOption": true
-                    }
-                }
-                """;
-        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
-    }
-
-    @ParameterizedTest(name = "{index}: {0}")
-    @MethodSource("io.trino.plugin.opa.TestHelpers#allErrorCasesArgumentProvider")
-    public void testCanGrantExecuteFunctionPrivilegeWithFunctionKindFailure(
-            HttpClientUtils.MockResponse failureResponse,
-            Class<? extends Throwable> expectedException,
-            String expectedErrorMessage)
-    {
-        mockClient.setHandler(request -> failureResponse);
-
-        Throwable actualError = assertThrows(
-                expectedException,
-                () -> authorizer.checkCanGrantExecuteFunctionPrivilege(
-                        requestingSecurityContext,
-                        FunctionKind.AGGREGATE,
-                        new CatalogSchemaRoutineName("my_catalog", "my_schema", "my_routine"),
-                        new TrinoPrincipal(PrincipalType.USER, "my_name"),
-                        true));
-        assertTrue(
-                actualError.getMessage().contains(expectedErrorMessage),
-                String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
-    }
-
-    @Test
     public void testCanSetCatalogSessionProperty()
     {
         authorizer.checkCanSetCatalogSessionProperty(
@@ -1371,31 +1300,56 @@ public class OpaAccessControlUnitTest
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
     }
 
-    @Test
-    public void testCanExecuteProcedure()
+    private static Stream<Arguments> functionResourceTestCases()
     {
-        CatalogSchemaRoutineName routine = new CatalogSchemaRoutineName("my_catalog", "my_schema", "my_routine_name");
-        authorizer.checkCanExecuteProcedure(requestingSecurityContext, routine);
-
-        String expectedRequest = """
-                {
-                    "operation": "ExecuteProcedure",
-                    "resource": {
-                        "schema": {
-                            "schemaName": "my_schema",
-                            "catalogName": "my_catalog"
-                        },
-                        "function": {
-                            "name": "my_routine_name"
-                        }
-                    }
-                }""";
-        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        Stream<TestHelpers.MethodWrapper<CatalogSchemaRoutineName>> methods = Stream.of(
+                new TestHelpers.ThrowingMethodWrapper<>(OpaAccessControl::checkCanExecuteProcedure),
+                new TestHelpers.ReturningMethodWrapper<>(OpaAccessControl::canExecuteFunction),
+                new TestHelpers.ReturningMethodWrapper<>(OpaAccessControl::canCreateViewWithExecuteFunction));
+        Stream<String> actions = Stream.of(
+                "ExecuteProcedure",
+                "ExecuteFunction",
+                "CreateViewWithExecuteFunction");
+        return Streams.zip(actions, methods, (action, method) -> Arguments.of(Named.of(action, action), method));
     }
 
     @ParameterizedTest(name = "{index}: {0}")
-    @MethodSource("io.trino.plugin.opa.TestHelpers#allErrorCasesArgumentProvider")
-    public void testCanExecuteProcedureFailure(
+    @MethodSource("io.trino.plugin.opa.OpaAccessControlUnitTest#functionResourceTestCases")
+    public void testFunctionResourceAction(
+            String actionName,
+            TestHelpers.MethodWrapper<CatalogSchemaRoutineName> method)
+    {
+        CatalogSchemaRoutineName routine = new CatalogSchemaRoutineName("my_catalog", "my_schema", "my_routine_name");
+        assertTrue(method.isAccessAllowed(authorizer, requestingSecurityContext, routine));
+
+        mockClient.setHandler(request -> NO_ACCESS_RESPONSE);
+        assertFalse(method.isAccessAllowed(authorizer, requestingSecurityContext, routine));
+
+        String expectedRequest = """
+                {
+                    "operation": "%s",
+                    "resource": {
+                        "function": {
+                            "catalogName": "my_catalog",
+                            "schemaName": "my_schema",
+                            "functionName": "my_routine_name"
+                        }
+                    }
+                }""".formatted(actionName);
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertEquals(mockClient.getRequests().size(), 2);
+    }
+
+    private static Stream<Arguments> functionResourceIllegalResponseTestCases()
+    {
+        return createIllegalResponseTestCases(functionResourceTestCases());
+    }
+
+    @ParameterizedTest(name = "{index}: {0}")
+    @MethodSource("io.trino.plugin.opa.OpaAccessControlUnitTest#functionResourceIllegalResponseTestCases")
+    public void testFunctionResourceIllegalResponses(
+            String actionName,
+            TestHelpers.MethodWrapper<CatalogSchemaRoutineName> method,
             HttpClientUtils.MockResponse failureResponse,
             Class<? extends Throwable> expectedException,
             String expectedErrorMessage)
@@ -1405,9 +1359,7 @@ public class OpaAccessControlUnitTest
         CatalogSchemaRoutineName routine = new CatalogSchemaRoutineName("my_catalog", "my_schema", "my_routine_name");
         Throwable actualError = assertThrows(
                 expectedException,
-                () -> authorizer.checkCanExecuteProcedure(
-                        requestingSecurityContext,
-                        routine));
+                () -> method.isAccessAllowed(authorizer, requestingSecurityContext, routine));
         assertTrue(
                 actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
@@ -1429,7 +1381,7 @@ public class OpaAccessControlUnitTest
                             "tableName": "my_table"
                         },
                         "function": {
-                            "name": "my_procedure"
+                            "functionName": "my_procedure"
                         }
                     }
                 }""";
@@ -1452,50 +1404,6 @@ public class OpaAccessControlUnitTest
                         requestingSecurityContext,
                         table,
                         "my_procedure"));
-        assertTrue(
-                actualError.getMessage().contains(expectedErrorMessage),
-                String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));
-    }
-
-    @Test
-    public void testCanExecuteFunctionWithFunctionKind()
-    {
-        CatalogSchemaRoutineName routine = new CatalogSchemaRoutineName("my_catalog", "my_schema", "my_routine");
-        authorizer.checkCanExecuteFunction(requestingSecurityContext, FunctionKind.AGGREGATE, routine);
-
-        String expectedRequest = """
-                {
-                    "operation": "ExecuteFunction",
-                    "resource": {
-                        "schema": {
-                            "schemaName": "my_schema",
-                            "catalogName": "my_catalog"
-                        },
-                        "function": {
-                            "name": "my_routine",
-                            "functionKind": "AGGREGATE"
-                        }
-                    }
-                }""";
-        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
-    }
-
-    @ParameterizedTest(name = "{index}: {0}")
-    @MethodSource("io.trino.plugin.opa.TestHelpers#allErrorCasesArgumentProvider")
-    public void testCanExecuteFunctionWithFunctionKindFailure(
-            HttpClientUtils.MockResponse failureResponse,
-            Class<? extends Throwable> expectedException,
-            String expectedErrorMessage)
-    {
-        mockClient.setHandler(request -> failureResponse);
-
-        CatalogSchemaRoutineName routine = new CatalogSchemaRoutineName("my_catalog", "my_schema", "my_routine");
-        Throwable actualError = assertThrows(
-                expectedException,
-                () -> authorizer.checkCanExecuteFunction(
-                        requestingSecurityContext,
-                        FunctionKind.AGGREGATE,
-                        routine));
         assertTrue(
                 actualError.getMessage().contains(expectedErrorMessage),
                 String.format("Error must contain '%s': %s", expectedErrorMessage, actualError.getMessage()));

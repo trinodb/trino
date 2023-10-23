@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.trino.plugin.opa.schema.TrinoUser;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SystemSecurityContext;
 import org.junit.jupiter.api.AfterEach;
@@ -310,6 +311,55 @@ public class OpaBatchAccessControlFilteringUnitTest
                         .put(tableTwo, ImmutableSet.of("table_two_column_two"))
                         .put(tableThree, ImmutableSet.of())
                         .buildOrThrow()).areEqual());
+    }
+
+    @ParameterizedTest(name = "{index}: {0}")
+    @MethodSource("io.trino.plugin.opa.OpaBatchAccessControlFilteringUnitTest#subsetProvider")
+    public void testFilterFunctions(
+            HttpClientUtils.MockResponse response,
+            List<Integer> expectedItems)
+    {
+        this.mockClient.setHandler(request -> response);
+        List<SchemaFunctionName> requestedFunctions = ImmutableList.<SchemaFunctionName>builder()
+                .add(new SchemaFunctionName("my_schema", "function_one"))
+                .add(new SchemaFunctionName("my_schema", "function_two"))
+                .add(new SchemaFunctionName("my_schema", "function_three"))
+                .build();
+
+        Set<SchemaFunctionName> result = authorizer.filterFunctions(
+                requestingSecurityContext,
+                "my_catalog",
+                new LinkedHashSet<>(requestedFunctions));
+        assertEquals(ImmutableSet.copyOf(result), ImmutableSet.copyOf(getSubset(requestedFunctions, expectedItems)));
+
+        String expectedRequest = """
+                {
+                    "operation": "FilterFunctions",
+                    "filterResources": [
+                        {
+                            "function": {
+                                "catalogName": "my_catalog",
+                                "schemaName": "my_schema",
+                                "functionName": "function_one"
+                            }
+                        },
+                        {
+                            "function": {
+                                "catalogName": "my_catalog",
+                                "schemaName": "my_schema",
+                                "functionName": "function_two"
+                            }
+                        },
+                        {
+                            "function": {
+                                "catalogName": "my_catalog",
+                                "schemaName": "my_schema",
+                                "functionName": "function_three"
+                            }
+                        }
+                    ]
+                }""";
+        assertStringRequestsEqual(ImmutableList.of(expectedRequest), this.mockClient.getRequests(), "/input/action");
     }
 
     @Test

@@ -104,4 +104,38 @@ public class TestHelpers
             FunctionalHelpers.Consumer3<OpaAccessControl, Identity, T> callable) {
         return (accessControl, systemSecurityContext, argument) -> callable.accept(accessControl, systemSecurityContext.getIdentity(), argument);
     }
+
+    public abstract static class MethodWrapper<T> {
+        public abstract boolean isAccessAllowed(OpaAccessControl opaAccessControl, SystemSecurityContext systemSecurityContext, T argument);
+    }
+
+    public static class ThrowingMethodWrapper<T> extends MethodWrapper<T> {
+        private final FunctionalHelpers.Consumer3<OpaAccessControl, SystemSecurityContext, T> callable;
+
+        public ThrowingMethodWrapper(FunctionalHelpers.Consumer3<OpaAccessControl, SystemSecurityContext, T> callable) {
+            this.callable = callable;
+        }
+
+
+        public boolean isAccessAllowed(OpaAccessControl opaAccessControl, SystemSecurityContext systemSecurityContext, T argument) {
+            try {
+                this.callable.accept(opaAccessControl, systemSecurityContext, argument);
+                return true;
+            } catch (AccessDeniedException e) {
+                return false;
+            }
+        }
+    }
+
+    public static class ReturningMethodWrapper<T> extends MethodWrapper<T> {
+        private final FunctionalHelpers.Function3<OpaAccessControl, SystemSecurityContext, T, Boolean> callable;
+
+        public ReturningMethodWrapper(FunctionalHelpers.Function3<OpaAccessControl, SystemSecurityContext, T, Boolean> callable) {
+            this.callable = callable;
+        }
+
+        public boolean isAccessAllowed(OpaAccessControl opaAccessControl, SystemSecurityContext systemSecurityContext, T argument) {
+            return this.callable.apply(opaAccessControl, systemSecurityContext, argument);
+        }
+    }
 }

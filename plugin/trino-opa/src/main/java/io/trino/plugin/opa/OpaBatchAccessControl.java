@@ -22,10 +22,12 @@ import io.trino.plugin.opa.schema.OpaQueryContext;
 import io.trino.plugin.opa.schema.OpaQueryInput;
 import io.trino.plugin.opa.schema.OpaQueryInputAction;
 import io.trino.plugin.opa.schema.OpaQueryInputResource;
+import io.trino.plugin.opa.schema.TrinoFunction;
 import io.trino.plugin.opa.schema.TrinoSchema;
 import io.trino.plugin.opa.schema.TrinoTable;
 import io.trino.plugin.opa.schema.TrinoUser;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SystemSecurityContext;
 
@@ -130,6 +132,23 @@ public class OpaBatchAccessControl
                                         .build())
                                 .build());
         return opaHttpClient.parallelBatchFilterFromOpa(tableColumns, requestBuilder, opaBatchedPolicyUri, batchResultCodec);
+    }
+
+    @Override
+    public Set<SchemaFunctionName> filterFunctions(SystemSecurityContext context, String catalogName, Set<SchemaFunctionName> functionNames)
+    {
+        return batchFilterFromOpa(
+                OpaQueryContext.fromSystemSecurityContext(context),
+                "FilterFunctions",
+                functionNames,
+                function -> OpaQueryInputResource.builder()
+                        .function(new TrinoFunction(
+                                TrinoSchema.builder()
+                                        .catalogName(catalogName)
+                                        .schemaName(function.getSchemaName())
+                                        .build(),
+                                function.getFunctionName()))
+                        .build());
     }
 
     private <V> Function<List<V>, OpaQueryInput> batchRequestBuilder(OpaQueryContext context, String operation, Function<V, OpaQueryInputResource> resourceMapper)

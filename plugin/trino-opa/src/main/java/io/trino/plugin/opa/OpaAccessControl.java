@@ -30,7 +30,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.function.FunctionKind;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
@@ -53,10 +53,7 @@ import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
 import static io.trino.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static io.trino.spi.security.AccessDeniedException.denyDenySchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDenyTablePrivilege;
-import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
-import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
-import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
@@ -72,7 +69,6 @@ import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionP
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
-import static java.util.Locale.ROOT;
 
 public class OpaAccessControl
         implements SystemAccessControl
@@ -158,14 +154,12 @@ public class OpaAccessControl
     }
 
     @Override
-    public void checkCanAccessCatalog(SystemSecurityContext context, String catalogName)
+    public boolean canAccessCatalog(SystemSecurityContext context, String catalogName)
     {
-        opaHighLevelClient.queryAndEnforce(
+        return opaHighLevelClient.queryOpaWithSimpleResource(
                 OpaQueryContext.fromSystemSecurityContext(context),
                 "AccessCatalog",
-                AccessDeniedException::denyCatalogAccess,
-                OpaQueryInputResource.Builder::catalog,
-                catalogName);
+                OpaQueryInputResource.builder().catalog(catalogName).build());
     }
 
     @Override
@@ -674,52 +668,6 @@ public class OpaAccessControl
     }
 
     @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, TrinoPrincipal grantee, boolean grantOption)
-    {
-        OpaQueryInputResource resource = OpaQueryInputResource.builder().function(functionName).build();
-        OpaQueryInputGrant opaGrantee = OpaQueryInputGrant.builder()
-                .principal(TrinoGrantPrincipal.fromTrinoPrincipal(grantee))
-                .grantOption(grantOption)
-                .build();
-        OpaQueryInputAction action = OpaQueryInputAction.builder()
-                .operation("GrantExecuteFunctionPrivilege")
-                .resource(resource)
-                .grantee(opaGrantee)
-                .build();
-        OpaQueryInput input = new OpaQueryInput(OpaQueryContext.fromSystemSecurityContext(context), action);
-
-        if (!opaHighLevelClient.queryOpa(input)) {
-            denyGrantExecuteFunctionPrivilege(functionName, context.getIdentity(), trinoPrincipalToString(grantee));
-        }
-    }
-
-    @Override
-    public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, FunctionKind functionKind, CatalogSchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
-    {
-        OpaQueryInputResource resource = OpaQueryInputResource.builder()
-                .schema(TrinoSchema.builder()
-                        .catalogName(functionName.getCatalogName())
-                        .schemaName(functionName.getSchemaName())
-                        .build())
-                .function(new TrinoFunction(functionName.getRoutineName(), functionKind.name()))
-                .build();
-        OpaQueryInputGrant opaGrantee = OpaQueryInputGrant.builder()
-                .principal(TrinoGrantPrincipal.fromTrinoPrincipal(grantee))
-                .grantOption(grantOption)
-                .build();
-        OpaQueryInputAction action = OpaQueryInputAction.builder()
-                .operation("GrantExecuteFunctionPrivilege")
-                .resource(resource)
-                .grantee(opaGrantee)
-                .build();
-        OpaQueryInput input = new OpaQueryInput(OpaQueryContext.fromSystemSecurityContext(context), action);
-
-        if (!opaHighLevelClient.queryOpa(input)) {
-            denyGrantExecuteFunctionPrivilege(functionName.toString(), context.getIdentity(), trinoPrincipalToString(grantee));
-        }
-    }
-
-    @Override
     public void checkCanSetCatalogSessionProperty(SystemSecurityContext context, String catalogName, String propertyName)
     {
         OpaQueryInputResource resource = OpaQueryInputResource.builder()
@@ -958,48 +906,60 @@ public class OpaAccessControl
     }
 
     @Override
-    public void checkCanExecuteProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName procedure)
+    public void checkCanShowFunctions(SystemSecurityContext context, CatalogSchemaName schema)
     {
-        OpaQueryInputResource resource = OpaQueryInputResource.builder()
-                .schema(TrinoSchema.builder()
-                        .catalogName(procedure.getCatalogName())
-                        .schemaName(procedure.getSchemaName())
-                        .build())
-                .function(procedure.getRoutineName())
-                .build();
-        OpaQueryContext queryContext = OpaQueryContext.fromSystemSecurityContext(systemSecurityContext);
-
-        if (!opaHighLevelClient.queryOpaWithSimpleResource(queryContext, "ExecuteProcedure", resource)) {
-            denyExecuteProcedure(procedure.toString());
-        }
+        opaHighLevelClient.queryAndEnforce(
+                OpaQueryContext.fromSystemSecurityContext(context),
+                "ShowFunctions",
+                AccessDeniedException::denyShowFunctions,
+                schema);
     }
 
     @Override
-    public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, String functionName)
+    public Set<SchemaFunctionName> filterFunctions(SystemSecurityContext context, String catalogName, Set<SchemaFunctionName> functionNames)
+    {
+        return opaHighLevelClient.parallelFilterFromOpa(
+                functionNames,
+                function -> buildQueryInputForSimpleResource(
+                        OpaQueryContext.fromSystemSecurityContext(context),
+                        "FilterFunctions",
+                        OpaQueryInputResource.builder()
+                                .function(new TrinoFunction(
+                                        TrinoSchema.builder()
+                                                .catalogName(catalogName)
+                                                .schemaName(function.getSchemaName())
+                                                .build(),
+                                        function.getFunctionName()))
+                                .build()));
+    }
+
+    @Override
+    public void checkCanExecuteProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName procedure)
     {
         opaHighLevelClient.queryAndEnforce(
                 OpaQueryContext.fromSystemSecurityContext(systemSecurityContext),
-                "ExecuteFunction",
-                AccessDeniedException::denyExecuteFunction,
+                "ExecuteProcedure",
+                (deniedProcedure) -> AccessDeniedException.denyExecuteProcedure(deniedProcedure.toString()),
                 OpaQueryInputResource.Builder::function,
-                functionName);
+                TrinoFunction.fromTrinoFunction(procedure));
     }
 
     @Override
-    public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
+    public boolean canExecuteFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
     {
-        OpaQueryInputResource resource = OpaQueryInputResource.builder()
-                .schema(TrinoSchema.builder()
-                        .catalogName(functionName.getCatalogName())
-                        .schemaName(functionName.getSchemaName())
-                        .build())
-                .function(new TrinoFunction(functionName.getRoutineName(), functionKind.name()))
-                .build();
-        OpaQueryContext queryContext = OpaQueryContext.fromSystemSecurityContext(systemSecurityContext);
+        return opaHighLevelClient.queryOpaWithSimpleResource(
+                OpaQueryContext.fromSystemSecurityContext(systemSecurityContext),
+                "ExecuteFunction",
+                OpaQueryInputResource.builder().function(TrinoFunction.fromTrinoFunction(functionName)).build());
+    }
 
-        if (!opaHighLevelClient.queryOpaWithSimpleResource(queryContext, "ExecuteFunction", resource)) {
-            denyExecuteFunction(functionName.toString());
-        }
+    @Override
+    public boolean canCreateViewWithExecuteFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
+    {
+        return opaHighLevelClient.queryOpaWithSimpleResource(
+                OpaQueryContext.fromSystemSecurityContext(systemSecurityContext),
+                "CreateViewWithExecuteFunction",
+                OpaQueryInputResource.builder().function(TrinoFunction.fromTrinoFunction(functionName)).build());
     }
 
     @Override
@@ -1014,10 +974,5 @@ public class OpaAccessControl
         if (!opaHighLevelClient.queryOpaWithSimpleResource(queryContext, "ExecuteTableProcedure", resource)) {
             denyExecuteTableProcedure(table.toString(), procedure);
         }
-    }
-
-    private static String trinoPrincipalToString(TrinoPrincipal principal)
-    {
-        return "%s '%s'".formatted(principal.getType().name().toLowerCase(ROOT), principal.getName());
     }
 }

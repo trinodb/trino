@@ -14,21 +14,35 @@
 package io.trino.plugin.opa.schema;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonUnwrapped;
+import io.trino.spi.connector.CatalogSchemaRoutineName;
 import jakarta.validation.constraints.NotNull;
 
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static java.util.Objects.requireNonNull;
 
 @JsonInclude(NON_NULL)
-public record TrinoFunction(@NotNull String name, String functionKind)
+public record TrinoFunction(
+        @JsonUnwrapped TrinoSchema catalogSchema,
+        @NotNull String functionName)
 {
-    public TrinoFunction
+    public static TrinoFunction fromTrinoFunction(CatalogSchemaRoutineName catalogSchemaRoutineName)
     {
-        requireNonNull(name, "name is null");
+        return new TrinoFunction(
+                TrinoSchema.builder()
+                        .catalogName(catalogSchemaRoutineName.getCatalogName())
+                        .schemaName(catalogSchemaRoutineName.getSchemaName())
+                        .build(),
+                catalogSchemaRoutineName.getRoutineName());
     }
 
     public TrinoFunction(String functionName)
     {
-        this(functionName, null);
+        this(null, functionName);
+    }
+
+    public TrinoFunction
+    {
+        requireNonNull(functionName, "functionName is null");
     }
 }
