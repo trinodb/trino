@@ -19,6 +19,14 @@
     </properties>
 
     <dependencies>
+        <!-- needed for old JDBC driver shading opentelemetry prior to version 1.30 -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-semconv</artifactId>
+            <version>1.26.0-alpha</version>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
