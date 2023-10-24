@@ -51,7 +51,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -177,7 +176,7 @@ public class VacuumProcedure
         accessControl.checkCanInsertIntoTable(null, tableName);
         accessControl.checkCanDeleteFromTable(null, tableName);
 
-        TableSnapshot tableSnapshot = transactionLogAccess.getSnapshot(session, tableName, handle.getLocation(), Optional.of(handle.getReadVersion()));
+        TableSnapshot tableSnapshot = metadata.getSnapshot(session, tableName, handle.getLocation(), handle.getReadVersion());
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(session, tableSnapshot);
         if (protocolEntry.getMinWriterVersion() > MAX_WRITER_VERSION) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %d writer version".formatted(protocolEntry.getMinWriterVersion()));
