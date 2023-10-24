@@ -18,6 +18,7 @@ import io.trino.plugin.hive.coercions.BooleanCoercer.BooleanToVarcharCoercer;
 import io.trino.plugin.hive.coercions.DateCoercer.VarcharToDateCoercer;
 import io.trino.plugin.hive.coercions.DoubleToVarcharCoercer;
 import io.trino.plugin.hive.coercions.IntegerNumberToDoubleCoercer;
+import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToDateCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToVarcharCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToLongTimestampCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToShortTimestampCoercer;
@@ -53,8 +54,14 @@ public final class OrcTypeTranslator
 
     public static Optional<TypeCoercer<? extends Type, ? extends Type>> createCoercer(OrcTypeKind fromOrcType, Type toTrinoType)
     {
-        if (fromOrcType == TIMESTAMP && toTrinoType instanceof VarcharType varcharType) {
-            return Optional.of(new LongTimestampToVarcharCoercer(TIMESTAMP_NANOS, varcharType));
+        if (fromOrcType == TIMESTAMP) {
+            if (toTrinoType instanceof VarcharType varcharType) {
+                return Optional.of(new LongTimestampToVarcharCoercer(TIMESTAMP_NANOS, varcharType));
+            }
+            if (toTrinoType instanceof DateType toDateType) {
+                return Optional.of(new LongTimestampToDateCoercer(TIMESTAMP_NANOS, toDateType));
+            }
+            return Optional.empty();
         }
         if (isVarcharType(fromOrcType)) {
             if (toTrinoType instanceof TimestampType timestampType) {

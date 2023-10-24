@@ -152,6 +152,9 @@ public class TestHiveCoercionOnPartitionedTable
                         "    varchar_to_special_double          VARCHAR(40)," +
                         "    char_to_bigger_char                CHAR(3)," +
                         "    char_to_smaller_char               CHAR(3)," +
+                        "    timestamp_millis_to_date           TIMESTAMP," +
+                        "    timestamp_micros_to_date           TIMESTAMP," +
+                        "    timestamp_nanos_to_date            TIMESTAMP," +
                         "    timestamp_to_string                TIMESTAMP," +
                         "    timestamp_to_bounded_varchar       TIMESTAMP," +
                         "    timestamp_to_smaller_varchar       TIMESTAMP," +
@@ -169,11 +172,12 @@ public class TestHiveCoercionOnPartitionedTable
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
                         "CREATE TABLE %NAME%(" +
-                        "    timestamp_row_to_row                 STRUCT<keep: TIMESTAMP, si2i: SMALLINT, timestamp2string: TIMESTAMP, string2timestamp: STRING>, " +
-                        "    timestamp_list_to_list               ARRAY<STRUCT<keep: TIMESTAMP, si2i: SMALLINT, timestamp2string: TIMESTAMP, string2timestamp: STRING>>, " +
-                        "    timestamp_map_to_map                 MAP<SMALLINT, STRUCT<keep: TIMESTAMP, si2i: SMALLINT, timestamp2string: TIMESTAMP, string2timestamp: STRING>>," +
+                        "    timestamp_row_to_row                 STRUCT<keep: TIMESTAMP, si2i: SMALLINT, timestamp2string: TIMESTAMP, string2timestamp: STRING, timestamp2date: TIMESTAMP>, " +
+                        "    timestamp_list_to_list               ARRAY<STRUCT<keep: TIMESTAMP, si2i: SMALLINT, timestamp2string: TIMESTAMP, string2timestamp: STRING, timestamp2date: TIMESTAMP>>, " +
+                        "    timestamp_map_to_map                 MAP<SMALLINT, STRUCT<keep: TIMESTAMP, si2i: SMALLINT, timestamp2string: TIMESTAMP, string2timestamp: STRING, timestamp2date: TIMESTAMP>>," +
                         "    timestamp_to_string                  TIMESTAMP," +
-                        "    string_to_timestamp                  STRING" +
+                        "    string_to_timestamp                  STRING," +
+                        "    timestamp_to_date                    TIMESTAMP" +
                         ") " +
                         "PARTITIONED BY (id BIGINT) " +
                         rowFormat.map(s -> format("ROW FORMAT %s ", s)).orElse("") +
