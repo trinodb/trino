@@ -35,18 +35,14 @@
 
 ### Java runtime environment
 
-Trino requires a 64-bit version of Java 17, with a minimum required version of 17.0.3.
-Earlier major versions such as Java 8 or Java 11 do not work.
-Newer major versions such as Java 18 or 19, are not supported -- they may work, but are not tested.
+Trino requires a 64-bit version of Java 21, with a minimum required version of 21.0.1.
+Earlier versions such as Java 8, Java 11 or Java 17 do not work.
+Newer versions such as Java 22, are not supported -- they may work, but are not tested.
 
 We recommend using the Eclipse Temurin OpenJDK distribution from
 [Adoptium](https://adoptium.net/) as the JDK for Trino, as Trino is tested
 against that distribution. Eclipse Temurin is also the JDK used by the [Trino
 Docker image](https://hub.docker.com/r/trinodb/trino).
-
-If you are using Java 17 or 18, the JVM must be configured to use UTF-8 as the default charset by
-adding `-Dfile.encoding=UTF-8` to `etc/jvm.config`. Starting with Java 19, the Java default 
-charset is UTF-8, so this configuration is not needed.
 
 (requirements-python)=
 
