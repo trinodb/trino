@@ -13,7 +13,7 @@ Builds the Trino Docker image
 EOF
 }
 
-ARCHITECTURES=(amd64 arm64 ppc64le)
+ARCHITECTURES=(amd64 arm64)
 TRINO_VERSION=
 
 while getopts ":a:h:r:" o; do
