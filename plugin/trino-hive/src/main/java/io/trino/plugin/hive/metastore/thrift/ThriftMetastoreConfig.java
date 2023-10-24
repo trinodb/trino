@@ -16,6 +16,7 @@ package io.trino.plugin.hive.metastore.thrift;
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
@@ -280,6 +281,7 @@ public class ThriftMetastoreConfig
 
     @Config("hive.metastore.thrift.client.ssl.key-password")
     @ConfigDescription("Password for the key store")
+    @ConfigSecuritySensitive
     public ThriftMetastoreConfig setKeystorePassword(String keystorePassword)
     {
         this.keystorePassword = keystorePassword;
@@ -307,6 +309,7 @@ public class ThriftMetastoreConfig
 
     @Config("hive.metastore.thrift.client.ssl.trust-certificate-password")
     @ConfigDescription("Password for the trust store")
+    @ConfigSecuritySensitive
     public ThriftMetastoreConfig setTruststorePassword(String trustStorePassword)
     {
         this.trustStorePassword = trustStorePassword;
