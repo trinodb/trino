@@ -404,6 +404,34 @@
                                     <code>java.method.removed</code>
                                     <old>method io.airlift.slice.Slice io.trino.spi.block.VariableWidthBlock::getSlice(int, int, int)</old>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method &lt;T&gt; T io.trino.spi.block.ArrayBlock::getObject(int, java.lang.Class&lt;T&gt;)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method &lt;T&gt; T io.trino.spi.block.Block::getObject(int, java.lang.Class&lt;T&gt;)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method &lt;T&gt; T io.trino.spi.block.DictionaryBlock::getObject(int, java.lang.Class&lt;T&gt;)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method &lt;T&gt; T io.trino.spi.block.LazyBlock::getObject(int, java.lang.Class&lt;T&gt;)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method &lt;T&gt; T io.trino.spi.block.MapBlock::getObject(int, java.lang.Class&lt;T&gt;)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method &lt;T&gt; T io.trino.spi.block.RowBlock::getObject(int, java.lang.Class&lt;T&gt;)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method &lt;T&gt; T io.trino.spi.block.RunLengthEncodedBlock::getObject(int, java.lang.Class&lt;T&gt;)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

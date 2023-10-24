@@ -132,12 +132,6 @@ public final class DictionaryBlock
     }
 
     @Override
-    public <T> T getObject(int position, Class<T> clazz)
-    {
-        return dictionary.getObject(getId(position), clazz);
-    }
-
-    @Override
     public ValueBlock getSingleValueBlock(int position)
     {
         return dictionary.getSingleValueBlock(getId(position));

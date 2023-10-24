@@ -50,12 +50,6 @@ public final class LazyBlock
     }
 
     @Override
-    public <T> T getObject(int position, Class<T> clazz)
-    {
-        return getBlock().getObject(position, clazz);
-    }
-
-    @Override
     public ValueBlock getSingleValueBlock(int position)
     {
         return getBlock().getSingleValueBlock(position);

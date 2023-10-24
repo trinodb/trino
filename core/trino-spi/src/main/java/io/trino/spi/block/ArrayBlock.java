@@ -360,15 +360,6 @@ public final class ArrayBlock
         return createArrayBlockInternal(0, length, newValueIsNull, newOffsets, newValues);
     }
 
-    @Override
-    public <T> T getObject(int position, Class<T> clazz)
-    {
-        if (clazz != Block.class) {
-            throw new IllegalArgumentException("clazz must be Block.class");
-        }
-        return clazz.cast(getArray(position));
-    }
-
     public Block getArray(int position)
     {
         checkReadablePosition(this, position);
