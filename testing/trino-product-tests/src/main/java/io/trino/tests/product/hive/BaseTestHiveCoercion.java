@@ -103,9 +103,13 @@ public abstract class BaseTestHiveCoercion
                 "tinyint_to_smallint",
                 "tinyint_to_int",
                 "tinyint_to_bigint",
+                "tinyint_to_double",
                 "smallint_to_int",
                 "smallint_to_bigint",
+                "smallint_to_double",
                 "int_to_bigint",
+                "int_to_double",
+                "bigint_to_double",
                 "bigint_to_varchar",
                 "float_to_double",
                 "double_to_float",
@@ -184,9 +188,13 @@ public abstract class BaseTestHiveCoercion
                         "  TINYINT '-1', " +
                         "  TINYINT '2', " +
                         "  TINYINT '-3', " +
+                        "  TINYINT '4', " +
                         "  SMALLINT '100', " +
                         "  SMALLINT '-101', " +
+                        "  SMALLINT '1024', " +
                         "  INTEGER '2323', " +
+                        "  INTEGER '16384', " +
+                        "  1234567890, " +
                         "  12345, " +
                         "  REAL '0.5', " +
                         "  DOUBLE '0.5', " +
@@ -239,9 +247,13 @@ public abstract class BaseTestHiveCoercion
                         "  TINYINT '1', " +
                         "  TINYINT '-2', " +
                         "  NULL, " +
+                        "  TINYINT '-4', " +
                         "  SMALLINT '-100', " +
                         "  SMALLINT '101', " +
+                        "  SMALLINT '-1024', " +
                         "  INTEGER '-2323', " +
+                        "  INTEGER '-16384', " +
+                        "  -1234567890, " +
                         "  -12345, " +
                         "  REAL '-1.5', " +
                         "  DOUBLE '-1.5', " +
@@ -377,15 +389,27 @@ public abstract class BaseTestHiveCoercion
                 .put("tinyint_to_bigint", Arrays.asList(
                         -3L,
                         null))
+                .put("tinyint_to_double", Arrays.asList(
+                        -4D,
+                        4D))
                 .put("smallint_to_int", ImmutableList.of(
                         100,
                         -100))
                 .put("smallint_to_bigint", ImmutableList.of(
                         -101L,
                         101L))
+                .put("smallint_to_double", ImmutableList.of(
+                        -1024D,
+                        1024D))
                 .put("int_to_bigint", ImmutableList.of(
                         2323L,
                         -2323L))
+                .put("int_to_double", ImmutableList.of(
+                        -16384D,
+                        16384D))
+                .put("bigint_to_double", ImmutableList.of(
+                        -1234567890D,
+                        1234567890D))
                 .put("bigint_to_varchar", ImmutableList.of(
                         "12345",
                         "-12345"))
@@ -746,8 +770,12 @@ public abstract class BaseTestHiveCoercion
                 .put(columnContext("1.1", "parquet", "list_to_list"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ShortWritable")
                 .put(columnContext("1.1", "parquet", "map_to_map"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ByteWritable")
                 .put(columnContext("1.1", "parquet", "tinyint_to_bigint"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ByteWritable")
+                .put(columnContext("1.1", "parquet", "tinyint_to_double"), "org.apache.hadoop.io.DoubleWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ByteWritable")
                 .put(columnContext("1.1", "parquet", "smallint_to_bigint"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ShortWritable")
+                .put(columnContext("1.1", "parquet", "smallint_to_double"), "org.apache.hadoop.io.DoubleWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ShortWritable")
                 .put(columnContext("1.1", "parquet", "int_to_bigint"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.io.IntWritable")
+                .put(columnContext("1.1", "parquet", "int_to_double"), "org.apache.hadoop.io.DoubleWritable cannot be cast to org.apache.hadoop.io.IntWritable")
+                .put(columnContext("1.1", "parquet", "bigint_to_double"), "org.apache.hadoop.io.DoubleWritable cannot be cast to org.apache.hadoop.io.LongWritable")
                 // Rcbinary
                 .put(columnContext("1.1", "rcbinary", "row_to_row"), "java.util.ArrayList cannot be cast to org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryStruct")
                 .put(columnContext("1.1", "rcbinary", "list_to_list"), "java.util.ArrayList cannot be cast to org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryArray")
@@ -775,8 +803,12 @@ public abstract class BaseTestHiveCoercion
                 .put(columnContext("2.1", "parquet", "list_to_list"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ShortWritable")
                 .put(columnContext("2.1", "parquet", "map_to_map"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ByteWritable")
                 .put(columnContext("2.1", "parquet", "tinyint_to_bigint"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ByteWritable")
+                .put(columnContext("2.1", "parquet", "tinyint_to_double"), "org.apache.hadoop.io.DoubleWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ByteWritable")
                 .put(columnContext("2.1", "parquet", "smallint_to_bigint"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ShortWritable")
+                .put(columnContext("2.1", "parquet", "smallint_to_double"), "org.apache.hadoop.io.DoubleWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ShortWritable")
                 .put(columnContext("2.1", "parquet", "int_to_bigint"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.io.IntWritable")
+                .put(columnContext("2.1", "parquet", "int_to_double"), "org.apache.hadoop.io.DoubleWritable cannot be cast to org.apache.hadoop.io.IntWritable")
+                .put(columnContext("2.1", "parquet", "bigint_to_double"), "org.apache.hadoop.io.DoubleWritable cannot be cast to org.apache.hadoop.io.LongWritable")
                 // Rcbinary
                 .put(columnContext("2.1", "rcbinary", "row_to_row"), "java.util.ArrayList cannot be cast to org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryStruct")
                 .put(columnContext("2.1", "rcbinary", "list_to_list"), "java.util.ArrayList cannot be cast to org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryArray")
@@ -788,8 +820,12 @@ public abstract class BaseTestHiveCoercion
                 .put(columnContext("3.1", "parquet", "list_to_list"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ShortWritable")
                 .put(columnContext("3.1", "parquet", "map_to_map"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ByteWritable")
                 .put(columnContext("3.1", "parquet", "tinyint_to_bigint"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ByteWritable")
+                .put(columnContext("3.1", "parquet", "tinyint_to_double"), "org.apache.hadoop.io.DoubleWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ByteWritable")
                 .put(columnContext("3.1", "parquet", "smallint_to_bigint"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ShortWritable")
+                .put(columnContext("3.1", "parquet", "smallint_to_double"), "org.apache.hadoop.io.DoubleWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ShortWritable")
                 .put(columnContext("3.1", "parquet", "int_to_bigint"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.io.IntWritable")
+                .put(columnContext("3.1", "parquet", "int_to_double"), "org.apache.hadoop.io.DoubleWritable cannot be cast to org.apache.hadoop.io.IntWritable")
+                .put(columnContext("3.1", "parquet", "bigint_to_double"), "org.apache.hadoop.io.DoubleWritable cannot be cast to org.apache.hadoop.io.LongWritable")
                 // Rcbinary
                 .put(columnContext("3.1", "rcbinary", "row_to_row"), "java.util.ArrayList cannot be cast to org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryStruct")
                 .put(columnContext("3.1", "rcbinary", "list_to_list"), "java.util.ArrayList cannot be cast to org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryArray")
@@ -868,9 +904,13 @@ public abstract class BaseTestHiveCoercion
                 row("tinyint_to_smallint", "smallint"),
                 row("tinyint_to_int", "integer"),
                 row("tinyint_to_bigint", "bigint"),
+                row("tinyint_to_double", "double"),
                 row("smallint_to_int", "integer"),
                 row("smallint_to_bigint", "bigint"),
+                row("smallint_to_double", "double"),
                 row("int_to_bigint", "bigint"),
+                row("int_to_double", "double"),
+                row("bigint_to_double", "double"),
                 row("bigint_to_varchar", "varchar"),
                 row("float_to_double", "double"),
                 row("double_to_float", floatType),
@@ -939,9 +979,13 @@ public abstract class BaseTestHiveCoercion
                 .put("tinyint_to_smallint", SMALLINT)
                 .put("tinyint_to_int", INTEGER)
                 .put("tinyint_to_bigint", BIGINT)
+                .put("tinyint_to_double", DOUBLE)
                 .put("smallint_to_int", INTEGER)
                 .put("smallint_to_bigint", BIGINT)
+                .put("smallint_to_double", DOUBLE)
                 .put("int_to_bigint", BIGINT)
+                .put("int_to_double", DOUBLE)
+                .put("bigint_to_double", DOUBLE)
                 .put("bigint_to_varchar", VARCHAR)
                 .put("float_to_double", DOUBLE)
                 .put("double_to_float", floatType)
@@ -1009,9 +1053,13 @@ public abstract class BaseTestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_smallint tinyint_to_smallint smallint", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_int tinyint_to_int int", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_bigint tinyint_to_bigint bigint", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_double tinyint_to_double double", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN smallint_to_int smallint_to_int int", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN smallint_to_bigint smallint_to_bigint bigint", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN smallint_to_double smallint_to_double double", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN int_to_bigint int_to_bigint bigint", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN int_to_double int_to_double double", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN bigint_to_double bigint_to_double double", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN bigint_to_varchar bigint_to_varchar string", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_double float_to_double double", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_float double_to_float %s", tableName, floatType));

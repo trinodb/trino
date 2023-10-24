@@ -130,14 +130,32 @@ public final class CoercionUtils
             }
             return Optional.empty();
         }
-        if (fromHiveType.equals(HIVE_BYTE) && (toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
-            return Optional.of(new IntegerNumberUpscaleCoercer<>(fromType, toType));
+        if (fromHiveType.equals(HIVE_BYTE)) {
+            if (toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG)) {
+                return Optional.of(new IntegerNumberUpscaleCoercer<>(fromType, toType));
+            }
+            if (toHiveType.equals(HIVE_DOUBLE)) {
+                return Optional.of(new IntegerNumberToDoubleCoercer<>(fromType));
+            }
         }
-        if (fromHiveType.equals(HIVE_SHORT) && (toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
-            return Optional.of(new IntegerNumberUpscaleCoercer<>(fromType, toType));
+        if (fromHiveType.equals(HIVE_SHORT)) {
+            if (toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG)) {
+                return Optional.of(new IntegerNumberUpscaleCoercer<>(fromType, toType));
+            }
+            if (toHiveType.equals(HIVE_DOUBLE)) {
+                return Optional.of(new IntegerNumberToDoubleCoercer<>(fromType));
+            }
         }
-        if (fromHiveType.equals(HIVE_INT) && toHiveType.equals(HIVE_LONG)) {
-            return Optional.of(new IntegerToBigintCoercer());
+        if (fromHiveType.equals(HIVE_INT)) {
+            if (toHiveType.equals(HIVE_LONG)) {
+                return Optional.of(new IntegerToBigintCoercer());
+            }
+            if (toHiveType.equals(HIVE_DOUBLE)) {
+                return Optional.of(new IntegerNumberToDoubleCoercer<>(fromType));
+            }
+        }
+        if (fromHiveType.equals(HIVE_LONG) && toHiveType.equals(HIVE_DOUBLE)) {
+            return Optional.of(new IntegerNumberToDoubleCoercer<>(fromType));
         }
         if (fromHiveType.equals(HIVE_FLOAT) && toHiveType.equals(HIVE_DOUBLE)) {
             return Optional.of(new FloatToDoubleCoercer());
