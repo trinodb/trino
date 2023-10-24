@@ -466,10 +466,10 @@ public class TrinoRestCatalog
 
                 String subjectJwt = new DefaultJwtBuilder()
                         .setSubject(session.getUser())
-                        .setIssuer(trinoVersion)
-                        .setIssuedAt(new Date())
-                        .addClaims(claims)
-                        .serializeToJsonWith(new JacksonSerializer<>())
+                        .issuer(trinoVersion)
+                        .issuedAt(new Date())
+                        .claims(claims)
+                        .json(new JacksonSerializer<>())
                         .compact();
 
                 Map<String, String> credentials = ImmutableMap.<String, String>builder()
