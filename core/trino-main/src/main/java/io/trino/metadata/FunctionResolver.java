@@ -121,7 +121,6 @@ public class FunctionResolver
                 session,
                 name,
                 parameterTypes,
-                catalogSchemaFunctionName -> metadata.getFunctions(session, catalogSchemaFunctionName),
                 accessControl);
 
         FunctionMetadata functionMetadata = catalogFunctionBinding.functionMetadata();
@@ -157,7 +156,6 @@ public class FunctionResolver
             Session session,
             QualifiedName name,
             List<TypeSignatureProvider> parameterTypes,
-            Function<CatalogSchemaFunctionName, Collection<CatalogFunctionMetadata>> candidateLoader,
             AccessControl accessControl)
     {
         ImmutableList.Builder<CatalogFunctionMetadata> allCandidates = ImmutableList.builder();
@@ -166,7 +164,7 @@ public class FunctionResolver
                 .filter(catalogSchemaFunctionName -> canExecuteFunction(session, accessControl, catalogSchemaFunctionName))
                 .collect(toImmutableList());
         for (CatalogSchemaFunctionName catalogSchemaFunctionName : authorizedPath) {
-            Collection<CatalogFunctionMetadata> candidates = candidateLoader.apply(catalogSchemaFunctionName);
+            Collection<CatalogFunctionMetadata> candidates = metadata.getFunctions(session, catalogSchemaFunctionName);
             Optional<CatalogFunctionBinding> match = functionBinder.tryBindFunction(parameterTypes, candidates);
             if (match.isPresent()) {
                 return match.get();
@@ -175,7 +173,7 @@ public class FunctionResolver
         }
 
         Set<CatalogSchemaFunctionName> unauthorizedPath = Sets.difference(ImmutableSet.copyOf(fullPath), ImmutableSet.copyOf(authorizedPath));
-        if (unauthorizedPath.stream().anyMatch(functionName -> !candidateLoader.apply(functionName).isEmpty())) {
+        if (unauthorizedPath.stream().anyMatch(functionName -> !metadata.getFunctions(session, functionName).isEmpty())) {
             denyExecuteFunction(name.toString());
         }
 
