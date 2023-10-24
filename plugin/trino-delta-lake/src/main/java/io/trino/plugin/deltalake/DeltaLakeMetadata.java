@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableList;
@@ -156,6 +157,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -385,6 +387,16 @@ public class DeltaLakeMetadata
     private final boolean deleteSchemaLocationsFallback;
     private final boolean useUniqueTableLocation;
     private final boolean allowManagedTableRename;
+    private final Map<SchemaTableName, Long> queriedVersions = new ConcurrentHashMap<>();
+    private final Map<QueriedTable, TableSnapshot> queriedSnapshots = new ConcurrentHashMap<>();
+
+    private record QueriedTable(SchemaTableName schemaTableName, long version)
+    {
+        QueriedTable
+        {
+            requireNonNull(schemaTableName, "schemaTableName is null");
+        }
+    }
 
     public DeltaLakeMetadata(
             DeltaLakeMetastore metastore,
@@ -429,6 +441,36 @@ public class DeltaLakeMetadata
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         this.useUniqueTableLocation = useUniqueTableLocation;
         this.allowManagedTableRename = allowManagedTableRename;
+    }
+
+    public TableSnapshot getSnapshot(ConnectorSession session, SchemaTableName table, String tableLocation, long atVersion)
+    {
+        return getSnapshot(session, table, tableLocation, Optional.of(atVersion));
+    }
+
+    @VisibleForTesting
+    protected TableSnapshot getSnapshot(ConnectorSession session, SchemaTableName table, String tableLocation, Optional<Long> atVersion)
+    {
+        try {
+            if (atVersion.isEmpty()) {
+                atVersion = Optional.ofNullable(queriedVersions.get(table));
+            }
+            if (atVersion.isPresent()) {
+                long version = atVersion.get();
+                TableSnapshot snapshot = queriedSnapshots.get(new QueriedTable(table, version));
+                checkState(snapshot != null, "No previously loaded snapshot found for query %s, table %s [%s] at version %s", session.getQueryId(), table, tableLocation, version);
+                return snapshot;
+            }
+
+            TableSnapshot snapshot = transactionLogAccess.loadSnapshot(session, table, tableLocation);
+            // Lack of concurrency for given query is currently guaranteed by DeltaLakeMetadata
+            checkState(queriedVersions.put(table, snapshot.getVersion()) == null, "queriedLocations changed concurrently for %s", table);
+            queriedSnapshots.put(new QueriedTable(table, snapshot.getVersion()), snapshot);
+            return snapshot;
+        }
+        catch (IOException | RuntimeException e) {
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting snapshot for " + table, e);
+        }
     }
 
     @Override
@@ -2288,20 +2330,6 @@ public class DeltaLakeMetadata
         return getSnapshot(session, table.getSchemaTableName(), table.getLocation(), Optional.of(table.getReadVersion()));
     }
 
-    private TableSnapshot getSnapshot(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, Optional<Long> atVersion)
-    {
-        try {
-            synchronized (this) {
-                // This method is not really called concurrently. If it were, synchronize to ensure we load table state
-                // once in TransactionLogAccess. TODO move query-level (transaction-level) state out of TransactionLogAccess singleton
-                return transactionLogAccess.getSnapshot(session, schemaTableName, tableLocation, atVersion);
-            }
-        }
-        catch (IOException | RuntimeException e) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting snapshot for " + schemaTableName, e);
-        }
-    }
-
     private ProtocolEntry protocolEntryForNewTable(boolean containsTimestampType, Map<String, Object> properties)
     {
         int readerVersion = DEFAULT_READER_VERSION;
@@ -3500,12 +3528,6 @@ public class DeltaLakeMetadata
         return validDataFiles.stream()
                 .filter(addAction -> partitionMatchesPredicate(addAction.getCanonicalPartitionValues(), enforcedDomains))
                 .collect(toImmutableList());
-    }
-
-    @Override
-    public void cleanupQuery(ConnectorSession session)
-    {
-        transactionLogAccess.cleanupQuery(session);
     }
 
     private static Map<String, DeltaLakeColumnStatistics> toDeltaLakeColumnStatistics(Collection<ComputedStatistics> computedStatistics)

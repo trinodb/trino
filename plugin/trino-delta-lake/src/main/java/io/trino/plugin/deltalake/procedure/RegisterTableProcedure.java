@@ -164,7 +164,7 @@ public class RegisterTableProcedure
         transactionLogAccess.invalidateCache(schemaTableName, Optional.of(tableLocation));
         // Verify we're registering a location with a valid table
         try {
-            TableSnapshot tableSnapshot = transactionLogAccess.getSnapshot(session, table.getSchemaTableName(), tableLocation, Optional.empty());
+            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, table.getSchemaTableName(), tableLocation);
             transactionLogAccess.getMetadataEntry(tableSnapshot, session); // verify metadata exists
         }
         catch (TrinoException e) {
