@@ -528,15 +528,6 @@ public final class MapBlock
                 new MapHashTables(mapType, DUPLICATE_NOT_CHECKED, length, Optional.ofNullable(newRawHashTables)));
     }
 
-    @Override
-    public <T> T getObject(int position, Class<T> clazz)
-    {
-        if (clazz != SqlMap.class) {
-            throw new IllegalArgumentException("clazz must be SqlMap.class");
-        }
-        return clazz.cast(getMap(position));
-    }
-
     public SqlMap getMap(int position)
     {
         checkReadablePosition(this, position);

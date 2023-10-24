@@ -38,9 +38,6 @@ import java.util.List;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -249,52 +246,7 @@ public abstract class AbstractTestBlock
         assertPositionValue(block.copyPositions(new int[] {position}, 0, 1), 0, expectedValue);
     }
 
-    protected <T> void assertPositionValue(Block block, int position, T expectedValue)
-    {
-        if (expectedValue == null) {
-            assertThat(block.isNull(position)).isTrue();
-            return;
-        }
-
-        assertThat(block.isNull(position)).isFalse();
-
-        if (expectedValue instanceof Byte[] expected) {
-            Block actual = block.getObject(position, Block.class);
-            assertThat(actual.getPositionCount()).isEqualTo(expected.length);
-            for (int i = 0; i < expected.length; i++) {
-                if (expected[i] == null) {
-                    assertThat(actual.isNull(i)).isTrue();
-                }
-                else {
-                    assertThat(TINYINT.getByte(actual, i)).isEqualTo(expected[i].byteValue());
-                }
-            }
-        }
-        else if (expectedValue instanceof long[] expected) {
-            Block actual = block.getObject(position, Block.class);
-            assertThat(actual.getPositionCount()).isEqualTo(expected.length);
-            for (int i = 0; i < expected.length; i++) {
-                assertThat(BIGINT.getLong(actual, i)).isEqualTo(expected[i]);
-            }
-        }
-        else if (expectedValue instanceof Slice[] expected) {
-            Block actual = block.getObject(position, Block.class);
-            assertThat(actual.getPositionCount()).isEqualTo(expected.length);
-            for (int i = 0; i < expected.length; i++) {
-                assertThat(VARCHAR.getSlice(actual, i)).isEqualTo(expected[i]);
-            }
-        }
-        else if (expectedValue instanceof long[][] expected) {
-            Block actual = block.getObject(position, Block.class);
-            assertThat(actual.getPositionCount()).isEqualTo(expected.length);
-            for (int i = 0; i < expected.length; i++) {
-                assertPositionValue(actual, i, expected[i]);
-            }
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported type: " + expectedValue.getClass().getSimpleName());
-        }
-    }
+    protected abstract <T> void assertPositionValue(Block block, int position, T expectedValue);
 
     private static long getCompactedBlockSizeInBytes(Block block)
     {
