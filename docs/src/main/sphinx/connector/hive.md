@@ -628,14 +628,41 @@ Hive directly, most operations can be performed using Trino.
 
 #### Schema evolution
 
-Hive allows the partitions in a table to have a different schema than the
-table. This occurs when the column types of a table are changed after
-partitions already exist (that use the original column types). The Hive
-connector supports this by allowing the same conversions as Hive:
+Hive table partitions can differ from the current table schema. This occurs when
+the data types of columns of a table are changed from the data types of columns
+of preexisting partitions. The Hive connector supports this schema evolution by
+allowing the same conversions as Hive. The following table lists possible data
+type conversions.
 
-- `VARCHAR` to and from `TINYINT`, `SMALLINT`, `INTEGER` and `BIGINT`
-- `REAL` to `DOUBLE`
-- Widening conversions for integers, such as `TINYINT` to `SMALLINT`
+:::{list-table} Hive schema evolution type conversion
+:widths: 25, 75
+:header-rows: 1
+
+* - Data type
+  - Converted to
+* - `VARCHAR`
+  - `TINYINT`, `SMALLINT`, `INTEGER`, `BIGINT`, `TIMESTAMP`, `DATE`, as well as
+    narrowing conversions for `VARCHAR`
+* - `CHAR`
+  - narrowing conversions for `CHAR`
+* - `TINYINT`
+  - `VARCHAR`, `SMALLINT`, `INTEGER`, `BIGINT`
+* - `SMALLINT`
+  - `VARCHAR`, `INTEGER`, `BIGINT`
+* - `INTEGER`
+  - `VARCHAR`, `BIGINT`
+* - `BIGINT`
+  - `VARCHAR`
+* - `REAL`
+  - `DOUBLE`, `DECIMAL`
+* - `DOUBLE`
+  - `FLOAT`, `DECIMAL`
+* - `DECIMAL`
+  - `DOUBLE`, `REAL`, `VARCHAR`, `TINYINT`, `SMALLINT`, `INTEGER`, `BIGINT`, as
+    well as narrowing and widening conversions for `DECIMAL`
+* - `TIMESTAMP`
+  - `VARCHAR`
+:::
 
 Any conversion failure results in null, which is the same behavior
 as Hive. For example, converting the string `'foo'` to a number,
