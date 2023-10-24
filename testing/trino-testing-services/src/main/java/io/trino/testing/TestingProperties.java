@@ -57,6 +57,11 @@ public class TestingProperties
         return getProjectProperty("confluent.version");
     }
 
+    public static String getNessieVersion()
+    {
+        return getProjectProperty("nessie.version");
+    }
+
     private static String getProjectProperty(String name)
     {
         return requireNonNull(properties.get().getProperty(name), name + " is null");

@@ -23,12 +23,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.trino.testing.TestingProperties.getNessieVersion;
+
 public class NessieContainer
         extends BaseTestContainer
 {
     private static final Logger log = Logger.get(NessieContainer.class);
 
-    public static final String DEFAULT_IMAGE = "projectnessie/nessie:0.59.0";
+    public static final String DEFAULT_IMAGE = "projectnessie/nessie:" + getNessieVersion();
     public static final String DEFAULT_HOST_NAME = "nessie";
     public static final String VERSION_STORE_TYPE = "INMEMORY";
 
