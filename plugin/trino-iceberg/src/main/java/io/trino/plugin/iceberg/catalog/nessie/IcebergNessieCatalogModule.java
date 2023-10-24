@@ -22,8 +22,8 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import org.apache.iceberg.nessie.NessieIcebergClient;
+import org.projectnessie.client.NessieClientBuilder;
 import org.projectnessie.client.api.NessieApiV1;
-import org.projectnessie.client.http.HttpClientBuilder;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -46,9 +46,9 @@ public class IcebergNessieCatalogModule
     public static NessieIcebergClient createNessieIcebergClient(IcebergNessieCatalogConfig icebergNessieCatalogConfig)
     {
         return new NessieIcebergClient(
-                HttpClientBuilder.builder()
+                NessieClientBuilder.createClientBuilder(null, null)
                         .withUri(icebergNessieCatalogConfig.getServerUri())
-                        .withEnableApiCompatibilityCheck(false)
+                        .withApiCompatibilityCheck(false)
                         .build(NessieApiV1.class),
                 icebergNessieCatalogConfig.getDefaultReferenceName(),
                 null,
