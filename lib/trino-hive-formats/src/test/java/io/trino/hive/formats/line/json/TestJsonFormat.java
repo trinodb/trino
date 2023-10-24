@@ -125,17 +125,15 @@ public class TestJsonFormat
 
         // Duplicate fields are supported, and the last value is used
         assertValue(rowType, "{ \"a\" : 1, \"a\" : 2 }", Arrays.asList(2L, null, null));
-        // but Hive parses all fields
-        assertValueFailsHive(rowType, "{ \"a\" : true, \"a\" : 42 }", false);
-        // and we only parse the last field
-        assertValueTrino(rowType, "{ \"a\" : true, \"a\" : 42 }", Arrays.asList(42L, null, null));
+        // but all fields are parsed
+        assertValueFails(rowType, "{ \"a\" : true, \"a\" : 42 }", false);
 
         // Hive allows columns to have names based on ordinals
         assertValue(rowType, "{ \"_col0\" : 1, \"_col1\" : 2, \"_col2\" : 3 }", ImmutableList.of(1L, 2L, 3L));
         assertValue(rowType, "{ \"_col2\" : 3, \"_col0\" : 1, \"_col1\" : 2 }", ImmutableList.of(1L, 2L, 3L));
         assertValue(rowType, "{ \"_col2\" : 3, \"a\" : 1, \"b\" : 2 }", ImmutableList.of(1L, 2L, 3L));
-        assertValueTrino(rowType, "{ \"_col0\" : true, \"a\" : 42 }", Arrays.asList(42L, null, null));
-        assertValueTrino(rowType, "{ \"a\" : true, \"_col0\" : 42 }", Arrays.asList(42L, null, null));
+        assertValueTrino(rowType, "{ \"_col0\" : -7, \"a\" : 42 }", Arrays.asList(42L, null, null));
+        assertValueTrino(rowType, "{ \"a\" : -7, \"_col0\" : 42 }", Arrays.asList(42L, null, null));
 
         assertValueFails(rowType, "true");
         assertValueFails(rowType, "12");
@@ -178,14 +176,8 @@ public class TestJsonFormat
                         .put("b", 4L)
                         .buildOrThrow());
 
-        // but Trino parses only the last value whereas Hive parses all values
-        assertValueTrino(
-                mapType,
-                "{ \"a\" : false, \"a\" : 2 }",
-                ImmutableMap.builder()
-                        .put("a", 2L)
-                        .buildOrThrow());
-        assertValueFailsHive(mapType, "{ \"a\" : false, \"a\" : 2 }", false);
+        // but all values are parsed
+        assertValueFails(mapType, "{ \"a\" : false, \"a\" : 2 }", false);
 
         assertValueFails(mapType, "true");
         assertValueFails(mapType, "12");
