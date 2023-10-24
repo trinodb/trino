@@ -80,7 +80,7 @@ public class TestDeleteAndInsertMergeProcessor
         assertThat((int) TINYINT.getByte(outputPage.getBlock(3), 0)).isEqualTo(DELETE_OPERATION_NUMBER);
 
         // Show that the row to be deleted is rowId 0, e.g. ('Dave', 11, 'Devon')
-        SqlRow rowIdRow = outputPage.getBlock(4).getObject(0, SqlRow.class);
+        SqlRow rowIdRow = ((RowBlock) outputPage.getBlock(4)).getRow(0);
         assertThat(BIGINT.getLong(rowIdRow.getRawFieldBlock(1), rowIdRow.getRawIndex())).isEqualTo(0);
     }
 

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ByteArrayBlock;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.Type;
@@ -35,7 +36,6 @@ import static io.trino.spi.block.RowBlock.fromNotNullSuppressedFieldBlocks;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRowBlock
@@ -153,20 +153,16 @@ public class TestRowBlock
     @Override
     protected <T> void assertPositionValue(Block block, int position, T expectedValue)
     {
-        if (expectedValue instanceof List) {
-            assertValue(block, position, (List<?>) expectedValue);
+        if (expectedValue == null) {
+            assertThat(block.isNull(position)).isTrue();
             return;
         }
-        super.assertPositionValue(block, position, expectedValue);
-    }
 
-    private void assertValue(Block rowBlock, int position, List<?> row)
-    {
-        // null rows are handled by assertPositionValue
-        requireNonNull(row, "row is null");
+        RowBlock rowBlock = (RowBlock) block;
+        List<?> row = (List<?>) expectedValue;
 
         assertThat(rowBlock.isNull(position)).isFalse();
-        SqlRow sqlRow = rowBlock.getObject(position, SqlRow.class);
+        SqlRow sqlRow = rowBlock.getRow(position);
         assertThat(sqlRow.getFieldCount()).isEqualTo(row.size());
 
         int rawIndex = sqlRow.getRawIndex();

@@ -23,14 +23,6 @@ public sealed interface Block
         permits DictionaryBlock, RunLengthEncodedBlock, LazyBlock, ValueBlock
 {
     /**
-     * Gets an object in the value at {@code position}.
-     */
-    default <T> T getObject(int position, Class<T> clazz)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
      * Gets the value at the specified position as a single element block.  The method
      * must copy the data into a new block.
      * <p>

@@ -264,7 +264,7 @@ public final class StateCompiler
             }
         }
         else if (fields.size() > 1) {
-            Variable row = scope.declareVariable("row", deserializerBody, block.invoke("getObject", Object.class, index, constantClass(SqlRow.class)).cast(SqlRow.class));
+            Variable row = scope.declareVariable("row", deserializerBody, constantType(binder, getSerializedType(fields)).cast(RowType.class).invoke("getObject", SqlRow.class, block, index));
             Variable rawIndex = scope.declareVariable("rawIndex", deserializerBody, row.invoke("getRawIndex", int.class));
             Variable fieldBlock = scope.declareVariable(Block.class, "fieldBlock");
 
