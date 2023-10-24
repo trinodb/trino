@@ -16,11 +16,11 @@ package io.trino.tests.product.launcher.env.jdk;
 import com.google.inject.Inject;
 import io.trino.tests.product.launcher.env.EnvironmentOptions;
 
-public class Temurin19JdkProvider
+public class Temurin21JdkProvider
         extends AdoptiumApiResolvingJdkProvider
 {
     @Inject
-    public Temurin19JdkProvider(EnvironmentOptions environmentOptions)
+    public Temurin21JdkProvider(EnvironmentOptions environmentOptions)
     {
         super(environmentOptions);
     }
@@ -28,6 +28,6 @@ public class Temurin19JdkProvider
     @Override
     protected String getReleaseName()
     {
-        return "jdk-19.0.2+7";
+        return "jdk-21.0.1+12";
     }
 }
