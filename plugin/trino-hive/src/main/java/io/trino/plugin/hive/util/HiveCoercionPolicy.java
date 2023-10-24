@@ -66,6 +66,7 @@ public final class HiveCoercionPolicy
                     toHiveType.equals(HIVE_SHORT) ||
                     toHiveType.equals(HIVE_INT) ||
                     toHiveType.equals(HIVE_LONG) ||
+                    toHiveType.equals(HIVE_DOUBLE) ||
                     toHiveType.equals(HIVE_DATE) ||
                     toHiveType.equals(HIVE_TIMESTAMP);
         }

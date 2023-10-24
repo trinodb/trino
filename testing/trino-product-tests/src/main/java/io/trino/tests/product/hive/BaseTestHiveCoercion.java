@@ -138,6 +138,10 @@ public abstract class BaseTestHiveCoercion
                 "varchar_to_smaller_varchar",
                 "varchar_to_date",
                 "varchar_to_distant_date",
+                "varchar_to_double",
+                "string_to_double",
+                "varchar_to_double_infinity",
+                "varchar_to_special_double",
                 "char_to_bigger_char",
                 "char_to_smaller_char",
                 "timestamp_to_string",
@@ -215,6 +219,10 @@ public abstract class BaseTestHiveCoercion
                         "  'abc', " +
                         "  '2023-09-28', " +
                         "  '8000-04-13', " +
+                        "  '1234.567', " +
+                        "  '1234.01234', " +
+                        "  'Infinity'," +
+                        "  'NaN'," +
                         "  'abc', " +
                         "  'abc', " +
                         "  TIMESTAMP '2121-07-15 15:30:12.123', " +
@@ -266,6 +274,10 @@ public abstract class BaseTestHiveCoercion
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
                         "  '2023-09-27', " +
                         "  '1900-01-01', " +
+                        "  '-12345.6789', " +
+                        "  '0', " +
+                        "  '-Infinity'," +
+                        "  'Invalid Double'," +
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
                         "  TIMESTAMP '1970-01-01 00:00:00.123', " +
@@ -458,6 +470,18 @@ public abstract class BaseTestHiveCoercion
                 .put("varchar_to_distant_date", ImmutableList.of(
                         java.sql.Date.valueOf("8000-04-13"),
                         java.sql.Date.valueOf("1900-01-01")))
+                .put("varchar_to_double", ImmutableList.of(
+                        1234.567,
+                        -12345.6789))
+                .put("string_to_double", ImmutableList.of(
+                        1234.01234,
+                        0D))
+                .put("varchar_to_double_infinity", ImmutableList.of(
+                        Double.POSITIVE_INFINITY,
+                        Double.NEGATIVE_INFINITY))
+                .put("varchar_to_special_double", Arrays.asList(
+                        coercedNaN == null ? null : Double.NaN,
+                        null))
                 .put("char_to_bigger_char", ImmutableList.of(
                         "abc ",
                         "\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0 "))
@@ -879,6 +903,10 @@ public abstract class BaseTestHiveCoercion
                 row("varchar_to_smaller_varchar", "varchar(2)"),
                 row("varchar_to_date", "date"),
                 row("varchar_to_distant_date", "date"),
+                row("varchar_to_double", "double"),
+                row("string_to_double", "double"),
+                row("varchar_to_double_infinity", "double"),
+                row("varchar_to_special_double", "double"),
                 row("char_to_bigger_char", "char(4)"),
                 row("char_to_smaller_char", "char(2)"),
                 row("timestamp_to_string", "varchar"),
@@ -946,6 +974,10 @@ public abstract class BaseTestHiveCoercion
                 .put("varchar_to_smaller_varchar", VARCHAR)
                 .put("varchar_to_date", DATE)
                 .put("varchar_to_distant_date", DATE)
+                .put("varchar_to_double", DOUBLE)
+                .put("string_to_double", DOUBLE)
+                .put("varchar_to_double_infinity", DOUBLE)
+                .put("varchar_to_special_double", DOUBLE)
                 .put("char_to_bigger_char", CHAR)
                 .put("char_to_smaller_char", CHAR)
                 .put("id", BIGINT)
@@ -1012,6 +1044,10 @@ public abstract class BaseTestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_smaller_varchar varchar_to_smaller_varchar varchar(2)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_date varchar_to_date date", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_distant_date varchar_to_distant_date date", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_double varchar_to_double double", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_double string_to_double double", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_double_infinity varchar_to_double_infinity double", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_special_double varchar_to_special_double double", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN char_to_bigger_char char_to_bigger_char char(4)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN char_to_smaller_char char_to_smaller_char char(2)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_to_string timestamp_to_string string", tableName));
