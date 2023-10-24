@@ -17,6 +17,7 @@ import io.trino.orc.metadata.OrcType.OrcTypeKind;
 import io.trino.plugin.hive.coercions.BooleanCoercer.BooleanToVarcharCoercer;
 import io.trino.plugin.hive.coercions.DateCoercer.VarcharToDateCoercer;
 import io.trino.plugin.hive.coercions.DoubleToVarcharCoercer;
+import io.trino.plugin.hive.coercions.IntegerNumberToDoubleCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToVarcharCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToLongTimestampCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToShortTimestampCoercer;
@@ -31,11 +32,19 @@ import io.trino.spi.type.VarcharType;
 import java.util.Optional;
 
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.BOOLEAN;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.BYTE;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.DOUBLE;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.INT;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.LONG;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.SHORT;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.STRING;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.VARCHAR;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 
 public final class OrcTypeTranslator
@@ -67,6 +76,20 @@ public final class OrcTypeTranslator
         }
         if (fromOrcType == BOOLEAN && toTrinoType instanceof VarcharType varcharType) {
             return Optional.of(new BooleanToVarcharCoercer(varcharType));
+        }
+        if (toTrinoType instanceof DoubleType) {
+            if (fromOrcType == BYTE) {
+                return Optional.of(new IntegerNumberToDoubleCoercer<>(TINYINT));
+            }
+            if (fromOrcType == SHORT) {
+                return Optional.of(new IntegerNumberToDoubleCoercer<>(SMALLINT));
+            }
+            if (fromOrcType == INT) {
+                return Optional.of(new IntegerNumberToDoubleCoercer<>(INTEGER));
+            }
+            if (fromOrcType == LONG) {
+                return Optional.of(new IntegerNumberToDoubleCoercer<>(BIGINT));
+            }
         }
         return Optional.empty();
     }
