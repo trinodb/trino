@@ -107,9 +107,13 @@ public class TestHiveCoercionOnPartitionedTable
                         "    tinyint_to_smallint        TINYINT," +
                         "    tinyint_to_int             TINYINT," +
                         "    tinyint_to_bigint          TINYINT," +
+                        "    tinyint_to_double          TINYINT," +
                         "    smallint_to_int            SMALLINT," +
                         "    smallint_to_bigint         SMALLINT," +
+                        "    smallint_to_double         SMALLINT," +
                         "    int_to_bigint              INT," +
+                        "    int_to_double              INT," +
+                        "    bigint_to_double           BIGINT," +
                         "    bigint_to_varchar          BIGINT," +
                         "    float_to_double            " + floatType + "," +
                         "    double_to_float            DOUBLE," +
