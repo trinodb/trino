@@ -600,6 +600,7 @@ public class HiveS3Config
     }
 
     @Config("hive.s3.proxy.password")
+    @ConfigSecuritySensitive
     public HiveS3Config setS3ProxyPassword(String s3proxyPassword)
     {
         this.s3proxyPassword = s3proxyPassword;
