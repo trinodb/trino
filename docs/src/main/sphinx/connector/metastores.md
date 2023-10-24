@@ -110,6 +110,9 @@ properties:
      - Hive metastore authentication type. Possible values are ``NONE`` or
        ``KERBEROS``.
      - ``NONE``
+   * - ``hive.metastore-timeout``
+     - Timeout for metastore requests.
+     - ``10s``
    * - ``hive.metastore.thrift.client.connect-timeout``
      - Socket connect timeout for metastore client.
      - ``10s``
