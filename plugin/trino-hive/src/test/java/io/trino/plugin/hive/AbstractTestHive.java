@@ -2397,7 +2397,7 @@ public abstract class AbstractTestHive
             }
         })
                 .isInstanceOf(TrinoException.class)
-                .hasMessageMatching(".*The column 't_data' in table '.*\\.trino_test_partition_schema_change' is declared as type 'double', but partition 'ds=2012-12-29' declared column 't_data' as type 'string'.");
+                .hasMessageMatching(".*The column 't_data' in table '.*\\.trino_test_partition_schema_change' is declared as type 'float', but partition 'ds=2012-12-29' declared column 't_data' as type 'string'.");
     }
 
     // TODO coercion of non-canonical values should be supported

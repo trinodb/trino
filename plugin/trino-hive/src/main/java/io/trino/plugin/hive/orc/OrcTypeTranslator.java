@@ -21,7 +21,9 @@ import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToVarcharCoe
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToLongTimestampCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToShortTimestampCoercer;
 import io.trino.plugin.hive.coercions.TypeCoercer;
+import io.trino.plugin.hive.coercions.VarcharToDoubleCoercer;
 import io.trino.spi.type.DateType;
+import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -54,6 +56,9 @@ public final class OrcTypeTranslator
             }
             if (toTrinoType instanceof DateType toDateType) {
                 return Optional.of(new VarcharToDateCoercer(createUnboundedVarcharType(), toDateType));
+            }
+            if (toTrinoType instanceof DoubleType) {
+                return Optional.of(new VarcharToDoubleCoercer(createUnboundedVarcharType(), true));
             }
             return Optional.empty();
         }

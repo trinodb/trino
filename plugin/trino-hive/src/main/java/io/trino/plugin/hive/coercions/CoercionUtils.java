@@ -103,6 +103,9 @@ public final class CoercionUtils
         if (fromType instanceof VarcharType fromVarcharType && (toHiveType.equals(HIVE_BYTE) || toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
             return Optional.of(new VarcharToIntegerNumberCoercer<>(fromVarcharType, toType));
         }
+        if (fromType instanceof VarcharType varcharType && toHiveType.equals(HIVE_DOUBLE)) {
+            return Optional.of(new VarcharToDoubleCoercer(varcharType, coercionContext.treatNaNAsNull()));
+        }
         if (fromType instanceof VarcharType varcharType && toType instanceof TimestampType timestampType) {
             if (timestampType.isShort()) {
                 return Optional.of(new VarcharToShortTimestampCoercer(varcharType, timestampType));
