@@ -15,6 +15,7 @@ package io.trino.plugin.kinesis;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
@@ -123,6 +124,7 @@ public class KinesisConfig
 
     @Config("kinesis.secret-key")
     @ConfigDescription("S3 Secret Key to access s3 locations")
+    @ConfigSecuritySensitive
     public KinesisConfig setSecretKey(String secretKey)
     {
         this.secretKey = secretKey;
