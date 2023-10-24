@@ -19,6 +19,8 @@ import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.Standard;
 
+import java.io.File;
+
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
@@ -33,6 +35,8 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public abstract class AbstractSinglenodeDeltaLakeDatabricks
         extends EnvironmentProvider
 {
+    private static final File DATABRICKS_JDBC_PROVIDER = new File("testing/trino-product-tests-launcher/target/databricks-jdbc.jar");
+
     private final DockerFiles dockerFiles;
 
     abstract String databricksTestJdbcUrl();
@@ -69,7 +73,10 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
                 .withEnv("AWS_REGION", awsRegion)
                 .withEnv("DATABRICKS_JDBC_URL", databricksTestJdbcUrl)
                 .withEnv("DATABRICKS_LOGIN", databricksTestLogin)
-                .withEnv("DATABRICKS_TOKEN", databricksTestToken));
+                .withEnv("DATABRICKS_TOKEN", databricksTestToken)
+                .withCopyFileToContainer(
+                        forHostPath(DATABRICKS_JDBC_PROVIDER.getAbsolutePath()),
+                        "/docker/jdbc/databricks-jdbc.jar"));
 
         configureTempto(builder, configDir);
     }
