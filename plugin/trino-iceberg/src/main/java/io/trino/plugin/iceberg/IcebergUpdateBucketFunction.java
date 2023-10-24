@@ -15,6 +15,8 @@ package io.trino.plugin.iceberg;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.BucketFunction;
 
@@ -33,7 +35,8 @@ public class IcebergUpdateBucketFunction
     @Override
     public int getBucket(Page page, int position)
     {
-        SqlRow row = page.getBlock(0).getObject(position, SqlRow.class);
+        Block block = page.getBlock(0);
+        SqlRow row = ((RowBlock) block.getUnderlyingValueBlock()).getRow(block.getUnderlyingValuePosition(position));
         Slice value = VARCHAR.getSlice(row.getRawFieldBlock(0), row.getRawIndex()); // file path field of row ID
         return (value.hashCode() & Integer.MAX_VALUE) % bucketCount;
     }

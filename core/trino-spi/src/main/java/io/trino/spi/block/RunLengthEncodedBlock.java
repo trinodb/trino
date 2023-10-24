@@ -196,13 +196,6 @@ public final class RunLengthEncodedBlock
     }
 
     @Override
-    public <T> T getObject(int position, Class<T> clazz)
-    {
-        checkReadablePosition(this, position);
-        return value.getObject(0, clazz);
-    }
-
-    @Override
     public ValueBlock getSingleValueBlock(int position)
     {
         checkReadablePosition(this, position);

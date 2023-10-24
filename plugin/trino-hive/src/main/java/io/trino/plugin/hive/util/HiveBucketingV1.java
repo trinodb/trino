@@ -23,7 +23,9 @@ import io.trino.plugin.hive.type.PrimitiveCategory;
 import io.trino.plugin.hive.type.PrimitiveTypeInfo;
 import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.spi.Page;
+import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.MapBlock;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -128,9 +130,11 @@ final class HiveBucketingV1
                 // TIMESTAMP DECIMAL CHAR BINARY TIMESTAMPLOCALTZ INTERVAL_YEAR_MONTH INTERVAL_DAY_TIME VOID UNKNOWN
                 throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory);
             case LIST:
-                return hashOfList((ListTypeInfo) type, block.getObject(position, Block.class));
+                Block array = ((ArrayBlock) block.getUnderlyingValueBlock()).getArray(block.getUnderlyingValuePosition(position));
+                return hashOfList((ListTypeInfo) type, array);
             case MAP:
-                return hashOfMap((MapTypeInfo) type, block.getObject(position, SqlMap.class));
+                SqlMap map = ((MapBlock) block.getUnderlyingValueBlock()).getMap(block.getUnderlyingValuePosition(position));
+                return hashOfMap((MapTypeInfo) type, map);
             case STRUCT:
             case UNION:
                 // TODO: support more types, e.g. ROW
