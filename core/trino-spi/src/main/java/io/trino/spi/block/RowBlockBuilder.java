@@ -24,6 +24,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.RowBlock.createRowBlockInternal;
 import static java.lang.String.format;
+import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
 
 public class RowBlockBuilder
@@ -324,6 +325,19 @@ public class RowBlockBuilder
 
         entryAdded(true);
         return this;
+    }
+
+    @Override
+    public void resetTo(int position)
+    {
+        if (currentEntryOpened) {
+            throw new IllegalStateException("Expected current entry to be closed but was opened");
+        }
+        checkIndex(position, positionCount + 1);
+        positionCount = position;
+        for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
+            fieldBlockBuilder.resetTo(position);
+        }
     }
 
     private void entryAdded(boolean isNull)
