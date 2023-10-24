@@ -52,6 +52,7 @@ import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.trino.tempto.fulfillment.table.TableHandle.tableHandle;
+import static io.trino.tests.product.utils.JdbcDriverUtils.resetSessionProperty;
 import static io.trino.tests.product.utils.JdbcDriverUtils.setSessionProperty;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -148,6 +149,9 @@ public abstract class BaseTestHiveCoercion
                 "varchar_to_special_double",
                 "char_to_bigger_char",
                 "char_to_smaller_char",
+                "timestamp_millis_to_date",
+                "timestamp_micros_to_date",
+                "timestamp_nanos_to_date",
                 "timestamp_to_string",
                 "timestamp_to_bounded_varchar",
                 "timestamp_to_smaller_varchar",
@@ -178,6 +182,8 @@ public abstract class BaseTestHiveCoercion
 
     protected void insertTableRows(String tableName, String floatToDoubleType)
     {
+        // Insert all the data with nanoseconds precision
+        setHiveTimestampPrecision(NANOSECONDS);
         onTrino().executeQuery(format(
                 "INSERT INTO %1$s VALUES " +
                         "(" +
@@ -233,6 +239,9 @@ public abstract class BaseTestHiveCoercion
                         "  'NaN'," +
                         "  'abc', " +
                         "  'abc', " +
+                        "  TIMESTAMP '2022-12-31 23:59:59.999', " +
+                        "  TIMESTAMP '2023-12-31 23:59:59.999999', " +
+                        "  TIMESTAMP '2024-12-31 23:59:59.999999999', " +
                         "  TIMESTAMP '2121-07-15 15:30:12.123', " +
                         "  TIMESTAMP '2121-07-15 15:30:12.123', " +
                         "  TIMESTAMP '2121-07-15 15:30:12.123', " +
@@ -293,6 +302,9 @@ public abstract class BaseTestHiveCoercion
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
                         "  TIMESTAMP '1970-01-01 00:00:00.123', " +
+                        "  TIMESTAMP '1970-01-01 00:00:00.123456', " +
+                        "  TIMESTAMP '1970-01-01 00:00:00.123456789', " +
+                        "  TIMESTAMP '1970-01-01 00:00:00.123', " +
                         "  TIMESTAMP '1970-01-01 00:00:00.123', " +
                         "  TIMESTAMP '1970-01-01 00:00:00.123', " +
                         "  '1970', " +
@@ -300,6 +312,7 @@ public abstract class BaseTestHiveCoercion
                         "  1)",
                 tableName,
                 floatToDoubleType));
+        resetHiveTimestampPrecision();
     }
 
     protected Map<String, List<Object>> expectedValuesForEngineProvider(Engine engine, String tableName, String decimalToFloatVal, String floatToDecimalVal)
@@ -512,6 +525,15 @@ public abstract class BaseTestHiveCoercion
                 .put("char_to_smaller_char", ImmutableList.of(
                         "ab",
                         "\uD83D\uDCB0\uD83D\uDCB0"))
+                .put("timestamp_millis_to_date", ImmutableList.of(
+                        java.sql.Date.valueOf("2022-12-31"),
+                        java.sql.Date.valueOf("1970-01-01")))
+                .put("timestamp_micros_to_date", ImmutableList.of(
+                        java.sql.Date.valueOf("2023-12-31"),
+                        java.sql.Date.valueOf("1970-01-01")))
+                .put("timestamp_nanos_to_date", ImmutableList.of(
+                        java.sql.Date.valueOf("2024-12-31"),
+                        java.sql.Date.valueOf("1970-01-01")))
                 .put("timestamp_to_string", ImmutableList.of(
                         "2121-07-15 15:30:12.123",
                         "1970-01-01 00:00:00.123"))
@@ -543,11 +565,12 @@ public abstract class BaseTestHiveCoercion
                 """
                         INSERT INTO %s
                             SELECT
-                                (CAST(ROW (timestamp_value, -1, timestamp_value, CAST(timestamp_value AS VARCHAR)) AS ROW(keep TIMESTAMP(9), si2i SMALLINT, timestamp2string TIMESTAMP(9), string2timestamp VARCHAR))),
-                                ARRAY [CAST(ROW (timestamp_value, -1, timestamp_value, CAST(timestamp_value AS VARCHAR)) AS ROW (keep TIMESTAMP(9), si2i SMALLINT, timestamp2string TIMESTAMP(9), string2timestamp VARCHAR))],
-                                MAP (ARRAY [2], ARRAY [CAST(ROW (timestamp_value, -1, timestamp_value, CAST(timestamp_value AS VARCHAR)) AS ROW (keep TIMESTAMP(9), si2i SMALLINT, timestamp2string TIMESTAMP(9), string2timestamp VARCHAR))]),
+                                (CAST(ROW (timestamp_value, -1, timestamp_value, CAST(timestamp_value AS VARCHAR), timestamp_value) AS ROW(keep TIMESTAMP(9), si2i SMALLINT, timestamp2string TIMESTAMP(9), string2timestamp VARCHAR, timestamp2date TIMESTAMP(9)))),
+                                ARRAY [CAST(ROW (timestamp_value, -1, timestamp_value, CAST(timestamp_value AS VARCHAR), timestamp_value) AS ROW (keep TIMESTAMP(9), si2i SMALLINT, timestamp2string TIMESTAMP(9), string2timestamp VARCHAR, timestamp2date TIMESTAMP(9)))],
+                                MAP (ARRAY [2], ARRAY [CAST(ROW (timestamp_value, -1, timestamp_value, CAST(timestamp_value AS VARCHAR), timestamp_value) AS ROW (keep TIMESTAMP(9), si2i SMALLINT, timestamp2string TIMESTAMP(9), string2timestamp VARCHAR, timestamp2date TIMESTAMP(9)))]),
                                 timestamp_value,
                                 CAST(timestamp_value AS VARCHAR),
+                                timestamp_value,
                                 1
                             FROM (VALUES
                                 (TIMESTAMP '2121-07-15 15:30:12.123499'),
@@ -558,21 +581,23 @@ public abstract class BaseTestHiveCoercion
                                 (TIMESTAMP '2121-07-15 15:30:12.123500001')) AS t (timestamp_value)
                         """.formatted(tableName));
 
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_row_to_row timestamp_row_to_row struct<keep:timestamp, si2i:int, timestamp2string:string, string2timestamp:timestamp>", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_list_to_list timestamp_list_to_list array<struct<keep:timestamp, si2i:int, timestamp2string:string, string2timestamp:timestamp>>", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_map_to_map timestamp_map_to_map map<int,struct<keep:timestamp, si2i:int, timestamp2string:string, string2timestamp:timestamp>>", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_row_to_row timestamp_row_to_row struct<keep:timestamp, si2i:int, timestamp2string:string, string2timestamp:timestamp, timestamp2date:date>", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_list_to_list timestamp_list_to_list array<struct<keep:timestamp, si2i:int, timestamp2string:string, string2timestamp:timestamp, timestamp2date:date>>", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_map_to_map timestamp_map_to_map map<int,struct<keep:timestamp, si2i:int, timestamp2string:string, string2timestamp:timestamp, timestamp2date:date>>", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_to_string timestamp_to_string string", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_timestamp string_to_timestamp TIMESTAMP", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_to_date timestamp_to_date DATE", tableName));
 
         for (HiveTimestampPrecision hiveTimestampPrecision : HiveTimestampPrecision.values()) {
             String timestampType = "timestamp(%d)".formatted(hiveTimestampPrecision.getPrecision());
             setHiveTimestampPrecision(hiveTimestampPrecision);
             assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
-                    row("timestamp_row_to_row", "row(keep %1$s, si2i integer, timestamp2string varchar, string2timestamp %1$s)".formatted(timestampType)),
-                    row("timestamp_list_to_list", "array(row(keep %1$s, si2i integer, timestamp2string varchar, string2timestamp %1$s))".formatted(timestampType)),
-                    row("timestamp_map_to_map", "map(integer, row(keep %1$s, si2i integer, timestamp2string varchar, string2timestamp %1$s))".formatted(timestampType)),
+                    row("timestamp_row_to_row", "row(keep %1$s, si2i integer, timestamp2string varchar, string2timestamp %1$s, timestamp2date date)".formatted(timestampType)),
+                    row("timestamp_list_to_list", "array(row(keep %1$s, si2i integer, timestamp2string varchar, string2timestamp %1$s, timestamp2date date))".formatted(timestampType)),
+                    row("timestamp_map_to_map", "map(integer, row(keep %1$s, si2i integer, timestamp2string varchar, string2timestamp %1$s, timestamp2date date))".formatted(timestampType)),
                     row("timestamp_to_string", "varchar"),
                     row("string_to_timestamp", timestampType),
+                    row("timestamp_to_date", "date"),
                     row("id", "bigint"));
 
             List<String> allColumns = ImmutableList.of(
@@ -581,6 +606,7 @@ public abstract class BaseTestHiveCoercion
                     "timestamp_map_to_map",
                     "timestamp_to_string",
                     "string_to_timestamp",
+                    "timestamp_to_date",
                     "id");
 
             // For Trino, remove unsupported columns
@@ -611,14 +637,15 @@ public abstract class BaseTestHiveCoercion
                 "2121-07-15 15:30:12.123499999",
                 "2121-07-15 15:30:12.1235",
                 "2121-07-15 15:30:12.123500001");
+
         if (engine == Engine.HIVE) {
             List<Object> baseData = ImmutableList.of(
-                    "{\"keep\":\"2121-07-15 15:30:12.123499\",\"si2i\":-1,\"timestamp2string\":\"2121-07-15 15:30:12.123499\",\"string2timestamp\":\"2121-07-15 15:30:12.123499\"}",
-                    "{\"keep\":\"2121-07-15 15:30:12.1235\",\"si2i\":-1,\"timestamp2string\":\"2121-07-15 15:30:12.1235\",\"string2timestamp\":\"2121-07-15 15:30:12.1235\"}",
-                    "{\"keep\":\"2121-07-15 15:30:12.123501\",\"si2i\":-1,\"timestamp2string\":\"2121-07-15 15:30:12.123501\",\"string2timestamp\":\"2121-07-15 15:30:12.123501\"}",
-                    "{\"keep\":\"2121-07-15 15:30:12.123499999\",\"si2i\":-1,\"timestamp2string\":\"2121-07-15 15:30:12.123499999\",\"string2timestamp\":\"2121-07-15 15:30:12.123499999\"}",
-                    "{\"keep\":\"2121-07-15 15:30:12.1235\",\"si2i\":-1,\"timestamp2string\":\"2121-07-15 15:30:12.1235\",\"string2timestamp\":\"2121-07-15 15:30:12.1235\"}",
-                    "{\"keep\":\"2121-07-15 15:30:12.123500001\",\"si2i\":-1,\"timestamp2string\":\"2121-07-15 15:30:12.123500001\",\"string2timestamp\":\"2121-07-15 15:30:12.123500001\"}");
+                    "{\"keep\":\"2121-07-15 15:30:12.123499\",\"si2i\":-1,\"timestamp2string\":\"2121-07-15 15:30:12.123499\",\"string2timestamp\":\"2121-07-15 15:30:12.123499\",\"timestamp2date\":\"2121-07-15\"}",
+                    "{\"keep\":\"2121-07-15 15:30:12.1235\",\"si2i\":-1,\"timestamp2string\":\"2121-07-15 15:30:12.1235\",\"string2timestamp\":\"2121-07-15 15:30:12.1235\",\"timestamp2date\":\"2121-07-15\"}",
+                    "{\"keep\":\"2121-07-15 15:30:12.123501\",\"si2i\":-1,\"timestamp2string\":\"2121-07-15 15:30:12.123501\",\"string2timestamp\":\"2121-07-15 15:30:12.123501\",\"timestamp2date\":\"2121-07-15\"}",
+                    "{\"keep\":\"2121-07-15 15:30:12.123499999\",\"si2i\":-1,\"timestamp2string\":\"2121-07-15 15:30:12.123499999\",\"string2timestamp\":\"2121-07-15 15:30:12.123499999\",\"timestamp2date\":\"2121-07-15\"}",
+                    "{\"keep\":\"2121-07-15 15:30:12.1235\",\"si2i\":-1,\"timestamp2string\":\"2121-07-15 15:30:12.1235\",\"string2timestamp\":\"2121-07-15 15:30:12.1235\",\"timestamp2date\":\"2121-07-15\"}",
+                    "{\"keep\":\"2121-07-15 15:30:12.123500001\",\"si2i\":-1,\"timestamp2string\":\"2121-07-15 15:30:12.123500001\",\"string2timestamp\":\"2121-07-15 15:30:12.123500001\",\"timestamp2date\":\"2121-07-15\"}");
             return ImmutableMap.<String, List<Object>>builder()
                     .put("timestamp_row_to_row", baseData)
                     .put("timestamp_list_to_list", baseData.stream()
@@ -633,6 +660,7 @@ public abstract class BaseTestHiveCoercion
                             .map(String.class::cast)
                             .map(Timestamp::valueOf)
                             .collect(toImmutableList()))
+                    .put("timestamp_to_date", nCopies(6, java.sql.Date.valueOf("2121-07-15")))
                     .put("id", nCopies(6, 1))
                     .buildOrThrow();
         }
@@ -669,6 +697,7 @@ public abstract class BaseTestHiveCoercion
                         .addField("si2i", -1)
                         .addField("timestamp2string", timestampCoerced)
                         .addField("string2timestamp", timestamp)
+                        .addField("timestamp2date", java.sql.Date.valueOf("2121-07-15"))
                         .build())
                 .collect(toImmutableList());
 
@@ -682,6 +711,7 @@ public abstract class BaseTestHiveCoercion
                         .collect(toImmutableList()))
                 .put("timestamp_to_string", timestampAsString)
                 .put("string_to_timestamp", timestampValue)
+                .put("timestamp_to_date", nCopies(6, java.sql.Date.valueOf("2121-07-15")))
                 .put("id", nCopies(6, 1))
                 .buildOrThrow();
     }
@@ -949,6 +979,9 @@ public abstract class BaseTestHiveCoercion
                 row("varchar_to_special_double", "double"),
                 row("char_to_bigger_char", "char(4)"),
                 row("char_to_smaller_char", "char(2)"),
+                row("timestamp_millis_to_date", "date"),
+                row("timestamp_micros_to_date", "date"),
+                row("timestamp_nanos_to_date", "date"),
                 row("timestamp_to_string", "varchar"),
                 row("timestamp_to_bounded_varchar", "varchar(30)"),
                 row("timestamp_to_smaller_varchar", "varchar(4)"),
@@ -1031,6 +1064,10 @@ public abstract class BaseTestHiveCoercion
                 .put("timestamp_to_smaller_varchar", VARCHAR)
                 .put("smaller_varchar_to_timestamp", TIMESTAMP)
                 .put("varchar_to_timestamp", TIMESTAMP)
+                .put("timestamp_to_date", DATE)
+                .put("timestamp_millis_to_date", DATE)
+                .put("timestamp_micros_to_date", DATE)
+                .put("timestamp_nanos_to_date", DATE)
                 .put("timestamp_to_varchar", VARCHAR)
                 .put("timestamp_row_to_row", engine == Engine.TRINO ? JAVA_OBJECT : STRUCT)   // row
                 .put("timestamp_list_to_list", ARRAY) // list
@@ -1098,6 +1135,9 @@ public abstract class BaseTestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_special_double varchar_to_special_double double", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN char_to_bigger_char char_to_bigger_char char(4)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN char_to_smaller_char char_to_smaller_char char(2)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_millis_to_date timestamp_millis_to_date date", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_micros_to_date timestamp_micros_to_date date", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_nanos_to_date timestamp_nanos_to_date date", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_to_string timestamp_to_string string", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_to_bounded_varchar timestamp_to_bounded_varchar varchar(30)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_to_smaller_varchar timestamp_to_smaller_varchar varchar(4)", tableName));
@@ -1194,6 +1234,16 @@ public abstract class BaseTestHiveCoercion
     {
         try {
             setSessionProperty(onTrino().getConnection(), "hive.timestamp_precision", hiveTimestampPrecision.name());
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static void resetHiveTimestampPrecision()
+    {
+        try {
+            resetSessionProperty(onTrino().getConnection(), "hive.timestamp_precision");
         }
         catch (SQLException e) {
             throw new RuntimeException(e);

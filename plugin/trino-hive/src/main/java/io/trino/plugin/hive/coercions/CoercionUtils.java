@@ -18,6 +18,7 @@ import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.coercions.BooleanCoercer.BooleanToVarcharCoercer;
 import io.trino.plugin.hive.coercions.DateCoercer.VarcharToDateCoercer;
+import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToDateCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToVarcharCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToLongTimestampCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToShortTimestampCoercer;
@@ -189,8 +190,14 @@ public final class CoercionUtils
         if (fromType == REAL && toType instanceof DecimalType toDecimalType) {
             return Optional.of(createRealToDecimalCoercer(toDecimalType));
         }
-        if (fromType instanceof TimestampType && toType instanceof VarcharType varcharType) {
-            return Optional.of(new LongTimestampToVarcharCoercer(TIMESTAMP_NANOS, varcharType));
+        if (fromType instanceof TimestampType) {
+            if (toType instanceof VarcharType varcharType) {
+                return Optional.of(new LongTimestampToVarcharCoercer(TIMESTAMP_NANOS, varcharType));
+            }
+            if (toType instanceof DateType toDateType) {
+                return Optional.of(new LongTimestampToDateCoercer(TIMESTAMP_NANOS, toDateType));
+            }
+            return Optional.empty();
         }
         if (fromType == DOUBLE && toType instanceof VarcharType toVarcharType) {
             return Optional.of(new DoubleToVarcharCoercer(toVarcharType, coercionContext.treatNaNAsNull()));
