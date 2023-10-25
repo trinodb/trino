@@ -14,7 +14,7 @@
 package io.trino.tests.product.hive;
 
 import io.trino.tempto.ProductTest;
-import io.trino.testng.services.Flaky;
+import io.trino.testing.Flaky;
 import org.testng.annotations.Test;
 
 import java.sql.ResultSet;

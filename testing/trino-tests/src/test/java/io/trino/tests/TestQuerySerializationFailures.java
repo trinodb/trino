@@ -22,8 +22,8 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.Type;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.Flaky;
 import io.trino.testing.QueryRunner;
-import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.util.Set;

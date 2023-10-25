@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.testing.DataProviders;
-import io.trino.testng.services.Flaky;
+import io.trino.testing.Flaky;
 import io.trino.tests.product.deltalake.util.DatabricksVersion;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;

@@ -20,7 +20,7 @@ import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutor;
-import io.trino.testng.services.Flaky;
+import io.trino.testing.Flaky;
 import org.testng.annotations.Test;
 
 import java.net.URI;

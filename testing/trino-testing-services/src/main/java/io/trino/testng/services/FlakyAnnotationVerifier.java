@@ -14,6 +14,7 @@
 package io.trino.testng.services;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.trino.testing.Flaky;
 import org.testng.IClassListener;
 import org.testng.ITestClass;
 import org.testng.annotations.Test;

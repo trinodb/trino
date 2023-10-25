@@ -13,6 +13,7 @@
  */
 package io.trino.testng.services;
 
+import io.trino.testing.Flaky;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Method;

@@ -13,6 +13,7 @@
  */
 package io.trino.testng.services;
 
+import io.trino.testing.Flaky;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 

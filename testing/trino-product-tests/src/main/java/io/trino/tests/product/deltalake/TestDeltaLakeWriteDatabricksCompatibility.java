@@ -19,7 +19,7 @@ import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert;
-import io.trino.testng.services.Flaky;
+import io.trino.testing.Flaky;
 import io.trino.tests.product.deltalake.util.DatabricksVersion;
 import org.assertj.core.api.SoftAssertions;
 import org.testng.annotations.DataProvider;

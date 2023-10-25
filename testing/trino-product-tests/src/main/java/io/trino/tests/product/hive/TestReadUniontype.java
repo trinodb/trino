@@ -17,7 +17,7 @@ import io.trino.jdbc.Row;
 import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.query.QueryResult;
-import io.trino.testng.services.Flaky;
+import io.trino.testing.Flaky;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;

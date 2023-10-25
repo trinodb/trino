@@ -25,7 +25,7 @@ import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
-import io.trino.testng.services.Flaky;
+import io.trino.testing.Flaky;
 import io.trino.tests.product.hive.util.TemporaryHiveTable;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;

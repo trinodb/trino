@@ -22,7 +22,7 @@ import io.trino.tempto.configuration.Configuration;
 import io.trino.tempto.fulfillment.table.MutableTableRequirement;
 import io.trino.tempto.fulfillment.table.hive.HiveTableDefinition;
 import io.trino.tempto.query.QueryResult;
-import io.trino.testng.services.Flaky;
+import io.trino.testing.Flaky;
 import io.trino.tests.product.hive.util.TemporaryHiveTable;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;

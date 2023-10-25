@@ -15,7 +15,7 @@ package io.trino.tests.product.deltalake;
 
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryResult;
-import io.trino.testng.services.Flaky;
+import io.trino.testing.Flaky;
 import org.testng.annotations.Test;
 
 import java.util.List;

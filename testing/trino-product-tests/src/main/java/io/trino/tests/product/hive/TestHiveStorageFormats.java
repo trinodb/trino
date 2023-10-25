@@ -27,7 +27,7 @@ import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutionException;
 import io.trino.tempto.query.QueryExecutor.QueryParam;
 import io.trino.tempto.query.QueryResult;
-import io.trino.testng.services.Flaky;
+import io.trino.testing.Flaky;
 import io.trino.tests.product.utils.JdbcDriverUtils;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.assertj.core.api.SoftAssertions;

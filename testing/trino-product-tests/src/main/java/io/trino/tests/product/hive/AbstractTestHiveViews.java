@@ -20,7 +20,7 @@ import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequiremen
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableRegionTable;
 import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
-import io.trino.testng.services.Flaky;
+import io.trino.testing.Flaky;
 import io.trino.tests.product.utils.QueryExecutors;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;

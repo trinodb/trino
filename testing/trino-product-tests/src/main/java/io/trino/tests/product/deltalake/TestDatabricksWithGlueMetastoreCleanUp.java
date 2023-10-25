@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryResult;
-import io.trino.testng.services.Flaky;
+import io.trino.testing.Flaky;
 import org.testng.annotations.Test;
 
 import java.time.Instant;

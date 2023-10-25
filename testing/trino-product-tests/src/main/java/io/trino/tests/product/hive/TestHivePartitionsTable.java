@@ -25,7 +25,7 @@ import io.trino.tempto.fulfillment.table.TableDefinition;
 import io.trino.tempto.fulfillment.table.hive.HiveDataSource;
 import io.trino.tempto.fulfillment.table.hive.HiveTableDefinition;
 import io.trino.tempto.query.QueryResult;
-import io.trino.testng.services.Flaky;
+import io.trino.testing.Flaky;
 import org.testng.annotations.Test;
 
 import java.math.RoundingMode;

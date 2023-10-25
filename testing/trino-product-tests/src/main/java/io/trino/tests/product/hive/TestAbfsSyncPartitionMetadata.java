@@ -15,7 +15,7 @@ package io.trino.tests.product.hive;
 
 import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
-import io.trino.testng.services.Flaky;
+import io.trino.testing.Flaky;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.Preconditions.checkArgument;

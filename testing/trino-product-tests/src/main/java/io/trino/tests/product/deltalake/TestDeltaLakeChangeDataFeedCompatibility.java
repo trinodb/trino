@@ -20,7 +20,7 @@ import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert.Row;
-import io.trino.testng.services.Flaky;
+import io.trino.testing.Flaky;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 

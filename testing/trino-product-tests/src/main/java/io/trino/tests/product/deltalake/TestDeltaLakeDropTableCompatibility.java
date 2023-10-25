@@ -18,7 +18,7 @@ import com.amazonaws.services.s3.model.ObjectListing;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.tempto.BeforeMethodWithContext;
-import io.trino.testng.services.Flaky;
+import io.trino.testing.Flaky;
 import io.trino.tests.product.hive.Engine;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;

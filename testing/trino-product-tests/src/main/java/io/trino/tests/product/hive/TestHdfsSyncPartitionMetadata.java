@@ -18,7 +18,7 @@ import com.google.inject.name.Named;
 import io.trino.tempto.fulfillment.table.hive.HiveDataSource;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.internal.hadoop.hdfs.HdfsDataSourceWriter;
-import io.trino.testng.services.Flaky;
+import io.trino.testing.Flaky;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
