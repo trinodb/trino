@@ -403,7 +403,7 @@ public class TestSplitPruning
     }
 
     /**
-     * Test that a {@code SELECT count(*)} query returns the expected result an splits.
+     * Test that a {@code SELECT count(*)} query returns the expected result splits.
      */
     private void testCountQuery(@Language("SQL") String sql, long expectedRowCount, long expectedSplitCount)
     {
