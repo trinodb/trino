@@ -56,6 +56,7 @@ import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertFalse;
 
 public class TestDruidConnectorTest
@@ -142,7 +143,7 @@ public class TestDruidConnectorTest
         assertThat(metadata.storesUpperCaseIdentifiers()).isTrue();
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowCreateTable()
     {
@@ -161,7 +162,7 @@ public class TestDruidConnectorTest
                         ")");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testSelectInformationSchemaColumns()
     {
@@ -200,7 +201,7 @@ public class TestDruidConnectorTest
         assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testSelectAll()
     {
@@ -298,18 +299,18 @@ public class TestDruidConnectorTest
                 .isNotFullyPushedDown(joinOverTableScans);
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsertNegativeDate()
     {
-        throw new SkipException("Druid connector does not map 'orderdate' column to date type and INSERT statement");
+        abort("Druid connector does not map 'orderdate' column to date type and INSERT statement");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testDateYearOfEraPredicate()
     {
-        throw new SkipException("Druid connector does not map 'orderdate' column to date type");
+        abort("Druid connector does not map 'orderdate' column to date type");
     }
 
     @Override

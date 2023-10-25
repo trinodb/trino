@@ -156,6 +156,7 @@ public class TestIcebergMinioOrcConnectorTest
         }
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDropAmbiguousRowFieldCaseSensitivity()
     {

@@ -151,7 +151,7 @@ public class TestTpchConnectorTest
                 "SELECT * FROM lineitem ORDER BY orderkey ASC LIMIT 10");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowTables()
     {
@@ -162,6 +162,7 @@ public class TestTpchConnectorTest
         assertQueryFails("SHOW TABLES FROM sf0", "line 1:1: Schema 'sf0' does not exist");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowCreateTable()
     {
@@ -179,6 +180,7 @@ public class TestTpchConnectorTest
                         ")");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testPredicateReflectedInExplain()
     {

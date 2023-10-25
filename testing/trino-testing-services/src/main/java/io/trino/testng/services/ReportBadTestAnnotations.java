@@ -25,6 +25,7 @@ import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -202,9 +203,10 @@ public class ReportBadTestAnnotations
                 });
     }
 
-    private static boolean isJUnitAnnotation(Class<? extends Annotation> clazz)
+    public static boolean isJUnitAnnotation(Class<? extends Annotation> clazz)
     {
-        return clazz.getPackage().getName().startsWith("org.junit.jupiter.");
+        return clazz.getPackage().getName().startsWith("org.junit.jupiter.") ||
+                Stream.of(clazz.getInterfaces()).anyMatch(interfaceClass -> interfaceClass.getPackage().getName().startsWith("org.junit.jupiter."));
     }
 
     @VisibleForTesting

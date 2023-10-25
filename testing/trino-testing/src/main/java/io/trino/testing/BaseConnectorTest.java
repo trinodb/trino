@@ -47,10 +47,17 @@ import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
 
 import java.time.Instant;
 import java.time.ZonedDateTime;
@@ -174,6 +181,7 @@ import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.InstanceOfAssertFactories.ZONED_DATE_TIME;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -188,6 +196,11 @@ public abstract class BaseConnectorTest
 {
     private static final Logger log = Logger.get(BaseConnectorTest.class);
 
+    private enum TestFramework {
+        TESTNG,
+        JUNIT,
+    }
+
     protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableSet.<TpchTable<?>>builder()
             .addAll(AbstractTestQueries.REQUIRED_TPCH_TABLES)
             .add(CUSTOMER)
@@ -195,12 +208,27 @@ public abstract class BaseConnectorTest
 
     private final ConcurrentMap<String, Function<ConnectorSession, List<String>>> mockTableListings = new ConcurrentHashMap<>();
 
+    private TestFramework detectedTestFramework;
+
     @BeforeClass
+    @BeforeAll
     public void initMockCatalog()
     {
         QueryRunner queryRunner = getQueryRunner();
         queryRunner.installPlugin(buildMockConnectorPlugin());
         queryRunner.createCatalog("mock_dynamic_listing", "mock", Map.of());
+    }
+
+    @BeforeClass
+    public void detectTestNg()
+    {
+        detectedTestFramework = TestFramework.TESTNG;
+    }
+
+    @BeforeAll
+    public void detectJunit()
+    {
+        detectedTestFramework = TestFramework.JUNIT;
     }
 
     protected MockConnectorPlugin buildMockConnectorPlugin()
@@ -740,7 +768,8 @@ public abstract class BaseConnectorTest
     /**
      * Test interactions between optimizer (including CBO), scheduling and connector metadata APIs.
      */
-    @Test(dataProvider = "joinDistributionTypes")
+    @ParameterizedTest
+    @EnumSource(JoinDistributionType.class)
     public void testJoinWithEmptySides(JoinDistributionType joinDistributionType)
     {
         Session session = noJoinReordering(joinDistributionType);
@@ -752,6 +781,7 @@ public abstract class BaseConnectorTest
         assertQuery(session, "SELECT count(*) FROM nation JOIN region ON nation.regionkey = region.regionkey AND region.regionkey < 0", "VALUES 0");
     }
 
+    @Deprecated // with JUnit use @EnumSource(JoinDistributionType.class)
     @DataProvider
     public Object[][] joinDistributionTypes()
     {
@@ -1559,7 +1589,8 @@ public abstract class BaseConnectorTest
                 });
     }
 
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
     public void testMaterializedViewBaseTableGone(boolean initialized)
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
@@ -1686,7 +1717,8 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "testViewMetadataDataProvider")
+    @ParameterizedTest
+    @MethodSource("testViewMetadataDataProvider")
     public void testViewMetadata(String securityClauseInCreate, String securityClauseInShowCreate)
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_VIEW));
@@ -1760,7 +1792,6 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP VIEW " + viewName);
     }
 
-    @DataProvider
     public static Object[][] testViewMetadataDataProvider()
     {
         return new Object[][] {
@@ -1970,12 +2001,13 @@ public abstract class BaseConnectorTest
      * Test that reading table, column metadata, like {@code SHOW TABLES} or reading from {@code information_schema.views}
      * does not fail when relations are concurrently created or dropped.
      */
-    @Test(timeOut = 180_000)
+    @Test
+    @Timeout(value = 180, unit = SECONDS)
     public void testReadMetadataWithRelationsConcurrentModifications()
             throws Exception
     {
         if (!hasBehavior(SUPPORTS_CREATE_TABLE) && !hasBehavior(SUPPORTS_CREATE_VIEW) && !hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW)) {
-            throw new SkipException("Cannot test");
+            abort("Cannot test");
         }
 
         int readIterations = 5;
@@ -2395,7 +2427,7 @@ public abstract class BaseConnectorTest
         }
 
         if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
-            throw new SkipException("Skipping as connector does not support CREATE SCHEMA");
+            abort("Skipping as connector does not support CREATE SCHEMA");
         }
 
         String schemaName = "test_rename_schema_" + randomNameSuffix();
@@ -2931,7 +2963,8 @@ public abstract class BaseConnectorTest
         }
     }
 
-    @Test(dataProvider = "setColumnTypesDataProvider")
+    @ParameterizedTest
+    @MethodSource("setColumnTypesDataProvider")
     public void testSetColumnTypes(SetColumnTypeSetup setup)
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
@@ -2942,7 +2975,8 @@ public abstract class BaseConnectorTest
         }
         catch (Exception e) {
             verifyUnsupportedTypeException(e, setup.sourceColumnType);
-            throw new SkipException("Unsupported column type: " + setup.sourceColumnType);
+            abort("Unsupported column type: " + setup.sourceColumnType);
+            throw new AssertionError(); // unreachable
         }
         try (table) {
             Runnable setColumnType = () -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE " + setup.newColumnType);
@@ -3136,7 +3170,8 @@ public abstract class BaseConnectorTest
         }
     }
 
-    @Test(dataProvider = "setFieldTypesDataProvider")
+    @ParameterizedTest
+    @MethodSource("setFieldTypesDataProvider")
     public void testSetFieldTypes(SetColumnTypeSetup setup)
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
@@ -3150,7 +3185,8 @@ public abstract class BaseConnectorTest
         }
         catch (Exception e) {
             verifyUnsupportedTypeException(e, setup.sourceColumnType);
-            throw new SkipException("Unsupported column type: " + setup.sourceColumnType);
+            abort("Unsupported column type: " + setup.sourceColumnType);
+            throw new AssertionError(); // unreachable
         }
         try (table) {
             Runnable setFieldType = () -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.field SET DATA TYPE " + setup.newColumnType);
@@ -3965,7 +4001,7 @@ public abstract class BaseConnectorTest
     {
         if (!hasBehavior(SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS)) {
             if (!hasBehavior(SUPPORTS_RENAME_TABLE)) {
-                throw new SkipException("Skipping since rename table is not supported at all");
+                abort("Skipping since rename table is not supported at all");
             }
             assertQueryFails("ALTER TABLE nation RENAME TO other_schema.yyyy", "This connector does not support renaming tables across schemas");
             return;
@@ -4096,7 +4132,7 @@ public abstract class BaseConnectorTest
                 }
                 return;
             }
-            throw new SkipException("Skipping as connector does not support CREATE VIEW");
+            abort("Skipping as connector does not support CREATE VIEW");
         }
 
         String catalogName = getSession().getCatalog().orElseThrow();
@@ -4159,7 +4195,8 @@ public abstract class BaseConnectorTest
         }
     }
 
-    @Test(dataProvider = "testColumnNameDataProvider")
+    @ParameterizedTest
+    @MethodSource("testColumnNameDataProvider")
     public void testCommentColumnName(String columnName)
     {
         skipTestUnless(hasBehavior(SUPPORTS_COMMENT_ON_COLUMN));
@@ -4198,7 +4235,7 @@ public abstract class BaseConnectorTest
                 }
                 return;
             }
-            throw new SkipException("Skipping as connector does not support CREATE VIEW");
+            abort("Skipping as connector does not support CREATE VIEW");
         }
 
         String viewColumnName = "regionkey";
@@ -4359,7 +4396,7 @@ public abstract class BaseConnectorTest
             assertThatThrownBy(() -> query("CREATE TABLE " + tableName + " (a array(bigint))"))
                     // TODO Unify failure message across connectors
                     .hasMessageMatching("[Uu]nsupported (column )?type: \\Qarray(bigint)");
-            throw new SkipException("not supported");
+            abort("not supported");
         }
 
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_array_", "(a ARRAY<DOUBLE>, b ARRAY<BIGINT>)")) {
@@ -4828,7 +4865,8 @@ public abstract class BaseConnectorTest
     }
 
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
-    @Test(timeOut = 60_000, invocationCount = 4)
+    @RepeatedTest(4)
+    @Timeout(value = 60, unit = SECONDS)
     public void testUpdateRowConcurrently()
             throws Exception
     {
@@ -4894,7 +4932,8 @@ public abstract class BaseConnectorTest
     }
 
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
-    @Test(timeOut = 60_000, invocationCount = 4)
+    @RepeatedTest(4)
+    @Timeout(value = 60, unit = SECONDS)
     public void testInsertRowConcurrently()
             throws Exception
     {
@@ -4962,7 +5001,8 @@ public abstract class BaseConnectorTest
     }
 
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
-    @Test(timeOut = 60_000, invocationCount = 4)
+    @RepeatedTest(4)
+    @Timeout(value = 60, unit = SECONDS)
     public void testAddColumnConcurrently()
             throws Exception
     {
@@ -5027,7 +5067,8 @@ public abstract class BaseConnectorTest
     }
 
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
-    @Test(timeOut = 60_000, invocationCount = 4)
+    @RepeatedTest(4)
+    @Timeout(value = 60, unit = SECONDS)
     public void testCreateOrReplaceTableConcurrently()
             throws Exception
     {
@@ -5367,7 +5408,8 @@ public abstract class BaseConnectorTest
         assertQueryFails("TABLE \"nation$data\"", "line 1:1: Table '\\w+.\\w+.nation\\$data' does not exist");
     }
 
-    @Test(dataProvider = "testColumnNameDataProvider")
+    @ParameterizedTest
+    @MethodSource("testColumnNameDataProvider")
     public void testColumnName(String columnName)
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
@@ -5412,7 +5454,8 @@ public abstract class BaseConnectorTest
         }
     }
 
-    @Test(dataProvider = "testColumnNameDataProvider")
+    @ParameterizedTest
+    @MethodSource("testColumnNameDataProvider")
     public void testAddAndDropColumnName(String columnName)
     {
         skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN) && hasBehavior(SUPPORTS_DROP_COLUMN));
@@ -5457,7 +5500,8 @@ public abstract class BaseConnectorTest
         return "CREATE TABLE " + tableName + "(" + columnNameInSql + " varchar(50), value varchar(50))";
     }
 
-    @Test(dataProvider = "testColumnNameDataProvider")
+    @ParameterizedTest
+    @MethodSource("testColumnNameDataProvider")
     public void testRenameColumnName(String columnName)
     {
         skipTestUnless(hasBehavior(SUPPORTS_RENAME_COLUMN));
@@ -5558,7 +5602,8 @@ public abstract class BaseConnectorTest
         return "test_data_mapping_smoke_" + trinoTypeName.replaceAll("[^a-zA-Z0-9]", "_") + randomNameSuffix();
     }
 
-    @Test(dataProvider = "testCommentDataProvider")
+    @ParameterizedTest
+    @MethodSource("testCommentDataProvider")
     public void testCreateTableWithTableCommentSpecialCharacter(String comment)
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT));
@@ -5568,7 +5613,8 @@ public abstract class BaseConnectorTest
         }
     }
 
-    @Test(dataProvider = "testCommentDataProvider")
+    @ParameterizedTest
+    @MethodSource("testCommentDataProvider")
     public void testCreateTableAsSelectWithTableCommentSpecialCharacter(String comment)
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT));
@@ -5578,7 +5624,8 @@ public abstract class BaseConnectorTest
         }
     }
 
-    @Test(dataProvider = "testCommentDataProvider")
+    @ParameterizedTest
+    @MethodSource("testCommentDataProvider")
     public void testCreateTableWithColumnCommentSpecialCharacter(String comment)
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT));
@@ -5588,7 +5635,8 @@ public abstract class BaseConnectorTest
         }
     }
 
-    @Test(dataProvider = "testCommentDataProvider")
+    @ParameterizedTest
+    @MethodSource("testCommentDataProvider")
     public void testAddColumnWithCommentSpecialCharacter(String comment)
     {
         skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN_WITH_COMMENT));
@@ -5599,7 +5647,8 @@ public abstract class BaseConnectorTest
         }
     }
 
-    @Test(dataProvider = "testCommentDataProvider")
+    @ParameterizedTest
+    @MethodSource("testCommentDataProvider")
     public void testCommentTableSpecialCharacter(String comment)
     {
         skipTestUnless(hasBehavior(SUPPORTS_COMMENT_ON_TABLE));
@@ -5610,7 +5659,8 @@ public abstract class BaseConnectorTest
         }
     }
 
-    @Test(dataProvider = "testCommentDataProvider")
+    @ParameterizedTest
+    @MethodSource("testCommentDataProvider")
     public void testCommentColumnSpecialCharacter(String comment)
     {
         skipTestUnless(hasBehavior(SUPPORTS_COMMENT_ON_COLUMN));
@@ -5643,7 +5693,8 @@ public abstract class BaseConnectorTest
         return "'" + value.replace("'", "''") + "'";
     }
 
-    @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
+    @ParameterizedTest
+    @MethodSource("testDataMappingSmokeTestDataProvider")
     public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
     {
         testDataMapping(dataMappingTestSetup);
@@ -5753,7 +5804,8 @@ public abstract class BaseConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
-    @Test(dataProvider = "testCaseSensitiveDataMappingProvider")
+    @ParameterizedTest
+    @MethodSource("testCaseSensitiveDataMappingProvider")
     public void testCaseSensitiveDataMapping(DataMappingTestSetup dataMappingTestSetup)
     {
         testDataMapping(dataMappingTestSetup);
@@ -6441,7 +6493,8 @@ public abstract class BaseConnectorTest
                 .satisfies(e -> assertThat(getTrinoExceptionCause(e)).hasMessageFindingMatch(expectedMessagePart));
     }
 
-    @Test(dataProvider = "testColumnNameDataProvider")
+    @ParameterizedTest
+    @MethodSource("testColumnNameDataProvider")
     public void testMaterializedViewColumnName(String columnName)
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
@@ -6702,10 +6755,13 @@ public abstract class BaseConnectorTest
         }
     }
 
-    protected static void skipTestUnless(boolean requirement)
+    protected void skipTestUnless(boolean requirement)
     {
         if (!requirement) {
-            throw new SkipException("requirement not met");
+            switch (detectedTestFramework) {
+                case TESTNG -> throw new SkipException("requirement not met");
+                case JUNIT -> abort("requirement not met");
+            }
         }
     }
 

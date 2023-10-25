@@ -146,7 +146,7 @@ public abstract class BaseElasticsearchConnectorTest
         assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"trino.plugin.elasticsearch.client:*name=%s*\" WHERE \"backpressurestats.alltime.max\" > 0", catalogName));
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testSelectAll()
     {
@@ -172,7 +172,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .build();
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testPredicateReflectedInExplain()
     {
@@ -184,7 +184,7 @@ public abstract class BaseElasticsearchConnectorTest
                 "nationkey::bigint", "::\\s\\[\\[42\\]\\]");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testSortItemsReflectedInExplain()
     {
@@ -195,6 +195,7 @@ public abstract class BaseElasticsearchConnectorTest
                 "TopNPartial\\[count = 5, orderBy = \\[nationkey DESC");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowCreateTable()
     {

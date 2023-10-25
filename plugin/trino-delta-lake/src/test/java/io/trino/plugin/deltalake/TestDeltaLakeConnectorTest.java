@@ -39,6 +39,8 @@ import io.trino.testing.minio.MinioClient;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
@@ -86,6 +88,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -239,7 +242,8 @@ public class TestDeltaLakeConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("Delta Lake does not support columns with a default value");
+        abort("Delta Lake does not support columns with a default value");
+        throw new AssertionError(); // unreachable
     }
 
     @Override
@@ -258,7 +262,7 @@ public class TestDeltaLakeConnectorTest
                 .build();
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowCreateTable()
     {
@@ -362,6 +366,7 @@ public class TestDeltaLakeConnectorTest
                 "Using array, map or row type on partitioned columns is unsupported");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowCreateSchema()
     {
@@ -373,6 +378,7 @@ public class TestDeltaLakeConnectorTest
                         ")", getSession().getCatalog().orElseThrow(), schemaName, bucketName));
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDropNonEmptySchemaWithTable()
     {
@@ -388,6 +394,7 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP SCHEMA " + schemaName);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDropColumn()
     {
@@ -397,6 +404,8 @@ public class TestDeltaLakeConnectorTest
                 .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
     }
 
+    @ParameterizedTest
+    @MethodSource("testColumnNameDataProvider")
     @Override
     public void testAddAndDropColumnName(String columnName)
     {
@@ -406,6 +415,7 @@ public class TestDeltaLakeConnectorTest
                 .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDropAndAddColumnWithSameName()
     {
@@ -441,6 +451,7 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testRenameColumn()
     {
@@ -450,6 +461,7 @@ public class TestDeltaLakeConnectorTest
                 .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testRenameColumnWithComment()
     {
@@ -484,6 +496,7 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testAlterTableRenameColumnToLongName()
     {
@@ -493,6 +506,8 @@ public class TestDeltaLakeConnectorTest
                 .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
     }
 
+    @ParameterizedTest
+    @MethodSource("testColumnNameDataProvider")
     @Override
     public void testRenameColumnName(String columnName)
     {
@@ -502,6 +517,7 @@ public class TestDeltaLakeConnectorTest
                 .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testCharVarcharComparison()
     {

@@ -86,6 +86,7 @@ public class TestIcebergParquetConnectorTest
         return super.filterSetColumnTypesDataProvider(setup);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDropAmbiguousRowFieldCaseSensitivity()
     {

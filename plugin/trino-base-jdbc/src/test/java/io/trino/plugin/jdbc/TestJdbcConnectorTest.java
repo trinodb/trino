@@ -20,7 +20,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
-import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -37,6 +36,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 // Single-threaded because H2 DDL operations can sometimes take a global lock, leading to apparent deadlocks
 // like in https://github.com/trinodb/trino/issues/7209.
@@ -76,6 +76,7 @@ public class TestJdbcConnectorTest
     }
 
     @Override
+    @Test(enabled = false) // this is a JUnit test
     @org.junit.jupiter.api.Test
     public void testLargeIn()
     {
@@ -121,6 +122,7 @@ public class TestJdbcConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithLike()
     {
@@ -128,12 +130,14 @@ public class TestJdbcConnectorTest
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
+    @Test(enabled = false) // this is a JUnit test
     @Override
     public void testReadMetadataWithRelationsConcurrentModifications()
     {
         // Under concurrently, H2 sometimes returns null table name in DatabaseMetaData.getTables's ResultSet
         // See https://github.com/trinodb/trino/issues/16658 for more information
-        throw new SkipException("Skipped due to H2 problems");
+        abort("Skipped due to H2 problems");
     }
 
     @Test
@@ -271,11 +275,13 @@ public class TestJdbcConnectorTest
         assertThat(e).hasMessageContaining("NULL not allowed for column");
     }
 
+    @org.junit.jupiter.api.Test
+    @Test(enabled = false) // this is a JUnit test
     @Override
     public void testAddColumnConcurrently()
     {
         // TODO: Difficult to determine whether the exception is concurrent issue or not from the error message
-        throw new SkipException("TODO: Enable this test after finding the failure cause");
+        abort("TODO: Enable this test after finding the failure cause");
     }
 
     @Override

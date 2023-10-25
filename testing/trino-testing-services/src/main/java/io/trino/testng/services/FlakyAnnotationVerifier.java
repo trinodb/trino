@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -115,6 +116,9 @@ public class FlakyAnnotationVerifier
         return Arrays.stream(realClass.getMethods())
                 .filter(method -> findInheritableAnnotation(method, Flaky.class).isPresent())
                 .filter(method -> !method.isAnnotationPresent(Test.class))
+                .filter(method -> Stream.of(method.getAnnotations())
+                        .map(Annotation::getClass)
+                        .noneMatch(ReportBadTestAnnotations::isJUnitAnnotation))
                 .collect(toImmutableList());
     }
 

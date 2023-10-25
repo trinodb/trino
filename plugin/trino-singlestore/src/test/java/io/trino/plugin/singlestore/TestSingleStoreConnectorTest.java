@@ -23,7 +23,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -40,6 +39,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -144,20 +144,23 @@ public class TestSingleStoreConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsertUnicode()
     {
         // SingleStore's utf8 encoding is 3 bytes and truncates strings upon encountering a 4 byte sequence
-        throw new SkipException("SingleStore doesn't support utf8mb4");
+        abort("SingleStore doesn't support utf8mb4");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsertHighestUnicodeCharacter()
     {
         // SingleStore's utf8 encoding is 3 bytes and truncates strings upon encountering a 4 byte sequence
-        throw new SkipException("SingleStore doesn't support utf8mb4");
+        abort("SingleStore doesn't support utf8mb4");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithLike()
     {
@@ -209,6 +212,7 @@ public class TestSingleStoreConnectorTest
     }
 
     // Overridden because the method from BaseConnectorTest fails on one of the assertions, see TODO below
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsertIntoNotNullColumn()
     {
@@ -253,6 +257,7 @@ public class TestSingleStoreConnectorTest
         assertUpdate("DROP TABLE test_column_comment");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testAddNotNullColumn()
     {
@@ -316,6 +321,7 @@ public class TestSingleStoreConnectorTest
                 .isNotFullyPushedDown(AggregationNode.class);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testCreateTableAsSelectNegativeDate()
     {
@@ -324,7 +330,7 @@ public class TestSingleStoreConnectorTest
                 .hasStackTraceContaining("TrinoException: Driver returned null LocalDate for a non-null value");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsertNegativeDate()
     {

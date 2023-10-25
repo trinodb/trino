@@ -45,6 +45,7 @@ import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -281,6 +282,7 @@ public abstract class BaseBigQueryConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testNoDataSystemTable()
     {
@@ -301,6 +303,7 @@ public abstract class BaseBigQueryConnectorTest
         return nullToEmpty(exception.getMessage()).matches(".*Invalid field name \"%s\". Fields must contain the allowed characters, and be at most 300 characters long..*".formatted(columnName.replace("\\", "\\\\")));
     }
 
+    @org.junit.jupiter.api.Test
     @Override // Override because the base test exceeds rate limits per a table
     public void testCommentColumn()
     {
@@ -528,6 +531,7 @@ public abstract class BaseBigQueryConnectorTest
         onBigQuery(format("DROP VIEW %s.%s", schemaName, viewName));
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowCreateTable()
     {
@@ -545,11 +549,12 @@ public abstract class BaseBigQueryConnectorTest
                         ")");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testReadMetadataWithRelationsConcurrentModifications()
     {
         // TODO: Enable this test after fixing "Task did not completed before timeout" (https://github.com/trinodb/trino/issues/14230)
-        throw new SkipException("Test fails with a timeout sometimes and is flaky");
+        abort("Test fails with a timeout sometimes and is flaky");
     }
 
     @Test
@@ -569,7 +574,7 @@ public abstract class BaseBigQueryConnectorTest
         }
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testDateYearOfEraPredicate()
     {
@@ -934,6 +939,7 @@ public abstract class BaseBigQueryConnectorTest
                 .hasMessageContaining("Failed to get schema for query");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsertArray()
     {
@@ -944,11 +950,12 @@ public abstract class BaseBigQueryConnectorTest
         }
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsertRowConcurrently()
     {
         // TODO https://github.com/trinodb/trino/issues/15158 Enable this test after switching to storage write API
-        throw new SkipException("Test fails with a timeout sometimes and is flaky");
+        abort("Test fails with a timeout sometimes and is flaky");
     }
 
     @Override
@@ -976,6 +983,7 @@ public abstract class BaseBigQueryConnectorTest
                         "col_required2 INT64 NOT NULL)");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testCharVarcharComparison()
     {

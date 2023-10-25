@@ -32,7 +32,6 @@ import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -44,6 +43,7 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -106,7 +106,8 @@ public class TestMemoryConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("Memory connector does not support column default values");
+        abort("Memory connector does not support column default values");
+        throw new AssertionError(); // unreachable
     }
 
     @Test

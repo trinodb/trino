@@ -30,7 +30,7 @@ public class TestRaptorBucketedConnectorTest
         return createRaptorQueryRunner(ImmutableMap.of(), REQUIRED_TPCH_TABLES, true, ImmutableMap.of());
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowCreateTable()
     {

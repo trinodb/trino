@@ -26,7 +26,6 @@ import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -70,6 +69,7 @@ import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CL
 import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -199,7 +199,8 @@ public class TestKafkaConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("Kafka connector does not support column default values");
+        abort("Kafka connector does not support column default values");
+        throw new AssertionError(); // unreachable
     }
 
     @Test
@@ -378,7 +379,7 @@ public class TestKafkaConnectorTest
                         ")");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsert()
     {
@@ -417,7 +418,7 @@ public class TestKafkaConnectorTest
                 "SELECT 2 * count(*) FROM customer");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsertNegativeDate()
     {
@@ -428,17 +429,17 @@ public class TestKafkaConnectorTest
         assertQuery(format("SELECT dt FROM %s WHERE dt = date '-0001-01-01'", TABLE_INSERT_NEGATIVE_DATE), "VALUES date '-0001-01-01'");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsertArray()
     {
         // Override because the base test uses CREATE TABLE statement that is unsupported in Kafka connector
         assertThatThrownBy(() -> query("INSERT INTO " + TABLE_INSERT_ARRAY + " (a) VALUES (ARRAY[null])"))
                 .hasMessage("Unsupported column type 'array(double)' for column 'a'");
-        throw new SkipException("not supported");
+        abort("not supported");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsertUnicode()
     {
@@ -462,7 +463,7 @@ public class TestKafkaConnectorTest
         assertQueryReturnsEmptyResult("SELECT test FROM " + TABLE_INSERT_UNICODE_3 + " WHERE test = 'b'");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsertHighestUnicodeCharacter()
     {
@@ -472,10 +473,11 @@ public class TestKafkaConnectorTest
                 .containsExactlyInAnyOrder("Hello", "hello测试􏿿world编码");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsertRowConcurrently()
     {
-        throw new SkipException("TODO Prepare a topic in Kafka and enable this test");
+        abort("TODO Prepare a topic in Kafka and enable this test");
     }
 
     @Test

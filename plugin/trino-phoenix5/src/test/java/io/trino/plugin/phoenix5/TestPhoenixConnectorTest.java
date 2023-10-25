@@ -25,6 +25,8 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
@@ -64,6 +66,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertTrue;
 
 public class TestPhoenixConnectorTest
@@ -204,7 +207,8 @@ public class TestPhoenixConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("Phoenix connector does not support column default values");
+        abort("Phoenix connector does not support column default values");
+        throw new AssertionError(); // unreachable
     }
 
     @Override
@@ -214,24 +218,28 @@ public class TestPhoenixConnectorTest
         throw new SkipException("Cannot find an unsupported data type");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testRenameColumn()
     {
         assertThatThrownBy(super::testRenameColumn)
                 // TODO (https://github.com/trinodb/trino/issues/7205) support column rename in Phoenix
                 .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
-        throw new SkipException("Rename column is not yet supported by Phoenix connector");
+        abort("Rename column is not yet supported by Phoenix connector");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testAlterTableRenameColumnToLongName()
     {
         assertThatThrownBy(super::testAlterTableRenameColumnToLongName)
                 // TODO (https://github.com/trinodb/trino/issues/7205) support column rename in Phoenix
                 .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
-        throw new SkipException("Rename column is not yet supported by Phoenix connector");
+        abort("Rename column is not yet supported by Phoenix connector");
     }
 
+    @ParameterizedTest
+    @MethodSource("testColumnNameDataProvider")
     @Override
     public void testRenameColumnName(String columnName)
     {
@@ -243,9 +251,11 @@ public class TestPhoenixConnectorTest
         assertThatThrownBy(() -> super.testRenameColumnName(columnName))
                 // TODO (https://github.com/trinodb/trino/issues/7205) support column rename in Phoenix
                 .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
-        throw new SkipException("Rename column is not yet supported by Phoenix connector");
+        abort("Rename column is not yet supported by Phoenix connector");
     }
 
+    @ParameterizedTest
+    @MethodSource("testColumnNameDataProvider")
     @Override
     public void testAddAndDropColumnName(String columnName)
     {
@@ -253,16 +263,17 @@ public class TestPhoenixConnectorTest
         if (columnName.equals("an'apostrophe")) {
             assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
                     .hasMessageContaining("Syntax error. Mismatched input");
-            throw new SkipException("TODO");
+            abort("TODO");
         }
         if (columnName.equals("a\\backslash`")) {
             assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
                     .hasMessageContaining("Undefined column");
-            throw new SkipException("TODO");
+            abort("TODO");
         }
         super.testAddAndDropColumnName(columnName);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsertArray()
     {
@@ -271,10 +282,11 @@ public class TestPhoenixConnectorTest
                 .hasMessage("Phoenix JDBC driver replaced 'null' with '0.0' at index 1 in [0.0]");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testCreateSchema()
     {
-        throw new SkipException("test disabled until issue fixed"); // TODO https://github.com/trinodb/trino/issues/2348
+        abort("test disabled until issue fixed"); // TODO https://github.com/trinodb/trino/issues/2348
     }
 
     @Override
@@ -309,6 +321,7 @@ public class TestPhoenixConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowCreateTable()
     {
@@ -332,6 +345,7 @@ public class TestPhoenixConnectorTest
                         ")");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testCharVarcharComparison()
     {
@@ -355,6 +369,7 @@ public class TestPhoenixConnectorTest
         }
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testVarcharCharComparison()
     {
@@ -523,10 +538,11 @@ public class TestPhoenixConnectorTest
         assertUpdate("DROP TABLE " + targetTable);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testUpdateRowConcurrently()
     {
-        throw new SkipException("Phoenix doesn't support concurrent update of different columns in a row");
+        abort("Phoenix doesn't support concurrent update of different columns in a row");
     }
 
     @Test
@@ -780,34 +796,38 @@ public class TestPhoenixConnectorTest
                 .hasMessageContaining("Concurrent modification to table");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testCreateSchemaWithLongName()
     {
         // TODO: Find the maximum table schema length in Phoenix and enable this test.
-        throw new SkipException("TODO");
+        abort("TODO");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testCreateTableWithLongTableName()
     {
         // TODO: Find the maximum table name length in Phoenix and enable this test.
         // Table name length with 65536 chars throws "startRow's length must be less than or equal to 32767 to meet the criteria for a row key."
         // 32767 chars still causes the same error and shorter names (e.g. 10000) causes timeout.
-        throw new SkipException("TODO");
+        abort("TODO");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testCreateTableWithLongColumnName()
     {
         // TODO: Find the maximum column name length in Phoenix and enable this test.
-        throw new SkipException("TODO");
+        abort("TODO");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testAlterTableAddLongColumnName()
     {
         // TODO: Find the maximum column name length in Phoenix and enable this test.
-        throw new SkipException("TODO");
+        abort("TODO");
     }
 
     @Test

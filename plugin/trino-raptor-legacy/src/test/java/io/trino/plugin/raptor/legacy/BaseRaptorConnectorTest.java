@@ -25,7 +25,6 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
@@ -59,6 +58,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -90,7 +90,8 @@ public abstract class BaseRaptorConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("Raptor connector does not support column default values");
+        abort("Raptor connector does not support column default values");
+        throw new AssertionError(); // unreachable
     }
 
     @Override
@@ -99,7 +100,7 @@ public abstract class BaseRaptorConnectorTest
         assertThat(e).hasMessageContaining("Table was updated by a different transaction. Please retry the operation.");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testCharVarcharComparison()
     {
@@ -599,7 +600,7 @@ public abstract class BaseRaptorConnectorTest
         assertQuery("SELECT count(DISTINCT \"$bucket_number\") FROM orders_bucketed_mixed", "SELECT 50");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowCreateTable()
     {

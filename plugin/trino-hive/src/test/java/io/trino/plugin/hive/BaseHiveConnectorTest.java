@@ -70,7 +70,6 @@ import io.trino.type.TypeDeserializer;
 import org.apache.hadoop.fs.Path;
 import org.assertj.core.api.AbstractLongAssert;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -194,6 +193,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.data.Offset.offset;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -264,6 +264,7 @@ public abstract class BaseHiveConnectorTest
         };
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void verifySupportsUpdateDeclaration()
     {
@@ -272,6 +273,7 @@ public abstract class BaseHiveConnectorTest
         }
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void verifySupportsRowLevelUpdateDeclaration()
     {
@@ -293,6 +295,7 @@ public abstract class BaseHiveConnectorTest
                 .containsPattern("io.trino.spi.TrinoException: Cannot read from a table tpch.test_insert_select_\\w+ that was modified within transaction, you need to commit the transaction first");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDelete()
     {
@@ -300,6 +303,7 @@ public abstract class BaseHiveConnectorTest
                 .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithLike()
     {
@@ -307,6 +311,7 @@ public abstract class BaseHiveConnectorTest
                 .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithComplexPredicate()
     {
@@ -314,6 +319,7 @@ public abstract class BaseHiveConnectorTest
                 .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithSemiJoin()
     {
@@ -321,6 +327,7 @@ public abstract class BaseHiveConnectorTest
                 .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithSubquery()
     {
@@ -328,6 +335,7 @@ public abstract class BaseHiveConnectorTest
                 .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testUpdate()
     {
@@ -335,6 +343,7 @@ public abstract class BaseHiveConnectorTest
                 .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testRowLevelUpdate()
     {
@@ -342,6 +351,7 @@ public abstract class BaseHiveConnectorTest
                 .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testUpdateRowConcurrently()
             throws Exception
@@ -353,6 +363,7 @@ public abstract class BaseHiveConnectorTest
                 .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testUpdateWithPredicates()
     {
@@ -360,6 +371,7 @@ public abstract class BaseHiveConnectorTest
                 .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testUpdateRowType()
     {
@@ -367,6 +379,7 @@ public abstract class BaseHiveConnectorTest
                 .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testUpdateAllValues()
     {
@@ -374,6 +387,7 @@ public abstract class BaseHiveConnectorTest
                 .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testExplainAnalyzeWithDeleteWithSubquery()
     {
@@ -381,6 +395,7 @@ public abstract class BaseHiveConnectorTest
                 .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithVarcharPredicate()
     {
@@ -388,6 +403,7 @@ public abstract class BaseHiveConnectorTest
                 .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testRowLevelDelete()
     {
@@ -729,6 +745,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(admin, "DROP ROLE authorized_users IN hive");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testCreateSchemaWithNonLowercaseOwnerName()
     {
@@ -1091,7 +1108,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(admin, "DROP SCHEMA " + schema);
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowCreateSchema()
     {
@@ -3134,7 +3151,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsert()
     {
@@ -3419,14 +3436,14 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE test_null_partition");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsertHighestUnicodeCharacter()
     {
-        throw new SkipException("Covered by testInsertUnicode");
+        abort("Covered by testInsertUnicode");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsertUnicode()
     {
@@ -4282,7 +4299,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE IF EXISTS test_comment");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowCreateTable()
     {
@@ -5068,7 +5085,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP VIEW view_rename.rename_view_new");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testRenameColumn()
     {
@@ -5092,7 +5109,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE test_rename_column");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testDropColumn()
     {
@@ -5119,6 +5136,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE test_drop_column");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDropAndAddColumnWithSameName()
     {
@@ -9136,7 +9154,8 @@ public abstract class BaseHiveConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("Hive connector does not support column default values");
+        abort("Hive connector does not support column default values");
+        throw new AssertionError(); // unreachable
     }
 
     @Override

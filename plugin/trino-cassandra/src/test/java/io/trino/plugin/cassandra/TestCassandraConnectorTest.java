@@ -27,7 +27,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -72,6 +71,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -131,7 +131,8 @@ public class TestCassandraConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("Cassandra connector does not support column default values");
+        abort("Cassandra connector does not support column default values");
+        throw new AssertionError(); // unreachable
     }
 
     @Override
@@ -194,7 +195,7 @@ public class TestCassandraConnectorTest
                 .build();
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowCreateTable()
     {
@@ -212,6 +213,7 @@ public class TestCassandraConnectorTest
                         ")");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testCharVarcharComparison()
     {
@@ -1232,7 +1234,7 @@ public class TestCassandraConnectorTest
         }
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testDelete()
     {
@@ -1297,6 +1299,7 @@ public class TestCassandraConnectorTest
         }
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithLike()
     {
@@ -1304,6 +1307,7 @@ public class TestCassandraConnectorTest
                 .hasStackTraceContaining("Delete without primary key or partition key is not supported");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithComplexPredicate()
     {
@@ -1311,6 +1315,7 @@ public class TestCassandraConnectorTest
                 .hasStackTraceContaining("Delete without primary key or partition key is not supported");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithSemiJoin()
     {
@@ -1318,6 +1323,7 @@ public class TestCassandraConnectorTest
                 .hasStackTraceContaining("Delete without primary key or partition key is not supported");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithSubquery()
     {
@@ -1325,6 +1331,7 @@ public class TestCassandraConnectorTest
                 .hasStackTraceContaining("Delete without primary key or partition key is not supported");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testExplainAnalyzeWithDeleteWithSubquery()
     {
@@ -1332,6 +1339,7 @@ public class TestCassandraConnectorTest
                 .hasStackTraceContaining("Delete without primary key or partition key is not supported");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithVarcharPredicate()
     {
@@ -1339,6 +1347,7 @@ public class TestCassandraConnectorTest
                 .hasStackTraceContaining("Delete without primary key or partition key is not supported");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteAllDataFromTable()
     {
@@ -1346,6 +1355,7 @@ public class TestCassandraConnectorTest
                 .hasStackTraceContaining("Deleting without partition key is not supported");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testRowLevelDelete()
     {

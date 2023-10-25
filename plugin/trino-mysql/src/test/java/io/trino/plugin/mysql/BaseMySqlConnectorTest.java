@@ -165,6 +165,7 @@ public abstract class BaseMySqlConnectorTest
                 .build();
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowCreateTable()
     {
@@ -182,6 +183,7 @@ public abstract class BaseMySqlConnectorTest
                         ")");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithLike()
     {
@@ -262,6 +264,7 @@ public abstract class BaseMySqlConnectorTest
         assertUpdate("DROP TABLE test_column_comment");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testAddNotNullColumn()
     {

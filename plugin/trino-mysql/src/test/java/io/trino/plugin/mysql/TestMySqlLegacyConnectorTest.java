@@ -20,6 +20,8 @@ import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -44,7 +46,7 @@ public class TestMySqlLegacyConnectorTest
         return createMySqlQueryRunner(mySqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testCreateTableAsSelectWithUnicode()
     {
@@ -52,7 +54,7 @@ public class TestMySqlLegacyConnectorTest
                 .hasStackTraceContaining("Failed to insert data: Incorrect string value: '\\xE2\\x98\\x83'");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsertUnicode()
     {
@@ -82,7 +84,7 @@ public class TestMySqlLegacyConnectorTest
         }
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsertHighestUnicodeCharacter()
     {
@@ -125,7 +127,7 @@ public class TestMySqlLegacyConnectorTest
         }
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testRenameColumn()
     {
@@ -134,6 +136,8 @@ public class TestMySqlLegacyConnectorTest
                 .hasStackTraceContaining("RENAME COLUMN x TO before_y");
     }
 
+    @ParameterizedTest
+    @MethodSource("testColumnNameDataProvider")
     @Override
     public void testRenameColumnName(String columnName)
     {
@@ -142,6 +146,7 @@ public class TestMySqlLegacyConnectorTest
                 .hasStackTraceContaining("RENAME COLUMN");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testAlterTableRenameColumnToLongName()
     {

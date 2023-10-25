@@ -16,6 +16,9 @@ package io.trino.plugin.mariadb;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import static io.trino.plugin.mariadb.MariaDbQueryRunner.createMariaDbQueryRunner;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -37,6 +40,7 @@ public class TestMariaDbConnectorTest
         return server::execute;
     }
 
+    @Test
     @Override
     public void testRenameColumn()
     {
@@ -44,6 +48,8 @@ public class TestMariaDbConnectorTest
                 .hasMessageContaining("Rename column not supported for the MariaDB server version");
     }
 
+    @ParameterizedTest
+    @MethodSource("testColumnNameDataProvider")
     @Override
     public void testRenameColumnName(String columnName)
     {
@@ -51,6 +57,7 @@ public class TestMariaDbConnectorTest
                 .hasMessageContaining("Rename column not supported for the MariaDB server version");
     }
 
+    @Test
     @Override
     public void testAlterTableRenameColumnToLongName()
     {

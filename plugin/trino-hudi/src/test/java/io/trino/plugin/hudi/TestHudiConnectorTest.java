@@ -62,7 +62,7 @@ public class TestHudiConnectorTest
         };
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowCreateTable()
     {

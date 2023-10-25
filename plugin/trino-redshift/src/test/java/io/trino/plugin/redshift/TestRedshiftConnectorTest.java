@@ -47,6 +47,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestRedshiftConnectorTest
         extends BaseJdbcConnectorTest
@@ -149,6 +150,7 @@ public class TestRedshiftConnectorTest
     /**
      * Overridden due to Redshift not supporting non-ASCII characters in CHAR.
      */
+    @org.junit.jupiter.api.Test
     @Override
     public void testCreateTableAsSelectWithUnicode()
     {
@@ -225,6 +227,7 @@ public class TestRedshiftConnectorTest
         }
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDelete()
     {
@@ -587,17 +590,18 @@ public class TestRedshiftConnectorTest
         }
     }
 
+    @org.junit.jupiter.api.Test
     @Override
-    @Test
     public void testReadMetadataWithRelationsConcurrentModifications()
     {
-        throw new SkipException("Test fails with a timeout sometimes and is flaky");
+        abort("Test fails with a timeout sometimes and is flaky");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsertRowConcurrently()
     {
-        throw new SkipException("Test fails with a timeout sometimes and is flaky");
+        abort("Test fails with a timeout sometimes and is flaky");
     }
 
     @Override
@@ -657,6 +661,7 @@ public class TestRedshiftConnectorTest
         return RedshiftQueryRunner::executeInRedshift;
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithLike()
     {

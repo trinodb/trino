@@ -160,7 +160,7 @@ public abstract class BaseOracleConnectorTest
                 .build();
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowCreateTable()
     {
@@ -191,6 +191,7 @@ public abstract class BaseOracleConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testCharVarcharComparison()
     {
@@ -214,6 +215,7 @@ public abstract class BaseOracleConnectorTest
         }
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testVarcharCharComparison()
     {
@@ -266,6 +268,7 @@ public abstract class BaseOracleConnectorTest
         return new TestTable(onRemoteDatabase(), name, "(short_decimal number(9, 3), long_decimal number(30, 10), a_bigint number(19), t_double binary_double)", rows);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithLike()
     {

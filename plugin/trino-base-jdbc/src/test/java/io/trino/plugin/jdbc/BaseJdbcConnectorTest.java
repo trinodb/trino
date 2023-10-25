@@ -116,6 +116,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseJdbcConnectorTest
         extends BaseConnectorTest
@@ -1512,6 +1513,7 @@ public abstract class BaseJdbcConnectorTest
         throw new UnsupportedOperationException();
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testUpdateNotNullColumn()
     {
@@ -1538,6 +1540,7 @@ public abstract class BaseJdbcConnectorTest
         }
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testUpdateRowType()
     {
@@ -1555,6 +1558,7 @@ public abstract class BaseJdbcConnectorTest
         }
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testUpdateRowConcurrently()
             throws Exception
@@ -1571,6 +1575,7 @@ public abstract class BaseJdbcConnectorTest
         }
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testUpdateAllValues()
     {
@@ -1586,6 +1591,7 @@ public abstract class BaseJdbcConnectorTest
         }
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testUpdateWithPredicates()
     {
@@ -1744,6 +1750,7 @@ public abstract class BaseJdbcConnectorTest
         }
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithComplexPredicate()
     {
@@ -1756,6 +1763,7 @@ public abstract class BaseJdbcConnectorTest
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithSubquery()
     {
@@ -1768,6 +1776,7 @@ public abstract class BaseJdbcConnectorTest
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testExplainAnalyzeWithDeleteWithSubquery()
     {
@@ -1780,6 +1789,7 @@ public abstract class BaseJdbcConnectorTest
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithSemiJoin()
     {
@@ -1792,10 +1802,11 @@ public abstract class BaseJdbcConnectorTest
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithVarcharPredicate()
     {
-        throw new SkipException("This is implemented by testDeleteWithVarcharEqualityPredicate");
+        abort("This is implemented by testDeleteWithVarcharEqualityPredicate");
     }
 
     @Test

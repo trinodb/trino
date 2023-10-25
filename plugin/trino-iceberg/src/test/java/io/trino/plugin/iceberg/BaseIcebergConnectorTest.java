@@ -62,7 +62,8 @@ import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.util.JsonUtil;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -152,6 +153,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -243,6 +245,8 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
+    @ParameterizedTest
+    @MethodSource("testColumnNameDataProvider")
     @Override
     public void testAddAndDropColumnName(String columnName)
     {
@@ -289,6 +293,7 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testCharVarcharComparison()
     {
@@ -296,7 +301,7 @@ public abstract class BaseIcebergConnectorTest
                 .hasMessage("Type not supported for Iceberg: char(3)");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowCreateSchema()
     {
@@ -325,7 +330,7 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Override
-    @Test
+    @org.junit.jupiter.api.Test
     public void testShowCreateTable()
     {
         assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
@@ -1519,6 +1524,7 @@ public abstract class BaseIcebergConnectorTest
         dropTable("test_schema_evolution_drop_middle");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDropRowFieldWhenDuplicates()
     {
@@ -4806,7 +4812,8 @@ public abstract class BaseIcebergConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("Iceberg connector does not support column default values");
+        abort("Iceberg connector does not support column default values");
+        throw new AssertionError(); // unreachable
     }
 
     @Override

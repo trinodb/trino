@@ -25,6 +25,7 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
+import org.junit.jupiter.api.Timeout;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -40,6 +41,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -130,14 +132,15 @@ public abstract class BaseSqlServerConnectorTest
 
     // TODO (https://github.com/trinodb/trino/issues/10846): Test is expected to be flaky because tests execute in parallel
     @Flaky(issue = "https://github.com/trinodb/trino/issues/10846", match = "was deadlocked on lock resources with another process and has been chosen as the deadlock victim")
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testSelectInformationSchemaColumns()
     {
         super.testSelectInformationSchemaColumns();
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
+    @Timeout(value = 180, unit = SECONDS)
     @Override
     public void testReadMetadataWithRelationsConcurrentModifications()
     {
@@ -447,7 +450,7 @@ public abstract class BaseSqlServerConnectorTest
         onRemoteDatabase().execute("SELECT count(*) FROM dbo.orders WHERE " + longInClauses);
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowCreateTable()
     {
@@ -576,7 +579,7 @@ public abstract class BaseSqlServerConnectorTest
         assertUpdate("DROP TABLE test_show_unique_constraint_table");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testDateYearOfEraPredicate()
     {

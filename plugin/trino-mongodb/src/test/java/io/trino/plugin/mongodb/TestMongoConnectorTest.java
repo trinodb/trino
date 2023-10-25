@@ -35,6 +35,8 @@ import io.trino.testing.sql.TestTable;
 import org.bson.Document;
 import org.bson.types.Decimal128;
 import org.bson.types.ObjectId;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -61,6 +63,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -117,10 +120,12 @@ public class TestMongoConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("MongoDB connector does not support column default values");
+        abort("MongoDB connector does not support column default values");
+        throw new AssertionError(); // unreachable
     }
 
-    @Test(dataProvider = "testColumnNameDataProvider")
+    @ParameterizedTest
+    @MethodSource("testColumnNameDataProvider")
     @Override
     public void testColumnName(String columnName)
     {
@@ -128,13 +133,13 @@ public class TestMongoConnectorTest
             assertThatThrownBy(() -> super.testColumnName(columnName))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessage("Column name must not contain '$' or '.' for INSERT: " + columnName);
-            throw new SkipException("Insert would fail");
+            abort("Insert would fail");
         }
 
         super.testColumnName(columnName);
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testSortItemsReflectedInExplain()
     {
@@ -276,6 +281,7 @@ public class TestMongoConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithComplexPredicate()
     {
@@ -283,6 +289,7 @@ public class TestMongoConnectorTest
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithLike()
     {
@@ -290,6 +297,7 @@ public class TestMongoConnectorTest
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithSemiJoin()
     {
@@ -297,6 +305,7 @@ public class TestMongoConnectorTest
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithSubquery()
     {
@@ -304,6 +313,7 @@ public class TestMongoConnectorTest
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testExplainAnalyzeWithDeleteWithSubquery()
     {
@@ -923,11 +933,12 @@ public class TestMongoConnectorTest
         assertUpdate("DROP TABLE test." + tableName);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testAddColumnConcurrently()
     {
         // TODO: Enable after supporting multi-document transaction https://www.mongodb.com/docs/manual/core/transactions/
-        throw new SkipException("TODO");
+        abort("TODO");
     }
 
     @Test
@@ -1670,20 +1681,20 @@ public class TestMongoConnectorTest
         };
     }
 
+    @org.junit.jupiter.api.Test
     @Override
-    @Test
     public void testProjectionPushdownReadsLessData()
     {
         // TODO https://github.com/trinodb/trino/issues/17713
-        throw new SkipException("MongoDB connector does not calculate physical data input size");
+        abort("MongoDB connector does not calculate physical data input size");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
-    @Test
     public void testProjectionPushdownPhysicalInputSize()
     {
         // TODO https://github.com/trinodb/trino/issues/17713
-        throw new SkipException("MongoDB connector does not calculate physical data input size");
+        abort("MongoDB connector does not calculate physical data input size");
     }
 
     @Override

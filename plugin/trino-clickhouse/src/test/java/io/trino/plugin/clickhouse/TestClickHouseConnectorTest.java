@@ -22,6 +22,8 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
@@ -49,6 +51,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -105,13 +108,15 @@ public class TestClickHouseConnectorTest
         assertUpdate("ALTER TABLE test SET PROPERTIES sample_by = 'p2'");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testRenameColumn()
     {
         // ClickHouse need resets all data in a column for specified column which to be renamed
-        throw new SkipException("TODO: test not implemented yet");
+        abort("TODO: test not implemented yet");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testRenameColumnWithComment()
     {
@@ -126,6 +131,8 @@ public class TestClickHouseConnectorTest
         }
     }
 
+    @ParameterizedTest
+    @MethodSource("testCommentDataProvider")
     @Override
     public void testAddColumnWithCommentSpecialCharacter(String comment)
     {
@@ -136,6 +143,7 @@ public class TestClickHouseConnectorTest
         }
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDropAndAddColumnWithSameName()
     {
@@ -154,6 +162,8 @@ public class TestClickHouseConnectorTest
         return format("CREATE TABLE %s(%s varchar(50), value varchar(50) NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['value'])", tableName, columnNameInSql);
     }
 
+    @ParameterizedTest
+    @MethodSource("testColumnNameDataProvider")
     @Override
     public void testRenameColumnName(String columnName)
     {
@@ -161,11 +171,12 @@ public class TestClickHouseConnectorTest
         if (columnName.equals("a.dot")) {
             assertThatThrownBy(() -> super.testRenameColumnName(columnName))
                     .hasMessageContaining("Cannot rename column from nested struct to normal column");
-            throw new SkipException("TODO");
+            abort("TODO");
+            throw new AssertionError(); // unreachable
         }
         assertThatThrownBy(() -> super.testRenameColumnName(columnName))
                 .hasMessageContaining("is not supported by storage Log");
-        throw new SkipException("TODO");
+        abort("TODO");
     }
 
     @Override
@@ -178,6 +189,7 @@ public class TestClickHouseConnectorTest
         return Optional.of(columnName);
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testDropColumn()
     {
@@ -215,6 +227,7 @@ public class TestClickHouseConnectorTest
         return "(x VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['x'])";
     }
 
+    @org.junit.jupiter.api.Test
     @Override // Overridden because the default storage type doesn't support adding columns
     public void testAddNotNullColumnToEmptyTable()
     {
@@ -230,6 +243,7 @@ public class TestClickHouseConnectorTest
         }
     }
 
+    @org.junit.jupiter.api.Test
     @Override // Overridden because (a) the default storage type doesn't support adding columns and (b) ClickHouse has implicit default value for new NON NULL column
     public void testAddNotNullColumn()
     {
@@ -248,7 +262,7 @@ public class TestClickHouseConnectorTest
         }
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testAddColumnWithComment()
     {
@@ -264,21 +278,23 @@ public class TestClickHouseConnectorTest
         }
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testAlterTableAddLongColumnName()
     {
         // TODO: Find the maximum column name length in ClickHouse and enable this test.
-        throw new SkipException("TODO");
+        abort("TODO");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testAlterTableRenameColumnToLongName()
     {
         // TODO: Find the maximum column name length in ClickHouse and enable this test.
-        throw new SkipException("TODO");
+        abort("TODO");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowCreateTable()
     {
@@ -328,6 +344,7 @@ public class TestClickHouseConnectorTest
                         "col_required2 Int64) ENGINE=Log");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testCharVarcharComparison()
     {
@@ -337,7 +354,7 @@ public class TestClickHouseConnectorTest
                 .hasMessageContaining("Expected rows");
 
         // TODO run the test with clickhouse.map-string-as-varchar
-        throw new SkipException("");
+        abort("");
     }
 
     @Test
@@ -628,7 +645,7 @@ public class TestClickHouseConnectorTest
         return new TestTable(onRemoteDatabase(), name, "(t_double Nullable(Float64), u_double Nullable(Float64), v_real Nullable(Float32), w_real Nullable(Float32)) Engine=Log", rows);
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsertIntoNotNullColumn()
     {
@@ -668,7 +685,7 @@ public class TestClickHouseConnectorTest
         return "Date must be between 1970-01-01 and 2149-06-06 in ClickHouse: " + date;
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testDateYearOfEraPredicate()
     {
@@ -699,6 +716,7 @@ public class TestClickHouseConnectorTest
         return new TestTable(onRemoteDatabase(), "tpch.simple_table", "(col BIGINT) Engine=Log", ImmutableList.of("1", "2"));
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testCreateTableWithLongTableName()
     {
@@ -718,6 +736,7 @@ public class TestClickHouseConnectorTest
         assertTrue(getQueryRunner().tableExists(getSession(), validTableName));
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testRenameSchemaToLongName()
     {
@@ -755,6 +774,7 @@ public class TestClickHouseConnectorTest
         assertThat(e).hasMessageContaining("File name too long");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testRenameTableToLongTableName()
     {

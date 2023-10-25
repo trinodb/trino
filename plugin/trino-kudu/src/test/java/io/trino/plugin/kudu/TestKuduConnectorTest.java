@@ -20,8 +20,11 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.testng.SkipException;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -35,8 +38,10 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -155,22 +160,26 @@ public class TestKuduConnectorTest
                 .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
     }
 
+    @ParameterizedTest
+    @MethodSource("testColumnNameDataProvider")
     @Override
     public void testAddAndDropColumnName(String columnName)
     {
         // TODO: Enable this test
         assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
                 .hasMessage("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
-        throw new SkipException("TODO");
+        abort("TODO");
     }
 
+    @ParameterizedTest
+    @MethodSource("testColumnNameDataProvider")
     @Override
     public void testRenameColumnName(String columnName)
     {
         // TODO: Enable this test
         assertThatThrownBy(() -> super.testRenameColumnName(columnName))
                 .hasMessage("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
-        throw new SkipException("TODO");
+        abort("TODO");
     }
 
     @Override
@@ -306,13 +315,14 @@ public class TestKuduConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testAddNotNullColumnToEmptyTable()
     {
         // TODO: Enable this test
         assertThatThrownBy(super::testAddNotNullColumnToEmptyTable)
                 .hasMessage("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
-        throw new SkipException("TODO");
+        abort("TODO");
     }
 
     @Test
@@ -420,6 +430,7 @@ public class TestKuduConnectorTest
         //assertFalse(getQueryRunner().tableExists(getSession(), tableNameLike));
     }
 
+    @Test
     @Override
     public void testCreateTableWithLongTableName()
     {
@@ -443,6 +454,7 @@ public class TestKuduConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), validTableName));
     }
 
+    @Test
     @Override
     public void testCreateTableWithLongColumnName()
     {
@@ -469,6 +481,7 @@ public class TestKuduConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
+    @Test
     @Override
     public void testCreateTableWithColumnComment()
     {
@@ -485,6 +498,7 @@ public class TestKuduConnectorTest
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
     }
 
+    @Test
     @Override
     public void testDropTable()
     {
@@ -600,6 +614,7 @@ public class TestKuduConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testInsertNegativeDate()
     {
@@ -690,7 +705,8 @@ public class TestKuduConnectorTest
      * This test fails intermittently because Kudu doesn't have strong enough
      * semantics to support writing from multiple threads.
      */
-    @org.testng.annotations.Test(enabled = false)
+    @Disabled
+    @Test
     @Override
     public void testUpdateWithPredicates()
     {
@@ -712,6 +728,7 @@ public class TestKuduConnectorTest
      * This test fails intermittently because Kudu doesn't have strong enough
      * semantics to support writing from multiple threads.
      */
+    @Test
     @Override
     public void testUpdateAllValues()
     {
@@ -723,12 +740,15 @@ public class TestKuduConnectorTest
         });
     }
 
+    @Test
     @Override
     public void testWrittenStats()
     {
         // TODO Kudu connector supports CTAS and inserts, but the test would fail
     }
 
+    @Test
+    @Timeout(value = 180, unit = SECONDS)
     @Override
     public void testReadMetadataWithRelationsConcurrentModifications()
     {
@@ -740,7 +760,7 @@ public class TestKuduConnectorTest
             // TODO (https://github.com/trinodb/trino/issues/12974): shouldn't fail
             assertThat(expected)
                     .hasMessageMatching(".* table .* was deleted: Table deleted at .* UTC");
-            throw new SkipException("to be fixed");
+            abort("to be fixed");
         }
     }
 
@@ -777,15 +797,17 @@ public class TestKuduConnectorTest
                 .hasStackTraceContaining("Cannot apply operator: varchar = date");
     }
 
+    @Test
     @Override
     public void testVarcharCastToDateInPredicate()
     {
         assertThatThrownBy(super::testVarcharCastToDateInPredicate)
                 .hasStackTraceContaining("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
 
-        throw new SkipException("TODO: implement the test for Kudu");
+        abort("TODO: implement the test for Kudu");
     }
 
+    @Test
     @Override
     public void testCharVarcharComparison()
     {
@@ -795,7 +817,7 @@ public class TestKuduConnectorTest
                 .hasMessageContaining("Actual rows")
                 .hasMessageContaining("Expected rows");
 
-        throw new SkipException("TODO");
+        abort("TODO");
     }
 
     @Test
@@ -947,7 +969,8 @@ public class TestKuduConnectorTest
      * This test fails intermittently because Kudu doesn't have strong enough
      * semantics to support writing from multiple threads.
      */
-    @org.testng.annotations.Test(enabled = false)
+    @Disabled
+    @Test
     @Override
     public void testUpdate()
     {
@@ -963,7 +986,8 @@ public class TestKuduConnectorTest
      * This test fails intermittently because Kudu doesn't have strong enough
      * semantics to support writing from multiple threads.
      */
-    @org.testng.annotations.Test(enabled = false)
+    @Disabled
+    @Test
     @Override
     public void testRowLevelUpdate()
     {
@@ -984,11 +1008,12 @@ public class TestKuduConnectorTest
         });
     }
 
+    @Test
     @Override
     public void testUpdateRowConcurrently()
             throws Exception
     {
-        throw new SkipException("Kudu doesn't support concurrent update of different columns in a row");
+        abort("Kudu doesn't support concurrent update of different columns in a row");
     }
 
     @Test
@@ -1005,6 +1030,8 @@ public class TestKuduConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @ParameterizedTest
+    @MethodSource("testCommentDataProvider")
     @Override
     public void testCreateTableWithTableCommentSpecialCharacter(String comment)
     {
@@ -1042,7 +1069,8 @@ public class TestKuduConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("Kudu connector does not support column default values");
+        abort("Kudu connector does not support column default values");
+        throw new AssertionError(); // unreachable
     }
 
     @Override

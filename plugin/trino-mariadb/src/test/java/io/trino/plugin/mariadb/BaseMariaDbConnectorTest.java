@@ -140,7 +140,7 @@ public abstract class BaseMariaDbConnectorTest
                 .build();
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowCreateTable()
     {
@@ -181,6 +181,7 @@ public abstract class BaseMariaDbConnectorTest
         assertUpdate("DROP TABLE test_column_comment");
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testAddNotNullColumn()
     {
@@ -254,7 +255,7 @@ public abstract class BaseMariaDbConnectorTest
                 .isFullyPushedDown();
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testDeleteWithLike()
     {
@@ -263,7 +264,7 @@ public abstract class BaseMariaDbConnectorTest
     }
 
     // Overridden because the method from BaseConnectorTest fails on one of the assertions, see TODO below
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testInsertIntoNotNullColumn()
     {
