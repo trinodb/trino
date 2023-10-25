@@ -109,7 +109,7 @@ public class AvroFileWriterFactory
         }).collect(toImmutableList());
 
         try {
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity());
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             Schema fileSchema = AvroHiveFileUtils.determineSchemaOrThrowException(fileSystem, schema);
             TrinoOutputFile outputFile = fileSystem.newOutputFile(location);
             AggregatedMemoryContext outputStreamMemoryContext = newSimpleAggregatedMemoryContext();

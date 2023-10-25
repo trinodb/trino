@@ -128,7 +128,7 @@ public class RcFilePageSourceFactory
                     .collect(toImmutableList());
         }
 
-        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session.getIdentity());
+        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session);
         TrinoInputFile inputFile = trinoFileSystem.newInputFile(path);
         try {
             length = min(inputFile.length() - start, length);

@@ -132,7 +132,7 @@ public abstract class LinePageSourceFactory
             return Optional.of(noProjectionAdaptation(new EmptyPageSource()));
         }
 
-        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session.getIdentity());
+        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session);
         TrinoInputFile inputFile = trinoFileSystem.newInputFile(path);
         try {
             // buffer file if small
