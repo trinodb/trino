@@ -44,9 +44,9 @@ import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Parameters;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Arrays;
 import java.util.List;
@@ -59,9 +59,11 @@ import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static java.io.InputStream.nullInputStream;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertFalse;
 import static org.testng.util.Strings.isNullOrEmpty;
 
+@TestInstance(PER_CLASS)
 public class TestHiveFileSystemS3
         extends AbstractTestHiveFileSystem
 {
@@ -72,19 +74,18 @@ public class TestHiveFileSystemS3
     private String testDirectory;
     private AmazonS3 s3Client;
 
-    @Parameters({
-            "hive.hadoop2.metastoreHost",
-            "hive.hadoop2.metastorePort",
-            "hive.hadoop2.databaseName",
-            "hive.hadoop2.s3.endpoint",
-            "hive.hadoop2.s3.awsAccessKey",
-            "hive.hadoop2.s3.awsSecretKey",
-            "hive.hadoop2.s3.writableBucket",
-            "hive.hadoop2.s3.testDirectory",
-    })
-    @BeforeClass
-    public void setup(String host, int port, String databaseName, String s3endpoint, String awsAccessKey, String awsSecretKey, String writableBucket, String testDirectory)
+    @BeforeAll
+    public void setup()
     {
+        String host = System.getProperty("hive.hadoop2.metastoreHost");
+        int port = Integer.getInteger("hive.hadoop2.metastorePort");
+        String databaseName = System.getProperty("hive.hadoop2.databaseName");
+        String s3endpoint = System.getProperty("hive.hadoop2.s3.endpoint");
+        String awsAccessKey = System.getProperty("hive.hadoop2.s3.awsAccessKey");
+        String awsSecretKey = System.getProperty("hive.hadoop2.s3.awsSecretKey");
+        String writableBucket = System.getProperty("hive.hadoop2.s3.writableBucket");
+        String testDirectory = System.getProperty("hive.hadoop2.s3.testDirectory");
+
         checkArgument(!isNullOrEmpty(host), "Expected non empty host");
         checkArgument(!isNullOrEmpty(databaseName), "Expected non empty databaseName");
         checkArgument(!isNullOrEmpty(awsAccessKey), "Expected non empty awsAccessKey");

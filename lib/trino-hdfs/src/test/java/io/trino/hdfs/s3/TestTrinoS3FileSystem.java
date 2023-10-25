@@ -51,8 +51,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import javax.crypto.spec.SecretKeySpec;
 
@@ -111,6 +110,7 @@ import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.createTempFile;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -477,7 +477,7 @@ public class TestTrinoS3FileSystem
                 Files.createSymbolicLink(link, staging);
             }
             catch (UnsupportedOperationException e) {
-                throw new SkipException("Filesystem does not support symlinks", e);
+                abort("Filesystem does not support symlinks");
             }
 
             try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
