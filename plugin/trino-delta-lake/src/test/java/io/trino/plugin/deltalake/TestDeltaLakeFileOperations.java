@@ -26,8 +26,10 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.File;
 import java.net.URI;
@@ -64,9 +66,10 @@ import static java.lang.Math.toIntExact;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 // single-threaded AccessTrackingFileSystemFactory is shared mutable state
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestDeltaLakeFileOperations
         extends AbstractTestQueryFramework
 {
@@ -562,7 +565,8 @@ public class TestDeltaLakeFileOperations
                         .build());
     }
 
-    @Test(dataProvider = "metadataQueriesTestTableCountDataProvider")
+    @ParameterizedTest
+    @MethodSource("metadataQueriesTestTableCountDataProvider")
     public void testInformationSchemaColumns(int tables)
     {
         String schemaName = "test_i_s_columns_schema" + randomNameSuffix();
@@ -626,7 +630,8 @@ public class TestDeltaLakeFileOperations
         }
     }
 
-    @Test(dataProvider = "metadataQueriesTestTableCountDataProvider")
+    @ParameterizedTest
+    @MethodSource("metadataQueriesTestTableCountDataProvider")
     public void testSystemMetadataTableComments(int tables)
     {
         String schemaName = "test_s_m_table_comments" + randomNameSuffix();
@@ -690,7 +695,6 @@ public class TestDeltaLakeFileOperations
         }
     }
 
-    @DataProvider
     public Object[][] metadataQueriesTestTableCountDataProvider()
     {
         return new Object[][] {
