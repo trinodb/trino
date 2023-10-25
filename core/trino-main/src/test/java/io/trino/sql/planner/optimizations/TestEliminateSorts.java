@@ -76,7 +76,14 @@ public class TestEliminateSorts
     @Test
     public void testNotEliminateSortsIfFilterExists()
     {
-        @Language("SQL") String sql = "SELECT * FROM (SELECT quantity, row_number() OVER (ORDER BY quantity) FROM lineitem) WHERE quantity > 10 ORDER BY quantity";
+        @Language("SQL") String sql = """
+            SELECT * FROM (
+                SELECT quantity, row_number() OVER (ORDER BY quantity) 
+                FROM lineitem
+            )
+            WHERE quantity > 10 
+            ORDER BY quantity
+            """;
 
         PlanMatchPattern pattern =
                 anyTree(
