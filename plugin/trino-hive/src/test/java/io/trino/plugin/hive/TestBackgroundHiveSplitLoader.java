@@ -64,7 +64,6 @@ import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.util.Progressable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -447,8 +446,18 @@ public class TestBackgroundHiveSplitLoader
         assertFalse(hasAttemptId("base_00000_00"));
     }
 
-    @Test(dataProvider = "testPropagateExceptionDataProvider", timeOut = 60_000)
-    public void testPropagateException(boolean error, int threads)
+    @Test(timeOut = 60_000)
+    public void testPropagateException()
+    {
+        testPropagateException(false, 1);
+        testPropagateException(true, 1);
+        testPropagateException(false, 2);
+        testPropagateException(true, 2);
+        testPropagateException(false, 4);
+        testPropagateException(true, 4);
+    }
+
+    private void testPropagateException(boolean error, int threads)
     {
         AtomicBoolean iteratorUsedAfterException = new AtomicBoolean();
 
@@ -506,19 +515,6 @@ public class TestBackgroundHiveSplitLoader
         if (threads == 1) {
             assertFalse(iteratorUsedAfterException.get());
         }
-    }
-
-    @DataProvider
-    public Object[][] testPropagateExceptionDataProvider()
-    {
-        return new Object[][] {
-                {false, 1},
-                {true, 1},
-                {false, 2},
-                {true, 2},
-                {false, 4},
-                {true, 4},
-        };
     }
 
     @Test
