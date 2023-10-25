@@ -32,8 +32,9 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.minio.MinioClient;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -63,7 +64,9 @@ import static java.util.regex.Pattern.quote;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestHive3OnDataLake
         extends AbstractTestQueryFramework
 {
@@ -105,7 +108,7 @@ public class TestHive3OnDataLake
                 .build();
     }
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         computeActual(format(
