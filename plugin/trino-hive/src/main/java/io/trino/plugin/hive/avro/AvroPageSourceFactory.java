@@ -108,7 +108,7 @@ public class AvroPageSourceFactory
                     .collect(toImmutableList());
         }
 
-        TrinoFileSystem trinoFileSystem = trinoFileSystemFactory.create(session.getIdentity());
+        TrinoFileSystem trinoFileSystem = trinoFileSystemFactory.create(session);
         TrinoInputFile inputFile = trinoFileSystem.newInputFile(path);
         HiveTimestampPrecision hiveTimestampPrecision = getTimestampPrecision(session);
 
