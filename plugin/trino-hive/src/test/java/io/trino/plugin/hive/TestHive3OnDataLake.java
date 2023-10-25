@@ -33,7 +33,6 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.minio.MinioClient;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.text.DateFormat;
@@ -1649,20 +1648,17 @@ public class TestHive3OnDataLake
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "invalidObjectNames")
-    public void testCreateSchemaInvalidName(String schemaName)
+    @Test
+    public void testCreateSchemaInvalidName()
     {
-        assertThatThrownBy(() -> assertUpdate("CREATE SCHEMA \"" + schemaName + "\""))
-                .hasMessage(format("Invalid object name: '%s'", schemaName));
-    }
+        assertThatThrownBy(() -> assertUpdate("CREATE SCHEMA \".\""))
+                .hasMessage("Invalid object name: '.'");
 
-    @DataProvider
-    public Object[][] invalidObjectNames()
-    {
-        return new Object[][] {
-                {"."},
-                {".."},
-                {"foo/bar"}};
+        assertThatThrownBy(() -> assertUpdate("CREATE SCHEMA \"..\""))
+                .hasMessage("Invalid object name: '..'");
+
+        assertThatThrownBy(() -> assertUpdate("CREATE SCHEMA \"foo/bar\""))
+                .hasMessage("Invalid object name: 'foo/bar'");
     }
 
     @Test

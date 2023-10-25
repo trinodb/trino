@@ -30,7 +30,6 @@ import io.trino.testing.sql.TrinoSqlExecutor;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
@@ -473,21 +472,23 @@ public class TestCassandraTypeMapping
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_varbinary"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testDate(ZoneId sessionZone)
+    @Test
+    public void testDate()
     {
-        Session session = Session.builder(getSession())
-                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                .build();
+        for (ZoneId sessionZone : timezones()) {
+            Session session = Session.builder(getSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                    .build();
 
-        dateTest(Function.identity())
-                .execute(getQueryRunner(), session, cassandraCreateAndInsert("tpch.test_date"));
+            dateTest(Function.identity())
+                    .execute(getQueryRunner(), session, cassandraCreateAndInsert("tpch.test_date"));
 
-        dateTest(inputLiteral -> format("DATE %s", inputLiteral))
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
-                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
+            dateTest(inputLiteral -> format("DATE %s", inputLiteral))
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
+                    .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
+                    .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
+        }
     }
 
     private SqlDataTypeTest dateTest(Function<String, String> inputLiteralFactory)
@@ -509,24 +510,26 @@ public class TestCassandraTypeMapping
                 .addRoundTrip("date", inputLiteralFactory.apply("'5881580-07-11'"), DATE, "DATE '5881580-07-11'"); // max value in Cassandra and Trino
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTime(ZoneId sessionZone)
+    @Test
+    public void testTime()
     {
-        LocalTime timeGapInJvmZone = LocalTime.of(0, 12, 34, 567_000_000);
-        checkIsGap(jvmZone, timeGapInJvmZone.atDate(LocalDate.ofEpochDay(0)));
+        for (ZoneId sessionZone : timezones()) {
+            LocalTime timeGapInJvmZone = LocalTime.of(0, 12, 34, 567_000_000);
+            checkIsGap(jvmZone, timeGapInJvmZone.atDate(LocalDate.ofEpochDay(0)));
 
-        Session session = Session.builder(getSession())
-                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                .build();
+            Session session = Session.builder(getSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                    .build();
 
-        timeTypeTest("time(9)", trinoTimeInputLiteralFactory())
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_time"))
-                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_time"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_time"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_time"));
+            timeTypeTest("time(9)", trinoTimeInputLiteralFactory())
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_time"))
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect("test_time"))
+                    .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_time"))
+                    .execute(getQueryRunner(), session, trinoCreateAndInsert("test_time"));
 
-        timeTypeTest("time", cassandraTimeInputLiteralFactory())
-                .execute(getQueryRunner(), session, cassandraCreateAndInsert("tpch.test_time"));
+            timeTypeTest("time", cassandraTimeInputLiteralFactory())
+                    .execute(getQueryRunner(), session, cassandraCreateAndInsert("tpch.test_time"));
+        }
     }
 
     private static SqlDataTypeTest timeTypeTest(String inputType, Function<String, String> inputLiteralFactory)
@@ -543,30 +546,34 @@ public class TestCassandraTypeMapping
                 .addRoundTrip(inputType, inputLiteralFactory.apply("NULL"), createTimeType(9), "CAST(NULL AS TIME(9))");
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testCassandraTimestamp(ZoneId sessionZone)
+    @Test
+    public void testCassandraTimestamp()
     {
-        Session session = Session.builder(getSession())
-                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                .build();
+        for (ZoneId sessionZone : timezones()) {
+            Session session = Session.builder(getSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                    .build();
 
-        timestampTest("timestamp", cassandraTimestampInputLiteralFactory(), timestampExpectedLiteralFactory())
-                .addRoundTrip("timestamp", "-1", TIMESTAMP_TZ_MILLIS, "AT_TIMEZONE(TIMESTAMP '1969-12-31 23:59:59.999 UTC', 'UTC')") // negative timestamp
-                .execute(getQueryRunner(), session, cassandraCreateAndInsert("tpch.test_cassandra_timestamp"));
+            timestampTest("timestamp", cassandraTimestampInputLiteralFactory(), timestampExpectedLiteralFactory())
+                    .addRoundTrip("timestamp", "-1", TIMESTAMP_TZ_MILLIS, "AT_TIMEZONE(TIMESTAMP '1969-12-31 23:59:59.999 UTC', 'UTC')") // negative timestamp
+                    .execute(getQueryRunner(), session, cassandraCreateAndInsert("tpch.test_cassandra_timestamp"));
+        }
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTrinoTimestampWithTimeZone(ZoneId sessionZone)
+    @Test
+    public void testTrinoTimestampWithTimeZone()
     {
-        Session session = Session.builder(getSession())
-                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                .build();
+        for (ZoneId sessionZone : timezones()) {
+            Session session = Session.builder(getSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                    .build();
 
-        timestampTest("timestamp with time zone", trinoTimestampInputLiteralFactory(), timestampExpectedLiteralFactory())
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_trino_timestamp_with_time_zone"))
-                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_trino_timestamp_with_time_zone"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_trino_timestamp_with_time_zone"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_trino_timestamp_with_time_zone"));
+            timestampTest("timestamp with time zone", trinoTimestampInputLiteralFactory(), timestampExpectedLiteralFactory())
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_trino_timestamp_with_time_zone"))
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect("test_trino_timestamp_with_time_zone"))
+                    .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_trino_timestamp_with_time_zone"))
+                    .execute(getQueryRunner(), session, trinoCreateAndInsert("test_trino_timestamp_with_time_zone"));
+        }
     }
 
     private SqlDataTypeTest timestampTest(String inputType, BiFunction<LocalDateTime, ZoneId, String> inputLiteralFactory, BiFunction<LocalDateTime, ZoneId, String> expectedLiteralFactory)
@@ -592,17 +599,15 @@ public class TestCassandraTypeMapping
         return tests;
     }
 
-    @DataProvider
-    public Object[][] sessionZonesDataProvider()
+    public List<ZoneId> timezones()
     {
-        return new Object[][] {
-                {UTC},
-                {jvmZone},
+        return ImmutableList.of(
+                UTC,
+                jvmZone,
                 // using two non-JVM zones so that we don't need to worry what Cassandra system zone is
-                {vilnius},
-                {kathmandu},
-                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
-        };
+                vilnius,
+                kathmandu,
+                TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
     }
 
     @Test
