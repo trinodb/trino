@@ -22,13 +22,15 @@ import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.azure.HiveAzureConfig;
 import io.trino.hdfs.azure.TrinoAzureConfigurationInitializer;
 import org.apache.hadoop.fs.Path;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Parameters;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.util.Strings.isNullOrEmpty;
 
+@TestInstance(PER_CLASS)
 public class TestHiveFileSystemWasb
         extends AbstractTestHiveFileSystem
 {
@@ -37,18 +39,17 @@ public class TestHiveFileSystemWasb
     private String accessKey;
     private String testDirectory;
 
-    @Parameters({
-            "hive.hadoop2.metastoreHost",
-            "hive.hadoop2.metastorePort",
-            "hive.hadoop2.databaseName",
-            "hive.hadoop2.wasb.container",
-            "hive.hadoop2.wasb.account",
-            "hive.hadoop2.wasb.accessKey",
-            "hive.hadoop2.wasb.testDirectory",
-    })
-    @BeforeClass
-    public void setup(String host, int port, String databaseName, String container, String account, String accessKey, String testDirectory)
+    @BeforeAll
+    public void setup()
     {
+        String host = System.getProperty("hive.hadoop2.metastoreHost");
+        int port = Integer.getInteger("hive.hadoop2.metastorePort");
+        String databaseName = System.getProperty("hive.hadoop2.databaseName");
+        String container = System.getProperty("hive.hadoop2.wasb.container");
+        String account = System.getProperty("hive.hadoop2.wasb.account");
+        String accessKey = System.getProperty("hive.hadoop2.wasb.accessKey");
+        String testDirectory = System.getProperty("hive.hadoop2.wasb.testDirectory");
+
         checkArgument(!isNullOrEmpty(host), "expected non empty host");
         checkArgument(!isNullOrEmpty(databaseName), "expected non empty databaseName");
         checkArgument(!isNullOrEmpty(container), "expected non empty container");

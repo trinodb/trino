@@ -14,28 +14,28 @@
 package io.trino.plugin.hive;
 
 import io.trino.hdfs.azure.HiveAzureConfig;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Parameters;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
 
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+
+@TestInstance(PER_CLASS)
 public class TestHiveFileSystemAbfsAccessKey
         extends AbstractTestHiveFileSystemAbfs
 {
     private String accessKey;
 
-    @Parameters({
-            "hive.hadoop2.metastoreHost",
-            "hive.hadoop2.metastorePort",
-            "hive.hadoop2.databaseName",
-            "hive.hadoop2.abfs.container",
-            "hive.hadoop2.abfs.account",
-            "hive.hadoop2.abfs.accessKey",
-            "hive.hadoop2.abfs.testDirectory",
-    })
-    @BeforeClass
-    public void setup(String host, int port, String databaseName, String container, String account, String accessKey, String testDirectory)
+    @BeforeAll
+    public void setup()
     {
-        this.accessKey = checkParameter(accessKey, "access key");
-        super.setup(host, port, databaseName, container, account, testDirectory);
+        this.accessKey = checkParameter(System.getProperty("hive.hadoop2.abfs.accessKey"), "access key");
+        super.setup(
+                System.getProperty("hive.hadoop2.metastoreHost"),
+                Integer.getInteger("hive.hadoop2.metastorePort"),
+                System.getProperty("hive.hadoop2.databaseName"),
+                System.getProperty("hive.hadoop2.abfs.container"),
+                System.getProperty("hive.hadoop2.abfs.account"),
+                System.getProperty("hive.hadoop2.abfs.testDirectory"));
     }
 
     @Override

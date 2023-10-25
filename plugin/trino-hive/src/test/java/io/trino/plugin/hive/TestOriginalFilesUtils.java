@@ -16,7 +16,7 @@ package io.trino.plugin.hive;
 import io.trino.filesystem.Location;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.orc.OriginalFilesUtils;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
