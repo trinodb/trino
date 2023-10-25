@@ -43,9 +43,10 @@ import io.trino.testing.TestingSession;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.PrimitiveType;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.File;
 import java.io.IOException;
@@ -116,7 +117,7 @@ public class TestDeltaLakeBasic
                 "delta.enable-non-concurrent-writes", "true"));
     }
 
-    @BeforeClass
+    @BeforeAll
     public void registerTables()
     {
         for (ResourceTable table : Iterables.concat(PERSON_TABLES, OTHER_TABLES)) {
@@ -131,7 +132,6 @@ public class TestDeltaLakeBasic
         return getClass().getClassLoader().getResource(resourcePath);
     }
 
-    @DataProvider
     public Object[][] tables()
     {
         return PERSON_TABLES.stream()
@@ -139,7 +139,8 @@ public class TestDeltaLakeBasic
                 .toArray(Object[][]::new);
     }
 
-    @Test(dataProvider = "tables")
+    @ParameterizedTest
+    @MethodSource("tables")
     public void testDescribeTable(ResourceTable table)
     {
         // the schema is actually defined in the transaction log
@@ -155,7 +156,8 @@ public class TestDeltaLakeBasic
                         "('income', 'double', '', '')");
     }
 
-    @Test(dataProvider = "tables")
+    @ParameterizedTest
+    @MethodSource("tables")
     public void testSimpleQueries(ResourceTable table)
     {
         assertQuery(format("SELECT COUNT(*) FROM %s", table.tableName()), "VALUES 12");
@@ -177,7 +179,8 @@ public class TestDeltaLakeBasic
      * @see deltalake.column_mapping_mode_id
      * @see deltalake.column_mapping_mode_name
      */
-    @Test(dataProvider = "columnMappingModeDataProvider")
+    @ParameterizedTest
+    @MethodSource("columnMappingModeDataProvider")
     public void testAddNestedColumnWithColumnMappingMode(String columnMappingMode)
             throws Exception
     {
@@ -246,7 +249,8 @@ public class TestDeltaLakeBasic
      * @see deltalake.column_mapping_mode_id
      * @see deltalake.column_mapping_mode_name
      */
-    @Test(dataProvider = "columnMappingModeDataProvider")
+    @ParameterizedTest
+    @MethodSource("columnMappingModeDataProvider")
     public void testOptimizeWithColumnMappingMode(String columnMappingMode)
             throws Exception
     {
@@ -310,7 +314,8 @@ public class TestDeltaLakeBasic
      * @see deltalake.column_mapping_mode_id
      * @see deltalake.column_mapping_mode_name
      */
-    @Test(dataProvider = "columnMappingModeDataProvider")
+    @ParameterizedTest
+    @MethodSource("columnMappingModeDataProvider")
     public void testDropColumnWithColumnMappingMode(String columnMappingMode)
             throws Exception
     {
@@ -358,7 +363,8 @@ public class TestDeltaLakeBasic
      * @see deltalake.column_mapping_mode_id
      * @see deltalake.column_mapping_mode_name
      */
-    @Test(dataProvider = "columnMappingModeDataProvider")
+    @ParameterizedTest
+    @MethodSource("columnMappingModeDataProvider")
     public void testRenameColumnWithColumnMappingMode(String columnMappingMode)
             throws Exception
     {
@@ -409,7 +415,8 @@ public class TestDeltaLakeBasic
      * @see deltalake.column_mapping_mode_id
      * @see deltalake.column_mapping_mode_name
      */
-    @Test(dataProvider = "columnMappingModeDataProvider")
+    @ParameterizedTest
+    @MethodSource("columnMappingModeDataProvider")
     public void testWriterAfterRenameColumnWithColumnMappingMode(String columnMappingMode)
             throws Exception
     {
@@ -521,7 +528,6 @@ public class TestDeltaLakeBasic
                         """);
     }
 
-    @DataProvider
     public Object[][] columnMappingModeDataProvider()
     {
         return new Object[][] {
@@ -533,7 +539,8 @@ public class TestDeltaLakeBasic
     /**
      * @see databricks131.timestamp_ntz
      */
-    @Test(dataProvider = "sessionZonesDataProvider")
+    @ParameterizedTest
+    @MethodSource("sessionZonesDataProvider")
     public void testDeltaTimestampNtz(ZoneId sessionZone)
             throws Exception
     {
@@ -585,7 +592,8 @@ public class TestDeltaLakeBasic
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
+    @ParameterizedTest
+    @MethodSource("sessionZonesDataProvider")
     public void testTrinoCreateTableWithTimestampNtz(ZoneId sessionZone)
             throws Exception
     {
@@ -597,7 +605,8 @@ public class TestDeltaLakeBasic
                 });
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
+    @ParameterizedTest
+    @MethodSource("sessionZonesDataProvider")
     public void testTrinoCreateTableAsSelectWithTimestampNtz(ZoneId sessionZone)
             throws Exception
     {
@@ -668,7 +677,8 @@ public class TestDeltaLakeBasic
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
+    @ParameterizedTest
+    @MethodSource("sessionZonesDataProvider")
     public void testTrinoTimestampNtzComplexType(ZoneId sessionZone)
     {
         String tableName = "test_timestamp_ntz_complex_type" + randomNameSuffix();
@@ -717,7 +727,8 @@ public class TestDeltaLakeBasic
     /**
      * @see databricks131.timestamp_ntz_partition
      */
-    @Test(dataProvider = "sessionZonesDataProvider")
+    @ParameterizedTest
+    @MethodSource("sessionZonesDataProvider")
     public void testTimestampNtzPartitioned(ZoneId sessionZone)
             throws Exception
     {
@@ -973,7 +984,6 @@ public class TestDeltaLakeBasic
         throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
     }
 
-    @DataProvider
     public Object[][] sessionZonesDataProvider()
     {
         return new Object[][] {
