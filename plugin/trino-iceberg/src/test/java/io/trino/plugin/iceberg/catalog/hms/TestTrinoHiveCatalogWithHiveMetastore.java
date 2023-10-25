@@ -38,8 +38,9 @@ import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TestingTypeManager;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Map;
 import java.util.Optional;
@@ -53,7 +54,9 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestTrinoHiveCatalogWithHiveMetastore
         extends BaseTrinoCatalogTest
 {
@@ -62,14 +65,14 @@ public class TestTrinoHiveCatalogWithHiveMetastore
     // Use MinIO for storage, since HDFS is hard to get working in a unit test
     private HiveMinioDataLake dataLake;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         dataLake = new HiveMinioDataLake(bucketName, HIVE3_IMAGE);
         dataLake.start();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws Exception
     {
