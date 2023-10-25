@@ -29,9 +29,10 @@ import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tracing.TracingMetadata;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -47,10 +48,11 @@ import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.creat
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 // Cost-based optimizers' behaviors are affected by the statistics returned by the Connectors. Here is to count the getTableStatistics calls
 // when CBOs work with Iceberg Connector.
-@Test(singleThreaded = true) // counting metadata is a shared mutable state
+@Execution(SAME_THREAD) // counting metadata is a shared mutable state
 public class TestIcebergGetTableStatisticsOperations
         extends AbstractTestQueryFramework
 {
@@ -98,7 +100,7 @@ public class TestIcebergGetTableStatisticsOperations
         return localQueryRunner;
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws IOException
     {
@@ -108,7 +110,7 @@ public class TestIcebergGetTableStatisticsOperations
         spanExporter = null;
     }
 
-    @BeforeMethod
+    @BeforeEach
     public void resetCounters()
     {
         spanExporter.reset();
