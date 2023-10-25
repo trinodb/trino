@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -234,6 +235,13 @@ public abstract class AbstractIcebergTableOperations
 
     protected void refreshFromMetadataLocation(String newLocation)
     {
+        refreshFromMetadataLocation(
+                newLocation,
+                metadataLocation -> TableMetadataParser.read(fileIo, fileIo.newInputFile(metadataLocation)));
+    }
+
+    protected void refreshFromMetadataLocation(String newLocation, Function<String, TableMetadata> metadataLoader)
+    {
         // use null-safe equality check because new tables have a null metadata location
         if (Objects.equals(currentMetadataLocation, newLocation)) {
             shouldRefresh = false;
@@ -254,7 +262,7 @@ public abstract class AbstractIcebergTableOperations
                             .withMaxDuration(Duration.ofMinutes(10))
                             .abortOn(failure -> failure instanceof ValidationException || isNotFoundException(failure))
                             .build())
-                    .get(() -> TableMetadataParser.read(fileIo, io().newInputFile(newLocation)));
+                    .get(() -> metadataLoader.apply(newLocation));
         }
         catch (Throwable failure) {
             if (isNotFoundException(failure)) {
