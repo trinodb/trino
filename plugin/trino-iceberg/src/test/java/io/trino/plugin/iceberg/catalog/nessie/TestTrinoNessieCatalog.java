@@ -31,11 +31,12 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TestingTypeManager;
 import org.apache.iceberg.nessie.NessieIcebergClient;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.projectnessie.client.api.NessieApiV1;
 import org.projectnessie.client.http.HttpClientBuilder;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -54,20 +55,22 @@ import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.fail;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestTrinoNessieCatalog
         extends BaseTrinoCatalogTest
 {
     private NessieContainer nessieContainer;
 
-    @BeforeClass
+    @BeforeAll
     public void setupServer()
     {
         nessieContainer = NessieContainer.builder().build();
         nessieContainer.start();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardownServer()
     {
         if (nessieContainer != null) {
