@@ -16,7 +16,7 @@ package io.trino.plugin.iceberg;
 import io.trino.Session;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.DistributedQueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 

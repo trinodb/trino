@@ -24,9 +24,10 @@ import io.trino.testing.MaterializedRow;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.assertj.core.api.Condition;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Optional;
 import java.util.Set;
@@ -56,7 +57,7 @@ public abstract class BaseIcebergMaterializedViewTest
 
     protected abstract String getSchemaDirectory();
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         assertUpdate("CREATE TABLE base_table1(_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'])");
@@ -673,7 +674,8 @@ public abstract class BaseIcebergMaterializedViewTest
                 .hasMessageContaining(format("'iceberg.%s.%s' does not exist", schemaName, viewName));
     }
 
-    @Test(dataProvider = "testBucketPartitioningDataProvider")
+    @ParameterizedTest
+    @MethodSource("testBucketPartitioningDataProvider")
     public void testBucketPartitioning(String dataType, String exampleValue)
     {
         // validate the example value type
@@ -695,7 +697,6 @@ public abstract class BaseIcebergMaterializedViewTest
         }
     }
 
-    @DataProvider
     public Object[][] testBucketPartitioningDataProvider()
     {
         // Iceberg supports bucket partitioning on int, long, decimal, date, time, timestamp, timestamptz, string, uuid, fixed, binary
@@ -714,7 +715,8 @@ public abstract class BaseIcebergMaterializedViewTest
         };
     }
 
-    @Test(dataProvider = "testTruncatePartitioningDataProvider")
+    @ParameterizedTest
+    @MethodSource("testTruncatePartitioningDataProvider")
     public void testTruncatePartitioning(String dataType, String exampleValue)
     {
         // validate the example value type
@@ -736,7 +738,6 @@ public abstract class BaseIcebergMaterializedViewTest
         }
     }
 
-    @DataProvider
     public Object[][] testTruncatePartitioningDataProvider()
     {
         // Iceberg supports truncate partitioning on int, long, decimal, string
@@ -749,7 +750,8 @@ public abstract class BaseIcebergMaterializedViewTest
         };
     }
 
-    @Test(dataProvider = "testTemporalPartitioningDataProvider")
+    @ParameterizedTest
+    @MethodSource("testTemporalPartitioningDataProvider")
     public void testTemporalPartitioning(String partitioning, String dataType, String exampleValue)
     {
         // validate the example value type
@@ -771,7 +773,6 @@ public abstract class BaseIcebergMaterializedViewTest
         }
     }
 
-    @DataProvider
     public Object[][] testTemporalPartitioningDataProvider()
     {
         return new Object[][] {

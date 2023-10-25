@@ -27,7 +27,7 @@ import io.trino.plugin.iceberg.BaseIcebergMaterializedViewTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
+import org.junit.jupiter.api.AfterAll;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -71,7 +71,7 @@ public class TestIcebergGlueCatalogMaterializedView
         return new File(schemaDirectory, schemaName + ".db").getPath();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
     {
         cleanUpSchema(schemaName);
