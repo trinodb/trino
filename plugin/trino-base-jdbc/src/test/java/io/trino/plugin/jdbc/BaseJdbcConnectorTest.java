@@ -1398,18 +1398,10 @@ public abstract class BaseJdbcConnectorTest
             // TODO (https://github.com/trinodb/trino/issues/6967) support join pushdown for IS NOT DISTINCT FROM
             return false;
         }
-        switch (toJoinConditionOperator(operator)) {
-            case EQUAL:
-            case NOT_EQUAL:
-            case LESS_THAN:
-            case LESS_THAN_OR_EQUAL:
-            case GREATER_THAN:
-            case GREATER_THAN_OR_EQUAL:
-                return true;
-            case IS_DISTINCT_FROM:
-                return hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM);
-        }
-        throw new AssertionError(); // unreachable
+        return switch (toJoinConditionOperator(operator)) {
+            case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> true;
+            case IS_DISTINCT_FROM -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM);
+        };
     }
 
     protected boolean expectJoinPushdowOnInequalityOperator(JoinOperator joinOperator)
@@ -1424,19 +1416,11 @@ public abstract class BaseJdbcConnectorTest
             // TODO (https://github.com/trinodb/trino/issues/6967) support join pushdown for IS NOT DISTINCT FROM
             return false;
         }
-        switch (toJoinConditionOperator(operator)) {
-            case EQUAL:
-            case NOT_EQUAL:
-                return hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY);
-            case LESS_THAN:
-            case LESS_THAN_OR_EQUAL:
-            case GREATER_THAN:
-            case GREATER_THAN_OR_EQUAL:
-                return hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY);
-            case IS_DISTINCT_FROM:
-                return hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM) && hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY);
-        }
-        throw new AssertionError(); // unreachable
+        return switch (toJoinConditionOperator(operator)) {
+            case EQUAL, NOT_EQUAL -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY);
+            case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY);
+            case IS_DISTINCT_FROM -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM) && hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY);
+        };
     }
 
     private JoinCondition.Operator toJoinConditionOperator(String operator)
