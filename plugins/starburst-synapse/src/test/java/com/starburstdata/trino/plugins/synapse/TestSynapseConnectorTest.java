@@ -122,10 +122,7 @@ public class TestSynapseConnectorTest
         assertThat(query("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = 'region'"))
                 .skippingTypesCheck()
                 .matches("VALUES 'regionkey', 'name', 'comment'");
-        assertThat(query("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '_egion'"))
-                .skippingTypesCheck()
-                .matches("VALUES 'regionkey', 'name', 'comment'");
-        assertThat(query("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%egio%'"))
+        assertThat(query("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '_egio%'"))
                 .skippingTypesCheck()
                 .matches("VALUES 'regionkey', 'name', 'comment'");
     }
