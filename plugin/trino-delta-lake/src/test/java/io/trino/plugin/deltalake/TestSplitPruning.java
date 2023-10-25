@@ -22,9 +22,10 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.List;
 import java.util.Set;
@@ -62,7 +63,7 @@ public class TestSplitPruning
         return createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(), ImmutableMap.of("delta.register-table-procedure.enabled", "true"));
     }
 
-    @BeforeClass
+    @BeforeAll
     public void registerTables()
     {
         for (String table : TABLES) {
@@ -72,13 +73,13 @@ public class TestSplitPruning
         }
     }
 
-    @DataProvider
     public Object[][] types()
     {
         return new Object[][] {{"float"}, {"double"}};
     }
 
-    @Test(dataProvider = "types")
+    @ParameterizedTest
+    @MethodSource("types")
     public void testStatsPruningInfinity(String type)
     {
         String tableName = type + "_inf";
@@ -113,7 +114,8 @@ public class TestSplitPruning
                 2);
     }
 
-    @Test(dataProvider = "types")
+    @ParameterizedTest
+    @MethodSource("types")
     public void testStatsPruningNaN(String type)
     {
         String tableName = type + "_nan";
