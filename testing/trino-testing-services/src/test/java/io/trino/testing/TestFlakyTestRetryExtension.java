@@ -91,14 +91,14 @@ public class TestFlakyTestRetryExtension
     public static class TestFlakyPermanentFailing
     {
         @SuppressWarnings("deprecation")
-        @Flaky(issue = "issue A", match = "never be successful")
+        @FlakyTest(issue = "issue A", match = "never be successful")
         public void test1()
         {
             fail("This test will never be successful");
         }
 
         @SuppressWarnings("deprecation")
-        @Flaky(issue = "issue B", match = "never be successful")
+        @FlakyTest(issue = "issue B", match = "never be successful")
         public void test2()
         {
             fail("This test will never be successful");
@@ -113,7 +113,7 @@ public class TestFlakyTestRetryExtension
         private int test2ExecutionCount;
 
         @SuppressWarnings("deprecation")
-        @Flaky(issue = "issue A", match = "")
+        @FlakyTest(issue = "issue A", match = "")
         public void test2()
         {
             if (test2ExecutionCount++ < ALLOWED_RETRIES_COUNT) {
@@ -122,7 +122,7 @@ public class TestFlakyTestRetryExtension
         }
 
         @SuppressWarnings("deprecation")
-        @Flaky(issue = "issue A", match = "This test fails")
+        @FlakyTest(issue = "issue A", match = "This test fails")
         public void test1()
         {
             if (test1ExecutionCount++ == 0) {
@@ -134,7 +134,7 @@ public class TestFlakyTestRetryExtension
     public interface TestFlakyInterface
     {
         @SuppressWarnings("deprecation")
-        @Flaky(issue = "Some interface flaky test", match = "")
+        @FlakyTest(issue = "Some interface flaky test", match = "")
         default void unluckyTest()
         {
             fail("No hope");
@@ -150,7 +150,7 @@ public class TestFlakyTestRetryExtension
         private int testExecutionCount;
 
         @SuppressWarnings("deprecation")
-        @Flaky(issue = "Derived flaky test", match = "")
+        @FlakyTest(issue = "Derived flaky test", match = "")
         public void test()
         {
             if (testExecutionCount++ == 0) {

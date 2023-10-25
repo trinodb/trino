@@ -15,7 +15,7 @@ package io.trino.tests.product.hive;
 
 import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -56,7 +56,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testAddPartition()
     {
@@ -64,7 +64,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testAddPartitionContainingCharactersThatNeedUrlEncoding()
     {
@@ -72,7 +72,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testDropPartition()
     {
@@ -80,7 +80,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testDropPartitionContainingCharactersThatNeedUrlEncoding()
     {
@@ -88,7 +88,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testFullSyncPartition()
     {
@@ -96,7 +96,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testInvalidSyncMode()
     {
@@ -104,7 +104,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testMixedCasePartitionNames()
     {
@@ -112,7 +112,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testConflictingMixedCasePartitionNames()
     {

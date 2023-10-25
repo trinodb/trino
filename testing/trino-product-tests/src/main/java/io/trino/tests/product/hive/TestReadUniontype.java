@@ -17,7 +17,7 @@ import io.trino.jdbc.Row;
 import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.query.QueryResult;
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -138,7 +138,7 @@ public class TestReadUniontype
     }
 
     @Test(dataProvider = "storage_formats", groups = {SMOKE, AVRO})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testReadUniontype(String storageFormat)
     {
         // According to testing results, the Hive INSERT queries here only work in Hive 1.2
@@ -225,7 +225,7 @@ public class TestReadUniontype
     }
 
     @Test(dataProvider = "union_dereference_test_cases", groups = {SMOKE, AVRO})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testReadUniontypeWithDereference(String createTableSql, String insertSql, String selectSql, List<Object> expectedResult, String selectTagSql, List<Object> expectedTagResult, String dropTableSql)
     {
         // According to testing results, the Hive INSERT queries here only work in Hive 1.2
@@ -245,7 +245,7 @@ public class TestReadUniontype
     }
 
     @Test(dataProvider = "storage_formats", groups = {SMOKE, AVRO})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnionTypeSchemaEvolution(String storageFormat)
     {
         // According to testing results, the Hive INSERT queries here only work in Hive 1.2
@@ -283,7 +283,7 @@ public class TestReadUniontype
      * Therefore, it can read ORC files even after changing the schema.
      */
     @Test(groups = SMOKE)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testORCUnionToStructSchemaEvolution()
     {
         // According to testing results, the Hive INSERT queries here only work in Hive 1.2
@@ -327,7 +327,7 @@ public class TestReadUniontype
      * Therefore, it can read ORC files even after changing the schema.
      */
     @Test(groups = SMOKE)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testORCStructToUnionSchemaEvolution()
     {
         // According to testing results, the Hive INSERT queries here only work in Hive 1.2
@@ -365,7 +365,7 @@ public class TestReadUniontype
     }
 
     @Test(groups = SMOKE)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testReadOrcUniontypeWithCheckpoint()
     {
         // According to testing results, the Hive INSERT queries here only work in Hive 1.2

@@ -18,7 +18,7 @@ import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert;
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -57,7 +57,7 @@ public class TestAzureBlobFileSystem
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testPathContainsSpecialCharacter()
     {
         String tableName = "test_path_special_character" + randomNameSuffix();

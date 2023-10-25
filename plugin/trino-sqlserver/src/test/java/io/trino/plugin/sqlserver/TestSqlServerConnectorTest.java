@@ -16,7 +16,7 @@ package io.trino.plugin.sqlserver;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
@@ -68,7 +68,7 @@ public class TestSqlServerConnectorTest
         return sqlServer::execute;
     }
 
-    @Flaky(issue = "fn_dblog() returns information only about the active portion of the transaction log, therefore it is flaky", match = ".*")
+    @FlakyTest(issue = "fn_dblog() returns information only about the active portion of the transaction log, therefore it is flaky", match = ".*")
     @Test(dataProvider = "doubleTrueFalse")
     public void testCreateTableAsSelectWriteBulkiness(boolean bulkCopyForWrite, boolean bulkCopyLock)
             throws SQLException
@@ -97,7 +97,7 @@ public class TestSqlServerConnectorTest
         assertUpdate("DROP TABLE " + table);
     }
 
-    @Flaky(issue = "fn_dblog() returns information only about the active portion of the transaction log, therefore it is flaky", match = ".*")
+    @FlakyTest(issue = "fn_dblog() returns information only about the active portion of the transaction log, therefore it is flaky", match = ".*")
     @Test(dataProvider = "tripleTrueFalse")
     public void testInsertWriteBulkiness(boolean nonTransactionalInsert, boolean bulkCopyForWrite, boolean bulkCopyForWriteLockDestinationTable)
             throws SQLException

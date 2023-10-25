@@ -20,7 +20,7 @@ import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableOrdersTable;
 import io.trino.tempto.query.QueryExecutor;
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -122,7 +122,7 @@ public class TestHiveViewsLegacy
 
     @Override
     @Test(groups = HIVE_VIEWS)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testArrayConstructionInView()
     {
         assertThatThrownBy(super::testArrayConstructionInView)
@@ -131,7 +131,7 @@ public class TestHiveViewsLegacy
 
     @Override
     @Test(groups = HIVE_VIEWS)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testMapConstructionInView()
     {
         assertThatThrownBy(super::testMapConstructionInView)
@@ -140,7 +140,7 @@ public class TestHiveViewsLegacy
 
     @Override
     @Test(groups = HIVE_VIEWS)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testPmodFunction()
     {
         assertThatThrownBy(super::testPmodFunction)
@@ -161,7 +161,7 @@ public class TestHiveViewsLegacy
 
     @Override
     @Test(groups = HIVE_VIEWS)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testNestedHiveViews()
     {
         assertThatThrownBy(super::testNestedHiveViews)

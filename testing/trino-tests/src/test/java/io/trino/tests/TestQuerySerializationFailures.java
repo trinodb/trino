@@ -22,7 +22,7 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.Type;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
@@ -48,7 +48,7 @@ public class TestQuerySerializationFailures
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/4173", match = "\\QExpected query to fail: SELECT * FROM (VALUES BOGUS(true), BOGUS(false), BOGUS(true))")
+    @FlakyTest(issue = "https://github.com/trinodb/trino/issues/4173", match = "\\QExpected query to fail: SELECT * FROM (VALUES BOGUS(true), BOGUS(false), BOGUS(true))")
     public void shouldFailOnFirstSerializationError()
     {
         // BOGUS(value) returns BogusType that fails to serialize when value is true

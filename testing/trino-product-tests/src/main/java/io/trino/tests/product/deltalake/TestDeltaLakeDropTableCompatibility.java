@@ -18,7 +18,7 @@ import com.amazonaws.services.s3.model.ObjectListing;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.tempto.BeforeMethodWithContext;
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import io.trino.tests.product.hive.Engine;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -71,7 +71,7 @@ public class TestDeltaLakeDropTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "engineConfigurations")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @FlakyTest(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDropTable(Engine creator, Engine dropper, boolean explicitLocation)
     {
         testDropTableAccuracy(creator, dropper, explicitLocation);

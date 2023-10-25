@@ -15,7 +15,7 @@ package io.trino.tests.product.deltalake;
 
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryResult;
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -64,7 +64,7 @@ public class TestDeltaLakeUpdateCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_DATABRICKS_104, DELTA_LAKE_DATABRICKS_113, DELTA_LAKE_DATABRICKS_122, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @FlakyTest(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testUpdatesFromDatabricks()
     {
         String tableName = "test_updates_" + randomNameSuffix();

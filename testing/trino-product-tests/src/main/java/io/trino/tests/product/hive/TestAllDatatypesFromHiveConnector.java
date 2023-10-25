@@ -24,7 +24,7 @@ import io.trino.tempto.fulfillment.table.TableDefinition;
 import io.trino.tempto.fulfillment.table.TableHandle;
 import io.trino.tempto.fulfillment.table.TableInstance;
 import io.trino.tempto.query.QueryResult;
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -351,7 +351,7 @@ public class TestAllDatatypesFromHiveConnector
 
     @Requires(ParquetRequirements.class)
     @Test
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testSelectAllDatatypesParquetFile()
     {
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_PARQUET).getNameInDatabase();

@@ -25,7 +25,7 @@ import io.trino.spi.metrics.Count;
 import io.trino.spi.metrics.Metrics;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
@@ -137,7 +137,7 @@ public class TestMemoryConnectorTest
 
     @Test
     // TODO (https://github.com/trinodb/trino/issues/8691) fix the test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/8691", match = "ComparisonFailure: expected:<LongCount\\{total=\\[\\d+]}> but was:<(LongCount\\{total=\\[\\d+]}|null)>")
+    @FlakyTest(issue = "https://github.com/trinodb/trino/issues/8691", match = "ComparisonFailure: expected:<LongCount\\{total=\\[\\d+]}> but was:<(LongCount\\{total=\\[\\d+]}|null)>")
     public void testCustomMetricsScanFilter()
     {
         Metrics metrics = collectCustomMetrics("SELECT partkey FROM part WHERE partkey % 1000 > 0");
@@ -147,7 +147,7 @@ public class TestMemoryConnectorTest
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/8691", match = "ComparisonFailure: expected:<LongCount\\{total=\\[\\d+]}> but was:<(LongCount\\{total=\\[\\d+]}|null)>")
+    @FlakyTest(issue = "https://github.com/trinodb/trino/issues/8691", match = "ComparisonFailure: expected:<LongCount\\{total=\\[\\d+]}> but was:<(LongCount\\{total=\\[\\d+]}|null)>")
     public void testCustomMetricsScanOnly()
     {
         Metrics metrics = collectCustomMetrics("SELECT partkey FROM part");

@@ -19,7 +19,7 @@ import io.trino.tempto.fulfillment.table.hive.HiveDataSource;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.internal.hadoop.hdfs.HdfsDataSourceWriter;
 import io.trino.tempto.query.QueryResult;
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import org.testng.annotations.Test;
 
 import java.util.Set;
@@ -52,7 +52,7 @@ public class TestHivePartitionProcedures
     private HdfsDataSourceWriter hdfsDataSourceWriter;
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnregisterPartition()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -70,7 +70,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnregisterViewTableShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -81,7 +81,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnregisterMissingTableShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -91,7 +91,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnregisterUnpartitionedTableShouldFail()
     {
         createUnpartitionedTable(SECOND_TABLE);
@@ -101,7 +101,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnregisterInvalidPartitionColumnsShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -111,7 +111,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnregisterMissingPartitionShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -121,7 +121,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartitionMissingTableShouldFail()
     {
         assertQueryFailure(() -> addPartition("missing_table", "col", "f", "/"))
@@ -129,7 +129,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterUnpartitionedTableShouldFail()
     {
         createUnpartitionedTable(SECOND_TABLE);
@@ -139,7 +139,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterViewTableShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -150,7 +150,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartitionCollisionShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -160,7 +160,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartitionInvalidPartitionColumnsShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -170,7 +170,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartitionInvalidLocationShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -180,7 +180,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartitionWithDefaultPartitionLocation()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -198,7 +198,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartition()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -218,7 +218,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRegisterPartitionFromAnyLocation()
     {
         createPartitionedTable(FIRST_TABLE);

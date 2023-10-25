@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.jdbc.BaseJdbcFailureRecoveryTest;
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.testng.SkipException;
@@ -66,7 +66,7 @@ public abstract class BaseOracleFailureRecoveryTest
     }
 
     @Override
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/16277", match = "There should be no remaining tmp_trino tables that are queryable")
+    @FlakyTest(issue = "https://github.com/trinodb/trino/issues/16277", match = "There should be no remaining tmp_trino tables that are queryable")
     @Test(dataProvider = "parallelTests")
     public void testParallel(Runnable runnable)
     {

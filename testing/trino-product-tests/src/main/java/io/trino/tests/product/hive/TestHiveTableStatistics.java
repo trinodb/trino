@@ -23,7 +23,7 @@ import io.trino.tempto.configuration.Configuration;
 import io.trino.tempto.fulfillment.table.MutableTableRequirement;
 import io.trino.tempto.fulfillment.table.hive.HiveTableDefinition;
 import io.trino.tempto.fulfillment.table.hive.InlineDataSource;
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -183,7 +183,7 @@ public class TestHiveTableStatistics
 
     @Test
     @Requires(UnpartitionedNationTable.class)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testStatisticsForUnpartitionedTable()
     {
         String tableNameInDatabase = mutableTablesState().get(NATION.getName()).getNameInDatabase();
@@ -226,7 +226,7 @@ public class TestHiveTableStatistics
 
     @Test
     @Requires(NationPartitionedByBigintTable.class)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testStatisticsForTablePartitionedByBigint()
     {
         String tableNameInDatabase = mutableTablesState().get(NATION_PARTITIONED_BY_BIGINT_REGIONKEY.getName()).getNameInDatabase();
@@ -358,7 +358,7 @@ public class TestHiveTableStatistics
 
     @Test
     @Requires(NationPartitionedByVarcharTable.class)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testStatisticsForTablePartitionedByVarchar()
     {
         String tableNameInDatabase = mutableTablesState().get(NATION_PARTITIONED_BY_VARCHAR_REGIONKEY.getName()).getNameInDatabase();
@@ -491,7 +491,7 @@ public class TestHiveTableStatistics
     // This covers also stats calculation for unpartitioned table
     @Test
     @Requires(AllTypesTable.class)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testStatisticsForAllDataTypes()
     {
         String tableNameInDatabase = mutableTablesState().get(ALL_TYPES_TABLE_NAME).getNameInDatabase();
@@ -541,7 +541,7 @@ public class TestHiveTableStatistics
 
     @Test
     @Requires(AllTypesTable.class)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testStatisticsForAllDataTypesNoData()
     {
         String tableNameInDatabase = mutableTablesState().get(EMPTY_ALL_TYPES_TABLE_NAME).getNameInDatabase();
@@ -590,7 +590,7 @@ public class TestHiveTableStatistics
 
     @Test
     @Requires(AllTypesTable.class)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testStatisticsForAllDataTypesOnlyNulls()
     {
         String tableNameInDatabase = mutableTablesState().get(EMPTY_ALL_TYPES_TABLE_NAME).getNameInDatabase();
@@ -640,7 +640,7 @@ public class TestHiveTableStatistics
 
     @Test
     @Requires(UnpartitionedNationTable.class)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testStatisticsForSkewedTable()
     {
         String tableName = "test_hive_skewed_table_statistics";
@@ -671,7 +671,7 @@ public class TestHiveTableStatistics
 
     @Test
     @Requires(UnpartitionedNationTable.class)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testAnalyzesForSkewedTable()
     {
         String tableName = "test_analyze_skewed_table";
@@ -965,7 +965,7 @@ public class TestHiveTableStatistics
 
     @Test
     @Requires(AllTypesTable.class)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testAnalyzeForAllDataTypesOnlyNulls()
     {
         String tableNameInDatabase = mutableTablesState().get(EMPTY_ALL_TYPES_TABLE_NAME).getNameInDatabase();
@@ -1402,7 +1402,7 @@ public class TestHiveTableStatistics
     }
 
     @Test
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testMixedHiveAndPrestoStatistics()
     {
         String tableName = "test_mixed_hive_and_presto_statistics";

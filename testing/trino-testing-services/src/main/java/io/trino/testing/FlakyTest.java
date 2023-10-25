@@ -32,7 +32,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Target(METHOD)
 @TestTemplate
 @ExtendWith(FlakyTestRetryExtension.class)
-public @interface Flaky
+public @interface FlakyTest
 {
     String issue();
 

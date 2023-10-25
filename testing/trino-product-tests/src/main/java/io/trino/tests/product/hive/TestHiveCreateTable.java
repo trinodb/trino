@@ -14,7 +14,7 @@
 package io.trino.tests.product.hive;
 
 import io.trino.tempto.ProductTest;
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import org.testng.annotations.Test;
 
 import java.sql.ResultSet;
@@ -37,7 +37,7 @@ public class TestHiveCreateTable
         extends ProductTest
 {
     @Test(groups = STORAGE_FORMATS)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testCreateTable()
             throws SQLException
     {
@@ -58,7 +58,7 @@ public class TestHiveCreateTable
     }
 
     @Test(groups = STORAGE_FORMATS)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testCreateTableAsSelect()
             throws SQLException
     {

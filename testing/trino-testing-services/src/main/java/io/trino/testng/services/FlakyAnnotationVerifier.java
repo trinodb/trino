@@ -14,7 +14,7 @@
 package io.trino.testng.services;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import org.testng.IClassListener;
 import org.testng.ITestClass;
 import org.testng.annotations.Test;
@@ -93,7 +93,7 @@ public class FlakyAnnotationVerifier
     static Optional<String> verifyFlakyAnnotations(Class<?> realClass)
     {
         for (Method method : realClass.getMethods()) {
-            Optional<Flaky> flaky = findInheritableAnnotation(method, Flaky.class);
+            Optional<FlakyTest> flaky = findInheritableAnnotation(method, FlakyTest.class);
             if (flaky.isEmpty()) {
                 continue;
             }
@@ -114,7 +114,7 @@ public class FlakyAnnotationVerifier
     static List<Method> findMethodsWithFlakyAndNoTestAnnotation(Class<?> realClass)
     {
         return Arrays.stream(realClass.getMethods())
-                .filter(method -> findInheritableAnnotation(method, Flaky.class).isPresent())
+                .filter(method -> findInheritableAnnotation(method, FlakyTest.class).isPresent())
                 .filter(method -> !method.isAnnotationPresent(Test.class))
                 .collect(toImmutableList());
     }

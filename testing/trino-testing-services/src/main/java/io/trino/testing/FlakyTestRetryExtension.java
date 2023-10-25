@@ -53,7 +53,7 @@ public class FlakyTestRetryExtension
     @Override
     public boolean supportsTestTemplate(ExtensionContext extensionContext)
     {
-        return isAnnotated(extensionContext.getTestMethod(), Flaky.class);
+        return isAnnotated(extensionContext.getTestMethod(), FlakyTest.class);
     }
 
     @Override
@@ -64,8 +64,8 @@ public class FlakyTestRetryExtension
         }
 
         @SuppressWarnings("deprecation")
-        Flaky flakyTestAnnotation = findAnnotation(extensionContext.getTestMethod(), Flaky.class)
-                .orElseThrow(() -> new RuntimeException("Provided test method is not annotated with @" + Flaky.class.getName()));
+        FlakyTest flakyTestAnnotation = findAnnotation(extensionContext.getTestMethod(), FlakyTest.class)
+                .orElseThrow(() -> new RuntimeException("Provided test method is not annotated with @" + FlakyTest.class.getName()));
 
         getStore(extensionContext).put(
                 RETRY_STATE_STORE_KEY,

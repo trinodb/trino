@@ -27,13 +27,13 @@ public class TestFlakyAnnotatedTest
 {
     private int barCount;
 
-    @Flaky(issue = "https://github.com/org/repo/issues/1", match = "Irrelevant in this test")
+    @FlakyTest(issue = "https://github.com/org/repo/issues/1", match = "Irrelevant in this test")
     public void testFoo()
     {
         // success on first run
     }
 
-    @Flaky(issue = "https://github.com/org/repo/issues/1", match = "Intentional flaky fail")
+    @FlakyTest(issue = "https://github.com/org/repo/issues/1", match = "Intentional flaky fail")
     public void testBar()
     {
         if (barCount++ < ALLOWED_RETRIES_COUNT) {

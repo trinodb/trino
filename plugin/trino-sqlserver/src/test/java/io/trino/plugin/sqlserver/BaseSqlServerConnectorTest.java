@@ -22,7 +22,7 @@ import io.trino.plugin.jdbc.TestProcedure;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
@@ -129,7 +129,7 @@ public abstract class BaseSqlServerConnectorTest
     }
 
     // TODO (https://github.com/trinodb/trino/issues/10846): Test is expected to be flaky because tests execute in parallel
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/10846", match = "was deadlocked on lock resources with another process and has been chosen as the deadlock victim")
+    @FlakyTest(issue = "https://github.com/trinodb/trino/issues/10846", match = "was deadlocked on lock resources with another process and has been chosen as the deadlock victim")
     @Test
     @Override
     public void testSelectInformationSchemaColumns()

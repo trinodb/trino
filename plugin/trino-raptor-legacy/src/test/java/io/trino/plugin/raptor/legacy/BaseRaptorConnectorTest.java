@@ -19,7 +19,7 @@ import com.google.common.collect.SetMultimap;
 import io.trino.Session;
 import io.trino.spi.type.ArrayType;
 import io.trino.testing.BaseConnectorTest;
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.TestingConnectorBehavior;
@@ -525,7 +525,7 @@ public abstract class BaseRaptorConnectorTest
     }
 
     @Test
-    @Flaky(
+    @FlakyTest(
             issue = "https://github.com/trinodb/trino/issues/1977",
             match = "(?s)AssertionError.*query.*SELECT count\\(DISTINCT \"\\$shard_uuid\"\\) FROM orders_bucketed.*Actual rows.*\\[\\d\\d\\].*Expected rows.*\\[100\\]")
     public void testCreateBucketedTable()

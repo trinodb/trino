@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryResult;
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
@@ -54,7 +54,7 @@ public class TestDatabricksWithGlueMetastoreCleanUp
     private static final long MAX_JOB_TIME_MILLIS = MINUTES.toMillis(5);
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @FlakyTest(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCleanUpOldTablesUsingDelta()
     {
         AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.standard().build();

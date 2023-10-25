@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
@@ -337,7 +337,7 @@ public class TestIgniteConnectorTest
 
     @Test
     @Override
-    @Flaky(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
+    @FlakyTest(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
     public void testDropAndAddColumnWithSameName()
     {
         // Override because Ignite can access old data after dropping and adding a column with same name
@@ -352,7 +352,7 @@ public class TestIgniteConnectorTest
 
     @Test
     @Override
-    @Flaky(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
+    @FlakyTest(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
     public void testAddColumn()
     {
         super.testAddColumn();
@@ -360,7 +360,7 @@ public class TestIgniteConnectorTest
 
     @Test
     @Override
-    @Flaky(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
+    @FlakyTest(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
     public void testDropColumn()
     {
         super.testDropColumn();
@@ -368,7 +368,7 @@ public class TestIgniteConnectorTest
 
     @Test
     @Override
-    @Flaky(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
+    @FlakyTest(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
     public void testAlterTableAddLongColumnName()
     {
         super.testAlterTableAddLongColumnName();
@@ -376,7 +376,7 @@ public class TestIgniteConnectorTest
 
     @Test(dataProvider = "testColumnNameDataProvider")
     @Override
-    @Flaky(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
+    @FlakyTest(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
     public void testAddAndDropColumnName(String columnName)
     {
         super.testAddAndDropColumnName(columnName);

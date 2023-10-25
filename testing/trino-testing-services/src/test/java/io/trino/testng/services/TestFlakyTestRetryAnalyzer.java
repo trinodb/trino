@@ -13,7 +13,7 @@
  */
 package io.trino.testng.services;
 
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -29,7 +29,7 @@ public class TestFlakyTestRetryAnalyzer
     private int testNoRetryingCount;
     private int[] testRetryingParametricTestCount = new int[2];
 
-    @Flaky(issue = "intentionally flaky for @Flaky test purposes", match = "I am trying hard to fail!")
+    @FlakyTest(issue = "intentionally flaky for @Flaky test purposes", match = "I am trying hard to fail!")
     @Test
     public void testRetrying()
     {
@@ -49,13 +49,13 @@ public class TestFlakyTestRetryAnalyzer
 
     @Override
     @Test
-    @Flaky(issue = "intentionally flaky for @Flaky test purposes", match = "I am trying hard to fail!")
+    @FlakyTest(issue = "intentionally flaky for @Flaky test purposes", match = "I am trying hard to fail!")
     public void testRetryingOverriddenTest()
     {
         super.testRetryingOverriddenTest();
     }
 
-    @Flaky(issue = "intentionally flaky for @Flaky test purposes", match = "I am trying hard to fail!")
+    @FlakyTest(issue = "intentionally flaky for @Flaky test purposes", match = "I am trying hard to fail!")
     @Test(dataProvider = "parameters")
     public void testRetryingParametricTest(int index)
     {

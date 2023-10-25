@@ -20,7 +20,7 @@ import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutor;
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -124,7 +124,7 @@ public class TestImpersonation
     }
 
     @Test(groups = {HDFS_NO_IMPERSONATION, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testHdfsImpersonationDisabled()
     {
         String tableName = "check_hdfs_impersonation_disabled";
@@ -132,7 +132,7 @@ public class TestImpersonation
     }
 
     @Test(groups = {HDFS_IMPERSONATION, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @FlakyTest(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testHdfsImpersonationEnabled()
     {
         String tableName = "check_hdfs_impersonation_enabled";

@@ -17,7 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import org.testng.IRetryAnalyzer;
 import org.testng.ITestNGMethod;
 import org.testng.ITestResult;
@@ -70,7 +70,7 @@ public class FlakyTestRetryAnalyzer
             log.info("not retrying; cannot get java method");
             return false;
         }
-        Flaky annotation = javaMethod.getAnnotation(Flaky.class);
+        FlakyTest annotation = javaMethod.getAnnotation(FlakyTest.class);
         if (annotation == null) {
             log.info("not retrying; @Flaky annotation not present");
             return false;

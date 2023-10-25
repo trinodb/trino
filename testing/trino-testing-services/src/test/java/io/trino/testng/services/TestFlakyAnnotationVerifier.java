@@ -13,7 +13,7 @@
  */
 package io.trino.testng.services;
 
-import io.trino.testing.Flaky;
+import io.trino.testing.FlakyTest;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Method;
@@ -73,7 +73,7 @@ public class TestFlakyAnnotationVerifier
 
     private static class TestNotTestMethodWithFlaky
     {
-        @Flaky(issue = "Blah", match = "Blah")
+        @FlakyTest(issue = "Blah", match = "Blah")
         @ReportBadTestAnnotations.Suppress
         public void test() {}
     }
@@ -96,7 +96,7 @@ public class TestFlakyAnnotationVerifier
             extends TestParentJustTest
     {
         @Override
-        @Flaky(issue = "Blah", match = "Blah")
+        @FlakyTest(issue = "Blah", match = "Blah")
         public void test() {}
     }
 
@@ -105,14 +105,14 @@ public class TestFlakyAnnotationVerifier
     {
         @Override
         @Test
-        @Flaky(issue = "Blah", match = "Blah")
+        @FlakyTest(issue = "Blah", match = "Blah")
         public void test() {}
     }
 
     private static class TestParentTestAndFlaky
     {
         @Test
-        @Flaky(issue = "Blah", match = "Blah")
+        @FlakyTest(issue = "Blah", match = "Blah")
         public void test() {}
     }
 
@@ -147,7 +147,7 @@ public class TestFlakyAnnotationVerifier
             extends TestChildNoDeclaration
     {
         @Override
-        @Flaky(issue = "Blah", match = "Blah")
+        @FlakyTest(issue = "Blah", match = "Blah")
         public void test() {}
     }
 
@@ -158,7 +158,7 @@ public class TestFlakyAnnotationVerifier
     private static class TestFlakyInvalidPattern
     {
         @Test
-        @Flaky(match = "unbalanaced (", issue = "x")
+        @FlakyTest(match = "unbalanaced (", issue = "x")
         public void test() {}
     }
 }
