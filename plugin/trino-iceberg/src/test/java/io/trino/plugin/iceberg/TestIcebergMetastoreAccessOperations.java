@@ -109,6 +109,23 @@ public class TestIcebergMetastoreAccessOperations
     }
 
     @Test
+    public void testCreateOrReplaceTable()
+    {
+        assertMetastoreInvocations("CREATE OR REPLACE TABLE test_create_or_replace (id VARCHAR, age INT)",
+                ImmutableMultiset.builder()
+                        .add(CREATE_TABLE)
+                        .add(GET_DATABASE)
+                        .add(GET_TABLE)
+                        .build());
+        assertMetastoreInvocations("CREATE OR REPLACE TABLE test_create_or_replace (id VARCHAR, age INT)",
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .add(REPLACE_TABLE)
+                        .add(GET_TABLE)
+                        .build());
+    }
+
+    @Test
     public void testCreateTableAsSelect()
     {
         assertMetastoreInvocations(
@@ -128,6 +145,27 @@ public class TestIcebergMetastoreAccessOperations
                         .add(CREATE_TABLE)
                         .addCopies(GET_TABLE, 4)
                         .add(REPLACE_TABLE)
+                        .build());
+    }
+
+    @Test
+    public void testCreateOrReplaceTableAsSelect()
+    {
+        assertMetastoreInvocations(
+                "CREATE OR REPLACE TABLE test_cortas AS SELECT 1 AS age",
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .add(CREATE_TABLE)
+                        .addCopies(GET_TABLE, 4)
+                        .add(REPLACE_TABLE)
+                        .build());
+
+        assertMetastoreInvocations(
+                "CREATE OR REPLACE TABLE test_cortas AS SELECT 1 AS age",
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .addCopies(GET_TABLE, 3)
+                        .addCopies(REPLACE_TABLE, 2)
                         .build());
     }
 
