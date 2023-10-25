@@ -19,9 +19,11 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.nessie.NessieIcebergClient;
+import org.apache.iceberg.nessie.NessieUtil;
 import org.projectnessie.error.NessieConflictException;
 import org.projectnessie.error.NessieNotFoundException;
 import org.projectnessie.model.ContentKey;
@@ -78,6 +80,16 @@ public class IcebergNessieTableOperations
     {
         refreshNessieClient();
         return super.refresh(invalidateCaches);
+    }
+
+    @Override
+    protected void refreshFromMetadataLocation(String newLocation)
+    {
+        super.refreshFromMetadataLocation(
+                newLocation,
+                location -> NessieUtil.updateTableMetadataWithNessieSpecificProperties(
+                    TableMetadataParser.read(fileIo, location),
+                    location, table, getSchemaTableName().toString(), nessieClient.getReference()));
     }
 
     @Override
