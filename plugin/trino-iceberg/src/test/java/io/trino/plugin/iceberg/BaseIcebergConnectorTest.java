@@ -4812,8 +4812,7 @@ public abstract class BaseIcebergConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        abort("Iceberg connector does not support column default values");
-        throw new AssertionError(); // unreachable
+        return abort("Iceberg connector does not support column default values");
     }
 
     @Override

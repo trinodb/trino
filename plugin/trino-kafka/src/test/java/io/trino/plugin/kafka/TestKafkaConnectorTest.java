@@ -199,8 +199,7 @@ public class TestKafkaConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        abort("Kafka connector does not support column default values");
-        throw new AssertionError(); // unreachable
+        return abort("Kafka connector does not support column default values");
     }
 
     @Test

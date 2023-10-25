@@ -131,8 +131,7 @@ public class TestCassandraConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        abort("Cassandra connector does not support column default values");
-        throw new AssertionError(); // unreachable
+        return abort("Cassandra connector does not support column default values");
     }
 
     @Override

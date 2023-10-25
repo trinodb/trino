@@ -172,7 +172,7 @@ public class TestClickHouseConnectorTest
             assertThatThrownBy(() -> super.testRenameColumnName(columnName))
                     .hasMessageContaining("Cannot rename column from nested struct to normal column");
             abort("TODO");
-            throw new AssertionError(); // unreachable
+            return; // unreachable
         }
         assertThatThrownBy(() -> super.testRenameColumnName(columnName))
                 .hasMessageContaining("is not supported by storage Log");

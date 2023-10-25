@@ -120,8 +120,7 @@ public class TestMongoConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        abort("MongoDB connector does not support column default values");
-        throw new AssertionError(); // unreachable
+        return abort("MongoDB connector does not support column default values");
     }
 
     @ParameterizedTest

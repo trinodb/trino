@@ -1069,8 +1069,7 @@ public class TestKuduConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        abort("Kudu connector does not support column default values");
-        throw new AssertionError(); // unreachable
+        return abort("Kudu connector does not support column default values");
     }
 
     @Override

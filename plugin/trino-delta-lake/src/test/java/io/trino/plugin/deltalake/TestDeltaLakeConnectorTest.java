@@ -242,8 +242,7 @@ public class TestDeltaLakeConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        abort("Delta Lake does not support columns with a default value");
-        throw new AssertionError(); // unreachable
+        return abort("Delta Lake does not support columns with a default value");
     }
 
     @Override

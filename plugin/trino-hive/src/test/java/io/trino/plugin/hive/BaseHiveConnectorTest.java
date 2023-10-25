@@ -9154,8 +9154,7 @@ public abstract class BaseHiveConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        abort("Hive connector does not support column default values");
-        throw new AssertionError(); // unreachable
+        return abort("Hive connector does not support column default values");
     }
 
     @Override

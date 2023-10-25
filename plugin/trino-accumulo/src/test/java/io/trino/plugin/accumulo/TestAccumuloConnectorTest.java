@@ -78,8 +78,7 @@ public class TestAccumuloConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        abort("Accumulo connector does not support column default values");
-        throw new AssertionError(); // unreachable
+        return abort("Accumulo connector does not support column default values");
     }
 
     @org.junit.jupiter.api.Test

@@ -90,8 +90,7 @@ public abstract class BaseRaptorConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        abort("Raptor connector does not support column default values");
-        throw new AssertionError(); // unreachable
+        return abort("Raptor connector does not support column default values");
     }
 
     @Override

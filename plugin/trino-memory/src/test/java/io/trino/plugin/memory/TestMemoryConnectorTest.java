@@ -106,8 +106,7 @@ public class TestMemoryConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        abort("Memory connector does not support column default values");
-        throw new AssertionError(); // unreachable
+        return abort("Memory connector does not support column default values");
     }
 
     @Test

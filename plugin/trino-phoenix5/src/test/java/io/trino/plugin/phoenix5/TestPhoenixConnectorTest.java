@@ -207,8 +207,7 @@ public class TestPhoenixConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        abort("Phoenix connector does not support column default values");
-        throw new AssertionError(); // unreachable
+        return abort("Phoenix connector does not support column default values");
     }
 
     @Override
