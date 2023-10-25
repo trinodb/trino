@@ -41,8 +41,11 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.TypeManager;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.File;
 import java.io.IOException;
@@ -81,11 +84,14 @@ import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true) // e.g. TrackingFileSystemFactory is shared mutable state
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD) // e.g. TrackingFileSystemFactory is shared mutable state
 public class TestTransactionLogAccess
 {
     private static final Set<String> EXPECTED_ADD_FILE_PATHS = ImmutableSet.of(
@@ -344,7 +350,6 @@ public class TestTransactionLogAccess
     }
 
     // Broader tests which validate common attributes across the wider data set
-    @DataProvider
     public Object[][] tables()
     {
         return new Object[][] {
@@ -355,7 +360,8 @@ public class TestTransactionLogAccess
         };
     }
 
-    @Test(dataProvider = "tables")
+    @ParameterizedTest
+    @MethodSource("tables")
     public void testAllGetMetadataEntry(String tableName, String resourcePath)
             throws Exception
     {
@@ -371,7 +377,8 @@ public class TestTransactionLogAccess
         assertEquals(format.getProvider(), "parquet");
     }
 
-    @Test(dataProvider = "tables")
+    @ParameterizedTest
+    @MethodSource("tables")
     public void testAllGetActiveAddEntries(String tableName, String resourcePath)
             throws Exception
     {
@@ -387,7 +394,8 @@ public class TestTransactionLogAccess
         assertEquals(paths, EXPECTED_ADD_FILE_PATHS);
     }
 
-    @Test(dataProvider = "tables")
+    @ParameterizedTest
+    @MethodSource("tables")
     public void testAllGetRemoveEntries(String tableName, String resourcePath)
             throws Exception
     {
@@ -401,7 +409,8 @@ public class TestTransactionLogAccess
         }
     }
 
-    @Test(dataProvider = "tables")
+    @ParameterizedTest
+    @MethodSource("tables")
     public void testAllGetProtocolEntries(String tableName, String resourcePath)
             throws Exception
     {

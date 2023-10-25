@@ -303,7 +303,7 @@ public class TestDeltaLakeSchemaSupport
     }
 
     @ParameterizedTest
-    @MethodSource( "unsupportedTypes")
+    @MethodSource("unsupportedTypes")
     public void testValidateTypeFailsOnUnsupportedPrimitiveType(Type type)
     {
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(type)).hasMessage("Unsupported type: " + type);
