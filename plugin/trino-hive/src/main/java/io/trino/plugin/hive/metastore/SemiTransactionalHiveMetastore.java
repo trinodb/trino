@@ -749,7 +749,7 @@ public class SemiTransactionalHiveMetastore
         }
 
         Location location = Location.of(table.getStorage().getLocation());
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity());
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         setExclusive(delegate -> {
             RecursiveDeleteResult recursiveDeleteResult = recursiveDeleteFiles(fileSystem, location, ImmutableSet.of(""), false);
             if (!recursiveDeleteResult.getNotDeletedEligibleItems().isEmpty()) {

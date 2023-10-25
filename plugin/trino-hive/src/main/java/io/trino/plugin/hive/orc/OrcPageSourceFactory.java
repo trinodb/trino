@@ -256,7 +256,7 @@ public class OrcPageSourceFactory
 
         boolean originalFilesPresent = acidInfo.isPresent() && !acidInfo.get().getOriginalFiles().isEmpty();
         try {
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity());
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             TrinoInputFile inputFile = fileSystem.newInputFile(path, estimatedFileSize);
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
