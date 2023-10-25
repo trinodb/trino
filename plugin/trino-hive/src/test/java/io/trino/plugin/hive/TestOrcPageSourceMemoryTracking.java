@@ -73,7 +73,6 @@ import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -152,12 +151,6 @@ public class TestOrcPageSourceMemoryTracking
 
     private File tempFile;
     private TestPreparer testPreparer;
-
-    @DataProvider(name = "rowCount")
-    public static Object[][] rowCount()
-    {
-        return new Object[][] {{50_000}, {10_000}, {5_000}};
-    }
 
     @BeforeClass
     public void setUp()
@@ -318,8 +311,16 @@ public class TestOrcPageSourceMemoryTracking
         pageSource.close();
     }
 
-    @Test(dataProvider = "rowCount")
-    public void testMaxReadBytes(int rowCount)
+    @Test
+    public void testMaxReadBytes()
+            throws Exception
+    {
+        testMaxReadBytes(50_000);
+        testMaxReadBytes(10_000);
+        testMaxReadBytes(5_000);
+    }
+
+    private void testMaxReadBytes(int rowCount)
             throws Exception
     {
         int maxReadBytes = 1_000;
