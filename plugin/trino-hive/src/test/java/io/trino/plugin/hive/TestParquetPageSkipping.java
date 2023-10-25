@@ -27,7 +27,6 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -127,8 +126,30 @@ public class TestParquetPageSkipping
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "dataType")
-    public void testPageSkipping(String sortByColumn, String sortByColumnType, Object[][] valuesArray)
+    @Test
+    public void testPageSkipping()
+    {
+        testPageSkipping("orderkey", "bigint", new Object[][] {{2, 7520, 7523, 14950}});
+        testPageSkipping("totalprice", "double", new Object[][] {{974.04, 131094.34, 131279.97, 406938.36}});
+        testPageSkipping("totalprice", "real", new Object[][] {{974.04, 131094.34, 131279.97, 406938.36}});
+        testPageSkipping("totalprice", "decimal(12,2)", new Object[][] {
+                {974.04, 131094.34, 131279.97, 406938.36},
+                {973, 131095, 131280, 406950},
+                {974.04123, 131094.34123, 131279.97012, 406938.36555}});
+        testPageSkipping("totalprice", "decimal(12,0)", new Object[][] {
+                {973, 131095, 131280, 406950}});
+        testPageSkipping("totalprice", "decimal(35,2)", new Object[][] {
+                {974.04, 131094.34, 131279.97, 406938.36},
+                {973, 131095, 131280, 406950},
+                {974.04123, 131094.34123, 131279.97012, 406938.36555}});
+        testPageSkipping("orderdate", "date", new Object[][] {{"DATE '1992-01-05'", "DATE '1995-10-13'", "DATE '1995-10-13'", "DATE '1998-07-29'"}});
+        testPageSkipping("orderdate", "timestamp", new Object[][] {{"TIMESTAMP '1992-01-05'", "TIMESTAMP '1995-10-13'", "TIMESTAMP '1995-10-14'", "TIMESTAMP '1998-07-29'"}});
+        testPageSkipping("clerk", "varchar(15)", new Object[][] {{"'Clerk#000000006'", "'Clerk#000000508'", "'Clerk#000000513'", "'Clerk#000000996'"}});
+        testPageSkipping("custkey", "integer", new Object[][] {{4, 634, 640, 1493}});
+        testPageSkipping("custkey", "smallint", new Object[][] {{4, 634, 640, 1493}});
+    }
+
+    private void testPageSkipping(String sortByColumn, String sortByColumnType, Object[][] valuesArray)
     {
         String tableName = "test_page_skipping_" + randomNameSuffix();
         buildSortedTables(tableName, sortByColumn, sortByColumnType);
@@ -230,31 +251,6 @@ public class TestParquetPageSkipping
                     assertThat(queryStats.getProcessedInputPositions()).isEqualTo(0);
                 },
                 results -> assertThat(results.getRowCount()).isEqualTo(0));
-    }
-
-    @DataProvider
-    public Object[][] dataType()
-    {
-        return new Object[][] {
-                {"orderkey", "bigint", new Object[][] {{2, 7520, 7523, 14950}}},
-                {"totalprice", "double", new Object[][] {{974.04, 131094.34, 131279.97, 406938.36}}},
-                {"totalprice", "real", new Object[][] {{974.04, 131094.34, 131279.97, 406938.36}}},
-                {"totalprice", "decimal(12,2)", new Object[][] {
-                        {974.04, 131094.34, 131279.97, 406938.36},
-                        {973, 131095, 131280, 406950},
-                        {974.04123, 131094.34123, 131279.97012, 406938.36555}}},
-                {"totalprice", "decimal(12,0)", new Object[][] {
-                        {973, 131095, 131280, 406950}}},
-                {"totalprice", "decimal(35,2)", new Object[][] {
-                        {974.04, 131094.34, 131279.97, 406938.36},
-                        {973, 131095, 131280, 406950},
-                        {974.04123, 131094.34123, 131279.97012, 406938.36555}}},
-                {"orderdate", "date", new Object[][] {{"DATE '1992-01-05'", "DATE '1995-10-13'", "DATE '1995-10-13'", "DATE '1998-07-29'"}}},
-                {"orderdate", "timestamp", new Object[][] {{"TIMESTAMP '1992-01-05'", "TIMESTAMP '1995-10-13'", "TIMESTAMP '1995-10-14'", "TIMESTAMP '1998-07-29'"}}},
-                {"clerk", "varchar(15)", new Object[][] {{"'Clerk#000000006'", "'Clerk#000000508'", "'Clerk#000000513'", "'Clerk#000000996'"}}},
-                {"custkey", "integer", new Object[][] {{4, 634, 640, 1493}}},
-                {"custkey", "smallint", new Object[][] {{4, 634, 640, 1493}}}
-        };
     }
 
     private Session noParquetColumnIndexFiltering(Session session)
