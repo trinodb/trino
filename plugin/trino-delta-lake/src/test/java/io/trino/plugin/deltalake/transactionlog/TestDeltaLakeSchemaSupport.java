@@ -31,8 +31,9 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -274,13 +275,13 @@ public class TestDeltaLakeSchemaSupport
         assertThat(objectMapper.readTree(jsonEncoding)).isEqualTo(objectMapper.readTree(expected));
     }
 
-    @Test(dataProvider = "supportedTypes")
+    @ParameterizedTest
+    @MethodSource("supportedTypes")
     public void testValidPrimitiveTypes(Type type)
     {
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(type)).doesNotThrowAnyException();
     }
 
-    @DataProvider(name = "supportedTypes")
     public static Object[][] supportedTypes()
     {
         return new Object[][] {
@@ -301,13 +302,13 @@ public class TestDeltaLakeSchemaSupport
                 {new ArrayType(TIMESTAMP_TZ_MILLIS)}};
     }
 
-    @Test(dataProvider = "unsupportedTypes")
+    @ParameterizedTest
+    @MethodSource( "unsupportedTypes")
     public void testValidateTypeFailsOnUnsupportedPrimitiveType(Type type)
     {
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(type)).hasMessage("Unsupported type: " + type);
     }
 
-    @DataProvider(name = "unsupportedTypes")
     public static Object[][] unsupportedTypes()
     {
         return new Object[][] {
@@ -318,13 +319,13 @@ public class TestDeltaLakeSchemaSupport
                 {INTERVAL_YEAR_MONTH}};
     }
 
-    @Test(dataProvider = "unsupportedNestedTimestamp")
+    @ParameterizedTest
+    @MethodSource("unsupportedNestedTimestamp")
     public void testTimestampNestedInStructTypeIsNotSupported(Type type)
     {
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(type)).hasMessage("Unsupported type: timestamp(0) with time zone");
     }
 
-    @DataProvider(name = "unsupportedNestedTimestamp")
     public static Object[][] unsupportedNestedTimestamp()
     {
         return new Object[][] {
