@@ -117,7 +117,7 @@ public class TrinoPreparedStatement
         super(connection, onClose);
         this.statementName = requireNonNull(statementName, "statementName is null");
         this.originalSql = requireNonNull(sql, "sql is null");
-        if (connection().isUseLegacyPreparedStatements()) {
+        if (connection().useExplicitPrepare()) {
             super.execute(format("PREPARE %s FROM %s", statementName, sql));
             prepareStatementExecuted = true;
         }
@@ -1020,7 +1020,7 @@ public class TrinoPreparedStatement
     private String getExecuteSql(String statementName, List<String> values)
             throws SQLException
     {
-        return connection().isUseLegacyPreparedStatements()
+        return connection().useExplicitPrepare()
                 ? getLegacySql(statementName, values)
                 : getExecuteImmediateSql(values);
     }
@@ -1147,7 +1147,7 @@ public class TrinoPreparedStatement
     }
 
     /*
-    When isUseLegacyPreparedStatements is disabled, the PREPARE statement won't be executed unless needed
+    When explicitPrepare is disabled, the PREPARE statement won't be executed unless needed
     e.g. when getMetadata() or getParameterMetadata() are called.
     When needed, just make sure it is executed only once, even if the metadata methods are called many times
      */

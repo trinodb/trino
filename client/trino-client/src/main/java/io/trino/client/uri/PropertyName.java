@@ -61,7 +61,7 @@ public enum PropertyName
     TRACE_TOKEN("traceToken"),
     SESSION_PROPERTIES("sessionProperties"),
     SOURCE("source"),
-    LEGACY_PREPARED_STATEMENTS("legacyPreparedStatements"),
+    EXPLICIT_PREPARE("explicitPrepare"),
     DNS_RESOLVER("dnsResolver"),
     DNS_RESOLVER_CONTEXT("dnsResolverContext"),
     HOSTNAME_IN_CERTIFICATE("hostnameInCertificate"),
