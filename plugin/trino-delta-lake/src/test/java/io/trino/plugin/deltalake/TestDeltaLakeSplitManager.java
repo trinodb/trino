@@ -185,7 +185,7 @@ public class TestDeltaLakeSplitManager
                 new ParquetReaderConfig())
         {
             @Override
-            public List<AddFileEntry> getActiveFiles(TableSnapshot tableSnapshot, MetadataEntry metadataEntry, ProtocolEntry protocolEntry, ConnectorSession session)
+            public List<AddFileEntry> getActiveFiles(TableSnapshot tableSnapshot, MetadataEntry metadataEntry, ProtocolEntry protocolEntry, TupleDomain<DeltaLakeColumnHandle> partitionConstraint, ConnectorSession session)
             {
                 return addFileEntries;
             }
