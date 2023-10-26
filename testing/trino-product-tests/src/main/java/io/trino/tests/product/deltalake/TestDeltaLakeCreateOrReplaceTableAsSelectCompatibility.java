@@ -18,8 +18,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.tempto.BeforeMethodWithContext;
-import io.trino.tempto.assertions.QueryAssert;
+import io.trino.tempto.assertions.QueryAssert.Row;
+import io.trino.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -49,23 +52,18 @@ public class TestDeltaLakeCreateOrReplaceTableAsSelectCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    public void testReplaceTableWithSchemaChange()
+    public void testCreateOrReplaceTableWithSchemaChange()
     {
         String tableName = "test_replace_table_with_schema_change_" + randomNameSuffix();
 
         onTrino().executeQuery("CREATE TABLE delta.default." + tableName + " (ts VARCHAR) " +
                 "with (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "', checkpoint_interval = 10)");
         try {
-            ImmutableList.Builder<QueryAssert.Row> expected = ImmutableList.builder();
-            // Write to the table until a checkpoint file is written
-            for (int i = 0; i < 12; i++) {
-                onDelta().executeQuery("INSERT INTO " + tableName + " VALUES \"1960-01-01 01:02:03\", \"1961-01-01 01:02:03\", \"1962-01-01 01:02:03\"");
-                expected.add(row("1960-01-01T01:02:03.000Z"), row("1961-01-01T01:02:03.000Z"), row("1962-01-01T01:02:03.000Z"));
-            }
+            List<Row> expectedRows = performInsert(onDelta(), tableName, 12);
 
             assertTransactionLogVersion(s3, bucketName, tableName, 12);
             onDelta().executeQuery("CREATE OR REPLACE TABLE " + tableName + " USING DELTA AS SELECT CAST(ts AS TIMESTAMP) FROM " + tableName);
-            assertThat(onTrino().executeQuery("SELECT to_iso8601(ts) FROM delta.default." + tableName)).containsOnly(expected.build());
+            assertThat(onTrino().executeQuery("SELECT to_iso8601(ts) FROM delta.default." + tableName)).containsOnly(expectedRows);
         }
         finally {
             dropDeltaTableWithRetry(tableName);
@@ -73,18 +71,15 @@ public class TestDeltaLakeCreateOrReplaceTableAsSelectCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    public void testReplaceTableWithSchemaChangeOnCheckpoint()
+    public void testCreateOrReplaceTableWithSchemaChangeOnCheckpoint()
     {
         String tableName = "test_replace_table_with_schema_change_" + randomNameSuffix();
         onTrino().executeQuery("CREATE TABLE delta.default." + tableName + " (ts VARCHAR) " +
                 "with (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "', checkpoint_interval = 10)");
         try {
-            ImmutableList.Builder<QueryAssert.Row> expected = ImmutableList.builder();
-            // Write to the table until a checkpoint file is written
-            for (int i = 0; i < 9; i++) {
-                onDelta().executeQuery("INSERT INTO " + tableName + " VALUES \"1960-01-01 01:02:03\", \"1961-01-01 01:02:03\", \"1962-01-01 01:02:03\"");
-                expected.add(row("1960-01-01T01:02:03.000Z"), row("1961-01-01T01:02:03.000Z"), row("1962-01-01T01:02:03.000Z"));
-            }
+            ImmutableList.Builder<Row> expected = ImmutableList.builder();
+            expected.addAll(performInsert(onDelta(), tableName, 9));
+
             onDelta().executeQuery("CREATE OR REPLACE TABLE " + tableName + " USING DELTA AS SELECT CAST(ts AS TIMESTAMP) FROM " + tableName);
             assertLastEntryIsCheckpointed(s3, bucketName, tableName);
 
@@ -97,5 +92,16 @@ public class TestDeltaLakeCreateOrReplaceTableAsSelectCompatibility
         finally {
             dropDeltaTableWithRetry(tableName);
         }
+    }
+
+    private static List<Row> performInsert(QueryExecutor queryExecutor, String tableName, int numberOfRows)
+    {
+        ImmutableList.Builder<Row> expectedRowBuilder = ImmutableList.builder();
+        // Write to the table until a checkpoint file is written
+        for (int i = 0; i < numberOfRows; i++) {
+            queryExecutor.executeQuery("INSERT INTO " + tableName + " VALUES \"1960-01-01 01:02:03\", \"1961-01-01 01:02:03\", \"1962-01-01 01:02:03\"");
+            expectedRowBuilder.add(row("1960-01-01T01:02:03.000Z"), row("1961-01-01T01:02:03.000Z"), row("1962-01-01T01:02:03.000Z"));
+        }
+        return expectedRowBuilder.build();
     }
 }
