@@ -14,14 +14,14 @@ import java.util.concurrent.CompletableFuture;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class ChunkFileFetcher
+public class ChunkFetcher
 {
     private final StarburstResultStreamProvider streamProvider;
     private final Chunk chunk;
     private long readTimeNanos;
     private CompletableFuture<byte[]> future;
 
-    public ChunkFileFetcher(StarburstResultStreamProvider streamProvider, Chunk chunk)
+    public ChunkFetcher(StarburstResultStreamProvider streamProvider, Chunk chunk)
     {
         this.streamProvider = requireNonNull(streamProvider, "streamProvider is null");
         this.chunk = requireNonNull(chunk, "chunk is null");

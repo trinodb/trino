@@ -58,7 +58,7 @@ public class SnowflakeArrowPageSource
     private final PageBuilder pageBuilder;
     private final List<JdbcColumnHandle> columns;
     private final StarburstDataConversionContext conversionContext;
-    private final ChunkFileFetcher fetcher;
+    private final ChunkFetcher fetcher;
     private final long splitRetainedSize;
     private CompletableFuture<byte[]> downloadFuture;
     private long completedBytes;
@@ -90,7 +90,7 @@ public class SnowflakeArrowPageSource
                 decimalColumnScales,
                 split.resultVersion());
 
-        this.fetcher = new ChunkFileFetcher(requireNonNull(streamProvider, "streamProvider is null"), split.chunk());
+        this.fetcher = new ChunkFetcher(requireNonNull(streamProvider, "streamProvider is null"), split.chunk());
     }
 
     @Override
