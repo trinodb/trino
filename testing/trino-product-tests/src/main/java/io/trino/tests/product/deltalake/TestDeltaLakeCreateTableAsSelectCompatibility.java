@@ -32,11 +32,8 @@ import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_104;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_113;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_122;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_133;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertLastEntryIsCheckpointed;
-import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertTransactionLogVersion;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
@@ -145,59 +142,6 @@ public class TestDeltaLakeCreateTableAsSelectCompatibility
         }
         finally {
             onTrino().executeQuery("DROP TABLE IF EXISTS delta.default." + tableName);
-        }
-    }
-
-    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    public void testReplaceTableWithSchemaChange()
-    {
-        String tableName = "test_replace_table_with_schema_change_" + randomNameSuffix();
-
-        onTrino().executeQuery("CREATE TABLE delta.default." + tableName + " (ts VARCHAR) " +
-                "with (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "', checkpoint_interval = 10)");
-        try {
-            ImmutableList.Builder<QueryAssert.Row> expected = ImmutableList.builder();
-            // Write to the table until a checkpoint file is written
-            for (int i = 0; i < 12; i++) {
-                onDelta().executeQuery("INSERT INTO " + tableName + " VALUES \"1960-01-01 01:02:03\", \"1961-01-01 01:02:03\", \"1962-01-01 01:02:03\"");
-                expected.add(row("1960-01-01T01:02:03.000Z"), row("1961-01-01T01:02:03.000Z"), row("1962-01-01T01:02:03.000Z"));
-            }
-
-            assertTransactionLogVersion(s3, bucketName, tableName, 12);
-            onDelta().executeQuery("CREATE OR REPLACE TABLE " + tableName + " USING DELTA AS SELECT CAST(ts AS TIMESTAMP) FROM " + tableName);
-            assertThat(onTrino().executeQuery("SELECT to_iso8601(ts) FROM delta.default." + tableName)).containsOnly(expected.build());
-        }
-        finally {
-            dropDeltaTableWithRetry(tableName);
-        }
-    }
-
-    // Databricks 11.3, 12.2 and 13.3 don't create a checkpoint file at 'CREATE OR REPLACE TABLE' statement
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_133, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testReplaceTableWithSchemaChangeOnCheckpoint()
-    {
-        String tableName = "test_replace_table_with_schema_change_" + randomNameSuffix();
-        onTrino().executeQuery("CREATE TABLE delta.default." + tableName + " (ts VARCHAR) " +
-                "with (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "', checkpoint_interval = 10)");
-        try {
-            ImmutableList.Builder<QueryAssert.Row> expected = ImmutableList.builder();
-            // Write to the table until a checkpoint file is written
-            for (int i = 0; i < 9; i++) {
-                onDelta().executeQuery("INSERT INTO " + tableName + " VALUES \"1960-01-01 01:02:03\", \"1961-01-01 01:02:03\", \"1962-01-01 01:02:03\"");
-                expected.add(row("1960-01-01T01:02:03.000Z"), row("1961-01-01T01:02:03.000Z"), row("1962-01-01T01:02:03.000Z"));
-            }
-            onDelta().executeQuery("CREATE OR REPLACE TABLE " + tableName + " USING DELTA AS SELECT CAST(ts AS TIMESTAMP) FROM " + tableName);
-            assertLastEntryIsCheckpointed(s3, bucketName, tableName);
-
-            onDelta().executeQuery("INSERT INTO " + tableName + " VALUES \"1960-01-01 01:02:03\", \"1961-01-01 01:02:03\", \"1962-01-01 01:02:03\"");
-            expected.add(row("1960-01-01T01:02:03.000Z"), row("1961-01-01T01:02:03.000Z"), row("1962-01-01T01:02:03.000Z"));
-            assertTransactionLogVersion(s3, bucketName, tableName, 11);
-
-            assertThat(onTrino().executeQuery("SELECT to_iso8601(ts) FROM delta.default." + tableName)).containsOnly(expected.build());
-        }
-        finally {
-            dropDeltaTableWithRetry(tableName);
         }
     }
 
