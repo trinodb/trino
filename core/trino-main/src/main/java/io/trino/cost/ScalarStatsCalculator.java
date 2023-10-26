@@ -31,6 +31,7 @@ import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.LiteralInterpreter;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
@@ -44,11 +45,14 @@ import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
+import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SymbolReference;
 
 import java.util.Map;
 import java.util.OptionalDouble;
+import java.util.Set;
 
+import static io.trino.SystemSessionProperties.isEnhanceUnknownStatsCalculation;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.sql.ExpressionUtils.getExpressionTypes;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
@@ -97,6 +101,29 @@ public class ScalarStatsCalculator
         @Override
         protected SymbolStatsEstimate visitNode(Node node, Void context)
         {
+            if (!isEnhanceUnknownStatsCalculation(session)) {
+                return SymbolStatsEstimate.unknown();
+            }
+
+            if (node instanceof SearchedCaseExpression caseExpression) {
+                Set<Symbol> symbolsInCaseExpression = SymbolsExtractor.extractUnique(caseExpression);
+                double ndv = 1.0;
+                double nulls = 0.0;
+                for (Symbol symbol : symbolsInCaseExpression) {
+                    SymbolStatsEstimate symbolStatsEstimate = input.getSymbolStatistics(symbol);
+                    if (!symbolStatsEstimate.isUnknown()) {
+                        ndv *= symbolStatsEstimate.getDistinctValuesCount();
+                        nulls += symbolStatsEstimate.getNullsFraction();
+                    }
+                }
+
+                SymbolStatsEstimate newSymbolEstimation = SymbolStatsEstimate.builder()
+                        .setDistinctValuesCount(ndv)
+                        .setNullsFraction(nulls)
+                        .build();
+
+                return newSymbolEstimation;
+            }
             return SymbolStatsEstimate.unknown();
         }
 

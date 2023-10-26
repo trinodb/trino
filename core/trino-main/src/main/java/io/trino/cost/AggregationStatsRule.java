@@ -26,8 +26,8 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.isEnhanceUnknownStatsCalculation;
 import static io.trino.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
-import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -56,35 +56,37 @@ public class AggregationStatsRule
         }
 
         PlanNodeStatsEstimate estimate;
+        estimate = groupBy(
+                statsProvider.getStats(node.getSource()),
+                node.getStep(),
+                node.getGroupingKeys(),
+                node.getAggregations(),
+                session);
 
-        if (node.getStep() == PARTIAL) {
-            estimate = partialGroupBy(statsProvider.getStats(node.getSource()),
-                    node.getGroupingKeys(),
-                    node.getAggregations());
-        }
-        else {
-            estimate = groupBy(
-                    statsProvider.getStats(node.getSource()),
-                    node.getGroupingKeys(),
-                    node.getAggregations());
-        }
         return Optional.of(estimate);
     }
 
-    public static PlanNodeStatsEstimate groupBy(PlanNodeStatsEstimate sourceStats, Collection<Symbol> groupBySymbols, Map<Symbol, Aggregation> aggregations)
+    public static PlanNodeStatsEstimate groupBy(PlanNodeStatsEstimate sourceStats, AggregationNode.Step step, Collection<Symbol> groupBySymbols, Map<Symbol, Aggregation> aggregations, Session session)
     {
         // Used to estimate FINAL or SINGLE step aggregations
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
+        double resultOutputRowCount = 1;
+        double groupingSelectivity = 1;
         if (groupBySymbols.isEmpty()) {
             result.setOutputRowCount(1);
         }
         else {
             result.addSymbolStatistics(getGroupBySymbolsStatistics(sourceStats, groupBySymbols));
             double rowsCount = getRowsCount(sourceStats, groupBySymbols);
-            result.setOutputRowCount(min(rowsCount, sourceStats.getOutputRowCount()));
+            if (isEnhanceUnknownStatsCalculation(session) && step.isOutputPartial()) {
+                rowsCount *= 1.2;
+            }
+            resultOutputRowCount = min(rowsCount, sourceStats.getOutputRowCount());
+            groupingSelectivity = resultOutputRowCount / sourceStats.getOutputRowCount();
+            result.setOutputRowCount(resultOutputRowCount);
         }
         for (Map.Entry<Symbol, Aggregation> aggregationEntry : aggregations.entrySet()) {
-            result.addSymbolStatistics(aggregationEntry.getKey(), estimateAggregationStats(aggregationEntry.getValue(), sourceStats));
+            result.addSymbolStatistics(aggregationEntry.getKey(), estimateAggregationStats(aggregationEntry.getValue(), sourceStats, groupingSelectivity, resultOutputRowCount, session));
         }
 
         return result.build();
@@ -101,15 +103,17 @@ public class AggregationStatsRule
         return rowsCount;
     }
 
-    private static PlanNodeStatsEstimate partialGroupBy(PlanNodeStatsEstimate sourceStats, Collection<Symbol> groupBySymbols, Map<Symbol, Aggregation> aggregations)
+    private static PlanNodeStatsEstimate partialGroupBy(PlanNodeStatsEstimate sourceStats, Collection<Symbol> groupBySymbols, Map<Symbol, Aggregation> aggregations, Session session)
     {
         // Pessimistic assumption of no reduction from PARTIAL aggregation, forwarding of the source statistics. This makes the CBO estimates in the EXPLAIN plan output easier to understand,
         // even though partial aggregations are added after the CBO rules have been run.
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
-        result.setOutputRowCount(sourceStats.getOutputRowCount());
+        double resultOutputRowCount = sourceStats.getOutputRowCount();
+        double groupingSelectivity = resultOutputRowCount / sourceStats.getOutputRowCount();
+        result.setOutputRowCount(resultOutputRowCount);
         result.addSymbolStatistics(getGroupBySymbolsStatistics(sourceStats, groupBySymbols));
         for (Map.Entry<Symbol, Aggregation> aggregationEntry : aggregations.entrySet()) {
-            result.addSymbolStatistics(aggregationEntry.getKey(), estimateAggregationStats(aggregationEntry.getValue(), sourceStats));
+            result.addSymbolStatistics(aggregationEntry.getKey(), estimateAggregationStats(aggregationEntry.getValue(), sourceStats, groupingSelectivity, resultOutputRowCount, session));
         }
 
         return result.build();
@@ -130,12 +134,32 @@ public class AggregationStatsRule
         return symbolSymbolStatsEstimates.buildOrThrow();
     }
 
-    private static SymbolStatsEstimate estimateAggregationStats(Aggregation aggregation, PlanNodeStatsEstimate sourceStats)
+    private static SymbolStatsEstimate estimateAggregationStats(Aggregation aggregation, PlanNodeStatsEstimate sourceStats, double groupingSelectivity, double outputRowCount, Session session)
     {
         requireNonNull(aggregation, "aggregation is null");
         requireNonNull(sourceStats, "sourceStats is null");
+        if (!isEnhanceUnknownStatsCalculation(session)) {
+            return SymbolStatsEstimate.unknown();
+        }
 
-        // TODO implement simple aggregations like: min, max, count, sum
+        if (aggregation.getArguments().size() == 1) {
+            SymbolStatsEstimate inputExpressionSymbolStat = sourceStats.getSymbolStatistics(Symbol.from(aggregation.getArguments().get(0)));
+            SymbolStatsEstimate newSymbolEstimation = SymbolStatsEstimate.builder()
+                    .setDistinctValuesCount(inputExpressionSymbolStat.getDistinctValuesCount() * groupingSelectivity)
+                    .setNullsFraction(0)
+                    .build();
+
+            return newSymbolEstimation;
+        }
+        else if (aggregation.getArguments().isEmpty() && "count".equalsIgnoreCase(aggregation.getResolvedFunction().getSignature().getName().getFunctionName())) {
+            SymbolStatsEstimate newSymbolEstimation = SymbolStatsEstimate.builder()
+                    .setDistinctValuesCount(outputRowCount)
+                    .setNullsFraction(0)
+                    .build();
+
+            return newSymbolEstimation;
+        }
+
         return SymbolStatsEstimate.unknown();
     }
 }

@@ -208,6 +208,8 @@ public final class SystemSessionProperties
     public static final String USE_COST_BASED_PARTITIONING = "use_cost_based_partitioning";
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
     public static final String PAGE_PARTITIONING_BUFFER_POOL_SIZE = "page_partitioning_buffer_pool_size";
+    public static final String ENHANCE_UNKNOWN_STATS_CALCULATION = "enhance_unknown_stats_calculation";
+    public static final String ENHANCE_UNKNOWN_COST_CALCULATION = "enhance_unknown_cost_calculation";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1064,7 +1066,17 @@ public final class SystemSessionProperties
                 integerProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE,
                         "Maximum number of free buffers in the per task partitioned page buffer pool. Setting this to zero effectively disables the pool",
                         taskManagerConfig.getPagePartitioningBufferPoolSize(),
-                        true));
+                        true),
+                booleanProperty(
+                        ENHANCE_UNKNOWN_STATS_CALCULATION,
+                        "Enhance unknown stats calculation",
+                        optimizerConfig.isEnhanceUnknownStatsCalculation(),
+                        false),
+                booleanProperty(
+                        ENHANCE_UNKNOWN_COST_CALCULATION,
+                        "Enhance unknown cost calculation",
+                        optimizerConfig.isEnhanceUnknownCostCalculation(),
+                        false));
     }
 
     @Override
@@ -1906,5 +1918,15 @@ public final class SystemSessionProperties
     public static int getPagePartitioningBufferPoolSize(Session session)
     {
         return session.getSystemProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE, Integer.class);
+    }
+
+    public static boolean isEnhanceUnknownStatsCalculation(Session session)
+    {
+        return session.getSystemProperty(ENHANCE_UNKNOWN_STATS_CALCULATION, Boolean.class);
+    }
+
+    public static boolean isEnhanceUnknownCostCalculation(Session session)
+    {
+        return session.getSystemProperty(ENHANCE_UNKNOWN_COST_CALCULATION, Boolean.class);
     }
 }

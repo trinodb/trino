@@ -36,8 +36,10 @@ import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.planner.plan.WindowNode;
 
 import java.util.List;
 import java.util.Objects;
@@ -46,6 +48,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.isEnhanceUnknownCostCalculation;
 import static io.trino.cost.CostCalculatorWithEstimatedExchanges.adjustReplicatedJoinLocalExchangeCost;
 import static io.trino.cost.CostCalculatorWithEstimatedExchanges.calculateJoinInputCost;
 import static io.trino.cost.CostCalculatorWithEstimatedExchanges.calculateLocalRepartitionCost;
@@ -101,6 +104,9 @@ public class CostCalculatorUsingExchanges
         @Override
         protected PlanCostEstimate visitPlan(PlanNode node, Void context)
         {
+            if (isEnhanceUnknownCostCalculation(session)) {
+                return costForStreaming(node, LocalCostEstimate.zero());
+            }
             // TODO implement cost estimates for all plan nodes
             return PlanCostEstimate.unknown();
         }
@@ -168,8 +174,10 @@ public class CostCalculatorUsingExchanges
         @Override
         public PlanCostEstimate visitAggregation(AggregationNode node, Void context)
         {
-            if (node.getStep() != FINAL && node.getStep() != SINGLE) {
-                return PlanCostEstimate.unknown();
+            if (!isEnhanceUnknownCostCalculation(session)) {
+                if (node.getStep() != FINAL && node.getStep() != SINGLE) {
+                    return PlanCostEstimate.unknown();
+                }
             }
             PlanNodeStatsEstimate aggregationStats = getStats(node);
             PlanNodeStatsEstimate sourceStats = getStats(node.getSource());
@@ -308,6 +316,26 @@ public class CostCalculatorUsingExchanges
             // or in CostCalculatorWithEstimatedExchanges#CostEstimator#visitUnion
             // This stub is needed just to avoid the cumulative cost being set to unknown
             return costForStreaming(node, LocalCostEstimate.zero());
+        }
+
+        @Override
+        public PlanCostEstimate visitTopNRanking(TopNRankingNode node, Void context)
+        {
+            if (isEnhanceUnknownCostCalculation(session)) {
+                return costForAccumulation(node, LocalCostEstimate.zero());
+            }
+
+            return PlanCostEstimate.unknown();
+        }
+
+        @Override
+        public PlanCostEstimate visitWindow(WindowNode node, Void context)
+        {
+            if (isEnhanceUnknownCostCalculation(session)) {
+                return costForAccumulation(node, LocalCostEstimate.zero());
+            }
+
+            return PlanCostEstimate.unknown();
         }
 
         private PlanCostEstimate costForSource(PlanNode node, LocalCostEstimate localCost)

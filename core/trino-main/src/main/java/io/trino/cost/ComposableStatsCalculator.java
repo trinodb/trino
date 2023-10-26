@@ -32,6 +32,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Multimaps.toMultimap;
+import static io.trino.SystemSessionProperties.isEnhanceUnknownStatsCalculation;
 
 public class ComposableStatsCalculator
         implements StatsCalculator
@@ -73,6 +74,10 @@ public class ComposableStatsCalculator
             if (calculatedStats.isPresent()) {
                 return calculatedStats.get();
             }
+        }
+
+        if (isEnhanceUnknownStatsCalculation(session) && node.getSources().size() == 1) {
+            return sourceStats.getStats(node.getSources().get(0));
         }
         return PlanNodeStatsEstimate.unknown();
     }

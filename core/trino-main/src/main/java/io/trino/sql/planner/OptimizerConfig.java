@@ -93,6 +93,8 @@ public class OptimizerConfig
     private long joinPartitionedBuildMinRowCount = 1_000_000L;
     private DataSize minInputSizePerTask = DataSize.of(5, GIGABYTE);
     private long minInputRowsPerTask = 10_000_000L;
+    private boolean enhanceUnknownStatsCalculation;
+    private boolean enhanceUnknownCostCalculation;
 
     public enum JoinReorderingStrategy
     {
@@ -785,6 +787,30 @@ public class OptimizerConfig
     public OptimizerConfig setUseCostBasedPartitioning(boolean useCostBasedPartitioning)
     {
         this.useCostBasedPartitioning = useCostBasedPartitioning;
+        return this;
+    }
+
+    public boolean isEnhanceUnknownStatsCalculation()
+    {
+        return enhanceUnknownStatsCalculation;
+    }
+
+    @Config("optimizer.enhance-unknown-stats-calculation")
+    public OptimizerConfig setEnhanceUnknownStatsCalculation(boolean enhanceUnknownStatsCalculation)
+    {
+        this.enhanceUnknownStatsCalculation = enhanceUnknownStatsCalculation;
+        return this;
+    }
+
+    public boolean isEnhanceUnknownCostCalculation()
+    {
+        return enhanceUnknownCostCalculation;
+    }
+
+    @Config("optimizer.enhance-unknown-cost-calculation")
+    public OptimizerConfig setEnhanceUnknownCostCalculation(boolean enhanceUnknownCostCalculation)
+    {
+        this.enhanceUnknownCostCalculation = enhanceUnknownCostCalculation;
         return this;
     }
 }

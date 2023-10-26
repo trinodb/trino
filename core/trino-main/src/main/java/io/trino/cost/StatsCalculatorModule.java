@@ -72,6 +72,7 @@ public class StatsCalculatorModule
             rules.add(new LimitStatsRule(normalizer));
             rules.add(new DistinctLimitStatsRule(normalizer));
             rules.add(new TopNStatsRule(normalizer));
+            rules.add(new TopNRankingStatsRule(normalizer));
             rules.add(new EnforceSingleRowStatsRule(normalizer));
             rules.add(new ProjectStatsRule(scalarStatsCalculator, normalizer));
             rules.add(new ExchangeStatsRule(normalizer));

@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 
 import java.util.Optional;
@@ -50,8 +51,10 @@ public class DistinctLimitStatsRule
 
         PlanNodeStatsEstimate distinctStats = AggregationStatsRule.groupBy(
                 statsProvider.getStats(node.getSource()),
+                AggregationNode.Step.SINGLE,
                 node.getDistinctSymbols(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                session);
         PlanNodeStatsEstimate distinctLimitStats = distinctStats.mapOutputRowCount(rowCount -> min(rowCount, node.getLimit()));
         return Optional.of(distinctLimitStats);
     }

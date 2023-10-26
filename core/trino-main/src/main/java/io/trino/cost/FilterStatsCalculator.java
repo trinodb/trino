@@ -42,6 +42,7 @@ import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
+import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
@@ -62,6 +63,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.getFilterConjunctionIndependenceFactor;
+import static io.trino.SystemSessionProperties.isEnhanceUnknownStatsCalculation;
 import static io.trino.cost.ComparisonStatsCalculator.estimateExpressionToExpressionComparison;
 import static io.trino.cost.ComparisonStatsCalculator.estimateExpressionToLiteralComparison;
 import static io.trino.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
@@ -440,6 +442,25 @@ public class FilterStatsCalculator
         {
             if (isDynamicFilter(node)) {
                 return process(BooleanLiteral.TRUE_LITERAL, context);
+            }
+            return PlanNodeStatsEstimate.unknown();
+        }
+
+        @Override
+        protected PlanNodeStatsEstimate visitLikePredicate(LikePredicate node, Void context)
+        {
+            if (isEnhanceUnknownStatsCalculation(session)) {
+                Symbol symbol = Symbol.from(node.getValue());
+                SymbolStatsEstimate symbolStats = input.getSymbolStatistics(symbol);
+                PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
+                double newRowCount = input.getOutputRowCount() * (1 - symbolStats.getNullsFraction()) * UNKNOWN_FILTER_COEFFICIENT;
+
+                SymbolStatsEstimate newSymbolEstimation = SymbolStatsEstimate.builder()
+                        .setDistinctValuesCount(symbolStats.getDistinctValuesCount() * UNKNOWN_FILTER_COEFFICIENT)
+                        .setNullsFraction(0)
+                        .build();
+                result.addSymbolStatistics(symbol, newSymbolEstimation);
+                return result.build();
             }
             return PlanNodeStatsEstimate.unknown();
         }
