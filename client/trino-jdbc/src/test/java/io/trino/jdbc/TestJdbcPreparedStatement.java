@@ -24,7 +24,6 @@ import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.server.testing.TestingTrinoServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -76,12 +75,6 @@ import static org.testng.Assert.assertTrue;
 
 public class TestJdbcPreparedStatement
 {
-    @DataProvider
-    public Object[][] legacyPreparedStatementProvider()
-    {
-        return new Object[][] {{true}, {false}};
-    }
-
     private static final int HEADER_SIZE_LIMIT = 16 * 1024;
 
     private TestingTrinoServer server;
@@ -117,8 +110,15 @@ public class TestJdbcPreparedStatement
         server = null;
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testExecuteQuery(boolean useLegacyPreparedStatements)
+    @Test
+    public void testExecuteQuery()
+            throws Exception
+    {
+        testExecuteQuery(false);
+        testExecuteQuery(true);
+    }
+
+    private void testExecuteQuery(boolean useLegacyPreparedStatements)
             throws Exception
     {
         try (Connection connection = createConnection(useLegacyPreparedStatements);
@@ -143,8 +143,15 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testGetMetadata(boolean useLegacyPreparedStatements)
+    @Test
+    public void testGetMetadata()
+            throws Exception
+    {
+        testGetMetadata(true);
+        testGetMetadata(false);
+    }
+
+    private void testGetMetadata(boolean useLegacyPreparedStatements)
             throws Exception
     {
         try (Connection connection = createConnection("blackhole", "blackhole", useLegacyPreparedStatements)) {
@@ -201,8 +208,15 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testGetParameterMetaData(boolean useLegacyPreparedStatements)
+    @Test
+    public void testGetParameterMetaData()
+            throws Exception
+    {
+        testGetParameterMetaData(true);
+        testGetParameterMetaData(false);
+    }
+
+    private void testGetParameterMetaData(boolean useLegacyPreparedStatements)
             throws Exception
     {
         try (Connection connection = createConnection("blackhole", "blackhole", useLegacyPreparedStatements)) {
@@ -389,8 +403,15 @@ public class TestJdbcPreparedStatement
         assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testDeallocate(boolean useLegacyPreparedStatements)
+    @Test
+    public void testDeallocate()
+            throws Exception
+    {
+        testDeallocate(true);
+        testDeallocate(false);
+    }
+
+    private void testDeallocate(boolean useLegacyPreparedStatements)
             throws Exception
     {
         try (Connection connection = createConnection(useLegacyPreparedStatements)) {
@@ -405,8 +426,15 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testCloseIdempotency(boolean useLegacyPreparedStatements)
+    @Test
+    public void testCloseIdempotency()
+            throws Exception
+    {
+        testCloseIdempotency(true);
+        testCloseIdempotency(false);
+    }
+
+    private void testCloseIdempotency(boolean useLegacyPreparedStatements)
             throws Exception
     {
         try (Connection connection = createConnection(useLegacyPreparedStatements)) {
@@ -416,8 +444,15 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testLargePreparedStatement(boolean useLegacyPreparedStatements)
+    @Test
+    public void testLargePreparedStatement()
+            throws Exception
+    {
+        testLargePreparedStatement(true);
+        testLargePreparedStatement(false);
+    }
+
+    private void testLargePreparedStatement(boolean useLegacyPreparedStatements)
             throws Exception
     {
         int elements = HEADER_SIZE_LIMIT + 1;
@@ -433,7 +468,14 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
+    @Test
+    public void testExecuteUpdate()
+            throws Exception
+    {
+        testExecuteUpdate(true);
+        testExecuteUpdate(false);
+    }
+
     public void testExecuteUpdate(boolean useLegacyPreparedStatements)
             throws Exception
     {
@@ -472,8 +514,15 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testExecuteBatch(boolean useLegacyPreparedStatements)
+    @Test
+    public void testExecuteBatch()
+            throws Exception
+    {
+        testExecuteBatch(true);
+        testExecuteBatch(false);
+    }
+
+    private void testExecuteBatch(boolean useLegacyPreparedStatements)
             throws Exception
     {
         try (Connection connection = createConnection("memory", "default", useLegacyPreparedStatements)) {
@@ -519,8 +568,15 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testInvalidExecuteBatch(boolean useLegacyPreparedStatements)
+    @Test
+    public void testInvalidExecuteBatch()
+            throws Exception
+    {
+        testInvalidExecuteBatch(true);
+        testInvalidExecuteBatch(false);
+    }
+
+    private void testInvalidExecuteBatch(boolean useLegacyPreparedStatements)
             throws Exception
     {
         try (Connection connection = createConnection("blackhole", "blackhole", useLegacyPreparedStatements)) {
@@ -554,8 +610,15 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testPrepareMultiple(boolean useLegacyPreparedStatements)
+    @Test
+    public void testPrepareMultiple()
+            throws Exception
+    {
+        testPrepareMultiple(true);
+        testPrepareMultiple(false);
+    }
+
+    private void testPrepareMultiple(boolean useLegacyPreparedStatements)
             throws Exception
     {
         try (Connection connection = createConnection(useLegacyPreparedStatements);
@@ -575,8 +638,15 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testPrepareLarge(boolean useLegacyPreparedStatements)
+    @Test
+    public void testPrepareLarge()
+            throws Exception
+    {
+        testPrepareLarge(true);
+        testPrepareLarge(false);
+    }
+
+    private void testPrepareLarge(boolean useLegacyPreparedStatements)
             throws Exception
     {
         String sql = format("SELECT '%s' = '%s'", repeat("x", 100_000), repeat("y", 100_000));
@@ -589,8 +659,15 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testSetNull(boolean useLegacyPreparedStatements)
+    @Test
+    public void testSetNull()
+            throws Exception
+    {
+        testSetNull(true);
+        testSetNull(false);
+    }
+
+    private void testSetNull(boolean useLegacyPreparedStatements)
             throws Exception
     {
         assertSetNull(Types.BOOLEAN, useLegacyPreparedStatements);
@@ -644,8 +721,15 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testConvertBoolean(boolean useLegacyPreparedStatements)
+    @Test
+    public void testConvertBoolean()
+            throws SQLException
+    {
+        testConvertBoolean(true);
+        testConvertBoolean(false);
+    }
+
+    private void testConvertBoolean(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         assertBind((ps, i) -> ps.setBoolean(i, true), useLegacyPreparedStatements).roundTripsAs(Types.BOOLEAN, true);
@@ -665,8 +749,15 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testConvertTinyint(boolean useLegacyPreparedStatements)
+    @Test
+    public void testConvertTinyint()
+            throws SQLException
+    {
+        testConvertTinyint(true);
+        testConvertTinyint(false);
+    }
+
+    private void testConvertTinyint(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         assertBind((ps, i) -> ps.setByte(i, (byte) 123), useLegacyPreparedStatements).roundTripsAs(Types.TINYINT, (byte) 123);
@@ -685,8 +776,15 @@ public class TestJdbcPreparedStatement
         assertBind((ps, i) -> ps.setObject(i, false, Types.TINYINT), useLegacyPreparedStatements).roundTripsAs(Types.TINYINT, (byte) 0);
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testConvertSmallint(boolean useLegacyPreparedStatements)
+    @Test
+    public void testConvertSmallint()
+            throws SQLException
+    {
+        testConvertSmallint(true);
+        testConvertSmallint(false);
+    }
+
+    private void testConvertSmallint(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         assertBind((ps, i) -> ps.setShort(i, (short) 123), useLegacyPreparedStatements).roundTripsAs(Types.SMALLINT, (short) 123);
@@ -705,8 +803,15 @@ public class TestJdbcPreparedStatement
         assertBind((ps, i) -> ps.setObject(i, false, Types.SMALLINT), useLegacyPreparedStatements).roundTripsAs(Types.SMALLINT, (short) 0);
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testConvertInteger(boolean useLegacyPreparedStatements)
+    @Test
+    public void testConvertInteger()
+            throws SQLException
+    {
+        testConvertInteger(true);
+        testConvertInteger(false);
+    }
+
+    private void testConvertInteger(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         assertBind((ps, i) -> ps.setInt(i, 123), useLegacyPreparedStatements).roundTripsAs(Types.INTEGER, 123);
@@ -726,8 +831,15 @@ public class TestJdbcPreparedStatement
         assertBind((ps, i) -> ps.setObject(i, false, Types.INTEGER), useLegacyPreparedStatements).roundTripsAs(Types.INTEGER, 0);
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testConvertBigint(boolean useLegacyPreparedStatements)
+    @Test
+    public void testConvertBigint()
+            throws SQLException
+    {
+        testConvertBigint(true);
+        testConvertBigint(false);
+    }
+
+    private void testConvertBigint(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         assertBind((ps, i) -> ps.setLong(i, 123L), useLegacyPreparedStatements).roundTripsAs(Types.BIGINT, 123L);
@@ -746,8 +858,15 @@ public class TestJdbcPreparedStatement
         assertBind((ps, i) -> ps.setObject(i, false, Types.BIGINT), useLegacyPreparedStatements).roundTripsAs(Types.BIGINT, 0L);
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testConvertReal(boolean useLegacyPreparedStatements)
+    @Test
+    public void testConvertReal()
+            throws SQLException
+    {
+        testConvertReal(true);
+        testConvertReal(false);
+    }
+
+    private void testConvertReal(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         assertBind((ps, i) -> ps.setFloat(i, 4.2f), useLegacyPreparedStatements).roundTripsAs(Types.REAL, 4.2f);
@@ -769,8 +888,15 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testConvertDouble(boolean useLegacyPreparedStatements)
+    @Test
+    public void testConvertDouble()
+            throws SQLException
+    {
+        testConvertDouble(true);
+        testConvertDouble(false);
+    }
+
+    private void testConvertDouble(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         assertBind((ps, i) -> ps.setDouble(i, 4.2d), useLegacyPreparedStatements).roundTripsAs(Types.DOUBLE, 4.2d);
@@ -789,8 +915,15 @@ public class TestJdbcPreparedStatement
         assertBind((ps, i) -> ps.setObject(i, false, Types.DOUBLE), useLegacyPreparedStatements).roundTripsAs(Types.DOUBLE, 0.0d);
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testConvertDecimal(boolean useLegacyPreparedStatements)
+    @Test
+    public void testConvertDecimal()
+            throws SQLException
+    {
+        testConvertDecimal(true);
+        testConvertDecimal(false);
+    }
+
+    private void testConvertDecimal(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         assertBind((ps, i) -> ps.setBigDecimal(i, BigDecimal.valueOf(123)), useLegacyPreparedStatements).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
@@ -812,8 +945,15 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testConvertVarchar(boolean useLegacyPreparedStatements)
+    @Test
+    public void testConvertVarchar()
+            throws SQLException
+    {
+        testConvertVarchar(true);
+        testConvertVarchar(false);
+    }
+
+    private void testConvertVarchar(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         assertBind((ps, i) -> ps.setString(i, "hello"), useLegacyPreparedStatements).roundTripsAs(Types.VARCHAR, "hello");
@@ -839,8 +979,15 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testConvertVarbinary(boolean useLegacyPreparedStatements)
+    @Test
+    public void testConvertVarbinary()
+            throws SQLException
+    {
+        testConvertVarbinary(true);
+        testConvertVarbinary(false);
+    }
+
+    private void testConvertVarbinary(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         String value = "abc\0xyz";
@@ -855,8 +1002,15 @@ public class TestJdbcPreparedStatement
         }
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testConvertDate(boolean useLegacyPreparedStatements)
+    @Test
+    public void testConvertDate()
+            throws SQLException
+    {
+        testConvertDate(true);
+        testConvertDate(false);
+    }
+
+    private void testConvertDate(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         LocalDate date = LocalDate.of(2001, 5, 6);
@@ -898,8 +1052,15 @@ public class TestJdbcPreparedStatement
                 .roundTripsAs(Types.DATE, sqlDate);
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testConvertLocalDate(boolean useLegacyPreparedStatements)
+    @Test
+    public void testConvertLocalDate()
+            throws SQLException
+    {
+        testConvertLocalDate(true);
+        testConvertLocalDate(false);
+    }
+
+    private void testConvertLocalDate(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         LocalDate date = LocalDate.of(2001, 5, 6);
@@ -935,8 +1096,15 @@ public class TestJdbcPreparedStatement
                 .roundTripsAs(Types.DATE, Date.valueOf(jvmGapDate));
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testConvertTime(boolean useLegacyPreparedStatements)
+    @Test
+    public void testConvertTime()
+            throws SQLException
+    {
+        testConvertTime(true);
+        testConvertTime(false);
+    }
+
+    private void testConvertTime(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         LocalTime time = LocalTime.of(12, 34, 56);
@@ -1001,8 +1169,15 @@ public class TestJdbcPreparedStatement
                 .roundTripsAs(Types.TIME, timeWithMillisecond);
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testConvertTimeWithTimeZone(boolean useLegacyPreparedStatements)
+    @Test
+    public void testConvertTimeWithTimeZone()
+            throws SQLException
+    {
+        testConvertTimeWithTimeZone(true);
+        testConvertTimeWithTimeZone(false);
+    }
+
+    private void testConvertTimeWithTimeZone(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         // zero fraction
@@ -1058,8 +1233,15 @@ public class TestJdbcPreparedStatement
                 .resultsIn("time(12) with time zone", "TIME '12:34:56.123456789012 +05:45'");
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testConvertTimestamp(boolean useLegacyPreparedStatements)
+    @Test
+    public void testConvertTimestamp()
+            throws SQLException
+    {
+        testConvertTimestamp(true);
+        testConvertTimestamp(false);
+    }
+
+    private void testConvertTimestamp(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         LocalDateTime dateTime = LocalDateTime.of(2001, 5, 6, 12, 34, 56);
@@ -1152,8 +1334,15 @@ public class TestJdbcPreparedStatement
                 .roundTripsAs(Types.TIMESTAMP, timestampWithMillisecond);
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testConvertTimestampWithTimeZone(boolean useLegacyPreparedStatements)
+    @Test
+    public void testConvertTimestampWithTimeZone()
+            throws SQLException
+    {
+        testConvertTimestampWithTimeZone(true);
+        testConvertTimestampWithTimeZone(false);
+    }
+
+    private void testConvertTimestampWithTimeZone(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         // TODO (https://github.com/trinodb/trino/issues/6299) support ZonedDateTime
@@ -1172,8 +1361,15 @@ public class TestJdbcPreparedStatement
                 .resultsIn("timestamp(12) with time zone", "TIMESTAMP '1970-01-01 12:34:56.123456789012 +05:45'");
     }
 
-    @Test(dataProvider = "legacyPreparedStatementProvider")
-    public void testInvalidConversions(boolean useLegacyPreparedStatements)
+    @Test
+    public void testInvalidConversions()
+            throws SQLException
+    {
+        testInvalidConversions(true);
+        testInvalidConversions(false);
+    }
+
+    private void testInvalidConversions(boolean useLegacyPreparedStatements)
             throws SQLException
     {
         assertBind((ps, i) -> ps.setObject(i, String.class), useLegacyPreparedStatements).isInvalid("Unsupported object type: java.lang.Class");
