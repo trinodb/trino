@@ -131,7 +131,25 @@ public class SnowflakeArrowPageSource
             return null;
         }
 
-        try (CloseableArrowBatch batch = decodeArrowInputStream(downloadFuture.get())) {
+        try {
+            processChunk(downloadFuture.get());
+        }
+        catch (ExecutionException | InterruptedException e) {
+            throw new TrinoException(JDBC_ERROR, "Couldn't fetch chunk files", e);
+        }
+
+        Page page = pageBuilder.build();
+        // A single split maps to a chunk file, which holds up to a certain amount of records (from a few hundred up to a few million)
+        pageBuilder.reset();
+        completedBytes = page.getSizeInBytes();
+        finished = true;
+
+        return page;
+    }
+
+    private void processChunk(byte[] chunk)
+    {
+        try (CloseableArrowBatch batch = decodeArrowInputStream(chunk)) {
             for (List<ValueVector> vectors : batch.batch()) {
                 int columnCount = columns.size();
                 checkState(!vectors.isEmpty(), "There must be at least one vector in the batch of vectors");
@@ -149,20 +167,9 @@ public class SnowflakeArrowPageSource
         catch (SFException e) {
             throw new TrinoException(JDBC_ERROR, "Couldn't write Snowflake blocks", e);
         }
-        catch (ExecutionException | InterruptedException e) {
-            throw new TrinoException(JDBC_ERROR, "Couldn't fetch chunk files", e);
-        }
         finally {
             closeAllocator();
         }
-
-        Page page = pageBuilder.build();
-        // A single split maps to a chunk file, which holds up to a certain amount of records (from a few hundred up to a few million)
-        pageBuilder.reset();
-        completedBytes = page.getSizeInBytes();
-        finished = true;
-
-        return page;
     }
 
     @Override
