@@ -112,7 +112,7 @@ public class TrinoConnection
     private final AtomicReference<String> transactionId = new AtomicReference<>();
     private final Call.Factory httpCallFactory;
     private final Set<TrinoStatement> statements = newSetFromMap(new ConcurrentHashMap<>());
-    private boolean useLegacyPreparedStatements = true;
+    private boolean useExplicitPrepare = true;
 
     TrinoConnection(TrinoDriverUri uri, Call.Factory httpCallFactory)
     {
@@ -146,7 +146,7 @@ public class TrinoConnection
         locale.set(Locale.getDefault());
         sessionProperties.putAll(uri.getSessionProperties());
 
-        uri.getLegacyPreparedStatements().ifPresent(value -> this.useLegacyPreparedStatements = value);
+        uri.getExplicitPrepare().ifPresent(value -> this.useExplicitPrepare = value);
     }
 
     @Override
@@ -915,8 +915,8 @@ public class TrinoConnection
         }
     }
 
-    public Boolean isUseLegacyPreparedStatements()
+    public boolean useExplicitPrepare()
     {
-        return this.useLegacyPreparedStatements;
+        return this.useExplicitPrepare;
     }
 }

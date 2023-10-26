@@ -99,7 +99,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, String> DNS_RESOLVER_CONTEXT = new ResolverContext();
     public static final ConnectionProperty<String, String> HOSTNAME_IN_CERTIFICATE = new HostnameInCertificate();
     public static final ConnectionProperty<String, ZoneId> TIMEZONE = new TimeZone();
-    public static final ConnectionProperty<String, Boolean> LEGACY_PREPARED_STATEMENTS = new LegacyPreparedStatements();
+    public static final ConnectionProperty<String, Boolean> EXPLICIT_PREPARE = new ExplicitPrepare();
 
     private static final Set<ConnectionProperty<?, ?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?, ?>>builder()
             .add(USER)
@@ -145,7 +145,7 @@ final class ConnectionProperties
             .add(DNS_RESOLVER_CONTEXT)
             .add(HOSTNAME_IN_CERTIFICATE)
             .add(TIMEZONE)
-            .add(LEGACY_PREPARED_STATEMENTS)
+            .add(EXPLICIT_PREPARE)
             .build();
 
     private static final Map<String, ConnectionProperty<?, ?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -718,12 +718,12 @@ final class ConnectionProperties
         }
     }
 
-    private static class LegacyPreparedStatements
+    private static class ExplicitPrepare
             extends AbstractConnectionProperty<String, Boolean>
     {
-        public LegacyPreparedStatements()
+        public ExplicitPrepare()
         {
-            super(PropertyName.LEGACY_PREPARED_STATEMENTS, NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+            super(PropertyName.EXPLICIT_PREPARE, NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 

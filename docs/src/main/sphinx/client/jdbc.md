@@ -246,7 +246,7 @@ may not be specified using both methods.
   - Sets the time zone for the session using the [time zone
     passed](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/time/ZoneId.html#of(java.lang.String)).
     Defaults to the timezone of the JVM running the JDBC driver.
-* - `legacyPreparedStatements`
+* - `explicitPrepare`
   - Defaults to `true`. When set to `false`, prepared statements are executed
     calling a single `EXECUTE IMMEDIATE` query instead of the standard
     `PREPARE <statement>` followed by `EXECUTE <statement>`. This reduces
