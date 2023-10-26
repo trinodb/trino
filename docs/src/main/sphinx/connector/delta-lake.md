@@ -124,6 +124,10 @@ values. Typical usage does not require you to configure them.
 * - `delta.checkpoint-row-statistics-writing.enabled`
   - Enable writing row statistics to checkpoint files.
   - `true`
+* - ``delta.checkpoint-filtering.enabled``
+  - Enable partition pruning when reading checkpoint files.
+    The equivalent catalog session property is ``checkpoint_filtering_enabled``.
+  - ``false``
 * - `delta.dynamic-filtering.wait-timeout`
   - Duration to wait for completion of [dynamic
     filtering](/admin/dynamic-filtering) during split generation. The equivalent

@@ -27,6 +27,7 @@ import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterat
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
@@ -104,7 +105,8 @@ public class TestDeltaLakeFileStatistics
                 new FileFormatDataSourceStats(),
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 true,
-                new DeltaLakeConfig().getDomainCompactionThreshold());
+                new DeltaLakeConfig().getDomainCompactionThreshold(),
+                TupleDomain.all());
         MetadataEntry metadataEntry = getOnlyElement(metadataEntryIterator).getMetaData();
         CheckpointEntryIterator protocolEntryIterator = new CheckpointEntryIterator(
                 checkpointFile,
@@ -118,7 +120,8 @@ public class TestDeltaLakeFileStatistics
                 new FileFormatDataSourceStats(),
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 true,
-                new DeltaLakeConfig().getDomainCompactionThreshold());
+                new DeltaLakeConfig().getDomainCompactionThreshold(),
+                TupleDomain.all());
         ProtocolEntry protocolEntry = getOnlyElement(protocolEntryIterator).getProtocol();
 
         CheckpointEntryIterator checkpointEntryIterator = new CheckpointEntryIterator(
@@ -133,7 +136,8 @@ public class TestDeltaLakeFileStatistics
                 new FileFormatDataSourceStats(),
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 true,
-                new DeltaLakeConfig().getDomainCompactionThreshold());
+                new DeltaLakeConfig().getDomainCompactionThreshold(),
+                TupleDomain.all());
         DeltaLakeTransactionLogEntry matchingAddFileEntry = null;
         while (checkpointEntryIterator.hasNext()) {
             DeltaLakeTransactionLogEntry entry = checkpointEntryIterator.next();

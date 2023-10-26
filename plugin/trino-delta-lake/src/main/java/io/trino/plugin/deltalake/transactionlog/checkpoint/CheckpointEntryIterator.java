@@ -22,6 +22,7 @@ import com.google.common.math.LongMath;
 import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.plugin.deltalake.DeltaHiveTypeTranslator;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
@@ -82,6 +83,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
+import static io.trino.plugin.deltalake.DeltaLakeSplitManager.partitionMatchesPredicate;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.columnsWithStats;
@@ -140,6 +142,7 @@ public class CheckpointEntryIterator
     private final Queue<DeltaLakeTransactionLogEntry> nextEntries;
     private final List<CheckPointFieldExtractor> extractors;
     private final boolean checkpointRowStatisticsWritingEnabled;
+    private final TupleDomain<DeltaLakeColumnHandle> partitionConstraint;
     private MetadataEntry metadataEntry;
     private ProtocolEntry protocolEntry;
     private List<DeltaLakeColumnMetadata> schema;
@@ -160,13 +163,15 @@ public class CheckpointEntryIterator
             FileFormatDataSourceStats stats,
             ParquetReaderOptions parquetReaderOptions,
             boolean checkpointRowStatisticsWritingEnabled,
-            int domainCompactionThreshold)
+            int domainCompactionThreshold,
+            TupleDomain<DeltaLakeColumnHandle> partitionConstraint)
     {
         this.checkpointPath = checkpoint.location().toString();
         this.session = requireNonNull(session, "session is null");
         this.stringList = (ArrayType) typeManager.getType(TypeSignature.arrayType(VARCHAR.getTypeSignature()));
         this.stringMap = (MapType) typeManager.getType(TypeSignature.mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
         this.checkpointRowStatisticsWritingEnabled = checkpointRowStatisticsWritingEnabled;
+        this.partitionConstraint = requireNonNull(partitionConstraint, "partitionConstraint is null");
         checkArgument(!fields.isEmpty(), "fields is empty");
         Map<EntryType, CheckPointFieldExtractor> extractors = ImmutableMap.<EntryType, CheckPointFieldExtractor>builder()
                 .put(TRANSACTION, this::buildTxnEntry)
@@ -221,7 +226,7 @@ public class CheckpointEntryIterator
     {
         Type type = switch (entryType) {
             case TRANSACTION -> schemaManager.getTxnEntryType();
-            case ADD -> schemaManager.getAddEntryType(metadataEntry, protocolEntry, true, true);
+            case ADD -> schemaManager.getAddEntryType(metadataEntry, protocolEntry, true, true, true);
             case REMOVE -> schemaManager.getRemoveEntryType();
             case METADATA -> schemaManager.getMetadataEntryType();
             case PROTOCOL -> schemaManager.getProtocolEntryType(true, true);
@@ -272,7 +277,30 @@ public class CheckpointEntryIterator
                         type)),
                 ColumnType.REGULAR,
                 column.getComment());
-        return TupleDomain.withColumnDomains(ImmutableMap.of(handle, Domain.notNull(handle.getType())));
+
+        ImmutableMap.Builder<HiveColumnHandle, Domain> domains = ImmutableMap.<HiveColumnHandle, Domain>builder()
+                .put(handle, Domain.notNull(handle.getType()));
+        if (entryType == ADD) {
+            partitionConstraint.getDomains().orElseThrow().forEach((key, value) -> domains.put(toPartitionValuesParsedField(column, key), value));
+        }
+
+        return TupleDomain.withColumnDomains(domains.buildOrThrow());
+    }
+
+    private static HiveColumnHandle toPartitionValuesParsedField(HiveColumnHandle addColumn, DeltaLakeColumnHandle partitionColumn)
+    {
+        return new HiveColumnHandle(
+                addColumn.getBaseColumnName(),
+                addColumn.getBaseHiveColumnIndex(),
+                addColumn.getBaseHiveType(),
+                addColumn.getBaseType(),
+                Optional.of(new HiveColumnProjectionInfo(
+                        ImmutableList.of(0, 0), // hiveColumnIndex; we provide fake value because we always find columns by name
+                        ImmutableList.of("partitionvalues_parsed", partitionColumn.getColumnName()),
+                        DeltaHiveTypeTranslator.toHiveType(partitionColumn.getType()),
+                        partitionColumn.getType())),
+                HiveColumnHandle.ColumnType.REGULAR,
+                addColumn.getComment());
     }
 
     private DeltaLakeTransactionLogEntry buildCommitInfoEntry(ConnectorSession session, Block block, int pagePosition)
@@ -431,13 +459,16 @@ public class CheckpointEntryIterator
             statsFieldIndex = 5;
         }
 
-        Optional<DeltaLakeParquetFileStatistics> parsedStats = Optional.ofNullable(getRowField(addEntryRow, statsFieldIndex + 1)).map(this::parseStatisticsFromParquet);
+        boolean partitionValuesParsedExists = addEntryRow.getUnderlyingFieldBlock(statsFieldIndex + 1) instanceof RowBlock && // partitionValues_parsed
+                                              addEntryRow.getUnderlyingFieldBlock(statsFieldIndex + 2) instanceof RowBlock; // stats_parsed
+        int parsedStatsIndex = partitionValuesParsedExists ? statsFieldIndex + 1 : statsFieldIndex;
+        Optional<DeltaLakeParquetFileStatistics> parsedStats = Optional.ofNullable(getRowField(addEntryRow, parsedStatsIndex + 1)).map(this::parseStatisticsFromParquet);
         Optional<String> stats = Optional.empty();
         if (parsedStats.isEmpty()) {
             stats = Optional.ofNullable(getStringField(addEntryRow, statsFieldIndex));
         }
 
-        Map<String, String> tags = getMapField(addEntryRow, statsFieldIndex + 2);
+        Map<String, String> tags = getMapField(addEntryRow, parsedStatsIndex + 2);
         AddFileEntry result = new AddFileEntry(
                 path,
                 partitionValues,
@@ -709,7 +740,15 @@ public class CheckpointEntryIterator
             for (int i = 0; i < extractors.size(); ++i) {
                 DeltaLakeTransactionLogEntry entry = extractors.get(i).getEntry(session, page.getBlock(i).getLoadedBlock(), pagePosition);
                 if (entry != null) {
-                    nextEntries.add(entry);
+                    if (entry.getAdd() != null) {
+                        if (partitionConstraint.isAll() ||
+                                partitionMatchesPredicate(entry.getAdd().getCanonicalPartitionValues(), partitionConstraint.getDomains().orElseThrow())) {
+                            nextEntries.add(entry);
+                        }
+                    }
+                    else {
+                        nextEntries.add(entry);
+                    }
                 }
             }
             pagePosition++;

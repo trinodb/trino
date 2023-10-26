@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 public final class TestingDeltaLakeUtils

@@ -18,6 +18,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
@@ -26,6 +27,7 @@ import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 
 import java.io.FileNotFoundException;
@@ -178,7 +180,8 @@ public class TableSnapshot
             TypeManager typeManager,
             TrinoFileSystem fileSystem,
             FileFormatDataSourceStats stats,
-            Optional<MetadataAndProtocolEntry> metadataAndProtocol)
+            Optional<MetadataAndProtocolEntry> metadataAndProtocol,
+            TupleDomain<DeltaLakeColumnHandle> partitionConstraint)
             throws IOException
     {
         if (lastCheckpoint.isEmpty()) {
@@ -206,7 +209,8 @@ public class TableSnapshot
                             typeManager,
                             stats,
                             checkpoint,
-                            checkpointFile)));
+                            checkpointFile,
+                            partitionConstraint)));
         }
         return resultStream;
     }
@@ -225,7 +229,8 @@ public class TableSnapshot
             TypeManager typeManager,
             FileFormatDataSourceStats stats,
             LastCheckpoint checkpoint,
-            TrinoInputFile checkpointFile)
+            TrinoInputFile checkpointFile,
+            TupleDomain<DeltaLakeColumnHandle> partitionConstraint)
             throws IOException
     {
         long fileSize;
@@ -247,7 +252,8 @@ public class TableSnapshot
                 stats,
                 parquetReaderOptions,
                 checkpointRowStatisticsWritingEnabled,
-                domainCompactionThreshold);
+                domainCompactionThreshold,
+                partitionConstraint);
     }
 
     public record MetadataAndProtocolEntry(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)

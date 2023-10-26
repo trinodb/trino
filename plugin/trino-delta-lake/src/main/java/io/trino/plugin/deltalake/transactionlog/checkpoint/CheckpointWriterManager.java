@@ -29,6 +29,7 @@ import io.trino.plugin.hive.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 
 import java.io.IOException;
@@ -103,7 +104,8 @@ public class CheckpointWriterManager
                             typeManager,
                             fileSystem,
                             fileFormatDataSourceStats,
-                            Optional.empty())
+                            Optional.empty(),
+                            TupleDomain.all())
                     .filter(entry -> entry.getMetaData() != null || entry.getProtocol() != null)
                     .collect(toImmutableList());
 
@@ -135,7 +137,8 @@ public class CheckpointWriterManager
                                 typeManager,
                                 fileSystem,
                                 fileFormatDataSourceStats,
-                                Optional.of(new MetadataAndProtocolEntry(metadataLogEntry.getMetaData(), protocolLogEntry.getProtocol())))
+                                Optional.of(new MetadataAndProtocolEntry(metadataLogEntry.getMetaData(), protocolLogEntry.getProtocol())),
+                                TupleDomain.all())
                         .forEach(checkpointBuilder::addLogEntry);
             }
 

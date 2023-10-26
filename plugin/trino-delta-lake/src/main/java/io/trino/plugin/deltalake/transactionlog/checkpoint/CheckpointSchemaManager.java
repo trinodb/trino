@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.columnsWithStats;
@@ -112,7 +114,7 @@ public class CheckpointSchemaManager
         return metadataEntryType;
     }
 
-    public RowType getAddEntryType(MetadataEntry metadataEntry, ProtocolEntry protocolEntry, boolean requireWriteStatsAsJson, boolean requireWriteStatsAsStruct)
+    public RowType getAddEntryType(MetadataEntry metadataEntry, ProtocolEntry protocolEntry, boolean requireWriteStatsAsJson, boolean requireWriteStatsAsStruct, boolean usePartitionValuesParsed)
     {
         List<DeltaLakeColumnMetadata> allColumns = extractSchema(metadataEntry, protocolEntry, typeManager);
         List<DeltaLakeColumnMetadata> minMaxColumns = columnsWithStats(metadataEntry, protocolEntry, typeManager);
@@ -155,6 +157,15 @@ public class CheckpointSchemaManager
         }
         if (requireWriteStatsAsJson) {
             addFields.add(RowType.field("stats", VARCHAR));
+        }
+        if (usePartitionValuesParsed) {
+            List<DeltaLakeColumnHandle> partitionColumns = extractPartitionColumns(metadataEntry, protocolEntry, typeManager);
+            if (!partitionColumns.isEmpty()) {
+                List<RowType.Field> partitionValuesParsed = partitionColumns.stream()
+                        .map(column -> RowType.field(column.getColumnName(), column.getType()))
+                        .collect(toImmutableList());
+                addFields.add(RowType.field("partitionValues_parsed", RowType.from(partitionValuesParsed)));
+            }
         }
         if (requireWriteStatsAsStruct) {
             addFields.add(RowType.field("stats_parsed", RowType.from(statsColumns.build())));
