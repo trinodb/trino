@@ -70,6 +70,7 @@ public final class DeltaLakeSessionProperties
     public static final String LEGACY_CREATE_TABLE_WITH_EXISTING_LOCATION_ENABLED = "legacy_create_table_with_existing_location_enabled";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
+    private static final String CHECKPOINT_FILTERING_ENABLED = "checkpoint_filtering_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -202,6 +203,11 @@ public final class DeltaLakeSessionProperties
                         QUERY_PARTITION_FILTER_REQUIRED,
                         "Require filter on partition column",
                         deltaLakeConfig.isQueryPartitionFilterRequired(),
+                        false),
+                booleanProperty(
+                        CHECKPOINT_FILTERING_ENABLED,
+                        "Use filter in checkpoint reader",
+                        deltaLakeConfig.isCheckpointPartitionFilterEnabled(),
                         false));
     }
 
@@ -305,5 +311,10 @@ public final class DeltaLakeSessionProperties
     public static boolean isQueryPartitionFilterRequired(ConnectorSession session)
     {
         return session.getProperty(QUERY_PARTITION_FILTER_REQUIRED, Boolean.class);
+    }
+
+    public static boolean isCheckpointFilteringEnabled(ConnectorSession session)
+    {
+        return session.getProperty(CHECKPOINT_FILTERING_ENABLED, Boolean.class);
     }
 }

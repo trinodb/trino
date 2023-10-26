@@ -62,6 +62,7 @@ public class DeltaLakeConfig
     private boolean unsafeWritesEnabled;
     private boolean checkpointRowStatisticsWritingEnabled = true;
     private long defaultCheckpointWritingInterval = 10;
+    private boolean checkpointFilteringEnabled;
     private Duration vacuumMinRetention = new Duration(7, DAYS);
     private Optional<String> hiveCatalogName = Optional.empty();
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
@@ -267,6 +268,18 @@ public class DeltaLakeConfig
     public long getDefaultCheckpointWritingInterval()
     {
         return defaultCheckpointWritingInterval;
+    }
+
+    public boolean isCheckpointPartitionFilterEnabled()
+    {
+        return checkpointFilteringEnabled;
+    }
+
+    @Config("delta.checkpoint-filtering.enabled")
+    public DeltaLakeConfig setCheckpointPartitionFilterEnabled(boolean checkpointFilteringEnabled)
+    {
+        this.checkpointFilteringEnabled = checkpointFilteringEnabled;
+        return this;
     }
 
     @NotNull

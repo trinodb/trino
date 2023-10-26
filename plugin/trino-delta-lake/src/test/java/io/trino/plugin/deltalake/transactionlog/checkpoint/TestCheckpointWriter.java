@@ -36,6 +36,7 @@ import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlRow;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
@@ -484,7 +485,8 @@ public class TestCheckpointWriter
                 new FileFormatDataSourceStats(),
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 rowStatisticsEnabled,
-                new DeltaLakeConfig().getDomainCompactionThreshold());
+                new DeltaLakeConfig().getDomainCompactionThreshold(),
+                TupleDomain.all());
 
         CheckpointBuilder checkpointBuilder = new CheckpointBuilder();
         while (checkpointEntryIterator.hasNext()) {
