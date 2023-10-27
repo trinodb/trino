@@ -25,7 +25,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.Closeable;
@@ -152,19 +151,6 @@ public class TestJdbcVendorCompatibility
         }
     }
 
-    // test behavior with UTC and time zones to the east and west
-    @DataProvider
-    public Object[][] timeZoneIds()
-    {
-        return new Object[][] {
-                {Optional.empty()},
-                {Optional.of("UTC")},
-                {Optional.of("Europe/Warsaw")},
-                {Optional.of("America/Denver")},
-                {Optional.of(ZoneId.systemDefault().getId())}
-        };
-    }
-
     @Test
     public void testVarbinary()
             throws Exception
@@ -189,8 +175,18 @@ public class TestJdbcVendorCompatibility
                 });
     }
 
-    @Test(dataProvider = "timeZoneIds")
-    public void testDate(Optional<String> sessionTimezoneId)
+    @Test
+    public void testDate()
+            throws Exception
+    {
+        testDate(Optional.empty());
+        testDate(Optional.of("UTC"));
+        testDate(Optional.of("Europe/Warsaw"));
+        testDate(Optional.of("America/Denver"));
+        testDate(Optional.of(ZoneId.systemDefault().getId()));
+    }
+
+    private void testDate(Optional<String> sessionTimezoneId)
             throws Exception
     {
         checkRepresentation("DATE '2018-02-13'", DATE, sessionTimezoneId, (rs, reference, column) -> {
@@ -203,8 +199,18 @@ public class TestJdbcVendorCompatibility
         });
     }
 
-    @Test(dataProvider = "timeZoneIds")
-    public void testTimestamp(Optional<String> sessionTimezoneId)
+    @Test
+    public void testTimestamp()
+            throws Exception
+    {
+        testTimestamp(Optional.empty());
+        testTimestamp(Optional.of("UTC"));
+        testTimestamp(Optional.of("Europe/Warsaw"));
+        testTimestamp(Optional.of("America/Denver"));
+        testTimestamp(Optional.of(ZoneId.systemDefault().getId()));
+    }
+
+    private void testTimestamp(Optional<String> sessionTimezoneId)
             throws Exception
     {
         checkRepresentation("TIMESTAMP '2018-02-13 13:14:15.123'", TIMESTAMP, sessionTimezoneId, (rs, reference, column) -> {
@@ -221,8 +227,18 @@ public class TestJdbcVendorCompatibility
         });
     }
 
-    @Test(dataProvider = "timeZoneIds")
-    public void testTimestampWithTimeZone(Optional<String> sessionTimezoneId)
+    @Test
+    public void testTimestampWithTimeZone()
+            throws Exception
+    {
+        testTimestampWithTimeZone(Optional.empty());
+        testTimestampWithTimeZone(Optional.of("UTC"));
+        testTimestampWithTimeZone(Optional.of("Europe/Warsaw"));
+        testTimestampWithTimeZone(Optional.of("America/Denver"));
+        testTimestampWithTimeZone(Optional.of(ZoneId.systemDefault().getId()));
+    }
+
+    private void testTimestampWithTimeZone(Optional<String> sessionTimezoneId)
             throws Exception
     {
         checkRepresentation(
@@ -290,8 +306,18 @@ public class TestJdbcVendorCompatibility
                 });
     }
 
-    @Test(dataProvider = "timeZoneIds")
-    public void testTime(Optional<String> sessionTimezoneId)
+    @Test
+    public void testTime()
+            throws Exception
+    {
+        testTime(Optional.empty());
+        testTime(Optional.of("UTC"));
+        testTime(Optional.of("Europe/Warsaw"));
+        testTime(Optional.of("America/Denver"));
+        testTime(Optional.of(ZoneId.systemDefault().getId()));
+    }
+
+    private void testTime(Optional<String> sessionTimezoneId)
             throws Exception
     {
         checkRepresentation("TIME '09:39:05'", TIME, sessionTimezoneId, (rs, reference, column) -> {
@@ -304,8 +330,18 @@ public class TestJdbcVendorCompatibility
         });
     }
 
-    @Test(dataProvider = "timeZoneIds")
-    public void testDateRoundTrip(Optional<String> sessionTimezoneId)
+    @Test
+    public void testDateRoundTrip()
+            throws Exception
+    {
+        testDateRoundTrip(Optional.empty());
+        testDateRoundTrip(Optional.of("UTC"));
+        testDateRoundTrip(Optional.of("Europe/Warsaw"));
+        testDateRoundTrip(Optional.of("America/Denver"));
+        testDateRoundTrip(Optional.of(ZoneId.systemDefault().getId()));
+    }
+
+    private void testDateRoundTrip(Optional<String> sessionTimezoneId)
             throws SQLException
     {
         LocalDate date = LocalDate.of(2001, 5, 6);
@@ -324,8 +360,18 @@ public class TestJdbcVendorCompatibility
         assertParameter(sqlDate, sessionTimezoneId, (ps, i) -> ps.setObject(i, "2001-05-06", Types.DATE));
     }
 
-    @Test(dataProvider = "timeZoneIds")
-    public void testTimestampRoundTrip(Optional<String> sessionTimezoneId)
+    @Test
+    public void testTimestampRoundTrip()
+            throws Exception
+    {
+        testTimestampRoundTrip(Optional.empty());
+        testTimestampRoundTrip(Optional.of("UTC"));
+        testTimestampRoundTrip(Optional.of("Europe/Warsaw"));
+        testTimestampRoundTrip(Optional.of("America/Denver"));
+        testTimestampRoundTrip(Optional.of(ZoneId.systemDefault().getId()));
+    }
+
+    private void testTimestampRoundTrip(Optional<String> sessionTimezoneId)
             throws SQLException
     {
         LocalDateTime dateTime = LocalDateTime.of(2001, 5, 6, 12, 34, 56);

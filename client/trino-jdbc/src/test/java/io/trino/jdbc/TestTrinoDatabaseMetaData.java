@@ -45,7 +45,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -1492,8 +1491,17 @@ public class TestTrinoDatabaseMetaData
                 ImmutableMultiset.of("ConnectorMetadata.streamRelationColumns"));
     }
 
-    @Test(dataProvider = "escapeLiteralParameters")
-    public void testAssumeLiteralMetadataCalls(String escapeLiteralParameter)
+    @Test
+    public void testAssumeLiteralMetadataCalls()
+            throws Exception
+    {
+        testAssumeLiteralMetadataCalls("assumeLiteralNamesInMetadataCallsForNonConformingClients=true");
+        testAssumeLiteralMetadataCalls("assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true");
+        testAssumeLiteralMetadataCalls("assumeLiteralNamesInMetadataCallsForNonConformingClients=false&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true");
+        testAssumeLiteralMetadataCalls("assumeLiteralNamesInMetadataCallsForNonConformingClients=true&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=false");
+    }
+
+    private void testAssumeLiteralMetadataCalls(String escapeLiteralParameter)
             throws Exception
     {
         try (Connection connection = DriverManager.getConnection(
@@ -1591,17 +1599,6 @@ public class TestTrinoDatabaseMetaData
                             .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table_)")
                             .build());
         }
-    }
-
-    @DataProvider
-    public Object[][] escapeLiteralParameters()
-    {
-        return new Object[][] {
-                {"assumeLiteralNamesInMetadataCallsForNonConformingClients=true"},
-                {"assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true"},
-                {"assumeLiteralNamesInMetadataCallsForNonConformingClients=false&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true"},
-                {"assumeLiteralNamesInMetadataCallsForNonConformingClients=true&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=false"},
-        };
     }
 
     @Test
