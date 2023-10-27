@@ -13,7 +13,7 @@
  */
 package io.trino.jdbc;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.jdbc.AbstractTrinoResultSet.DEFAULT_OBJECT_REPRESENTATION;
 import static io.trino.jdbc.AbstractTrinoResultSet.TYPE_CONVERSIONS;

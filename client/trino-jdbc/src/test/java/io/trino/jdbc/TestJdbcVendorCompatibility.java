@@ -19,13 +19,13 @@ import io.airlift.log.Logging;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.util.AutoCloseableCloser;
 import oracle.jdbc.OracleType;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
 
 import java.io.Closeable;
 import java.sql.Connection;
@@ -63,12 +63,15 @@ import static java.sql.JDBCType.TIMESTAMP;
 import static java.sql.JDBCType.TIMESTAMP_WITH_TIMEZONE;
 import static java.sql.JDBCType.VARBINARY;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestJdbcVendorCompatibility
 {
     private static final String OTHER_TIMEZONE = "Asia/Kathmandu";
@@ -77,10 +80,7 @@ public class TestJdbcVendorCompatibility
     private TestingTrinoServer server;
     private List<ReferenceDriver> referenceDrivers;
 
-    private Connection connection;
-    private Statement statement;
-
-    @BeforeClass
+    @BeforeAll
     public void setupServer()
     {
         assertNotEquals(OTHER_TIMEZONE, TimeZone.getDefault().getID(), "We need a timezone different from the default JVM one");
@@ -94,7 +94,7 @@ public class TestJdbcVendorCompatibility
         referenceDrivers.add(new OracleReferenceDriver());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDownServer()
             throws Exception
     {
@@ -107,47 +107,6 @@ public class TestJdbcVendorCompatibility
                 closer.register(server);
                 server = null;
             }
-            if (connection != null) {
-                closer.register(connection);
-                connection = null;
-            }
-            if (statement != null) {
-                closer.register(statement);
-                statement = null;
-            }
-        }
-    }
-
-    @SuppressWarnings("JDBCResourceOpenedButNotSafelyClosed")
-    @BeforeMethod
-    public void setUp()
-            throws Exception
-    {
-        // recreate connection since tests modify connection state
-        connection = DriverManager.getConnection("jdbc:trino://" + server.getAddress(), "test", null);
-        statement = connection.createStatement();
-        referenceDrivers.forEach(ReferenceDriver::setUp);
-    }
-
-    @AfterMethod(alwaysRun = true)
-    public void tearDown()
-            throws Exception
-    {
-        if (statement != null) {
-            statement.close();
-            statement = null;
-        }
-        if (connection != null) {
-            connection.close();
-            connection = null;
-        }
-        for (ReferenceDriver driver : referenceDrivers) {
-            try {
-                driver.tearDown();
-            }
-            catch (Exception e) {
-                log.warn(e, "Failed to close reference JDBC driver %s; continuing", driver);
-            }
         }
     }
 
@@ -155,24 +114,28 @@ public class TestJdbcVendorCompatibility
     public void testVarbinary()
             throws Exception
     {
-        checkRepresentation(
-                "X'12345678'",
-                ImmutableList.of(
-                        "bytea E'\\\\x12345678'", // PostgreSQL
-                        "hextoraw('12345678')"), // Oracle
-                VARBINARY,
-                Optional.empty(),
-                (rs, reference, column) -> {
-                    assertThat(rs.getBytes(column)).isEqualTo(new byte[] {0x12, 0x34, 0x56, 0x78});
-                    assertThat(rs.getBytes(column)).isEqualTo(reference.getBytes(column));
-                    assertThat(rs.getObject(column)).isEqualTo(reference.getObject(column));
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement();
+                ConnectionSetup connectionSetup = new ConnectionSetup(referenceDrivers)) {
+            checkRepresentation(
+                    connection, statement, "X'12345678'",
+                    ImmutableList.of(
+                            "bytea E'\\\\x12345678'", // PostgreSQL
+                            "hextoraw('12345678')"), // Oracle
+                    VARBINARY,
+                    Optional.empty(),
+                    (rs, reference, column) -> {
+                        assertThat(rs.getBytes(column)).isEqualTo(new byte[] {0x12, 0x34, 0x56, 0x78});
+                        assertThat(rs.getBytes(column)).isEqualTo(reference.getBytes(column));
+                        assertThat(rs.getObject(column)).isEqualTo(reference.getObject(column));
 
-                    // Trino returns "0x<hex>"
-                    // PostgreSQL returns "\x<hex>"
-                    // Oracle returns "<hex>"
-                    assertThat(rs.getString(column).replaceFirst("^0x", ""))
-                            .isEqualTo(reference.getString(column).replaceFirst("^\\\\x", ""));
-                });
+                        // Trino returns "0x<hex>"
+                        // PostgreSQL returns "\x<hex>"
+                        // Oracle returns "<hex>"
+                        assertThat(rs.getString(column).replaceFirst("^0x", ""))
+                                .isEqualTo(reference.getString(column).replaceFirst("^\\\\x", ""));
+                    });
+        }
     }
 
     @Test
@@ -189,14 +152,18 @@ public class TestJdbcVendorCompatibility
     private void testDate(Optional<String> sessionTimezoneId)
             throws Exception
     {
-        checkRepresentation("DATE '2018-02-13'", DATE, sessionTimezoneId, (rs, reference, column) -> {
-            assertEquals(rs.getDate(column), reference.getDate(column));
-            assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(2018, 2, 13)));
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement();
+                ConnectionSetup connectionSetup = new ConnectionSetup(referenceDrivers)) {
+            checkRepresentation(connection, statement, "DATE '2018-02-13'", DATE, sessionTimezoneId, (rs, reference, column) -> {
+                assertEquals(rs.getDate(column), reference.getDate(column));
+                assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(2018, 2, 13)));
 
-            // with calendar
-            assertEquals(rs.getDate(column, getCalendar()), reference.getDate(column, getCalendar()));
-            assertEquals(rs.getDate(column, getCalendar()), new Date(LocalDate.of(2018, 2, 13).atStartOfDay(getZoneId()).toInstant().toEpochMilli()));
-        });
+                // with calendar
+                assertEquals(rs.getDate(column, getCalendar()), reference.getDate(column, getCalendar()));
+                assertEquals(rs.getDate(column, getCalendar()), new Date(LocalDate.of(2018, 2, 13).atStartOfDay(getZoneId()).toInstant().toEpochMilli()));
+            });
+        }
     }
 
     @Test
@@ -213,18 +180,22 @@ public class TestJdbcVendorCompatibility
     private void testTimestamp(Optional<String> sessionTimezoneId)
             throws Exception
     {
-        checkRepresentation("TIMESTAMP '2018-02-13 13:14:15.123'", TIMESTAMP, sessionTimezoneId, (rs, reference, column) -> {
-            assertEquals(rs.getTimestamp(column), reference.getTimestamp(column));
-            assertEquals(
-                    rs.getTimestamp(column),
-                    Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement();
+                ConnectionSetup connectionSetup = new ConnectionSetup(referenceDrivers)) {
+            checkRepresentation(connection, statement, "TIMESTAMP '2018-02-13 13:14:15.123'", TIMESTAMP, sessionTimezoneId, (rs, reference, column) -> {
+                assertEquals(rs.getTimestamp(column), reference.getTimestamp(column));
+                assertEquals(
+                        rs.getTimestamp(column),
+                        Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
 
-            // with calendar
-            assertEquals(rs.getTimestamp(column, getCalendar()), reference.getTimestamp(column, getCalendar()));
-            assertEquals(
-                    rs.getTimestamp(column, getCalendar()),
-                    new Timestamp(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000).atZone(getZoneId()).toInstant().toEpochMilli()));
-        });
+                // with calendar
+                assertEquals(rs.getTimestamp(column, getCalendar()), reference.getTimestamp(column, getCalendar()));
+                assertEquals(
+                        rs.getTimestamp(column, getCalendar()),
+                        new Timestamp(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000).atZone(getZoneId()).toInstant().toEpochMilli()));
+            });
+        }
     }
 
     @Test
@@ -241,69 +212,73 @@ public class TestJdbcVendorCompatibility
     private void testTimestampWithTimeZone(Optional<String> sessionTimezoneId)
             throws Exception
     {
-        checkRepresentation(
-                "TIMESTAMP '1970-01-01 00:00:00.000 +00:00'", // Trino
-                ImmutableList.of(
-                        "TIMESTAMP WITH TIME ZONE '1970-01-01 00:00:00.000 +00:00'", // PostgreSQL
-                        "from_tz(TIMESTAMP '1970-01-01 00:00:00.000', '+00:00')"), // Oracle
-                TIMESTAMP_WITH_TIMEZONE,
-                sessionTimezoneId,
-                (rs, reference, column) -> {
-                    Timestamp timestampForPointInTime = Timestamp.from(Instant.EPOCH);
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement();
+                ConnectionSetup connectionSetup = new ConnectionSetup(referenceDrivers)) {
+            checkRepresentation(
+                    connection, statement, "TIMESTAMP '1970-01-01 00:00:00.000 +00:00'", // Trino
+                    ImmutableList.of(
+                            "TIMESTAMP WITH TIME ZONE '1970-01-01 00:00:00.000 +00:00'", // PostgreSQL
+                            "from_tz(TIMESTAMP '1970-01-01 00:00:00.000', '+00:00')"), // Oracle
+                    TIMESTAMP_WITH_TIMEZONE,
+                    sessionTimezoneId,
+                    (rs, reference, column) -> {
+                        Timestamp timestampForPointInTime = Timestamp.from(Instant.EPOCH);
 
-                    assertEquals(rs.getTimestamp(column).getTime(), reference.getTimestamp(column).getTime()); // point in time
-                    assertEquals(rs.getTimestamp(column), reference.getTimestamp(column));
-                    assertEquals(rs.getTimestamp(column), timestampForPointInTime);
+                        assertEquals(rs.getTimestamp(column).getTime(), reference.getTimestamp(column).getTime()); // point in time
+                        assertEquals(rs.getTimestamp(column), reference.getTimestamp(column));
+                        assertEquals(rs.getTimestamp(column), timestampForPointInTime);
 
-                    // with calendar
-                    assertEquals(rs.getTimestamp(column, getCalendar()).getTime(), reference.getTimestamp(column, getCalendar()).getTime()); // point in time
-                    assertEquals(rs.getTimestamp(column, getCalendar()), reference.getTimestamp(column, getCalendar()));
-                    assertEquals(rs.getTimestamp(column, getCalendar()), timestampForPointInTime);
-                });
+                        // with calendar
+                        assertEquals(rs.getTimestamp(column, getCalendar()).getTime(), reference.getTimestamp(column, getCalendar()).getTime()); // point in time
+                        assertEquals(rs.getTimestamp(column, getCalendar()), reference.getTimestamp(column, getCalendar()));
+                        assertEquals(rs.getTimestamp(column, getCalendar()), timestampForPointInTime);
+                    });
 
-        checkRepresentation(
-                "TIMESTAMP '2018-02-13 13:14:15.123 +03:15'", // Trino
-                ImmutableList.of(
-                        "TIMESTAMP WITH TIME ZONE '2018-02-13 13:14:15.123 +03:15'", // PostgreSQL
-                        "from_tz(TIMESTAMP '2018-02-13 13:14:15.123', '+03:15')"), // Oracle
-                TIMESTAMP_WITH_TIMEZONE,
-                sessionTimezoneId,
-                (rs, reference, column) -> {
-                    Timestamp timestampForPointInTime = Timestamp.from(
-                            ZonedDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000, ZoneOffset.ofHoursMinutes(3, 15))
-                                    .toInstant());
+            checkRepresentation(
+                    connection, statement, "TIMESTAMP '2018-02-13 13:14:15.123 +03:15'", // Trino
+                    ImmutableList.of(
+                            "TIMESTAMP WITH TIME ZONE '2018-02-13 13:14:15.123 +03:15'", // PostgreSQL
+                            "from_tz(TIMESTAMP '2018-02-13 13:14:15.123', '+03:15')"), // Oracle
+                    TIMESTAMP_WITH_TIMEZONE,
+                    sessionTimezoneId,
+                    (rs, reference, column) -> {
+                        Timestamp timestampForPointInTime = Timestamp.from(
+                                ZonedDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000, ZoneOffset.ofHoursMinutes(3, 15))
+                                        .toInstant());
 
-                    assertEquals(rs.getTimestamp(column).getTime(), reference.getTimestamp(column).getTime()); // point in time
-                    assertEquals(rs.getTimestamp(column), reference.getTimestamp(column));
-                    assertEquals(rs.getTimestamp(column), timestampForPointInTime);
+                        assertEquals(rs.getTimestamp(column).getTime(), reference.getTimestamp(column).getTime()); // point in time
+                        assertEquals(rs.getTimestamp(column), reference.getTimestamp(column));
+                        assertEquals(rs.getTimestamp(column), timestampForPointInTime);
 
-                    // with calendar
-                    assertEquals(rs.getTimestamp(column, getCalendar()).getTime(), reference.getTimestamp(column, getCalendar()).getTime()); // point in time
-                    assertEquals(rs.getTimestamp(column, getCalendar()), reference.getTimestamp(column, getCalendar()));
-                    assertEquals(rs.getTimestamp(column, getCalendar()), timestampForPointInTime);
-                });
+                        // with calendar
+                        assertEquals(rs.getTimestamp(column, getCalendar()).getTime(), reference.getTimestamp(column, getCalendar()).getTime()); // point in time
+                        assertEquals(rs.getTimestamp(column, getCalendar()), reference.getTimestamp(column, getCalendar()));
+                        assertEquals(rs.getTimestamp(column, getCalendar()), timestampForPointInTime);
+                    });
 
-        checkRepresentation(
-                "TIMESTAMP '2018-02-13 13:14:15.123 Europe/Warsaw'", // Trino
-                ImmutableList.of(
-                        "TIMESTAMP WITH TIME ZONE '2018-02-13 13:14:15.123 Europe/Warsaw'", // PostgreSQL
-                        "from_tz(TIMESTAMP '2018-02-13 13:14:15.123', 'Europe/Warsaw')"), // Oracle
-                TIMESTAMP_WITH_TIMEZONE,
-                sessionTimezoneId,
-                (rs, reference, column) -> {
-                    Timestamp timestampForPointInTime = Timestamp.from(
-                            ZonedDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000, ZoneId.of("Europe/Warsaw"))
-                                    .toInstant());
+            checkRepresentation(
+                    connection, statement, "TIMESTAMP '2018-02-13 13:14:15.123 Europe/Warsaw'", // Trino
+                    ImmutableList.of(
+                            "TIMESTAMP WITH TIME ZONE '2018-02-13 13:14:15.123 Europe/Warsaw'", // PostgreSQL
+                            "from_tz(TIMESTAMP '2018-02-13 13:14:15.123', 'Europe/Warsaw')"), // Oracle
+                    TIMESTAMP_WITH_TIMEZONE,
+                    sessionTimezoneId,
+                    (rs, reference, column) -> {
+                        Timestamp timestampForPointInTime = Timestamp.from(
+                                ZonedDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000, ZoneId.of("Europe/Warsaw"))
+                                        .toInstant());
 
-                    assertEquals(rs.getTimestamp(column).getTime(), reference.getTimestamp(column).getTime()); // point in time
-                    assertEquals(rs.getTimestamp(column), reference.getTimestamp(column));
-                    assertEquals(rs.getTimestamp(column), timestampForPointInTime);
+                        assertEquals(rs.getTimestamp(column).getTime(), reference.getTimestamp(column).getTime()); // point in time
+                        assertEquals(rs.getTimestamp(column), reference.getTimestamp(column));
+                        assertEquals(rs.getTimestamp(column), timestampForPointInTime);
 
-                    // with calendar
-                    assertEquals(rs.getTimestamp(column, getCalendar()).getTime(), reference.getTimestamp(column, getCalendar()).getTime()); // point in time
-                    assertEquals(rs.getTimestamp(column, getCalendar()), reference.getTimestamp(column, getCalendar()));
-                    assertEquals(rs.getTimestamp(column, getCalendar()), timestampForPointInTime);
-                });
+                        // with calendar
+                        assertEquals(rs.getTimestamp(column, getCalendar()).getTime(), reference.getTimestamp(column, getCalendar()).getTime()); // point in time
+                        assertEquals(rs.getTimestamp(column, getCalendar()), reference.getTimestamp(column, getCalendar()));
+                        assertEquals(rs.getTimestamp(column, getCalendar()), timestampForPointInTime);
+                    });
+        }
     }
 
     @Test
@@ -320,14 +295,18 @@ public class TestJdbcVendorCompatibility
     private void testTime(Optional<String> sessionTimezoneId)
             throws Exception
     {
-        checkRepresentation("TIME '09:39:05'", TIME, sessionTimezoneId, (rs, reference, column) -> {
-            assertEquals(rs.getTime(column), reference.getTime(column));
-            assertEquals(rs.getTime(column), Time.valueOf(LocalTime.of(9, 39, 5)));
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement();
+                ConnectionSetup connectionSetup = new ConnectionSetup(referenceDrivers)) {
+            checkRepresentation(connection, statement, "TIME '09:39:05'", TIME, sessionTimezoneId, (rs, reference, column) -> {
+                assertEquals(rs.getTime(column), reference.getTime(column));
+                assertEquals(rs.getTime(column), Time.valueOf(LocalTime.of(9, 39, 5)));
 
-            // with calendar
-            assertEquals(rs.getTime(column, getCalendar()), reference.getTime(column, getCalendar()));
-            assertEquals(rs.getTime(column, getCalendar()), new Time(LocalDate.of(1970, 1, 1).atTime(LocalTime.of(9, 39, 5)).atZone(getZoneId()).toInstant().toEpochMilli()));
-        });
+                // with calendar
+                assertEquals(rs.getTime(column, getCalendar()), reference.getTime(column, getCalendar()));
+                assertEquals(rs.getTime(column, getCalendar()), new Time(LocalDate.of(1970, 1, 1).atTime(LocalTime.of(9, 39, 5)).atZone(getZoneId()).toInstant().toEpochMilli()));
+            });
+        }
     }
 
     @Test
@@ -344,20 +323,22 @@ public class TestJdbcVendorCompatibility
     private void testDateRoundTrip(Optional<String> sessionTimezoneId)
             throws SQLException
     {
-        LocalDate date = LocalDate.of(2001, 5, 6);
-        Date sqlDate = Date.valueOf(date);
-        java.util.Date javaDate = new java.util.Date(sqlDate.getTime());
-        LocalDateTime dateTime = LocalDateTime.of(date, LocalTime.of(12, 34, 56));
-        Timestamp sqlTimestamp = Timestamp.valueOf(dateTime);
+        try (Connection connection = createConnection()) {
+            LocalDate date = LocalDate.of(2001, 5, 6);
+            Date sqlDate = Date.valueOf(date);
+            java.util.Date javaDate = new java.util.Date(sqlDate.getTime());
+            LocalDateTime dateTime = LocalDateTime.of(date, LocalTime.of(12, 34, 56));
+            Timestamp sqlTimestamp = Timestamp.valueOf(dateTime);
 
-        assertParameter(sqlDate, sessionTimezoneId, (ps, i) -> ps.setDate(i, sqlDate));
-        assertParameter(sqlDate, sessionTimezoneId, (ps, i) -> ps.setObject(i, sqlDate));
-        assertParameter(sqlDate, sessionTimezoneId, (ps, i) -> ps.setObject(i, sqlDate, Types.DATE));
-        assertParameter(sqlDate, sessionTimezoneId, (ps, i) -> ps.setObject(i, sqlTimestamp, Types.DATE));
-        assertParameter(sqlDate, sessionTimezoneId, (ps, i) -> ps.setObject(i, javaDate, Types.DATE));
-        assertParameter(sqlDate, sessionTimezoneId, (ps, i) -> ps.setObject(i, date, Types.DATE));
-        assertParameter(sqlDate, sessionTimezoneId, (ps, i) -> ps.setObject(i, dateTime, Types.DATE));
-        assertParameter(sqlDate, sessionTimezoneId, (ps, i) -> ps.setObject(i, "2001-05-06", Types.DATE));
+            assertParameter(connection, sqlDate, sessionTimezoneId, (ps, i) -> ps.setDate(i, sqlDate));
+            assertParameter(connection, sqlDate, sessionTimezoneId, (ps, i) -> ps.setObject(i, sqlDate));
+            assertParameter(connection, sqlDate, sessionTimezoneId, (ps, i) -> ps.setObject(i, sqlDate, Types.DATE));
+            assertParameter(connection, sqlDate, sessionTimezoneId, (ps, i) -> ps.setObject(i, sqlTimestamp, Types.DATE));
+            assertParameter(connection, sqlDate, sessionTimezoneId, (ps, i) -> ps.setObject(i, javaDate, Types.DATE));
+            assertParameter(connection, sqlDate, sessionTimezoneId, (ps, i) -> ps.setObject(i, date, Types.DATE));
+            assertParameter(connection, sqlDate, sessionTimezoneId, (ps, i) -> ps.setObject(i, dateTime, Types.DATE));
+            assertParameter(connection, sqlDate, sessionTimezoneId, (ps, i) -> ps.setObject(i, "2001-05-06", Types.DATE));
+        }
     }
 
     @Test
@@ -374,27 +355,35 @@ public class TestJdbcVendorCompatibility
     private void testTimestampRoundTrip(Optional<String> sessionTimezoneId)
             throws SQLException
     {
-        LocalDateTime dateTime = LocalDateTime.of(2001, 5, 6, 12, 34, 56);
-        Date sqlDate = Date.valueOf(dateTime.toLocalDate());
-        Time sqlTime = Time.valueOf(dateTime.toLocalTime());
-        Timestamp sqlTimestamp = Timestamp.valueOf(dateTime);
-        Timestamp sameInstantInWarsawZone = Timestamp.valueOf(dateTime.atZone(ZoneId.systemDefault()).withZoneSameInstant(ZoneId.of("Europe/Warsaw")).toLocalDateTime());
-        java.util.Date javaDate = java.util.Date.from(dateTime.atZone(ZoneId.systemDefault()).toInstant());
+        try (Connection connection = createConnection()) {
+            LocalDateTime dateTime = LocalDateTime.of(2001, 5, 6, 12, 34, 56);
+            Date sqlDate = Date.valueOf(dateTime.toLocalDate());
+            Time sqlTime = Time.valueOf(dateTime.toLocalTime());
+            Timestamp sqlTimestamp = Timestamp.valueOf(dateTime);
+            Timestamp sameInstantInWarsawZone = Timestamp.valueOf(dateTime.atZone(ZoneId.systemDefault()).withZoneSameInstant(ZoneId.of("Europe/Warsaw")).toLocalDateTime());
+            java.util.Date javaDate = java.util.Date.from(dateTime.atZone(ZoneId.systemDefault()).toInstant());
 
-        assertParameter(sqlTimestamp, sessionTimezoneId, (ps, i) -> ps.setTimestamp(i, sqlTimestamp));
-        assertParameter(sqlTimestamp, sessionTimezoneId, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, null));
-        assertParameter(sqlTimestamp, sessionTimezoneId, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance()));
-        assertParameter(sameInstantInWarsawZone, sessionTimezoneId, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance(TimeZone.getTimeZone(ZoneId.of("Europe/Warsaw")))));
-        assertParameter(sqlTimestamp, sessionTimezoneId, (ps, i) -> ps.setObject(i, sqlTimestamp));
-        assertParameter(new Timestamp(sqlDate.getTime()), sessionTimezoneId, (ps, i) -> ps.setObject(i, sqlDate, Types.TIMESTAMP));
-        assertParameter(new Timestamp(sqlTime.getTime()), sessionTimezoneId, (ps, i) -> ps.setObject(i, sqlTime, Types.TIMESTAMP));
-        assertParameter(sqlTimestamp, sessionTimezoneId, (ps, i) -> ps.setObject(i, sqlTimestamp, Types.TIMESTAMP));
-        assertParameter(sqlTimestamp, sessionTimezoneId, (ps, i) -> ps.setObject(i, javaDate, Types.TIMESTAMP));
-        assertParameter(sqlTimestamp, sessionTimezoneId, (ps, i) -> ps.setObject(i, dateTime, Types.TIMESTAMP));
-        assertParameter(sqlTimestamp, sessionTimezoneId, (ps, i) -> ps.setObject(i, "2001-05-06 12:34:56", Types.TIMESTAMP));
+            assertParameter(connection, sqlTimestamp, sessionTimezoneId, (ps, i) -> ps.setTimestamp(i, sqlTimestamp));
+            assertParameter(connection, sqlTimestamp, sessionTimezoneId, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, null));
+            assertParameter(connection, sqlTimestamp, sessionTimezoneId, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance()));
+            assertParameter(connection, sameInstantInWarsawZone, sessionTimezoneId, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance(TimeZone.getTimeZone(ZoneId.of("Europe/Warsaw")))));
+            assertParameter(connection, sqlTimestamp, sessionTimezoneId, (ps, i) -> ps.setObject(i, sqlTimestamp));
+            assertParameter(connection, new Timestamp(sqlDate.getTime()), sessionTimezoneId, (ps, i) -> ps.setObject(i, sqlDate, Types.TIMESTAMP));
+            assertParameter(connection, new Timestamp(sqlTime.getTime()), sessionTimezoneId, (ps, i) -> ps.setObject(i, sqlTime, Types.TIMESTAMP));
+            assertParameter(connection, sqlTimestamp, sessionTimezoneId, (ps, i) -> ps.setObject(i, sqlTimestamp, Types.TIMESTAMP));
+            assertParameter(connection, sqlTimestamp, sessionTimezoneId, (ps, i) -> ps.setObject(i, javaDate, Types.TIMESTAMP));
+            assertParameter(connection, sqlTimestamp, sessionTimezoneId, (ps, i) -> ps.setObject(i, dateTime, Types.TIMESTAMP));
+            assertParameter(connection, sqlTimestamp, sessionTimezoneId, (ps, i) -> ps.setObject(i, "2001-05-06 12:34:56", Types.TIMESTAMP));
+        }
     }
 
-    private void assertParameter(Object expectedValue, Optional<String> sessionTimezoneId, Binder binder)
+    private Connection createConnection()
+            throws SQLException
+    {
+        return DriverManager.getConnection("jdbc:trino://" + server.getAddress(), "test", null);
+    }
+
+    private void assertParameter(Connection connection, Object expectedValue, Optional<String> sessionTimezoneId, Binder binder)
             throws SQLException
     {
         // connection is recreated before each test invocation
@@ -410,16 +399,16 @@ public class TestJdbcVendorCompatibility
         }
     }
 
-    private void checkRepresentation(String expression, JDBCType type, Optional<String> sessionTimezoneId, ResultAssertion assertion)
+    private void checkRepresentation(Connection connection, Statement statement, String expression, JDBCType type, Optional<String> sessionTimezoneId, ResultAssertion assertion)
             throws Exception
     {
         List<String> referenceDriversExpressions = referenceDrivers.stream()
                 .map(driver -> driver.supports(type) ? expression : "")
                 .collect(toImmutableList());
-        checkRepresentation(expression, referenceDriversExpressions, type, sessionTimezoneId, assertion);
+        checkRepresentation(connection, statement, expression, referenceDriversExpressions, type, sessionTimezoneId, assertion);
     }
 
-    private void checkRepresentation(String trinoExpression, List<String> referenceDriversExpressions, JDBCType type, Optional<String> sessionTimezoneId, ResultAssertion assertion)
+    private void checkRepresentation(Connection connection, Statement statement, String trinoExpression, List<String> referenceDriversExpressions, JDBCType type, Optional<String> sessionTimezoneId, ResultAssertion assertion)
             throws Exception
     {
         verify(referenceDriversExpressions.size() == referenceDrivers.size(), "Wrong referenceDriversExpressions list size");
@@ -437,7 +426,7 @@ public class TestJdbcVendorCompatibility
                 log.info("Checking behavior against %s using expression: %s", driver, referenceExpression);
                 try {
                     verify(!referenceExpression.isEmpty(), "referenceExpression is empty");
-                    checkRepresentation(trinoExpression, referenceExpression, type, sessionTimezoneId, driver, assertion);
+                    checkRepresentation(connection, statement, trinoExpression, referenceExpression, type, sessionTimezoneId, driver, assertion);
                 }
                 catch (RuntimeException | AssertionError e) {
                     String message = format("Failure when checking behavior against %s", driver);
@@ -462,10 +451,10 @@ public class TestJdbcVendorCompatibility
         }
     }
 
-    private void checkRepresentation(String trinoExpression, String referenceExpression, JDBCType type, Optional<String> sessionTimezoneId, ReferenceDriver reference, ResultAssertion assertion)
+    private void checkRepresentation(Connection connection, Statement statement, String trinoExpression, String referenceExpression, JDBCType type, Optional<String> sessionTimezoneId, ReferenceDriver reference, ResultAssertion assertion)
             throws Exception
     {
-        try (ResultSet trinoResultSet = trinoQuery(trinoExpression, sessionTimezoneId);
+        try (ResultSet trinoResultSet = trinoQuery(connection, statement, trinoExpression, sessionTimezoneId);
                 ResultSet referenceResultSet = reference.query(referenceExpression, sessionTimezoneId)) {
             assertTrue(trinoResultSet.next());
             assertTrue(referenceResultSet.next());
@@ -482,7 +471,7 @@ public class TestJdbcVendorCompatibility
         }
     }
 
-    private ResultSet trinoQuery(String expression, Optional<String> sessionTimezoneId)
+    private ResultSet trinoQuery(Connection connection, Statement statement, String expression, Optional<String> sessionTimezoneId)
             throws Exception
     {
         // connection is recreated before each test invocation
@@ -498,6 +487,33 @@ public class TestJdbcVendorCompatibility
     private ZoneId getZoneId()
     {
         return ZoneId.of(getCalendar().getTimeZone().getID());
+    }
+
+    private class ConnectionSetup
+            implements Closeable
+    {
+        private final List<ReferenceDriver> drivers;
+
+        public ConnectionSetup(List<ReferenceDriver> drivers)
+        {
+            this.drivers = drivers;
+            for (ReferenceDriver driver : drivers) {
+                driver.setUp();
+            }
+        }
+
+        @Override
+        public void close()
+        {
+            for (ReferenceDriver driver : drivers) {
+                try {
+                    driver.tearDown();
+                }
+                catch (Exception e) {
+                    log.warn(e, "Failed to close reference JDBC driver %s; continuing", driver);
+                }
+            }
+        }
     }
 
     private interface ReferenceDriver
