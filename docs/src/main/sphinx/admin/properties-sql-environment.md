@@ -35,6 +35,18 @@ Set the default catalog for [SQL routine](/routines) storage for all clients.
 The connector used in the catalog must support [](sql-routine-management). Any
 usage of a fully qualified name for a routine overrides this default.
 
+The default catalog and schema for SQL routine storage must be configured
+together, and the resulting entry must be set as part of the path. For example,
+the following example section for [](config-properties) uses the `functions`
+schema in the `brain` catalog for routine storage, and adds it as the only entry
+on the path:
+
+```properties
+sql.default-function-catalog=brain
+sql.default-function-schema=default
+sql.path=brain.default
+```
+
 ## `sql.default-function-schema`
 
 - **Type:** [](prop-type-string)
