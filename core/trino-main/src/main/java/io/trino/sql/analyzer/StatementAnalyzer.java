@@ -928,7 +928,7 @@ class StatementAnalyzer
             accessControl.checkCanCreateTable(session.toSecurityContext(), targetTable, explicitlySetProperties);
 
             // analyze the query that creates the table
-            Scope queryScope = analyze(node.getQuery());
+            Scope queryScope = analyze(node.getQuery(), Optional.empty(), false);
 
             ImmutableList.Builder<ColumnMetadata> columnsBuilder = ImmutableList.builder();
 
