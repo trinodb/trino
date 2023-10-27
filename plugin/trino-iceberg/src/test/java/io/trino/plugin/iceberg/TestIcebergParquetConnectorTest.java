@@ -51,12 +51,6 @@ public class TestIcebergParquetConnectorTest
                 typeName.equalsIgnoreCase("timestamp(6) with time zone"));
     }
 
-    @Override
-    protected boolean supportsPhysicalPushdown()
-    {
-        return true;
-    }
-
     @Test
     public void testRowGroupResetDictionary()
     {
