@@ -7524,13 +7524,6 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Override
-    protected boolean supportsPhysicalPushdown()
-    {
-        // TODO https://github.com/trinodb/trino/issues/17156
-        return false;
-    }
-
-    @Override
     protected Session withoutSmallFileThreshold(Session session)
     {
         return Session.builder(session)
