@@ -105,6 +105,13 @@ public class TestIcebergMinioOrcConnectorTest
         return checkOrcFileSorting(fileSystem, Location.of(path), sortColumnName);
     }
 
+    @Override
+    protected boolean supportsPhysicalPushdown()
+    {
+        // TODO https://github.com/trinodb/trino/issues/17156
+        return false;
+    }
+
     @Test
     public void testTinyintType()
             throws Exception
