@@ -38,6 +38,38 @@ shift $((OPTIND - 1))
 
 SOURCE_DIR="../.."
 
+function temurin_jdk_link() {
+  JDK_VERSION="${1}"
+  ARCH="${2}"
+
+  versionsUrl="https://api.adoptium.net/v3/info/release_names?heap_size=normal&image_type=jdk&lts=true&os=linux&page=0&page_size=20&project=jdk&release_type=ga&semver=false&sort_method=DEFAULT&sort_order=ASC&vendor=eclipse&version=%28${JDK_VERSION}%2C%5D"
+  if ! result=$(curl -fLs "$versionsUrl" -H 'accept: application/json'); then
+    echo >&2 "Failed to fetch release names for JDK version [${JDK_VERSION}, ) from Temurin API : $result"
+    exit 1
+  fi
+
+  if ! RELEASE_NAME=$(echo "$result" | jq -er '.releases[]' | grep "${JDK_VERSION}" | head -n 1); then
+    echo >&2 "Failed to determine release name: ${RELEASE_NAME}"
+    exit 1
+  fi
+
+  case "${ARCH}" in
+    arm64)
+      echo "https://api.adoptium.net/v3/binary/version/${RELEASE_NAME}/linux/aarch64/jdk/hotspot/normal/eclipse?project=jdk"
+    ;;
+    amd64)
+      echo "https://api.adoptium.net/v3/binary/version/${RELEASE_NAME}/linux/x64/jdk/hotspot/normal/eclipse?project=jdk"
+    ;;
+    ppc64le)
+      echo "https://api.adoptium.net/v3/binary/version/${RELEASE_NAME}/linux/ppc64le/jdk/hotspot/normal/eclipse?project=jdk"
+    ;;
+  *)
+    echo "${ARCH} is not supported for Docker image"
+    exit 1
+    ;;
+  esac
+}
+
 # Retrieve the script directory.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd "${SCRIPT_DIR}" || exit 2
@@ -68,12 +100,15 @@ cp -R bin "${WORK_DIR}/trino-server-${TRINO_VERSION}"
 cp -R default "${WORK_DIR}/"
 
 TAG_PREFIX="trino:${TRINO_VERSION}"
+JDK_VERSION=$(cat "${SOURCE_DIR}/.java-version")
 
 for arch in "${ARCHITECTURES[@]}"; do
-    echo "🫙  Building the image for $arch"
+    echo "🫙  Building the image for $arch with JDK ${JDK_VERSION}"
     docker build \
         "${WORK_DIR}" \
         --pull \
+        --build-arg JDK_VERSION="${JDK_VERSION}" \
+        --build-arg JDK_DOWNLOAD_LINK="$(temurin_jdk_link "${JDK_VERSION}" "${arch}")" \
         --platform "linux/$arch" \
         -f Dockerfile \
         -t "${TAG_PREFIX}-$arch" \
