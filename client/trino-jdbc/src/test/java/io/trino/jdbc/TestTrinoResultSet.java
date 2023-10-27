@@ -19,7 +19,8 @@ import io.trino.client.QueryData;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.StatementClient;
 import io.trino.client.StatementStats;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.time.ZoneId;
 import java.util.Iterator;
@@ -42,7 +43,8 @@ import static org.testng.Assert.assertTrue;
  */
 public class TestTrinoResultSet
 {
-    @Test(timeOut = 10000)
+    @Test
+    @Timeout(10)
     public void testIteratorCancelWhenQueueNotFull()
             throws Exception
     {
@@ -83,7 +85,8 @@ public class TestTrinoResultSet
         assertTrue(interruptedButSwallowed);
     }
 
-    @Test(timeOut = 10000)
+    @Test
+    @Timeout(10)
     public void testIteratorCancelWhenQueueIsFull()
             throws Exception
     {
