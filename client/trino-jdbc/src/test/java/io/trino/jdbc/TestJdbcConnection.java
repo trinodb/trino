@@ -32,7 +32,6 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.testing.DataProviders;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -451,8 +450,15 @@ public class TestJdbcConnection
      * @see TestJdbcStatement#testConcurrentCancellationOnStatementClose()
      */
     // TODO https://github.com/trinodb/trino/issues/10096 - enable test once concurrent jdbc statements are supported
-    @Test(timeOut = 60_000, dataProviderClass = DataProviders.class, dataProvider = "trueFalse", enabled = false)
-    public void testConcurrentCancellationOnConnectionClose(boolean autoCommit)
+    @Test(timeOut = 60_000, enabled = false)
+    public void testConcurrentCancellationOnConnectionClose()
+            throws Exception
+    {
+        testConcurrentCancellationOnConnectionClose(true);
+        testConcurrentCancellationOnConnectionClose(false);
+    }
+
+    private void testConcurrentCancellationOnConnectionClose(boolean autoCommit)
             throws Exception
     {
         String sql = "SELECT * FROM blackhole.default.delay -- test cancellation " + randomUUID();
