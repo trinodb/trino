@@ -11,6 +11,11 @@ fi
 
 S3_BUCKET_IDENTIFIER=$(cat "${S3_SCRIPTS_DIR}"/.bucket-identifier)
 
+echo "Deleting all leftover objects from AWS S3 bucket ${S3_BUCKET_IDENTIFIER}"
+aws s3 rm s3://"${S3_BUCKET_IDENTIFIER}" \
+  --region "${AWS_REGION}" \
+  --recursive
+
 echo "Deleting AWS S3 bucket ${S3_BUCKET_IDENTIFIER}"
 aws s3api delete-bucket \
   --bucket "${S3_BUCKET_IDENTIFIER}" \
