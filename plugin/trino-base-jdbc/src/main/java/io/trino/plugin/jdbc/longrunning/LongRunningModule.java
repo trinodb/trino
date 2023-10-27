@@ -11,32 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.eventlistener;
+package io.trino.plugin.jdbc.longrunning;
 
-public interface EventListener
+import com.google.inject.AbstractModule;
+import com.google.inject.Scopes;
+
+public class LongRunningModule
+        extends AbstractModule
 {
-    default void queryCreated(QueryCreatedEvent queryCreatedEvent)
+    @Override
+    public void configure()
     {
-    }
-
-    default void queryCompleted(QueryCompletedEvent queryCompletedEvent)
-    {
-    }
-
-    default void splitCompleted(SplitCompletedEvent splitCompletedEvent)
-    {
-    }
-
-    /**
-     * Specify whether the plan included in QueryCompletedEvent should be anonymized or not
-     */
-    default boolean requiresAnonymizedPlan()
-    {
-        return false;
-    }
-
-    default String getName()
-    {
-        return "";
+        bind(LongRunningEventListenerFactory.class).in(Scopes.SINGLETON);
     }
 }

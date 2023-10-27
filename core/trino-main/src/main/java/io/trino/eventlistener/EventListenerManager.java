@@ -17,6 +17,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
@@ -85,6 +86,10 @@ public class EventListenerManager
                 .addAll(providedEventListeners)
                 .addAll(configuredEventListeners())
                 .build());
+
+        for (EventListener eventListener : configuredEventListeners.get()) {
+            System.out.println("eventListener: " + eventListener);
+        }
     }
 
     private List<EventListener> configuredEventListeners()
@@ -132,7 +137,7 @@ public class EventListenerManager
         }
     }
 
-    public void queryCompleted(Function<Boolean, QueryCompletedEvent> queryCompletedEventProvider)
+    public void queryCompleted(Function<Boolean, QueryCompletedEvent> queryCompletedEventProvider, WarningCollector warningCollector)
     {
         for (EventListener listener : configuredEventListeners.get()) {
             QueryCompletedEvent event = queryCompletedEventProvider.apply(listener.requiresAnonymizedPlan());
@@ -145,9 +150,11 @@ public class EventListenerManager
         }
     }
 
-    public void queryCreated(QueryCreatedEvent queryCreatedEvent)
+    public void queryCreated(QueryCreatedEvent queryCreatedEvent, WarningCollector warningCollector)
     {
+        System.out.println("have " + configuredEventListeners.get().size() + " listeners on queryCreated");
         for (EventListener listener : configuredEventListeners.get()) {
+            System.out.println("listener: " + listener);
             try {
                 listener.queryCreated(queryCreatedEvent);
             }

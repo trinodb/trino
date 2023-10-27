@@ -19,6 +19,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.spi.TrinoWarning;
+import io.trino.spi.WarningCode;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
@@ -28,10 +31,15 @@ import io.trino.spi.eventlistener.SplitCompletedEvent;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+
+import static java.lang.System.currentTimeMillis;
 
 public class TestingEventListenerManager
         extends EventListenerManager
 {
+    private static final long LISTENER_THRESHOLD_MILLIS = TimeUnit.MILLISECONDS.toMillis(500);
+
     public static TestingEventListenerManager emptyEventListenerManager()
     {
         return new TestingEventListenerManager(new EventListenerConfig());
@@ -58,18 +66,36 @@ public class TestingEventListenerManager
     }
 
     @Override
-    public void queryCompleted(Function<Boolean, QueryCompletedEvent> queryCompletedEventProvider)
+    public void queryCompleted(Function<Boolean, QueryCompletedEvent> queryCompletedEventProvider, WarningCollector warningCollector)
     {
         for (EventListener listener : configuredEventListeners) {
+            long elapsed = -currentTimeMillis();
             listener.queryCompleted(queryCompletedEventProvider.apply(listener.requiresAnonymizedPlan()));
+            elapsed += currentTimeMillis();
+            if (elapsed > LISTENER_THRESHOLD_MILLIS) {
+                System.out.println("EventListener.queryCompleted " + listener.getName() + " is taking longer than expected: " + elapsed + " ms");
+                if (null != warningCollector) {
+                    warningCollector.add(new TrinoWarning(new WarningCode(1, "code"),
+                            "EventListener.queryCompleted " + listener.getName() + " is taking longer than expected: " + elapsed + " ms"));
+                }
+            }
         }
     }
 
     @Override
-    public void queryCreated(QueryCreatedEvent queryCreatedEvent)
+    public void queryCreated(QueryCreatedEvent queryCreatedEvent, WarningCollector warningCollector)
     {
         for (EventListener listener : configuredEventListeners) {
+            long elapsed = -currentTimeMillis();
             listener.queryCreated(queryCreatedEvent);
+            elapsed += currentTimeMillis();
+            if (elapsed > LISTENER_THRESHOLD_MILLIS) {
+                System.out.println("EventListener.queryCreated " + listener.getName() + " for query: " + queryCreatedEvent.getMetadata().getQuery() + " is taking longer than expected: " + elapsed + " ms");
+                if (null != warningCollector) {
+                    warningCollector.add(new TrinoWarning(new WarningCode(1, "code"),
+                            "EventListener.queryCreated " + listener.getName() + " for query: " + queryCreatedEvent.getMetadata().getQuery() + " is taking longer than expected: " + elapsed + " ms"));
+                }
+            }
         }
     }
 
@@ -77,7 +103,12 @@ public class TestingEventListenerManager
     public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
     {
         for (EventListener listener : configuredEventListeners) {
+            long elapsed = -currentTimeMillis();
             listener.splitCompleted(splitCompletedEvent);
+            elapsed += currentTimeMillis();
+            if (elapsed > LISTENER_THRESHOLD_MILLIS) {
+                System.out.println("EventListener.splitCompleted " + listener.getName() + " is taking longer than expected: " + elapsed + " ms");
+            }
         }
     }
 

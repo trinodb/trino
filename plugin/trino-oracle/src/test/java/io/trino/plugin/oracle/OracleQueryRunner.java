@@ -16,6 +16,7 @@ package io.trino.plugin.oracle;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.plugin.jdbc.longrunning.LongRunningPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -68,6 +69,8 @@ public final class OracleQueryRunner
 
             queryRunner.installPlugin(new OraclePlugin());
             queryRunner.createCatalog("oracle", "oracle", connectorProperties);
+
+            queryRunner.installPlugin(new LongRunningPlugin());
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
 

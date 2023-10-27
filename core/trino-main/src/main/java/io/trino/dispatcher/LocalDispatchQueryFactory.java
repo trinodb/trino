@@ -44,6 +44,7 @@ import io.trino.transaction.TransactionManager;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.util.StatementUtils.getQueryType;
@@ -71,6 +72,8 @@ public class LocalDispatchQueryFactory
     private final int queryReportedRuleStatsLimit;
     private final boolean faultTolerantExecutionExchangeEncryptionEnabled;
     private final NodeVersion version;
+
+    private final Random random = new Random(System.currentTimeMillis());
 
     @Inject
     public LocalDispatchQueryFactory(
@@ -141,7 +144,7 @@ public class LocalDispatchQueryFactory
         //
         // Note that for immediate and in-order delivery of query events we depend on synchronous nature of
         // QueryMonitor and EventListenerManager.
-        queryMonitor.queryCreatedEvent(stateMachine.getBasicQueryInfo(Optional.empty()));
+        queryMonitor.queryCreatedEvent(stateMachine.getBasicQueryInfo(Optional.empty()), warningCollector);
 
         ListenableFuture<QueryExecution> queryExecutionFuture = executor.submit(() -> {
             QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(preparedQuery.getStatement().getClass());
@@ -177,6 +180,7 @@ public class LocalDispatchQueryFactory
                 queryMonitor,
                 clusterSizeMonitor,
                 executor,
-                queryManager::createQuery);
+                queryManager::createQuery,
+                warningCollector);
     }
 }

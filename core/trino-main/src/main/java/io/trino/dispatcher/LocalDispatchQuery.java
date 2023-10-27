@@ -27,6 +27,7 @@ import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
 import io.trino.execution.QueryStateMachine;
 import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.execution.warnings.WarningCollector;
 import io.trino.server.BasicQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
@@ -66,13 +67,16 @@ public class LocalDispatchQuery
 
     private final AtomicBoolean notificationSentOrGuaranteed = new AtomicBoolean();
 
+    private final WarningCollector warningCollector;
+
     public LocalDispatchQuery(
             QueryStateMachine stateMachine,
             ListenableFuture<QueryExecution> queryExecutionFuture,
             QueryMonitor queryMonitor,
             ClusterSizeMonitor clusterSizeMonitor,
             Executor queryExecutor,
-            Consumer<QueryExecution> querySubmitter)
+            Consumer<QueryExecution> querySubmitter,
+            WarningCollector warningCollector)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.queryExecutionFuture = requireNonNull(queryExecutionFuture, "queryExecutionFuture is null");
@@ -80,6 +84,7 @@ public class LocalDispatchQuery
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         this.querySubmitter = requireNonNull(querySubmitter, "querySubmitter is null");
+        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
 
         addExceptionCallback(queryExecutionFuture, throwable -> {
             // When we are at the terminal state transitionToFailed()
@@ -94,7 +99,7 @@ public class LocalDispatchQuery
         stateMachine.addStateChangeListener(state -> {
             if (state == QueryState.FAILED) {
                 if (notificationSentOrGuaranteed.compareAndSet(false, true)) {
-                    queryMonitor.queryImmediateFailureEvent(getBasicQueryInfo(), getFullQueryInfo().getFailureInfo());
+                    queryMonitor.queryImmediateFailureEvent(getBasicQueryInfo(), getFullQueryInfo().getFailureInfo(), warningCollector);
                 }
             }
             // any PLANNING or later state means the query has been submitted for execution
@@ -144,7 +149,10 @@ public class LocalDispatchQuery
             try {
                 querySubmitter.accept(queryExecution);
                 if (notificationSentOrGuaranteed.compareAndSet(false, true)) {
-                    queryExecution.addFinalQueryInfoListener(queryMonitor::queryCompletedEvent);
+                    //queryExecution.addFinalQueryInfoListener(queryMonitor::queryCompletedEvent);
+                    queryExecution.addFinalQueryInfoListener(s -> {
+                        queryMonitor.queryCompletedEvent(s, warningCollector);
+                    });
                 }
             }
             catch (Throwable t) {

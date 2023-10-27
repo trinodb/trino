@@ -181,6 +181,7 @@ Spilled: 20GB
                 stats.getState(),
                 nodes,
                 pluralize("node", nodes));
+        //TODO: this is where we print status of a query
         out.println(querySummary);
 
         if (debug) {
@@ -339,6 +340,7 @@ Spilled: 20GB
                         formatDataRate(bytes(stats.getProcessedBytes()), wallTime, true),
                         progressBar,
                         progressPercentage);
+                //TODO: this is where we print progress
 
                 reprintLine(progressLine);
             }

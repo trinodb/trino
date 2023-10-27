@@ -16,6 +16,7 @@ package io.trino.plugin.postgresql;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.plugin.jdbc.longrunning.LongRunningPlugin;
 import io.trino.plugin.jmx.JmxPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -65,6 +66,7 @@ public final class PostgreSqlQueryRunner
                     .build();
 
             queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.installPlugin(new LongRunningPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
             // note: additional copy via ImmutableList so that if fails on nulls

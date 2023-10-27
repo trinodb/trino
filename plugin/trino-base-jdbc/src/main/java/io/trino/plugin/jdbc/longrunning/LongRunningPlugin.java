@@ -11,32 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.eventlistener;
+package io.trino.plugin.jdbc.longrunning;
 
-public interface EventListener
+import io.trino.plugin.jdbc.JdbcPlugin;
+import io.trino.spi.eventlistener.EventListenerFactory;
+
+import static java.util.Collections.singletonList;
+
+public class LongRunningPlugin
+        extends JdbcPlugin
 {
-    default void queryCreated(QueryCreatedEvent queryCreatedEvent)
+    @Override
+    public Iterable<EventListenerFactory> getEventListenerFactories()
     {
+        return singletonList(new LongRunningEventListenerFactory());
     }
 
-    default void queryCompleted(QueryCompletedEvent queryCompletedEvent)
+    public LongRunningPlugin()
     {
-    }
-
-    default void splitCompleted(SplitCompletedEvent splitCompletedEvent)
-    {
-    }
-
-    /**
-     * Specify whether the plan included in QueryCompletedEvent should be anonymized or not
-     */
-    default boolean requiresAnonymizedPlan()
-    {
-        return false;
-    }
-
-    default String getName()
-    {
-        return "";
+        super("longrunning", new LongRunningModule());
     }
 }

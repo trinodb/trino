@@ -38,6 +38,7 @@ import io.trino.execution.QueryStats;
 import io.trino.execution.StageInfo;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskState;
+import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
@@ -143,7 +144,7 @@ public class QueryMonitor
         this.maxJsonLimit = toIntExact(config.getMaxOutputStageJsonSize().toBytes());
     }
 
-    public void queryCreatedEvent(BasicQueryInfo queryInfo)
+    public void queryCreatedEvent(BasicQueryInfo queryInfo, WarningCollector warningCollector)
     {
         eventListenerManager.queryCreated(
                 new QueryCreatedEvent(
@@ -165,10 +166,11 @@ public class QueryMonitor
                                 queryInfo.getSelf(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                Optional.empty())));
+                                Optional.empty())),
+                warningCollector);
     }
 
-    public void queryImmediateFailureEvent(BasicQueryInfo queryInfo, ExecutionFailureInfo failure)
+    public void queryImmediateFailureEvent(BasicQueryInfo queryInfo, ExecutionFailureInfo failure, WarningCollector warningCollector)
     {
         eventListenerManager.queryCompleted(requiresAnonymizedPlan -> new QueryCompletedEvent(
                 new QueryMetadata(
@@ -237,12 +239,13 @@ public class QueryMonitor
                 ImmutableList.of(),
                 ofEpochMilli(queryInfo.getQueryStats().getCreateTime().getMillis()),
                 ofEpochMilli(queryInfo.getQueryStats().getEndTime().getMillis()),
-                ofEpochMilli(queryInfo.getQueryStats().getEndTime().getMillis())));
+                ofEpochMilli(queryInfo.getQueryStats().getEndTime().getMillis())),
+                warningCollector);
 
         logQueryTimeline(queryInfo);
     }
 
-    public void queryCompletedEvent(QueryInfo queryInfo)
+    public void queryCompletedEvent(QueryInfo queryInfo, WarningCollector warningCollector)
     {
         QueryStats queryStats = queryInfo.getQueryStats();
         eventListenerManager.queryCompleted(requiresAnonymizedPlan ->
@@ -259,7 +262,8 @@ public class QueryMonitor
                         queryInfo.getWarnings(),
                         ofEpochMilli(queryStats.getCreateTime().getMillis()),
                         ofEpochMilli(queryStats.getExecutionStartTime().getMillis()),
-                        ofEpochMilli(queryStats.getEndTime() != null ? queryStats.getEndTime().getMillis() : 0)));
+                        ofEpochMilli(queryStats.getEndTime() != null ? queryStats.getEndTime().getMillis() : 0)),
+                        warningCollector);
 
         logQueryTimeline(queryInfo);
     }
