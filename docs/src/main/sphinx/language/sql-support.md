@@ -95,6 +95,13 @@ connector to connector:
 - {doc}`/sql/drop-materialized-view`
 - {doc}`/sql/refresh-materialized-view`
 
+(sql-catalog-management)=
+
+### Catalog management
+
+- {doc}`/sql/create-catalog`
+- {doc}`/sql/drop-catalog`
+
 (sql-schema-table-management)=
 
 ### Schema and table management
