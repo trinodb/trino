@@ -1517,7 +1517,6 @@ class StatementAnalyzer
         @Override
         protected Scope visitQuery(Query node, Optional<Scope> scope)
         {
-            verify(isTopLevel || node.getFunctions().isEmpty(), "Inline functions must be at the top level");
             for (FunctionSpecification function : node.getFunctions()) {
                 if (function.getName().getPrefix().isPresent()) {
                     throw semanticException(SYNTAX_ERROR, function, "Inline function names cannot be qualified: " + function.getName());
