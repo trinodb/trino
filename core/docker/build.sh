@@ -106,6 +106,7 @@ for arch in "${ARCHITECTURES[@]}"; do
     echo "🫙  Building the image for $arch with JDK ${JDK_VERSION}"
     docker build \
         "${WORK_DIR}" \
+        --progress=plain \
         --pull \
         --build-arg JDK_VERSION="${JDK_VERSION}" \
         --build-arg JDK_DOWNLOAD_LINK="$(temurin_jdk_link "${JDK_VERSION}" "${arch}")" \
