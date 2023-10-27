@@ -32,9 +32,12 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -64,18 +67,20 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+@TestInstance(PER_CLASS)
 public class TestJdbcConnection
 {
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getName()));
 
     private TestingTrinoServer server;
 
-    @BeforeClass
+    @BeforeAll
     public void setupServer()
             throws Exception
     {
@@ -108,7 +113,7 @@ public class TestJdbcConnection
         }
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws Exception
     {
@@ -450,7 +455,9 @@ public class TestJdbcConnection
      * @see TestJdbcStatement#testConcurrentCancellationOnStatementClose()
      */
     // TODO https://github.com/trinodb/trino/issues/10096 - enable test once concurrent jdbc statements are supported
-    @Test(timeOut = 60_000, enabled = false)
+    @Test
+    @Timeout(60)
+    @Disabled
     public void testConcurrentCancellationOnConnectionClose()
             throws Exception
     {

@@ -41,10 +41,12 @@ import jakarta.ws.rs.core.Response;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -84,14 +86,17 @@ import static java.net.HttpURLConnection.HTTP_OK;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestJdbcExternalAuthentication
 {
     private static final String TEST_CATALOG = "test_catalog";
     private TestingTrinoServer server;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
             throws Exception
     {
@@ -112,7 +117,7 @@ public class TestJdbcExternalAuthentication
         server.waitForNodeRefresh(Duration.ofSeconds(10));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
             throws Exception
     {
@@ -120,16 +125,12 @@ public class TestJdbcExternalAuthentication
         server = null;
     }
 
-    @BeforeMethod(alwaysRun = true)
-    public void clearUpLoggingSessions()
-    {
-        invalidateAllTokens();
-    }
-
     @Test
     public void testSuccessfulAuthenticationWithHttpGetOnlyRedirectHandler()
             throws Exception
     {
+        invalidateAllTokens();
+
         try (RedirectHandlerFixture ignore = withHandler(new HttpGetOnlyRedirectHandler());
                 Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {
@@ -141,10 +142,13 @@ public class TestJdbcExternalAuthentication
      * Ignored due to lack of ui environment with web-browser on CI servers.
      * Still this test is useful for local environments.
      */
-    @Test(enabled = false)
+    @Test
+    @Disabled
     public void testSuccessfulAuthenticationWithDefaultBrowserRedirect()
             throws Exception
     {
+        invalidateAllTokens();
+
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {
             assertThat(statement.execute("SELECT 123")).isTrue();
@@ -155,6 +159,8 @@ public class TestJdbcExternalAuthentication
     public void testAuthenticationFailsAfterUnfinishedRedirect()
             throws Exception
     {
+        invalidateAllTokens();
+
         try (RedirectHandlerFixture ignore = withHandler(new NoOpRedirectHandler());
                 Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {
@@ -167,6 +173,8 @@ public class TestJdbcExternalAuthentication
     public void testAuthenticationFailsAfterRedirectException()
             throws Exception
     {
+        invalidateAllTokens();
+
         try (RedirectHandlerFixture ignore = withHandler(new FailingRedirectHandler());
                 Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {
@@ -180,6 +188,8 @@ public class TestJdbcExternalAuthentication
     public void testAuthenticationFailsAfterServerAuthenticationFailure()
             throws Exception
     {
+        invalidateAllTokens();
+
         try (RedirectHandlerFixture ignore = withHandler(new HttpGetOnlyRedirectHandler());
                 AutoCloseable ignore2 = withPollingError("error occurred during token polling");
                 Connection connection = createConnection();
@@ -194,6 +204,8 @@ public class TestJdbcExternalAuthentication
     public void testAuthenticationFailsAfterReceivingMalformedHeaderFromServer()
             throws Exception
     {
+        invalidateAllTokens();
+
         try (RedirectHandlerFixture ignore = withHandler(new HttpGetOnlyRedirectHandler());
                 AutoCloseable ignored = withWwwAuthenticate("Bearer no-valid-fields");
                 Connection connection = createConnection();
@@ -209,6 +221,8 @@ public class TestJdbcExternalAuthentication
     public void testAuthenticationReusesObtainedTokenPerConnection()
             throws Exception
     {
+        invalidateAllTokens();
+
         try (RedirectHandlerFixture ignore = withHandler(new HttpGetOnlyRedirectHandler());
                 Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {
@@ -224,6 +238,8 @@ public class TestJdbcExternalAuthentication
     public void testAuthenticationAfterInitialTokenHasBeenInvalidated()
             throws Exception
     {
+        invalidateAllTokens();
+
         try (RedirectHandlerFixture ignore = withHandler(new HttpGetOnlyRedirectHandler());
                 Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {

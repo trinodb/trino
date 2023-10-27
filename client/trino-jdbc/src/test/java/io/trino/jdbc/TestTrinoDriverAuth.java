@@ -19,9 +19,10 @@ import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.Jwts;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.testing.TestingTrinoServer;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import javax.crypto.SecretKey;
 
@@ -47,11 +48,13 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Base64.getMimeDecoder;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public class TestTrinoDriverAuth
 {
     private static final String TEST_CATALOG = "test_catalog";
@@ -60,7 +63,7 @@ public class TestTrinoDriverAuth
     private Key hmac222;
     private PrivateKey privateKey33;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
             throws Exception
     {
@@ -88,7 +91,7 @@ public class TestTrinoDriverAuth
         server.waitForNodeRefresh(Duration.ofSeconds(10));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
             throws Exception
     {
@@ -157,14 +160,17 @@ public class TestTrinoDriverAuth
         }
     }
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Authentication failed: Unauthorized")
+    @Test
     public void testFailedNoToken()
-            throws Exception
     {
-        try (Connection connection = createConnection(ImmutableMap.of());
-                Statement statement = connection.createStatement()) {
-            statement.execute("SELECT 123");
-        }
+        assertThatThrownBy(() -> {
+            try (Connection connection = createConnection(ImmutableMap.of());
+                    Statement statement = connection.createStatement()) {
+                statement.execute("SELECT 123");
+            }
+        })
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Authentication failed: Unauthorized");
     }
 
     @Test
@@ -201,38 +207,44 @@ public class TestTrinoDriverAuth
         }
     }
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Authentication failed: JWT signature does not match.*")
+    @Test
     public void testFailedWrongPublicKey()
-            throws Exception
     {
-        String accessToken = newJwtBuilder()
-                .subject("test")
-                .header().keyId("42")
-                .and()
-                .signWith(privateKey33)
-                .compact();
+        assertThatThrownBy(() -> {
+            String accessToken = newJwtBuilder()
+                    .subject("test")
+                    .header().keyId("42")
+                    .and()
+                    .signWith(privateKey33)
+                    .compact();
 
-        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));
-                Statement statement = connection.createStatement()) {
-            statement.execute("SELECT 123");
-        }
+            try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));
+                    Statement statement = connection.createStatement()) {
+                statement.execute("SELECT 123");
+            }
+        })
+                .isInstanceOf(SQLException.class)
+                .hasMessageMatching("Authentication failed: JWT signature does not match.*");
     }
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Authentication failed: Unknown signing key ID")
+    @Test
     public void testFailedUnknownPublicKey()
-            throws Exception
     {
-        String accessToken = newJwtBuilder()
-                .subject("test")
-                .header().keyId("unknown")
-                .and()
-                .signWith(privateKey33)
-                .compact();
+        assertThatThrownBy(() -> {
+            String accessToken = newJwtBuilder()
+                    .subject("test")
+                    .header().keyId("unknown")
+                    .and()
+                    .signWith(privateKey33)
+                    .compact();
 
-        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));
-                Statement statement = connection.createStatement()) {
-            statement.execute("SELECT 123");
-        }
+            try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));
+                    Statement statement = connection.createStatement()) {
+                statement.execute("SELECT 123");
+            }
+        })
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Authentication failed: Unknown signing key ID");
     }
 
     @Test

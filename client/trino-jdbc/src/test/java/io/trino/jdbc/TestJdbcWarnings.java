@@ -24,11 +24,11 @@ import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 import io.trino.testing.TestingWarningCollector;
 import io.trino.testing.TestingWarningCollectorConfig;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -50,24 +50,25 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestJdbcWarnings
 {
     // Number of warnings preloaded to the testing warning collector before a query runs
     private static final int PRELOADED_WARNINGS = 5;
 
     private TestingTrinoServer server;
-    private Connection connection;
-    private Statement statement;
-    private ExecutorService executor;
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 
-    @BeforeClass
+    @BeforeAll
     public void setupServer()
             throws Exception
     {
@@ -95,82 +96,72 @@ public class TestJdbcWarnings
         }
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDownServer()
             throws Exception
     {
         server.close();
         server = null;
-    }
-
-    @SuppressWarnings("JDBCResourceOpenedButNotSafelyClosed")
-    @BeforeMethod
-    public void setup()
-            throws Exception
-    {
-        connection = createConnection();
-        statement = connection.createStatement();
-        executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
-    }
-
-    @AfterMethod(alwaysRun = true)
-    public void teardown()
-            throws Exception
-    {
         executor.shutdownNow();
-        executor = null;
-        statement.close();
-        statement = null;
-        connection.close();
-        connection = null;
     }
 
     @Test
     public void testStatementWarnings()
             throws SQLException
     {
-        assertFalse(statement.execute("CREATE SCHEMA blackhole.test_schema"));
-        SQLWarning warning = statement.getWarnings();
-        assertNotNull(warning);
-        TestingWarningCollectorConfig warningCollectorConfig = new TestingWarningCollectorConfig().setPreloadedWarnings(PRELOADED_WARNINGS);
-        TestingWarningCollector warningCollector = new TestingWarningCollector(new WarningCollectorConfig(), warningCollectorConfig);
-        List<TrinoWarning> expectedWarnings = warningCollector.getWarnings();
-        assertStartsWithExpectedWarnings(warning, fromTrinoWarnings(expectedWarnings));
-        statement.clearWarnings();
-        assertNull(statement.getWarnings());
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement()) {
+            assertFalse(statement.execute("CREATE SCHEMA blackhole.test_schema"));
+            SQLWarning warning = statement.getWarnings();
+            assertNotNull(warning);
+            TestingWarningCollectorConfig warningCollectorConfig = new TestingWarningCollectorConfig().setPreloadedWarnings(PRELOADED_WARNINGS);
+            TestingWarningCollector warningCollector = new TestingWarningCollector(new WarningCollectorConfig(), warningCollectorConfig);
+            List<TrinoWarning> expectedWarnings = warningCollector.getWarnings();
+            assertStartsWithExpectedWarnings(warning, fromTrinoWarnings(expectedWarnings));
+            statement.clearWarnings();
+            assertNull(statement.getWarnings());
+        }
     }
 
     @Test
     public void testLongRunningStatement()
             throws Exception
     {
-        Future<?> future = executor.submit(() -> {
-            statement.execute("CREATE TABLE test_long_running AS SELECT * FROM slow_table");
-            return null;
-        });
-        assertStatementWarnings(statement, future);
-        statement.execute("DROP TABLE test_long_running");
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement()) {
+            Future<?> future = executor.submit(() -> {
+                statement.execute("CREATE TABLE test_long_running AS SELECT * FROM slow_table");
+                return null;
+            });
+            assertStatementWarnings(statement, future);
+            statement.execute("DROP TABLE test_long_running");
+        }
     }
 
     @Test
     public void testLongRunningQuery()
             throws Exception
     {
-        Future<?> future = executor.submit(() -> {
-            ResultSet resultSet = statement.executeQuery("SELECT * FROM slow_table");
-            while (resultSet.next()) {
-                // discard results
-            }
-            return null;
-        });
-        assertStatementWarnings(statement, future);
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement()) {
+            Future<?> future = executor.submit(() -> {
+                ResultSet resultSet = statement.executeQuery("SELECT * FROM slow_table");
+                while (resultSet.next()) {
+                    // discard results
+                }
+                return null;
+            });
+            assertStatementWarnings(statement, future);
+        }
     }
 
     @Test
     public void testExecuteQueryWarnings()
             throws SQLException
     {
-        try (ResultSet rs = statement.executeQuery("SELECT a FROM (VALUES 1, 2, 3) t(a)")) {
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery("SELECT a FROM (VALUES 1, 2, 3) t(a)")) {
             assertNull(statement.getConnection().getWarnings());
             Set<WarningEntry> currentWarnings = new HashSet<>();
             assertWarnings(rs.getWarnings(), currentWarnings);
@@ -189,6 +180,7 @@ public class TestJdbcWarnings
 
     @Test
     public void testSqlWarning()
+            throws SQLException
     {
         ImmutableList.Builder<TrinoWarning> builder = ImmutableList.builder();
         for (int i = 0; i < 3; i++) {
