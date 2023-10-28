@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 import java.io.ByteArrayOutputStream;
 
 import static io.airlift.testing.Assertions.assertLessThanOrEqual;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBufferedOutputStreamSliceOutput
 {
@@ -46,7 +46,7 @@ public class TestBufferedOutputStreamSliceOutput
         }
         // ignore the last flush size check
         output.flush();
-        assertEquals(byteOutputStream.toByteArray(), inputArray);
+        assertThat(byteOutputStream.toByteArray()).isEqualTo(inputArray);
         byteOutputStream.close();
 
         // check slice version
@@ -58,7 +58,7 @@ public class TestBufferedOutputStreamSliceOutput
         }
         // ignore the last flush size check
         output.flush();
-        assertEquals(byteOutputStream.toByteArray(), inputArray);
+        assertThat(byteOutputStream.toByteArray()).isEqualTo(inputArray);
         byteOutputStream.close();
     }
 
