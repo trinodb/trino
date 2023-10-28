@@ -51,11 +51,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotSame;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestEvictableCache
 {
@@ -68,7 +63,7 @@ public class TestEvictableCache
         Cache<Integer, String> cache = EvictableCacheBuilder.newBuilder()
                 .maximumSize(10_000)
                 .build();
-        assertEquals(cache.get(42, () -> "abc"), "abc");
+        assertThat(cache.get(42, () -> "abc")).isEqualTo("abc");
     }
 
     @Test(timeOut = TEST_TIMEOUT_MILLIS)
@@ -82,17 +77,17 @@ public class TestEvictableCache
 
         for (int i = 0; i < 10_000; i++) {
             int value = i * 10;
-            assertEquals((Object) cache.get(i, () -> value), value);
+            assertThat((Object) cache.get(i, () -> value)).isEqualTo(value);
         }
         cache.cleanUp();
-        assertEquals(cache.size(), maximumSize);
-        assertEquals(((EvictableCache<?, ?>) cache).tokensCount(), maximumSize);
+        assertThat(cache.size()).isEqualTo(maximumSize);
+        assertThat(((EvictableCache<?, ?>) cache).tokensCount()).isEqualTo(maximumSize);
 
         // Ensure cache is effective, i.e. some entries preserved
         int lastKey = 10_000 - 1;
-        assertEquals((Object) cache.get(lastKey, () -> {
+        assertThat((Object) cache.get(lastKey, () -> {
             throw new UnsupportedOperationException();
-        }), lastKey * 10);
+        })).isEqualTo(lastKey * 10);
     }
 
     @Test(timeOut = TEST_TIMEOUT_MILLIS)
@@ -106,7 +101,7 @@ public class TestEvictableCache
 
         for (int i = 0; i < 10; i++) {
             String value = "a".repeat(i);
-            assertEquals((Object) cache.get(i, () -> value), value);
+            assertThat((Object) cache.get(i, () -> value)).isEqualTo(value);
         }
         cache.cleanUp();
         // It's not deterministic which entries get evicted
@@ -119,9 +114,9 @@ public class TestEvictableCache
 
         // Ensure cache is effective, i.e. some entries preserved
         int lastKey = 10 - 1;
-        assertEquals(cache.get(lastKey, () -> {
+        assertThat(cache.get(lastKey, () -> {
             throw new UnsupportedOperationException();
-        }), "a".repeat(lastKey));
+        })).isEqualTo("a".repeat(lastKey));
     }
 
     @Test(timeOut = TEST_TIMEOUT_MILLIS)
@@ -135,9 +130,9 @@ public class TestEvictableCache
                 .expireAfterWrite(ttl, TimeUnit.MILLISECONDS)
                 .build();
 
-        assertEquals(cache.get(1, () -> "1 ala ma kota"), "1 ala ma kota");
+        assertThat(cache.get(1, () -> "1 ala ma kota")).isEqualTo("1 ala ma kota");
         ticker.increment(ttl, MILLISECONDS);
-        assertEquals(cache.get(2, () -> "2 ala ma kota"), "2 ala ma kota");
+        assertThat(cache.get(2, () -> "2 ala ma kota")).isEqualTo("2 ala ma kota");
         cache.cleanUp();
 
         // First entry should be expired and its token removed
@@ -160,20 +155,20 @@ public class TestEvictableCache
                 .build();
         int key = 11;
 
-        assertEquals(cache.get(key, () -> "11 ala ma kota"), "11 ala ma kota");
+        assertThat(cache.get(key, () -> "11 ala ma kota")).isEqualTo("11 ala ma kota");
         assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(1);
 
         // Should be served from the cache
-        assertEquals(cache.get(key, () -> "something else"), "11 ala ma kota");
+        assertThat(cache.get(key, () -> "something else")).isEqualTo("11 ala ma kota");
         assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(1);
 
         ticker.increment(ttl, MILLISECONDS);
         // Should be reloaded
-        assertEquals(cache.get(key, () -> "new value"), "new value");
+        assertThat(cache.get(key, () -> "new value")).isEqualTo("new value");
         assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(1);
 
         // Should be served from the cache
-        assertEquals(cache.get(key, () -> "something yet different"), "new value");
+        assertThat(cache.get(key, () -> "something yet different")).isEqualTo("new value");
         assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(1);
 
         assertThat(cache.size()).as("cacheSize").isEqualTo(1);
@@ -194,25 +189,25 @@ public class TestEvictableCache
         int initialValue = 20;
         int replacedValue = 21;
         cache.get(key, () -> initialValue);
-        assertTrue(cache.asMap().replace(key, initialValue, replacedValue));
-        assertEquals((Object) cache.getIfPresent(key), replacedValue);
+        assertThat(cache.asMap().replace(key, initialValue, replacedValue)).isTrue();
+        assertThat((Object) cache.getIfPresent(key)).isEqualTo(replacedValue);
 
         // already replaced, current value is different
-        assertFalse(cache.asMap().replace(key, initialValue, replacedValue));
-        assertEquals((Object) cache.getIfPresent(key), replacedValue);
+        assertThat(cache.asMap().replace(key, initialValue, replacedValue)).isFalse();
+        assertThat((Object) cache.getIfPresent(key)).isEqualTo(replacedValue);
 
         // non-existent key
-        assertFalse(cache.asMap().replace(100000, replacedValue, 22));
-        assertEquals(cache.asMap().keySet(), ImmutableSet.of(key));
-        assertEquals((Object) cache.getIfPresent(key), replacedValue);
+        assertThat(cache.asMap().replace(100000, replacedValue, 22)).isFalse();
+        assertThat(cache.asMap().keySet()).isEqualTo(ImmutableSet.of(key));
+        assertThat((Object) cache.getIfPresent(key)).isEqualTo(replacedValue);
 
         int anotherKey = 13;
         int anotherInitialValue = 14;
         cache.get(anotherKey, () -> anotherInitialValue);
         cache.invalidate(anotherKey);
         // after eviction
-        assertFalse(cache.asMap().replace(anotherKey, anotherInitialValue, 15));
-        assertEquals(cache.asMap().keySet(), ImmutableSet.of(key));
+        assertThat(cache.asMap().replace(anotherKey, anotherInitialValue, 15)).isFalse();
+        assertThat(cache.asMap().keySet()).isEqualTo(ImmutableSet.of(key));
     }
 
     @Test(timeOut = TEST_TIMEOUT_MILLIS)
@@ -245,10 +240,10 @@ public class TestEvictableCache
     {
         for (int i = 0; i < 10; i++) {
             int value = i * 10;
-            assertEquals((Object) cache.get(i, () -> value), value);
+            assertThat((Object) cache.get(i, () -> value)).isEqualTo(value);
         }
         cache.cleanUp();
-        assertEquals(cache.size(), 0);
+        assertThat(cache.size()).isEqualTo(0);
         assertThat(cache.asMap().keySet()).as("keySet").isEmpty();
         assertThat(cache.asMap().values()).as("values").isEmpty();
     }
@@ -262,24 +257,24 @@ public class TestEvictableCache
                 .recordStats()
                 .build();
 
-        assertEquals(cache.stats(), new CacheStats(0, 0, 0, 0, 0, 0));
+        assertThat(cache.stats()).isEqualTo(new CacheStats(0, 0, 0, 0, 0, 0));
 
         String value = assertCacheStats(cache)
                 .misses(1)
                 .loads(1)
                 .calling(() -> cache.get(42, () -> "abc"));
-        assertEquals(value, "abc");
+        assertThat(value).isEqualTo("abc");
 
         value = assertCacheStats(cache)
                 .hits(1)
                 .calling(() -> cache.get(42, () -> "xyz"));
-        assertEquals(value, "abc");
+        assertThat(value).isEqualTo("abc");
 
         // with equal, but not the same key
         value = assertCacheStats(cache)
                 .hits(1)
                 .calling(() -> cache.get(newInteger(42), () -> "xyz"));
-        assertEquals(value, "abc");
+        assertThat(value).isEqualTo("abc");
     }
 
     @Test(timeOut = TEST_TIMEOUT_MILLIS, invocationCount = 10, successPercentage = 50)
@@ -330,7 +325,7 @@ public class TestEvictableCache
         }
         finally {
             executor.shutdownNow();
-            assertTrue(executor.awaitTermination(10, SECONDS));
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
         }
     }
 
@@ -340,7 +335,7 @@ public class TestEvictableCache
         Integer integer = value;
         @SuppressWarnings({"UnnecessaryBoxing", "BoxedPrimitiveConstructor", "CachedNumberConstructorCall", "removal"})
         Integer newInteger = new Integer(value);
-        assertNotSame(integer, newInteger);
+        assertThat(integer).isNotSameAs(newInteger);
         return newInteger;
     }
 
@@ -380,7 +375,7 @@ public class TestEvictableCache
                             concurrentInvocations.decrementAndGet();
                             return -key;
                         });
-                        assertEquals(value, -invocation);
+                        assertThat(value).isEqualTo(-invocation);
                     }
                     return null;
                 }));
@@ -394,7 +389,7 @@ public class TestEvictableCache
         }
         finally {
             executor.shutdownNow();
-            assertTrue(executor.awaitTermination(10, SECONDS));
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
         }
     }
 
@@ -420,7 +415,7 @@ public class TestEvictableCache
                 Future<String> threadA = executor.submit(() -> {
                     String value = cache.get(key, () -> {
                         loadOngoing.countDown(); // 1
-                        assertTrue(invalidated.await(10, SECONDS)); // 2
+                        assertThat(invalidated.await(10, SECONDS)).isTrue(); // 2
                         return "stale value";
                     });
                     getReturned.countDown(); // 3
@@ -429,7 +424,7 @@ public class TestEvictableCache
 
                 // thread B
                 Future<String> threadB = executor.submit(() -> {
-                    assertTrue(loadOngoing.await(10, SECONDS)); // 1
+                    assertThat(loadOngoing.await(10, SECONDS)).isTrue(); // 1
 
                     switch (invalidation) {
                         case INVALIDATE_KEY:
@@ -451,17 +446,17 @@ public class TestEvictableCache
 
                     invalidated.countDown(); // 2
                     // Cache may persist value after loader returned, but before `cache.get(...)` returned. Ensure the latter completed.
-                    assertTrue(getReturned.await(10, SECONDS)); // 3
+                    assertThat(getReturned.await(10, SECONDS)).isTrue(); // 3
 
                     return cache.get(key, () -> "fresh value");
                 });
 
-                assertEquals(threadA.get(), "stale value");
-                assertEquals(threadB.get(), "fresh value");
+                assertThat(threadA.get()).isEqualTo("stale value");
+                assertThat(threadB.get()).isEqualTo("fresh value");
             }
             finally {
                 executor.shutdownNow();
-                assertTrue(executor.awaitTermination(10, SECONDS));
+                assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
             }
         }
     }
@@ -489,7 +484,7 @@ public class TestEvictableCache
                 List<Future<Void>> futures = IntStream.range(0, threads)
                         .mapToObj(threadNumber -> executor.submit(() -> {
                             // prime the cache
-                            assertEquals((long) cache.get(key, remoteState::get), 1L);
+                            assertThat((long) cache.get(key, remoteState::get)).isEqualTo(1L);
                             int prime = primes[threadNumber];
 
                             barrier.await(10, SECONDS);
@@ -519,7 +514,7 @@ public class TestEvictableCache
                             // read through cache
                             long current = cache.get(key, remoteState::get);
                             if (current % prime != 0) {
-                                fail(format("The value read through cache (%s) in thread (%s) is not divisible by (%s)", current, threadNumber, prime));
+                                throw new AssertionError(format("The value read through cache (%s) in thread (%s) is not divisible by (%s)", current, threadNumber, prime));
                             }
 
                             return (Void) null;
@@ -528,12 +523,12 @@ public class TestEvictableCache
 
                 futures.forEach(MoreFutures::getFutureValue);
 
-                assertEquals(remoteState.get(), 2 * 3 * 5 * 7);
-                assertEquals((long) cache.get(key, remoteState::get), remoteState.get());
+                assertThat(remoteState.get()).isEqualTo(2 * 3 * 5 * 7);
+                assertThat((long) cache.get(key, remoteState::get)).isEqualTo(remoteState.get());
             }
             finally {
                 executor.shutdownNow();
-                assertTrue(executor.awaitTermination(10, SECONDS));
+                assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
             }
         }
     }
