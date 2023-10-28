@@ -23,7 +23,7 @@ import io.trino.filesystem.memory.MemoryInputFile;
 import io.trino.hive.formats.encodings.binary.BinaryColumnEncodingFactory;
 import io.trino.spi.block.Block;
 import org.joda.time.DateTimeZone;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.List;
