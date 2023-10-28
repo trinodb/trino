@@ -21,7 +21,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TestingTicker;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -56,9 +58,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestEvictableLoadingCache
 {
-    private static final int TEST_TIMEOUT_MILLIS = 10_000;
+    private static final int TEST_TIMEOUT_SECONDS = 10;
 
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testLoad()
             throws Exception
     {
@@ -70,7 +73,8 @@ public class TestEvictableLoadingCache
         assertThat(cache.get(42)).isEqualTo("abc");
     }
 
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testEvictBySize()
             throws Exception
     {
@@ -97,7 +101,8 @@ public class TestEvictableLoadingCache
         assertThat(loads.get()).isEqualTo(10_000);
     }
 
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testEvictByWeight()
             throws Exception
     {
@@ -129,7 +134,8 @@ public class TestEvictableLoadingCache
         assertThat(loads.get()).isEqualTo(10);
     }
 
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testEvictByTime()
     {
         TestingTicker ticker = new TestingTicker();
@@ -157,7 +163,8 @@ public class TestEvictableLoadingCache
         assertThat(loads.get()).isEqualTo(2);
     }
 
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testPreserveValueLoadedAfterTimeExpiration()
     {
         TestingTicker ticker = new TestingTicker();
@@ -198,7 +205,8 @@ public class TestEvictableLoadingCache
         assertThat(cache.asMap().values()).as("values").hasSize(1);
     }
 
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testDisabledCache()
             throws ExecutionException
     {
@@ -235,7 +243,8 @@ public class TestEvictableLoadingCache
         assertThat(cache.asMap().values()).as("values").isEmpty();
     }
 
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testLoadStats()
             throws Exception
     {
@@ -278,7 +287,8 @@ public class TestEvictableLoadingCache
      * Verity that implementation of {@link LoadingCache#getAll(Iterable)} returns same keys as provided, not equal ones.
      * This is necessary for the case where the cache key can be equal but still distinguishable.
      */
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testGetAllMaintainsKeyIdentity()
             throws Exception
     {
@@ -310,7 +320,8 @@ public class TestEvictableLoadingCache
      * {@link #testGetAllMaintainsKeyIdentityForBulkLoader}), it seems not feasible to do this while
      * also maintain load sharing (see {@link #testConcurrentGetShareLoad()}).
      */
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testGetDoesNotMaintainKeyIdentityForLoader()
             throws Exception
     {
@@ -349,7 +360,8 @@ public class TestEvictableLoadingCache
      * This can happen only when cache keys are not fully value-based. While discouraged, this situation is possible.
      * Guava Cache also exhibits the behavior tested here.
      */
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testGetAllMaintainsKeyIdentityForBulkLoader()
             throws Exception
     {
@@ -403,7 +415,8 @@ public class TestEvictableLoadingCache
      * <a href="https://github.com/trinodb/trino/issues/11067">https://github.com/trinodb/trino/issues/11067</a>),
      * the test exists primarily to document current state and support discussion, should the current state change.
      */
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testConcurrentGetWithCallableShareLoad()
             throws Exception
     {
@@ -456,7 +469,8 @@ public class TestEvictableLoadingCache
     /**
      * Test that the loader is invoked only once for concurrent invocations of {{@link LoadingCache#get(Object)} with equal keys.
      */
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testConcurrentGetShareLoad()
             throws Exception
     {
@@ -511,7 +525,8 @@ public class TestEvictableLoadingCache
     /**
      * Covers https://github.com/google/guava/issues/1881
      */
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testInvalidateOngoingLoad()
             throws Exception
     {
@@ -591,7 +606,8 @@ public class TestEvictableLoadingCache
     /**
      * Covers https://github.com/google/guava/issues/1881
      */
-    @Test(invocationCount = 10, timeOut = TEST_TIMEOUT_MILLIS)
+    @RepeatedTest(10)
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testInvalidateAndLoadConcurrently()
             throws Exception
     {
