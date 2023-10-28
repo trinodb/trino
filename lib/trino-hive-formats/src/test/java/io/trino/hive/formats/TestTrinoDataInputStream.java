@@ -22,7 +22,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.memory.MemoryInputFile;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
@@ -40,6 +40,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOfByteArray;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SuppressWarnings("resource")
 public class TestTrinoDataInputStream
@@ -486,36 +487,44 @@ public class TestTrinoDataInputStream
         assertThat(input.read()).isEqualTo(-1);
     }
 
-    @Test(expectedExceptions = EOFException.class)
+    @Test
     public void testReadByteBeyondEnd()
-            throws Exception
     {
-        TrinoDataInputStream input = createTrinoDataInputStream(new byte[0]);
-        input.readByte();
+        assertThatThrownBy(() -> {
+            TrinoDataInputStream input = createTrinoDataInputStream(new byte[0]);
+            input.readByte();
+        })
+                .isInstanceOf(EOFException.class);
     }
 
-    @Test(expectedExceptions = EOFException.class)
+    @Test
     public void testReadShortBeyondEnd()
-            throws Exception
     {
-        TrinoDataInputStream input = createTrinoDataInputStream(new byte[1]);
-        input.readShort();
+        assertThatThrownBy(() -> {
+            TrinoDataInputStream input = createTrinoDataInputStream(new byte[1]);
+            input.readShort();
+        })
+                .isInstanceOf(EOFException.class);
     }
 
-    @Test(expectedExceptions = EOFException.class)
+    @Test
     public void testReadIntBeyondEnd()
-            throws Exception
     {
-        TrinoDataInputStream input = createTrinoDataInputStream(new byte[3]);
-        input.readInt();
+        assertThatThrownBy(() -> {
+            TrinoDataInputStream input = createTrinoDataInputStream(new byte[3]);
+            input.readInt();
+        })
+                .isInstanceOf(EOFException.class);
     }
 
-    @Test(expectedExceptions = EOFException.class)
+    @Test
     public void testReadLongBeyondEnd()
-            throws Exception
     {
-        TrinoDataInputStream input = createTrinoDataInputStream(new byte[7]);
-        input.readLong();
+        assertThatThrownBy(() -> {
+            TrinoDataInputStream input = createTrinoDataInputStream(new byte[7]);
+            input.readLong();
+        })
+                .isInstanceOf(EOFException.class);
     }
 
     @Test
