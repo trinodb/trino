@@ -21,7 +21,9 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TestingTicker;
 import io.trino.cache.EvictableCacheBuilder.DisabledCacheImplementation;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -54,9 +56,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestEvictableCache
 {
-    private static final int TEST_TIMEOUT_MILLIS = 10_000;
+    private static final int TEST_TIMEOUT_SECONDS = 10;
 
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testLoad()
             throws Exception
     {
@@ -66,7 +69,8 @@ public class TestEvictableCache
         assertThat(cache.get(42, () -> "abc")).isEqualTo("abc");
     }
 
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testEvictBySize()
             throws Exception
     {
@@ -90,7 +94,8 @@ public class TestEvictableCache
         })).isEqualTo(lastKey * 10);
     }
 
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testEvictByWeight()
             throws Exception
     {
@@ -119,7 +124,8 @@ public class TestEvictableCache
         })).isEqualTo("a".repeat(lastKey));
     }
 
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testEvictByTime()
             throws Exception
     {
@@ -143,7 +149,8 @@ public class TestEvictableCache
         assertThat(cache.asMap().values()).as("values").hasSize(cacheSize);
     }
 
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testPreserveValueLoadedAfterTimeExpiration()
             throws Exception
     {
@@ -177,7 +184,8 @@ public class TestEvictableCache
         assertThat(cache.asMap().values()).as("values").hasSize(1);
     }
 
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testReplace()
             throws Exception
     {
@@ -210,7 +218,8 @@ public class TestEvictableCache
         assertThat(cache.asMap().keySet()).isEqualTo(ImmutableSet.of(key));
     }
 
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testDisabledCache()
             throws Exception
     {
@@ -248,7 +257,8 @@ public class TestEvictableCache
         assertThat(cache.asMap().values()).as("values").isEmpty();
     }
 
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testLoadStats()
             throws Exception
     {
@@ -277,7 +287,8 @@ public class TestEvictableCache
         assertThat(value).isEqualTo("abc");
     }
 
-    @Test(timeOut = TEST_TIMEOUT_MILLIS, invocationCount = 10, successPercentage = 50)
+    @RepeatedTest(value = 10, failureThreshold = 5)
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testLoadFailure()
             throws Exception
     {
@@ -345,7 +356,8 @@ public class TestEvictableCache
      * <a href="https://github.com/trinodb/trino/issues/11067">https://github.com/trinodb/trino/issues/11067</a>),
      * the test exists primarily to document current state and support discussion, should the current state change.
      */
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testConcurrentGetWithCallableShareLoad()
             throws Exception
     {
@@ -396,7 +408,8 @@ public class TestEvictableCache
     /**
      * Covers https://github.com/google/guava/issues/1881
      */
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testInvalidateOngoingLoad()
             throws Exception
     {
@@ -464,7 +477,8 @@ public class TestEvictableCache
     /**
      * Covers https://github.com/google/guava/issues/1881
      */
-    @Test(invocationCount = 10, timeOut = TEST_TIMEOUT_MILLIS)
+    @RepeatedTest(10)
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testInvalidateAndLoadConcurrently()
             throws Exception
     {
