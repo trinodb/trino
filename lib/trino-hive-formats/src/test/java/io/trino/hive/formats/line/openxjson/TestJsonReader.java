@@ -19,7 +19,7 @@ import io.starburst.openjson.JSONArray;
 import io.starburst.openjson.JSONException;
 import io.starburst.openjson.JSONObject;
 import io.starburst.openjson.JSONTokener;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;

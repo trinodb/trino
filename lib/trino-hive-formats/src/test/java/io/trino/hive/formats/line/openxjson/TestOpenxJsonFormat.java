@@ -52,8 +52,8 @@ import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
+import org.junit.jupiter.api.Test;
 import org.openx.data.jsonserde.JsonSerDe;
-import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

@@ -38,8 +38,9 @@ import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.math.BigInteger;
@@ -57,7 +58,9 @@ import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.UUID_
 import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.padBigEndianToSize;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestAvroPageDataReaderWithAvroNativeTypeManagement
         extends TestAvroBase
 {
@@ -166,7 +169,7 @@ public class TestAvroPageDataReaderWithAvroNativeTypeManagement
         ALL_SUPPORTED_PAGE = new Page(blocks.build().toArray(Block[]::new));
     }
 
-    @BeforeClass
+    @BeforeAll
     public void testStatics()
     {
         // Identity
