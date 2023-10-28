@@ -48,9 +48,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
 import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_CODEC;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestTextLineReaderWriter
         extends AbstractTestLineReaderWriter
@@ -83,13 +80,13 @@ public class TestTextLineReaderWriter
         try (TextLineReader reader = createTextLineReader(tempFile, compressionKind)) {
             int linesRead = 0;
             for (String expected : values) {
-                assertTrue(reader.readLine(lineBuffer));
+                assertThat(reader.readLine(lineBuffer)).isTrue();
                 String actual = new String(lineBuffer.getBuffer(), 0, lineBuffer.getLength(), UTF_8);
-                assertEquals(actual, expected);
+                assertThat(actual).isEqualTo(expected);
                 linesRead++;
             }
-            assertFalse(reader.readLine(lineBuffer));
-            assertEquals(linesRead, values.size());
+            assertThat(reader.readLine(lineBuffer)).isFalse();
+            assertThat(linesRead).isEqualTo(values.size());
 
             assertThat(reader.getReadTimeNanos()).isGreaterThan(0);
             assertThat(reader.getBytesRead()).isGreaterThan(0);
@@ -114,7 +111,7 @@ public class TestTextLineReaderWriter
             for (String value : values) {
                 writer.write(Slices.utf8Slice(value));
             }
-            assertTrue(writer.getRetainedSizeInBytes() > 0);
+            assertThat(writer.getRetainedSizeInBytes() > 0).isTrue();
         }
     }
 
@@ -130,11 +127,11 @@ public class TestTextLineReaderWriter
             LongWritable key = new LongWritable();
             Text text = new Text();
             for (String expected : values) {
-                assertTrue(reader.next(key, text));
-                assertEquals(text.toString(), expected);
+                assertThat(reader.next(key, text)).isTrue();
+                assertThat(text.toString()).isEqualTo(expected);
             }
 
-            assertFalse(reader.next(key, text));
+            assertThat(reader.next(key, text)).isFalse();
         }
     }
 

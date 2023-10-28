@@ -48,7 +48,7 @@ import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestRcFileReader
 {
@@ -69,7 +69,7 @@ public abstract class AbstractTestRcFileReader
     @BeforeClass
     public void setUp()
     {
-        assertEquals(DateTimeZone.getDefault(), RcFileTester.HIVE_STORAGE_TIME_ZONE);
+        assertThat(DateTimeZone.getDefault()).isEqualTo(RcFileTester.HIVE_STORAGE_TIME_ZONE);
     }
 
     @Test

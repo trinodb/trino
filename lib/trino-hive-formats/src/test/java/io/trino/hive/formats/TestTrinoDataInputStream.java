@@ -39,10 +39,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOfByteArray;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SuppressWarnings("resource")
 public class TestTrinoDataInputStream
@@ -75,7 +72,7 @@ public class TestTrinoDataInputStream
             public void verifyValue(TrinoDataInputStream input, int valueIndex)
                     throws IOException
             {
-                assertEquals(input.readBoolean(), valueIndex % 2 == 0);
+                assertThat(input.readBoolean()).isEqualTo(valueIndex % 2 == 0);
             }
         });
     }
@@ -97,7 +94,7 @@ public class TestTrinoDataInputStream
             public void verifyValue(TrinoDataInputStream input, int valueIndex)
                     throws IOException
             {
-                assertEquals(input.readByte(), (byte) valueIndex);
+                assertThat(input.readByte()).isEqualTo((byte) valueIndex);
             }
         });
     }
@@ -119,14 +116,14 @@ public class TestTrinoDataInputStream
             public void verifyValue(TrinoDataInputStream input, int valueIndex)
                     throws IOException
             {
-                assertEquals(input.read(), valueIndex & 0xFF);
+                assertThat(input.read()).isEqualTo(valueIndex & 0xFF);
             }
 
             @Override
             public void verifyReadOffEnd(TrinoDataInputStream input)
                     throws IOException
             {
-                assertEquals(input.read(), -1);
+                assertThat(input.read()).isEqualTo(-1);
             }
         });
     }
@@ -148,7 +145,7 @@ public class TestTrinoDataInputStream
             public void verifyValue(TrinoDataInputStream input, int valueIndex)
                     throws IOException
             {
-                assertEquals(input.readShort(), (short) valueIndex);
+                assertThat(input.readShort()).isEqualTo((short) valueIndex);
             }
         });
     }
@@ -170,7 +167,7 @@ public class TestTrinoDataInputStream
             public void verifyValue(TrinoDataInputStream input, int valueIndex)
                     throws IOException
             {
-                assertEquals(input.readUnsignedShort(), valueIndex & 0xFFF);
+                assertThat(input.readUnsignedShort()).isEqualTo(valueIndex & 0xFFF);
             }
         });
     }
@@ -192,7 +189,7 @@ public class TestTrinoDataInputStream
             public void verifyValue(TrinoDataInputStream input, int valueIndex)
                     throws IOException
             {
-                assertEquals(input.readInt(), valueIndex);
+                assertThat(input.readInt()).isEqualTo(valueIndex);
             }
         });
     }
@@ -214,7 +211,7 @@ public class TestTrinoDataInputStream
             public void verifyValue(TrinoDataInputStream input, int valueIndex)
                     throws IOException
             {
-                assertEquals(input.readUnsignedInt(), valueIndex);
+                assertThat(input.readUnsignedInt()).isEqualTo(valueIndex);
             }
         });
     }
@@ -236,7 +233,7 @@ public class TestTrinoDataInputStream
             public void verifyValue(TrinoDataInputStream input, int valueIndex)
                     throws IOException
             {
-                assertEquals(input.readLong(), valueIndex);
+                assertThat(input.readLong()).isEqualTo(valueIndex);
             }
         });
     }
@@ -258,7 +255,7 @@ public class TestTrinoDataInputStream
             public void verifyValue(TrinoDataInputStream input, int valueIndex)
                     throws IOException
             {
-                assertEquals(input.readFloat(), valueIndex + 0.12f);
+                assertThat(input.readFloat()).isEqualTo(valueIndex + 0.12f);
             }
         });
     }
@@ -280,7 +277,7 @@ public class TestTrinoDataInputStream
             public void verifyValue(TrinoDataInputStream input, int valueIndex)
                     throws IOException
             {
-                assertEquals(input.readDouble(), valueIndex + 0.12);
+                assertThat(input.readDouble()).isEqualTo(valueIndex + 0.12);
             }
         });
     }
@@ -304,7 +301,7 @@ public class TestTrinoDataInputStream
                 public void verifyReadOffEnd(TrinoDataInputStream input)
                         throws IOException
                 {
-                    assertEquals(input.skip(valueSize()), valueSize() - 1);
+                    assertThat(input.skip(valueSize())).isEqualTo(valueSize() - 1);
                 }
             });
             testDataInput(new SkipDataInputTester(readSize)
@@ -320,7 +317,7 @@ public class TestTrinoDataInputStream
                 public void verifyReadOffEnd(TrinoDataInputStream input)
                         throws IOException
                 {
-                    assertEquals(input.skip(valueSize()), valueSize() - 1);
+                    assertThat(input.skip(valueSize())).isEqualTo(valueSize() - 1);
                 }
             });
 
@@ -340,7 +337,7 @@ public class TestTrinoDataInputStream
                         int skipSize = input.skipBytes(length);
                         length -= skipSize;
                     }
-                    assertEquals(input.skip(0), 0);
+                    assertThat(input.skip(0)).isEqualTo(0);
                 }
             });
             testDataInput(new SkipDataInputTester(readSize)
@@ -358,7 +355,7 @@ public class TestTrinoDataInputStream
                         long skipSize = input.skip(length);
                         length -= skipSize;
                     }
-                    assertEquals(input.skip(0), 0);
+                    assertThat(input.skip(0)).isEqualTo(0);
                 }
             });
         }
@@ -441,7 +438,9 @@ public class TestTrinoDataInputStream
                     if (bytesRead == -1) {
                         throw new EOFException();
                     }
-                    assertTrue(bytesRead > 0, "Expected to read at least one byte");
+                    assertThat(bytesRead)
+                            .describedAs("Expected to read at least one byte")
+                            .isGreaterThan(0);
                     input.readFully(bytes, bytesRead, bytes.length - bytesRead);
                     return new String(bytes, 0, valueSize(), UTF_8);
                 }
@@ -476,7 +475,7 @@ public class TestTrinoDataInputStream
             throws Exception
     {
         TrinoDataInputStream input = createTrinoDataInputStream(new byte[0]);
-        assertEquals(input.getPos(), 0);
+        assertThat(input.getPos()).isEqualTo(0);
     }
 
     @Test
@@ -484,7 +483,7 @@ public class TestTrinoDataInputStream
             throws Exception
     {
         TrinoDataInputStream input = createTrinoDataInputStream(new byte[0]);
-        assertEquals(input.read(), -1);
+        assertThat(input.read()).isEqualTo(-1);
     }
 
     @Test(expectedExceptions = EOFException.class)
@@ -523,69 +522,69 @@ public class TestTrinoDataInputStream
     public void testEncodingBoolean()
             throws Exception
     {
-        assertTrue(createTrinoDataInputStream(new byte[] {1}).readBoolean());
-        assertFalse(createTrinoDataInputStream(new byte[] {0}).readBoolean());
+        assertThat(createTrinoDataInputStream(new byte[] {1}).readBoolean()).isTrue();
+        assertThat(createTrinoDataInputStream(new byte[] {0}).readBoolean()).isFalse();
     }
 
     @Test
     public void testEncodingByte()
             throws Exception
     {
-        assertEquals(createTrinoDataInputStream(new byte[] {92}).readByte(), 92);
-        assertEquals(createTrinoDataInputStream(new byte[] {-100}).readByte(), -100);
-        assertEquals(createTrinoDataInputStream(new byte[] {-17}).readByte(), -17);
+        assertThat(createTrinoDataInputStream(new byte[] {92}).readByte()).isEqualTo((byte) 92);
+        assertThat(createTrinoDataInputStream(new byte[] {-100}).readByte()).isEqualTo((byte) -100);
+        assertThat(createTrinoDataInputStream(new byte[] {-17}).readByte()).isEqualTo((byte) -17);
 
-        assertEquals(createTrinoDataInputStream(new byte[] {92}).readUnsignedByte(), 92);
-        assertEquals(createTrinoDataInputStream(new byte[] {-100}).readUnsignedByte(), 156);
-        assertEquals(createTrinoDataInputStream(new byte[] {-17}).readUnsignedByte(), 239);
+        assertThat(createTrinoDataInputStream(new byte[] {92}).readUnsignedByte()).isEqualTo(92);
+        assertThat(createTrinoDataInputStream(new byte[] {-100}).readUnsignedByte()).isEqualTo(156);
+        assertThat(createTrinoDataInputStream(new byte[] {-17}).readUnsignedByte()).isEqualTo(239);
     }
 
     @Test
     public void testEncodingShort()
             throws Exception
     {
-        assertEquals(createTrinoDataInputStream(new byte[] {109, 92}).readShort(), 23661);
-        assertEquals(createTrinoDataInputStream(new byte[] {109, -100}).readShort(), -25491);
-        assertEquals(createTrinoDataInputStream(new byte[] {-52, -107}).readShort(), -27188);
+        assertThat(createTrinoDataInputStream(new byte[] {109, 92}).readShort()).isEqualTo((short) 23661);
+        assertThat(createTrinoDataInputStream(new byte[] {109, -100}).readShort()).isEqualTo((short) -25491);
+        assertThat(createTrinoDataInputStream(new byte[] {-52, -107}).readShort()).isEqualTo((short) -27188);
 
-        assertEquals(createTrinoDataInputStream(new byte[] {109, -100}).readUnsignedShort(), 40045);
-        assertEquals(createTrinoDataInputStream(new byte[] {-52, -107}).readUnsignedShort(), 38348);
+        assertThat(createTrinoDataInputStream(new byte[] {109, -100}).readUnsignedShort()).isEqualTo(40045);
+        assertThat(createTrinoDataInputStream(new byte[] {-52, -107}).readUnsignedShort()).isEqualTo(38348);
     }
 
     @Test
     public void testEncodingInteger()
             throws Exception
     {
-        assertEquals(createTrinoDataInputStream(new byte[] {109, 92, 75, 58}).readInt(), 978017389);
-        assertEquals(createTrinoDataInputStream(new byte[] {-16, -60, -120, -1}).readInt(), -7813904);
+        assertThat(createTrinoDataInputStream(new byte[] {109, 92, 75, 58}).readInt()).isEqualTo(978017389);
+        assertThat(createTrinoDataInputStream(new byte[] {-16, -60, -120, -1}).readInt()).isEqualTo(-7813904);
     }
 
     @Test
     public void testEncodingLong()
             throws Exception
     {
-        assertEquals(createTrinoDataInputStream(new byte[] {49, -114, -96, -23, -32, -96, -32, 127}).readLong(), 9214541725452766769L);
-        assertEquals(createTrinoDataInputStream(new byte[] {109, 92, 75, 58, 18, 120, -112, -17}).readLong(), -1184314682315678611L);
+        assertThat(createTrinoDataInputStream(new byte[] {49, -114, -96, -23, -32, -96, -32, 127}).readLong()).isEqualTo(9214541725452766769L);
+        assertThat(createTrinoDataInputStream(new byte[] {109, 92, 75, 58, 18, 120, -112, -17}).readLong()).isEqualTo(-1184314682315678611L);
     }
 
     @Test
     public void testEncodingDouble()
             throws Exception
     {
-        assertEquals(createTrinoDataInputStream(new byte[] {31, -123, -21, 81, -72, 30, 9, 64}).readDouble(), 3.14);
-        assertEquals(createTrinoDataInputStream(new byte[] {0, 0, 0, 0, 0, 0, -8, 127}).readDouble(), Double.NaN);
-        assertEquals(createTrinoDataInputStream(new byte[] {0, 0, 0, 0, 0, 0, -16, -1}).readDouble(), Double.NEGATIVE_INFINITY);
-        assertEquals(createTrinoDataInputStream(new byte[] {0, 0, 0, 0, 0, 0, -16, 127}).readDouble(), Double.POSITIVE_INFINITY);
+        assertThat(createTrinoDataInputStream(new byte[] {31, -123, -21, 81, -72, 30, 9, 64}).readDouble()).isEqualTo(3.14);
+        assertThat(createTrinoDataInputStream(new byte[] {0, 0, 0, 0, 0, 0, -8, 127}).readDouble()).isNaN();
+        assertThat(createTrinoDataInputStream(new byte[] {0, 0, 0, 0, 0, 0, -16, -1}).readDouble()).isEqualTo(Double.NEGATIVE_INFINITY);
+        assertThat(createTrinoDataInputStream(new byte[] {0, 0, 0, 0, 0, 0, -16, 127}).readDouble()).isEqualTo(Double.POSITIVE_INFINITY);
     }
 
     @Test
     public void testEncodingFloat()
             throws Exception
     {
-        assertEquals(createTrinoDataInputStream(new byte[] {-61, -11, 72, 64}).readFloat(), 3.14f);
-        assertEquals(createTrinoDataInputStream(new byte[] {0, 0, -64, 127}).readFloat(), Float.NaN);
-        assertEquals(createTrinoDataInputStream(new byte[] {0, 0, -128, -1}).readFloat(), Float.NEGATIVE_INFINITY);
-        assertEquals(createTrinoDataInputStream(new byte[] {0, 0, -128, 127}).readFloat(), Float.POSITIVE_INFINITY);
+        assertThat(createTrinoDataInputStream(new byte[] {-61, -11, 72, 64}).readFloat()).isEqualTo(3.14f);
+        assertThat(createTrinoDataInputStream(new byte[] {0, 0, -64, 127}).readFloat()).isNaN();
+        assertThat(createTrinoDataInputStream(new byte[] {0, 0, -128, -1}).readFloat()).isEqualTo(Float.NEGATIVE_INFINITY);
+        assertThat(createTrinoDataInputStream(new byte[] {0, 0, -128, 127}).readFloat()).isEqualTo(Float.POSITIVE_INFINITY);
     }
 
     @Test
@@ -595,7 +594,7 @@ public class TestTrinoDataInputStream
         int bufferSize = 1024;
         TrinoInputStream inputStream = getMemoryInputFile(new byte[] {0, 1}).newStream();
         TrinoDataInputStream input = new TrinoDataInputStream(inputStream, bufferSize);
-        assertEquals(input.getRetainedSize(), instanceSize(TrinoDataInputStream.class) + sizeOfByteArray(bufferSize));
+        assertThat(input.getRetainedSize()).isEqualTo(instanceSize(TrinoDataInputStream.class) + sizeOfByteArray(bufferSize));
     }
 
     private static void testDataInput(DataInputTester tester)
@@ -621,7 +620,7 @@ public class TestTrinoDataInputStream
         TrinoDataInputStream input = createTrinoDataInputStream(bytes);
         for (int i = 0; i < bytes.length / tester.valueSize(); i++) {
             int position = i * tester.valueSize();
-            assertEquals(input.getPos(), position);
+            assertThat(input.getPos()).isEqualTo(position);
             tester.verifyValue(input, i);
         }
     }
@@ -633,7 +632,7 @@ public class TestTrinoDataInputStream
         for (int i = bytes.length / tester.valueSize() - 1; i >= 0; i--) {
             int position = i * tester.valueSize();
             input.seek(position);
-            assertEquals(input.getPos(), position);
+            assertThat(input.getPos()).isEqualTo(position);
             tester.verifyValue(input, i);
         }
     }
@@ -677,7 +676,7 @@ public class TestTrinoDataInputStream
         {
             try {
                 verifyValue(input, 1);
-                fail("expected EOFException");
+                throw new AssertionError("expected EOFException");
             }
             catch (EOFException expected) {
             }
@@ -721,7 +720,7 @@ public class TestTrinoDataInputStream
         {
             String actual = readActual(input);
             String expected = getExpectedStringValue(valueIndex, valueSize());
-            assertEquals(actual, expected);
+            assertThat(actual).isEqualTo(expected);
         }
 
         protected abstract String readActual(TrinoDataInputStream input)

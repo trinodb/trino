@@ -96,8 +96,8 @@ import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMNS;
 import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMN_TYPES;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.SerDeUtils.escapeString;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertTrue;
 
 public class TestJsonFormat
 {
@@ -1101,7 +1101,7 @@ public class TestJsonFormat
 
     private static MapType toMapKeyType(Type type)
     {
-        assertTrue(isScalarType(type));
+        assertThat(isScalarType(type)).isTrue();
         return new MapType(type, BIGINT, TYPE_OPERATORS);
     }
 
