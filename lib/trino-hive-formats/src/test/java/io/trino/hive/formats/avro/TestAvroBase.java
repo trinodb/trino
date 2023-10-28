@@ -55,7 +55,6 @@ import org.apache.avro.util.RandomData;
 import org.apache.avro.util.Utf8;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -186,73 +185,6 @@ public abstract class TestAvroBase
         ALL_TYPES_PAGE = new Page(allTypeBlocks.build().toArray(Block[]::new));
     }
 
-    @DataProvider(name = "testSchemas")
-    public Object[][] testSchemaProvider()
-    {
-        return new Object[][] {
-                {
-                        SIMPLE_RECORD_SCHEMA
-                },
-                {
-                     new Schema.Parser().parse("""
-                             {
-                                "type":"record",
-                                "name":"test",
-                                "fields":[
-                                    {
-                                        "name":"a",
-                                        "type":"int"
-                                    },
-                                    {
-                                        "name":"b",
-                                        "type":["null", {
-                                            "type":"array",
-                                            "items":[""" + SIMPLE_RECORD_SCHEMA.toString() + """
-                                            , "null"]
-                                        }]
-                                    },
-                                    {
-                                        "name":"c",
-                                        "type":
-                                        {
-                                            "type":"map",
-                                            "values":{
-                                                "type":"enum",
-                                                "name":"testingEnum",
-                                                "symbols":["Apples","Bananas","Kiwi"]
-                                            }
-                                        }
-                                    }
-                                ]
-                             }
-                             """)
-                },
-                {
-                    SchemaBuilder.builder().record("level1")
-                            .fields()
-                            .name("level1Field1")
-                            .type(SchemaBuilder.record("level2")
-                                    .fields()
-                                    .name("level2Field1")
-                                    .type(SchemaBuilder.record("level3")
-                                            .fields()
-                                            .name("level3Field1")
-                                            .type(ALL_TYPES_RECORD_SCHEMA)
-                                            .noDefault()
-                                            .endRecord())
-                                    .noDefault()
-                                    .name("level2Field2")
-                                    .type().optional().type(ALL_TYPES_RECORD_SCHEMA)
-                                    .endRecord())
-                            .noDefault()
-                            .name("level1Field2")
-                            .type(ALL_TYPES_RECORD_SCHEMA)
-                            .noDefault()
-                            .endRecord()
-                }
-        };
-    }
-
     @BeforeClass
     public void setup()
     {
@@ -267,13 +199,72 @@ public abstract class TestAvroBase
         assertIsAllTypesPage(ALL_TYPES_PAGE);
     }
 
-    @Test(dataProvider = "testSchemas")
-    public void testSerdeCycles(Schema schema)
+    @Test
+    public void testSerdeCycles()
             throws IOException, AvroTypeException
     {
         for (AvroCompressionKind compressionKind : AvroCompressionKind.values()) {
             if (compressionKind.isSupportedLocally()) {
-                testSerdeCycles(schema, compressionKind);
+                testSerdeCycles(SIMPLE_RECORD_SCHEMA, compressionKind);
+
+                testSerdeCycles(
+                        new Schema.Parser().parse(
+                                """
+                                {
+                                   "type":"record",
+                                   "name":"test",
+                                   "fields":[
+                                       {
+                                           "name":"a",
+                                           "type":"int"
+                                       },
+                                       {
+                                           "name":"b",
+                                           "type":["null", {
+                                               "type":"array",
+                                               "items":[%s, "null"]
+                                           }]
+                                       },
+                                       {
+                                           "name":"c",
+                                           "type":
+                                           {
+                                               "type":"map",
+                                               "values":{
+                                                   "type":"enum",
+                                                   "name":"testingEnum",
+                                                   "symbols":["Apples","Bananas","Kiwi"]
+                                               }
+                                           }
+                                       }
+                                   ]
+                                }
+                                """.formatted(SIMPLE_RECORD_SCHEMA)),
+                        compressionKind);
+
+                testSerdeCycles(
+                        SchemaBuilder.builder().record("level1")
+                                .fields()
+                                .name("level1Field1")
+                                .type(SchemaBuilder.record("level2")
+                                        .fields()
+                                        .name("level2Field1")
+                                        .type(SchemaBuilder.record("level3")
+                                                .fields()
+                                                .name("level3Field1")
+                                                .type(ALL_TYPES_RECORD_SCHEMA)
+                                                .noDefault()
+                                                .endRecord())
+                                        .noDefault()
+                                        .name("level2Field2")
+                                        .type().optional().type(ALL_TYPES_RECORD_SCHEMA)
+                                        .endRecord())
+                                .noDefault()
+                                .name("level1Field2")
+                                .type(ALL_TYPES_RECORD_SCHEMA)
+                                .noDefault()
+                                .endRecord(),
+                        compressionKind);
             }
         }
     }
