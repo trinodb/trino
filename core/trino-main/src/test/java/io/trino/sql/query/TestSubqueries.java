@@ -20,7 +20,6 @@ import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.testing.LocalQueryRunner;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -59,10 +58,9 @@ public class TestSubqueries
 {
     private static final String UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG = "line .*: Given correlated subquery is not supported";
 
-    private QueryAssertions assertions;
+    private final QueryAssertions assertions;
 
-    @BeforeAll
-    public void init()
+    public TestSubqueries()
     {
         Session session = testSessionBuilder()
                 .setCatalog(TEST_CATALOG_NAME)
@@ -81,7 +79,6 @@ public class TestSubqueries
     public void teardown()
     {
         assertions.close();
-        assertions = null;
     }
 
     @Test
