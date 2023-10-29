@@ -26,7 +26,9 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.io.File;
 import java.net.URI;
@@ -65,7 +67,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 
 // single-threaded AccessTrackingFileSystemFactory is shared mutable state
-@Test(singleThreaded = true)
+@Execution(ExecutionMode.SAME_THREAD)
 public class TestDeltaLakeFileOperations
         extends AbstractTestQueryFramework
 {
