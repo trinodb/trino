@@ -43,9 +43,9 @@ import io.trino.testing.TestingSession;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.PrimitiveType;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.File;
 import java.io.IOException;
@@ -79,8 +79,10 @@ import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertFalse;
 
+@TestInstance(PER_CLASS)
 public class TestDeltaLakeBasic
         extends AbstractTestQueryFramework
 {
@@ -116,7 +118,7 @@ public class TestDeltaLakeBasic
                 "delta.enable-non-concurrent-writes", "true"));
     }
 
-    @BeforeClass
+    @BeforeAll
     public void registerTables()
     {
         for (ResourceTable table : Iterables.concat(PERSON_TABLES, OTHER_TABLES)) {
@@ -131,39 +133,35 @@ public class TestDeltaLakeBasic
         return getClass().getClassLoader().getResource(resourcePath);
     }
 
-    @DataProvider
-    public Object[][] tables()
+    @Test
+    public void testDescribeTable()
     {
-        return PERSON_TABLES.stream()
-                .map(table -> new Object[] {table})
-                .toArray(Object[][]::new);
+        for (ResourceTable table : PERSON_TABLES) {
+            // the schema is actually defined in the transaction log
+            assertQuery(
+                    format("DESCRIBE %s", table.tableName()),
+                    "VALUES " +
+                            "('name', 'varchar', '', ''), " +
+                            "('age', 'integer', '', ''), " +
+                            "('married', 'boolean', '', ''), " +
+                            "('gender', 'varchar', '', ''), " +
+                            "('phones', 'array(row(number varchar, label varchar))', '', ''), " +
+                            "('address', 'row(street varchar, city varchar, state varchar, zip varchar)', '', ''), " +
+                            "('income', 'double', '', '')");
+        }
     }
 
-    @Test(dataProvider = "tables")
-    public void testDescribeTable(ResourceTable table)
+    @Test
+    public void testSimpleQueries()
     {
-        // the schema is actually defined in the transaction log
-        assertQuery(
-                format("DESCRIBE %s", table.tableName()),
-                "VALUES " +
-                        "('name', 'varchar', '', ''), " +
-                        "('age', 'integer', '', ''), " +
-                        "('married', 'boolean', '', ''), " +
-                        "('gender', 'varchar', '', ''), " +
-                        "('phones', 'array(row(number varchar, label varchar))', '', ''), " +
-                        "('address', 'row(street varchar, city varchar, state varchar, zip varchar)', '', ''), " +
-                        "('income', 'double', '', '')");
-    }
-
-    @Test(dataProvider = "tables")
-    public void testSimpleQueries(ResourceTable table)
-    {
-        assertQuery(format("SELECT COUNT(*) FROM %s", table.tableName()), "VALUES 12");
-        assertQuery(format("SELECT income FROM %s WHERE name = 'Bob'", table.tableName()), "VALUES 99000.00");
-        assertQuery(format("SELECT name FROM %s WHERE name LIKE 'B%%'", table.tableName()), "VALUES ('Bob'), ('Betty')");
-        assertQuery(format("SELECT DISTINCT gender FROM %s", table.tableName()), "VALUES ('M'), ('F'), (null)");
-        assertQuery(format("SELECT DISTINCT age FROM %s", table.tableName()), "VALUES (21), (25), (28), (29), (30), (42)");
-        assertQuery(format("SELECT name FROM %s WHERE age = 42", table.tableName()), "VALUES ('Alice'), ('Emma')");
+        for (ResourceTable table : PERSON_TABLES) {
+            assertQuery(format("SELECT COUNT(*) FROM %s", table.tableName()), "VALUES 12");
+            assertQuery(format("SELECT income FROM %s WHERE name = 'Bob'", table.tableName()), "VALUES 99000.00");
+            assertQuery(format("SELECT name FROM %s WHERE name LIKE 'B%%'", table.tableName()), "VALUES ('Bob'), ('Betty')");
+            assertQuery(format("SELECT DISTINCT gender FROM %s", table.tableName()), "VALUES ('M'), ('F'), (null)");
+            assertQuery(format("SELECT DISTINCT age FROM %s", table.tableName()), "VALUES (21), (25), (28), (29), (30), (42)");
+            assertQuery(format("SELECT name FROM %s WHERE age = 42", table.tableName()), "VALUES ('Alice'), ('Emma')");
+        }
     }
 
     @Test
@@ -177,8 +175,15 @@ public class TestDeltaLakeBasic
      * @see deltalake.column_mapping_mode_id
      * @see deltalake.column_mapping_mode_name
      */
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testAddNestedColumnWithColumnMappingMode(String columnMappingMode)
+    @Test
+    public void testAddNestedColumnWithColumnMappingMode()
+            throws Exception
+    {
+        testAddNestedColumnWithColumnMappingMode("id");
+        testAddNestedColumnWithColumnMappingMode("name");
+    }
+
+    private void testAddNestedColumnWithColumnMappingMode(String columnMappingMode)
             throws Exception
     {
         // The table contains 'x' column with column mapping mode
@@ -246,8 +251,15 @@ public class TestDeltaLakeBasic
      * @see deltalake.column_mapping_mode_id
      * @see deltalake.column_mapping_mode_name
      */
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testOptimizeWithColumnMappingMode(String columnMappingMode)
+    @Test
+    public void testOptimizeWithColumnMappingMode()
+            throws Exception
+    {
+        testOptimizeWithColumnMappingMode("id");
+        testOptimizeWithColumnMappingMode("name");
+    }
+
+    private void testOptimizeWithColumnMappingMode(String columnMappingMode)
             throws Exception
     {
         // The table contains 'x' column with column mapping mode
@@ -310,8 +322,15 @@ public class TestDeltaLakeBasic
      * @see deltalake.column_mapping_mode_id
      * @see deltalake.column_mapping_mode_name
      */
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testDropColumnWithColumnMappingMode(String columnMappingMode)
+    @Test
+    public void testDropColumnWithColumnMappingMode()
+            throws Exception
+    {
+        testDropColumnWithColumnMappingMode("id");
+        testDropColumnWithColumnMappingMode("name");
+    }
+
+    private void testDropColumnWithColumnMappingMode(String columnMappingMode)
             throws Exception
     {
         // The table contains 'x' column with column mapping mode
@@ -358,8 +377,15 @@ public class TestDeltaLakeBasic
      * @see deltalake.column_mapping_mode_id
      * @see deltalake.column_mapping_mode_name
      */
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testRenameColumnWithColumnMappingMode(String columnMappingMode)
+    @Test
+    public void testRenameColumnWithColumnMappingMode()
+            throws Exception
+    {
+        testRenameColumnWithColumnMappingMode("id");
+        testRenameColumnWithColumnMappingMode("name");
+    }
+
+    private void testRenameColumnWithColumnMappingMode(String columnMappingMode)
             throws Exception
     {
         // The table contains 'x' column with column mapping mode
@@ -409,8 +435,15 @@ public class TestDeltaLakeBasic
      * @see deltalake.column_mapping_mode_id
      * @see deltalake.column_mapping_mode_name
      */
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testWriterAfterRenameColumnWithColumnMappingMode(String columnMappingMode)
+    @Test
+    public void testWriterAfterRenameColumnWithColumnMappingMode()
+            throws Exception
+    {
+        testWriterAfterRenameColumnWithColumnMappingMode("id");
+        testWriterAfterRenameColumnWithColumnMappingMode("name");
+    }
+
+    private void testWriterAfterRenameColumnWithColumnMappingMode(String columnMappingMode)
             throws Exception
     {
         String tableName = "test_writer_after_rename_column_" + randomNameSuffix();
@@ -521,20 +554,22 @@ public class TestDeltaLakeBasic
                         """);
     }
 
-    @DataProvider
-    public Object[][] columnMappingModeDataProvider()
-    {
-        return new Object[][] {
-                {"id"},
-                {"name"},
-        };
-    }
-
     /**
      * @see databricks131.timestamp_ntz
      */
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testDeltaTimestampNtz(ZoneId sessionZone)
+    @Test
+    public void testDeltaTimestampNtz()
+            throws Exception
+    {
+        testDeltaTimestampNtz(UTC);
+        testDeltaTimestampNtz(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Postgres system zone is
+        testDeltaTimestampNtz(vilnius);
+        testDeltaTimestampNtz(kathmandu);
+        testDeltaTimestampNtz(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testDeltaTimestampNtz(ZoneId sessionZone)
             throws Exception
     {
         String tableName = "timestamp_ntz" + randomNameSuffix();
@@ -585,8 +620,19 @@ public class TestDeltaLakeBasic
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTrinoCreateTableWithTimestampNtz(ZoneId sessionZone)
+    @Test
+    public void testTrinoCreateTableWithTimestampNtz()
+            throws Exception
+    {
+        testTrinoCreateTableWithTimestampNtz(UTC);
+        testTrinoCreateTableWithTimestampNtz(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Postgres system zone is
+        testTrinoCreateTableWithTimestampNtz(vilnius);
+        testTrinoCreateTableWithTimestampNtz(kathmandu);
+        testTrinoCreateTableWithTimestampNtz(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTrinoCreateTableWithTimestampNtz(ZoneId sessionZone)
             throws Exception
     {
         testTrinoCreateTableWithTimestampNtz(
@@ -597,8 +643,19 @@ public class TestDeltaLakeBasic
                 });
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTrinoCreateTableAsSelectWithTimestampNtz(ZoneId sessionZone)
+    @Test
+    public void testTrinoCreateTableAsSelectWithTimestampNtz()
+            throws Exception
+    {
+        testTrinoCreateTableAsSelectWithTimestampNtz(UTC);
+        testTrinoCreateTableAsSelectWithTimestampNtz(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Postgres system zone is
+        testTrinoCreateTableAsSelectWithTimestampNtz(vilnius);
+        testTrinoCreateTableAsSelectWithTimestampNtz(kathmandu);
+        testTrinoCreateTableAsSelectWithTimestampNtz(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTrinoCreateTableAsSelectWithTimestampNtz(ZoneId sessionZone)
             throws Exception
     {
         testTrinoCreateTableWithTimestampNtz(
@@ -668,8 +725,18 @@ public class TestDeltaLakeBasic
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTrinoTimestampNtzComplexType(ZoneId sessionZone)
+    @Test
+    public void testTrinoTimestampNtzComplexType()
+    {
+        testTrinoTimestampNtzComplexType(UTC);
+        testTrinoTimestampNtzComplexType(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Postgres system zone is
+        testTrinoTimestampNtzComplexType(vilnius);
+        testTrinoTimestampNtzComplexType(kathmandu);
+        testTrinoTimestampNtzComplexType(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTrinoTimestampNtzComplexType(ZoneId sessionZone)
     {
         String tableName = "test_timestamp_ntz_complex_type" + randomNameSuffix();
 
@@ -717,8 +784,19 @@ public class TestDeltaLakeBasic
     /**
      * @see databricks131.timestamp_ntz_partition
      */
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimestampNtzPartitioned(ZoneId sessionZone)
+    @Test
+    public void testTimestampNtzPartitioned()
+            throws Exception
+    {
+        testTimestampNtzPartitioned(UTC);
+        testTimestampNtzPartitioned(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Postgres system zone is
+        testTimestampNtzPartitioned(vilnius);
+        testTimestampNtzPartitioned(kathmandu);
+        testTimestampNtzPartitioned(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimestampNtzPartitioned(ZoneId sessionZone)
             throws Exception
     {
         String tableName = "timestamp_ntz_partition" + randomNameSuffix();
@@ -971,18 +1049,5 @@ public class TestDeltaLakeBasic
             return location;
         }
         throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
-    }
-
-    @DataProvider
-    public Object[][] sessionZonesDataProvider()
-    {
-        return new Object[][] {
-                {UTC},
-                {jvmZone},
-                // using two non-JVM zones so that we don't need to worry what Postgres system zone is
-                {vilnius},
-                {kathmandu},
-                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
-        };
     }
 }

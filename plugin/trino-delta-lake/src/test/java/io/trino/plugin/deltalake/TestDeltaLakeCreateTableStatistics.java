@@ -26,13 +26,13 @@ import io.trino.spi.type.DoubleType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -113,116 +113,120 @@ public class TestDeltaLakeCreateTableStatistics
         }
     }
 
-    @DataProvider
-    public static Object[][] doubleTypes()
-    {
-        return new Object[][] {{"DOUBLE"}, {"REAL"}};
-    }
-
-    @Test(dataProvider = "doubleTypes")
-    public void testDoubleTypesNaN(String type)
+    @Test
+    public void testDoubleTypesNaN()
             throws Exception
     {
-        String columnName = "t_double";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR, Optional.empty());
-        try (TestTable table = new TestTable("test_nan_", ImmutableList.of(columnName), format("VALUES CAST(nan() AS %1$s), CAST(0.0 AS %1$s)", type))) {
-            List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
-            AddFileEntry entry = getOnlyElement(addFileEntries);
-            assertThat(entry.getStats()).isPresent();
-            DeltaLakeFileStatistics fileStatistics = entry.getStats().get();
+        for (String type : Arrays.asList("DOUBLE", "REAL")) {
+            String columnName = "t_double";
+            DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR, Optional.empty());
+            try (TestTable table = new TestTable("test_nan_", ImmutableList.of(columnName), format("VALUES CAST(nan() AS %1$s), CAST(0.0 AS %1$s)", type))) {
+                List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
+                AddFileEntry entry = getOnlyElement(addFileEntries);
+                assertThat(entry.getStats()).isPresent();
+                DeltaLakeFileStatistics fileStatistics = entry.getStats().get();
 
-            assertEquals(fileStatistics.getNumRecords(), Optional.of(2L));
-            assertEquals(fileStatistics.getMinColumnValue(columnHandle), Optional.empty());
-            assertEquals(fileStatistics.getMaxColumnValue(columnHandle), Optional.empty());
-            assertEquals(fileStatistics.getNullCount(columnName), Optional.empty());
+                assertEquals(fileStatistics.getNumRecords(), Optional.of(2L));
+                assertEquals(fileStatistics.getMinColumnValue(columnHandle), Optional.empty());
+                assertEquals(fileStatistics.getMaxColumnValue(columnHandle), Optional.empty());
+                assertEquals(fileStatistics.getNullCount(columnName), Optional.empty());
+            }
         }
     }
 
-    @Test(dataProvider = "doubleTypes")
-    public void testDoubleTypesInf(String type)
+    @Test
+    public void testDoubleTypesInf()
             throws Exception
     {
-        String columnName = "t_double";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR, Optional.empty());
-        try (TestTable table = new TestTable(
-                "test_inf_",
-                ImmutableList.of(columnName),
-                format("VALUES CAST(infinity() AS %1$s), CAST(0.0 AS %1$s), CAST((infinity() * -1) AS %1$s)", type))) {
-            List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
-            AddFileEntry entry = getOnlyElement(addFileEntries);
-            assertThat(entry.getStats()).isPresent();
-            DeltaLakeFileStatistics fileStatistics = entry.getStats().get();
+        for (String type : Arrays.asList("DOUBLE", "REAL")) {
+            String columnName = "t_double";
+            DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR, Optional.empty());
+            try (TestTable table = new TestTable(
+                    "test_inf_",
+                    ImmutableList.of(columnName),
+                    format("VALUES CAST(infinity() AS %1$s), CAST(0.0 AS %1$s), CAST((infinity() * -1) AS %1$s)", type))) {
+                List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
+                AddFileEntry entry = getOnlyElement(addFileEntries);
+                assertThat(entry.getStats()).isPresent();
+                DeltaLakeFileStatistics fileStatistics = entry.getStats().get();
 
-            assertEquals(fileStatistics.getNumRecords(), Optional.of(3L));
-            assertEquals(fileStatistics.getMinColumnValue(columnHandle), Optional.of(NEGATIVE_INFINITY));
-            assertEquals(fileStatistics.getMaxColumnValue(columnHandle), Optional.of(POSITIVE_INFINITY));
-            assertEquals(fileStatistics.getNullCount(columnName), Optional.of(0L));
+                assertEquals(fileStatistics.getNumRecords(), Optional.of(3L));
+                assertEquals(fileStatistics.getMinColumnValue(columnHandle), Optional.of(NEGATIVE_INFINITY));
+                assertEquals(fileStatistics.getMaxColumnValue(columnHandle), Optional.of(POSITIVE_INFINITY));
+                assertEquals(fileStatistics.getNullCount(columnName), Optional.of(0L));
+            }
         }
     }
 
-    @Test(dataProvider = "doubleTypes")
-    public void testDoubleTypesInfAndNaN(String type)
+    @Test
+    public void testDoubleTypesInfAndNaN()
             throws Exception
     {
-        String columnName = "t_double";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR, Optional.empty());
-        try (TestTable table = new TestTable(
-                "test_inf_nan_",
-                ImmutableList.of(columnName),
-                format("VALUES CAST(nan() AS %1$s), CAST(0.0 AS %1$s), CAST(infinity() AS %1$s), CAST((infinity() * -1) AS %1$s)", type))) {
-            List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
-            AddFileEntry entry = getOnlyElement(addFileEntries);
-            assertThat(entry.getStats()).isPresent();
-            DeltaLakeFileStatistics fileStatistics = entry.getStats().get();
+        for (String type : Arrays.asList("DOUBLE", "REAL")) {
+            String columnName = "t_double";
+            DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR, Optional.empty());
+            try (TestTable table = new TestTable(
+                    "test_inf_nan_",
+                    ImmutableList.of(columnName),
+                    format("VALUES CAST(nan() AS %1$s), CAST(0.0 AS %1$s), CAST(infinity() AS %1$s), CAST((infinity() * -1) AS %1$s)", type))) {
+                List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
+                AddFileEntry entry = getOnlyElement(addFileEntries);
+                assertThat(entry.getStats()).isPresent();
+                DeltaLakeFileStatistics fileStatistics = entry.getStats().get();
 
-            assertEquals(fileStatistics.getNumRecords(), Optional.of(4L));
-            assertEquals(fileStatistics.getMinColumnValue(columnHandle), Optional.empty());
-            assertEquals(fileStatistics.getMaxColumnValue(columnHandle), Optional.empty());
-            assertEquals(fileStatistics.getNullCount(columnName), Optional.empty());
+                assertEquals(fileStatistics.getNumRecords(), Optional.of(4L));
+                assertEquals(fileStatistics.getMinColumnValue(columnHandle), Optional.empty());
+                assertEquals(fileStatistics.getMaxColumnValue(columnHandle), Optional.empty());
+                assertEquals(fileStatistics.getNullCount(columnName), Optional.empty());
+            }
         }
     }
 
-    @Test(dataProvider = "doubleTypes")
-    public void testDoubleTypesNaNPositive(String type)
+    @Test
+    public void testDoubleTypesNaNPositive()
             throws Exception
     {
-        String columnName = "t_double";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR, Optional.empty());
-        try (TestTable table = new TestTable(
-                "test_nan_positive_",
-                ImmutableList.of(columnName),
-                format("VALUES CAST(nan() AS %1$s), CAST(1.0 AS %1$s), CAST(100.0 AS %1$s), CAST(0.0001 AS %1$s)", type))) {
-            List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
-            AddFileEntry entry = getOnlyElement(addFileEntries);
-            assertThat(entry.getStats()).isPresent();
-            DeltaLakeFileStatistics fileStatistics = entry.getStats().get();
+        for (String type : Arrays.asList("DOUBLE", "REAL")) {
+            String columnName = "t_double";
+            DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR, Optional.empty());
+            try (TestTable table = new TestTable(
+                    "test_nan_positive_",
+                    ImmutableList.of(columnName),
+                    format("VALUES CAST(nan() AS %1$s), CAST(1.0 AS %1$s), CAST(100.0 AS %1$s), CAST(0.0001 AS %1$s)", type))) {
+                List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
+                AddFileEntry entry = getOnlyElement(addFileEntries);
+                assertThat(entry.getStats()).isPresent();
+                DeltaLakeFileStatistics fileStatistics = entry.getStats().get();
 
-            assertEquals(fileStatistics.getNumRecords(), Optional.of(4L));
-            assertEquals(fileStatistics.getMinColumnValue(columnHandle), Optional.empty());
-            assertEquals(fileStatistics.getMaxColumnValue(columnHandle), Optional.empty());
-            assertEquals(fileStatistics.getNullCount(columnName), Optional.empty());
+                assertEquals(fileStatistics.getNumRecords(), Optional.of(4L));
+                assertEquals(fileStatistics.getMinColumnValue(columnHandle), Optional.empty());
+                assertEquals(fileStatistics.getMaxColumnValue(columnHandle), Optional.empty());
+                assertEquals(fileStatistics.getNullCount(columnName), Optional.empty());
+            }
         }
     }
 
-    @Test(dataProvider = "doubleTypes")
-    public void testDoubleTypesNaNNegative(String type)
+    @Test
+    public void testDoubleTypesNaNNegative()
             throws Exception
     {
-        String columnName = "t_double";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR, Optional.empty());
-        try (TestTable table = new TestTable(
-                "test_nan_positive_",
-                ImmutableList.of(columnName),
-                format("VALUES CAST(nan() AS %1$s), CAST(-1.0 AS %1$s), CAST(-100.0 AS %1$s), CAST(-0.0001 AS %1$s)", type))) {
-            List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
-            AddFileEntry entry = getOnlyElement(addFileEntries);
-            assertThat(entry.getStats()).isPresent();
-            DeltaLakeFileStatistics fileStatistics = entry.getStats().get();
+        for (String type : Arrays.asList("DOUBLE", "REAL")) {
+            String columnName = "t_double";
+            DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR, Optional.empty());
+            try (TestTable table = new TestTable(
+                    "test_nan_positive_",
+                    ImmutableList.of(columnName),
+                    format("VALUES CAST(nan() AS %1$s), CAST(-1.0 AS %1$s), CAST(-100.0 AS %1$s), CAST(-0.0001 AS %1$s)", type))) {
+                List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
+                AddFileEntry entry = getOnlyElement(addFileEntries);
+                assertThat(entry.getStats()).isPresent();
+                DeltaLakeFileStatistics fileStatistics = entry.getStats().get();
 
-            assertEquals(fileStatistics.getNumRecords(), Optional.of(4L));
-            assertEquals(fileStatistics.getMinColumnValue(columnHandle), Optional.empty());
-            assertEquals(fileStatistics.getMaxColumnValue(columnHandle), Optional.empty());
-            assertEquals(fileStatistics.getNullCount(columnName), Optional.empty());
+                assertEquals(fileStatistics.getNumRecords(), Optional.of(4L));
+                assertEquals(fileStatistics.getMinColumnValue(columnHandle), Optional.empty());
+                assertEquals(fileStatistics.getMaxColumnValue(columnHandle), Optional.empty());
+                assertEquals(fileStatistics.getNullCount(columnName), Optional.empty());
+            }
         }
     }
 
