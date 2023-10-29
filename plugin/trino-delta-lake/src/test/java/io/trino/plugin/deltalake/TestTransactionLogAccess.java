@@ -536,6 +536,8 @@ public class TestTransactionLogAccess
     public void testIncrementalCacheUpdates()
             throws Exception
     {
+        setupTransactionLogAccessFromResources("person", "databricks73/person");
+
         String tableName = "person";
         File tempDir = Files.createTempDirectory(null).toFile();
         File tableDir = new File(tempDir, tableName);
@@ -763,6 +765,8 @@ public class TestTransactionLogAccess
     public void testTableSnapshotsActiveDataFilesCache()
             throws Exception
     {
+        setupTransactionLogAccessFromResources("person", "databricks73/person");
+
         String tableName = "person";
         String tableDir = getClass().getClassLoader().getResource("databricks73/" + tableName).toURI().toString();
         DeltaLakeConfig shortLivedActiveDataFilesCacheConfig = new DeltaLakeConfig();
@@ -799,6 +803,8 @@ public class TestTransactionLogAccess
     public void testFlushSnapshotAndActiveFileCache()
             throws Exception
     {
+        setupTransactionLogAccessFromResources("person", "databricks73/person");
+
         String tableName = "person";
         String tableDir = getClass().getClassLoader().getResource("databricks73/" + tableName).toURI().toString();
         DeltaLakeConfig shortLivedActiveDataFilesCacheConfig = new DeltaLakeConfig();
@@ -845,6 +851,8 @@ public class TestTransactionLogAccess
     public void testTableSnapshotsActiveDataFilesCacheDisabled()
             throws Exception
     {
+        setupTransactionLogAccessFromResources("person", "databricks73/person");
+
         String tableName = "person";
         String tableDir = getClass().getClassLoader().getResource("databricks73/" + tableName).toURI().toString();
         DeltaLakeConfig shortLivedActiveDataFilesCacheConfig = new DeltaLakeConfig();
