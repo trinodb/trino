@@ -18,7 +18,6 @@ import io.trino.operator.scalar.json.JsonInputConversionError;
 import io.trino.operator.scalar.json.JsonValueFunction.JsonValueResultError;
 import io.trino.sql.parser.ParsingException;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -36,19 +35,12 @@ public class TestJsonValueFunction
 {
     private static final String INPUT = "[\"a\", \"b\", \"c\"]";
     private static final String INCORRECT_INPUT = "[...";
-    private QueryAssertions assertions;
-
-    @BeforeAll
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
+    private final QueryAssertions assertions = new QueryAssertions();
 
     @AfterAll
     public void teardown()
     {
         assertions.close();
-        assertions = null;
     }
 
     @Test
