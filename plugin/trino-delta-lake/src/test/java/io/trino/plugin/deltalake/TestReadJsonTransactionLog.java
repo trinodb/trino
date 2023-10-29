@@ -20,7 +20,6 @@ import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -42,20 +41,21 @@ public class TestReadJsonTransactionLog
 {
     private final ObjectMapper objectMapper = new ObjectMapperProvider().get();
 
-    @DataProvider
-    public Object[][] dataSource()
-    {
-        return new Object[][] {
-                {"databricks73"},
-                {"deltalake"},
-        };
-    }
-
-    @Test(dataProvider = "dataSource")
-    public void testAdd(String dataSource)
+    @Test
+    public void testAdd()
     {
         assertEquals(
-                readJsonTransactionLogs(String.format("%s/person/_delta_log", dataSource))
+                readJsonTransactionLogs("databricks73/person/_delta_log")
+                        .map(this::deserialize)
+                        .map(DeltaLakeTransactionLogEntry::getAdd)
+                        .filter(Objects::nonNull)
+                        .map(AddFileEntry::getPath)
+                        .filter(Objects::nonNull)
+                        .count(),
+                18);
+
+        assertEquals(
+                readJsonTransactionLogs("deltalake/person/_delta_log")
                         .map(this::deserialize)
                         .map(DeltaLakeTransactionLogEntry::getAdd)
                         .filter(Objects::nonNull)
@@ -65,11 +65,21 @@ public class TestReadJsonTransactionLog
                 18);
     }
 
-    @Test(dataProvider = "dataSource")
-    public void testRemove(String dataSource)
+    @Test
+    public void testRemove()
     {
         assertEquals(
-                readJsonTransactionLogs(String.format("%s/person/_delta_log", dataSource))
+                readJsonTransactionLogs("databricks73/person/_delta_log")
+                        .map(this::deserialize)
+                        .map(DeltaLakeTransactionLogEntry::getRemove)
+                        .filter(Objects::nonNull)
+                        .map(RemoveFileEntry::getPath)
+                        .filter(Objects::nonNull)
+                        .count(),
+                6);
+
+        assertEquals(
+                readJsonTransactionLogs("deltalake/person/_delta_log")
                         .map(this::deserialize)
                         .map(DeltaLakeTransactionLogEntry::getRemove)
                         .filter(Objects::nonNull)

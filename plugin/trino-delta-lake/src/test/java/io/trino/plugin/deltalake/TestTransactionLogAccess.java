@@ -41,7 +41,6 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.TypeManager;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -342,20 +341,17 @@ public class TestTransactionLogAccess
         }
     }
 
-    // Broader tests which validate common attributes across the wider data set
-    @DataProvider
-    public Object[][] tables()
+    @Test
+    public void testAllGetMetadataEntry()
+            throws Exception
     {
-        return new Object[][] {
-                {"person", "databricks73/person"},
-                {"person_without_last_checkpoint", "databricks73/person_without_last_checkpoint"},
-                {"person_without_old_jsons", "databricks73/person_without_old_jsons"},
-                {"person_without_checkpoints", "databricks73/person_without_checkpoints"}
-        };
+        testAllGetMetadataEntry("person", "databricks73/person");
+        testAllGetMetadataEntry("person_without_last_checkpoint", "databricks73/person_without_last_checkpoint");
+        testAllGetMetadataEntry("person_without_old_jsons", "databricks73/person_without_old_jsons");
+        testAllGetMetadataEntry("person_without_checkpoints", "databricks73/person_without_checkpoints");
     }
 
-    @Test(dataProvider = "tables")
-    public void testAllGetMetadataEntry(String tableName, String resourcePath)
+    private void testAllGetMetadataEntry(String tableName, String resourcePath)
             throws Exception
     {
         setupTransactionLogAccessFromResources(tableName, resourcePath);
@@ -370,8 +366,17 @@ public class TestTransactionLogAccess
         assertEquals(format.getProvider(), "parquet");
     }
 
-    @Test(dataProvider = "tables")
-    public void testAllGetActiveAddEntries(String tableName, String resourcePath)
+    @Test
+    public void testAllGetActiveAddEntries()
+            throws Exception
+    {
+        testAllGetActiveAddEntries("person", "databricks73/person");
+        testAllGetActiveAddEntries("person_without_last_checkpoint", "databricks73/person_without_last_checkpoint");
+        testAllGetActiveAddEntries("person_without_old_jsons", "databricks73/person_without_old_jsons");
+        testAllGetActiveAddEntries("person_without_checkpoints", "databricks73/person_without_checkpoints");
+    }
+
+    private void testAllGetActiveAddEntries(String tableName, String resourcePath)
             throws Exception
     {
         setupTransactionLogAccessFromResources(tableName, resourcePath);
@@ -386,8 +391,17 @@ public class TestTransactionLogAccess
         assertEquals(paths, EXPECTED_ADD_FILE_PATHS);
     }
 
-    @Test(dataProvider = "tables")
-    public void testAllGetRemoveEntries(String tableName, String resourcePath)
+    @Test
+    public void testAllGetRemoveEntries()
+            throws Exception
+    {
+        testAllGetRemoveEntries("person", "databricks73/person");
+        testAllGetRemoveEntries("person_without_last_checkpoint", "databricks73/person_without_last_checkpoint");
+        testAllGetRemoveEntries("person_without_old_jsons", "databricks73/person_without_old_jsons");
+        testAllGetRemoveEntries("person_without_checkpoints", "databricks73/person_without_checkpoints");
+    }
+
+    private void testAllGetRemoveEntries(String tableName, String resourcePath)
             throws Exception
     {
         setupTransactionLogAccessFromResources(tableName, resourcePath);
@@ -400,8 +414,17 @@ public class TestTransactionLogAccess
         }
     }
 
-    @Test(dataProvider = "tables")
-    public void testAllGetProtocolEntries(String tableName, String resourcePath)
+    @Test
+    public void testAllGetProtocolEntries()
+            throws Exception
+    {
+        testAllGetProtocolEntries("person", "databricks73/person");
+        testAllGetProtocolEntries("person_without_last_checkpoint", "databricks73/person_without_last_checkpoint");
+        testAllGetProtocolEntries("person_without_old_jsons", "databricks73/person_without_old_jsons");
+        testAllGetProtocolEntries("person_without_checkpoints", "databricks73/person_without_checkpoints");
+    }
+
+    private void testAllGetProtocolEntries(String tableName, String resourcePath)
             throws Exception
     {
         setupTransactionLogAccessFromResources(tableName, resourcePath);
