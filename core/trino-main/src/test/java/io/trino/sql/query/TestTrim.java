@@ -18,7 +18,6 @@ import io.trino.operator.scalar.TestStringFunctions;
 import io.trino.spi.TrinoException;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -30,10 +29,9 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 @TestInstance(PER_CLASS)
 public class TestTrim
 {
-    private QueryAssertions assertions;
+    private final QueryAssertions assertions;
 
-    @BeforeAll
-    public void init()
+    public TestTrim()
     {
         assertions = new QueryAssertions();
         assertions.addFunctions(InternalFunctionBundle.builder()
@@ -45,7 +43,6 @@ public class TestTrim
     public void teardown()
     {
         assertions.close();
-        assertions = null;
     }
 
     @Test
