@@ -23,7 +23,6 @@ import io.trino.spi.security.ViewExpression;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingAccessControlManager;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -49,11 +48,10 @@ public class TestFilterInaccessibleColumns
             .setIdentity(Identity.forUser(USER).build())
             .build();
 
-    private QueryAssertions assertions;
-    private TestingAccessControlManager accessControl;
+    private final QueryAssertions assertions;
+    private final TestingAccessControlManager accessControl;
 
-    @BeforeAll
-    public void init()
+    public TestFilterInaccessibleColumns()
     {
         LocalQueryRunner runner = LocalQueryRunner.builder(SESSION)
                 .withFeaturesConfig(new FeaturesConfig().setHideInaccessibleColumns(true))
@@ -68,7 +66,6 @@ public class TestFilterInaccessibleColumns
     public void teardown()
     {
         assertions.close();
-        assertions = null;
     }
 
     @Test

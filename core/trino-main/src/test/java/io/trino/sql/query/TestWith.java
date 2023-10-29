@@ -18,7 +18,6 @@ import io.trino.Session;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.testing.LocalQueryRunner;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -33,10 +32,9 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 @TestInstance(PER_CLASS)
 public class TestWith
 {
-    private QueryAssertions assertions;
+    private final QueryAssertions assertions;
 
-    @BeforeAll
-    public void init()
+    public TestWith()
     {
         Session session = testSessionBuilder()
                 .setCatalog(TEST_CATALOG_NAME)
@@ -55,7 +53,6 @@ public class TestWith
     public void teardown()
     {
         assertions.close();
-        assertions = null;
     }
 
     @Test
