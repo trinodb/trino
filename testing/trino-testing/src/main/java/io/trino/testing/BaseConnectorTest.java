@@ -6587,6 +6587,27 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testInlineFunction() {
+        assertQuery("""
+                        WITH FUNCTION my_func(x bigint) RETURNS bigint RETURN x * 2
+                        SELECT my_func(nationkey) FROM tpch.tiny.nation WHERE nationkey = 1
+                        """,
+                "SELECT 2");
+
+        assertQuery("""
+                        WITH FUNCTION my_func(x bigint) RETURNS bigint RETURN x * 2
+                        SELECT my_func(nationkey) FROM tpch.tiny.nation WHERE nationkey >= 1
+                        """,
+                "SELECT nationkey * 2 FROM nation WHERE nationkey >= 1");
+
+        assertQuery("""
+                        WITH FUNCTION my_func(x bigint) RETURNS bigint RETURN x * 2
+                        SELECT my_func(nationkey) FROM tpch.tiny.nation
+                        """,
+                "SELECT nationkey * 2 FROM nation");
+    }
+
+    @Test
     public void testProjectionPushdown()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ROW_TYPE));
