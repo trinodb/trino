@@ -222,6 +222,13 @@
                                     <old>class io.trino.spi.block.SqlMap.HashTableSupplier</old>
                                     <new>class io.trino.spi.block.SqlMap.HashTableSupplier</new>
                                 </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method void io.trino.spi.block.SqlMap::&lt;init&gt;(io.trino.spi.type.MapType, io.trino.spi.block.Block, io.trino.spi.block.Block, io.trino.spi.block.SqlMap.HashTableSupplier, int, int)</old>
+                                    <new>method void io.trino.spi.block.SqlMap::&lt;init&gt;(io.trino.spi.type.MapType, io.trino.spi.block.Block, io.trino.spi.block.Block, io.trino.spi.block.SqlMap.HashTableSupplier, int, int)</new>
+                                    <oldVisibility>public</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
