@@ -941,6 +941,14 @@ public class TestAnalyzer
         assertFails("SELECT * FROM foo FOR VERSION AS OF 'version1'")
                 .hasErrorCode(TABLE_NOT_FOUND)
                 .hasMessage("line 1:15: Table 'tpch.s1.foo' does not exist");
+        // table name containing dots
+        assertFails("SELECT * FROM \"table.not.existing\"")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:15: Table 'tpch.s1.table.not.existing' does not exist");
+        // table name containing whitespace
+        assertFails("SELECT * FROM \"table' does not exist, or maybe 'view\"")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:15: Table 'tpch.s1.table' does not exist, or maybe 'view' does not exist");
     }
 
     @Test
@@ -952,6 +960,10 @@ public class TestAnalyzer
         assertFails("SHOW TABLES IN NONEXISTENT_SCHEMA LIKE '%'")
                 .hasErrorCode(SCHEMA_NOT_FOUND)
                 .hasMessage("line 1:1: Schema 'nonexistent_schema' does not exist");
+        assertFails("SELECT * FROM \"a.b.c.d.e.\".\"f.g.h\" ")
+                .hasErrorCode(SCHEMA_NOT_FOUND)
+                // TODO like in TABLE_NOT_FOUND, the error message should include current catalog
+                .hasMessage("line 1:15: Schema 'a.b.c.d.e.' does not exist");
     }
 
     @Test
