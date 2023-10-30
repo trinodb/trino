@@ -207,4 +207,18 @@ public interface TrinoFileSystem
      */
     Set<Location> listDirectories(Location location)
             throws IOException;
+
+    /**
+     * Creates a temporary directory for the target path. The directory will be created
+     * using the (possibly absolute) prefix such that the directory can be renamed to
+     * the target path. The relative prefix will be used if the target path does not
+     * support the temporary prefix (which is typically absolute).
+     * <p>
+     * The temporary directory is not created for non-hierarchical file systems or for
+     * target paths that do not support renaming, and an empty optional is returned.
+     *
+     * @throws IllegalArgumentException If the target path is not valid for this file system.
+     */
+    Optional<Location> createTemporaryDirectory(Location targetPath, String temporaryPrefix, String relativePrefix)
+            throws IOException;
 }

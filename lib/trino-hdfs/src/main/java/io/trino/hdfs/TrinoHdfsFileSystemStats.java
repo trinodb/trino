@@ -28,6 +28,7 @@ public final class TrinoHdfsFileSystemStats
     private final CallStats createDirectoryCalls = new CallStats();
     private final CallStats renameDirectoryCalls = new CallStats();
     private final CallStats listDirectoriesCalls = new CallStats();
+    private final CallStats createTemporaryDirectoryCalls = new CallStats();
 
     @Managed
     @Nested
@@ -97,5 +98,12 @@ public final class TrinoHdfsFileSystemStats
     public CallStats getListDirectoriesCalls()
     {
         return listDirectoriesCalls;
+    }
+
+    @Managed
+    @Nested
+    public CallStats getCreateTemporaryDirectoryCalls()
+    {
+        return createTemporaryDirectoryCalls;
     }
 }
