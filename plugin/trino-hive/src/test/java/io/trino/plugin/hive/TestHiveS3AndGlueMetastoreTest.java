@@ -192,12 +192,10 @@ public class TestHiveS3AndGlueMetastoreTest
 
             assertUpdate("CREATE TABLE " + qualifiedTableName + "(col_str varchar, col_int int)" + partitionQueryPart);
             try (UncheckedCloseable ignoredDropTable = onClose("DROP TABLE " + qualifiedTableName)) {
-                String expectedTableLocation = Pattern.quote((schemaLocation.endsWith("/") ? schemaLocation : schemaLocation + "/") + tableName)
-                        // Hive normalizes repeated slashes
-                        .replaceAll("(?<!(s3:))/+", "/");
+                String expectedTableLocation = (schemaLocation.endsWith("/") ? schemaLocation : schemaLocation + "/") + tableName;
 
                 actualTableLocation = metastore.getTable(schemaName, tableName).orElseThrow().getStorage().getLocation();
-                assertThat(actualTableLocation).matches(expectedTableLocation);
+                assertThat(actualTableLocation).isEqualTo(expectedTableLocation);
 
                 assertUpdate("INSERT INTO " + qualifiedTableName + "  VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
                 assertQuery("SELECT * FROM " + qualifiedTableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
@@ -293,7 +291,9 @@ public class TestHiveS3AndGlueMetastoreTest
 
         assertUpdate("CREATE SCHEMA \"%2$s\" WITH (location = 's3://%1$s/%2$s')".formatted(bucketName, schemaName));
         try (UncheckedCloseable ignored = onClose("DROP SCHEMA \"" + schemaName + "\"")) {
-            assertQueryFails("CREATE TABLE \"" + schemaName + "\"." + tableName + " (col) AS VALUES 1", "Failed checking path: .*");
+            assertThatThrownBy(() -> computeActual("CREATE TABLE \"" + schemaName + "\"." + tableName + " (col) AS VALUES 1"))
+                    .hasMessage("Error committing write to Hive")
+                    .hasStackTraceContaining("Invalid URI (Service: Amazon S3; Status Code: 400");
         }
     }
 

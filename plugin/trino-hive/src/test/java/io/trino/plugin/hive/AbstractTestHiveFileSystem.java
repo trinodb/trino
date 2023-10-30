@@ -214,7 +214,8 @@ public abstract class AbstractTestHiveFileSystem
                                 .build()),
                 getBasePath(),
                 hdfsEnvironment);
-        locationService = new HiveLocationService(hdfsEnvironment, config);
+        HdfsFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS);
+        locationService = new HiveLocationService(fileSystemFactory, config);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
                 new CatalogName("hive"),
@@ -222,7 +223,7 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveMetastoreConfig(),
                 HiveMetastoreFactory.ofInstance(metastoreClient),
                 getDefaultHiveFileWriterFactories(config, hdfsEnvironment),
-                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
+                fileSystemFactory,
                 hdfsEnvironment,
                 hivePartitionManager,
                 newDirectExecutorService(),
@@ -246,7 +247,7 @@ public abstract class AbstractTestHiveFileSystem
         splitManager = new HiveSplitManager(
                 transactionManager,
                 hivePartitionManager,
-                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
+                fileSystemFactory,
                 new HdfsNamenodeStats(),
                 new BoundedExecutor(executor, config.getMaxSplitIteratorThreads()),
                 new CounterStat(),
@@ -262,7 +263,7 @@ public abstract class AbstractTestHiveFileSystem
                 config.getMaxPartitionsPerScan());
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, hdfsEnvironment),
-                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
+                fileSystemFactory,
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastoreClient),
                 new GroupByHashPageIndexerFactory(new JoinCompiler(new TypeOperators())),
