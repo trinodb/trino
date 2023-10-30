@@ -533,9 +533,8 @@ public class TestPagePartitioner
     public static class PagePartitionerBuilder
     {
         public static final PositionsAppenderFactory POSITIONS_APPENDER_FACTORY = new PositionsAppenderFactory(new BlockTypeOperators());
-        private final ExecutorService executor;
-        private final ScheduledExecutorService scheduledExecutor;
         private final OutputBuffer outputBuffer;
+        private final DriverContextBuilder driverContextBuilder;
 
         private ImmutableList<Integer> partitionChannels = ImmutableList.of(0);
         private List<Optional<NullableValue>> partitionConstants = ImmutableList.of();
@@ -547,9 +546,8 @@ public class TestPagePartitioner
 
         PagePartitionerBuilder(ExecutorService executor, ScheduledExecutorService scheduledExecutor, OutputBuffer outputBuffer)
         {
-            this.executor = requireNonNull(executor, "executor is null");
-            this.scheduledExecutor = requireNonNull(scheduledExecutor, "scheduledExecutor is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
+            this.driverContextBuilder = new DriverContextBuilder(executor, scheduledExecutor);
         }
 
         public PagePartitionerBuilder withPartitionChannels(Integer... partitionChannels)
@@ -621,7 +619,7 @@ public class TestPagePartitioner
 
         public PartitionedOutputOperator buildPartitionedOutputOperator()
         {
-            DriverContext driverContext = buildDriverContext();
+            DriverContext driverContext = driverContextBuilder.buildDriverContext();
 
             OutputFactory operatorFactory = new PartitionedOutputOperator.PartitionedOutputFactory(
                     partitionFunction,
@@ -645,7 +643,7 @@ public class TestPagePartitioner
 
         public PagePartitioner build()
         {
-            DriverContext driverContext = buildDriverContext();
+            DriverContext driverContext = driverContextBuilder.buildDriverContext();
 
             OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("plan-node-0"), PartitionedOutputOperator.class.getSimpleName());
 
@@ -667,8 +665,20 @@ public class TestPagePartitioner
 
             return pagePartitioner;
         }
+    }
 
-        private DriverContext buildDriverContext()
+    public static class DriverContextBuilder
+    {
+        private final ExecutorService executor;
+        private final ScheduledExecutorService scheduledExecutor;
+
+        DriverContextBuilder(ExecutorService executor, ScheduledExecutorService scheduledExecutor)
+        {
+            this.executor = requireNonNull(executor, "executor is null");
+            this.scheduledExecutor = requireNonNull(scheduledExecutor, "scheduledExecutor is null");
+        }
+
+        public DriverContext buildDriverContext()
         {
             return TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
                     .setMemoryPoolSize(MAX_MEMORY)
