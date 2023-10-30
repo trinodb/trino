@@ -150,6 +150,7 @@ public class PageProcessor
             }
         }
         else if (columnarFilterEvaluator.isPresent()) {
+            metrics.recordUsedColumnarFilterEvaluation();
             SelectedPositions activePositions = SelectedPositions.positionsRange(0, page.getPositionCount());
             SelectedPositions selectedPositions = columnarFilterEvaluator.get().evaluate(activePositions, page, metrics::recordFilterTimeSince);
             if (selectedPositions.isEmpty()) {
