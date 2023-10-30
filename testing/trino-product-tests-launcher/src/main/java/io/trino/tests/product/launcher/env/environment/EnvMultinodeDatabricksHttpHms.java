@@ -21,6 +21,8 @@ import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
+import java.io.File;
+
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
@@ -34,6 +36,7 @@ public class EnvMultinodeDatabricksHttpHms
         extends EnvironmentProvider
 {
     private final DockerFiles.ResourceProvider configDir;
+    private static final File DATABRICKS_JDBC_PROVIDER = new File("testing/trino-product-tests-launcher/target/databricks-jdbc.jar");
 
     @Inject
     public EnvMultinodeDatabricksHttpHms(StandardMultinode standardMultinode, DockerFiles dockerFiles)
@@ -68,7 +71,10 @@ public class EnvMultinodeDatabricksHttpHms
                 .withEnv("DATABRICKS_LOGIN", databricksTestLogin)
                 .withEnv("DATABRICKS_TOKEN", databricksTestToken)
                 .withEnv("DATABRICKS_UNITY_CATALOG_NAME", getEnvVariable("DATABRICKS_UNITY_CATALOG_NAME"))
-                .withEnv("DATABRICKS_UNITY_EXTERNAL_LOCATION", getEnvVariable("DATABRICKS_UNITY_EXTERNAL_LOCATION")));
+                .withEnv("DATABRICKS_UNITY_EXTERNAL_LOCATION", getEnvVariable("DATABRICKS_UNITY_EXTERNAL_LOCATION"))
+                .withCopyFileToContainer(
+                        forHostPath(DATABRICKS_JDBC_PROVIDER.getAbsolutePath()),
+                        "/docker/jdbc/databricks-jdbc.jar"));
 
         builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
         builder.addConnector(
