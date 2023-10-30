@@ -63,7 +63,6 @@ public class TestPartitionedOutputOperator
         Page page = new Page(createLongSequenceBlock(0, 8));
 
         partitionedOutputOperator.addInput(page);
-        partitionedOutputOperator.finish();
 
         OperatorContext operatorContext = partitionedOutputOperator.getOperatorContext();
         assertEquals(operatorContext.getOutputDataSize().getTotalCount(), page.getSizeInBytes());

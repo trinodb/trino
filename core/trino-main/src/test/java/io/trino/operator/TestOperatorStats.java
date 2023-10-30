@@ -34,7 +34,7 @@ import static org.testng.Assert.assertNull;
 public class TestOperatorStats
 {
     private static final SplitOperatorInfo NON_MERGEABLE_INFO = new SplitOperatorInfo(TEST_CATALOG_HANDLE, "some_info");
-    private static final PartitionedOutputInfo MERGEABLE_INFO = new PartitionedOutputInfo(1, 2, 1024);
+    private static final PartitionedOutputInfo MERGEABLE_INFO = new PartitionedOutputInfo(1024);
 
     public static final OperatorStats EXPECTED = new OperatorStats(
             0,
@@ -287,6 +287,6 @@ public class TestOperatorStats
         assertEquals(actual.getPeakTotalMemoryReservation(), DataSize.ofBytes(25));
         assertEquals(actual.getSpilledDataSize(), DataSize.ofBytes(3 * 26));
         assertEquals(actual.getInfo().getClass(), PartitionedOutputInfo.class);
-        assertEquals(((PartitionedOutputInfo) actual.getInfo()).getPagesAdded(), 3 * MERGEABLE_INFO.getPagesAdded());
+        assertEquals(((PartitionedOutputInfo) actual.getInfo()).getOutputBufferPeakMemoryUsage(), MERGEABLE_INFO.getOutputBufferPeakMemoryUsage());
     }
 }

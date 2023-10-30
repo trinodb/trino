@@ -144,11 +144,17 @@ public class TestPagePartitioner
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT).build();
         Page page = new Page(createLongsBlock(ImmutableList.of()));
 
-        pagePartitioner.partitionPage(page);
+        pagePartitioner.partitionPage(page, operatorContext());
         pagePartitioner.close();
 
         List<Object> partitioned = readLongs(outputBuffer.getEnqueuedDeserialized(), 0);
         assertThat(partitioned).isEmpty();
+    }
+
+    private OperatorContext operatorContext()
+    {
+        return new DriverContextBuilder(executor, scheduledExecutor).buildDriverContext()
+                .addOperatorContext(0, new PlanNodeId("plan-node-0"), PartitionedOutputOperator.class.getSimpleName());
     }
 
     @Test(dataProvider = "partitioningMode")
@@ -643,11 +649,7 @@ public class TestPagePartitioner
 
         public PagePartitioner build()
         {
-            DriverContext driverContext = driverContextBuilder.buildDriverContext();
-
-            OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("plan-node-0"), PartitionedOutputOperator.class.getSimpleName());
-
-            PagePartitioner pagePartitioner = new PagePartitioner(
+            return new PagePartitioner(
                     partitionFunction,
                     partitionChannels,
                     partitionConstants,
@@ -661,9 +663,6 @@ public class TestPagePartitioner
                     Optional.empty(),
                     memoryContext,
                     true);
-            pagePartitioner.setupOperator(operatorContext);
-
-            return pagePartitioner;
         }
     }
 

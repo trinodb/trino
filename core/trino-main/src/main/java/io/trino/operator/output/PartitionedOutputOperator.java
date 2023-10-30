@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -270,7 +271,7 @@ public class PartitionedOutputOperator
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
         this.pagePartitioner = requireNonNull(pagePartitionerPool.poll(), "pagePartitioner is null");
         this.skewedPartitionRebalancer = requireNonNull(skewedPartitionRebalancer, "skewedPartitionRebalancer is null");
-        this.pagePartitioner.setupOperator(operatorContext);
+        operatorContext.setInfoSupplier(new PartitionedOutputInfoSupplier(outputBuffer));
     }
 
     @Override
@@ -332,7 +333,7 @@ public class PartitionedOutputOperator
         }
 
         page = pagePreprocessor.apply(page);
-        pagePartitioner.partitionPage(page);
+        pagePartitioner.partitionPage(page, operatorContext);
 
         // Rebalance skewed partitions in the case of scale writer hash partitioning
         if (skewedPartitionRebalancer.isPresent()) {
@@ -356,34 +357,34 @@ public class PartitionedOutputOperator
         return null;
     }
 
+    public static class PartitionedOutputInfoSupplier
+            implements Supplier<PartitionedOutputInfo>
+    {
+        private final OutputBuffer outputBuffer;
+
+        PartitionedOutputInfoSupplier(OutputBuffer outputBuffer)
+        {
+            this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
+        }
+
+        @Override
+        public PartitionedOutputInfo get()
+        {
+            // note that outputBuffer.getPeakMemoryUsage() will produce peak across many operators
+            // this is suboptimal but hard to fix properly
+            return new PartitionedOutputInfo(outputBuffer.getPeakMemoryUsage());
+        }
+    }
+
     public static class PartitionedOutputInfo
             implements Mergeable<PartitionedOutputInfo>, OperatorInfo
     {
-        private final long rowsAdded;
-        private final long pagesAdded;
         private final long outputBufferPeakMemoryUsage;
 
         @JsonCreator
-        public PartitionedOutputInfo(
-                @JsonProperty("rowsAdded") long rowsAdded,
-                @JsonProperty("pagesAdded") long pagesAdded,
-                @JsonProperty("outputBufferPeakMemoryUsage") long outputBufferPeakMemoryUsage)
+        public PartitionedOutputInfo(@JsonProperty("outputBufferPeakMemoryUsage") long outputBufferPeakMemoryUsage)
         {
-            this.rowsAdded = rowsAdded;
-            this.pagesAdded = pagesAdded;
             this.outputBufferPeakMemoryUsage = outputBufferPeakMemoryUsage;
-        }
-
-        @JsonProperty
-        public long getRowsAdded()
-        {
-            return rowsAdded;
-        }
-
-        @JsonProperty
-        public long getPagesAdded()
-        {
-            return pagesAdded;
         }
 
         @JsonProperty
@@ -395,10 +396,7 @@ public class PartitionedOutputOperator
         @Override
         public PartitionedOutputInfo mergeWith(PartitionedOutputInfo other)
         {
-            return new PartitionedOutputInfo(
-                    rowsAdded + other.rowsAdded,
-                    pagesAdded + other.pagesAdded,
-                    Math.max(outputBufferPeakMemoryUsage, other.outputBufferPeakMemoryUsage));
+            return new PartitionedOutputInfo(Math.max(outputBufferPeakMemoryUsage, other.outputBufferPeakMemoryUsage));
         }
 
         @Override
@@ -411,8 +409,6 @@ public class PartitionedOutputOperator
         public String toString()
         {
             return toStringHelper(this)
-                    .add("rowsAdded", rowsAdded)
-                    .add("pagesAdded", pagesAdded)
                     .add("outputBufferPeakMemoryUsage", outputBufferPeakMemoryUsage)
                     .toString();
         }
