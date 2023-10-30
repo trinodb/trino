@@ -118,15 +118,10 @@ public class TestIcebergConfig
                 .setMinimumAssignedSplitWeight(0.01)
                 .setMaterializedViewsStorageSchema("mv_storage_schema")
                 .setRegisterTableProcedureEnabled(true)
-<<<<<<< HEAD
                 .setCatalogWarehouse("s3://bucket/root")
                 .setCatalogCacheSize(3)
-                .setSortedWritingEnabled(false);
-=======
                 .setSortedWritingEnabled(false)
                 .setQueryPartitionFilterRequired(true);
->>>>>>> 431
-
         assertFullMapping(properties, expected);
     }
 }
