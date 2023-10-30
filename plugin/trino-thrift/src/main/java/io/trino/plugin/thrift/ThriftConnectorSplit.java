@@ -73,12 +73,6 @@ public class ThriftConnectorSplit
     }
 
     @Override
-    public boolean isRemotelyAccessible()
-    {
-        return true;
-    }
-
-    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {

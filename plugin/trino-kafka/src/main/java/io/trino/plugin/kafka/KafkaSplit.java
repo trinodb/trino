@@ -113,12 +113,6 @@ public class KafkaSplit
     }
 
     @Override
-    public boolean isRemotelyAccessible()
-    {
-        return true;
-    }
-
-    @Override
     public List<HostAddress> getAddresses()
     {
         return ImmutableList.of(leader);

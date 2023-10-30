@@ -70,12 +70,6 @@ public class CassandraSplit
     }
 
     @Override
-    public boolean isRemotelyAccessible()
-    {
-        return true;
-    }
-
-    @Override
     public Object getInfo()
     {
         return ImmutableMap.builder()

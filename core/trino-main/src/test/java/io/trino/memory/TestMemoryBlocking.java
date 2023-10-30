@@ -27,7 +27,6 @@ import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.TableScanOperator;
 import io.trino.operator.TaskContext;
-import io.trino.spi.HostAddress;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.DynamicFilter;
@@ -155,18 +154,6 @@ public class TestMemoryBlocking
     private static class TestSplit
             implements ConnectorSplit
     {
-        @Override
-        public boolean isRemotelyAccessible()
-        {
-            return false;
-        }
-
-        @Override
-        public List<HostAddress> getAddresses()
-        {
-            return ImmutableList.of();
-        }
-
         @Override
         public Object getInfo()
         {
