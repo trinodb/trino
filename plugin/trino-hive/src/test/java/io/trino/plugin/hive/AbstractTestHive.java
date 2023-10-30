@@ -27,12 +27,11 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
-import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.HdfsNamenodeStats;
-import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.metrics.LongCount;
@@ -240,8 +239,8 @@ import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.TRANSACTIONAL;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_CONFIGURATION;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
@@ -279,7 +278,6 @@ import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_VALUE;
 import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
 import static io.trino.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
-import static io.trino.plugin.hive.util.HiveWriteUtils.createDirectory;
 import static io.trino.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_CONFLICT;
@@ -826,14 +824,15 @@ public abstract class AbstractTestHive
         metastoreClient = hiveMetastore;
         hdfsEnvironment = hdfsConfiguration;
         HivePartitionManager partitionManager = new HivePartitionManager(hiveConfig);
-        locationService = new HiveLocationService(hdfsEnvironment, hiveConfig);
+        HdfsFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS);
+        locationService = new HiveLocationService(fileSystemFactory, hiveConfig);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         countingDirectoryLister = new CountingDirectoryLister();
         metadataFactory = new HiveMetadataFactory(
                 new CatalogName("hive"),
                 HiveMetastoreFactory.ofInstance(metastoreClient),
                 getDefaultHiveFileWriterFactories(hiveConfig, hdfsEnvironment),
-                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
+                fileSystemFactory,
                 hdfsEnvironment,
                 partitionManager,
                 10,
@@ -910,7 +909,7 @@ public abstract class AbstractTestHive
         splitManager = new HiveSplitManager(
                 transactionManager,
                 partitionManager,
-                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
+                fileSystemFactory,
                 new HdfsNamenodeStats(),
                 executor,
                 new CounterStat(),
@@ -926,7 +925,7 @@ public abstract class AbstractTestHive
                 hiveConfig.getMaxPartitionsPerScan());
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(hiveConfig, hdfsEnvironment),
-                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
+                fileSystemFactory,
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastoreClient),
                 new GroupByHashPageIndexerFactory(JOIN_COMPILER),
@@ -2617,9 +2616,10 @@ public abstract class AbstractTestHive
             try (Transaction transaction = newTransaction()) {
                 ConnectorSession session = newSession();
                 SemiTransactionalHiveMetastore metastore = transaction.getMetastore();
+                TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(session);
 
                 // Write data
-                tableDefaultLocationWithTrailingSpace = getTableDefaultLocation(new HdfsContext(session), metastore, HDFS_ENVIRONMENT, tableName.getSchemaName(), tableName.getTableName()) + " ";
+                tableDefaultLocationWithTrailingSpace = getTableDefaultLocation(metastore, fileSystem, tableName.getSchemaName(), tableName.getTableName()) + " ";
                 Path dataFilePath = new Path(tableDefaultLocationWithTrailingSpace, "foo.txt");
                 FileSystem fs = hdfsEnvironment.getFileSystem(new HdfsContext(session), new Path(tableDefaultLocationWithTrailingSpace));
                 try (OutputStream outputStream = fs.create(dataFilePath)) {
@@ -3089,7 +3089,8 @@ public abstract class AbstractTestHive
                     HiveConfig hiveConfig = getHiveConfig()
                             .setTemporaryStagingDirectoryPath(temporaryStagingPrefix)
                             .setTemporaryStagingDirectoryEnabled(true);
-                    LocationService locationService = new HiveLocationService(hdfsEnvironment, hiveConfig);
+                    TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS);
+                    LocationService locationService = new HiveLocationService(fileSystemFactory, hiveConfig);
                     Location targetPath = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
                     Table.Builder tableBuilder = Table.builder()
                             .setDatabaseName(schemaName)
@@ -3181,8 +3182,7 @@ public abstract class AbstractTestHive
                 .setStorageFormat(fromHiveStorageFormat(PARQUET))
                 .setLocation(getTableDefaultLocation(
                         metastoreClient.getDatabase(tableName.getSchemaName()).orElseThrow(),
-                        new HdfsContext(session.getIdentity()),
-                        hdfsEnvironment,
+                        new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS).create(session),
                         tableName.getSchemaName(),
                         tableName.getTableName()).toString());
         metastoreClient.createTable(table.build(), NO_PRIVILEGES);
@@ -3254,8 +3254,7 @@ public abstract class AbstractTestHive
                 .setStorageFormat(fromHiveStorageFormat(PARQUET))
                 .setLocation(getTableDefaultLocation(
                         metastoreClient.getDatabase(tableName.getSchemaName()).orElseThrow(),
-                        new HdfsContext(session.getIdentity()),
-                        hdfsEnvironment,
+                        new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS).create(session),
                         tableName.getSchemaName(),
                         tableName.getTableName()).toString());
         metastoreClient.createTable(table.build(), NO_PRIVILEGES);
@@ -5958,49 +5957,6 @@ public abstract class AbstractTestHive
         }
     }
 
-    @Test
-    public void testNewDirectoryPermissions()
-            throws Exception
-    {
-        SchemaTableName tableName = temporaryTable("empty_file");
-        List<Column> columns = ImmutableList.of(new Column("test", HIVE_STRING, Optional.empty()));
-        createEmptyTable(tableName, ORC, columns, ImmutableList.of(), Optional.empty());
-        try {
-            Transaction transaction = newTransaction();
-            ConnectorSession session = newSession();
-            ConnectorMetadata metadata = transaction.getMetadata();
-            metadata.beginQuery(session);
-
-            Table table = transaction.getMetastore()
-                    .getTable(tableName.getSchemaName(), tableName.getTableName())
-                    .orElseThrow();
-
-            // create new directory and set directory permission after creation
-            HdfsContext context = new HdfsContext(session);
-            Path location = new Path(table.getStorage().getLocation());
-            Path defaultPath = new Path(location + "/defaultperms");
-            createDirectory(context, hdfsEnvironment, defaultPath);
-            FileStatus defaultFsStatus = hdfsEnvironment.getFileSystem(context, defaultPath).getFileStatus(defaultPath);
-            assertEquals(defaultFsStatus.getPermission().toOctal(), 777);
-
-            // use hdfs config that skips setting directory permissions after creation
-            HdfsConfig configWithSkip = new HdfsConfig();
-            configWithSkip.setNewDirectoryPermissions(HdfsConfig.SKIP_DIR_PERMISSIONS);
-            HdfsEnvironment hdfsEnvironmentWithSkip = new HdfsEnvironment(
-                    HDFS_CONFIGURATION,
-                    configWithSkip,
-                    new NoHdfsAuthentication());
-
-            Path skipPath = new Path(location + "/skipperms");
-            createDirectory(context, hdfsEnvironmentWithSkip, skipPath);
-            FileStatus skipFsStatus = hdfsEnvironmentWithSkip.getFileSystem(context, skipPath).getFileStatus(skipPath);
-            assertEquals(skipFsStatus.getPermission().toOctal(), 755);
-        }
-        finally {
-            dropTable(tableName);
-        }
-    }
-
     protected void doTestTransactionDeleteInsert(HiveStorageFormat storageFormat, boolean allowInsertExisting, List<TransactionDeleteInsertTestCase> testCases)
             throws Exception
     {
@@ -6334,6 +6290,7 @@ public abstract class AbstractTestHive
 
         @Override
         public void triggerConflict(ConnectorSession session, SchemaTableName tableName, ConnectorInsertTableHandle insertTableHandle, List<PartitionUpdate> partitionUpdates)
+                throws IOException
         {
             Location writePath = getStagingPathRoot(insertTableHandle);
             Location targetPath = getTargetPathRoot(insertTableHandle);
@@ -6343,7 +6300,9 @@ public abstract class AbstractTestHive
             }
             path = new Path(targetPath.appendPath("pk1=b").appendPath("pk2=add2").toString());
             context = new HdfsContext(session);
-            createDirectory(context, hdfsEnvironment, new Path(path.toString()));
+            if (!hdfsEnvironment.getFileSystem(context, path).mkdirs(path, hdfsEnvironment.getNewDirectoryPermissions().orElse(null))) {
+                throw new IOException("mkdirs returned false");
+            }
         }
 
         @Override

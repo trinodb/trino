@@ -304,7 +304,7 @@ public class TestHivePageSink
                 TESTING_TYPE_MANAGER,
                 config,
                 sortingFileWriterConfig,
-                new HiveLocationService(HDFS_ENVIRONMENT, config),
+                new HiveLocationService(HDFS_FILE_SYSTEM_FACTORY, config),
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),

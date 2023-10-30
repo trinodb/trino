@@ -13,13 +13,11 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.Location;
-import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.LocationService.WriteInfo;
-import io.trino.plugin.hive.TestBackgroundHiveSplitLoader.TestingHdfsEnvironment;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
@@ -82,8 +80,7 @@ public class TestHiveLocationService
 
         public Assertion(LocationHandle locationHandle, boolean overwrite)
         {
-            HdfsEnvironment hdfsEnvironment = new TestingHdfsEnvironment(ImmutableList.of());
-            LocationService service = new HiveLocationService(hdfsEnvironment, new HiveConfig());
+            LocationService service = new HiveLocationService(HDFS_FILE_SYSTEM_FACTORY, new HiveConfig());
             this.actual = service.getTableWriteInfo(locationHandle, overwrite);
         }
 
