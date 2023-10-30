@@ -346,6 +346,39 @@ public class TestMongoConnectorTest
     }
 
     @Test
+    public void testPredicatePushdownRealType()
+    {
+        testPredicatePushdownFloatingPoint("real '1.234'");
+    }
+
+    @Test
+    public void testPredicatePushdownDoubleType()
+    {
+        testPredicatePushdownFloatingPoint("double '5.678'");
+    }
+
+    private void testPredicatePushdownFloatingPoint(String value)
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_floating_point_pushdown", "AS SELECT %s col".formatted(value))) {
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col = " + value))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col <= " + value))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col >= " + value))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col > " + value))
+                    .returnsEmptyResult()
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col < " + value))
+                    .returnsEmptyResult()
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col != " + value))
+                    .returnsEmptyResult()
+                    .isNotFullyPushedDown(FilterNode.class);
+        }
+    }
+
+    @Test
     public void testPredicatePushdownCharWithPaddedSpace()
     {
         try (TestTable table = new TestTable(
