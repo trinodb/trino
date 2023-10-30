@@ -30,6 +30,7 @@ import io.trino.spi.predicate.ValueSet;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -183,6 +184,19 @@ public class TestMetastoreUtil
     {
         Properties actual = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS), ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA));
         assertEquals(actual, TEST_TABLE_METADATA);
+    }
+
+    @Test
+    public void testHiveSchemaCaseInsensitive()
+    {
+        List<FieldSchema> testSchema = TEST_SCHEMA.stream()
+                .map(fieldSchema -> new FieldSchema(fieldSchema.getName(), fieldSchema.getType().toUpperCase(Locale.ENGLISH), fieldSchema.getComment()))
+                .toList();
+        Properties actualTable = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, testSchema));
+        assertEquals(actualTable, TEST_TABLE_METADATA);
+
+        Properties actualPartition = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS), ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, testSchema));
+        assertEquals(actualPartition, TEST_TABLE_METADATA);
     }
 
     @Test
