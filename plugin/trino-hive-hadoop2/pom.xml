@@ -114,12 +114,6 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-hadoop-toolkit</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
             <artifactId>trino-hdfs</artifactId>
             <scope>runtime</scope>
         </dependency>

@@ -43,7 +43,6 @@ import java.util.Optional;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Iterables.transform;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -114,7 +113,7 @@ public class TestTimestamp
         List<String> columnNames = ImmutableList.of("test");
 
         try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("test", "parquet")) {
-            JobConf jobConf = new JobConf(newEmptyConfiguration());
+            JobConf jobConf = new JobConf(false);
             jobConf.setEnum(WRITER_VERSION, PARQUET_1_0);
 
             ParquetTester.writeParquetColumn(

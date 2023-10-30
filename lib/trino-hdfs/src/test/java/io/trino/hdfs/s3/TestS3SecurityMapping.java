@@ -29,7 +29,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.io.Resources.getResource;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.hdfs.s3.TestS3SecurityMapping.MappingResult.clusterDefaultRole;
 import static io.trino.hdfs.s3.TestS3SecurityMapping.MappingResult.credentials;
 import static io.trino.hdfs.s3.TestS3SecurityMapping.MappingResult.role;
@@ -335,7 +334,7 @@ public class TestS3SecurityMapping
 
     private static void assertMapping(DynamicConfigurationProvider provider, MappingSelector selector, MappingResult mappingResult)
     {
-        Configuration configuration = newEmptyConfiguration();
+        Configuration configuration = new Configuration(false);
 
         assertNull(configuration.get(S3_ACCESS_KEY));
         assertNull(configuration.get(S3_SECRET_KEY));
@@ -354,7 +353,7 @@ public class TestS3SecurityMapping
 
     private static void assertMappingFails(DynamicConfigurationProvider provider, MappingSelector selector, String message)
     {
-        Configuration configuration = newEmptyConfiguration();
+        Configuration configuration = new Configuration(false);
 
         assertThatThrownBy(() -> applyMapping(provider, selector, configuration))
                 .isInstanceOf(AccessDeniedException.class)

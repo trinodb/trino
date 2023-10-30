@@ -108,7 +108,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.parquet.ParquetWriteValidation.ParquetWriteValidationBuilder;
 import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING;
 import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING;
@@ -383,7 +382,7 @@ public class ParquetTester
             for (CompressionCodec compressionCodec : compressions) {
                 for (ConnectorSession session : sessions) {
                     try (TempFile tempFile = new TempFile("test", "parquet")) {
-                        JobConf jobConf = new JobConf(newEmptyConfiguration());
+                        JobConf jobConf = new JobConf(false);
                         jobConf.setEnum(COMPRESSION, compressionCodec);
                         jobConf.setBoolean(ENABLE_DICTIONARY, true);
                         jobConf.setEnum(WRITER_VERSION, version);
@@ -447,7 +446,7 @@ public class ParquetTester
                 .build();
 
         try (TempFile tempFile = new TempFile("test", "parquet")) {
-            JobConf jobConf = new JobConf(newEmptyConfiguration());
+            JobConf jobConf = new JobConf(false);
             jobConf.setEnum(COMPRESSION, compressionCodec);
             jobConf.setBoolean(ENABLE_DICTIONARY, true);
             jobConf.setEnum(WRITER_VERSION, PARQUET_1_0);
