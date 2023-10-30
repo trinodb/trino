@@ -18,36 +18,23 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
-import io.trino.hive.orc.OrcConf;
-import io.trino.orc.OrcTester.Format;
-import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.StripeInformation;
 import io.trino.orc.stream.OrcDataReader;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
-import org.apache.hadoop.hive.ql.io.IOConstants;
-import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.JobConf;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
@@ -56,7 +43,6 @@ import static io.trino.orc.OrcTester.Format.ORC_12;
 import static io.trino.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static io.trino.orc.OrcTester.READER_OPTIONS;
 import static io.trino.orc.OrcTester.writeOrcColumnsHiveFile;
-import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.orc.metadata.CompressionKind.ZLIB;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
@@ -240,27 +226,6 @@ public class TestCachingOrcDataSource
         if (expectedType.isInstance(actual)) {
             fail(format("expected:<%s> to not be an instance of <%s>", actual, expectedType.getName()));
         }
-    }
-
-    private static FileSinkOperator.RecordWriter createOrcRecordWriter(File outputFile, Format format, CompressionKind compression, ObjectInspector columnObjectInspector)
-            throws IOException
-    {
-        JobConf jobConf = new JobConf(newEmptyConfiguration());
-        OrcConf.WRITE_FORMAT.setString(jobConf, format == ORC_12 ? "0.12" : "0.11");
-        OrcConf.COMPRESS.setString(jobConf, compression.name());
-
-        Properties tableProperties = new Properties();
-        tableProperties.setProperty(IOConstants.COLUMNS, "test");
-        tableProperties.setProperty(IOConstants.COLUMNS_TYPES, columnObjectInspector.getTypeName());
-        tableProperties.setProperty(OrcConf.STRIPE_SIZE.getAttribute(), "120000");
-
-        return new OrcOutputFormat().getHiveRecordWriter(
-                jobConf,
-                new Path(outputFile.toURI()),
-                Text.class,
-                compression != NONE,
-                tableProperties,
-                () -> {});
     }
 
     private static class FakeOrcDataSource
