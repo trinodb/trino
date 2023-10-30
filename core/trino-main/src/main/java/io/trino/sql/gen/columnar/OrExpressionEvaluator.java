@@ -21,6 +21,7 @@ import io.trino.sql.relational.SpecialForm;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -56,12 +57,12 @@ public final class OrExpressionEvaluator
     }
 
     @Override
-    public SelectedPositions evaluate(SelectedPositions activePositions, Page page)
+    public SelectedPositions evaluate(SelectedPositions activePositions, Page page, Consumer<Long> recordFilterTimeSince)
     {
         SelectedPositions accumulatedPositions = null;
         for (int index = 0; index < subExpressionEvaluators.size(); index++) {
             ExpressionEvaluator evaluator = subExpressionEvaluators.get(index);
-            SelectedPositions selectedPositions = evaluator.evaluate(activePositions, page);
+            SelectedPositions selectedPositions = evaluator.evaluate(activePositions, page, recordFilterTimeSince);
             accumulatedPositions = accumulatedPositions == null ? selectedPositions : accumulatedPositions.union(selectedPositions);
             if (index != subExpressionEvaluators.size() - 1) {
                 activePositions = activePositions.difference(selectedPositions);

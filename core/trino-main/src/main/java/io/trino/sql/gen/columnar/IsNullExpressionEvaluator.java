@@ -19,6 +19,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.relational.SpecialForm;
 
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -45,11 +46,11 @@ public final class IsNullExpressionEvaluator
     }
 
     @Override
-    public SelectedPositions evaluate(SelectedPositions activePositions, Page page)
+    public SelectedPositions evaluate(SelectedPositions activePositions, Page page, Consumer<Long> recordFilterTimeSince)
     {
         if (argumentType.equals(UNKNOWN)) {
             return activePositions;
         }
-        return processor.processFilter(activePositions, page);
+        return processor.processFilter(activePositions, page, recordFilterTimeSince);
     }
 }

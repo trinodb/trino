@@ -150,11 +150,8 @@ public class PageProcessor
             }
         }
         else if (columnarFilterEvaluator.isPresent()) {
-            long start = System.nanoTime();
             SelectedPositions activePositions = SelectedPositions.positionsRange(0, page.getPositionCount());
-            SelectedPositions selectedPositions = columnarFilterEvaluator.get().evaluate(activePositions, page);
-            metrics.recordFilterTimeSince(start);
-
+            SelectedPositions selectedPositions = columnarFilterEvaluator.get().evaluate(activePositions, page, metrics::recordFilterTimeSince);
             if (selectedPositions.isEmpty()) {
                 return WorkProcessor.of();
             }

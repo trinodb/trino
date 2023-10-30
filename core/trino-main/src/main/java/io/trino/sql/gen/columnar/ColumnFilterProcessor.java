@@ -16,6 +16,8 @@ package io.trino.sql.gen.columnar;
 import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.Page;
 
+import java.util.function.Consumer;
+
 import static io.trino.operator.project.SelectedPositions.positionsList;
 import static io.trino.operator.project.SelectedPositions.positionsRange;
 
@@ -29,13 +31,15 @@ public class ColumnFilterProcessor
         this.filter = filter;
     }
 
-    public SelectedPositions processFilter(SelectedPositions activePositions, Page page)
+    public SelectedPositions processFilter(SelectedPositions activePositions, Page page, Consumer<Long> recordFilterTimeSince)
     {
         if (activePositions.isEmpty()) {
             return activePositions;
         }
         // Should load only the blocks necessary for evaluating the kernel and unwrap lazy blocks
         Page loadedPage = filter.getInputChannels().getInputChannels(page);
+
+        long start = System.nanoTime();
         if (outputPositions.length < activePositions.size()) {
             outputPositions = new int[activePositions.size()];
         }
@@ -47,9 +51,11 @@ public class ColumnFilterProcessor
             outputPositionsCount = filter.filterPositionsRange(outputPositions, activePositions.getOffset(), activePositions.size(), loadedPage);
             // full range was selected
             if (outputPositionsCount == activePositions.size()) {
+                recordFilterTimeSince.accept(start);
                 return positionsRange(activePositions.getOffset(), outputPositionsCount);
             }
         }
+        recordFilterTimeSince.accept(start);
         return positionsList(outputPositions, 0, outputPositionsCount);
     }
 }

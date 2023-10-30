@@ -18,6 +18,7 @@ import io.trino.spi.Page;
 import io.trino.sql.relational.CallExpression;
 
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static io.trino.sql.relational.DeterminismEvaluator.isDeterministic;
@@ -40,8 +41,8 @@ public final class CallExpressionEvaluator
     }
 
     @Override
-    public SelectedPositions evaluate(SelectedPositions activePositions, Page page)
+    public SelectedPositions evaluate(SelectedPositions activePositions, Page page, Consumer<Long> recordFilterTimeSince)
     {
-        return processor.processFilter(activePositions, page);
+        return processor.processFilter(activePositions, page, recordFilterTimeSince);
     }
 }

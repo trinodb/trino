@@ -20,6 +20,7 @@ import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
@@ -45,7 +46,7 @@ import static io.trino.sql.relational.SpecialForm.Form.OR;
  */
 public interface ExpressionEvaluator
 {
-    SelectedPositions evaluate(SelectedPositions activePositions, Page page);
+    SelectedPositions evaluate(SelectedPositions activePositions, Page page, Consumer<Long> recordFilterTimeSince);
 
     static Optional<Supplier<ExpressionEvaluator>> createColumnarFilterEvaluator(
             boolean columnarFilterEvaluationEnabled,
