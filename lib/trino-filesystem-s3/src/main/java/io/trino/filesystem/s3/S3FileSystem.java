@@ -244,6 +244,14 @@ final class S3FileSystem
         }
     }
 
+    @Override
+    public Optional<Location> createTemporaryDirectory(Location targetPath, String temporaryPrefix, String relativePrefix)
+    {
+        validateS3Location(targetPath);
+        // S3 does not have directories
+        return Optional.empty();
+    }
+
     @SuppressWarnings("ResultOfObjectAllocationIgnored")
     private static void validateS3Location(Location location)
     {

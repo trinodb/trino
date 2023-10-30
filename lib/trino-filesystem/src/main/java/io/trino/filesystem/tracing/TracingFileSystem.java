@@ -148,4 +148,14 @@ final class TracingFileSystem
                 .startSpan();
         return withTracing(span, () -> delegate.listDirectories(location));
     }
+
+    @Override
+    public Optional<Location> createTemporaryDirectory(Location targetPath, String temporaryPrefix, String relativePrefix)
+            throws IOException
+    {
+        Span span = tracer.spanBuilder("FileSystem.createTemporaryDirectory")
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, targetPath.toString())
+                .startSpan();
+        return withTracing(span, () -> delegate.createTemporaryDirectory(targetPath, temporaryPrefix, relativePrefix));
+    }
 }
