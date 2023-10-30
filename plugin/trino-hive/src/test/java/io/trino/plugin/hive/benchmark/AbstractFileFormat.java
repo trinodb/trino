@@ -37,7 +37,6 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
-import org.apache.hadoop.mapred.JobConf;
 
 import java.io.File;
 import java.util.List;
@@ -49,7 +48,6 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveType.toHiveType;
@@ -65,13 +63,6 @@ import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 public abstract class AbstractFileFormat
         implements FileFormat
 {
-    static final JobConf conf;
-
-    static {
-        conf = new JobConf(newEmptyConfiguration());
-        conf.set("fs.file.impl", "org.apache.hadoop.fs.RawLocalFileSystem");
-    }
-
     @Override
     public boolean supportsDate()
     {
