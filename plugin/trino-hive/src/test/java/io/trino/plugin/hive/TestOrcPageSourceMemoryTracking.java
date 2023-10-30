@@ -96,7 +96,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertBetweenInclusive;
 import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
@@ -138,7 +137,7 @@ public class TestOrcPageSourceMemoryTracking
 {
     private static final String ORC_RECORD_WRITER = OrcOutputFormat.class.getName() + "$OrcRecordWriter";
     private static final Constructor<? extends RecordWriter> WRITER_CONSTRUCTOR = getOrcWriterConstructor();
-    private static final Configuration CONFIGURATION = newEmptyConfiguration();
+    private static final Configuration CONFIGURATION = new Configuration(false);
     private static final int NUM_ROWS = 50000;
     private static final int STRIPE_ROWS = 20000;
     private static final FunctionManager functionManager = createTestingFunctionManager();
@@ -670,7 +669,7 @@ public class TestOrcPageSourceMemoryTracking
 
         serializer.initialize(CONFIGURATION, tableProperties);
 
-        JobConf jobConf = new JobConf(newEmptyConfiguration());
+        JobConf jobConf = new JobConf(new Configuration(false));
         if (compressionCodec != null) {
             CompressionCodec codec = new CompressionCodecFactory(CONFIGURATION).getCodecByName(compressionCodec);
             jobConf.set(COMPRESS_CODEC, codec.getClass().getName());

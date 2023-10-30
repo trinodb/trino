@@ -14,12 +14,12 @@
 package io.trino.plugin.hive.avro;
 
 import io.trino.filesystem.local.LocalFileSystem;
-import io.trino.hadoop.ConfigurationInstantiator;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.VarcharType;
 import org.apache.avro.Schema;
+import org.apache.hadoop.conf.Configuration;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -44,7 +44,7 @@ public class TestAvroSchemaGeneration
         properties.setProperty(LIST_COLUMNS, "a,b");
         properties.setProperty(LIST_COLUMN_TYPES, Stream.of(HiveType.HIVE_INT, HiveType.HIVE_STRING).map(HiveType::getTypeInfo).map(TypeInfo::toString).collect(Collectors.joining(",")));
         Schema actual = AvroHiveFileUtils.determineSchemaOrThrowException(new LocalFileSystem(Path.of("/")), properties);
-        Schema expected = new TrinoAvroSerDe().determineSchemaOrReturnErrorSchema(ConfigurationInstantiator.newEmptyConfiguration(), properties);
+        Schema expected = new TrinoAvroSerDe().determineSchemaOrReturnErrorSchema(new Configuration(false), properties);
         assertThat(actual).isEqualTo(expected);
     }
 
@@ -57,7 +57,7 @@ public class TestAvroSchemaGeneration
         properties.setProperty(LIST_COLUMNS, "a,b");
         properties.setProperty(LIST_COLUMN_TYPES, Stream.of(HiveType.toHiveType(RowType.rowType(RowType.field("a", VarcharType.VARCHAR))), HiveType.HIVE_STRING).map(HiveType::getTypeInfo).map(TypeInfo::toString).collect(Collectors.joining(",")));
         Schema actual = AvroHiveFileUtils.determineSchemaOrThrowException(new LocalFileSystem(Path.of("/")), properties);
-        Schema expected = new TrinoAvroSerDe().determineSchemaOrReturnErrorSchema(ConfigurationInstantiator.newEmptyConfiguration(), properties);
+        Schema expected = new TrinoAvroSerDe().determineSchemaOrReturnErrorSchema(new Configuration(false), properties);
         assertThat(actual).isEqualTo(expected);
     }
 }
