@@ -14,18 +14,14 @@
 package io.trino.plugin.deltalake;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
-import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.predicate.TupleDomain;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -76,19 +72,6 @@ public class DeltaLakeSplit
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
         this.statisticsPredicate = requireNonNull(statisticsPredicate, "statisticsPredicate is null");
         this.partitionKeys = requireNonNull(partitionKeys, "partitionKeys is null");
-    }
-
-    @Override
-    public boolean isRemotelyAccessible()
-    {
-        return true;
-    }
-
-    @JsonIgnore
-    @Override
-    public List<HostAddress> getAddresses()
-    {
-        return ImmutableList.of();
     }
 
     @JsonProperty

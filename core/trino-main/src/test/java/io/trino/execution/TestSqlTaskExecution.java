@@ -46,7 +46,6 @@ import io.trino.operator.SourceOperator;
 import io.trino.operator.SourceOperatorFactory;
 import io.trino.operator.TaskContext;
 import io.trino.operator.output.TaskOutputOperator.TaskOutputOperatorFactory;
-import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.TestingBlockEncodingSerde;
@@ -56,7 +55,6 @@ import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -506,18 +504,6 @@ public class TestSqlTaskExecution
         {
             this.begin = begin;
             this.end = end;
-        }
-
-        @Override
-        public boolean isRemotelyAccessible()
-        {
-            return true;
-        }
-
-        @Override
-        public List<HostAddress> getAddresses()
-        {
-            return ImmutableList.of();
         }
 
         @Override

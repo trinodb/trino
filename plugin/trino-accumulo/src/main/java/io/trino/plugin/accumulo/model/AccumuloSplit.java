@@ -77,12 +77,6 @@ public class AccumuloSplit
     }
 
     @Override
-    public boolean isRemotelyAccessible()
-    {
-        return true;
-    }
-
-    @Override
     public List<HostAddress> getAddresses()
     {
         return addresses;

@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -1367,18 +1366,6 @@ public class TestingTableFunctions
             public long getCount()
             {
                 return count;
-            }
-
-            @Override
-            public boolean isRemotelyAccessible()
-            {
-                return true;
-            }
-
-            @Override
-            public List<HostAddress> getAddresses()
-            {
-                return ImmutableList.of();
             }
 
             @Override

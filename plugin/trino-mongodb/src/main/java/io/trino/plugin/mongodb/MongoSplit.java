@@ -39,12 +39,6 @@ public class MongoSplit
     }
 
     @Override
-    public boolean isRemotelyAccessible()
-    {
-        return true;
-    }
-
-    @Override
     @JsonProperty
     public List<HostAddress> getAddresses()
     {

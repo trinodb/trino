@@ -15,13 +15,10 @@ package io.trino.plugin.jdbc;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SizeOf;
-import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.predicate.TupleDomain;
 
-import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -65,18 +62,6 @@ public class JdbcSplit
     public TupleDomain<JdbcColumnHandle> getDynamicFilter()
     {
         return dynamicFilter;
-    }
-
-    @Override
-    public boolean isRemotelyAccessible()
-    {
-        return true;
-    }
-
-    @Override
-    public List<HostAddress> getAddresses()
-    {
-        return ImmutableList.of();
     }
 
     @Override

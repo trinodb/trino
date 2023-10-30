@@ -994,12 +994,6 @@ public class TestNodeScheduler
         }
 
         @Override
-        public boolean isRemotelyAccessible()
-        {
-            return true;
-        }
-
-        @Override
         public List<HostAddress> getAddresses()
         {
             return hosts;

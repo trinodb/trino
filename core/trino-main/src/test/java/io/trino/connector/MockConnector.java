@@ -26,7 +26,6 @@ import io.trino.connector.MockConnectorFactory.ApplyTableFunction;
 import io.trino.connector.MockConnectorFactory.ApplyTableScanRedirect;
 import io.trino.connector.MockConnectorFactory.ApplyTopN;
 import io.trino.connector.MockConnectorFactory.ListRoleGrants;
-import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -1046,18 +1045,6 @@ public class MockConnector
             implements ConnectorSplit
     {
         MOCK_CONNECTOR_SPLIT;
-
-        @Override
-        public boolean isRemotelyAccessible()
-        {
-            return true;
-        }
-
-        @Override
-        public List<HostAddress> getAddresses()
-        {
-            return ImmutableList.of();
-        }
 
         @Override
         public Object getInfo()
