@@ -28,6 +28,7 @@ import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.RegexSerDe;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -35,7 +36,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.JobConf;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -50,7 +50,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.hive.formats.FormatTestUtils.assertColumnValueEquals;
 import static io.trino.hive.formats.FormatTestUtils.createLineBuffer;
 import static io.trino.hive.formats.FormatTestUtils.decodeRecordReaderValue;
@@ -666,7 +665,7 @@ public class TestRegexFormat
     private static List<Object> readLineHive(List<Column> columns, String line, String regex, boolean caseSensitive)
             throws IOException
     {
-        JobConf configuration = new JobConf(newEmptyConfiguration());
+        Configuration configuration = new Configuration(false);
 
         Properties schema = new Properties();
         schema.setProperty(META_TABLE_COLUMNS, columns.stream()

@@ -86,7 +86,6 @@ import static com.google.common.collect.Iterators.advance;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.hive.formats.FormatTestUtils.COMPRESSION;
 import static io.trino.hive.formats.FormatTestUtils.assertColumnValueEquals;
 import static io.trino.hive.formats.FormatTestUtils.decodeRecordReaderValue;
@@ -508,7 +507,7 @@ public class RcFileTester
             Iterable<?> expectedValues)
             throws Exception
     {
-        JobConf configuration = new JobConf(newEmptyConfiguration());
+        JobConf configuration = new JobConf(false);
         configuration.set(READ_COLUMN_IDS_CONF_STR, "0");
         configuration.setBoolean(READ_ALL_COLUMNS, false);
 

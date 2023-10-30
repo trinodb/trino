@@ -24,7 +24,6 @@ import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoOutputFile;
-import io.trino.hadoop.ConfigurationInstantiator;
 import io.trino.hdfs.gcs.GoogleGcsConfigurationInitializer;
 import io.trino.hdfs.gcs.HiveGcsConfig;
 import io.trino.plugin.hive.containers.HiveHadoop;
@@ -92,7 +91,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
             gcpCredentialsFile.toFile().deleteOnExit();
             Files.write(gcpCredentialsFile, jsonKeyBytes);
             HiveGcsConfig gcsConfig = new HiveGcsConfig().setJsonKey(gcpCredentials);
-            Configuration configuration = ConfigurationInstantiator.newEmptyConfiguration();
+            Configuration configuration = new Configuration(false);
             new GoogleGcsConfigurationInitializer(gcsConfig).initializeConfiguration(configuration);
         }
         catch (IOException e) {

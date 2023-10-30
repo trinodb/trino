@@ -52,7 +52,6 @@ import java.util.UUID;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveTestUtils.toNativeContainerValue;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
@@ -292,7 +291,7 @@ public class TestBloomFilterStore
         List<ObjectInspector> objectInspectors = singletonList(objectInspector);
         List<String> columnNames = ImmutableList.of(COLUMN_NAME);
 
-        JobConf jobConf = new JobConf(newEmptyConfiguration());
+        JobConf jobConf = new JobConf(false);
         jobConf.setEnum(WRITER_VERSION, PARQUET_1_0);
         jobConf.setBoolean(BLOOM_FILTER_ENABLED, enableBloomFilter);
 

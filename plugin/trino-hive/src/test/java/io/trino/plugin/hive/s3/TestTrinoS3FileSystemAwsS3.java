@@ -16,7 +16,6 @@ package io.trino.plugin.hive.s3;
 import org.apache.hadoop.conf.Configuration;
 import org.testng.annotations.BeforeClass;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -47,7 +46,7 @@ public class TestTrinoS3FileSystemAwsS3
     @Override
     protected Configuration s3Configuration()
     {
-        Configuration config = newEmptyConfiguration();
+        Configuration config = new Configuration(false);
         config.set("fs.s3.endpoint", s3Endpoint);
         return config;
     }
