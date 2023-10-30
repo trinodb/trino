@@ -24,7 +24,6 @@ import io.trino.execution.SplitAssignment;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
-import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -548,18 +547,6 @@ public class TestDriver
     private static class MockSplit
             implements ConnectorSplit
     {
-        @Override
-        public boolean isRemotelyAccessible()
-        {
-            return false;
-        }
-
-        @Override
-        public List<HostAddress> getAddresses()
-        {
-            return ImmutableList.of();
-        }
-
         @Override
         public Object getInfo()
         {

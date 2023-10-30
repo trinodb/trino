@@ -13,15 +13,11 @@
  */
 package io.trino.plugin.iceberg.functions.tablechanges;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import io.trino.plugin.iceberg.IcebergFileFormat;
-import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
-
-import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -52,18 +48,6 @@ public record TableChangesSplit(
         requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         requireNonNull(partitionDataJson, "partitionDataJson is null");
         requireNonNull(splitWeight, "splitWeight is null");
-    }
-
-    @Override
-    public boolean isRemotelyAccessible()
-    {
-        return true;
-    }
-
-    @Override
-    public List<HostAddress> getAddresses()
-    {
-        return ImmutableList.of();
     }
 
     @Override
