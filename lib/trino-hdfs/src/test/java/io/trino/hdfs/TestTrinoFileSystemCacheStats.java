@@ -30,7 +30,7 @@ public class TestTrinoFileSystemCacheStats
             throws Exception
     {
         TrinoFileSystemCache trinoFileSystemCache = new TrinoFileSystemCache();
-        TrinoFileSystemCacheStats trinoFileSystemCacheStats = trinoFileSystemCache.getFileSystemCacheStats();
+        TrinoFileSystemCacheStats trinoFileSystemCacheStats = trinoFileSystemCache.getStats();
         assertEquals(trinoFileSystemCacheStats.getCacheSize(), 0);
         assertEquals(trinoFileSystemCache.getCacheSize(), 0);
 
@@ -66,7 +66,7 @@ public class TestTrinoFileSystemCacheStats
     public void testFailedCallsCountIsCorrect()
     {
         TrinoFileSystemCache trinoFileSystemCache = new TrinoFileSystemCache();
-        TrinoFileSystemCacheStats trinoFileSystemCacheStats = trinoFileSystemCache.getFileSystemCacheStats();
+        TrinoFileSystemCacheStats trinoFileSystemCacheStats = trinoFileSystemCache.getStats();
         Configuration configuration = newEmptyConfiguration();
         configuration.setInt("fs.cache.max-size", 0);
         assertThatThrownBy(() -> trinoFileSystemCache.get(new URI("file:///tmp/path/"), configuration))
