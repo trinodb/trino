@@ -16,7 +16,7 @@ package io.trino.plugin.cassandra;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -50,6 +50,7 @@ public abstract class BaseCassandraConnectorSmokeTest
         };
     }
 
+    @Test
     @Override
     public void testDeleteAllDataFromTable()
     {

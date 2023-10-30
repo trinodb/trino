@@ -13,30 +13,38 @@
  */
 package io.trino.operator.scalar.time;
 
-import io.trino.operator.scalar.AbstractTestExtract;
+import io.trino.spi.StandardErrorCode;
 import io.trino.sql.parser.ParsingException;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
-import java.util.List;
-import java.util.stream.IntStream;
-
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestExtract
-        extends AbstractTestExtract
 {
-    @Override
-    protected List<String> types()
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
     {
-        return IntStream.rangeClosed(0, 12)
-                .mapToObj(precision -> format("time(%s)", precision))
-                .collect(toImmutableList());
+        assertions = new QueryAssertions();
     }
 
-    @Override
+    @AfterAll
+    public void tearDown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
+    @Test
     public void testHour()
     {
         assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56')")).matches("BIGINT '12'");
@@ -68,7 +76,7 @@ public class TestExtract
         assertThat(assertions.expression("hour(TIME '12:34:56.123456789012')")).matches("BIGINT '12'");
     }
 
-    @Override
+    @Test
     public void testMinute()
     {
         assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56')")).matches("BIGINT '34'");
@@ -100,7 +108,7 @@ public class TestExtract
         assertThat(assertions.expression("minute(TIME '12:34:56.123456789012')")).matches("BIGINT '34'");
     }
 
-    @Override
+    @Test
     public void testSecond()
     {
         assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56')")).matches("BIGINT '56'");
@@ -152,5 +160,79 @@ public class TestExtract
         assertThat(assertions.expression("millisecond(TIME '12:34:56.1234567890')")).matches("BIGINT '123'");
         assertThat(assertions.expression("millisecond(TIME '12:34:56.12345678901')")).matches("BIGINT '123'");
         assertThat(assertions.expression("millisecond(TIME '12:34:56.123456789012')")).matches("BIGINT '123'");
+    }
+
+    @Test
+    public void testUnsupported()
+    {
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.1')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.12')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.123')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.1234')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.12345')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.123456')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.1234567')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.12345678')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.123456789')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.1234567890')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.12345678901')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.123456789012')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.1')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.12')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.123')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.1234')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.12345')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.123456')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.1234567')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.12345678')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.123456789')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.1234567890')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.12345678901')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.123456789012')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(DAY FROM TIME '12:34:56')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.1')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.12')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.123')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.1234')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.12345')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.123456')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.1234567')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.12345678')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.123456789')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.1234567890')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.12345678901')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.123456789012')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.1')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.12')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.123')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.1234')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.12345')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.123456')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.1234567')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.12345678')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.123456789')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.1234567890')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.12345678901')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.123456789012')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.1')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.12')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.123')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.1234')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.12345')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.123456')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.1234567')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.12345678')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.123456789')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.1234567890')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.12345678901')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.123456789012')")::evaluate).hasErrorCode(StandardErrorCode.TYPE_MISMATCH);
     }
 }

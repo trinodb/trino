@@ -28,8 +28,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.trino.sql.planner.SchedulingOrderVisitor.scheduleOrder;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static org.testng.Assert.assertEquals;
@@ -39,7 +39,7 @@ public class TestSchedulingOrderVisitor
     @Test
     public void testJoinOrder()
     {
-        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata(), TEST_SESSION);
+        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), PLANNER_CONTEXT, TEST_SESSION);
         TableScanNode a = planBuilder.tableScan(emptyList(), emptyMap());
         TableScanNode b = planBuilder.tableScan(emptyList(), emptyMap());
         List<PlanNodeId> order = scheduleOrder(planBuilder.join(JoinNode.Type.INNER, a, b));
@@ -49,7 +49,7 @@ public class TestSchedulingOrderVisitor
     @Test
     public void testIndexJoinOrder()
     {
-        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata(), TEST_SESSION);
+        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), PLANNER_CONTEXT, TEST_SESSION);
         TableScanNode a = planBuilder.tableScan(emptyList(), emptyMap());
         TableScanNode b = planBuilder.tableScan(emptyList(), emptyMap());
         List<PlanNodeId> order = scheduleOrder(planBuilder.indexJoin(IndexJoinNode.Type.INNER, a, b));
@@ -59,7 +59,7 @@ public class TestSchedulingOrderVisitor
     @Test
     public void testSemiJoinOrder()
     {
-        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata(), TEST_SESSION);
+        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), PLANNER_CONTEXT, TEST_SESSION);
         Symbol sourceJoin = planBuilder.symbol("sourceJoin");
         TableScanNode a = planBuilder.tableScan(ImmutableList.of(sourceJoin), ImmutableMap.of(sourceJoin, new TestingColumnHandle("sourceJoin")));
         Symbol filteringSource = planBuilder.symbol("filteringSource");

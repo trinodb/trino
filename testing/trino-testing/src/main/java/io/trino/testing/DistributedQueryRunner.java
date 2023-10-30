@@ -24,17 +24,16 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.testing.Assertions;
 import io.airlift.units.Duration;
-import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.Session.SessionBuilder;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryManager;
-import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AllNodes;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
+import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
@@ -53,7 +52,6 @@ import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.sql.analyzer.QueryExplainer;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.Plan;
@@ -87,9 +85,6 @@ import static io.airlift.log.Level.WARN;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
-import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.System.getenv;
 import static java.util.Objects.requireNonNull;
@@ -135,7 +130,8 @@ public class DistributedQueryRunner
             Optional<FactoryConfiguration> systemAccessControlConfiguration,
             Optional<List<SystemAccessControl>> systemAccessControls,
             List<EventListener> eventListeners,
-            List<AutoCloseable> extraCloseables)
+            List<AutoCloseable> extraCloseables,
+            TestingTrinoClientFactory testingTrinoClientFactory)
             throws Exception
     {
         requireNonNull(defaultSession, "defaultSession is null");
@@ -198,7 +194,7 @@ public class DistributedQueryRunner
 
         // copy session using property manager in coordinator
         defaultSession = defaultSession.toSessionRepresentation().toSession(coordinator.getSessionPropertyManager(), defaultSession.getIdentity().getExtraCredentials(), defaultSession.getExchangeEncryptionKey());
-        this.trinoClient = closer.register(new TestingTrinoClient(coordinator, defaultSession));
+        this.trinoClient = closer.register(testingTrinoClientFactory.create(coordinator, defaultSession));
 
         waitForAllNodesGloballyVisible();
     }
@@ -376,6 +372,12 @@ public class DistributedQueryRunner
     }
 
     @Override
+    public LanguageFunctionManager getLanguageFunctionManager()
+    {
+        return coordinator.getLanguageFunctionManager();
+    }
+
+    @Override
     public SplitManager getSplitManager()
     {
         return coordinator.getSplitManager();
@@ -533,19 +535,13 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public Plan createPlan(Session session, String sql, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
+    public Plan createPlan(Session session, String sql)
     {
-        if (session.getTransactionId().isEmpty()) {
-            return transaction(getTransactionManager(), getAccessControl())
-                    .singleStatement()
-                    .execute(session, transactionSession -> {
-                        return createPlan(transactionSession, sql, warningCollector, planOptimizersStatsCollector);
-                    });
-        }
+        // session must be in a transaction registered with the transaction manager in this query runner
+        getTransactionManager().getTransactionInfo(session.getRequiredTransactionId());
 
         SqlParser sqlParser = coordinator.getInstance(Key.get(SqlParser.class));
-        Statement statement = sqlParser.createStatement(sql, new ParsingOptions(
-                new FeaturesConfig().isParseDecimalLiteralsAsDouble() ? AS_DOUBLE : AS_DECIMAL));
+        Statement statement = sqlParser.createStatement(sql);
         return coordinator.getQueryExplainer().getLogicalPlan(session, statement, ImmutableList.of(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
     }
 
@@ -656,6 +652,7 @@ public class DistributedQueryRunner
         private Optional<List<SystemAccessControl>> systemAccessControls = Optional.empty();
         private List<EventListener> eventListeners = ImmutableList.of();
         private List<AutoCloseable> extraCloseables = ImmutableList.of();
+        private TestingTrinoClientFactory testingTrinoClientFactory = TestingTrinoClient::new;
 
         protected Builder(Session defaultSession)
         {
@@ -796,6 +793,14 @@ public class DistributedQueryRunner
             return self();
         }
 
+        @SuppressWarnings("unused")
+        @CanIgnoreReturnValue
+        public SELF setTestingTrinoClientFactory(TestingTrinoClientFactory testingTrinoClientFactory)
+        {
+            this.testingTrinoClientFactory = requireNonNull(testingTrinoClientFactory, "testingTrinoClientFactory is null");
+            return self();
+        }
+
         @CanIgnoreReturnValue
         public SELF enableBackupCoordinator()
         {
@@ -855,7 +860,8 @@ public class DistributedQueryRunner
                     systemAccessControlConfiguration,
                     systemAccessControls,
                     eventListeners,
-                    extraCloseables);
+                    extraCloseables,
+                    testingTrinoClientFactory);
 
             try {
                 additionalSetup.accept(queryRunner);
@@ -883,5 +889,10 @@ public class DistributedQueryRunner
                     .put(requireNonNull(key, "key is null"), requireNonNull(value, "value is null"))
                     .buildOrThrow();
         }
+    }
+
+    public interface TestingTrinoClientFactory
+    {
+        TestingTrinoClient create(TestingTrinoServer server, Session session);
     }
 }

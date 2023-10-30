@@ -15,6 +15,7 @@ package io.trino.type;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
@@ -35,13 +36,13 @@ public class TestVarcharArrayType
         super(TESTING_TYPE_MANAGER.getType(arrayType(VARCHAR.getTypeSignature())), List.class, createTestBlock(TESTING_TYPE_MANAGER.getType(arrayType(VARCHAR.getTypeSignature()))));
     }
 
-    public static Block createTestBlock(Type arrayType)
+    public static ValueBlock createTestBlock(Type arrayType)
     {
         BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 4);
         arrayType.writeObject(blockBuilder, arrayBlockOf(VARCHAR, "1", "2"));
         arrayType.writeObject(blockBuilder, arrayBlockOf(VARCHAR, "the", "quick", "brown", "fox"));
         arrayType.writeObject(blockBuilder, arrayBlockOf(VARCHAR, "one-two-three-four-five", "123456789012345", "the quick brown fox", "hello-world-hello-world-hello-world"));
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override

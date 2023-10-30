@@ -59,7 +59,7 @@ public abstract class AbstractTestTrinoFileSystem
 
     protected abstract void verifyFileSystemIsEmpty();
 
-    protected boolean supportsCreateWithoutOverwrite()
+    protected boolean supportsCreateExclusive()
     {
         return true;
     }
@@ -254,7 +254,12 @@ public abstract class AbstractTestTrinoFileSystem
                 assertThat(inputStream.getPosition()).isEqualTo(fileSize);
                 assertThat(inputStream.read()).isLessThan(0);
                 assertThat(inputStream.read(bytes)).isLessThan(0);
-                assertThat(inputStream.skip(10)).isEqualTo(0);
+                if (seekPastEndOfFileFails()) {
+                    assertThat(inputStream.skip(10)).isEqualTo(0);
+                }
+                else {
+                    assertThat(inputStream.skip(10)).isEqualTo(10L);
+                }
 
                 // seek 4 MB in and read byte at a time
                 inputStream.seek(4 * MEGABYTE);
@@ -270,7 +275,12 @@ public abstract class AbstractTestTrinoFileSystem
                 assertThat(inputStream.getPosition()).isEqualTo(fileSize);
                 assertThat(inputStream.read()).isLessThan(0);
                 assertThat(inputStream.read(bytes)).isLessThan(0);
-                assertThat(inputStream.skip(10)).isEqualTo(0);
+                if (seekPastEndOfFileFails()) {
+                    assertThat(inputStream.skip(10)).isEqualTo(0);
+                }
+                else {
+                    assertThat(inputStream.skip(10)).isEqualTo(10L);
+                }
 
                 // seek 1MB at a time
                 for (int i = 0; i < 16; i++) {
@@ -297,9 +307,11 @@ public abstract class AbstractTestTrinoFileSystem
                     assertThat(slice.getInt(0)).isEqualTo(expectedPosition / 4);
                     expectedPosition += size;
                 }
-                long skipSize = inputStream.skip(MEGABYTE);
-                assertThat(skipSize).isEqualTo(fileSize - expectedPosition);
-                assertThat(inputStream.getPosition()).isEqualTo(fileSize);
+                if (seekPastEndOfFileFails()) {
+                    long skipSize = inputStream.skip(MEGABYTE);
+                    assertThat(skipSize).isEqualTo(fileSize - expectedPosition);
+                    assertThat(inputStream.getPosition()).isEqualTo(fileSize);
+                }
 
                 // skip N bytes
                 inputStream.seek(0);
@@ -318,18 +330,27 @@ public abstract class AbstractTestTrinoFileSystem
                 inputStream.skipNBytes(fileSize - expectedPosition);
                 assertThat(inputStream.getPosition()).isEqualTo(fileSize);
 
-                // skip beyond the end of the file is not allowed
-                inputStream.seek(expectedPosition);
-                assertThat(expectedPosition + MEGABYTE).isGreaterThan(fileSize);
-                assertThatThrownBy(() -> inputStream.skipNBytes(MEGABYTE))
-                        .isInstanceOf(EOFException.class);
+                if (seekPastEndOfFileFails()) {
+                    // skip beyond the end of the file is not allowed
+                    inputStream.seek(expectedPosition);
+                    assertThat(expectedPosition + MEGABYTE).isGreaterThan(fileSize);
+                    assertThatThrownBy(() -> inputStream.skipNBytes(MEGABYTE))
+                            .isInstanceOf(EOFException.class);
+                }
 
                 inputStream.seek(fileSize);
-                assertThatThrownBy(() -> inputStream.skipNBytes(1))
-                        .isInstanceOf(EOFException.class);
+                if (seekPastEndOfFileFails()) {
+                    assertThatThrownBy(() -> inputStream.skipNBytes(1))
+                            .isInstanceOf(EOFException.class);
+                }
 
                 inputStream.seek(fileSize);
-                assertThat(inputStream.skip(1)).isEqualTo(0);
+                if (seekPastEndOfFileFails()) {
+                    assertThat(inputStream.skip(1)).isEqualTo(0);
+                }
+                else {
+                    assertThat(inputStream.skip(1)).isEqualTo(1L);
+                }
 
                 // seek beyond the end of the file, is not allowed
                 long currentPosition = fileSize - 500;
@@ -454,9 +475,17 @@ public abstract class AbstractTestTrinoFileSystem
                 outputStream.write("initial".getBytes(UTF_8));
             }
 
-            if (supportsCreateWithoutOverwrite()) {
+            if (supportsCreateExclusive()) {
                 // re-create without overwrite is an error
                 assertThatThrownBy(outputFile::create)
+                        .isInstanceOf(FileAlreadyExistsException.class)
+                        .hasMessageContaining(tempBlob.location().toString());
+
+                // verify nothing changed
+                assertThat(tempBlob.read()).isEqualTo("initial");
+
+                // re-create exclusive is an error
+                assertThatThrownBy(outputFile::createExclusive)
                         .isInstanceOf(FileAlreadyExistsException.class)
                         .hasMessageContaining(tempBlob.location().toString());
 
@@ -471,6 +500,11 @@ public abstract class AbstractTestTrinoFileSystem
 
                 // verify contents changed
                 assertThat(tempBlob.read()).isEqualTo("replaced");
+
+                // create exclusive is an error
+                assertThatThrownBy(outputFile::createExclusive)
+                        .isInstanceOf(IOException.class)
+                        .hasMessageContaining("does not support exclusive create");
             }
 
             // overwrite file
@@ -964,6 +998,7 @@ public abstract class AbstractTestTrinoFileSystem
             assertThat(getFileSystem().directoryExists(createLocation("level0/level1"))).contains(true);
             assertThat(getFileSystem().directoryExists(createLocation("level0"))).contains(true);
 
+            // rename interior directory
             getFileSystem().renameDirectory(createLocation("level0/level1"), createLocation("level0/renamed"));
 
             assertThat(getFileSystem().directoryExists(createLocation("level0/level1"))).contains(false);
@@ -973,9 +1008,83 @@ public abstract class AbstractTestTrinoFileSystem
 
             assertThat(getFileSystem().newInputFile(blob).exists()).isFalse();
 
-            assertThat(readLocation(createLocation("level0/renamed/level2-file")))
+            Location renamedBlob = createLocation("level0/renamed/level2-file");
+            assertThat(readLocation(renamedBlob))
                     .isEqualTo(TEST_BLOB_CONTENT_PREFIX + blob);
+
+            // rename to existing directory is an error
+            Location blob2 = createBlob(closer, "abc/xyz-file");
+
+            assertThat(getFileSystem().directoryExists(createLocation("abc"))).contains(true);
+
+            assertThatThrownBy(() -> getFileSystem().renameDirectory(createLocation("abc"), createLocation("level0")))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining(createLocation("abc").toString())
+                    .hasMessageContaining(createLocation("level0").toString());
+
+            assertThat(getFileSystem().newInputFile(blob2).exists()).isTrue();
+            assertThat(getFileSystem().newInputFile(renamedBlob).exists()).isTrue();
         }
+    }
+
+    @Test
+    public void testListDirectories()
+            throws IOException
+    {
+        testListDirectories(isHierarchical());
+    }
+
+    protected void testListDirectories(boolean hierarchicalNamingConstraints)
+            throws IOException
+    {
+        try (Closer closer = Closer.create()) {
+            createTestDirectoryStructure(closer, hierarchicalNamingConstraints);
+            createBlob(closer, "level0/level1/level2/level3-file0");
+            createBlob(closer, "level0/level1x/level2x-file0");
+            createBlob(closer, "other/file");
+
+            assertThat(listDirectories("")).containsOnly(
+                    createLocation("level0/"),
+                    createLocation("other/"));
+
+            assertThat(listDirectories("level0")).containsOnly(
+                    createLocation("level0/level1/"),
+                    createLocation("level0/level1x/"));
+            assertThat(listDirectories("level0/")).containsOnly(
+                    createLocation("level0/level1/"),
+                    createLocation("level0/level1x/"));
+
+            assertThat(listDirectories("level0/level1")).containsOnly(
+                    createLocation("level0/level1/level2/"));
+            assertThat(listDirectories("level0/level1/")).containsOnly(
+                    createLocation("level0/level1/level2/"));
+
+            assertThat(listDirectories("level0/level1/level2/level3")).isEmpty();
+            assertThat(listDirectories("level0/level1/level2/level3/")).isEmpty();
+
+            assertThat(listDirectories("unknown")).isEmpty();
+            assertThat(listDirectories("unknown/")).isEmpty();
+
+            if (isHierarchical()) {
+                assertThatThrownBy(() -> listDirectories("level0-file0"))
+                        .isInstanceOf(IOException.class)
+                        .hasMessageContaining(createLocation("level0-file0").toString());
+            }
+            else {
+                assertThat(listDirectories("level0-file0")).isEmpty();
+            }
+
+            if (!hierarchicalNamingConstraints && !normalizesListFilesResult()) {
+                // this lists a path in a directory with an empty name
+                assertThat(listDirectories("/")).isEmpty();
+            }
+        }
+    }
+
+    private Set<Location> listDirectories(String path)
+            throws IOException
+    {
+        return getFileSystem().listDirectories(createListingLocation(path));
     }
 
     private List<Location> listPath(String path)

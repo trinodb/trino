@@ -46,7 +46,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -204,14 +204,13 @@ public class TestSubqueries
                 "SELECT (SELECT t.a FROM (VALUES 1, 2, 3) t(a) WHERE t.a = t2.b ORDER BY a LIMIT 1) FROM (VALUES 1.0, 2.0) t2(b)",
                 "VALUES 1, 2",
                 output(
-                        join(INNER, builder -> builder
+                        join(LEFT, builder -> builder
                                 .equiCriteria("cast_b", "cast_a")
                                 .left(
-                                        any(
-                                                project(
-                                                        ImmutableMap.of("cast_b", expression("CAST(b AS decimal(11, 1))")),
-                                                        any(
-                                                                values("b")))))
+                                        project(
+                                                ImmutableMap.of("cast_b", expression("CAST(b AS decimal(11, 1))")),
+                                                any(
+                                                        values("b"))))
                                 .right(
                                         anyTree(
                                                 project(
@@ -229,14 +228,13 @@ public class TestSubqueries
                 "SELECT (SELECT t.a FROM (VALUES 1, 2, 3, 4, 5) t(a) WHERE t.a = t2.b * t2.c - 1 ORDER BY a LIMIT 1) FROM (VALUES (1, 2), (2, 3)) t2(b, c)",
                 "VALUES 1, 5",
                 output(
-                        join(INNER, builder -> builder
+                        join(LEFT, builder -> builder
                                 .equiCriteria("expr", "a")
                                 .left(
-                                        any(
-                                                project(
-                                                        ImmutableMap.of("expr", expression("b * c - 1")),
-                                                        any(
-                                                                values("b", "c")))))
+                                        project(
+                                                ImmutableMap.of("expr", expression("b * c - 1")),
+                                                any(
+                                                        values("b", "c"))))
                                 .right(
                                         any(
                                                 rowNumber(

@@ -14,11 +14,14 @@
 package io.trino.plugin.geospatial;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.ExtractSpatialJoins.ExtractSpatialInnerJoin;
-import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
-import io.trino.sql.planner.iterative.rule.test.RuleAssert;
+import io.trino.sql.planner.iterative.rule.test.RuleBuilder;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.NotExpression;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
@@ -29,22 +32,21 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.spatialJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
 
 public class TestExtractSpatialInnerJoin
-        extends BaseRuleTest
+        extends AbstractTestExtractSpatial
 {
-    public TestExtractSpatialInnerJoin()
-    {
-        super(new GeoPlugin());
-    }
-
     @Test
     public void testDoesNotFire()
     {
         // scalar expression
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText('POLYGON ...'), b)"),
+                        p.filter(
+                                containsCall(geometryFromTextCall("POLYGON ..."), p.symbol("b").toSymbolReference()),
                                 p.join(INNER,
                                         p.values(),
                                         p.values(p.symbol("b")))))
@@ -53,194 +55,76 @@ public class TestExtractSpatialInnerJoin
         // OR operand
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), point) OR name_1 != name_2"),
-                                p.join(INNER,
-                                        p.values(p.symbol("wkt", VARCHAR), p.symbol("name_1")),
-                                        p.values(p.symbol("point", GEOMETRY), p.symbol("name_2")))))
+                {
+                    Symbol wkt = p.symbol("wkt", VARCHAR);
+                    Symbol point = p.symbol("point", GEOMETRY);
+                    Symbol name1 = p.symbol("name_1");
+                    Symbol name2 = p.symbol("name_2");
+                    return p.filter(
+                            LogicalExpression.or(
+                                    containsCall(geometryFromTextCall(wkt), point.toSymbolReference()),
+                                    new ComparisonExpression(NOT_EQUAL, name1.toSymbolReference(), name2.toSymbolReference())),
+                            p.join(INNER, p.values(wkt, name1), p.values(point, name2)));
+                })
                 .doesNotFire();
 
         // NOT operator
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("NOT ST_Contains(ST_GeometryFromText(wkt), point)"),
-                                p.join(INNER,
-                                        p.values(p.symbol("wkt", VARCHAR), p.symbol("name_1")),
-                                        p.values(p.symbol("point", GEOMETRY), p.symbol("name_2")))))
+                {
+                    Symbol wkt = p.symbol("wkt", VARCHAR);
+                    Symbol point = p.symbol("point", GEOMETRY);
+                    Symbol name1 = p.symbol("name_1");
+                    Symbol name2 = p.symbol("name_2");
+                    return p.filter(
+                            new NotExpression(containsCall(geometryFromTextCall(wkt), point.toSymbolReference())),
+                            p.join(INNER,
+                                    p.values(wkt, name1),
+                                    p.values(point, name2)));
+                })
                 .doesNotFire();
 
         // ST_Distance(...) > r
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Distance(a, b) > 5"),
-                                p.join(INNER,
-                                        p.values(p.symbol("a", GEOMETRY)),
-                                        p.values(p.symbol("b", GEOMETRY)))))
+                {
+                    Symbol a = p.symbol("a", GEOMETRY);
+                    Symbol b = p.symbol("b", GEOMETRY);
+                    return p.filter(
+                            new ComparisonExpression(GREATER_THAN, distanceCall(a.toSymbolReference(), b.toSymbolReference()), new LongLiteral("5")),
+                            p.join(INNER,
+                                    p.values(a),
+                                    p.values(b)));
+                })
                 .doesNotFire();
 
         // SphericalGeography operand
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Distance(a, b) < 5"),
-                                p.join(INNER,
-                                        p.values(p.symbol("a", SPHERICAL_GEOGRAPHY)),
-                                        p.values(p.symbol("b", SPHERICAL_GEOGRAPHY)))))
-                .doesNotFire();
-
-        assertRuleApplication()
-                .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(polygon, point)"),
-                                p.join(INNER,
-                                        p.values(p.symbol("polygon", SPHERICAL_GEOGRAPHY)),
-                                        p.values(p.symbol("point", SPHERICAL_GEOGRAPHY)))))
+                {
+                    Symbol a = p.symbol("a", SPHERICAL_GEOGRAPHY);
+                    Symbol b = p.symbol("b", SPHERICAL_GEOGRAPHY);
+                    return p.filter(
+                            new ComparisonExpression(LESS_THAN, sphericalDistanceCall(a.toSymbolReference(), b.toSymbolReference()), new LongLiteral("5")),
+                            p.join(INNER,
+                                    p.values(a),
+                                    p.values(b)));
+                })
                 .doesNotFire();
 
         // to_spherical_geography() operand
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Distance(to_spherical_geography(ST_GeometryFromText(wkt)), point) < 5"),
-                                p.join(INNER,
-                                        p.values(p.symbol("wkt", VARCHAR)),
-                                        p.values(p.symbol("point", SPHERICAL_GEOGRAPHY)))))
+                {
+                    Symbol wkt = p.symbol("wkt", VARCHAR);
+                    Symbol point = p.symbol("point", SPHERICAL_GEOGRAPHY);
+                    return p.filter(
+                            new ComparisonExpression(LESS_THAN, sphericalDistanceCall(toSphericalGeographyCall(wkt), point.toSymbolReference()), new LongLiteral("5")),
+                            p.join(INNER,
+                                    p.values(wkt),
+                                    p.values(point)));
+                })
                 .doesNotFire();
-
-        assertRuleApplication()
-                .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(to_spherical_geography(ST_GeometryFromText(wkt)), point)"),
-                                p.join(INNER,
-                                        p.values(p.symbol("wkt", VARCHAR)),
-                                        p.values(p.symbol("point", SPHERICAL_GEOGRAPHY)))))
-                .doesNotFire();
-    }
-
-    @Test
-    public void testDistanceQueries()
-    {
-        testSimpleDistanceQuery("ST_Distance(a, b) <= r", "ST_Distance(a, b) <= r");
-        testSimpleDistanceQuery("ST_Distance(b, a) <= r", "ST_Distance(b, a) <= r");
-        testSimpleDistanceQuery("r >= ST_Distance(a, b)", "ST_Distance(a, b) <= r");
-        testSimpleDistanceQuery("r >= ST_Distance(b, a)", "ST_Distance(b, a) <= r");
-
-        testSimpleDistanceQuery("ST_Distance(a, b) < r", "ST_Distance(a, b) < r");
-        testSimpleDistanceQuery("ST_Distance(b, a) < r", "ST_Distance(b, a) < r");
-        testSimpleDistanceQuery("r > ST_Distance(a, b)", "ST_Distance(a, b) < r");
-        testSimpleDistanceQuery("r > ST_Distance(b, a)", "ST_Distance(b, a) < r");
-
-        testSimpleDistanceQuery("ST_Distance(a, b) <= r AND name_a != name_b", "ST_Distance(a, b) <= r AND name_a != name_b");
-        testSimpleDistanceQuery("r > ST_Distance(a, b) AND name_a != name_b", "ST_Distance(a, b) < r AND name_a != name_b");
-
-        testRadiusExpressionInDistanceQuery("ST_Distance(a, b) <= decimal '1.2'", "ST_Distance(a, b) <= radius", "decimal '1.2'");
-        testRadiusExpressionInDistanceQuery("ST_Distance(b, a) <= decimal '1.2'", "ST_Distance(b, a) <= radius", "decimal '1.2'");
-        testRadiusExpressionInDistanceQuery("decimal '1.2' >= ST_Distance(a, b)", "ST_Distance(a, b) <= radius", "decimal '1.2'");
-        testRadiusExpressionInDistanceQuery("decimal '1.2' >= ST_Distance(b, a)", "ST_Distance(b, a) <= radius", "decimal '1.2'");
-
-        testRadiusExpressionInDistanceQuery("ST_Distance(a, b) < decimal '1.2'", "ST_Distance(a, b) < radius", "decimal '1.2'");
-        testRadiusExpressionInDistanceQuery("ST_Distance(b, a) < decimal '1.2'", "ST_Distance(b, a) < radius", "decimal '1.2'");
-        testRadiusExpressionInDistanceQuery("decimal '1.2' > ST_Distance(a, b)", "ST_Distance(a, b) < radius", "decimal '1.2'");
-        testRadiusExpressionInDistanceQuery("decimal '1.2' > ST_Distance(b, a)", "ST_Distance(b, a) < radius", "decimal '1.2'");
-
-        testRadiusExpressionInDistanceQuery("ST_Distance(a, b) <= decimal '1.2' AND name_a != name_b", "ST_Distance(a, b) <= radius AND name_a != name_b", "decimal '1.2'");
-        testRadiusExpressionInDistanceQuery("decimal '1.2' > ST_Distance(a, b) AND name_a != name_b", "ST_Distance(a, b) < radius AND name_a != name_b", "decimal '1.2'");
-
-        testRadiusExpressionInDistanceQuery("ST_Distance(a, b) <= 2 * r", "ST_Distance(a, b) <= radius", "2 * r");
-        testRadiusExpressionInDistanceQuery("ST_Distance(b, a) <= 2 * r", "ST_Distance(b, a) <= radius", "2 * r");
-        testRadiusExpressionInDistanceQuery("2 * r >= ST_Distance(a, b)", "ST_Distance(a, b) <= radius", "2 * r");
-        testRadiusExpressionInDistanceQuery("2 * r >= ST_Distance(b, a)", "ST_Distance(b, a) <= radius", "2 * r");
-
-        testRadiusExpressionInDistanceQuery("ST_Distance(a, b) < 2 * r", "ST_Distance(a, b) < radius", "2 * r");
-        testRadiusExpressionInDistanceQuery("ST_Distance(b, a) < 2 * r", "ST_Distance(b, a) < radius", "2 * r");
-        testRadiusExpressionInDistanceQuery("2 * r > ST_Distance(a, b)", "ST_Distance(a, b) < radius", "2 * r");
-        testRadiusExpressionInDistanceQuery("2 * r > ST_Distance(b, a)", "ST_Distance(b, a) < radius", "2 * r");
-
-        testRadiusExpressionInDistanceQuery("ST_Distance(a, b) <= 2 * r AND name_a != name_b", "ST_Distance(a, b) <= radius AND name_a != name_b", "2 * r");
-        testRadiusExpressionInDistanceQuery("2 * r > ST_Distance(a, b) AND name_a != name_b", "ST_Distance(a, b) < radius AND name_a != name_b", "2 * r");
-
-        testPointExpressionsInDistanceQuery("ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b)) <= 5", "ST_Distance(point_a, point_b) <= radius", "5");
-        testPointExpressionsInDistanceQuery("ST_Distance(ST_Point(lng_b, lat_b), ST_Point(lng_a, lat_a)) <= 5", "ST_Distance(point_b, point_a) <= radius", "5");
-        testPointExpressionsInDistanceQuery("5 >= ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b))", "ST_Distance(point_a, point_b) <= radius", "5");
-        testPointExpressionsInDistanceQuery("5 >= ST_Distance(ST_Point(lng_b, lat_b), ST_Point(lng_a, lat_a))", "ST_Distance(point_b, point_a) <= radius", "5");
-
-        testPointExpressionsInDistanceQuery("ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b)) < 5", "ST_Distance(point_a, point_b) < radius", "5");
-        testPointExpressionsInDistanceQuery("ST_Distance(ST_Point(lng_b, lat_b), ST_Point(lng_a, lat_a)) < 5", "ST_Distance(point_b, point_a) < radius", "5");
-        testPointExpressionsInDistanceQuery("5 > ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b))", "ST_Distance(point_a, point_b) < radius", "5");
-        testPointExpressionsInDistanceQuery("5 > ST_Distance(ST_Point(lng_b, lat_b), ST_Point(lng_a, lat_a))", "ST_Distance(point_b, point_a) < radius", "5");
-
-        testPointExpressionsInDistanceQuery("ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b)) <= 5 AND name_a != name_b", "ST_Distance(point_a, point_b) <= radius AND name_a != name_b", "5");
-        testPointExpressionsInDistanceQuery("5 > ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b)) AND name_a != name_b", "ST_Distance(point_a, point_b) < radius AND name_a != name_b", "5");
-
-        testPointAndRadiusExpressionsInDistanceQuery("ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b)) <= 500 / (111000 * cos(lat_b))", "ST_Distance(point_a, point_b) <= radius", "500 / (111000 * cos(lat_b))");
-        testPointAndRadiusExpressionsInDistanceQuery("ST_Distance(ST_Point(lng_b, lat_b), ST_Point(lng_a, lat_a)) <= 500 / (111000 * cos(lat_b))", "ST_Distance(point_b, point_a) <= radius", "500 / (111000 * cos(lat_b))");
-        testPointAndRadiusExpressionsInDistanceQuery("500 / (111000 * cos(lat_b)) >= ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b))", "ST_Distance(point_a, point_b) <= radius", "500 / (111000 * cos(lat_b))");
-        testPointAndRadiusExpressionsInDistanceQuery("500 / (111000 * cos(lat_b)) >= ST_Distance(ST_Point(lng_b, lat_b), ST_Point(lng_a, lat_a))", "ST_Distance(point_b, point_a) <= radius", "500 / (111000 * cos(lat_b))");
-
-        testPointAndRadiusExpressionsInDistanceQuery("ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b)) < 500 / (111000 * cos(lat_b))", "ST_Distance(point_a, point_b) < radius", "500 / (111000 * cos(lat_b))");
-        testPointAndRadiusExpressionsInDistanceQuery("ST_Distance(ST_Point(lng_b, lat_b), ST_Point(lng_a, lat_a)) < 500 / (111000 * cos(lat_b))", "ST_Distance(point_b, point_a) < radius", "500 / (111000 * cos(lat_b))");
-        testPointAndRadiusExpressionsInDistanceQuery("500 / (111000 * cos(lat_b)) > ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b))", "ST_Distance(point_a, point_b) < radius", "500 / (111000 * cos(lat_b))");
-        testPointAndRadiusExpressionsInDistanceQuery("500 / (111000 * cos(lat_b)) > ST_Distance(ST_Point(lng_b, lat_b), ST_Point(lng_a, lat_a))", "ST_Distance(point_b, point_a) < radius", "500 / (111000 * cos(lat_b))");
-
-        testPointAndRadiusExpressionsInDistanceQuery("ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b)) <= 500 / (111000 * cos(lat_b)) AND name_a != name_b", "ST_Distance(point_a, point_b) <= radius AND name_a != name_b", "500 / (111000 * cos(lat_b))");
-        testPointAndRadiusExpressionsInDistanceQuery("500 / (111000 * cos(lat_b)) > ST_Distance(ST_Point(lng_a, lat_a), ST_Point(lng_b, lat_b)) AND name_a != name_b", "ST_Distance(point_a, point_b) < radius AND name_a != name_b", "500 / (111000 * cos(lat_b))");
-    }
-
-    private void testSimpleDistanceQuery(String filter, String newFilter)
-    {
-        assertRuleApplication()
-                .on(p ->
-                        p.filter(PlanBuilder.expression(filter),
-                                p.join(INNER,
-                                        p.values(p.symbol("a", GEOMETRY), p.symbol("name_a")),
-                                        p.values(p.symbol("b", GEOMETRY), p.symbol("name_b"), p.symbol("r")))))
-                .matches(
-                        spatialJoin(newFilter,
-                                values(ImmutableMap.of("a", 0, "name_a", 1)),
-                                values(ImmutableMap.of("b", 0, "name_b", 1, "r", 2))));
-    }
-
-    private void testRadiusExpressionInDistanceQuery(String filter, String newFilter, String radiusExpression)
-    {
-        assertRuleApplication()
-                .on(p ->
-                        p.filter(PlanBuilder.expression(filter),
-                                p.join(INNER,
-                                        p.values(p.symbol("a", GEOMETRY), p.symbol("name_a")),
-                                        p.values(p.symbol("b", GEOMETRY), p.symbol("name_b"), p.symbol("r")))))
-                .matches(
-                        spatialJoin(newFilter,
-                                values(ImmutableMap.of("a", 0, "name_a", 1)),
-                                project(ImmutableMap.of("radius", expression(radiusExpression)),
-                                        values(ImmutableMap.of("b", 0, "name_b", 1, "r", 2)))));
-    }
-
-    private void testPointExpressionsInDistanceQuery(String filter, String newFilter, String radiusExpression)
-    {
-        assertRuleApplication()
-                .on(p ->
-                        p.filter(PlanBuilder.expression(filter),
-                                p.join(INNER,
-                                        p.values(p.symbol("lat_a"), p.symbol("lng_a"), p.symbol("name_a")),
-                                        p.values(p.symbol("lat_b"), p.symbol("lng_b"), p.symbol("name_b")))))
-                .matches(
-                        spatialJoin(newFilter,
-                                project(ImmutableMap.of("point_a", expression("ST_Point(lng_a, lat_a)")),
-                                        values(ImmutableMap.of("lat_a", 0, "lng_a", 1, "name_a", 2))),
-                                project(ImmutableMap.of("point_b", expression("ST_Point(lng_b, lat_b)")),
-                                        project(ImmutableMap.of("radius", expression(radiusExpression)), values(ImmutableMap.of("lat_b", 0, "lng_b", 1, "name_b", 2))))));
-    }
-
-    private void testPointAndRadiusExpressionsInDistanceQuery(String filter, String newFilter, String radiusExpression)
-    {
-        assertRuleApplication()
-                .on(p ->
-                        p.filter(PlanBuilder.expression(filter),
-                                p.join(INNER,
-                                        p.values(p.symbol("lat_a"), p.symbol("lng_a"), p.symbol("name_a")),
-                                        p.values(p.symbol("lat_b"), p.symbol("lng_b"), p.symbol("name_b")))))
-                .matches(
-                        spatialJoin(newFilter,
-                                project(ImmutableMap.of("point_a", expression("ST_Point(lng_a, lat_a)")),
-                                        values(ImmutableMap.of("lat_a", 0, "lng_a", 1, "name_a", 2))),
-                                project(ImmutableMap.of("point_b", expression("ST_Point(lng_b, lat_b)")),
-                                        project(ImmutableMap.of("radius", expression(radiusExpression)),
-                                                values(ImmutableMap.of("lat_b", 0, "lng_b", 1, "name_b", 2))))));
     }
 
     @Test
@@ -249,10 +133,15 @@ public class TestExtractSpatialInnerJoin
         // symbols
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(a, b)"),
-                                p.join(INNER,
-                                        p.values(p.symbol("a")),
-                                        p.values(p.symbol("b")))))
+                {
+                    Symbol a = p.symbol("a");
+                    Symbol b = p.symbol("b");
+                    return p.filter(
+                            containsCall(a.toSymbolReference(), b.toSymbolReference()),
+                            p.join(INNER,
+                                    p.values(a),
+                                    p.values(b)));
+                })
                 .matches(
                         spatialJoin("ST_Contains(a, b)",
                                 values(ImmutableMap.of("a", 0)),
@@ -261,10 +150,19 @@ public class TestExtractSpatialInnerJoin
         // AND
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("name_1 != name_2 AND ST_Contains(a, b)"),
-                                p.join(INNER,
-                                        p.values(p.symbol("a"), p.symbol("name_1")),
-                                        p.values(p.symbol("b"), p.symbol("name_2")))))
+                {
+                    Symbol a = p.symbol("a", GEOMETRY);
+                    Symbol b = p.symbol("b", GEOMETRY);
+                    Symbol name1 = p.symbol("name_1");
+                    Symbol name2 = p.symbol("name_2");
+                    return p.filter(
+                            LogicalExpression.and(
+                                    new ComparisonExpression(NOT_EQUAL, name1.toSymbolReference(), name2.toSymbolReference()),
+                                    containsCall(a.toSymbolReference(), b.toSymbolReference())),
+                            p.join(INNER,
+                                    p.values(a, name1),
+                                    p.values(b, name2)));
+                })
                 .matches(
                         spatialJoin("name_1 != name_2 AND ST_Contains(a, b)",
                                 values(ImmutableMap.of("a", 0, "name_1", 1)),
@@ -273,10 +171,19 @@ public class TestExtractSpatialInnerJoin
         // AND
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(a1, b1) AND ST_Contains(a2, b2)"),
-                                p.join(INNER,
-                                        p.values(p.symbol("a1"), p.symbol("a2")),
-                                        p.values(p.symbol("b1"), p.symbol("b2")))))
+                {
+                    Symbol a1 = p.symbol("a1");
+                    Symbol a2 = p.symbol("a2");
+                    Symbol b1 = p.symbol("b1");
+                    Symbol b2 = p.symbol("b2");
+                    return p.filter(
+                            LogicalExpression.and(
+                                    containsCall(a1.toSymbolReference(), b1.toSymbolReference()),
+                                    containsCall(a2.toSymbolReference(), b2.toSymbolReference())),
+                            p.join(INNER,
+                                    p.values(a1, a2),
+                                    p.values(b1, b2)));
+                })
                 .matches(
                         spatialJoin("ST_Contains(a1, b1) AND ST_Contains(a2, b2)",
                                 values(ImmutableMap.of("a1", 0, "a2", 1)),
@@ -288,10 +195,15 @@ public class TestExtractSpatialInnerJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), point)"),
-                                p.join(INNER,
-                                        p.values(p.symbol("wkt", VARCHAR)),
-                                        p.values(p.symbol("point", GEOMETRY)))))
+                {
+                    Symbol wkt = p.symbol("wkt", VARCHAR);
+                    Symbol point = p.symbol("point", GEOMETRY);
+                    return p.filter(
+                            containsCall(geometryFromTextCall(wkt), point.toSymbolReference()),
+                            p.join(INNER,
+                                    p.values(wkt),
+                                    p.values(point)));
+                })
                 .matches(
                         spatialJoin("ST_Contains(st_geometryfromtext, point)",
                                 project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(wkt)")), values(ImmutableMap.of("wkt", 0))),
@@ -299,10 +211,14 @@ public class TestExtractSpatialInnerJoin
 
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(0, 0))"),
-                                p.join(INNER,
-                                        p.values(p.symbol("wkt", VARCHAR)),
-                                        p.values())))
+                {
+                    Symbol wkt = p.symbol("wkt", VARCHAR);
+                    return p.filter(
+                            containsCall(geometryFromTextCall(wkt), toPointCall(new LongLiteral("0"), new LongLiteral("0"))),
+                            p.join(INNER,
+                                    p.values(wkt),
+                                    p.values()));
+                })
                 .doesNotFire();
     }
 
@@ -311,10 +227,16 @@ public class TestExtractSpatialInnerJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(polygon, ST_Point(lng, lat))"),
-                                p.join(INNER,
-                                        p.values(p.symbol("polygon", GEOMETRY)),
-                                        p.values(p.symbol("lat"), p.symbol("lng")))))
+                {
+                    Symbol polygon = p.symbol("polygon", GEOMETRY);
+                    Symbol lat = p.symbol("lat");
+                    Symbol lng = p.symbol("lng");
+                    return p.filter(
+                            containsCall(polygon.toSymbolReference(), toPointCall(lng.toSymbolReference(), lat.toSymbolReference())),
+                            p.join(INNER,
+                                    p.values(polygon),
+                                    p.values(lat, lng)));
+                })
                 .matches(
                         spatialJoin("ST_Contains(polygon, st_point)",
                                 values(ImmutableMap.of("polygon", 0)),
@@ -322,10 +244,15 @@ public class TestExtractSpatialInnerJoin
 
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText('POLYGON ...'), ST_Point(lng, lat))"),
-                                p.join(INNER,
-                                        p.values(),
-                                        p.values(p.symbol("lat"), p.symbol("lng")))))
+                {
+                    Symbol lat = p.symbol("lat");
+                    Symbol lng = p.symbol("lng");
+                    return p.filter(
+                            containsCall(geometryFromTextCall("POLYGON ..."), toPointCall(lng.toSymbolReference(), lat.toSymbolReference())),
+                            p.join(INNER,
+                                    p.values(),
+                                    p.values(lat, lng)));
+                })
                 .doesNotFire();
     }
 
@@ -334,10 +261,16 @@ public class TestExtractSpatialInnerJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))"),
-                                p.join(INNER,
-                                        p.values(p.symbol("wkt", VARCHAR)),
-                                        p.values(p.symbol("lat"), p.symbol("lng")))))
+                {
+                    Symbol wkt = p.symbol("wkt", VARCHAR);
+                    Symbol lat = p.symbol("lat");
+                    Symbol lng = p.symbol("lng");
+                    return p.filter(
+                            containsCall(geometryFromTextCall(wkt), toPointCall(lng.toSymbolReference(), lat.toSymbolReference())),
+                            p.join(INNER,
+                                    p.values(wkt),
+                                    p.values(lat, lng)));
+                })
                 .matches(
                         spatialJoin("ST_Contains(st_geometryfromtext, st_point)",
                                 project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(wkt)")), values(ImmutableMap.of("wkt", 0))),
@@ -349,10 +282,16 @@ public class TestExtractSpatialInnerJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))"),
-                                p.join(INNER,
-                                        p.values(p.symbol("lat"), p.symbol("lng")),
-                                        p.values(p.symbol("wkt", VARCHAR)))))
+                {
+                    Symbol lat = p.symbol("lat");
+                    Symbol lng = p.symbol("lng");
+                    Symbol wkt = p.symbol("wkt", VARCHAR);
+                    return p.filter(
+                            containsCall(geometryFromTextCall(wkt), toPointCall(lng.toSymbolReference(), lat.toSymbolReference())),
+                            p.join(INNER,
+                                    p.values(lat, lng),
+                                    p.values(wkt)));
+                })
                 .matches(
                         spatialJoin("ST_Contains(st_geometryfromtext, st_point)",
                                 project(ImmutableMap.of("st_point", expression("ST_Point(lng, lat)")), values(ImmutableMap.of("lat", 0, "lng", 1))),
@@ -364,10 +303,20 @@ public class TestExtractSpatialInnerJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("name_1 != name_2 AND ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))"),
-                                p.join(INNER,
-                                        p.values(p.symbol("wkt", VARCHAR), p.symbol("name_1")),
-                                        p.values(p.symbol("lat"), p.symbol("lng"), p.symbol("name_2")))))
+                {
+                    Symbol wkt = p.symbol("wkt", VARCHAR);
+                    Symbol lat = p.symbol("lat");
+                    Symbol lng = p.symbol("lng");
+                    Symbol name1 = p.symbol("name_1");
+                    Symbol name2 = p.symbol("name_2");
+                    return p.filter(
+                            LogicalExpression.and(
+                                    new ComparisonExpression(NOT_EQUAL, name1.toSymbolReference(), name2.toSymbolReference()),
+                                    containsCall(geometryFromTextCall(wkt), toPointCall(lng.toSymbolReference(), lat.toSymbolReference()))),
+                            p.join(INNER,
+                                    p.values(wkt, name1),
+                                    p.values(lat, lng, name2)));
+                })
                 .matches(
                         spatialJoin("name_1 != name_2 AND ST_Contains(st_geometryfromtext, st_point)",
                                 project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(wkt)")), values(ImmutableMap.of("wkt", 0, "name_1", 1))),
@@ -376,17 +325,26 @@ public class TestExtractSpatialInnerJoin
         // Multiple spatial functions - only the first one is being processed
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt1), geometry1) AND ST_Contains(ST_GeometryFromText(wkt2), geometry2)"),
-                                p.join(INNER,
-                                        p.values(p.symbol("wkt1", VARCHAR), p.symbol("wkt2", VARCHAR)),
-                                        p.values(p.symbol("geometry1"), p.symbol("geometry2")))))
+                {
+                    Symbol wkt1 = p.symbol("wkt1", VARCHAR);
+                    Symbol wkt2 = p.symbol("wkt2", VARCHAR);
+                    Symbol geometry1 = p.symbol("geometry1");
+                    Symbol geometry2 = p.symbol("geometry2");
+                    return p.filter(
+                            LogicalExpression.and(
+                                    containsCall(geometryFromTextCall(wkt1), geometry1.toSymbolReference()),
+                                    containsCall(geometryFromTextCall(wkt2), geometry2.toSymbolReference())),
+                            p.join(INNER,
+                                    p.values(wkt1, wkt2),
+                                    p.values(geometry1, geometry2)));
+                })
                 .matches(
                         spatialJoin("ST_Contains(st_geometryfromtext, geometry1) AND ST_Contains(ST_GeometryFromText(wkt2), geometry2)",
                                 project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(wkt1)")), values(ImmutableMap.of("wkt1", 0, "wkt2", 1))),
                                 values(ImmutableMap.of("geometry1", 0, "geometry2", 1))));
     }
 
-    private RuleAssert assertRuleApplication()
+    private RuleBuilder assertRuleApplication()
     {
         RuleTester tester = tester();
         return tester.assertThat(new ExtractSpatialInnerJoin(tester.getPlannerContext(), tester.getSplitManager(), tester.getPageSourceManager(), tester.getTypeAnalyzer()));

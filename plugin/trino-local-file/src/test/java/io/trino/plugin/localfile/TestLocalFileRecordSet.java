@@ -16,7 +16,7 @@ package io.trino.plugin.localfile;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.OptionalInt;
@@ -24,8 +24,7 @@ import java.util.stream.Collectors;
 
 import static io.trino.plugin.localfile.LocalFileTables.HttpRequestLogTable.getSchemaTableName;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLocalFileRecordSet
 {
@@ -63,35 +62,35 @@ public class TestLocalFileRecordSet
         RecordCursor cursor = recordSet.cursor();
 
         for (int i = 0; i < columnHandles.size(); i++) {
-            assertEquals(cursor.getType(i), columnHandles.get(i).getColumnType());
+            assertThat(cursor.getType(i)).isEqualTo(columnHandles.get(i).getColumnType());
         }
 
         // test one row
-        assertTrue(cursor.advanceNextPosition());
-        assertEquals(cursor.getSlice(0).toStringUtf8(), address.toString());
-        assertEquals(cursor.getSlice(2).toStringUtf8(), "127.0.0.1");
-        assertEquals(cursor.getSlice(3).toStringUtf8(), "POST");
-        assertEquals(cursor.getSlice(4).toStringUtf8(), "/v1/memory");
-        assertTrue(cursor.isNull(5));
-        assertTrue(cursor.isNull(6));
-        assertEquals(cursor.getLong(7), 200);
-        assertEquals(cursor.getLong(8), 0);
-        assertEquals(cursor.getLong(9), 1000);
-        assertEquals(cursor.getLong(10), 10);
-        assertTrue(cursor.isNull(11));
+        assertThat(cursor.advanceNextPosition()).isTrue();
+        assertThat(cursor.getSlice(0).toStringUtf8()).isEqualTo(address.toString());
+        assertThat(cursor.getSlice(2).toStringUtf8()).isEqualTo("127.0.0.1");
+        assertThat(cursor.getSlice(3).toStringUtf8()).isEqualTo("POST");
+        assertThat(cursor.getSlice(4).toStringUtf8()).isEqualTo("/v1/memory");
+        assertThat(cursor.isNull(5)).isTrue();
+        assertThat(cursor.isNull(6)).isTrue();
+        assertThat(cursor.getLong(7)).isEqualTo(200);
+        assertThat(cursor.getLong(8)).isEqualTo(0);
+        assertThat(cursor.getLong(9)).isEqualTo(1000);
+        assertThat(cursor.getLong(10)).isEqualTo(10);
+        assertThat(cursor.isNull(11)).isTrue();
 
-        assertTrue(cursor.advanceNextPosition());
-        assertEquals(cursor.getSlice(0).toStringUtf8(), address.toString());
-        assertEquals(cursor.getSlice(2).toStringUtf8(), "127.0.0.1");
-        assertEquals(cursor.getSlice(3).toStringUtf8(), "GET");
-        assertEquals(cursor.getSlice(4).toStringUtf8(), "/v1/service/presto/general");
-        assertEquals(cursor.getSlice(5).toStringUtf8(), "foo");
-        assertEquals(cursor.getSlice(6).toStringUtf8(), "ffffffff-ffff-ffff-ffff-ffffffffffff");
-        assertEquals(cursor.getLong(7), 200);
-        assertEquals(cursor.getLong(8), 0);
-        assertEquals(cursor.getLong(9), 37);
-        assertEquals(cursor.getLong(10), 1094);
-        assertEquals(cursor.getSlice(11).toStringUtf8(), "a7229d56-5cbd-4e23-81ff-312ba6be0f12");
+        assertThat(cursor.advanceNextPosition()).isTrue();
+        assertThat(cursor.getSlice(0).toStringUtf8()).isEqualTo(address.toString());
+        assertThat(cursor.getSlice(2).toStringUtf8()).isEqualTo("127.0.0.1");
+        assertThat(cursor.getSlice(3).toStringUtf8()).isEqualTo("GET");
+        assertThat(cursor.getSlice(4).toStringUtf8()).isEqualTo("/v1/service/presto/general");
+        assertThat(cursor.getSlice(5).toStringUtf8()).isEqualTo("foo");
+        assertThat(cursor.getSlice(6).toStringUtf8()).isEqualTo("ffffffff-ffff-ffff-ffff-ffffffffffff");
+        assertThat(cursor.getLong(7)).isEqualTo(200);
+        assertThat(cursor.getLong(8)).isEqualTo(0);
+        assertThat(cursor.getLong(9)).isEqualTo(37);
+        assertThat(cursor.getLong(10)).isEqualTo(1094);
+        assertThat(cursor.getSlice(11).toStringUtf8()).isEqualTo("a7229d56-5cbd-4e23-81ff-312ba6be0f12");
     }
 
     private String getResourceFilePath(String fileName)

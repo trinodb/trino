@@ -16,7 +16,7 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -35,8 +35,8 @@ public class TestNodeSchedulerConfig
         assertRecordedDefaults(recordDefaults(NodeSchedulerConfig.class)
                 .setNodeSchedulerPolicy(UNIFORM.name())
                 .setMinCandidates(10)
-                .setMaxSplitsPerNode(100)
-                .setMinPendingSplitsPerTask(10)
+                .setMaxSplitsPerNode(256)
+                .setMinPendingSplitsPerTask(16)
                 .setMaxAdjustedPendingSplitsWeightPerTask(2000)
                 .setMaxUnacknowledgedSplitsPerTask(2000)
                 .setIncludeCoordinator(true)

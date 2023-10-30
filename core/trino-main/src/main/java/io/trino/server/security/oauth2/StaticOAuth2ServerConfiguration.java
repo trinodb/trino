@@ -26,12 +26,14 @@ public class StaticOAuth2ServerConfiguration
     public static final String TOKEN_URL = "http-server.authentication.oauth2.token-url";
     public static final String JWKS_URL = "http-server.authentication.oauth2.jwks-url";
     public static final String USERINFO_URL = "http-server.authentication.oauth2.userinfo-url";
+    public static final String END_SESSION_URL = "http-server.authentication.oauth2.end-session-url";
 
     private Optional<String> accessTokenIssuer = Optional.empty();
     private String authUrl;
     private String tokenUrl;
     private String jwksUrl;
     private Optional<String> userinfoUrl = Optional.empty();
+    private Optional<String> endSessionUrl = Optional.empty();
 
     @NotNull
     public Optional<String> getAccessTokenIssuer()
@@ -99,6 +101,19 @@ public class StaticOAuth2ServerConfiguration
     public StaticOAuth2ServerConfiguration setUserinfoUrl(String userinfoUrl)
     {
         this.userinfoUrl = Optional.ofNullable(userinfoUrl);
+        return this;
+    }
+
+    public Optional<String> getEndSessionUrl()
+    {
+        return endSessionUrl;
+    }
+
+    @Config(END_SESSION_URL)
+    @ConfigDescription("URL of the end session endpoint")
+    public StaticOAuth2ServerConfiguration setEndSessionUrl(String endSessionUrl)
+    {
+        this.endSessionUrl = Optional.ofNullable(endSessionUrl);
         return this;
     }
 }

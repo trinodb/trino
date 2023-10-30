@@ -47,8 +47,7 @@ public final class TestingConnectorContext
 
     public TestingConnectorContext()
     {
-        TypeOperators typeOperators = new TypeOperators();
-        pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), typeOperators);
+        pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(new TypeOperators()));
         nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", TEST_CATALOG_HANDLE, true);
     }
 

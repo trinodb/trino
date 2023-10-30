@@ -17,10 +17,11 @@ import com.google.common.collect.Lists;
 import com.google.common.math.IntMath;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DataProviders;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 
@@ -53,7 +54,8 @@ public class TestIcebergStatistics
                 .build();
     }
 
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
     public void testAnalyze(boolean collectOnStatsOnWrites)
     {
         Session writeSession = withStatsOnWrite(getSession(), collectOnStatsOnWrites);
@@ -172,7 +174,8 @@ public class TestIcebergStatistics
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
     public void testAnalyzePartitioned(boolean collectOnStatsOnWrites)
     {
         Session writeSession = withStatsOnWrite(getSession(), collectOnStatsOnWrites);
@@ -298,7 +301,8 @@ public class TestIcebergStatistics
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "testCollectStatisticsOnWriteDataProvider")
+    @ParameterizedTest
+    @MethodSource("testCollectStatisticsOnWriteDataProvider")
     public void testCollectStatisticsOnWrite(boolean collectOnStatsOnCreateTable, boolean partitioned)
     {
         String tableName = "test_collect_stats_insert_" + collectOnStatsOnCreateTable + partitioned;
@@ -353,7 +357,8 @@ public class TestIcebergStatistics
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "testCollectStatisticsOnWriteDataProvider")
+    @ParameterizedTest
+    @MethodSource("testCollectStatisticsOnWriteDataProvider")
     public void testCollectStatisticsOnWriteToEmptyTable(boolean collectOnStatsOnCreateTable, boolean partitioned)
     {
         String tableName = "test_collect_stats_insert_into_empty_" + collectOnStatsOnCreateTable + partitioned;
@@ -389,13 +394,13 @@ public class TestIcebergStatistics
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @DataProvider
     public Object[][] testCollectStatisticsOnWriteDataProvider()
     {
         return cartesianProduct(trueFalse(), trueFalse());
     }
 
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
     public void testAnalyzeAfterStatsDrift(boolean withOptimize)
     {
         String tableName = "test_analyze_stats_drift_" + withOptimize;

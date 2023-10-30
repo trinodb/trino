@@ -15,8 +15,8 @@ package io.trino.plugin.ml;
 
 import io.airlift.slice.Slice;
 import io.trino.plugin.ml.type.RegressorType;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.InputFunction;
@@ -36,7 +36,7 @@ public final class LearnLibSvmRegressorAggregation
     public static void input(
             @AggregationState LearnState state,
             @SqlType(BIGINT) long label,
-            @SqlType("map(bigint,double)") Block features,
+            @SqlType("map(bigint,double)") SqlMap features,
             @SqlType(VARCHAR) Slice parameters)
     {
         input(state, (double) label, features, parameters);
@@ -46,7 +46,7 @@ public final class LearnLibSvmRegressorAggregation
     public static void input(
             @AggregationState LearnState state,
             @SqlType(DOUBLE) double label,
-            @SqlType("map(bigint,double)") Block features,
+            @SqlType("map(bigint,double)") SqlMap features,
             @SqlType(VARCHAR) Slice parameters)
     {
         state.getLabels().add(label);

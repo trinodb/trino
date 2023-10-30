@@ -116,6 +116,15 @@ connector to connector:
 - {doc}`/sql/drop-view`
 - {doc}`/sql/alter-view`
 
+(sql-routine-management)=
+### Routine management
+
+The following statements are used to manage [catalog routines](routine-catalog):
+
+- [](/sql/create-function)
+- [](/sql/drop-function)
+- [](/sql/show-functions)
+
 (sql-security-operations)=
 
 ## Security operations

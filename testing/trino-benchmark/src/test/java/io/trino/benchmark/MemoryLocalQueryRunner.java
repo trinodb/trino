@@ -28,14 +28,12 @@ import io.trino.operator.TaskContext;
 import io.trino.plugin.memory.MemoryConnectorFactory;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.Page;
-import io.trino.spi.QueryId;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.PageConsumerOperator;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;
-import java.util.Map;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -43,71 +41,15 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 public class MemoryLocalQueryRunner
         implements AutoCloseable
 {
-    protected final LocalQueryRunner localQueryRunner;
+    private final LocalQueryRunner localQueryRunner;
 
     public MemoryLocalQueryRunner()
-    {
-        this(ImmutableMap.of());
-    }
-
-    public MemoryLocalQueryRunner(Map<String, String> properties)
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("memory")
                 .setSchema("default");
-        properties.forEach(sessionBuilder::setSystemProperty);
 
-        localQueryRunner = createMemoryLocalQueryRunner(sessionBuilder.build());
-    }
-
-    public List<Page> execute(@Language("SQL") String query)
-    {
-        MemoryPool memoryPool = new MemoryPool(DataSize.of(2, GIGABYTE));
-        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
-        QueryContext queryContext = new QueryContext(
-                new QueryId("test"),
-                DataSize.of(1, GIGABYTE),
-                memoryPool,
-                new TestingGcMonitor(),
-                localQueryRunner.getExecutor(),
-                localQueryRunner.getScheduler(),
-                DataSize.of(4, GIGABYTE),
-                spillSpaceTracker);
-
-        TaskContext taskContext = queryContext
-                .addTaskContext(new TaskStateMachine(new TaskId(new StageId("query", 0), 0, 0), localQueryRunner.getExecutor()),
-                        localQueryRunner.getDefaultSession(),
-                        () -> {},
-                        false,
-                        false);
-
-        // Use NullOutputFactory to avoid coping out results to avoid affecting benchmark results
-        ImmutableList.Builder<Page> output = ImmutableList.builder();
-        List<Driver> drivers = localQueryRunner.createDrivers(
-                query,
-                new PageConsumerOperator.PageConsumerOutputFactory(types -> output::add),
-                taskContext);
-
-        boolean done = false;
-        while (!done) {
-            boolean processed = false;
-            for (Driver driver : drivers) {
-                if (!driver.isFinished()) {
-                    driver.processForNumberOfIterations(1);
-                    processed = true;
-                }
-            }
-            done = !processed;
-        }
-
-        return output.build();
-    }
-
-    private static LocalQueryRunner createMemoryLocalQueryRunner(Session session)
-    {
-        LocalQueryRunner localQueryRunner = LocalQueryRunner.builder(session)
-                .withInitialTransaction()
-                .build();
+        localQueryRunner = LocalQueryRunner.create(sessionBuilder.build());
 
         // add tpch
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
@@ -115,8 +57,56 @@ public class MemoryLocalQueryRunner
                 "memory",
                 new MemoryConnectorFactory(),
                 ImmutableMap.of("memory.max-data-per-node", "4GB"));
+    }
 
-        return localQueryRunner;
+    public List<Page> execute(@Language("SQL") String query)
+    {
+        return localQueryRunner.inTransaction(session -> {
+            // enroll the memory and tpch connectors in the transaction
+            localQueryRunner.getMetadata().getCatalogHandle(session, "tpch");
+            localQueryRunner.getMetadata().getCatalogHandle(session, "memory");
+
+            MemoryPool memoryPool = new MemoryPool(DataSize.of(2, GIGABYTE));
+            SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
+            QueryContext queryContext = new QueryContext(
+                    session.getQueryId(),
+                    DataSize.of(1, GIGABYTE),
+                    memoryPool,
+                    new TestingGcMonitor(),
+                    localQueryRunner.getExecutor(),
+                    localQueryRunner.getScheduler(),
+                    DataSize.of(4, GIGABYTE),
+                    spillSpaceTracker);
+
+            TaskContext taskContext = queryContext
+                    .addTaskContext(
+                            new TaskStateMachine(new TaskId(new StageId("query", 0), 0, 0), localQueryRunner.getExecutor()),
+                            session,
+                            () -> {},
+                            false,
+                            false);
+
+            // Use NullOutputFactory to avoid coping out results to avoid affecting benchmark results
+            ImmutableList.Builder<Page> output = ImmutableList.builder();
+            List<Driver> drivers = localQueryRunner.createDrivers(
+                    query,
+                    new PageConsumerOperator.PageConsumerOutputFactory(types -> output::add),
+                    taskContext);
+
+            boolean done = false;
+            while (!done) {
+                boolean processed = false;
+                for (Driver driver : drivers) {
+                    if (!driver.isFinished()) {
+                        driver.processForNumberOfIterations(1);
+                        processed = true;
+                    }
+                }
+                done = !processed;
+            }
+
+            return output.build();
+        });
     }
 
     @Override

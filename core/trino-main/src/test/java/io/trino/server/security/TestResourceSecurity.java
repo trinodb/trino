@@ -43,7 +43,6 @@ import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
-import io.trino.spi.security.SystemSecurityContext;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -90,7 +89,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.hash.Hashing.sha256;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -107,6 +105,7 @@ import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 import static io.trino.server.security.oauth2.OAuth2Service.NONCE;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
+import static io.trino.server.ui.OAuthIdTokenCookie.ID_TOKEN_COOKIE;
 import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
 import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.trino.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
@@ -685,12 +684,20 @@ public class TestResourceSecurity
 
             // if Web UI is using oauth so we should get a cookie
             if (webUiEnabled) {
-                HttpCookie cookie = getOnlyElement(cookieManager.getCookieStore().getCookies());
+                HttpCookie cookie = getCookie(cookieManager, OAUTH2_COOKIE);
                 assertEquals(cookie.getValue(), tokenServer.getAccessToken());
                 assertEquals(cookie.getPath(), "/ui/");
                 assertEquals(cookie.getDomain(), baseUri.getHost());
                 assertTrue(cookie.getMaxAge() > 0 && cookie.getMaxAge() < MINUTES.toSeconds(5));
                 assertTrue(cookie.isHttpOnly());
+
+                HttpCookie idTokenCookie = getCookie(cookieManager, ID_TOKEN_COOKIE);
+                assertEquals(idTokenCookie.getValue(), tokenServer.issueIdToken(Optional.of(hashNonce(bearer.getNonceCookie().getValue()))));
+                assertEquals(idTokenCookie.getPath(), "/ui/");
+                assertEquals(idTokenCookie.getDomain(), baseUri.getHost());
+                assertTrue(idTokenCookie.getMaxAge() > 0 && cookie.getMaxAge() < MINUTES.toSeconds(5));
+                assertTrue(idTokenCookie.isHttpOnly());
+
                 cookieManager.getCookieStore().removeAll();
             }
             else {
@@ -1070,7 +1077,7 @@ public class TestResourceSecurity
                     if (!"TEST_CODE".equals(code)) {
                         throw new IllegalArgumentException("Expected TEST_CODE");
                     }
-                    return new Response(accessToken, now().plus(5, ChronoUnit.MINUTES), Optional.of(issueIdToken(nonce.map(this::hashNonce))), Optional.of(REFRESH_TOKEN));
+                    return new Response(accessToken, now().plus(5, ChronoUnit.MINUTES), Optional.of(issueIdToken(nonce.map(TestResourceSecurity::hashNonce))), Optional.of(REFRESH_TOKEN));
                 }
 
                 @Override
@@ -1086,11 +1093,10 @@ public class TestResourceSecurity
                     throw new UnsupportedOperationException("refresh tokens not supported");
                 }
 
-                private String hashNonce(String nonce)
+                @Override
+                public Optional<URI> getLogoutEndpoint(Optional<String> idToken, URI callbackUrl)
                 {
-                    return sha256()
-                            .hashString(nonce, UTF_8)
-                            .toString();
+                    return Optional.empty();
                 }
             };
         }
@@ -1398,6 +1404,21 @@ public class TestResourceSecurity
         throw new AccessDeniedException("Invalid credentials2");
     }
 
+    private static HttpCookie getCookie(CookieManager cookieManager, String cookieName)
+    {
+        return cookieManager.getCookieStore().getCookies().stream()
+                .filter(cookie -> cookie.getName().equals(cookieName))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private static String hashNonce(String nonce)
+    {
+        return sha256()
+                .hashString(nonce, UTF_8)
+                .toString();
+    }
+
     private static class TestSystemAccessControl
             extends AllowAllSystemAccessControl
     {
@@ -1412,17 +1433,17 @@ public class TestResourceSecurity
         }
 
         @Override
-        public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
+        public void checkCanImpersonateUser(Identity identity, String userName)
         {
             if (!allowImpersonation) {
-                denyImpersonateUser(context.getIdentity().getUser(), userName);
+                denyImpersonateUser(identity.getUser(), userName);
             }
         }
 
         @Override
-        public void checkCanReadSystemInformation(SystemSecurityContext context)
+        public void checkCanReadSystemInformation(Identity identity)
         {
-            if (!context.getIdentity().getUser().equals(MANAGEMENT_USER)) {
+            if (!identity.getUser().equals(MANAGEMENT_USER)) {
                 denyReadSystemInformationAccess();
             }
         }

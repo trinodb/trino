@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
@@ -45,7 +46,7 @@ public class TestCharType
         super(CHAR_TYPE, String.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = CHAR_TYPE.createBlockBuilder(null, 15);
         CHAR_TYPE.writeString(blockBuilder, "apple");
@@ -59,7 +60,7 @@ public class TestCharType
         CHAR_TYPE.writeString(blockBuilder, "cherry");
         CHAR_TYPE.writeString(blockBuilder, "cherry");
         CHAR_TYPE.writeString(blockBuilder, "date");
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override

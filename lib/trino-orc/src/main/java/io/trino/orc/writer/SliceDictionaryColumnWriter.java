@@ -38,6 +38,7 @@ import io.trino.orc.stream.PresentOutputStream;
 import io.trino.orc.stream.StreamDataOutput;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 
@@ -282,17 +283,19 @@ public class SliceDictionaryColumnWriter
 
         // record values
         values.ensureCapacity(rowGroupValueCount + block.getPositionCount());
-        for (int position = 0; position < block.getPositionCount(); position++) {
-            int index = dictionary.putIfAbsent(block, position);
+        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            int position = block.getUnderlyingValuePosition(i);
+            int index = dictionary.putIfAbsent(valueBlock, position);
             values.set(rowGroupValueCount, index);
             rowGroupValueCount++;
             totalValueCount++;
 
-            if (!block.isNull(position)) {
+            if (!valueBlock.isNull(position)) {
                 // todo min/max statistics only need to be updated if value was not already in the dictionary, but non-null count does
-                statisticsBuilder.addValue(type.getSlice(block, position));
+                statisticsBuilder.addValue(type.getSlice(valueBlock, position));
 
-                rawBytes += block.getSliceLength(position);
+                rawBytes += valueBlock.getSliceLength(position);
                 totalNonNullValueCount++;
             }
         }
@@ -349,7 +352,7 @@ public class SliceDictionaryColumnWriter
         checkState(closed);
         checkState(!directEncoded);
 
-        Block dictionaryElements = dictionary.getElementBlock();
+        VariableWidthBlock dictionaryElements = dictionary.getElementBlock();
 
         // write dictionary in sorted order
         int[] sortedDictionaryIndexes = getSortedDictionaryNullsLast(dictionaryElements);
@@ -404,13 +407,14 @@ public class SliceDictionaryColumnWriter
         presentStream.close();
     }
 
-    private static int[] getSortedDictionaryNullsLast(Block elementBlock)
+    private static int[] getSortedDictionaryNullsLast(VariableWidthBlock elementBlock)
     {
         int[] sortedPositions = new int[elementBlock.getPositionCount()];
         for (int i = 0; i < sortedPositions.length; i++) {
             sortedPositions[i] = i;
         }
 
+        Slice rawSlice = elementBlock.getRawSlice();
         IntArrays.quickSort(sortedPositions, 0, sortedPositions.length, (int left, int right) -> {
             boolean nullLeft = elementBlock.isNull(left);
             boolean nullRight = elementBlock.isNull(right);
@@ -423,13 +427,11 @@ public class SliceDictionaryColumnWriter
             if (nullRight) {
                 return -1;
             }
-            return elementBlock.compareTo(
-                    left,
-                    0,
+            return rawSlice.compareTo(
+                    elementBlock.getRawSliceOffset(left),
                     elementBlock.getSliceLength(left),
-                    elementBlock,
-                    right,
-                    0,
+                    rawSlice,
+                    elementBlock.getRawSliceOffset(right),
                     elementBlock.getSliceLength(right));
         });
 

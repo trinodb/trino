@@ -14,6 +14,8 @@
 package io.trino.transaction;
 
 import io.trino.Session;
+import io.trino.execution.QueryIdGenerator;
+import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.transaction.IsolationLevel;
 
@@ -26,21 +28,24 @@ import static java.util.Objects.requireNonNull;
 
 public class TransactionBuilder
 {
+    private static final QueryIdGenerator QUERY_ID_GENERATOR = new QueryIdGenerator();
     private final TransactionManager transactionManager;
+    private final Metadata metadata;
     private final AccessControl accessControl;
     private IsolationLevel isolationLevel = TransactionManager.DEFAULT_ISOLATION;
     private boolean readOnly = TransactionManager.DEFAULT_READ_ONLY;
     private boolean singleStatement;
 
-    private TransactionBuilder(TransactionManager transactionManager, AccessControl accessControl)
+    private TransactionBuilder(TransactionManager transactionManager, Metadata metadata, AccessControl accessControl)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.metadata = metadata;
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
-    public static TransactionBuilder transaction(TransactionManager transactionManager, AccessControl accessControl)
+    public static TransactionBuilder transaction(TransactionManager transactionManager, Metadata metadata, AccessControl accessControl)
     {
-        return new TransactionBuilder(transactionManager, accessControl);
+        return new TransactionBuilder(transactionManager, metadata, accessControl);
     }
 
     public TransactionBuilder withIsolationLevel(IsolationLevel isolationLevel)
@@ -129,6 +134,9 @@ public class TransactionBuilder
         requireNonNull(session, "session is null");
         requireNonNull(callback, "callback is null");
 
+        session = Session.builder(session)
+                .setQueryId(QUERY_ID_GENERATOR.createNextQueryId())
+                .build();
         boolean managedTransaction = session.getTransactionId().isEmpty();
 
         Session transactionSession;
@@ -144,6 +152,7 @@ public class TransactionBuilder
             checkState(!transactionInfo.isAutoCommitContext() && !singleStatement, "Cannot combine auto commit transactions");
             transactionSession = session;
         }
+        metadata.beginQuery(transactionSession);
 
         boolean success = false;
         try {
@@ -152,6 +161,7 @@ public class TransactionBuilder
             return result;
         }
         finally {
+            metadata.cleanupQuery(transactionSession);
             if (managedTransaction && transactionManager.transactionExists(transactionSession.getTransactionId().get())) {
                 if (success) {
                     getFutureValue(transactionManager.asyncCommit(transactionSession.getTransactionId().get()));

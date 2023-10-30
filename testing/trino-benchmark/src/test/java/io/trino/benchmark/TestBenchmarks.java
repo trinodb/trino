@@ -14,7 +14,7 @@
 package io.trino.benchmark;
 
 import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static io.trino.benchmark.BenchmarkSuite.createBenchmarks;

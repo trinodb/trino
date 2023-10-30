@@ -28,13 +28,13 @@ import org.junit.jupiter.api.Test;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 
 public class TestRuleIndex
 {
-    private final PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata(), TEST_SESSION);
+    private final PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), PLANNER_CONTEXT, TEST_SESSION);
 
     @Test
     public void testWithPlanNodeHierarchy()

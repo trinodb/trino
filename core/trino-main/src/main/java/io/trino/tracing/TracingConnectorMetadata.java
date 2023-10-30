@@ -55,6 +55,7 @@ import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortItem;
@@ -65,11 +66,13 @@ import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.TupleDomain;
@@ -375,6 +378,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
+    {
+        Span span = startSpan("createTable", tableMetadata.getTable());
+        try (var ignored = scopedSpan(span)) {
+            delegate.createTable(session, tableMetadata, saveMode);
+        }
+    }
+
+    @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         Span span = startSpan("dropTable", tableHandle);
@@ -546,11 +558,11 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    public Optional<Type> getSupportedType(ConnectorSession session, Map<String, Object> tableProperties, Type type)
     {
         Span span = startSpan("getSupportedType");
         try (var ignored = scopedSpan(span)) {
-            return delegate.getSupportedType(session, type);
+            return delegate.getSupportedType(session, tableProperties, type);
         }
     }
 
@@ -605,6 +617,15 @@ public class TracingConnectorMetadata
         Span span = startSpan("beginCreateTable", tableMetadata.getTable());
         try (var ignored = scopedSpan(span)) {
             return delegate.beginCreateTable(session, tableMetadata, layout, retryMode);
+        }
+    }
+
+    @Override
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode, boolean replace)
+    {
+        Span span = startSpan("beginCreateTable", tableMetadata.getTable());
+        try (var ignored = scopedSpan(span)) {
+            return delegate.beginCreateTable(session, tableMetadata, layout, retryMode, replace);
         }
     }
 
@@ -831,6 +852,24 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public Optional<ConnectorTableHandle> applyUpdate(ConnectorSession session, ConnectorTableHandle handle, Map<ColumnHandle, Constant> assignments)
+    {
+        Span span = startSpan("applyUpdate", handle);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.applyUpdate(session, handle, assignments);
+        }
+    }
+
+    @Override
+    public OptionalLong executeUpdate(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        Span span = startSpan("executeUpdate", handle);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.executeUpdate(session, handle);
+        }
+    }
+
+    @Override
     public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
         Span span = startSpan("applyDelete", handle);
@@ -900,6 +939,55 @@ public class TracingConnectorMetadata
         Span span = startSpan("getFunctionDependencies", functionId);
         try (var ignored = scopedSpan(span)) {
             return delegate.getFunctionDependencies(session, functionId, boundSignature);
+        }
+    }
+
+    @Override
+    public Collection<LanguageFunction> listLanguageFunctions(ConnectorSession session, String schemaName)
+    {
+        Span span = startSpan("listLanguageFunctions", schemaName);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.listLanguageFunctions(session, schemaName);
+        }
+    }
+
+    @Override
+    public Collection<LanguageFunction> getLanguageFunctions(ConnectorSession session, SchemaFunctionName name)
+    {
+        Span span = startSpan("getLanguageFunctions", name.getSchemaName())
+                .setAttribute(TrinoAttributes.FUNCTION, name.getFunctionName());
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getLanguageFunctions(session, name);
+        }
+    }
+
+    @Override
+    public boolean languageFunctionExists(ConnectorSession session, SchemaFunctionName name, String signatureToken)
+    {
+        Span span = startSpan("languageFunctionExists", name.getSchemaName())
+                .setAttribute(TrinoAttributes.FUNCTION, name.getFunctionName());
+        try (var ignored = scopedSpan(span)) {
+            return delegate.languageFunctionExists(session, name, signatureToken);
+        }
+    }
+
+    @Override
+    public void createLanguageFunction(ConnectorSession session, SchemaFunctionName name, LanguageFunction function, boolean replace)
+    {
+        Span span = startSpan("createLanguageFunction", name.getSchemaName())
+                .setAttribute(TrinoAttributes.FUNCTION, name.getFunctionName());
+        try (var ignored = scopedSpan(span)) {
+            delegate.createLanguageFunction(session, name, function, replace);
+        }
+    }
+
+    @Override
+    public void dropLanguageFunction(ConnectorSession session, SchemaFunctionName name, String signatureToken)
+    {
+        Span span = startSpan("dropLanguageFunction", name.getSchemaName())
+                .setAttribute(TrinoAttributes.FUNCTION, name.getFunctionName());
+        try (var ignored = scopedSpan(span)) {
+            delegate.dropLanguageFunction(session, name, signatureToken);
         }
     }
 

@@ -51,6 +51,7 @@ import io.trino.geospatial.serde.JtsGeometrySerde;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
@@ -1192,7 +1193,7 @@ public final class GeoFunctions
     @Description("Return the closest points on the two geometries")
     @ScalarFunction("geometry_nearest_points")
     @SqlType("row(" + GEOMETRY_TYPE_NAME + "," + GEOMETRY_TYPE_NAME + ")")
-    public static Block geometryNearestPoints(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
+    public static SqlRow geometryNearestPoints(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
         Geometry leftGeometry = JtsGeometrySerde.deserialize(left);
         Geometry rightGeometry = JtsGeometrySerde.deserialize(right);

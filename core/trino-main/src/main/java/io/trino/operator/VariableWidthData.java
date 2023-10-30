@@ -27,8 +27,12 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
+import static io.trino.operator.FlatHash.sumExact;
+import static java.lang.Math.addExact;
 import static java.lang.Math.max;
+import static java.lang.Math.subtractExact;
 import static java.util.Objects.checkIndex;
 
 public final class VariableWidthData
@@ -70,14 +74,17 @@ public final class VariableWidthData
     {
         this.chunks.addAll(chunks);
         this.openChunkOffset = openChunkOffset;
-        this.chunksRetainedSizeInBytes = chunks.stream().mapToLong(SizeOf::sizeOf).sum();
+        this.chunksRetainedSizeInBytes = chunks.stream().mapToLong(SizeOf::sizeOf).reduce(0L, Math::addExact);
         this.allocatedBytes = chunks.stream().mapToLong(chunk -> chunk.length).sum();
         this.freeBytes = 0;
     }
 
     public long getRetainedSizeBytes()
     {
-        return INSTANCE_SIZE + chunksRetainedSizeInBytes + sizeOfObjectArray(chunks.size());
+        return sumExact(
+                INSTANCE_SIZE,
+                chunksRetainedSizeInBytes,
+                sizeOfObjectArray(chunks.size()));
     }
 
     public List<byte[]> getAllChunks()
@@ -116,7 +123,7 @@ public final class VariableWidthData
             openChunk = new byte[newSize];
             chunks.add(openChunk);
             allocatedBytes += newSize;
-            chunksRetainedSizeInBytes += SizeOf.sizeOf(openChunk);
+            chunksRetainedSizeInBytes = addExact(chunksRetainedSizeInBytes, sizeOf(openChunk));
             openChunkOffset = 0;
         }
 
@@ -152,7 +159,7 @@ public final class VariableWidthData
         // if this is the only value written to the chunk, we can simply replace the chunk with the empty chunk
         if (valueLength == valueChunk.length) {
             chunks.set(valueChunkIndex, EMPTY_CHUNK);
-            chunksRetainedSizeInBytes -= SizeOf.sizeOf(valueChunk);
+            chunksRetainedSizeInBytes = subtractExact(chunksRetainedSizeInBytes, sizeOf(valueChunk));
             allocatedBytes -= valueChunk.length;
             return;
         }

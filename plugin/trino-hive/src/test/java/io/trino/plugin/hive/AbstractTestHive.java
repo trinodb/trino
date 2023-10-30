@@ -100,8 +100,6 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.ProjectionApplicationResult;
-import io.trino.spi.connector.RecordCursor;
-import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortingProperty;
@@ -146,9 +144,11 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.joda.time.DateTime;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -248,7 +248,6 @@ import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.arrayType;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
-import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProviders;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.trino.plugin.hive.HiveTestUtils.getTypes;
@@ -331,6 +330,7 @@ import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.joda.time.DateTimeZone.UTC;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -339,7 +339,7 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 // staging directory is shared mutable state
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
 public abstract class AbstractTestHive
 {
     private static final Logger log = Logger.get(AbstractTestHive.class);
@@ -516,8 +516,7 @@ public abstract class AbstractTestHive
             // exclude formats that change table schema with serde and read-only formats
             ImmutableSet.of(AVRO, CSV, REGEX));
 
-    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
-    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(TYPE_OPERATORS);
+    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(new TypeOperators());
 
     protected static final List<ColumnMetadata> STATISTICS_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
             .add(new ColumnMetadata("t_boolean", BOOLEAN))
@@ -675,7 +674,7 @@ public abstract class AbstractTestHive
 
     protected final Set<SchemaTableName> materializedViews = Sets.newConcurrentHashSet();
 
-    @BeforeClass(alwaysRun = true)
+    @BeforeAll
     public void setupClass()
             throws Exception
     {
@@ -685,7 +684,7 @@ public abstract class AbstractTestHive
         temporaryStagingDirectory = createTempDirectory("trino-staging-");
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         if (executor != null) {
@@ -894,8 +893,10 @@ public abstract class AbstractTestHive
                                 Optional.empty(),
                                 Optional.empty(),
                                 ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("abc", TypeId.of("type"))),
+                                Optional.of(java.time.Duration.ZERO),
                                 Optional.empty(),
                                 Optional.of("alice"),
+                                ImmutableList.of(),
                                 ImmutableMap.of()));
                     }
                 },
@@ -911,7 +912,6 @@ public abstract class AbstractTestHive
                 partitionManager,
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
                 new HdfsNamenodeStats(),
-                hdfsEnvironment,
                 executor,
                 new CounterStat(),
                 100,
@@ -927,10 +927,9 @@ public abstract class AbstractTestHive
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(hiveConfig, hdfsEnvironment),
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
-                hdfsEnvironment,
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastoreClient),
-                new GroupByHashPageIndexerFactory(JOIN_COMPILER, TYPE_OPERATORS),
+                new GroupByHashPageIndexerFactory(JOIN_COMPILER),
                 TESTING_TYPE_MANAGER,
                 getHiveConfig(),
                 getSortingFileWriterConfig(),
@@ -942,11 +941,8 @@ public abstract class AbstractTestHive
                 new HiveWriterStats());
         pageSourceProvider = new HivePageSourceProvider(
                 TESTING_TYPE_MANAGER,
-                hdfsEnvironment,
                 hiveConfig,
-                getDefaultHivePageSourceFactories(hdfsEnvironment, hiveConfig),
-                getDefaultHiveRecordCursorProviders(hiveConfig, hdfsEnvironment),
-                new GenericHiveRecordCursorProvider(hdfsEnvironment, hiveConfig));
+                getDefaultHivePageSourceFactories(hdfsEnvironment, hiveConfig));
         nodePartitioningProvider = new HiveNodePartitioningProvider(
                 new TestingNodeManager("fake-environment"),
                 TESTING_TYPE_MANAGER);
@@ -1652,12 +1648,14 @@ public abstract class AbstractTestHive
         }
     }
 
-    @Test(expectedExceptions = TableNotFoundException.class)
+    @Test
     public void testGetPartitionSplitsBatchInvalidTable()
     {
-        try (Transaction transaction = newTransaction()) {
-            getSplits(splitManager, transaction, newSession(), invalidTableHandle);
-        }
+        assertThatThrownBy(() -> {
+            try (Transaction transaction = newTransaction()) {
+                getSplits(splitManager, transaction, newSession(), invalidTableHandle);
+            }
+        }).isInstanceOf(TableNotFoundException.class);
     }
 
     @Test
@@ -2397,21 +2395,25 @@ public abstract class AbstractTestHive
         }
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = ".*The column 't_data' in table '.*\\.trino_test_partition_schema_change' is declared as type 'double', but partition 'ds=2012-12-29' declared column 't_data' as type 'string'.")
+    @Test
     public void testPartitionSchemaMismatch()
-            throws Exception
     {
-        try (Transaction transaction = newTransaction()) {
-            ConnectorMetadata metadata = transaction.getMetadata();
-            ConnectorTableHandle table = getTableHandle(metadata, tablePartitionSchemaChange);
-            ConnectorSession session = newSession();
-            metadata.beginQuery(session);
-            readTable(transaction, table, ImmutableList.of(dsColumn), session, TupleDomain.all(), OptionalInt.empty(), Optional.empty());
-        }
+        assertThatThrownBy(() -> {
+            try (Transaction transaction = newTransaction()) {
+                ConnectorMetadata metadata = transaction.getMetadata();
+                ConnectorTableHandle table = getTableHandle(metadata, tablePartitionSchemaChange);
+                ConnectorSession session = newSession();
+                metadata.beginQuery(session);
+                readTable(transaction, table, ImmutableList.of(dsColumn), session, TupleDomain.all(), OptionalInt.empty(), Optional.empty());
+            }
+        })
+                .isInstanceOf(TrinoException.class)
+                .hasMessageMatching(".*The column 't_data' in table '.*\\.trino_test_partition_schema_change' is declared as type 'double', but partition 'ds=2012-12-29' declared column 't_data' as type 'string'.");
     }
 
     // TODO coercion of non-canonical values should be supported
-    @Test(enabled = false)
+    @Test
+    @Disabled
     public void testPartitionSchemaNonCanonical()
             throws Exception
     {
@@ -3217,10 +3219,6 @@ public abstract class AbstractTestHive
 
                 // list all tables in a schema
                 assertThat(metadata.listTables(session, Optional.of(tableName.getSchemaName())))
-                        .doesNotContain(tableName);
-
-                // list all columns
-                assertThat(listTableColumns(metadata, session, new SchemaTablePrefix()).keySet())
                         .doesNotContain(tableName);
 
                 // list all columns in a schema
@@ -4161,7 +4159,8 @@ public abstract class AbstractTestHive
                 ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId(), Optional.empty())),
                 Optional.empty(),
                 Optional.empty(),
-                true);
+                true,
+                ImmutableList.of());
 
         try (Transaction transaction = newTransaction()) {
             transaction.getMetadata().createView(newSession(), viewName, definition, replace);
@@ -5449,22 +5448,7 @@ public abstract class AbstractTestHive
 
     protected static void assertPageSourceType(ConnectorPageSource pageSource, HiveStorageFormat hiveStorageFormat)
     {
-        if (pageSource instanceof RecordPageSource) {
-            RecordCursor hiveRecordCursor = ((RecordPageSource) pageSource).getCursor();
-            hiveRecordCursor = ((HiveRecordCursor) hiveRecordCursor).getRegularColumnRecordCursor();
-            if (hiveRecordCursor instanceof HiveBucketValidationRecordCursor) {
-                hiveRecordCursor = ((HiveBucketValidationRecordCursor) hiveRecordCursor).delegate();
-            }
-            assertInstanceOf(hiveRecordCursor, recordCursorType(), hiveStorageFormat.name());
-        }
-        else {
-            assertInstanceOf(((HivePageSource) pageSource).getPageSource(), pageSourceType(hiveStorageFormat), hiveStorageFormat.name());
-        }
-    }
-
-    private static Class<? extends RecordCursor> recordCursorType()
-    {
-        return GenericHiveRecordCursor.class;
+        assertInstanceOf(((HivePageSource) pageSource).getPageSource(), pageSourceType(hiveStorageFormat), hiveStorageFormat.name());
     }
 
     private static Class<? extends ConnectorPageSource> pageSourceType(HiveStorageFormat hiveStorageFormat)

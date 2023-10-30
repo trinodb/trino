@@ -19,24 +19,25 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
-import io.trino.metadata.LiteralFunction;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.FunctionName;
+import io.trino.spi.expression.StandardFunctions;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.AstVisitor;
@@ -62,7 +63,6 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.type.JoniRegexp;
-import io.trino.type.LikeFunctions;
 import io.trino.type.LikePattern;
 import io.trino.type.Re2JRegexp;
 import io.trino.type.Re2JRegexpType;
@@ -77,6 +77,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.SystemSessionProperties.isComplexExpressionPushdown;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
+import static io.trino.metadata.LanguageFunctionManager.isInlineFunction;
+import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTION_NAME;
@@ -90,7 +94,6 @@ import static io.trino.spi.expression.StandardFunctions.IS_DISTINCT_FROM_OPERATO
 import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
-import static io.trino.spi.expression.StandardFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.MODULUS_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.MULTIPLY_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NEGATE_FUNCTION_NAME;
@@ -104,14 +107,15 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
+import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class ConnectorExpressionTranslator
@@ -219,7 +223,7 @@ public final class ConnectorExpressionTranslator
             }
 
             if (expression instanceof Constant) {
-                return Optional.of(literalEncoder.toExpression(session, ((Constant) expression).getValue(), expression.getType()));
+                return Optional.of(literalEncoder.toExpression(((Constant) expression).getValue(), expression.getType()));
             }
 
             if (expression instanceof FieldDereference dereference) {
@@ -237,7 +241,16 @@ public final class ConnectorExpressionTranslator
         protected Optional<Expression> translateCall(Call call)
         {
             if (call.getFunctionName().getCatalogSchema().isPresent()) {
-                return Optional.empty();
+                CatalogSchemaName catalogSchemaName = call.getFunctionName().getCatalogSchema().get();
+                checkArgument(!catalogSchemaName.getCatalogName().equals(GlobalSystemConnector.NAME), "System functions must not be fully qualified");
+                // this uses allow allow all access control because connector expressions are not allowed access any function
+                ResolvedFunction resolved = plannerContext.getFunctionResolver().resolveFunction(
+                        session,
+                        QualifiedName.of(catalogSchemaName.getCatalogName(), catalogSchemaName.getSchemaName(), call.getFunctionName().getName()),
+                        fromTypes(call.getArguments().stream().map(ConnectorExpression::getType).collect(toImmutableList())),
+                        new AllowAllAccessControl());
+
+                return translateCall(call.getFunctionName().getName(), resolved, call.getArguments());
             }
 
             if (AND_FUNCTION_NAME.equals(call.getFunctionName())) {
@@ -289,7 +302,7 @@ public final class ConnectorExpressionTranslator
                 return translate(getOnlyElement(call.getArguments())).map(argument -> new ArithmeticUnaryExpression(ArithmeticUnaryExpression.Sign.MINUS, argument));
             }
 
-            if (LIKE_FUNCTION_NAME.equals(call.getFunctionName())) {
+            if (StandardFunctions.LIKE_FUNCTION_NAME.equals(call.getFunctionName())) {
                 return switch (call.getArguments().size()) {
                     case 2 -> translateLike(call.getArguments().get(0), call.getArguments().get(1), Optional.empty());
                     case 3 -> translateLike(call.getArguments().get(0), call.getArguments().get(1), Optional.of(call.getArguments().get(2)));
@@ -301,16 +314,18 @@ public final class ConnectorExpressionTranslator
                 return translateInPredicate(call.getArguments().get(0), call.getArguments().get(1));
             }
 
-            QualifiedName name = QualifiedName.of(call.getFunctionName().getName());
-            List<TypeSignature> argumentTypes = call.getArguments().stream()
-                    .map(argument -> argument.getType().getTypeSignature())
-                    .collect(toImmutableList());
-            ResolvedFunction resolved = plannerContext.getMetadata().resolveFunction(session, name, TypeSignatureProvider.fromTypeSignatures(argumentTypes));
+            ResolvedFunction resolved = plannerContext.getMetadata().resolveBuiltinFunction(
+                    call.getFunctionName().getName(),
+                    fromTypes(call.getArguments().stream().map(ConnectorExpression::getType).collect(toImmutableList())));
 
-            FunctionCallBuilder builder = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                    .setName(name);
-            for (int i = 0; i < call.getArguments().size(); i++) {
-                ConnectorExpression argument = call.getArguments().get(i);
+            return translateCall(call.getFunctionName().getName(), resolved, call.getArguments());
+        }
+
+        private Optional<Expression> translateCall(String functionName, ResolvedFunction resolved, List<ConnectorExpression> arguments)
+        {
+            ResolvedFunctionCallBuilder builder = ResolvedFunctionCallBuilder.builder(resolved);
+            for (int i = 0; i < arguments.size(); i++) {
+                ConnectorExpression argument = arguments.get(i);
                 Type formalType = resolved.getSignature().getArgumentTypes().get(i);
                 Type argumentType = argument.getType();
                 Optional<Expression> translated = translate(argument);
@@ -324,9 +339,9 @@ public final class ConnectorExpressionTranslator
                 }
                 else if (!argumentType.equals(formalType)) {
                     // There are no implicit coercions in connector expressions except for engine types that are not exposed in connector expressions.
-                    throw new IllegalArgumentException(format("Unexpected type %s for argument %s of type %s of %s", argumentType, formalType, i, name));
+                    throw new IllegalArgumentException("Unexpected type %s for argument %s of type %s of %s".formatted(argumentType, formalType, i, functionName));
                 }
-                builder.addArgument(formalType, expression);
+                builder.addArgument(expression);
             }
             return Optional.of(builder.build());
         }
@@ -461,21 +476,21 @@ public final class ConnectorExpressionTranslator
                         return Optional.empty();
                     }
 
-                    patternCall = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                            .setName(QualifiedName.of(LIKE_PATTERN_FUNCTION_NAME))
+                    patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                            .setName(LIKE_PATTERN_FUNCTION_NAME)
                             .addArgument(pattern.getType(), translatedPattern.get())
                             .addArgument(escape.get().getType(), translatedEscape.get())
                             .build();
                 }
                 else {
-                    patternCall = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                            .setName(QualifiedName.of(LIKE_PATTERN_FUNCTION_NAME))
+                    patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                            .setName(LIKE_PATTERN_FUNCTION_NAME)
                             .addArgument(pattern.getType(), translatedPattern.get())
                             .build();
                 }
 
-                FunctionCall call = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
-                        .setName(QualifiedName.of(LikeFunctions.LIKE_FUNCTION_NAME))
+                FunctionCall call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                        .setName(LIKE_FUNCTION_NAME)
                         .addArgument(value.getType(), translatedValue.get())
                         .addArgument(LIKE_PATTERN, patternCall)
                         .build();
@@ -666,12 +681,12 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
-            String functionName = ResolvedFunction.extractFunctionName(node.getName());
-            checkArgument(!DynamicFilters.Function.NAME.equals(functionName), "Dynamic filter has no meaning for a connector, it should not be translated into ConnectorExpression");
+            CatalogSchemaFunctionName functionName = ResolvedFunction.extractFunctionName(node.getName());
+            checkArgument(!builtinFunctionName(DynamicFilters.Function.NAME).equals(functionName), "Dynamic filter has no meaning for a connector, it should not be translated into ConnectorExpression");
             // literals should be handled by isEffectivelyLiteral case above
-            checkArgument(!LiteralFunction.LITERAL_FUNCTION_NAME.equalsIgnoreCase(functionName), "Unexpected literal function");
+            checkArgument(!builtinFunctionName(LITERAL_FUNCTION_NAME).equals(functionName), "Unexpected literal function");
 
-            if (functionName.equals(LikeFunctions.LIKE_FUNCTION_NAME)) {
+            if (functionName.equals(builtinFunctionName(LIKE_FUNCTION_NAME))) {
                 return translateLike(node);
             }
 
@@ -684,9 +699,16 @@ public final class ConnectorExpressionTranslator
                 arguments.add(argument.get());
             }
 
-            // Currently, plugin-provided and runtime-added functions doesn't have a catalog/schema qualifier.
-            // TODO Translate catalog/schema qualifier when available.
-            FunctionName name = new FunctionName(functionName);
+            FunctionName name;
+            if (isInlineFunction(functionName)) {
+                throw new IllegalArgumentException("Connector expressions cannot reference inline functions: " + functionName);
+            }
+            else if (isBuiltinFunctionName(functionName)) {
+                name = new FunctionName(functionName.getFunctionName());
+            }
+            else {
+                name = new FunctionName(Optional.of(new CatalogSchemaName(functionName.getCatalogName(), functionName.getSchemaName())), functionName.getFunctionName());
+            }
             return Optional.of(new Call(typeOf(node), name, arguments.build()));
         }
 
@@ -719,7 +741,7 @@ public final class ConnectorExpressionTranslator
                     arguments.add(new Constant(Slices.utf8Slice(matcher.getEscape().get().toString()), createVarcharType(1)));
                 }
             }
-            else if (patternArgument instanceof FunctionCall call && ResolvedFunction.extractFunctionName(call.getName()).equals(LIKE_PATTERN_FUNCTION_NAME)) {
+            else if (patternArgument instanceof FunctionCall call && ResolvedFunction.extractFunctionName(call.getName()).equals(builtinFunctionName(LIKE_PATTERN_FUNCTION_NAME))) {
                 Optional<ConnectorExpression> translatedPattern = process(call.getArguments().get(0));
                 if (translatedPattern.isEmpty()) {
                     return Optional.empty();
@@ -738,7 +760,7 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
-            return Optional.of(new Call(typeOf(node), LIKE_FUNCTION_NAME, arguments.build()));
+            return Optional.of(new Call(typeOf(node), StandardFunctions.LIKE_FUNCTION_NAME, arguments.build()));
         }
 
         @Override
@@ -802,12 +824,12 @@ public final class ConnectorExpressionTranslator
             Optional<ConnectorExpression> pattern = process(node.getPattern());
             if (value.isPresent() && pattern.isPresent()) {
                 if (node.getEscape().isEmpty()) {
-                    return Optional.of(new Call(typeOf(node), LIKE_FUNCTION_NAME, List.of(value.get(), pattern.get())));
+                    return Optional.of(new Call(typeOf(node), StandardFunctions.LIKE_FUNCTION_NAME, List.of(value.get(), pattern.get())));
                 }
 
                 Optional<ConnectorExpression> escape = process(node.getEscape().get());
                 if (escape.isPresent()) {
-                    return Optional.of(new Call(typeOf(node), LIKE_FUNCTION_NAME, List.of(value.get(), pattern.get(), escape.get())));
+                    return Optional.of(new Call(typeOf(node), StandardFunctions.LIKE_FUNCTION_NAME, List.of(value.get(), pattern.get(), escape.get())));
                 }
             }
             return Optional.empty();

@@ -19,14 +19,17 @@ import io.trino.connector.MockConnectorFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.DistributedQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestConnectorEventListener
 {
     private final EventsCollector generatedEvents = new EventsCollector();
@@ -34,7 +37,7 @@ public class TestConnectorEventListener
     private Closer closer;
     private EventsAwaitingQueries queries;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
             throws Exception
     {
@@ -58,7 +61,7 @@ public class TestConnectorEventListener
         queries = new EventsAwaitingQueries(generatedEvents, queryRunner);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws IOException
     {

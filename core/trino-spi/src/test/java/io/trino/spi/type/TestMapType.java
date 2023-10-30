@@ -13,12 +13,12 @@
  */
 package io.trino.spi.type;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMapType
 {
@@ -27,9 +27,9 @@ public class TestMapType
     {
         TypeOperators typeOperators = new TypeOperators();
         MapType mapType = new MapType(BIGINT, createVarcharType(42), typeOperators);
-        assertEquals(mapType.getDisplayName(), "map(bigint, varchar(42))");
+        assertThat(mapType.getDisplayName()).isEqualTo("map(bigint, varchar(42))");
 
         mapType = new MapType(BIGINT, VARCHAR, typeOperators);
-        assertEquals(mapType.getDisplayName(), "map(bigint, varchar)");
+        assertThat(mapType.getDisplayName()).isEqualTo("map(bigint, varchar)");
     }
 }

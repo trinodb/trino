@@ -15,8 +15,11 @@ package io.trino.plugin.hive.metastore.glue.converter;
 
 import com.amazonaws.services.glue.model.SerDeInfo;
 import com.amazonaws.services.glue.model.StorageDescriptor;
+import com.amazonaws.services.glue.model.UserDefinedFunction;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.hive.thrift.metastore.ResourceType;
+import io.trino.hive.thrift.metastore.ResourceUri;
 import io.trino.plugin.hive.HiveBucketProperty;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.HiveType;
@@ -32,6 +35,7 @@ import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.security.PrincipalType;
 import jakarta.annotation.Nullable;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
@@ -52,6 +56,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.decodeFunction;
 import static io.trino.plugin.hive.metastore.util.Memoizers.memoizeLast;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
@@ -305,6 +310,19 @@ public final class GlueToTrinoConverter
             }
             return this.storageFormat.apply(StorageFormat.createNullable(serializationLib, inputFormat, outputFormat));
         }
+    }
+
+    public static LanguageFunction convertFunction(UserDefinedFunction function)
+    {
+        List<ResourceUri> uris = mappedCopy(function.getResourceUris(), uri -> new ResourceUri(ResourceType.FILE, uri.getUri()));
+
+        LanguageFunction result = decodeFunction(function.getFunctionName(), uris);
+
+        return new LanguageFunction(
+                result.signatureToken(),
+                result.sql(),
+                result.path(),
+                Optional.ofNullable(function.getOwnerName()));
     }
 
     public static <T, R> List<R> mappedCopy(List<T> list, Function<T, R> mapper)

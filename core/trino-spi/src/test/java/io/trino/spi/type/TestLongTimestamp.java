@@ -13,18 +13,18 @@
  */
 package io.trino.spi.type;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLongTimestamp
 {
     @Test
     public void testToString()
     {
-        assertEquals(new LongTimestamp(1600960182536000L, 0).toString(), "2020-09-24 15:09:42.536000000000");
-        assertEquals(new LongTimestamp(1600960182536123L, 0).toString(), "2020-09-24 15:09:42.536123000000");
-        assertEquals(new LongTimestamp(1600960182536123L, 456000).toString(), "2020-09-24 15:09:42.536123456000");
-        assertEquals(new LongTimestamp(1600960182536123L, 456789).toString(), "2020-09-24 15:09:42.536123456789");
+        assertThat(new LongTimestamp(1600960182536000L, 0).toString()).isEqualTo("2020-09-24 15:09:42.536000000000");
+        assertThat(new LongTimestamp(1600960182536123L, 0).toString()).isEqualTo("2020-09-24 15:09:42.536123000000");
+        assertThat(new LongTimestamp(1600960182536123L, 456000).toString()).isEqualTo("2020-09-24 15:09:42.536123456000");
+        assertThat(new LongTimestamp(1600960182536123L, 456789).toString()).isEqualTo("2020-09-24 15:09:42.536123456789");
     }
 }

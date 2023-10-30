@@ -20,8 +20,7 @@ import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Parameters;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
@@ -51,16 +50,12 @@ public class TestIcebergAbfsConnectorSmokeTest
 
     private HiveHadoop hiveHadoop;
 
-    @Parameters({
-            "hive.hadoop2.azure-abfs-container",
-            "hive.hadoop2.azure-abfs-account",
-            "hive.hadoop2.azure-abfs-access-key"})
-    public TestIcebergAbfsConnectorSmokeTest(String container, String account, String accessKey)
+    public TestIcebergAbfsConnectorSmokeTest()
     {
         super(ORC);
-        this.container = requireNonNull(container, "container is null");
-        this.account = requireNonNull(account, "account is null");
-        this.accessKey = requireNonNull(accessKey, "accessKey is null");
+        this.container = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-container"), "container is null");
+        this.account = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-account"), "account is null");
+        this.accessKey = requireNonNull(System.getProperty("hive.hadoop2.azure-abfs-access-key"), "accessKey is null");
         this.schemaName = "tpch_" + format.name().toLowerCase(ENGLISH);
         this.bucketName = "test-iceberg-smoke-test-" + randomNameSuffix();
     }
@@ -90,7 +85,7 @@ public class TestIcebergAbfsConnectorSmokeTest
                                 .put("iceberg.file-format", format.name())
                                 .put("iceberg.catalog.type", "HIVE_METASTORE")
                                 .put("hive.metastore.uri", "thrift://" + hiveHadoop.getHiveMetastoreEndpoint())
-                                .put("hive.metastore-timeout", "1m") // read timed out sometimes happens with the default timeout
+                                .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
                                 .put("hive.azure.abfs-storage-account", account)
                                 .put("hive.azure.abfs-access-key", accessKey)
                                 .put("iceberg.register-table-procedure.enabled", "true")

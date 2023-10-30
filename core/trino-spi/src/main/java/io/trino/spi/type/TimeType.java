@@ -98,7 +98,7 @@ public final class TimeType
             return null;
         }
 
-        return SqlTime.newInstance(precision, block.getLong(position, 0));
+        return SqlTime.newInstance(precision, getLong(block, position));
     }
 
     @ScalarOperator(READ_VALUE)

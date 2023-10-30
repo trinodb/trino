@@ -45,6 +45,7 @@ import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createP
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -52,7 +53,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tests.BogusType.BOGUS;
-import static io.trino.transaction.TransactionBuilder.transaction;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestApplyTableScanRedirection
@@ -91,6 +91,7 @@ public class TestApplyTableScanRedirection
         MockConnectorFactory mockFactory = createMockFactory(Optional.empty());
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
             ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
+                    .withSession(MOCK_SESSION)
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_A, VARCHAR);
                         return p.tableScan(
@@ -98,7 +99,6 @@ public class TestApplyTableScanRedirection
                                 ImmutableList.of(column),
                                 ImmutableMap.of(column, SOURCE_COLUMN_HANDLE_A));
                     })
-                    .withSession(MOCK_SESSION)
                     .doesNotFire();
         }
     }
@@ -112,6 +112,7 @@ public class TestApplyTableScanRedirection
         MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
             ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
+                    .withSession(MOCK_SESSION)
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_A, VARCHAR);
                         return p.tableScan(
@@ -120,7 +121,6 @@ public class TestApplyTableScanRedirection
                                 ImmutableMap.of(column, SOURCE_COLUMN_HANDLE_A),
                                 true);
                     })
-                    .withSession(MOCK_SESSION)
                     .doesNotFire();
         }
     }
@@ -133,8 +133,8 @@ public class TestApplyTableScanRedirection
         MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
             ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
-                    .on(p -> p.values(p.symbol("a", BIGINT)))
                     .withSession(MOCK_SESSION)
+                    .on(p -> p.values(p.symbol("a", BIGINT)))
                     .doesNotFire();
         }
     }
@@ -148,6 +148,7 @@ public class TestApplyTableScanRedirection
         MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
             ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
+                    .withSession(MOCK_SESSION)
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_A, VARCHAR);
                         return p.tableScan(
@@ -155,7 +156,6 @@ public class TestApplyTableScanRedirection
                                 ImmutableList.of(column),
                                 ImmutableMap.of(column, SOURCE_COLUMN_HANDLE_A));
                     })
-                    .withSession(MOCK_SESSION)
                     .matches(
                             project(ImmutableMap.of("COL", expression("CAST(DEST_COL AS VARCHAR)")),
                                     tableScan(
@@ -174,12 +174,19 @@ public class TestApplyTableScanRedirection
         MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
             LocalQueryRunner runner = ruleTester.getQueryRunner();
-            transaction(runner.getTransactionManager(), runner.getAccessControl())
-                    .execute(MOCK_SESSION, session -> {
-                        assertThatThrownBy(() -> runner.createPlan(session, "SELECT source_col_a FROM test_table", WarningCollector.NOOP, createPlanOptimizersStatsCollector()))
-                                .isInstanceOf(TrinoException.class)
-                                .hasMessageMatching("Cast not possible from redirected column test-catalog.target_schema.target_table.destination_col_d with type Bogus to source column .*test-catalog.test_schema.test_table.*source_col_a.* with type: varchar");
-                    });
+            runner.inTransaction(MOCK_SESSION, transactionSession -> {
+                assertThatThrownBy(() ->
+                        runner.createPlan(
+                                transactionSession,
+                                "SELECT source_col_a FROM test_table",
+                                runner.getPlanOptimizers(true),
+                                OPTIMIZED_AND_VALIDATED,
+                                WarningCollector.NOOP,
+                                createPlanOptimizersStatsCollector()))
+                        .isInstanceOf(TrinoException.class)
+                        .hasMessageMatching("Cast not possible from redirected column test-catalog.target_schema.target_table.destination_col_d with type Bogus to source column .*test-catalog.test_schema.test_table.*source_col_a.* with type: varchar");
+                return null;
+            });
         }
     }
 
@@ -192,6 +199,7 @@ public class TestApplyTableScanRedirection
         MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
             ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
+                    .withSession(MOCK_SESSION)
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_A, VARCHAR);
                         return p.tableScan(
@@ -199,7 +207,6 @@ public class TestApplyTableScanRedirection
                                 ImmutableList.of(column),
                                 ImmutableMap.of(column, SOURCE_COLUMN_HANDLE_A));
                     })
-                    .withSession(MOCK_SESSION)
                     .matches(
                             tableScan(
                                     new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
@@ -223,6 +230,7 @@ public class TestApplyTableScanRedirection
             TupleDomain<ColumnHandle> constraint = TupleDomain.withColumnDomains(
                     ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, singleValue(VARCHAR, utf8Slice("foo"))));
             ruleTester.assertThat(applyTableScanRedirection)
+                    .withSession(MOCK_SESSION)
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_A, VARCHAR);
                         return p.tableScan(
@@ -231,7 +239,6 @@ public class TestApplyTableScanRedirection
                                 ImmutableMap.of(column, SOURCE_COLUMN_HANDLE_A),
                                 constraint);
                     })
-                    .withSession(MOCK_SESSION)
                     .matches(
                             filter(
                                     "DEST_COL = VARCHAR 'foo'",
@@ -241,6 +248,7 @@ public class TestApplyTableScanRedirection
                                             ImmutableMap.of("DEST_COL", DESTINATION_COLUMN_HANDLE_A::equals))));
 
             ruleTester.assertThat(applyTableScanRedirection)
+                    .withSession(MOCK_SESSION)
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_B, VARCHAR);
                         return p.tableScan(
@@ -249,7 +257,6 @@ public class TestApplyTableScanRedirection
                                 ImmutableMap.of(column, SOURCE_COLUMN_HANDLE_B), // predicate on non-projected column
                                 TupleDomain.all());
                     })
-                    .withSession(MOCK_SESSION)
                     .matches(
                             project(
                                     ImmutableMap.of("expr", expression("DEST_COL_B")),

@@ -112,6 +112,7 @@ public class TrinoConnection
     private final AtomicReference<String> transactionId = new AtomicReference<>();
     private final Call.Factory httpCallFactory;
     private final Set<TrinoStatement> statements = newSetFromMap(new ConcurrentHashMap<>());
+    private boolean useExplicitPrepare = true;
 
     TrinoConnection(TrinoDriverUri uri, Call.Factory httpCallFactory)
     {
@@ -141,9 +142,11 @@ public class TrinoConnection
         uri.getTraceToken().ifPresent(tags -> clientInfo.put(TRACE_TOKEN, tags));
 
         roles.putAll(uri.getRoles());
-        timeZoneId.set(ZoneId.systemDefault());
+        timeZoneId.set(uri.getTimeZone());
         locale.set(Locale.getDefault());
         sessionProperties.putAll(uri.getSessionProperties());
+
+        uri.getExplicitPrepare().ifPresent(value -> this.useExplicitPrepare = value);
     }
 
     @Override
@@ -910,5 +913,10 @@ public class TrinoConnection
                 throw new SQLException(heldException);
             }
         }
+    }
+
+    public boolean useExplicitPrepare()
+    {
+        return this.useExplicitPrepare;
     }
 }

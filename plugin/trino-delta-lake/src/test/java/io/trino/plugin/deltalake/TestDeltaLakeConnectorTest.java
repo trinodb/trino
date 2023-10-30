@@ -21,6 +21,7 @@ import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.QueryInfo;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
+import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
@@ -43,6 +44,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.nio.file.Path;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.List;
@@ -62,6 +64,7 @@ import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_DATA_FOLDER_
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.CHANGE_DATA_FEED_COLUMN_NAMES;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
@@ -94,6 +97,7 @@ public class TestDeltaLakeConnectorTest
 
     protected final String bucketName = "test-bucket-" + randomNameSuffix();
     protected MinioClient minioClient;
+    protected HiveMetastore metastore;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -109,6 +113,8 @@ public class TestDeltaLakeConnectorTest
                         .setSchema(SCHEMA)
                         .build())
                 .build();
+        Path metastoreDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("file-metastore");
+        metastore = createTestingFileHiveMetastore(metastoreDirectory.toFile());
         try {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
@@ -116,7 +122,7 @@ public class TestDeltaLakeConnectorTest
             queryRunner.installPlugin(new DeltaLakePlugin());
             queryRunner.createCatalog(DELTA_CATALOG, DeltaLakeConnectorFactory.CONNECTOR_NAME, ImmutableMap.<String, String>builder()
                     .put("hive.metastore", "file")
-                    .put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("file-metastore").toString())
+                    .put("hive.metastore.catalog.dir", metastoreDirectory.toString())
                     .put("hive.metastore.disable-location-checks", "true")
                     .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
                     .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
@@ -223,7 +229,6 @@ public class TestDeltaLakeConnectorTest
         if (typeName.equals("time") ||
                 typeName.equals("time(6)") ||
                 typeName.equals("timestamp") ||
-                typeName.equals("timestamp(6)") ||
                 typeName.equals("timestamp(6) with time zone") ||
                 typeName.equals("char(3)")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
@@ -410,6 +415,21 @@ public class TestDeltaLakeConnectorTest
                 .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
     }
 
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testDropPartitionColumn(ColumnMappingMode mode)
+    {
+        if (mode == ColumnMappingMode.NONE) {
+            throw new SkipException("Tested in testDropColumn");
+        }
+
+        String tableName = "test_drop_partition_column_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(data int, part int) WITH (partitioned_by = ARRAY['part'], column_mapping_mode = '" + mode + "')");
+
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN part", "Cannot drop partition column: part");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Test
     public void testDropLastNonPartitionColumn()
     {
@@ -515,6 +535,46 @@ public class TestDeltaLakeConnectorTest
                 "SELECT * FROM " + tableName + " WHERE t = TIMESTAMP '" + value + "'",
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
                 results -> {});
+    }
+
+    @Test
+    public void testTimestampPartition()
+    {
+        String tableName = "test_timestamp_ntz_partition_" + randomNameSuffix();
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        assertUpdate("CREATE TABLE " + tableName + "(id INT, part TIMESTAMP(6)) WITH (partitioned_by = ARRAY['part'])");
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                "(1, NULL)," +
+                "(2, TIMESTAMP '0001-01-01 00:00:00.000')," +
+                "(3, TIMESTAMP '2023-07-20 01:02:03.9999999')," +
+                "(4, TIMESTAMP '9999-12-31 23:59:59.999999')",
+                4);
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES " +
+                         "(1, NULL)," +
+                         "(2, TIMESTAMP '0001-01-01 00:00:00.000000')," +
+                         "(3, TIMESTAMP '2023-07-20 01:02:04.000000')," +
+                         "(4, TIMESTAMP '9999-12-31 23:59:59.999999')");
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                "('id', null, 4.0, 0.0, null, 1, 4)," +
+                "('part', null, 3.0, 0.25, null, null, null)," +
+                "(null, null, null, null, 4.0, null, null)");
+
+        assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 1"))
+                .contains("/part=__HIVE_DEFAULT_PARTITION__/");
+        assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 2"))
+                .contains("/part=0001-01-01 00%3A00%3A00/");
+        assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 3"))
+                .contains("/part=2023-07-20 01%3A02%3A04/");
+        assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 4"))
+                .contains("/part=9999-12-31 23%3A59%3A59.999999/");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -674,7 +734,7 @@ public class TestDeltaLakeConnectorTest
         @Language("SQL") String createTableSql = format("CREATE TABLE %s AS SELECT * FROM tpch.sf1.lineitem LIMIT 100000", tableName);
 
         Session session = Session.builder(getSession())
-                .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("task_min_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
                 .build();
@@ -685,7 +745,7 @@ public class TestDeltaLakeConnectorTest
 
         DataSize maxSize = DataSize.of(40, DataSize.Unit.KILOBYTE);
         session = Session.builder(getSession())
-                .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("task_min_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
                 .setCatalogSessionProperty("delta", "target_max_file_size", maxSize.toString())
@@ -1004,11 +1064,11 @@ public class TestDeltaLakeConnectorTest
         };
     }
 
-    @Test
-    public void testTableWithNonNullableColumns()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testTableWithNonNullableColumns(ColumnMappingMode mode)
     {
         String tableName = "test_table_with_non_nullable_columns_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + "(col1 INTEGER NOT NULL, col2 INTEGER, col3 INTEGER)");
+        assertUpdate("CREATE TABLE " + tableName + "(col1 INTEGER NOT NULL, col2 INTEGER, col3 INTEGER) WITH (column_mapping_mode='" + mode + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES(1, 10, 100)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES(2, 20, 200)", 1);
         assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(null, 30, 300)"))
@@ -1147,6 +1207,146 @@ public class TestDeltaLakeConnectorTest
 
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES (1, CAST(row(11) AS row(x integer)))");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testDropAndAddColumnShowStatsForColumnMappingMode(ColumnMappingMode mode)
+    {
+        if (mode == ColumnMappingMode.NONE) {
+            throw new SkipException("Delta Lake doesn't support dropping columns with 'none' column mapping");
+        }
+
+        String tableName = "test_drop_add_column_show_stats_for_column_mapping_mode_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT, b_number INT) WITH (column_mapping_mode='" + mode + "')");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 10), (2, 20), (null, null)", 3);
+        assertUpdate("ANALYZE " + tableName);
+
+        assertQuery("SHOW STATS FOR " + tableName, "VALUES" +
+                "('a_number', null, 2.0, 0.33333333333, null, 1, 2)," +
+                "('b_number', null, 2.0, 0.33333333333, null, 10, 20)," +
+                "(null, null, null, null, 3.0, null, null)");
+
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN b_number");
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_number INT");
+
+        // Verify adding a new column with the same name doesn't allow accessing the old data
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("""
+                        VALUES
+                            (1, CAST(null AS INT)),
+                            (2, CAST(null AS INT)),
+                            (null, CAST(null AS INT))
+                        """);
+
+        // Ensure SHOW STATS doesn't return stats for the restored column
+        assertQuery("SHOW STATS FOR " + tableName, "VALUES" +
+                "('a_number', null, 2.0, 0.33333333333, null, 1, 2)," +
+                "('b_number', null, null, null, null, null, null)," +
+                "(null, null, null, null, 3.0, null, null)");
+
+        // SHOW STATS returns the expected stats after executing ANALYZE
+        assertUpdate("ANALYZE " + tableName);
+
+        assertQuery("SHOW STATS FOR " + tableName, "VALUES" +
+                "('a_number', null, 2.0, 0.33333333333, null, 1, 2)," +
+                "('b_number', 0.0, 0.0, 1.0, null, null, null)," +
+                "(null, null, null, null, 3.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testRenameColumnShowStatsForColumnMappingMode(ColumnMappingMode mode)
+    {
+        if (mode == ColumnMappingMode.NONE) {
+            throw new SkipException("The connector doesn't support renaming columns with 'none' column mapping");
+        }
+
+        String tableName = "test_rename_column_show_stats_for_column_mapping_mode_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT, b_number INT) WITH (column_mapping_mode='" + mode + "')");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 10), (2, 20), (null, null)", 3);
+        assertUpdate("ANALYZE " + tableName);
+
+        assertQuery("SHOW STATS FOR " + tableName, "VALUES" +
+                "('a_number', null, 2.0, 0.33333333333, null, 1, 2)," +
+                "('b_number', null, 2.0, 0.33333333333, null, 10, 20)," +
+                "(null, null, null, null, 3.0, null, null)");
+
+        // Ensure SHOW STATS return the same stats for the renamed column
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN b_number TO new_b");
+        assertQuery("SHOW STATS FOR " + tableName, "VALUES" +
+                "('a_number', null, 2.0, 0.33333333333, null, 1, 2)," +
+                "('new_b', null, 2.0, 0.33333333333, null, 10, 20)," +
+                "(null, null, null, null, 3.0, null, null)");
+
+        // Re-analyzing should work
+        assertUpdate("ANALYZE " + tableName);
+        assertQuery("SHOW STATS FOR " + tableName, "VALUES" +
+                "('a_number', null, 2.0, 0.33333333333, null, 1, 2)," +
+                "('new_b', null, 2.0, 0.33333333333, null, 10, 20)," +
+                "(null, null, null, null, 3.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testCommentOnTableForColumnMappingMode(ColumnMappingMode mode)
+    {
+        String tableName = "test_comment_on_table_for_column_mapping_mode_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT, b_number INT) WITH (column_mapping_mode='" + mode + "')");
+
+        assertUpdate("COMMENT ON TABLE " + tableName + " IS 'test comment' ");
+        assertThat(getTableComment(DELTA_CATALOG, SCHEMA, tableName)).isEqualTo("test comment");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testCommentOnColumnForColumnMappingMode(ColumnMappingMode mode)
+    {
+        String tableName = "test_comment_on_column_for_column_mapping_mode_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT, b_number INT) WITH (column_mapping_mode='" + mode + "')");
+
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".a_number IS 'test column comment'");
+        assertThat(getColumnComment(tableName, "a_number")).isEqualTo("test column comment");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testCreateTableWithCommentsForColumnMappingMode(ColumnMappingMode mode)
+    {
+        String tableName = "test_create_table_with_comments_for_column_mapping_mode_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT COMMENT 'test column comment', b_number INT)  " +
+                "COMMENT 'test table comment' " +
+                "WITH (column_mapping_mode='" + mode + "')");
+
+        assertThat(getTableComment(DELTA_CATALOG, SCHEMA, tableName)).isEqualTo("test table comment");
+        assertThat(getColumnComment(tableName, "a_number")).isEqualTo("test column comment");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testSpecialCharacterColumnNamesWithColumnMappingMode(ColumnMappingMode mode)
+    {
+        String tableName = "test_special_characters_column_namnes_with_column_mapping_mode_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (\";{}()\\n\\t=\" INT) " +
+                "WITH (column_mapping_mode='" + mode + "', checkpoint_interval=3)");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (0)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (null)", 1);
+
+        assertQuery("SHOW STATS FOR " + tableName, "VALUES" +
+                "(';{}()\\n\\t=', null, 2.0, 0.33333333333, null, 0, 1)," +
+                "(null, null, null, null, 3.0, null, null)");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -2659,11 +2859,18 @@ public class TestDeltaLakeConnectorTest
             Set<String> beforeActiveFiles = getActiveFiles(table.getName());
             assertQueryFails(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE", "Filter required on .*" + table.getName() + " for at least one partition column:.*");
             computeActual(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE part=1");
+            assertThat(beforeActiveFiles).isEqualTo(getActiveFiles(table.getName()));
 
-            assertThat(beforeActiveFiles).isNotEqualTo(getActiveFiles(table.getName()));
+            assertUpdate(session, "INSERT INTO " + table.getName() + " SELECT 1, 'Dave', 'Doe'", 1);
             assertQuery(session,
                     "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
-                    "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe')");
+                    "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe'), (1, 'Dave', 'Doe')");
+            computeActual(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE part=1");
+            assertThat(beforeActiveFiles).isNotEqualTo(getActiveFiles(table.getName()));
+
+            assertQuery(session,
+                    "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
+                    "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe'), (1, 'Dave', 'Doe')");
         }
     }
 
@@ -2820,10 +3027,52 @@ public class TestDeltaLakeConnectorTest
         }
     }
 
+    @Override
+    protected Session withoutSmallFileThreshold(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "parquet_small_file_threshold", "0B")
+                .build();
+    }
+
     private Session sessionWithPartitionFilterRequirement()
     {
         return Session.builder(getSession())
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "query_partition_filter_required", "true")
                 .build();
+    }
+
+    @Test
+    public void testTrinoCacheInvalidatedOnCreateTable()
+    {
+        String tableName = "test_create_table_invalidate_cache_" + randomNameSuffix();
+        String tableLocation = "s3://%s/%s/%s".formatted(bucketName, SCHEMA, tableName);
+
+        String initialValues = "VALUES" +
+                               " (1, BOOLEAN 'false', TINYINT '-128')" +
+                               ",(2, BOOLEAN 'true', TINYINT '127')" +
+                               ",(3, BOOLEAN 'false', TINYINT '0')" +
+                               ",(4, BOOLEAN 'false', TINYINT '1')" +
+                               ",(5, BOOLEAN 'true', TINYINT '37')";
+        assertUpdate("CREATE TABLE " + tableName + "(id, boolean, tinyint) WITH (location = '" + tableLocation + "') AS " + initialValues, 5);
+        assertThat(query("SELECT * FROM " + tableName)).matches(initialValues);
+
+        metastore.dropTable(SCHEMA, tableName, false);
+        for (String file : minioClient.listObjects(bucketName, SCHEMA + "/" + tableName)) {
+            minioClient.removeObject(bucketName, file);
+        }
+
+        String newValues = "VALUES" +
+                           " (1, BOOLEAN 'true', TINYINT '1')" +
+                           ",(2, BOOLEAN 'true', TINYINT '1')" +
+                           ",(3, BOOLEAN 'false', TINYINT '2')" +
+                           ",(4, BOOLEAN 'true', TINYINT '3')" +
+                           ",(5, BOOLEAN 'true', TINYINT '5')" +
+                           ",(6, BOOLEAN 'false', TINYINT '8')" +
+                           ",(7, BOOLEAN 'true', TINYINT '13')";
+        assertUpdate("CREATE TABLE " + tableName + "(id, boolean, tinyint) WITH (location = '" + tableLocation + "') AS " + newValues, 7);
+        assertThat(query("SELECT * FROM " + tableName)).matches(newValues);
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 }

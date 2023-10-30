@@ -191,8 +191,7 @@ public class IcebergFileWriterFactory
                     parquetWriterOptions,
                     IntStream.range(0, fileColumnNames.size()).toArray(),
                     getCompressionCodec(session).getParquetCompressionCodec(),
-                    nodeVersion.toString(),
-                    fileSystem);
+                    nodeVersion.toString());
         }
         catch (IOException e) {
             throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Parquet file", e);

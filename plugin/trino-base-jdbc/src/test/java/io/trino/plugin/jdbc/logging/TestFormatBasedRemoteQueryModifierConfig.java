@@ -14,8 +14,7 @@
 package io.trino.plugin.jdbc.logging;
 
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -23,7 +22,6 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.util.Arrays.array;
 
 public class TestFormatBasedRemoteQueryModifierConfig
 {
@@ -43,40 +41,32 @@ public class TestFormatBasedRemoteQueryModifierConfig
         assertFullMapping(properties, expected);
     }
 
-    @Test(dataProvider = "getForbiddenValuesInFormat")
-    public void testInvalidFormatValue(String incorrectValue)
+    @Test
+    public void testInvalidFormatValue()
     {
-        assertThat(new FormatBasedRemoteQueryModifierConfig().setFormat(incorrectValue).isFormatValid())
-                .isFalse();
-    }
-
-    @DataProvider
-    public static Object[][] getForbiddenValuesInFormat()
-    {
-        return array(
-                array("*"),
-                array("("),
-                array(")"),
-                array("["),
-                array("]"),
-                array("{"),
-                array("}"),
-                array("&"),
-                array("@"),
-                array("!"),
-                array("#"),
-                array("%"),
-                array("^"),
-                array("$"),
-                array("\\"),
-                array("/"),
-                array("?"),
-                array(">"),
-                array("<"),
-                array(";"),
-                array("\""),
-                array(":"),
-                array("|"));
+        assertThat(configWithFormat("*").isFormatValid()).isFalse();
+        assertThat(configWithFormat("(").isFormatValid()).isFalse();
+        assertThat(configWithFormat(")").isFormatValid()).isFalse();
+        assertThat(configWithFormat("[").isFormatValid()).isFalse();
+        assertThat(configWithFormat("]").isFormatValid()).isFalse();
+        assertThat(configWithFormat("{").isFormatValid()).isFalse();
+        assertThat(configWithFormat("}").isFormatValid()).isFalse();
+        assertThat(configWithFormat("&").isFormatValid()).isFalse();
+        assertThat(configWithFormat("@").isFormatValid()).isFalse();
+        assertThat(configWithFormat("!").isFormatValid()).isFalse();
+        assertThat(configWithFormat("#").isFormatValid()).isFalse();
+        assertThat(configWithFormat("%").isFormatValid()).isFalse();
+        assertThat(configWithFormat("^").isFormatValid()).isFalse();
+        assertThat(configWithFormat("$").isFormatValid()).isFalse();
+        assertThat(configWithFormat("\\").isFormatValid()).isFalse();
+        assertThat(configWithFormat("/").isFormatValid()).isFalse();
+        assertThat(configWithFormat("?").isFormatValid()).isFalse();
+        assertThat(configWithFormat(">").isFormatValid()).isFalse();
+        assertThat(configWithFormat("<").isFormatValid()).isFalse();
+        assertThat(configWithFormat(";").isFormatValid()).isFalse();
+        assertThat(configWithFormat("\"").isFormatValid()).isFalse();
+        assertThat(configWithFormat(":").isFormatValid()).isFalse();
+        assertThat(configWithFormat("|").isFormatValid()).isFalse();
     }
 
     @Test
@@ -89,5 +79,10 @@ public class TestFormatBasedRemoteQueryModifierConfig
     public void testValidFormatWithDuplicatedPredefinedValues()
     {
         assertThat(new FormatBasedRemoteQueryModifierConfig().setFormat("$QUERY_ID $QUERY_ID $USER $USER $SOURCE $SOURCE $TRACE_TOKEN $TRACE_TOKEN").isFormatValid()).isTrue();
+    }
+
+    private FormatBasedRemoteQueryModifierConfig configWithFormat(String format)
+    {
+        return new FormatBasedRemoteQueryModifierConfig().setFormat(format);
     }
 }

@@ -28,28 +28,11 @@ the cluster.
 - **Default value:** `true`
 - **Session property:** `task_scale_writers_enabled`
 
-Enable scaling the number of concurrent writers within a task. The maximum writer
-count per task for scaling is `task.scale-writers.max-writer-count`. Additional
-writers are added only when the average amount of uncompressed data processed per writer
-is above the minimum threshold of `writer-scaling-min-data-processed` and query is bottlenecked on
-writing.
-
-(prop-task-scale-writers-max-writer-count)=
-
-## `task.scale-writers.max-writer-count`
-
-- **Type:** {ref}`prop-type-integer`
-- **Default value:** The number of physical CPUs of the node with a maximum of 32
-
-Maximum number of concurrent writers per task up to which the task can be scaled
-when `task.scale-writers.enabled` is set. Increasing this value may improve the
-performance of writes when the query is bottlenecked on writing. Setting this
-too high may cause the cluster to become overloaded due to excessive resource
-utilization.
-
-## `writer-min-size`
-
-Deprecated and replaced by {ref}`writer-scaling-min-data-processed`.
+Enable scaling the number of concurrent writers within a task. The maximum
+writer count per task for scaling is [](prop-task-max-writer-count). Additional
+writers are added only when the average amount of uncompressed data processed
+per writer is above the minimum threshold of `writer-scaling-min-data-processed`
+and query is bottlenecked on writing.
 
 (writer-scaling-min-data-processed)=
 ## `writer-scaling-min-data-processed`

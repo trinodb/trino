@@ -31,7 +31,6 @@ import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStat
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.ArrayBlockBuilder;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
@@ -53,7 +52,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -113,7 +111,7 @@ public class CheckpointWriter
         RowType metadataEntryType = checkpointSchemaManager.getMetadataEntryType();
         RowType protocolEntryType = checkpointSchemaManager.getProtocolEntryType(protocolEntry.getReaderFeatures().isPresent(), protocolEntry.getWriterFeatures().isPresent());
         RowType txnEntryType = checkpointSchemaManager.getTxnEntryType();
-        RowType addEntryType = checkpointSchemaManager.getAddEntryType(entries.getMetadataEntry(), writeStatsAsJson, writeStatsAsStruct);
+        RowType addEntryType = checkpointSchemaManager.getAddEntryType(entries.getMetadataEntry(), entries.getProtocolEntry(), writeStatsAsJson, writeStatsAsStruct);
         RowType removeEntryType = checkpointSchemaManager.getRemoveEntryType();
 
         List<String> columnNames = ImmutableList.of(
@@ -149,7 +147,7 @@ public class CheckpointWriter
             writeTransactionEntry(pageBuilder, txnEntryType, transactionEntry);
         }
         for (AddFileEntry addFileEntry : entries.getAddFileEntries()) {
-            writeAddFileEntry(pageBuilder, addEntryType, addFileEntry, entries.getMetadataEntry(), writeStatsAsJson, writeStatsAsStruct);
+            writeAddFileEntry(pageBuilder, addEntryType, addFileEntry, entries.getMetadataEntry(), entries.getProtocolEntry(), writeStatsAsJson, writeStatsAsStruct);
         }
         for (RemoveFileEntry removeFileEntry : entries.getRemoveFileEntries()) {
             writeRemoveFileEntry(pageBuilder, removeEntryType, removeFileEntry);
@@ -222,7 +220,7 @@ public class CheckpointWriter
         appendNullOtherBlocks(pageBuilder, TXN_BLOCK_CHANNEL);
     }
 
-    private void writeAddFileEntry(PageBuilder pageBuilder, RowType entryType, AddFileEntry addFileEntry, MetadataEntry metadataEntry, boolean writeStatsAsJson, boolean writeStatsAsStruct)
+    private void writeAddFileEntry(PageBuilder pageBuilder, RowType entryType, AddFileEntry addFileEntry, MetadataEntry metadataEntry, ProtocolEntry protocolEntry, boolean writeStatsAsJson, boolean writeStatsAsStruct)
     {
         pageBuilder.declarePosition();
         RowBlockBuilder blockBuilder = (RowBlockBuilder) pageBuilder.getBlockBuilder(ADD_BLOCK_CHANNEL);
@@ -244,7 +242,7 @@ public class CheckpointWriter
             fieldId++;
 
             if (writeStatsAsJson) {
-                writeJsonStats(fieldBuilders.get(fieldId), entryType, addFileEntry, metadataEntry, fieldId);
+                writeJsonStats(fieldBuilders.get(fieldId), entryType, addFileEntry, metadataEntry, protocolEntry, fieldId);
                 fieldId++;
             }
 
@@ -260,13 +258,13 @@ public class CheckpointWriter
         appendNullOtherBlocks(pageBuilder, ADD_BLOCK_CHANNEL);
     }
 
-    private void writeJsonStats(BlockBuilder entryBlockBuilder, RowType entryType, AddFileEntry addFileEntry, MetadataEntry metadataEntry, int fieldId)
+    private void writeJsonStats(BlockBuilder entryBlockBuilder, RowType entryType, AddFileEntry addFileEntry, MetadataEntry metadataEntry, ProtocolEntry protocolEntry, int fieldId)
     {
         String statsJson = null;
         if (addFileEntry.getStats().isPresent()) {
             DeltaLakeFileStatistics statistics = addFileEntry.getStats().get();
             if (statistics instanceof DeltaLakeParquetFileStatistics parquetFileStatistics) {
-                Map<String, Type> columnTypeMapping = getColumnTypeMapping(metadataEntry);
+                Map<String, Type> columnTypeMapping = getColumnTypeMapping(metadataEntry, protocolEntry);
                 DeltaLakeJsonFileStatistics jsonFileStatistics = new DeltaLakeJsonFileStatistics(
                         parquetFileStatistics.getNumRecords(),
                         parquetFileStatistics.getMinValues().map(values -> toJsonValues(columnTypeMapping, values)),
@@ -281,9 +279,9 @@ public class CheckpointWriter
         writeString(entryBlockBuilder, entryType, fieldId, "stats", statsJson);
     }
 
-    private Map<String, Type> getColumnTypeMapping(MetadataEntry deltaMetadata)
+    private Map<String, Type> getColumnTypeMapping(MetadataEntry deltaMetadata, ProtocolEntry protocolEntry)
     {
-        return extractSchema(deltaMetadata, typeManager).stream()
+        return extractSchema(deltaMetadata, protocolEntry, typeManager).stream()
                 .collect(toImmutableMap(DeltaLakeColumnMetadata::getPhysicalName, DeltaLakeColumnMetadata::getPhysicalColumnType));
     }
 
@@ -356,27 +354,8 @@ public class CheckpointWriter
             for (int i = 0; i < fields.size(); i++) {
                 Field field = fields.get(i);
                 BlockBuilder fieldBlockBuilder = fieldBuilders.get(i);
-
-                // anonymous row fields are not expected here
                 Object value = values.get().get(field.getName().orElseThrow());
-                if (field.getType() instanceof RowType) {
-                    Block rowBlock = (Block) value;
-                    // Statistics were not collected
-                    if (rowBlock == null) {
-                        fieldBlockBuilder.appendNull();
-                        continue;
-                    }
-                    checkState(rowBlock.getPositionCount() == 1, "Invalid RowType statistics for writing Delta Lake checkpoint");
-                    if (rowBlock.isNull(0)) {
-                        fieldBlockBuilder.appendNull();
-                    }
-                    else {
-                        field.getType().appendTo(rowBlock, 0, fieldBlockBuilder);
-                    }
-                }
-                else {
-                    writeNativeValue(field.getType(), fieldBlockBuilder, value);
-                }
+                writeNativeValue(field.getType(), fieldBlockBuilder, value);
             }
         });
     }

@@ -79,21 +79,20 @@ http-server.authentication.type=CERTIFICATE,PASSWORD
 
 The following configuration properties are also available:
 
-```{eval-rst}
-.. list-table:: Configuration properties
-   :widths: 50 50
-   :header-rows: 1
+:::{list-table} Configuration properties
+:widths: 50 50
+:header-rows: 1
 
-   * - Property name
-     - Description
-   * - ``http-server.authentication.certificate.user-mapping.pattern``
-     -  A regular expression pattern to :doc:`map all user names
-        </security/user-mapping>` for this authentication type to the format
-        expected by Trino.
-   * - ``http-server.authentication.certificate.user-mapping.file``
-     - The path to a JSON file that contains a set of :doc:`user mapping
-       rules </security/user-mapping>` for this authentication type.
-```
+* - Property name
+  - Description
+* - `http-server.authentication.certificate.user-mapping.pattern`
+  -  A regular expression pattern to [map all user
+    names](/security/user-mapping) for this authentication type to the format
+    expected by Trino.
+* - `http-server.authentication.certificate.user-mapping.file`
+  - The path to a JSON file that contains a set of [user mapping
+    rules](/security/user-mapping) for this authentication type.
+:::
 
 ## Use certificate authentication with clients
 

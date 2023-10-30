@@ -21,9 +21,10 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
-import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import io.trino.testng.services.ManageTestResources;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -40,15 +41,18 @@ import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.REGION;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.abort;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
 public class TestDruidCaseInsensitiveMapping
         extends BaseCaseInsensitiveMappingTest
 {
+    @ManageTestResources.Suppress(because = "Not a TestNG test class")
     private TestingDruidServer druidServer;
     private Path mappingFile;
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void destroy()
     {
         if (druidServer != null) {
@@ -114,6 +118,8 @@ public class TestDruidCaseInsensitiveMapping
     public void testTableNameClash()
             throws Exception
     {
+        updateRuleBasedIdentifierMappingFile(getMappingFile(), ImmutableList.of(), ImmutableList.of());
+
         copyAndIngestTpchDataFromSourceToTarget(
                 getQueryRunner().execute(SELECT_FROM_REGION),
                 this.druidServer,
@@ -191,7 +197,7 @@ public class TestDruidCaseInsensitiveMapping
     public void testNonLowerCaseSchemaName()
     {
         // related to https://github.com/trinodb/trino/issues/14700
-        throw new SkipException("Druid connector only supports schema 'druid'.");
+        abort("Druid connector only supports schema 'druid'.");
     }
 
     @Override
@@ -199,7 +205,7 @@ public class TestDruidCaseInsensitiveMapping
     public void testSchemaAndTableNameRuleMapping()
     {
         // related to https://github.com/trinodb/trino/issues/14700
-        throw new SkipException("Druid connector only supports schema 'druid'.");
+        abort("Druid connector only supports schema 'druid'.");
     }
 
     @Override
@@ -207,7 +213,7 @@ public class TestDruidCaseInsensitiveMapping
     public void testSchemaNameClash()
     {
         // related to https://github.com/trinodb/trino/issues/14700
-        throw new SkipException("Druid connector only supports schema 'druid'.");
+        abort("Druid connector only supports schema 'druid'.");
     }
 
     @Override
@@ -215,7 +221,7 @@ public class TestDruidCaseInsensitiveMapping
     public void testSchemaNameClashWithRuleMapping()
     {
         // related to https://github.com/trinodb/trino/issues/14700
-        throw new SkipException("Druid connector only supports schema 'druid'.");
+        abort("Druid connector only supports schema 'druid'.");
     }
 
     @Override
@@ -223,6 +229,6 @@ public class TestDruidCaseInsensitiveMapping
     public void testSchemaNameRuleMapping()
     {
         // related to https://github.com/trinodb/trino/issues/14700
-        throw new SkipException("Druid connector only supports schema 'druid'.");
+        abort("Druid connector only supports schema 'druid'.");
     }
 }

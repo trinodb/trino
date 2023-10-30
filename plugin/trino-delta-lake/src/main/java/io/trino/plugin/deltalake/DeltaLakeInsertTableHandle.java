@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
+import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 
@@ -30,6 +31,7 @@ public class DeltaLakeInsertTableHandle
     private final SchemaTableName tableName;
     private final String location;
     private final MetadataEntry metadataEntry;
+    private final ProtocolEntry protocolEntry;
     private final List<DeltaLakeColumnHandle> inputColumns;
     private final long readVersion;
     private final boolean retriesEnabled;
@@ -39,12 +41,14 @@ public class DeltaLakeInsertTableHandle
             @JsonProperty("tableName") SchemaTableName tableName,
             @JsonProperty("location") String location,
             @JsonProperty("metadataEntry") MetadataEntry metadataEntry,
+            @JsonProperty("protocolEntry") ProtocolEntry protocolEntry,
             @JsonProperty("inputColumns") List<DeltaLakeColumnHandle> inputColumns,
             @JsonProperty("readVersion") long readVersion,
             @JsonProperty("retriesEnabled") boolean retriesEnabled)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.metadataEntry = requireNonNull(metadataEntry, "metadataEntry is null");
+        this.protocolEntry = requireNonNull(protocolEntry, "protocolEntry is null");
         this.inputColumns = ImmutableList.copyOf(inputColumns);
         this.location = requireNonNull(location, "location is null");
         this.readVersion = readVersion;
@@ -67,6 +71,12 @@ public class DeltaLakeInsertTableHandle
     public MetadataEntry getMetadataEntry()
     {
         return metadataEntry;
+    }
+
+    @JsonProperty
+    public ProtocolEntry getProtocolEntry()
+    {
+        return protocolEntry;
     }
 
     @JsonProperty

@@ -29,6 +29,7 @@ public class TestFileSystemConfig
     {
         assertRecordedDefaults(recordDefaults(FileSystemConfig.class)
                 .setHadoopEnabled(true)
+                .setNativeAzureEnabled(false)
                 .setNativeS3Enabled(false));
     }
 
@@ -37,11 +38,13 @@ public class TestFileSystemConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("fs.hadoop.enabled", "false")
+                .put("fs.native-azure.enabled", "true")
                 .put("fs.native-s3.enabled", "true")
                 .buildOrThrow();
 
         FileSystemConfig expected = new FileSystemConfig()
                 .setHadoopEnabled(false)
+                .setNativeAzureEnabled(true)
                 .setNativeS3Enabled(true);
 
         assertFullMapping(properties, expected);

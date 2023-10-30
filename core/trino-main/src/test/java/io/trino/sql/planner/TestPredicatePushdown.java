@@ -14,12 +14,17 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
+import io.trino.sql.planner.plan.ExchangeNode;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 
@@ -85,5 +90,93 @@ public class TestPredicatePushdown
                                                         filter(
                                                                 "CAST('x' AS varchar(5)) = CAST(u_v AS varchar(5))",
                                                                 tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name")))))))));
+    }
+
+    @Test
+    public void testNormalizeOuterJoinToInner()
+    {
+        Session disableJoinReordering = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
+                .build();
+
+        // one join
+        assertPlan(
+                "SELECT customer.name, orders.orderdate " +
+                        "FROM orders " +
+                        "LEFT JOIN customer ON orders.custkey = customer.custkey " +
+                        "WHERE customer.name IS NOT NULL",
+                disableJoinReordering,
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("o_custkey", "c_custkey")
+                                .left(
+                                        anyTree(
+                                                tableScan("orders", ImmutableMap.of("o_orderdate", "orderdate", "o_custkey", "custkey"))))
+                                .right(
+                                        anyTree(
+                                                filter(
+                                                        "NOT (c_name IS NULL)",
+                                                        tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name"))))))));
+
+        // nested joins
+        assertPlan(
+                "SELECT customer.name, lineitem.partkey " +
+                        "FROM lineitem " +
+                        "LEFT JOIN orders ON lineitem.orderkey = orders.orderkey " +
+                        "LEFT JOIN customer ON orders.custkey = customer.custkey " +
+                        "WHERE customer.name IS NOT NULL",
+                disableJoinReordering,
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("o_custkey", "c_custkey")
+                                .left(
+                                        join(INNER,
+                                                leftJoinBuilder -> leftJoinBuilder
+                                                        .equiCriteria("l_orderkey", "o_orderkey")
+                                                        .left(
+                                                                anyTree(
+                                                                        tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey"))))
+                                                        .right(
+                                                                anyTree(
+                                                                        tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey", "o_custkey", "custkey"))))))
+                                .right(
+                                        anyTree(
+                                                filter(
+                                                        "NOT (c_name IS NULL)",
+                                                        tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name"))))))));
+    }
+
+    @Test
+    public void testNonDeterministicPredicateDoesNotPropagateFromFilteringSideToSourceSideOfSemiJoin()
+    {
+        assertPlan("SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey = random(5))",
+                noSemiJoinRewrite(),
+                anyTree(
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT", true,
+                                anyTree(
+                                        tableScan("lineitem", ImmutableMap.of(
+                                        "LINE_ORDER_KEY", "orderkey"))),
+                                node(ExchangeNode.class,
+                                        filter("ORDERS_ORDER_KEY = CAST(random(5) AS bigint)",
+                                                tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
+    }
+
+    @Test
+    public void testNonStraddlingJoinExpression()
+    {
+        assertPlan(
+                "SELECT * FROM orders JOIN lineitem ON orders.orderkey = lineitem.orderkey AND cast(lineitem.linenumber AS varchar) = '2'",
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("ORDERS_OK", "LINEITEM_OK")
+                                .left(
+                                        anyTree(
+                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
+                                .right(
+                                        anyTree(
+                                                filter("cast(LINEITEM_LINENUMBER as varchar) = VARCHAR '2'",
+                                                        tableScan("lineitem", ImmutableMap.of(
+                                                                "LINEITEM_OK", "orderkey",
+                                                                "LINEITEM_LINENUMBER", "linenumber"))))))));
     }
 }

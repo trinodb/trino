@@ -252,6 +252,18 @@ Determines the amount of headroom that should be allocated beyond the size of
 the request data. Requires `query.remote-task.enable-adaptive-request-size` to
 be enabled.
 
+## `query.info-url-template`
+
+- **Type:** {ref}`prop-type-string`
+- **Default value:** `(URL of the query info page on the coordinator)`
+
+Configure redirection of clients to an alternative location for query
+information. The URL must contain a query id placeholder `${QUERY_ID}`.
+
+For example `https://example.com/query/${QUERY_ID}`.
+
+The `${QUERY_ID}` gets replaced with the actual query's id.
+
 ## `retry-policy`
 
 - **Type:** {ref}`prop-type-string`

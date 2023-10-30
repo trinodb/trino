@@ -253,16 +253,6 @@ Hive connector documentation.
       - Enables automatic column level statistics collection on write. See
         `Table Statistics <#table-statistics>`__ for details.
       - ``true``
-    * - ``hive.s3select-pushdown.enabled``
-      - Enable query pushdown to JSON files using the AWS S3 Select service.
-      - ``false``
-    * - ``hive.s3select-pushdown.experimental-textfile-pushdown-enabled``
-      - Enable query pushdown to TEXTFILE tables using the AWS S3 Select service.
-      - ``false``
-    * - ``hive.s3select-pushdown.max-connections``
-      - Maximum number of simultaneously open connections to S3 for
-        :ref:`s3selectpushdown`.
-      - 500
     * - ``hive.file-status-cache-tables``
       - Cache directory listing for specific tables. Examples:
 
@@ -394,6 +384,7 @@ configured object storage system and metadata stores:
   - {ref}`sql-view-management`; see also
     {ref}`Hive-specific view management <hive-sql-view-management>`
 
+- [](sql-routine-management)
 - {ref}`sql-security-operations`: see also
   {ref}`SQL standard-based authorization for object storage <hive-sql-standard-based-authorization>`
 
@@ -638,14 +629,41 @@ Hive directly, most operations can be performed using Trino.
 
 #### Schema evolution
 
-Hive allows the partitions in a table to have a different schema than the
-table. This occurs when the column types of a table are changed after
-partitions already exist (that use the original column types). The Hive
-connector supports this by allowing the same conversions as Hive:
+Hive table partitions can differ from the current table schema. This occurs when
+the data types of columns of a table are changed from the data types of columns
+of preexisting partitions. The Hive connector supports this schema evolution by
+allowing the same conversions as Hive. The following table lists possible data
+type conversions.
 
-- `VARCHAR` to and from `TINYINT`, `SMALLINT`, `INTEGER` and `BIGINT`
-- `REAL` to `DOUBLE`
-- Widening conversions for integers, such as `TINYINT` to `SMALLINT`
+:::{list-table} Hive schema evolution type conversion
+:widths: 25, 75
+:header-rows: 1
+
+* - Data type
+  - Converted to
+* - `VARCHAR`
+  - `TINYINT`, `SMALLINT`, `INTEGER`, `BIGINT`, `TIMESTAMP`, `DATE`, as well as
+    narrowing conversions for `VARCHAR`
+* - `CHAR`
+  - narrowing conversions for `CHAR`
+* - `TINYINT`
+  - `VARCHAR`, `SMALLINT`, `INTEGER`, `BIGINT`
+* - `SMALLINT`
+  - `VARCHAR`, `INTEGER`, `BIGINT`
+* - `INTEGER`
+  - `VARCHAR`, `BIGINT`
+* - `BIGINT`
+  - `VARCHAR`
+* - `REAL`
+  - `DOUBLE`, `DECIMAL`
+* - `DOUBLE`
+  - `FLOAT`, `DECIMAL`
+* - `DECIMAL`
+  - `DOUBLE`, `REAL`, `VARCHAR`, `TINYINT`, `SMALLINT`, `INTEGER`, `BIGINT`, as
+    well as narrowing and widening conversions for `DECIMAL`
+* - `TIMESTAMP`
+  - `VARCHAR`
+:::
 
 Any conversion failure results in null, which is the same behavior
 as Hive. For example, converting the string `'foo'` to a number,
@@ -725,37 +743,10 @@ The following operations are not supported when `avro_schema_url` is set:
 
 #### ALTER TABLE EXECUTE
 
-The connector supports the `optimize` command for use with
-{ref}`ALTER TABLE EXECUTE <alter-table-execute>`.
+The connector supports the following commands for use with {ref}`ALTER TABLE
+EXECUTE <alter-table-execute>`.
 
-The `optimize` command is used for rewriting the content
-of the specified non-transactional table so that it is merged
-into fewer but larger files.
-In case that the table is partitioned, the data compaction
-acts separately on each partition selected for optimization.
-This operation improves read performance.
-
-All files with a size below the optional `file_size_threshold`
-parameter (default value for the threshold is `100MB`) are
-merged:
-
-```sql
-ALTER TABLE test_table EXECUTE optimize
-```
-
-The following statement merges files in a table that are
-under 10 megabytes in size:
-
-```sql
-ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '10MB')
-```
-
-You can use a `WHERE` clause with the columns used to partition the table,
-to filter which partitions are optimized:
-
-```sql
-ALTER TABLE test_partitioned_table EXECUTE optimize
-WHERE partition_key = 1
+```{include} optimize.fragment
 ```
 
 The `optimize` command is disabled by default, and can be enabled for a

@@ -15,7 +15,7 @@ package io.trino.cache;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheLoader;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,7 +34,7 @@ public class TestEmptyCache
 {
     private static final int TEST_TIMEOUT_MILLIS = 10_000;
 
-    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    @Test
     public void testLoadFailure()
             throws Exception
     {

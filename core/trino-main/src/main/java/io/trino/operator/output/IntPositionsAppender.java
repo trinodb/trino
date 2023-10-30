@@ -16,11 +16,13 @@ package io.trino.operator.output;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ValueBlock;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import java.util.Arrays;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateBlockResetSize;
@@ -55,9 +57,10 @@ public class IntPositionsAppender
     }
 
     @Override
-    // TODO: Make PositionsAppender work performant with different block types (https://github.com/trinodb/trino/issues/13267)
-    public void append(IntArrayList positions, Block block)
+    public void append(IntArrayList positions, ValueBlock block)
     {
+        checkArgument(block instanceof IntArrayBlock, "Block must be instance of %s", IntArrayBlock.class);
+
         if (positions.isEmpty()) {
             return;
         }
@@ -94,8 +97,10 @@ public class IntPositionsAppender
     }
 
     @Override
-    public void appendRle(Block block, int rlePositionCount)
+    public void appendRle(ValueBlock block, int rlePositionCount)
     {
+        checkArgument(block instanceof IntArrayBlock, "Block must be instance of %s", IntArrayBlock.class);
+
         if (rlePositionCount == 0) {
             return;
         }
@@ -116,8 +121,10 @@ public class IntPositionsAppender
     }
 
     @Override
-    public void append(int sourcePosition, Block source)
+    public void append(int sourcePosition, ValueBlock source)
     {
+        checkArgument(source instanceof IntArrayBlock, "Block must be instance of %s", IntArrayBlock.class);
+
         ensureCapacity(positionCount + 1);
         if (source.isNull(sourcePosition)) {
             valueIsNull[positionCount] = true;
@@ -185,7 +192,7 @@ public class IntPositionsAppender
             newSize = initialEntryCount;
             initialized = true;
         }
-        newSize = Math.max(newSize, capacity);
+        newSize = max(newSize, capacity);
 
         valueIsNull = Arrays.copyOf(valueIsNull, newSize);
         values = Arrays.copyOf(values, newSize);

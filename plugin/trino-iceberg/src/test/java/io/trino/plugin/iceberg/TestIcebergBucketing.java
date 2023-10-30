@@ -30,8 +30,9 @@ import org.apache.iceberg.types.Types.BooleanType;
 import org.apache.iceberg.types.Types.DecimalType;
 import org.apache.iceberg.types.Types.DoubleType;
 import org.apache.iceberg.types.Types.FloatType;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -69,7 +70,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.apache.iceberg.types.Type.TypeID.DECIMAL;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestIcebergBucketing
@@ -187,7 +188,8 @@ public class TestIcebergBucketing
         assertBucketAndHashEquals("binary", ByteBuffer.wrap(new byte[] {0x00, 0x01, 0x02, 0x03}), -188683207 & Integer.MAX_VALUE);
     }
 
-    @Test(dataProvider = "unsupportedBucketingTypes")
+    @ParameterizedTest
+    @MethodSource("unsupportedBucketingTypes")
     public void testUnsupportedTypes(Type type)
     {
         assertThatThrownBy(() -> computeIcebergBucket(type, null, 1))
@@ -197,8 +199,7 @@ public class TestIcebergBucketing
                 .hasMessage("Unsupported type for 'bucket': %s", toTrinoType(type, TYPE_MANAGER));
     }
 
-    @DataProvider
-    public Object[][] unsupportedBucketingTypes()
+    public static Object[][] unsupportedBucketingTypes()
     {
         return new Object[][] {
                 {BooleanType.get()},

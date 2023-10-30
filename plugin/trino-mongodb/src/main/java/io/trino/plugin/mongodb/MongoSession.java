@@ -138,6 +138,8 @@ public class MongoSession
     private static final String FIELDS_TYPE_KEY = "type";
     private static final String FIELDS_HIDDEN_KEY = "hidden";
 
+    private static final Document EMPTY_DOCUMENT = new Document();
+
     private static final String AND_OP = "$and";
     private static final String OR_OP = "$or";
 
@@ -241,7 +243,7 @@ public class MongoSession
                 .filter(name -> !name.equals(schemaCollection))
                 .filter(name -> !SYSTEM_TABLES.contains(name))
                 .collect(toSet()));
-        builder.addAll(getTableMetadataNames(schema));
+        builder.addAll(getTableMetadataNames(schemaName));
 
         return builder.build();
     }
@@ -587,16 +589,17 @@ public class MongoSession
     @VisibleForTesting
     static Document buildQuery(TupleDomain<ColumnHandle> tupleDomain)
     {
-        Document query = new Document();
+        ImmutableList.Builder<Document> queryBuilder = ImmutableList.builder();
         if (tupleDomain.getDomains().isPresent()) {
             for (Map.Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
                 MongoColumnHandle column = (MongoColumnHandle) entry.getKey();
                 Optional<Document> predicate = buildPredicate(column, entry.getValue());
-                predicate.ifPresent(query::putAll);
+                predicate.ifPresent(queryBuilder::add);
             }
         }
 
-        return query;
+        List<Document> query = queryBuilder.build();
+        return query.isEmpty() ? EMPTY_DOCUMENT : andPredicate(query);
     }
 
     private static Optional<Document> buildPredicate(MongoColumnHandle column, Domain domain)
@@ -922,7 +925,10 @@ public class MongoSession
             catch (ArithmeticException e) {
                 return Optional.empty();
             }
-            typeSignature = createDecimalType(decimal.precision(), decimal.scale()).getTypeSignature();
+            // Java's BigDecimal.precision() returns precision for the unscaled value, so it skips leading zeros for values lower than 1.
+            // Trino's (SQL) decimal precision must include leading zeros in values less than 1, and can never be lower than scale.
+            int precision = Math.max(decimal.precision(), decimal.scale());
+            typeSignature = createDecimalType(precision, decimal.scale()).getTypeSignature();
         }
         else if (value instanceof Date) {
             typeSignature = TIMESTAMP_MILLIS.getTypeSignature();

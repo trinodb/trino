@@ -225,6 +225,11 @@ public class QueryContext
         return memoryPool;
     }
 
+    public synchronized long getUserMemoryReservation()
+    {
+        return memoryPool.getQueryMemoryReservation(queryId);
+    }
+
     public TaskContext addTaskContext(
             TaskStateMachine taskStateMachine,
             Session session,

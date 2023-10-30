@@ -16,7 +16,7 @@ package io.trino.faulttolerant;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -101,8 +101,8 @@ public abstract class BaseFaultTolerantExecutionTest
     {
         return Session.builder(session)
                 // one writer per partition per task
-                .setSystemProperty("task_writer_count", "1")
-                .setSystemProperty("task_partitioned_writer_count", "1")
+                .setSystemProperty("task_min_writer_count", "1")
+                .setSystemProperty("task_max_writer_count", "1")
                 .setSystemProperty("task_scale_writers_enabled", "false")
                 .build();
     }

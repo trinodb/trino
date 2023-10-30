@@ -15,8 +15,7 @@ swap. The table metadata file tracks the table schema, partitioning
 configuration, custom properties, and snapshots of the table contents.
 
 Iceberg data files are stored in either Parquet, ORC, or Avro format, as
-determined by the `format` property in the table definition.  The default
-`format` value is `PARQUET`.
+determined by the `format` property in the table definition.
 
 Iceberg is designed to improve on the known scalability limitations of Hive,
 which stores table metadata in a metastore that is backed by a relational
@@ -156,6 +155,10 @@ implementation is used:
     - Empty
   * - ``iceberg.register-table-procedure.enabled``
     - Enable to allow user to call ``register_table`` procedure.
+    - ``false``
+  * - ``iceberg.query-partition-filter-required``
+    - Set to ``true`` to force a query to use a partition filter. 
+      You can use the ``query_partition_filter_required`` catalog session property for temporary, catalog specific use. 
     - ``false``
 ```
 
@@ -564,33 +567,7 @@ partitioning change.
 The connector supports the following commands for use with {ref}`ALTER TABLE
 EXECUTE <alter-table-execute>`.
 
-##### optimize
-
-The `optimize` command is used for rewriting the active content of the
-specified table so that it is merged into fewer but larger files. In case that
-the table is partitioned, the data compaction acts separately on each partition
-selected for optimization. This operation improves read performance.
-
-All files with a size below the optional `file_size_threshold` parameter
-(default value for the threshold is `100MB`) are merged:
-
-```sql
-ALTER TABLE test_table EXECUTE optimize
-```
-
-The following statement merges the files in a table that are under 10 megabytes
-in size:
-
-```sql
-ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '10MB')
-```
-
-You can use a `WHERE` clause with the columns used to partition the table, to
-apply `optimize` only on the partitions corresponding to the filter:
-
-```sql
-ALTER TABLE test_partitioned_table EXECUTE optimize
-WHERE partition_key = 1
+```{include} optimize.fragment
 ```
 
 ##### expire_snapshots
@@ -681,13 +658,8 @@ TABLE </sql/show-create-table>`.
 
 Table properties supply or set metadata for the underlying tables. This is key
 for {doc}`/sql/create-table-as` statements. Table properties are passed to the
-connector using a {doc}`WITH </sql/create-table-as>` clause:
+connector using a {doc}`WITH </sql/create-table-as>` clause.
 
-```
-CREATE TABLE tablename
-WITH (format='CSV',
-      csv_escape = '"')
-```
 
 ```{eval-rst}
 .. list-table:: Iceberg table properties
@@ -698,7 +670,8 @@ WITH (format='CSV',
     - Description
   * - ``format``
     - Optionally specifies the format of table data files; either ``PARQUET``,
-      ``ORC`, or ``AVRO``.  Defaults to ``ORC``.
+      ``ORC`, or ``AVRO``. Defaults to the value of the ``iceberg.file-format``
+      catalog configuration property, which defaults to ``PARQUET``.
   * - ``partitioning``
     - Optionally specifies table partitioning. If a table is partitioned by
       columns ``c1`` and ``c2``, the partitioning property is ``partitioning =
@@ -718,7 +691,7 @@ WITH (format='CSV',
       Defaults to ``0.05``.
 ```
 
-The table definition below specifies format Parquet, partitioning by columns
+The table definition below specifies to use Parquet files, partitioning by columns
 `c1` and `c2`, and a file system location of
 `/var/example_tables/test_table`:
 
@@ -733,7 +706,7 @@ WITH (
     location = '/var/example_tables/test_table')
 ```
 
-The table definition below specifies format ORC, bloom filter index by columns
+The table definition below specifies to use ORC files, bloom filter index by columns
 `c1` and `c2`, fpp is 0.05, and a file system location of
 `/var/example_tables/test_table`:
 
@@ -1303,6 +1276,35 @@ FROM example.testdb."customer_orders$snapshots"
 ORDER BY committed_at DESC
 ```
 
+(iceberg-create-or-replace)=
+
+#### Replacing tables
+
+The connector supports replacing a table as an atomic operation. Atomic table
+replacement creates a new snapshot with the new table definition (see
+{doc}`/sql/create-table` and {doc}`/sql/create-table-as`), but keeps table history.
+
+The new table after replacement is completely new and separate from the old table.
+Only the name of the table remains identical. Earlier snapshots can be retrieved 
+through Iceberg's [time travel](iceberg-time-travel).
+
+For example a partitioned table `my_table` can be replaced by completely new
+definition.
+
+```
+CREATE TABLE my_table (
+    a BIGINT,
+    b DATE,
+    c BIGINT)
+WITH (partitioning = ARRAY['a']);
+
+CREATE OR REPLACE TABLE my_table
+WITH (sorted_by = ARRAY['a'])
+AS SELECT * from another_table;
+```
+
+Earlier snapshots can be retrieved through Iceberg's [time travel](iceberg-time-travel).
+
 (iceberg-time-travel)=
 
 ##### Time travel queries
@@ -1327,6 +1329,43 @@ providing the previous state of the table:
 ```
 SELECT *
 FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 09:59:29.803 Europe/Vienna'
+```
+
+The connector allows to create a new snapshot through Iceberg's [replace table](iceberg-create-or-replace).
+
+```
+CREATE OR REPLACE TABLE example.testdb.customer_orders AS 
+SELECT *
+FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 09:59:29.803 Europe/Vienna'
+```
+
+You can use a date to specify a point a time in the past for using a snapshot of a table in a query.
+Assuming that the session time zone is `Europe/Vienna` the following queries are equivalent:
+
+```
+SELECT *
+FROM example.testdb.customer_orders FOR TIMESTAMP AS OF DATE '2022-03-23'
+```
+
+```
+SELECT *
+FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 00:00:00'
+```
+
+```
+SELECT *
+FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 00:00:00.000 Europe/Vienna'
+```
+
+Iceberg supports named references of snapshots via branches and tags.
+Time travel can be performed to branches and tags in the table.
+
+```
+SELECT *
+FROM example.testdb.customer_orders FOR VERSION AS OF 'historical-tag'
+
+SELECT *
+FROM example.testdb.customer_orders FOR VERSION AS OF 'test-branch'
 ```
 
 ##### Rolling back to a previous snapshot

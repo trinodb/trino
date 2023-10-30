@@ -115,7 +115,7 @@ public class PagePartitioner
             }
         }
 
-        int partitionCount = partitionFunction.getPartitionCount();
+        int partitionCount = partitionFunction.partitionCount();
         int pageSize = toIntExact(min(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, maxMemory.toBytes() / partitionCount));
         pageSize = max(1, pageSize);
 
@@ -146,7 +146,7 @@ public class PagePartitioner
             return;
         }
 
-        if (page.getPositionCount() < partitionFunction.getPartitionCount() * COLUMNAR_STRATEGY_COEFFICIENT) {
+        if (page.getPositionCount() < partitionFunction.partitionCount() * COLUMNAR_STRATEGY_COEFFICIENT) {
             // Partition will have on average less than COLUMNAR_STRATEGY_COEFFICIENT rows.
             // Doing it column-wise would degrade performance, so we fall back to row-wise approach.
             // Performance degradation is the worst in case of skewed hash distribution when only small subset
@@ -209,7 +209,7 @@ public class PagePartitioner
     {
         IntArrayList[] partitionedPositions = partitionPositions(page);
 
-        for (int i = 0; i < partitionFunction.getPartitionCount(); i++) {
+        for (int i = 0; i < partitionFunction.partitionCount(); i++) {
             IntArrayList partitionPositions = partitionedPositions[i];
             if (!partitionPositions.isEmpty()) {
                 positionsAppenders[i].appendToOutputPartition(page, partitionPositions);
@@ -259,9 +259,9 @@ public class PagePartitioner
         // want memory to explode in case there are input pages with many positions, where each page
         // is assigned to a single partition entirely.
         // For example this can happen for partition columns if they are represented by RLE blocks.
-        IntArrayList[] partitionPositions = new IntArrayList[partitionFunction.getPartitionCount()];
+        IntArrayList[] partitionPositions = new IntArrayList[partitionFunction.partitionCount()];
         for (int i = 0; i < partitionPositions.length; i++) {
-            partitionPositions[i] = new IntArrayList(initialPartitionSize(page.getPositionCount() / partitionFunction.getPartitionCount()));
+            partitionPositions[i] = new IntArrayList(initialPartitionSize(page.getPositionCount() / partitionFunction.partitionCount()));
         }
         return partitionPositions;
     }
@@ -275,7 +275,7 @@ public class PagePartitioner
         return (int) (averagePositionsPerPartition * 1.1) + 32;
     }
 
-    private boolean onlyRleBlocks(Page page)
+    private static boolean onlyRleBlocks(Page page)
     {
         for (int i = 0; i < page.getChannelCount(); i++) {
             if (!(page.getBlock(i) instanceof RunLengthEncodedBlock)) {
@@ -308,7 +308,7 @@ public class PagePartitioner
         }
     }
 
-    private Page extractRlePage(Page page)
+    private static Page extractRlePage(Page page)
     {
         Block[] valueBlocks = new Block[page.getChannelCount()];
         for (int channel = 0; channel < valueBlocks.length; ++channel) {
@@ -317,7 +317,7 @@ public class PagePartitioner
         return new Page(valueBlocks);
     }
 
-    private int[] integersInRange(int start, int endExclusive)
+    private static int[] integersInRange(int start, int endExclusive)
     {
         int[] array = new int[endExclusive - start];
         int current = start;
@@ -327,7 +327,7 @@ public class PagePartitioner
         return array;
     }
 
-    private boolean isDictionaryProcessingFaster(Block block)
+    private static boolean isDictionaryProcessingFaster(Block block)
     {
         if (!(block instanceof DictionaryBlock dictionaryBlock)) {
             return false;
@@ -386,7 +386,7 @@ public class PagePartitioner
         }
     }
 
-    private void partitionNotNullPositions(Page page, int startingPosition, IntArrayList[] partitionPositions, IntUnaryOperator partitionFunction)
+    private static void partitionNotNullPositions(Page page, int startingPosition, IntArrayList[] partitionPositions, IntUnaryOperator partitionFunction)
     {
         int positionCount = page.getPositionCount();
         int[] partitionPerPosition = new int[positionCount];

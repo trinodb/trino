@@ -26,7 +26,8 @@ import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.session.ResourceEstimates;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.Optional;
 import java.util.Set;
@@ -51,12 +52,12 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 // run single threaded to avoid creating multiple query runners at once
-@Test(singleThreaded = true)
 public class TestQueues
 {
     private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(240)
     public void testResourceGroupManager()
             throws Exception
     {
@@ -95,7 +96,8 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(240)
     public void testExceedSoftLimits()
             throws Exception
     {
@@ -159,7 +161,8 @@ public class TestQueues
         return createQuery(queryRunner, newSession("scheduled", ImmutableSet.of(), null), LONG_LASTING_QUERY);
     }
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(240)
     public void testResourceGroupManagerWithTwoDashboardQueriesRequestedAtTheSameTime()
             throws Exception
     {
@@ -176,7 +179,8 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(240)
     public void testResourceGroupManagerWithTooManyQueriesScheduled()
             throws Exception
     {
@@ -195,14 +199,16 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(240)
     public void testResourceGroupManagerRejection()
             throws Exception
     {
         testRejection();
     }
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(240)
     public void testClientTagsBasedSelection()
             throws Exception
     {
@@ -216,7 +222,8 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(240)
     public void testSelectorResourceEstimateBasedSelection()
             throws Exception
     {
@@ -272,7 +279,8 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(240)
     public void testQueryTypeBasedSelection()
             throws Exception
     {

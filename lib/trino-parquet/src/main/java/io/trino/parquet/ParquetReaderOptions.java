@@ -25,6 +25,7 @@ public class ParquetReaderOptions
     private static final int DEFAULT_MAX_READ_BLOCK_ROW_COUNT = 8 * 1024;
     private static final DataSize DEFAULT_MAX_MERGE_DISTANCE = DataSize.of(1, MEGABYTE);
     private static final DataSize DEFAULT_MAX_BUFFER_SIZE = DataSize.of(8, MEGABYTE);
+    private static final DataSize DEFAULT_SMALL_FILE_THRESHOLD = DataSize.of(3, MEGABYTE);
 
     private final boolean ignoreStatistics;
     private final DataSize maxReadBlockSize;
@@ -32,9 +33,8 @@ public class ParquetReaderOptions
     private final DataSize maxMergeDistance;
     private final DataSize maxBufferSize;
     private final boolean useColumnIndex;
-    private final boolean useBatchColumnReaders;
-    private final boolean useBatchNestedColumnReaders;
     private final boolean useBloomFilter;
+    private final DataSize smallFileThreshold;
 
     public ParquetReaderOptions()
     {
@@ -44,9 +44,8 @@ public class ParquetReaderOptions
         maxMergeDistance = DEFAULT_MAX_MERGE_DISTANCE;
         maxBufferSize = DEFAULT_MAX_BUFFER_SIZE;
         useColumnIndex = true;
-        useBatchColumnReaders = true;
-        useBatchNestedColumnReaders = true;
         useBloomFilter = true;
+        smallFileThreshold = DEFAULT_SMALL_FILE_THRESHOLD;
     }
 
     private ParquetReaderOptions(
@@ -56,9 +55,8 @@ public class ParquetReaderOptions
             DataSize maxMergeDistance,
             DataSize maxBufferSize,
             boolean useColumnIndex,
-            boolean useBatchColumnReaders,
-            boolean useBatchNestedColumnReaders,
-            boolean useBloomFilter)
+            boolean useBloomFilter,
+            DataSize smallFileThreshold)
     {
         this.ignoreStatistics = ignoreStatistics;
         this.maxReadBlockSize = requireNonNull(maxReadBlockSize, "maxReadBlockSize is null");
@@ -67,9 +65,8 @@ public class ParquetReaderOptions
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
         this.useColumnIndex = useColumnIndex;
-        this.useBatchColumnReaders = useBatchColumnReaders;
-        this.useBatchNestedColumnReaders = useBatchNestedColumnReaders;
         this.useBloomFilter = useBloomFilter;
+        this.smallFileThreshold = requireNonNull(smallFileThreshold, "smallFileThreshold is null");
     }
 
     public boolean isIgnoreStatistics()
@@ -92,16 +89,6 @@ public class ParquetReaderOptions
         return useColumnIndex;
     }
 
-    public boolean useBatchColumnReaders()
-    {
-        return useBatchColumnReaders;
-    }
-
-    public boolean useBatchNestedColumnReaders()
-    {
-        return useBatchNestedColumnReaders;
-    }
-
     public boolean useBloomFilter()
     {
         return useBloomFilter;
@@ -117,6 +104,11 @@ public class ParquetReaderOptions
         return maxReadBlockRowCount;
     }
 
+    public DataSize getSmallFileThreshold()
+    {
+        return smallFileThreshold;
+    }
+
     public ParquetReaderOptions withIgnoreStatistics(boolean ignoreStatistics)
     {
         return new ParquetReaderOptions(
@@ -126,9 +118,8 @@ public class ParquetReaderOptions
                 maxMergeDistance,
                 maxBufferSize,
                 useColumnIndex,
-                useBatchColumnReaders,
-                useBatchNestedColumnReaders,
-                useBloomFilter);
+                useBloomFilter,
+                smallFileThreshold);
     }
 
     public ParquetReaderOptions withMaxReadBlockSize(DataSize maxReadBlockSize)
@@ -140,9 +131,8 @@ public class ParquetReaderOptions
                 maxMergeDistance,
                 maxBufferSize,
                 useColumnIndex,
-                useBatchColumnReaders,
-                useBatchNestedColumnReaders,
-                useBloomFilter);
+                useBloomFilter,
+                smallFileThreshold);
     }
 
     public ParquetReaderOptions withMaxReadBlockRowCount(int maxReadBlockRowCount)
@@ -154,9 +144,8 @@ public class ParquetReaderOptions
                 maxMergeDistance,
                 maxBufferSize,
                 useColumnIndex,
-                useBatchColumnReaders,
-                useBatchNestedColumnReaders,
-                useBloomFilter);
+                useBloomFilter,
+                smallFileThreshold);
     }
 
     public ParquetReaderOptions withMaxMergeDistance(DataSize maxMergeDistance)
@@ -168,9 +157,8 @@ public class ParquetReaderOptions
                 maxMergeDistance,
                 maxBufferSize,
                 useColumnIndex,
-                useBatchColumnReaders,
-                useBatchNestedColumnReaders,
-                useBloomFilter);
+                useBloomFilter,
+                smallFileThreshold);
     }
 
     public ParquetReaderOptions withMaxBufferSize(DataSize maxBufferSize)
@@ -182,9 +170,8 @@ public class ParquetReaderOptions
                 maxMergeDistance,
                 maxBufferSize,
                 useColumnIndex,
-                useBatchColumnReaders,
-                useBatchNestedColumnReaders,
-                useBloomFilter);
+                useBloomFilter,
+                smallFileThreshold);
     }
 
     public ParquetReaderOptions withUseColumnIndex(boolean useColumnIndex)
@@ -196,37 +183,8 @@ public class ParquetReaderOptions
                 maxMergeDistance,
                 maxBufferSize,
                 useColumnIndex,
-                useBatchColumnReaders,
-                useBatchNestedColumnReaders,
-                useBloomFilter);
-    }
-
-    public ParquetReaderOptions withBatchColumnReaders(boolean useBatchColumnReaders)
-    {
-        return new ParquetReaderOptions(
-                ignoreStatistics,
-                maxReadBlockSize,
-                maxReadBlockRowCount,
-                maxMergeDistance,
-                maxBufferSize,
-                useColumnIndex,
-                useBatchColumnReaders,
-                useBatchNestedColumnReaders,
-                useBloomFilter);
-    }
-
-    public ParquetReaderOptions withBatchNestedColumnReaders(boolean useBatchNestedColumnReaders)
-    {
-        return new ParquetReaderOptions(
-                ignoreStatistics,
-                maxReadBlockSize,
-                maxReadBlockRowCount,
-                maxMergeDistance,
-                maxBufferSize,
-                useColumnIndex,
-                useBatchColumnReaders,
-                useBatchNestedColumnReaders,
-                useBloomFilter);
+                useBloomFilter,
+                smallFileThreshold);
     }
 
     public ParquetReaderOptions withBloomFilter(boolean useBloomFilter)
@@ -238,8 +196,20 @@ public class ParquetReaderOptions
                 maxMergeDistance,
                 maxBufferSize,
                 useColumnIndex,
-                useBatchColumnReaders,
-                useBatchNestedColumnReaders,
-                useBloomFilter);
+                useBloomFilter,
+                smallFileThreshold);
+    }
+
+    public ParquetReaderOptions withSmallFileThreshold(DataSize smallFileThreshold)
+    {
+        return new ParquetReaderOptions(
+                ignoreStatistics,
+                maxReadBlockSize,
+                maxReadBlockRowCount,
+                maxMergeDistance,
+                maxBufferSize,
+                useColumnIndex,
+                useBloomFilter,
+                smallFileThreshold);
     }
 }

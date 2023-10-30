@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.testing.MaterializedResult;
@@ -194,7 +195,7 @@ public final class OperatorAssertion
         return resultBuilder.build();
     }
 
-    public static Block toRow(List<Type> parameterTypes, Object... values)
+    public static SqlRow toRow(List<Type> parameterTypes, Object... values)
     {
         checkArgument(parameterTypes.size() == values.length, "parameterTypes.size(" + parameterTypes.size() + ") does not equal to values.length(" + values.length + ")");
 

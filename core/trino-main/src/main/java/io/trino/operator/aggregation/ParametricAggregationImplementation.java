@@ -19,7 +19,7 @@ import io.trino.operator.ParametricImplementation;
 import io.trino.operator.aggregation.AggregationFromAnnotationsParser.AccumulatorStateDetails;
 import io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind;
 import io.trino.operator.annotations.ImplementationDependency;
-import io.trino.spi.block.Block;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
@@ -220,7 +220,7 @@ public class ParametricAggregationImplementation
 
             // block and position works for any type, but if block is annotated with SqlType nativeContainerType, then only types with the
             // specified container type match
-            if (isCurrentBlockPosition && methodDeclaredType.isAssignableFrom(Block.class)) {
+            if (isCurrentBlockPosition && ValueBlock.class.isAssignableFrom(methodDeclaredType)) {
                 continue;
             }
             if (methodDeclaredType.isAssignableFrom(argumentType)) {
@@ -230,24 +230,6 @@ public class ParametricAggregationImplementation
         }
 
         return true;
-    }
-
-    @Override
-    public ParametricImplementation withAlias(String alias)
-    {
-        return new ParametricAggregationImplementation(
-                signature.withName(alias),
-                definitionClass,
-                inputFunction,
-                removeInputFunction,
-                outputFunction,
-                combineFunction,
-                argumentNativeContainerTypes,
-                inputDependencies,
-                removeInputDependencies,
-                combineDependencies,
-                outputDependencies,
-                inputParameterKinds);
     }
 
     public static final class Parser
@@ -271,7 +253,6 @@ public class ParametricAggregationImplementation
 
         private Parser(
                 Class<?> aggregationDefinition,
-                String name,
                 List<AccumulatorStateDetails<?>> stateDetails,
                 Method inputFunction,
                 Optional<Method> removeInputFunction,
@@ -280,7 +261,6 @@ public class ParametricAggregationImplementation
         {
             // rewrite data passed directly
             this.aggregationDefinition = aggregationDefinition;
-            signatureBuilder.name(name);
 
             // parse declared literal and type parameters
             // it is required to declare all literal and type parameters in input function
@@ -343,14 +323,13 @@ public class ParametricAggregationImplementation
 
         public static ParametricAggregationImplementation parseImplementation(
                 Class<?> aggregationDefinition,
-                String name,
                 List<AccumulatorStateDetails<?>> stateDetails,
                 Method inputFunction,
                 Optional<Method> removeInputFunction,
                 Method outputFunction,
                 Optional<Method> combineFunction)
         {
-            return new Parser(aggregationDefinition, name, stateDetails, inputFunction, removeInputFunction, outputFunction, combineFunction).get();
+            return new Parser(aggregationDefinition, stateDetails, inputFunction, removeInputFunction, outputFunction, combineFunction).get();
         }
 
         private static List<AggregationParameterKind> parseInputParameterKinds(Method method)

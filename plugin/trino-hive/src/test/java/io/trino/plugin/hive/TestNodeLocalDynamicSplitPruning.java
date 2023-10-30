@@ -31,7 +31,7 @@ import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.TestingConnectorSession;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -46,7 +46,6 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
-import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProviders;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -135,7 +134,6 @@ public class TestNodeLocalDynamicSplitPruning
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                false,
                 Optional.empty(),
                 SplitWeight.standard());
 
@@ -157,11 +155,8 @@ public class TestNodeLocalDynamicSplitPruning
 
         HivePageSourceProvider provider = new HivePageSourceProvider(
                 TESTING_TYPE_MANAGER,
-                HDFS_ENVIRONMENT,
                 hiveConfig,
-                getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT, hiveConfig),
-                getDefaultHiveRecordCursorProviders(hiveConfig, HDFS_ENVIRONMENT),
-                new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, hiveConfig));
+                getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT, hiveConfig));
 
         return provider.createPageSource(
                 transaction,
@@ -209,7 +204,6 @@ public class TestNodeLocalDynamicSplitPruning
         return TestingConnectorSession.builder()
                 .setPropertyMetadata(new HiveSessionProperties(
                         config,
-                        new HiveFormatsConfig(),
                         new OrcReaderConfig(),
                         new OrcWriterConfig(),
                         new ParquetReaderConfig(),

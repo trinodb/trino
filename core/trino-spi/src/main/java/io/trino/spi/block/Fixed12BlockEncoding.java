@@ -33,30 +33,23 @@ public class Fixed12BlockEncoding
     @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
-        int positionCount = block.getPositionCount();
+        Fixed12Block fixed12Block = (Fixed12Block) block;
+        int positionCount = fixed12Block.getPositionCount();
         sliceOutput.appendInt(positionCount);
 
-        encodeNullsAsBits(sliceOutput, block);
+        encodeNullsAsBits(sliceOutput, fixed12Block);
 
-        if (!block.mayHaveNull()) {
-            if (block instanceof Fixed12Block valueBlock) {
-                sliceOutput.writeInts(valueBlock.getRawValues(), valueBlock.getPositionOffset() * 3, valueBlock.getPositionCount() * 3);
-            }
-            else if (block instanceof Fixed12BlockBuilder blockBuilder) {
-                sliceOutput.writeInts(blockBuilder.getRawValues(), 0, blockBuilder.getPositionCount() * 3);
-            }
-            else {
-                throw new IllegalArgumentException("Unexpected block type " + block.getClass().getSimpleName());
-            }
+        if (!fixed12Block.mayHaveNull()) {
+            sliceOutput.writeInts(fixed12Block.getRawValues(), fixed12Block.getPositionOffset() * 3, fixed12Block.getPositionCount() * 3);
         }
         else {
             int[] valuesWithoutNull = new int[positionCount * 3];
             int nonNullPositionCount = 0;
             for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = block.getInt(i, 0);
-                valuesWithoutNull[nonNullPositionCount + 1] = block.getInt(i, 4);
-                valuesWithoutNull[nonNullPositionCount + 2] = block.getInt(i, 8);
-                if (!block.isNull(i)) {
+                valuesWithoutNull[nonNullPositionCount] = fixed12Block.getInt(i, 0);
+                valuesWithoutNull[nonNullPositionCount + 1] = fixed12Block.getInt(i, 4);
+                valuesWithoutNull[nonNullPositionCount + 2] = fixed12Block.getInt(i, 8);
+                if (!fixed12Block.isNull(i)) {
                     nonNullPositionCount += 3;
                 }
             }
@@ -67,7 +60,7 @@ public class Fixed12BlockEncoding
     }
 
     @Override
-    public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
+    public Fixed12Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
         int positionCount = sliceInput.readInt();
 

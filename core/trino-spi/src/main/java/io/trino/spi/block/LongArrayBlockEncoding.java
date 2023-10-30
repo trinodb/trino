@@ -35,28 +35,21 @@ public class LongArrayBlockEncoding
     @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
-        int positionCount = block.getPositionCount();
+        LongArrayBlock longArrayBlock = (LongArrayBlock) block;
+        int positionCount = longArrayBlock.getPositionCount();
         sliceOutput.appendInt(positionCount);
 
-        encodeNullsAsBits(sliceOutput, block);
+        encodeNullsAsBits(sliceOutput, longArrayBlock);
 
-        if (!block.mayHaveNull()) {
-            if (block instanceof LongArrayBlock valueBlock) {
-                sliceOutput.writeLongs(valueBlock.getRawValues(), valueBlock.getRawValuesOffset(), valueBlock.getPositionCount());
-            }
-            else if (block instanceof LongArrayBlockBuilder blockBuilder) {
-                sliceOutput.writeLongs(blockBuilder.getRawValues(), 0, blockBuilder.getPositionCount());
-            }
-            else {
-                throw new IllegalArgumentException("Unexpected block type " + block.getClass().getSimpleName());
-            }
+        if (!longArrayBlock.mayHaveNull()) {
+            sliceOutput.writeLongs(longArrayBlock.getRawValues(), longArrayBlock.getRawValuesOffset(), longArrayBlock.getPositionCount());
         }
         else {
             long[] valuesWithoutNull = new long[positionCount];
             int nonNullPositionCount = 0;
             for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = block.getLong(i, 0);
-                if (!block.isNull(i)) {
+                valuesWithoutNull[nonNullPositionCount] = longArrayBlock.getLong(i);
+                if (!longArrayBlock.isNull(i)) {
                     nonNullPositionCount++;
                 }
             }
@@ -67,7 +60,7 @@ public class LongArrayBlockEncoding
     }
 
     @Override
-    public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
+    public LongArrayBlock readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
         int positionCount = sliceInput.readInt();
 

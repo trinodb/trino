@@ -90,8 +90,6 @@ public class TestCassandraConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_DELETE,
-                    SUPPORTS_TRUNCATE -> true;
             case SUPPORTS_ADD_COLUMN,
                     SUPPORTS_ARRAY,
                     SUPPORTS_COMMENT_ON_COLUMN,
@@ -173,7 +171,7 @@ public class TestCassandraConnectorTest
         return "tmp_trino_" + System.nanoTime();
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowColumns()
     {

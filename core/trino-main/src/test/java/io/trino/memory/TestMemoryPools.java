@@ -37,8 +37,9 @@ import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.PageConsumerOperator.PageConsumerOutputFactory;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
 import java.util.Map;
@@ -57,11 +58,12 @@ import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
 public class TestMemoryPools
 {
     private static final DataSize TEN_MEGABYTES = DataSize.of(10, MEGABYTE);
@@ -81,12 +83,9 @@ public class TestMemoryPools
         Session session = testSessionBuilder()
                 .setCatalog("tpch")
                 .setSchema("tiny")
-                .setSystemProperty("task_default_concurrency", "1")
                 .build();
 
-        localQueryRunner = LocalQueryRunner.builder(session)
-                .withInitialTransaction()
-                .build();
+        localQueryRunner = LocalQueryRunner.create(session);
 
         // add tpch
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
@@ -137,24 +136,13 @@ public class TestMemoryPools
         return createOperator.get();
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         if (localQueryRunner != null) {
             localQueryRunner.close();
             localQueryRunner = null;
         }
-    }
-
-    @Test
-    public void testBlockingOnUserMemory()
-    {
-        setUpCountStarFromOrdersWithJoin();
-        assertTrue(userPool.tryReserve(fakeTaskId, "test", TEN_MEGABYTES.toBytes()));
-        runDriversUntilBlocked(waitingForUserMemory());
-        assertTrue(userPool.getFreeBytes() <= 0, format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
-        userPool.free(fakeTaskId, "test", TEN_MEGABYTES.toBytes());
-        assertDriversProgress(waitingForUserMemory());
     }
 
     @Test

@@ -13,14 +13,16 @@
  */
 package io.trino.spi.type;
 
-import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.LongArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BlockIndex;
+import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
 import io.trino.spi.function.FlatVariableWidth;
@@ -56,7 +58,7 @@ final class ShortTimestampWithTimeZoneType
 
     public ShortTimestampWithTimeZoneType(int precision)
     {
-        super(precision, long.class);
+        super(precision, long.class, LongArrayBlock.class);
 
         if (precision < 0 || precision > MAX_SHORT_PRECISION) {
             throw new IllegalArgumentException(format("Precision must be in the range [0, %s]", MAX_SHORT_PRECISION));
@@ -70,42 +72,36 @@ final class ShortTimestampWithTimeZoneType
     }
 
     @Override
-    public final int getFixedSize()
+    public int getFixedSize()
     {
         return Long.BYTES;
     }
 
     @Override
-    public final long getLong(Block block, int position)
+    public long getLong(Block block, int position)
     {
-        return block.getLong(position, 0);
+        return read((LongArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
     }
 
     @Override
-    public final Slice getSlice(Block block, int position)
-    {
-        return block.getSlice(position, 0, getFixedSize());
-    }
-
-    @Override
-    public final void writeLong(BlockBuilder blockBuilder, long value)
+    public void writeLong(BlockBuilder blockBuilder, long value)
     {
         ((LongArrayBlockBuilder) blockBuilder).writeLong(value);
     }
 
     @Override
-    public final void appendTo(Block block, int position, BlockBuilder blockBuilder)
+    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
         if (block.isNull(position)) {
             blockBuilder.appendNull();
         }
         else {
-            writeLong(blockBuilder, block.getLong(position, 0));
+            writeLong(blockBuilder, getLong(block, position));
         }
     }
 
     @Override
-    public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
         int maxBlockSizeInBytes;
         if (blockBuilderStatus == null) {
@@ -120,13 +116,13 @@ final class ShortTimestampWithTimeZoneType
     }
 
     @Override
-    public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return createBlockBuilder(blockBuilderStatus, expectedEntries, Long.BYTES);
     }
 
     @Override
-    public final BlockBuilder createFixedSizeBlockBuilder(int positionCount)
+    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
         return new LongArrayBlockBuilder(null, positionCount);
     }
@@ -138,7 +134,7 @@ final class ShortTimestampWithTimeZoneType
             return null;
         }
 
-        long value = block.getLong(position, 0);
+        long value = getLong(block, position);
         return SqlTimestampWithTimeZone.newInstance(getPrecision(), unpackMillisUtc(value), 0, unpackZoneKey(value));
     }
 
@@ -146,6 +142,12 @@ final class ShortTimestampWithTimeZoneType
     public int getFlatFixedSize()
     {
         return Long.BYTES;
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static long read(@BlockPosition LongArrayBlock block, @BlockIndex int position)
+    {
+        return block.getLong(position);
     }
 
     @ScalarOperator(READ_VALUE)

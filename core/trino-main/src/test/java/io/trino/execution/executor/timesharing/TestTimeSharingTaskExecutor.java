@@ -26,7 +26,9 @@ import io.trino.execution.TaskId;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.TaskHandle;
 import io.trino.spi.QueryId;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.Arrays;
 import java.util.List;
@@ -53,7 +55,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestTimeSharingTaskExecutor
 {
-    @Test(invocationCount = 100)
+    @RepeatedTest(100)
     public void testTasksComplete()
             throws Exception
     {
@@ -154,7 +156,7 @@ public class TestTimeSharingTaskExecutor
         }
     }
 
-    @Test(invocationCount = 100)
+    @RepeatedTest(100)
     public void testQuantaFairness()
     {
         TestingTicker ticker = new TestingTicker();
@@ -188,7 +190,7 @@ public class TestTimeSharingTaskExecutor
         }
     }
 
-    @Test(invocationCount = 100)
+    @RepeatedTest(100)
     public void testLevelMovement()
     {
         TestingTicker ticker = new TestingTicker();
@@ -226,7 +228,7 @@ public class TestTimeSharingTaskExecutor
         }
     }
 
-    @Test(invocationCount = 100)
+    @RepeatedTest(100)
     public void testLevelMultipliers()
             throws Exception
     {
@@ -378,7 +380,8 @@ public class TestTimeSharingTaskExecutor
         }
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testMinMaxDriversPerTask()
     {
         int maxDriversPerTask = 2;
@@ -419,7 +422,8 @@ public class TestTimeSharingTaskExecutor
         }
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testUserSpecifiedMaxDriversPerTask()
     {
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);

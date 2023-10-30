@@ -190,6 +190,8 @@ public class TestMongoTypeMapping
                 .addRoundTrip("NumberDecimal(\"2\")", "CAST('2' AS decimal(1, 0))")
                 .addRoundTrip("NumberDecimal(\"2.3\")", "CAST('2.3' AS decimal(2, 1))")
                 .addRoundTrip("NumberDecimal(\"-2.3\")", "CAST('-2.3' AS decimal(2, 1))")
+                .addRoundTrip("NumberDecimal(\"0.03\")", "CAST('0.03' AS decimal(2, 2))")
+                .addRoundTrip("NumberDecimal(\"-0.03\")", "CAST('-0.03' AS decimal(2, 2))")
                 .addRoundTrip("NumberDecimal(\"1234567890123456789012345678901234\")", "CAST('1234567890123456789012345678901234' AS decimal(34, 0))") // 34 is the max precision in Decimal128
                 .addRoundTrip("NumberDecimal(\"1234567890123456.789012345678901234\")", "CAST('1234567890123456.789012345678901234' AS decimal(34, 18))")
                 .execute(getQueryRunner(), mongoCreateAndInsert(getSession(), "tpch", "test_decimal"));

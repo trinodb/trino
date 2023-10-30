@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import org.apache.thrift.transport.TTransport;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 

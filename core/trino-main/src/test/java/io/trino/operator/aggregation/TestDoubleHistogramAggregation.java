@@ -23,7 +23,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.AggregationNode.Step;
-import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -51,9 +50,7 @@ public class TestDoubleHistogramAggregation
 
     public TestDoubleHistogramAggregation()
     {
-        function = new TestingFunctionResolution().getAggregateFunction(
-                QualifiedName.of("numeric_histogram"),
-                fromTypes(BIGINT, DOUBLE, DOUBLE));
+        function = new TestingFunctionResolution().getAggregateFunction("numeric_histogram", fromTypes(BIGINT, DOUBLE, DOUBLE));
         intermediateType = function.getIntermediateType();
         finalType = function.getFinalType();
         input = makeInput(10);

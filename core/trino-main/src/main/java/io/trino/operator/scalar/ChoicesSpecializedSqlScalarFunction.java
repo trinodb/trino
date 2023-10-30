@@ -208,6 +208,10 @@ public final class ChoicesSpecializedSqlScalarFunction
                     case BLOCK_POSITION:
                         score += 1000;
                         break;
+                    case VALUE_BLOCK_POSITION_NOT_NULL:
+                    case VALUE_BLOCK_POSITION:
+                        score += 2000;
+                        break;
                     case IN_OUT:
                         score += 10_000;
                         break;

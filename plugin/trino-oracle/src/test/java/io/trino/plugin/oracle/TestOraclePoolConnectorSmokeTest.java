@@ -16,14 +16,19 @@ package io.trino.plugin.oracle;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.Closeables;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
+import io.trino.testng.services.ManageTestResources;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestOraclePoolConnectorSmokeTest
         extends BaseOracleConnectorSmokeTest
 {
+    @ManageTestResources.Suppress(because = "Not a TestNG test class")
     private TestingOracleServer oracleServer;
 
     @Override
@@ -43,7 +48,7 @@ public class TestOraclePoolConnectorSmokeTest
                 REQUIRED_TPCH_TABLES);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public final void destroy()
             throws Exception
     {

@@ -15,11 +15,17 @@ package io.trino.cli.lexer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.grammar.sql.SqlBaseBaseVisitor;
 import io.trino.grammar.sql.SqlBaseLexer;
 import io.trino.grammar.sql.SqlBaseParser;
+import io.trino.grammar.sql.SqlBaseParser.FunctionSpecificationContext;
 import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.TokenSource;
+import org.antlr.v4.runtime.tree.ParseTree;
+import org.antlr.v4.runtime.tree.RuleNode;
 
 import java.util.List;
 import java.util.Objects;
@@ -39,25 +45,50 @@ public class StatementSplitter
 
     public StatementSplitter(String sql, Set<String> delimiters)
     {
-        TokenSource tokens = getLexer(sql, delimiters);
+        DelimiterLexer lexer = getLexer(sql, delimiters);
+        CommonTokenStream tokenStream = new CommonTokenStream(lexer);
+        tokenStream.fill();
+
+        SqlBaseParser parser = new SqlBaseParser(tokenStream);
+        parser.removeErrorListeners();
+
         ImmutableList.Builder<Statement> list = ImmutableList.builder();
         StringBuilder sb = new StringBuilder();
-        while (true) {
-            Token token = tokens.nextToken();
-            if (token.getType() == Token.EOF) {
-                break;
-            }
-            if (token.getType() == SqlBaseParser.DELIMITER) {
-                String statement = sb.toString().trim();
-                if (!statement.isEmpty()) {
-                    list.add(new Statement(statement, token.getText()));
+        int index = 0;
+
+        while (index < tokenStream.size()) {
+            ParserRuleContext context = parser.statement();
+
+            if (containsFunction(context)) {
+                Token stop = context.getStop();
+                if ((stop != null) && (stop.getTokenIndex() >= index)) {
+                    int endIndex = stop.getTokenIndex();
+                    while (index <= endIndex) {
+                        Token token = tokenStream.get(index);
+                        index++;
+                        sb.append(token.getText());
+                    }
                 }
-                sb = new StringBuilder();
             }
-            else {
+
+            while (index < tokenStream.size()) {
+                Token token = tokenStream.get(index);
+                index++;
+                if (token.getType() == Token.EOF) {
+                    break;
+                }
+                if (lexer.isDelimiter(token)) {
+                    String statement = sb.toString().trim();
+                    if (!statement.isEmpty()) {
+                        list.add(new Statement(statement, token.getText()));
+                    }
+                    sb = new StringBuilder();
+                    break;
+                }
                 sb.append(token.getText());
             }
         }
+
         this.completeStatements = list.build();
         this.partialStatement = sb.toString().trim();
     }
@@ -105,10 +136,40 @@ public class StatementSplitter
         }
     }
 
-    public static TokenSource getLexer(String sql, Set<String> terminators)
+    public static DelimiterLexer getLexer(String sql, Set<String> terminators)
     {
         requireNonNull(sql, "sql is null");
         return new DelimiterLexer(CharStreams.fromString(sql), terminators);
+    }
+
+    private static boolean containsFunction(ParseTree tree)
+    {
+        return new SqlBaseBaseVisitor<Boolean>()
+        {
+            @Override
+            protected Boolean defaultResult()
+            {
+                return false;
+            }
+
+            @Override
+            protected Boolean aggregateResult(Boolean aggregate, Boolean nextResult)
+            {
+                return aggregate || nextResult;
+            }
+
+            @Override
+            protected boolean shouldVisitNextChild(RuleNode node, Boolean currentResult)
+            {
+                return !currentResult;
+            }
+
+            @Override
+            public Boolean visitFunctionSpecification(FunctionSpecificationContext context)
+            {
+                return true;
+            }
+        }.visit(tree);
     }
 
     public static class Statement

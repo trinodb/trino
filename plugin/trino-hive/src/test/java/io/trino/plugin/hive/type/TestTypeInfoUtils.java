@@ -15,7 +15,7 @@ package io.trino.plugin.hive.type;
 
 import org.apache.hadoop.hive.serde2.typeinfo.TimestampLocalTZTypeInfo;
 import org.assertj.core.api.ObjectAssert;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 

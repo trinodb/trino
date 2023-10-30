@@ -20,6 +20,7 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.Type;
 import io.trino.sql.relational.ConstantExpression;
 import io.trino.sql.relational.RowExpression;
@@ -53,11 +54,11 @@ public class DereferenceCodeGenerator
 
         BytecodeBlock block = new BytecodeBlock().comment("DEREFERENCE").setDescription("DEREFERENCE");
         Variable wasNull = generator.wasNull();
-        Variable rowBlock = generator.getScope().createTempVariable(Block.class);
+        Variable row = generator.getScope().createTempVariable(SqlRow.class);
 
         // clear the wasNull flag before evaluating the row value
         block.putVariable(wasNull, false);
-        block.append(generator.generate(base)).putVariable(rowBlock);
+        block.append(generator.generate(base)).putVariable(row);
 
         IfStatement ifRowBlockIsNull = new IfStatement("if row block is null...")
                 .condition(wasNull);
@@ -73,21 +74,17 @@ public class DereferenceCodeGenerator
         block.append(ifRowBlockIsNull);
 
         IfStatement ifFieldIsNull = new IfStatement("if row field is null...");
-        ifFieldIsNull.condition()
-                .comment("call rowBlock.isNull(index)")
-                .append(rowBlock)
-                .push(index)
-                .invokeInterface(Block.class, "isNull", boolean.class, int.class);
+        ifFieldIsNull.condition(row.invoke("getRawFieldBlock", Block.class, constantInt(index)).invoke("isNull", boolean.class, row.invoke("getRawIndex", int.class)));
 
         ifFieldIsNull.ifTrue()
                 .comment("if the field is null, push null to stack")
                 .putVariable(wasNull, true)
                 .pushJavaDefault(javaType);
 
-        BytecodeExpression value = constantType(callSiteBinder, returnType).getValue(rowBlock, constantInt(index));
+        BytecodeExpression value = constantType(callSiteBinder, returnType).getValue(row.invoke("getRawFieldBlock", Block.class, constantInt(index)), row.invoke("getRawIndex", int.class));
 
         ifFieldIsNull.ifFalse()
-                .comment("otherwise call type.getTYPE(rowBlock, index)")
+                .comment("otherwise call type.getTYPE(row, index)")
                 .append(value)
                 .putVariable(wasNull, false);
 

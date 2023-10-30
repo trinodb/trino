@@ -15,15 +15,20 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.UnnestNode;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.StringLiteral;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.UnnestMapping.unnestMapping;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
@@ -225,7 +230,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                         project(
                                 aggregation(
                                         singleGroupingSet("unique", "corr"),
-                                        ImmutableMap.of(Optional.of("arbitrary"), functionCall("arbitrary", ImmutableList.of("sum"))),
+                                        ImmutableMap.of(Optional.of("any_value"), functionCall("any_value", ImmutableList.of("sum"))),
                                         ImmutableList.of(),
                                         Optional.empty(),
                                         SINGLE,
@@ -286,21 +291,28 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
     public void testPreprojectUnnestSymbol()
     {
         tester().assertThat(new DecorrelateLeftUnnestWithGlobalAggregation())
-                .on(p -> p.correlatedJoin(
-                        ImmutableList.of(p.symbol("corr")),
-                        p.values(p.symbol("corr")),
-                        p.aggregation(builder -> builder
-                                .globalGrouping()
-                                .addAggregation(p.symbol("max"), PlanBuilder.expression("max(unnested_char)"), ImmutableList.of(BIGINT))
-                                .source(p.unnest(
-                                        ImmutableList.of(),
-                                        ImmutableList.of(new UnnestNode.Mapping(p.symbol("char_array"), ImmutableList.of(p.symbol("unnested_char")))),
-                                        Optional.empty(),
-                                        LEFT,
-                                        Optional.empty(),
-                                        p.project(
-                                                Assignments.of(p.symbol("char_array"), PlanBuilder.expression("regexp_extract_all(corr, '.')")),
-                                                p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of()))))))))
+                .on(p -> {
+                    Symbol corr = p.symbol("corr", VARCHAR);
+                    FunctionCall regexpExtractAll = new FunctionCall(
+                            tester().getMetadata().resolveBuiltinFunction("regexp_extract_all", fromTypes(VARCHAR, VARCHAR)).toQualifiedName(),
+                            ImmutableList.of(corr.toSymbolReference(), new StringLiteral(".")));
+
+                    return p.correlatedJoin(
+                            ImmutableList.of(corr),
+                            p.values(corr),
+                            p.aggregation(builder -> builder
+                                    .globalGrouping()
+                                    .addAggregation(p.symbol("max"), PlanBuilder.expression("max(unnested_char)"), ImmutableList.of(BIGINT))
+                                    .source(p.unnest(
+                                            ImmutableList.of(),
+                                            ImmutableList.of(new UnnestNode.Mapping(p.symbol("char_array"), ImmutableList.of(p.symbol("unnested_char")))),
+                                            Optional.empty(),
+                                            LEFT,
+                                            Optional.empty(),
+                                            p.project(
+                                                    Assignments.of(p.symbol("char_array"), regexpExtractAll),
+                                                    p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of())))))));
+                })
                 .matches(
                         project(
                                 aggregation(

@@ -23,6 +23,7 @@ import io.trino.json.ir.IrJsonPath;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.AbstractVariableWidthType;
@@ -51,20 +52,16 @@ public class JsonPath2016Type
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Object getObject(Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
         }
 
-        Slice bytes = block.getSlice(position, 0, block.getSliceLength(position));
-        return jsonPathCodec.fromJson(bytes.toStringUtf8());
+        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        String json = valueBlock.getSlice(valuePosition).toStringUtf8();
+        return jsonPathCodec.fromJson(json);
     }
 
     @Override

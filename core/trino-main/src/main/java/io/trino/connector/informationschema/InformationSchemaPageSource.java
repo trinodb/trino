@@ -73,6 +73,7 @@ public class InformationSchemaPageSource
 
     private final String catalogName;
     private final InformationSchemaTable table;
+    private final Set<String> requiredColumns;
     private final Supplier<Iterator<QualifiedTablePrefix>> prefixIterator;
     private final OptionalLong limit;
 
@@ -98,6 +99,11 @@ public class InformationSchemaPageSource
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         requireNonNull(tableHandle, "tableHandle is null");
         requireNonNull(columns, "columns is null");
+
+        requiredColumns = columns.stream()
+                .map(columnHandle -> (InformationSchemaColumnHandle) columnHandle)
+                .map(InformationSchemaColumnHandle::getColumnName)
+                .collect(toImmutableSet());
 
         catalogName = tableHandle.getCatalogName();
         table = tableHandle.getTable();
@@ -271,12 +277,20 @@ public class InformationSchemaPageSource
     private void addTablesRecords(QualifiedTablePrefix prefix)
     {
         Set<SchemaTableName> tables = listTables(session, metadata, accessControl, prefix);
-        Set<SchemaTableName> views = listViews(session, metadata, accessControl, prefix);
+        boolean needsTableType = requiredColumns.contains("table_type");
+        Set<SchemaTableName> views = Set.of();
+        if (needsTableType) {
+            // TODO introduce a dedicated method for getting relations with their type from the connector, instead of calling (potentially much more expensive) getViews
+            views = listViews(session, metadata, accessControl, prefix);
+        }
         // TODO (https://github.com/trinodb/trino/issues/8207) define a type for materialized views
 
         for (SchemaTableName name : union(tables, views)) {
-            // if table and view names overlap, the view wins
-            String type = views.contains(name) ? "VIEW" : "BASE TABLE";
+            String type = null;
+            if (needsTableType) {
+                // if table and view names overlap, the view wins
+                type = views.contains(name) ? "VIEW" : "BASE TABLE";
+            }
             addRecord(
                     prefix.getCatalogName(),
                     name.getSchemaName(),

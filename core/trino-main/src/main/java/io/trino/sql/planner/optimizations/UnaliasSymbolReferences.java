@@ -82,6 +82,7 @@ import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
 import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TableUpdateNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
@@ -687,6 +688,19 @@ public class UnaliasSymbolReferences
 
             return new PlanAndMappings(
                     new TableDeleteNode(node.getId(), node.getTarget(), newOutput),
+                    mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitTableUpdate(TableUpdateNode node, UnaliasContext context)
+        {
+            Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            Symbol newOutput = mapper.map(node.getOutput());
+
+            return new PlanAndMappings(
+                    new TableUpdateNode(node.getId(), node.getTarget(), newOutput),
                     mapping);
         }
 

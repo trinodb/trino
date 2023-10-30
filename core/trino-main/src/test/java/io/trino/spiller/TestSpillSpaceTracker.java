@@ -15,28 +15,21 @@ package io.trino.spiller;
 
 import io.airlift.units.DataSize;
 import io.trino.ExceededSpillLimitException;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
 public class TestSpillSpaceTracker
 {
     private static final DataSize MAX_DATA_SIZE = DataSize.of(10, MEGABYTE);
-    private SpillSpaceTracker spillSpaceTracker;
-
-    @BeforeMethod
-    public void setUp()
-    {
-        spillSpaceTracker = new SpillSpaceTracker(MAX_DATA_SIZE);
-    }
 
     @Test
     public void testSpillSpaceTracker()
     {
+        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(MAX_DATA_SIZE);
+
         assertEquals(spillSpaceTracker.getCurrentBytes(), 0);
         assertEquals(spillSpaceTracker.getMaxBytes(), MAX_DATA_SIZE.toBytes());
         long reservedBytes = DataSize.of(5, MEGABYTE).toBytes();
@@ -61,6 +54,8 @@ public class TestSpillSpaceTracker
     @Test
     public void testSpillOutOfSpace()
     {
+        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(MAX_DATA_SIZE);
+
         assertEquals(spillSpaceTracker.getCurrentBytes(), 0);
         assertThatThrownBy(() -> spillSpaceTracker.reserve(MAX_DATA_SIZE.toBytes() + 1))
                 .isInstanceOf(ExceededSpillLimitException.class)
@@ -70,6 +65,8 @@ public class TestSpillSpaceTracker
     @Test
     public void testFreeToMuch()
     {
+        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(MAX_DATA_SIZE);
+
         assertEquals(spillSpaceTracker.getCurrentBytes(), 0);
         spillSpaceTracker.reserve(1000);
         assertThatThrownBy(() -> spillSpaceTracker.free(1001))

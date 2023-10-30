@@ -16,8 +16,8 @@ package io.trino.operator.aggregation.minmaxbyn;
 import com.google.common.base.Throwables;
 import io.airlift.slice.SizeOf;
 import io.trino.operator.VariableWidthData;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import jakarta.annotation.Nullable;
@@ -227,27 +227,20 @@ public final class TypedKeyValueHeap
         }
     }
 
-    public void addAll(Block keyBlock, Block valueBlock)
+    public void add(ValueBlock keyBlock, int keyPosition, ValueBlock valueBlock, int valuePosition)
     {
-        for (int i = 0; i < keyBlock.getPositionCount(); i++) {
-            add(keyBlock, valueBlock, i);
-        }
-    }
-
-    public void add(Block keyBlock, Block valueBlock, int position)
-    {
-        checkArgument(!keyBlock.isNull(position));
+        checkArgument(!keyBlock.isNull(keyPosition));
         if (positionCount == capacity) {
             // is it possible the value is within the top N values?
-            if (!shouldConsiderValue(keyBlock, position)) {
+            if (!shouldConsiderValue(keyBlock, keyPosition)) {
                 return;
             }
             clear(0);
-            set(0, keyBlock, valueBlock, position);
+            set(0, keyBlock, keyPosition, valueBlock, valuePosition);
             siftDown();
         }
         else {
-            set(positionCount, keyBlock, valueBlock, position);
+            set(positionCount, keyBlock, keyPosition, valueBlock, valuePosition);
             positionCount++;
             siftUp();
         }
@@ -274,7 +267,7 @@ public final class TypedKeyValueHeap
                 });
     }
 
-    private void set(int index, Block keyBlock, Block valueBlock, int position)
+    private void set(int index, ValueBlock keyBlock, int keyPosition, ValueBlock valueBlock, int valuePosition)
     {
         int recordOffset = getRecordOffset(index);
 
@@ -283,28 +276,28 @@ public final class TypedKeyValueHeap
         int keyVariableWidthLength = 0;
         if (variableWidthData != null) {
             if (keyVariableWidth) {
-                keyVariableWidthLength = keyType.getFlatVariableWidthSize(keyBlock, position);
+                keyVariableWidthLength = keyType.getFlatVariableWidthSize(keyBlock, keyPosition);
             }
-            int valueVariableWidthLength = valueType.getFlatVariableWidthSize(valueBlock, position);
+            int valueVariableWidthLength = valueType.getFlatVariableWidthSize(valueBlock, valuePosition);
             variableWidthChunk = variableWidthData.allocate(fixedChunk, recordOffset, keyVariableWidthLength + valueVariableWidthLength);
             variableWidthChunkOffset = getChunkOffset(fixedChunk, recordOffset);
         }
 
         try {
-            keyWriteFlat.invokeExact(keyBlock, position, fixedChunk, recordOffset + recordKeyOffset, variableWidthChunk, variableWidthChunkOffset);
+            keyWriteFlat.invokeExact(keyBlock, keyPosition, fixedChunk, recordOffset + recordKeyOffset, variableWidthChunk, variableWidthChunkOffset);
         }
         catch (Throwable throwable) {
             Throwables.throwIfUnchecked(throwable);
             throw new RuntimeException(throwable);
         }
-        if (valueBlock.isNull(position)) {
+        if (valueBlock.isNull(valuePosition)) {
             fixedChunk[recordOffset + recordKeyOffset - 1] = 1;
         }
         else {
             try {
                 valueWriteFlat.invokeExact(
                         valueBlock,
-                        position,
+                        valuePosition,
                         fixedChunk,
                         recordOffset + recordValueOffset,
                         variableWidthChunk,
@@ -394,7 +387,7 @@ public final class TypedKeyValueHeap
         }
     }
 
-    private boolean shouldConsiderValue(Block right, int rightPosition)
+    private boolean shouldConsiderValue(ValueBlock right, int rightPosition)
     {
         byte[] leftFixedRecordChunk = fixedChunk;
         int leftRecordOffset = getRecordOffset(0);

@@ -73,6 +73,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
+import io.trino.spi.type.TypeSignature;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -81,6 +82,8 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingSplit;
 import io.trino.type.TypeDeserializer;
+import io.trino.type.TypeSignatureDeserializer;
+import io.trino.type.TypeSignatureKeyDeserializer;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
@@ -94,7 +97,8 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -164,28 +168,32 @@ public class TestHttpRemoteTask
 
     private static final boolean TRACE_HTTP = false;
 
-    @Test(timeOut = 30000)
+    @Test
+    @Timeout(30)
     public void testRemoteTaskMismatch()
             throws Exception
     {
         runTest(FailureScenario.TASK_MISMATCH);
     }
 
-    @Test(timeOut = 30000)
+    @Test
+    @Timeout(30)
     public void testRejectedExecutionWhenVersionIsHigh()
             throws Exception
     {
         runTest(FailureScenario.TASK_MISMATCH_WHEN_VERSION_IS_HIGH);
     }
 
-    @Test(timeOut = 30000)
+    @Test
+    @Timeout(30)
     public void testRejectedExecution()
             throws Exception
     {
         runTest(FailureScenario.REJECTED_EXECUTION);
     }
 
-    @Test(timeOut = 30000)
+    @Test
+    @Timeout(30)
     public void testRegular()
             throws Exception
     {
@@ -213,7 +221,8 @@ public class TestHttpRemoteTask
         httpRemoteTaskFactory.stop();
     }
 
-    @Test(timeOut = 30000)
+    @Test
+    @Timeout(30)
     public void testDynamicFilters()
             throws Exception
     {
@@ -293,7 +302,8 @@ public class TestHttpRemoteTask
         httpRemoteTaskFactory.stop();
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testOutboundDynamicFilters()
             throws Exception
     {
@@ -387,7 +397,8 @@ public class TestHttpRemoteTask
         httpRemoteTaskFactory.stop();
     }
 
-    @Test(timeOut = 300000)
+    @Test
+    @Timeout(300)
     public void testAdaptiveRemoteTaskRequestSize()
             throws Exception
     {
@@ -550,6 +561,8 @@ public class TestHttpRemoteTask
                         binder.bind(JsonMapper.class).in(SINGLETON);
                         binder.bind(Metadata.class).toInstance(createTestMetadataManager());
                         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
+                        jsonBinder(binder).addDeserializerBinding(TypeSignature.class).to(TypeSignatureDeserializer.class);
+                        jsonBinder(binder).addKeyDeserializerBinding(TypeSignature.class).to(TypeSignatureKeyDeserializer.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
                         jsonCodecBinder(binder).bindJsonCodec(VersionedDynamicFilterDomains.class);
                         jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);

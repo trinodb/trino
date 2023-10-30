@@ -15,8 +15,8 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -30,7 +30,7 @@ public class TestUnboundedVarcharType
         super(VARCHAR, String.class, createTestBlock());
     }
 
-    private static Block createTestBlock()
+    private static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 15);
         VARCHAR.writeString(blockBuilder, "apple");
@@ -44,7 +44,7 @@ public class TestUnboundedVarcharType
         VARCHAR.writeString(blockBuilder, "cherry");
         VARCHAR.writeString(blockBuilder, "cherry");
         VARCHAR.writeString(blockBuilder, "date");
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override

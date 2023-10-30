@@ -75,7 +75,7 @@ public class TestValidateScaledWritersUsage
         queryRunner = LocalQueryRunner.create(TEST_SESSION);
         queryRunner.createCatalog(catalog.getCatalogName(), createConnectorFactory(catalog.getCatalogName()), ImmutableMap.of());
         plannerContext = queryRunner.getPlannerContext();
-        planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), plannerContext.getMetadata(), TEST_SESSION);
+        planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), plannerContext, TEST_SESSION);
         TableHandle nationTableHandle = new TableHandle(
                 catalog,
                 new TpchTableHandle("sf1", "nation", 1.0),
@@ -119,7 +119,7 @@ public class TestValidateScaledWritersUsage
         PlanNode root = planBuilder.output(
                 outputBuilder -> outputBuilder
                         .source(planBuilder.tableWithExchangeCreate(
-                                planBuilder.createTarget(catalog, schemaTableName, true, WriterScalingOptions.ENABLED),
+                                planBuilder.createTarget(catalog, schemaTableName, true, WriterScalingOptions.ENABLED, false),
                                 tableWriterSource,
                                 symbol)));
         validatePlan(root);
@@ -141,7 +141,7 @@ public class TestValidateScaledWritersUsage
         PlanNode root = planBuilder.output(
                 outputBuilder -> outputBuilder
                         .source(planBuilder.tableWithExchangeCreate(
-                                planBuilder.createTarget(catalog, schemaTableName, true, new WriterScalingOptions(true, false)),
+                                planBuilder.createTarget(catalog, schemaTableName, true, new WriterScalingOptions(true, false), false),
                                 tableWriterSource,
                                 symbol)));
         assertThatThrownBy(() -> validatePlan(root))
@@ -165,7 +165,7 @@ public class TestValidateScaledWritersUsage
         PlanNode root = planBuilder.output(
                 outputBuilder -> outputBuilder
                         .source(planBuilder.tableWithExchangeCreate(
-                                planBuilder.createTarget(catalog, schemaTableName, true, new WriterScalingOptions(false, true)),
+                                planBuilder.createTarget(catalog, schemaTableName, true, new WriterScalingOptions(false, true), false),
                                 tableWriterSource,
                                 symbol)));
         assertThatThrownBy(() -> validatePlan(root))
@@ -188,7 +188,7 @@ public class TestValidateScaledWritersUsage
         PlanNode root = planBuilder.output(
                 outputBuilder -> outputBuilder
                         .source(planBuilder.tableWithExchangeCreate(
-                                planBuilder.createTarget(catalog, schemaTableName, false, WriterScalingOptions.ENABLED),
+                                planBuilder.createTarget(catalog, schemaTableName, false, WriterScalingOptions.ENABLED, false),
                                 tableWriterSource,
                                 symbol)));
 
@@ -223,7 +223,7 @@ public class TestValidateScaledWritersUsage
         PlanNode root = planBuilder.output(
                 outputBuilder -> outputBuilder
                         .source(planBuilder.tableWithExchangeCreate(
-                                planBuilder.createTarget(catalog, schemaTableName, false, WriterScalingOptions.ENABLED),
+                                planBuilder.createTarget(catalog, schemaTableName, false, WriterScalingOptions.ENABLED, false),
                                 tableWriterSource,
                                 symbol)));
 

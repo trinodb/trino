@@ -16,6 +16,7 @@ package io.trino.type;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.IntArrayBlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +35,7 @@ public class TestRealType
         super(REAL, Float.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = REAL.createBlockBuilder(null, 30);
         REAL.writeLong(blockBuilder, floatToRawIntBits(11.11F));
@@ -48,7 +49,7 @@ public class TestRealType
         REAL.writeLong(blockBuilder, floatToRawIntBits(33.33F));
         REAL.writeLong(blockBuilder, floatToRawIntBits(33.33F));
         REAL.writeLong(blockBuilder, floatToRawIntBits(44.44F));
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override
@@ -69,12 +70,13 @@ public class TestRealType
         // the following two are the integer values of a float NaN
         REAL.writeInt(blockBuilder, -0x400000);
         REAL.writeInt(blockBuilder, 0x7fc00000);
+        Block block = blockBuilder.build();
 
         BlockPositionHashCode hashCodeOperator = blockTypeOperators.getHashCodeOperator(REAL);
-        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 1));
-        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 2));
-        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 3));
-        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 4));
+        assertEquals(hashCodeOperator.hashCode(block, 0), hashCodeOperator.hashCode(block, 1));
+        assertEquals(hashCodeOperator.hashCode(block, 0), hashCodeOperator.hashCode(block, 2));
+        assertEquals(hashCodeOperator.hashCode(block, 0), hashCodeOperator.hashCode(block, 3));
+        assertEquals(hashCodeOperator.hashCode(block, 0), hashCodeOperator.hashCode(block, 4));
     }
 
     @Test

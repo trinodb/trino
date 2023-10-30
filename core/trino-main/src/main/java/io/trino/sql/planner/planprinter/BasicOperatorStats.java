@@ -15,6 +15,8 @@ package io.trino.sql.planner.planprinter;
 
 import io.trino.spi.metrics.Metrics;
 
+import java.util.List;
+
 import static java.util.Objects.requireNonNull;
 
 class BasicOperatorStats
@@ -72,5 +74,22 @@ class BasicOperatorStats
                 first.sumSquaredInputPositions + second.sumSquaredInputPositions,
                 first.metrics.mergeWith(second.metrics),
                 first.connectorMetrics.mergeWith(second.connectorMetrics));
+    }
+
+    public static BasicOperatorStats merge(List<BasicOperatorStats> operatorStats)
+    {
+        long totalDrivers = 0;
+        long inputPositions = 0;
+        double sumSquaredInputPositions = 0;
+        Metrics.Accumulator metricsAccumulator = Metrics.accumulator();
+        Metrics.Accumulator connectorMetricsAccumulator = Metrics.accumulator();
+        for (BasicOperatorStats stats : operatorStats) {
+            totalDrivers += stats.totalDrivers;
+            inputPositions += stats.inputPositions;
+            sumSquaredInputPositions += stats.sumSquaredInputPositions;
+            metricsAccumulator.add(stats.metrics);
+            connectorMetricsAccumulator.add(stats.connectorMetrics);
+        }
+        return new BasicOperatorStats(totalDrivers, inputPositions, sumSquaredInputPositions, metricsAccumulator.get(), connectorMetricsAccumulator.get());
     }
 }

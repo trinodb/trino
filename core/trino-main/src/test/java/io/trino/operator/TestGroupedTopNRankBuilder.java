@@ -255,13 +255,11 @@ public class TestGroupedTopNRankBuilder
     private GroupByHash createGroupByHash(Type partitionType, UpdateMemory updateMemory, TypeOperators typeOperators)
     {
         return GroupByHash.createGroupByHash(
-                true,
                 ImmutableList.of(partitionType),
                 false,
                 1,
                 false,
                 new JoinCompiler(typeOperators),
-                typeOperators,
                 updateMemory);
     }
 

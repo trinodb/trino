@@ -14,7 +14,6 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 
 import java.util.Collections;
 import java.util.List;
@@ -22,8 +21,10 @@ import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
+import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 
-public interface Block
+public sealed interface Block
+        permits DictionaryBlock, RunLengthEncodedBlock, LazyBlock, ValueBlock
 {
     /**
      * Gets the length of the value at the {@code position}.
@@ -75,69 +76,9 @@ public interface Block
     }
 
     /**
-     * Writes a slice at {@code offset} in the value at {@code position} into the {@code output} slice output.
-     */
-    default void writeSliceTo(int position, int offset, int length, SliceOutput output)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
      * Gets an object in the value at {@code position}.
      */
     default <T> T getObject(int position, Class<T> clazz)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Is the byte sequences at {@code offset} in the value at {@code position} equal
-     * to the byte sequence at {@code otherOffset} in {@code otherSlice}.
-     * This method must be implemented if @{code getSlice} is implemented.
-     */
-    default boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Compares the byte sequences at {@code offset} in the value at {@code position}
-     * to the byte sequence at {@code otherOffset} in {@code otherSlice}.
-     * This method must be implemented if @{code getSlice} is implemented.
-     */
-    default int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Is the byte sequences at {@code offset} in the value at {@code position} equal
-     * to the byte sequence at {@code otherOffset} in the value at {@code otherPosition}
-     * in {@code otherBlock}.
-     * This method must be implemented if @{code getSlice} is implemented.
-     */
-    default boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Calculates the hash code the byte sequences at {@code offset} in the
-     * value at {@code position}.
-     * This method must be implemented if @{code getSlice} is implemented.
-     */
-    default long hash(int position, int offset, int length)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Compares the byte sequences at {@code offset} in the value at {@code position}
-     * to the byte sequence at {@code otherOffset} in the value at {@code otherPosition}
-     * in {@code otherBlock}.
-     * This method must be implemented if @{code getSlice} is implemented.
-     */
-    default int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
@@ -151,7 +92,7 @@ public interface Block
      *
      * @throws IllegalArgumentException if this position is not valid
      */
-    Block getSingleValueBlock(int position);
+    ValueBlock getSingleValueBlock(int position);
 
     /**
      * Returns the number of positions in this block.
@@ -243,7 +184,7 @@ public interface Block
     {
         checkArrayRange(positions, offset, length);
 
-        return new DictionaryBlock(offset, length, this, positions);
+        return DictionaryBlock.createInternal(offset, length, this, positions, randomDictionaryId());
     }
 
     /**
@@ -334,4 +275,14 @@ public interface Block
      * i.e. not on in-progress block builders.
      */
     Block copyWithAppendedNull();
+
+    /**
+     * Returns the underlying value block underlying this block.
+     */
+    ValueBlock getUnderlyingValueBlock();
+
+    /**
+     * Returns the position in the underlying value block corresponding to the specified position in this block.
+     */
+    int getUnderlyingValuePosition(int position);
 }

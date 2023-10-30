@@ -14,6 +14,7 @@
 package io.trino.spi.type;
 
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ValueBlock;
 
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static java.lang.String.format;
@@ -24,9 +25,10 @@ import static java.lang.String.format;
  * @see ShortTimestampType
  * @see LongTimestampType
  */
-public abstract class TimestampType
+public abstract sealed class TimestampType
         extends AbstractType
         implements FixedWidthType
+        permits LongTimestampType, ShortTimestampType
 {
     public static final int MAX_PRECISION = 12;
 
@@ -57,9 +59,9 @@ public abstract class TimestampType
         return TYPES[precision];
     }
 
-    TimestampType(int precision, Class<?> javaType)
+    TimestampType(int precision, Class<?> javaType, Class<? extends ValueBlock> valueBlockType)
     {
-        super(new TypeSignature(StandardTypes.TIMESTAMP, TypeSignatureParameter.numericParameter(precision)), javaType);
+        super(new TypeSignature(StandardTypes.TIMESTAMP, TypeSignatureParameter.numericParameter(precision)), javaType, valueBlockType);
         this.precision = precision;
     }
 

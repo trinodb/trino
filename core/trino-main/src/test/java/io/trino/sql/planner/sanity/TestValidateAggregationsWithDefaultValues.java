@@ -57,7 +57,7 @@ public class TestValidateAggregationsWithDefaultValues
     public void setup()
     {
         plannerContext = getQueryRunner().getPlannerContext();
-        builder = new PlanBuilder(new PlanNodeIdAllocator(), plannerContext.getMetadata(), TEST_SESSION);
+        builder = new PlanBuilder(new PlanNodeIdAllocator(), plannerContext, TEST_SESSION);
         CatalogHandle catalogHandle = getCurrentCatalogHandle();
         TableHandle nationTableHandle = new TableHandle(
                 catalogHandle,

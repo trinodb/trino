@@ -76,7 +76,7 @@ public final class RealType
 
     public float getFloat(Block block, int position)
     {
-        return intBitsToFloat(block.getInt(position, 0));
+        return intBitsToFloat(getInt(block, position));
     }
 
     @Override
@@ -137,6 +137,7 @@ public final class RealType
         INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset, (int) value);
     }
 
+    @SuppressWarnings("FloatingPointEquality")
     @ScalarOperator(EQUAL)
     private static boolean equalOperator(long left, long right)
     {
@@ -163,6 +164,7 @@ public final class RealType
         return XxHash64.hash(floatToIntBits(realValue));
     }
 
+    @SuppressWarnings("FloatingPointEquality")
     @ScalarOperator(IS_DISTINCT_FROM)
     private static boolean distinctFromOperator(long left, @IsNull boolean leftNull, long right, @IsNull boolean rightNull)
     {

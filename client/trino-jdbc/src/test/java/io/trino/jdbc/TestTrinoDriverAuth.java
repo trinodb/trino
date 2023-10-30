@@ -16,12 +16,14 @@ package io.trino.jdbc;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
 import io.airlift.security.pem.PemReader;
-import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.Jwts;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.testing.TestingTrinoServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import javax.crypto.SecretKey;
 
 import java.io.File;
 import java.net.URL;
@@ -39,8 +41,6 @@ import java.util.Properties;
 
 import static com.google.common.io.Files.asCharSource;
 import static com.google.common.io.Resources.getResource;
-import static io.jsonwebtoken.JwsHeader.KEY_ID;
-import static io.jsonwebtoken.SignatureAlgorithm.HS512;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static java.lang.String.format;
@@ -101,7 +101,7 @@ public class TestTrinoDriverAuth
             throws Exception
     {
         String accessToken = newJwtBuilder()
-                .setSubject("test")
+                .subject("test")
                 .signWith(defaultKey)
                 .compact();
 
@@ -120,8 +120,9 @@ public class TestTrinoDriverAuth
             throws Exception
     {
         String accessToken = newJwtBuilder()
-                .setSubject("test")
-                .setHeaderParam(KEY_ID, "222")
+                .subject("test")
+                .header().keyId("222")
+                .and()
                 .signWith(hmac222)
                 .compact();
 
@@ -140,8 +141,9 @@ public class TestTrinoDriverAuth
             throws Exception
     {
         String accessToken = newJwtBuilder()
-                .setSubject("test")
-                .setHeaderParam(KEY_ID, "33")
+                .subject("test")
+                .header().keyId("33")
+                .and()
                 .signWith(privateKey33)
                 .compact();
 
@@ -165,7 +167,7 @@ public class TestTrinoDriverAuth
         }
     }
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Authentication failed: Unsigned Claims JWTs are not supported.")
+    @Test
     public void testFailedUnsigned()
             throws Exception
     {
@@ -175,23 +177,27 @@ public class TestTrinoDriverAuth
 
         try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));
                 Statement statement = connection.createStatement()) {
-            statement.execute("SELECT 123");
+            assertThatThrownBy(() -> statement.execute("SELECT 123"))
+                    .isInstanceOf(SQLException.class)
+                    .hasMessageContaining("Authentication failed: Unsecured JWSs (those with an 'alg' (Algorithm) header value of 'none') are disallowed by default");
         }
     }
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Authentication failed: JWT signature does not match.*")
+    @Test
     public void testFailedBadHmacSignature()
             throws Exception
     {
-        Key badKey = Keys.secretKeyFor(HS512);
+        SecretKey badKey = Jwts.SIG.HS512.key().build();
         String accessToken = newJwtBuilder()
-                .setSubject("test")
+                .subject("test")
                 .signWith(badKey)
                 .compact();
 
         try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));
                 Statement statement = connection.createStatement()) {
-            statement.execute("SELECT 123");
+            assertThatThrownBy(() -> statement.execute("SELECT 123"))
+                    .isInstanceOf(SQLException.class)
+                    .hasMessageContaining("Authentication failed: JWT signature does not match locally computed signature. JWT validity cannot be asserted and should not be trusted.");
         }
     }
 
@@ -200,8 +206,9 @@ public class TestTrinoDriverAuth
             throws Exception
     {
         String accessToken = newJwtBuilder()
-                .setSubject("test")
-                .setHeaderParam(KEY_ID, "42")
+                .subject("test")
+                .header().keyId("42")
+                .and()
                 .signWith(privateKey33)
                 .compact();
 
@@ -216,8 +223,9 @@ public class TestTrinoDriverAuth
             throws Exception
     {
         String accessToken = newJwtBuilder()
-                .setSubject("test")
-                .setHeaderParam(KEY_ID, "unknown")
+                .subject("test")
+                .header().keyId("unknown")
+                .and()
                 .signWith(privateKey33)
                 .compact();
 
@@ -232,8 +240,9 @@ public class TestTrinoDriverAuth
             throws Exception
     {
         String accessToken = newJwtBuilder()
-                .setSubject("test")
-                .setHeaderParam(KEY_ID, "33")
+                .subject("test")
+                .header().keyId("33")
+                .and()
                 .signWith(privateKey33)
                 .compact();
 
@@ -252,8 +261,9 @@ public class TestTrinoDriverAuth
             throws Exception
     {
         String accessToken = newJwtBuilder()
-                .setSubject("test")
-                .setHeaderParam(KEY_ID, "33")
+                .subject("test")
+                .header().keyId("33")
+                .and()
                 .signWith(privateKey33)
                 .compact();
 
@@ -281,8 +291,9 @@ public class TestTrinoDriverAuth
             throws Exception
     {
         String accessToken = newJwtBuilder()
-                .setSubject("test")
-                .setHeaderParam(KEY_ID, "33")
+                .subject("test")
+                .header().keyId("33")
+                .and()
                 .signWith(privateKey33)
                 .compact();
 
@@ -305,8 +316,9 @@ public class TestTrinoDriverAuth
     public void testFailedCaSslVerificationAlternateHostname()
     {
         String accessToken = newJwtBuilder()
-                .setSubject("test")
-                .setHeaderParam(KEY_ID, "33")
+                .subject("test")
+                .header().keyId("33")
+                .and()
                 .signWith(privateKey33)
                 .compact();
 
@@ -326,8 +338,9 @@ public class TestTrinoDriverAuth
     public void testFailedNoneSslVerificationAlternateHostname()
     {
         String accessToken = newJwtBuilder()
-                .setSubject("test")
-                .setHeaderParam(KEY_ID, "33")
+                .subject("test")
+                .header().keyId("33")
+                .and()
                 .signWith(privateKey33)
                 .compact();
 
@@ -348,8 +361,9 @@ public class TestTrinoDriverAuth
             throws Exception
     {
         String accessToken = newJwtBuilder()
-                .setSubject("test")
-                .setHeaderParam(KEY_ID, "33")
+                .subject("test")
+                .header().keyId("33")
+                .and()
                 .signWith(privateKey33)
                 .compact();
 

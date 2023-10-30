@@ -15,7 +15,7 @@ package io.trino.plugin.ml;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -23,8 +23,7 @@ import java.util.List;
 import java.util.Set;
 
 import static io.trino.plugin.ml.TestUtils.getDataset;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFeatureTransformations
 {
@@ -43,11 +42,11 @@ public class TestFeatureTransformations
             }
         }
         // Make sure there is a feature that needs to be normalized
-        assertTrue(valueGreaterThanOne);
+        assertThat(valueGreaterThanOne).isTrue();
         transformation.train(dataset);
         for (FeatureVector vector : transformation.transform(dataset).getDatapoints()) {
             for (double value : vector.getFeatures().values()) {
-                assertTrue(value <= 1);
+                assertThat(value <= 1).isTrue();
             }
         }
     }
@@ -69,6 +68,6 @@ public class TestFeatureTransformations
         for (FeatureVector vector : transformation.transform(dataset).getDatapoints()) {
             featureValues.addAll(vector.getFeatures().values());
         }
-        assertEquals(featureValues, ImmutableSet.of(0.0, 0.5, 1.0));
+        assertThat(featureValues).isEqualTo(ImmutableSet.of(0.0, 0.5, 1.0));
     }
 }

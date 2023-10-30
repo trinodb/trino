@@ -82,6 +82,7 @@ import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TableUpdateNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
@@ -607,18 +608,6 @@ public class AddExchanges
         {
             PlanWithProperties child = planChild(node, PreferredProperties.undistributed());
 
-            if (child.getProperties().isSingleNode()) {
-                // current plan so far is single node, so local properties are effectively global properties
-                // skip the SortNode if the local properties guarantee ordering on Sort keys
-                // TODO: This should be extracted as a separate optimizer once the planner is able to reason about the ordering of each operator
-                List<LocalProperty<Symbol>> desiredProperties = node.getOrderingScheme().toLocalProperties();
-
-                if (LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).stream()
-                        .noneMatch(Optional::isPresent)) {
-                    return child;
-                }
-            }
-
             if (isDistributedSortEnabled(session)) {
                 child = planChild(node, PreferredProperties.any());
                 // insert round robin exchange to eliminate skewness issues
@@ -821,6 +810,16 @@ public class AddExchanges
 
         @Override
         public PlanWithProperties visitTableDelete(TableDeleteNode node, PreferredProperties context)
+        {
+            return new PlanWithProperties(
+                    node,
+                    ActualProperties.builder()
+                            .global(singlePartition())
+                            .build());
+        }
+
+        @Override
+        public PlanWithProperties visitTableUpdate(TableUpdateNode node, PreferredProperties context)
         {
             return new PlanWithProperties(
                     node,

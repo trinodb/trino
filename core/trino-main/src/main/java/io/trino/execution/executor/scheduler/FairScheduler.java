@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -144,6 +145,13 @@ public final class FairScheduler
         }
     }
 
+    public Set<Integer> getTasks(Group group)
+    {
+        return queue.getTasks(group).stream()
+                .map(TaskControl::id)
+                .collect(toImmutableSet());
+    }
+
     public synchronized ListenableFuture<Void> submit(Group group, int id, Schedulable runner)
     {
         checkArgument(!closed, "Already closed");
@@ -175,6 +183,7 @@ public final class FairScheduler
             if (task.getState() == TaskControl.State.RUNNING) {
                 concurrencyControl.release(task);
             }
+            queue.finish(task.group(), task);
             task.transitionToFinished();
         }
     }

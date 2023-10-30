@@ -644,6 +644,11 @@ public class TaskContext
         return queryContext;
     }
 
+    public DataSize getQueryMemoryReservation()
+    {
+        return DataSize.ofBytes(queryContext.getUserMemoryReservation());
+    }
+
     public LocalDynamicFiltersCollector getLocalDynamicFiltersCollector()
     {
         return localDynamicFiltersCollector;

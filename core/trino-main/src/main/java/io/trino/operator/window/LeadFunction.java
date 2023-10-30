@@ -45,41 +45,38 @@ public class LeadFunction
     @Override
     public void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition)
     {
-        if ((offsetChannel >= 0) && windowIndex.isNull(offsetChannel, currentPosition)) {
-            output.appendNull();
+        checkCondition(offsetChannel < 0 || !windowIndex.isNull(offsetChannel, currentPosition), INVALID_FUNCTION_ARGUMENT, "Offset must not be null");
+
+        long offset = (offsetChannel < 0) ? 1 : windowIndex.getLong(offsetChannel, currentPosition);
+        checkCondition(offset >= 0, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 0");
+
+        long valuePosition;
+
+        if (ignoreNulls && (offset > 0)) {
+            long count = 0;
+            valuePosition = currentPosition + 1;
+            while (withinPartition(valuePosition)) {
+                if (!windowIndex.isNull(valueChannel, toIntExact(valuePosition))) {
+                    count++;
+                    if (count == offset) {
+                        break;
+                    }
+                }
+                valuePosition++;
+            }
         }
         else {
-            long offset = (offsetChannel < 0) ? 1 : windowIndex.getLong(offsetChannel, currentPosition);
-            checkCondition(offset >= 0, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 0");
+            valuePosition = currentPosition + offset;
+        }
 
-            long valuePosition;
-
-            if (ignoreNulls && (offset > 0)) {
-                long count = 0;
-                valuePosition = currentPosition + 1;
-                while (withinPartition(valuePosition)) {
-                    if (!windowIndex.isNull(valueChannel, toIntExact(valuePosition))) {
-                        count++;
-                        if (count == offset) {
-                            break;
-                        }
-                    }
-                    valuePosition++;
-                }
-            }
-            else {
-                valuePosition = currentPosition + offset;
-            }
-
-            if (withinPartition(valuePosition)) {
-                windowIndex.appendTo(valueChannel, toIntExact(valuePosition), output);
-            }
-            else if (defaultChannel >= 0) {
-                windowIndex.appendTo(defaultChannel, currentPosition, output);
-            }
-            else {
-                output.appendNull();
-            }
+        if (withinPartition(valuePosition)) {
+            windowIndex.appendTo(valueChannel, toIntExact(valuePosition), output);
+        }
+        else if (defaultChannel >= 0) {
+            windowIndex.appendTo(defaultChannel, currentPosition, output);
+        }
+        else {
+            output.appendNull();
         }
     }
 

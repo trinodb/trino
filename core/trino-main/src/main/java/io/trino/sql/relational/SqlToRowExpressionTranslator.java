@@ -63,7 +63,6 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
@@ -81,6 +80,7 @@ import java.util.Map;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
@@ -138,8 +138,7 @@ public final class SqlToRowExpressionTranslator
         Visitor visitor = new Visitor(
                 metadata,
                 types,
-                layout,
-                session);
+                layout);
         RowExpression result = visitor.process(expression, null);
 
         requireNonNull(result, "result is null");
@@ -152,26 +151,23 @@ public final class SqlToRowExpressionTranslator
         return result;
     }
 
-    private static class Visitor
+    public static class Visitor
             extends AstVisitor<RowExpression, Void>
     {
         private final Metadata metadata;
         private final Map<NodeRef<Expression>, Type> types;
         private final Map<Symbol, Integer> layout;
-        private final Session session;
         private final StandardFunctionResolution standardFunctionResolution;
 
-        private Visitor(
+        protected Visitor(
                 Metadata metadata,
                 Map<NodeRef<Expression>, Type> types,
-                Map<Symbol, Integer> layout,
-                Session session)
+                Map<Symbol, Integer> layout)
         {
             this.metadata = metadata;
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
             this.layout = layout;
-            this.session = session;
-            standardFunctionResolution = new StandardFunctionResolution(session, metadata);
+            standardFunctionResolution = new StandardFunctionResolution(metadata);
         }
 
         private Type getType(Expression node)
@@ -250,12 +246,12 @@ public final class SqlToRowExpressionTranslator
 
             if (JSON.equals(type)) {
                 return call(
-                        metadata.resolveFunction(session, QualifiedName.of("json_parse"), fromTypes(VARCHAR)),
+                        metadata.resolveBuiltinFunction("json_parse", fromTypes(VARCHAR)),
                         constant(utf8Slice(node.getValue()), VARCHAR));
             }
 
             return call(
-                    metadata.getCoercion(session, VARCHAR, type),
+                    metadata.getCoercion(VARCHAR, type),
                     constant(utf8Slice(node.getValue()), VARCHAR));
         }
 
@@ -317,7 +313,7 @@ public final class SqlToRowExpressionTranslator
             switch (node.getOperator()) {
                 case NOT_EQUAL:
                     return new CallExpression(
-                            metadata.resolveFunction(session, QualifiedName.of("not"), fromTypes(BOOLEAN)),
+                            metadata.resolveBuiltinFunction("not", fromTypes(BOOLEAN)),
                             ImmutableList.of(visitComparisonExpression(Operator.EQUAL, left, right)));
                 case GREATER_THAN:
                     return visitComparisonExpression(Operator.LESS_THAN, right, left);
@@ -411,7 +407,7 @@ public final class SqlToRowExpressionTranslator
                     return expression;
                 case MINUS:
                     return call(
-                            metadata.resolveOperator(session, NEGATION, ImmutableList.of(expression.getType())),
+                            metadata.resolveOperator(NEGATION, ImmutableList.of(expression.getType())),
                             expression);
             }
 
@@ -452,12 +448,12 @@ public final class SqlToRowExpressionTranslator
 
             if (node.isSafe()) {
                 return call(
-                        metadata.getCoercion(session, QualifiedName.of("TRY_CAST"), value.getType(), returnType),
+                        metadata.getCoercion(builtinFunctionName("TRY_CAST"), value.getType(), returnType),
                         value);
             }
 
             return call(
-                    metadata.getCoercion(session, value.getType(), returnType),
+                    metadata.getCoercion(value.getType(), returnType),
                     value);
         }
 
@@ -537,7 +533,7 @@ public final class SqlToRowExpressionTranslator
                 RowExpression operand = process(clause.getOperand(), context);
                 RowExpression result = process(clause.getResult(), context);
 
-                functionDependencies.add(metadata.resolveOperator(session, EQUAL, ImmutableList.of(value.getType(), operand.getType())));
+                functionDependencies.add(metadata.resolveOperator(EQUAL, ImmutableList.of(value.getType(), operand.getType())));
 
                 arguments.add(new SpecialForm(
                         WHEN,
@@ -624,9 +620,9 @@ public final class SqlToRowExpressionTranslator
             }
 
             List<ResolvedFunction> functionDependencies = ImmutableList.<ResolvedFunction>builder()
-                    .add(metadata.resolveOperator(session, EQUAL, ImmutableList.of(value.getType(), value.getType())))
-                    .add(metadata.resolveOperator(session, HASH_CODE, ImmutableList.of(value.getType())))
-                    .add(metadata.resolveOperator(session, INDETERMINATE, ImmutableList.of(value.getType())))
+                    .add(metadata.resolveOperator(EQUAL, ImmutableList.of(value.getType(), value.getType())))
+                    .add(metadata.resolveOperator(HASH_CODE, ImmutableList.of(value.getType())))
+                    .add(metadata.resolveOperator(INDETERMINATE, ImmutableList.of(value.getType())))
                     .build();
 
             return new SpecialForm(IN, BOOLEAN, arguments.build(), functionDependencies);
@@ -657,7 +653,7 @@ public final class SqlToRowExpressionTranslator
         private RowExpression notExpression(RowExpression value)
         {
             return new CallExpression(
-                    metadata.resolveFunction(session, QualifiedName.of("not"), fromTypes(BOOLEAN)),
+                    metadata.resolveBuiltinFunction("not", fromTypes(BOOLEAN)),
                     ImmutableList.of(value));
         }
 
@@ -667,11 +663,11 @@ public final class SqlToRowExpressionTranslator
             RowExpression first = process(node.getFirst(), context);
             RowExpression second = process(node.getSecond(), context);
 
-            ResolvedFunction resolvedFunction = metadata.resolveOperator(session, EQUAL, ImmutableList.of(first.getType(), second.getType()));
+            ResolvedFunction resolvedFunction = metadata.resolveOperator(EQUAL, ImmutableList.of(first.getType(), second.getType()));
             List<ResolvedFunction> functionDependencies = ImmutableList.<ResolvedFunction>builder()
                     .add(resolvedFunction)
-                    .add(metadata.getCoercion(session, first.getType(), resolvedFunction.getSignature().getArgumentTypes().get(0)))
-                    .add(metadata.getCoercion(session, second.getType(), resolvedFunction.getSignature().getArgumentTypes().get(0)))
+                    .add(metadata.getCoercion(first.getType(), resolvedFunction.getSignature().getArgumentTypes().get(0)))
+                    .add(metadata.getCoercion(second.getType(), resolvedFunction.getSignature().getArgumentTypes().get(0)))
                     .build();
 
             return new SpecialForm(
@@ -689,7 +685,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression max = process(node.getMax(), context);
 
             List<ResolvedFunction> functionDependencies = ImmutableList.of(
-                    metadata.resolveOperator(session, LESS_THAN_OR_EQUAL, ImmutableList.of(value.getType(), max.getType())));
+                    metadata.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(value.getType(), max.getType())));
 
             return new SpecialForm(
                     BETWEEN,
@@ -710,7 +706,7 @@ public final class SqlToRowExpressionTranslator
             }
 
             return call(
-                    metadata.resolveOperator(session, SUBSCRIPT, ImmutableList.of(base.getType(), index.getType())),
+                    metadata.resolveOperator(SUBSCRIPT, ImmutableList.of(base.getType(), index.getType())),
                     base,
                     index);
         }

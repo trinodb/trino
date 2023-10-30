@@ -18,6 +18,7 @@ import io.trino.grammar.sql.SqlBaseLexer;
 import io.trino.grammar.sql.SqlBaseParser;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionSpecification;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.PathSpecification;
@@ -84,42 +85,47 @@ public class SqlParser
         this.initializer = requireNonNull(initializer, "initializer is null");
     }
 
-    public Statement createStatement(String sql, ParsingOptions parsingOptions)
+    public Statement createStatement(String sql)
     {
-        return (Statement) invokeParser("statement", sql, SqlBaseParser::singleStatement, parsingOptions);
+        return (Statement) invokeParser("statement", sql, SqlBaseParser::singleStatement);
     }
 
-    public Statement createStatement(String sql, NodeLocation location, ParsingOptions parsingOptions)
+    public Statement createStatement(String sql, NodeLocation location)
     {
-        return (Statement) invokeParser("statement", sql, Optional.ofNullable(location), SqlBaseParser::singleStatement, parsingOptions);
+        return (Statement) invokeParser("statement", sql, Optional.ofNullable(location), SqlBaseParser::singleStatement);
     }
 
-    public Expression createExpression(String expression, ParsingOptions parsingOptions)
+    public Expression createExpression(String expression)
     {
-        return (Expression) invokeParser("expression", expression, SqlBaseParser::standaloneExpression, parsingOptions);
+        return (Expression) invokeParser("expression", expression, SqlBaseParser::standaloneExpression);
     }
 
     public DataType createType(String expression)
     {
-        return (DataType) invokeParser("type", expression, SqlBaseParser::standaloneType, new ParsingOptions());
+        return (DataType) invokeParser("type", expression, SqlBaseParser::standaloneType);
     }
 
     public PathSpecification createPathSpecification(String expression)
     {
-        return (PathSpecification) invokeParser("path specification", expression, SqlBaseParser::standalonePathSpecification, new ParsingOptions());
+        return (PathSpecification) invokeParser("path specification", expression, SqlBaseParser::standalonePathSpecification);
     }
 
     public RowPattern createRowPattern(String pattern)
     {
-        return (RowPattern) invokeParser("row pattern", pattern, SqlBaseParser::standaloneRowPattern, new ParsingOptions());
+        return (RowPattern) invokeParser("row pattern", pattern, SqlBaseParser::standaloneRowPattern);
     }
 
-    private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction, ParsingOptions parsingOptions)
+    public FunctionSpecification createFunctionSpecification(String sql)
     {
-        return invokeParser(name, sql, Optional.empty(), parseFunction, parsingOptions);
+        return (FunctionSpecification) invokeParser("function specification", sql, SqlBaseParser::standaloneFunctionSpecification);
     }
 
-    private Node invokeParser(String name, String sql, Optional<NodeLocation> location, Function<SqlBaseParser, ParserRuleContext> parseFunction, ParsingOptions parsingOptions)
+    private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction)
+    {
+        return invokeParser(name, sql, Optional.empty(), parseFunction);
+    }
+
+    private Node invokeParser(String name, String sql, Optional<NodeLocation> location, Function<SqlBaseParser, ParserRuleContext> parseFunction)
     {
         try {
             SqlBaseLexer lexer = new SqlBaseLexer(CharStreams.fromString(sql));
@@ -179,7 +185,7 @@ public class SqlParser
                 throw e;
             }
 
-            return new AstBuilder(location, parsingOptions).visit(tree);
+            return new AstBuilder(location).visit(tree);
         }
         catch (StackOverflowError e) {
             throw new ParsingException(name + " is too large (stack overflow while parsing)");

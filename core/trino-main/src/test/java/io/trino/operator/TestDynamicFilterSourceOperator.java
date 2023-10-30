@@ -28,9 +28,10 @@ import io.trino.sql.planner.DynamicFilterSourceConsumer;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -52,6 +53,7 @@ import static io.trino.block.BlockAssertions.createColorSequenceBlock;
 import static io.trino.block.BlockAssertions.createDoubleRepeatBlock;
 import static io.trino.block.BlockAssertions.createDoubleSequenceBlock;
 import static io.trino.block.BlockAssertions.createDoublesBlock;
+import static io.trino.block.BlockAssertions.createIntsBlock;
 import static io.trino.block.BlockAssertions.createLongRepeatBlock;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
@@ -78,7 +80,7 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
+@TestInstance(TestInstance.Lifecycle.PER_METHOD)
 public class TestDynamicFilterSourceOperator
 {
     private TypeOperators typeOperators;
@@ -88,7 +90,7 @@ public class TestDynamicFilterSourceOperator
 
     private ImmutableList.Builder<TupleDomain<DynamicFilterId>> partitions;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         typeOperators = new TypeOperators();
@@ -100,7 +102,7 @@ public class TestDynamicFilterSourceOperator
         partitions = ImmutableList.builder();
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         executor.shutdownNow();
@@ -279,9 +281,9 @@ public class TestDynamicFilterSourceOperator
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, INTEGER));
         verifyPassthrough(createOperator(operatorFactory),
                 ImmutableList.of(INTEGER),
-                new Page(createLongsBlock(1, 2, 3)),
+                new Page(createIntsBlock(1, 2, 3)),
                 new Page(blockWithNulls),
-                new Page(createLongsBlock(4, 5)));
+                new Page(createIntsBlock(4, 5)));
         operatorFactory.noMoreOperators();
 
         assertEquals(partitions.build(), ImmutableList.of(

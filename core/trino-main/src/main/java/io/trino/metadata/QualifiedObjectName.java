@@ -22,6 +22,7 @@ import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.SchemaFunctionName;
 
 import java.util.Objects;
 import java.util.function.Function;
@@ -94,6 +95,11 @@ public class QualifiedObjectName
     public QualifiedTablePrefix asQualifiedTablePrefix()
     {
         return new QualifiedTablePrefix(catalogName, schemaName, objectName);
+    }
+
+    public SchemaFunctionName asSchemaFunctionName()
+    {
+        return new SchemaFunctionName(schemaName, objectName);
     }
 
     @Override

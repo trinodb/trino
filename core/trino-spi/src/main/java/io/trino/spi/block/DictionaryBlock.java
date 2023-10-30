@@ -14,7 +14,6 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,14 +32,14 @@ import static java.lang.Math.min;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
-public class DictionaryBlock
+public final class DictionaryBlock
         implements Block
 {
     private static final int INSTANCE_SIZE = instanceSize(DictionaryBlock.class) + instanceSize(DictionaryId.class);
     private static final int NULL_NOT_FOUND = -1;
 
     private final int positionCount;
-    private final Block dictionary;
+    private final ValueBlock dictionary;
     private final int idsOffset;
     private final int[] ids;
     private final long retainedSizeInBytes;
@@ -54,7 +53,7 @@ public class DictionaryBlock
 
     public static Block create(int positionCount, Block dictionary, int[] ids)
     {
-        return createInternal(positionCount, dictionary, ids, randomDictionaryId());
+        return createInternal(0, positionCount, dictionary, ids, randomDictionaryId());
     }
 
     /**
@@ -62,16 +61,16 @@ public class DictionaryBlock
      */
     public static Block createProjectedDictionaryBlock(int positionCount, Block dictionary, int[] ids, DictionaryId dictionarySourceId)
     {
-        return createInternal(positionCount, dictionary, ids, dictionarySourceId);
+        return createInternal(0, positionCount, dictionary, ids, dictionarySourceId);
     }
 
-    private static Block createInternal(int positionCount, Block dictionary, int[] ids, DictionaryId dictionarySourceId)
+    static Block createInternal(int idsOffset, int positionCount, Block dictionary, int[] ids, DictionaryId dictionarySourceId)
     {
         if (positionCount == 0) {
             return dictionary.copyRegion(0, 0);
         }
         if (positionCount == 1) {
-            return dictionary.getRegion(ids[0], 1);
+            return dictionary.getRegion(ids[idsOffset], 1);
         }
 
         // if dictionary is an RLE then this can just be a new RLE
@@ -79,25 +78,19 @@ public class DictionaryBlock
             return RunLengthEncodedBlock.create(rle.getValue(), positionCount);
         }
 
-        // unwrap dictionary in dictionary
-        if (dictionary instanceof DictionaryBlock dictionaryBlock) {
-            int[] newIds = new int[positionCount];
-            for (int position = 0; position < positionCount; position++) {
-                newIds[position] = dictionaryBlock.getId(ids[position]);
-            }
-            dictionary = dictionaryBlock.getDictionary();
-            dictionarySourceId = randomDictionaryId();
-            ids = newIds;
+        if (dictionary instanceof ValueBlock valueBlock) {
+            return new DictionaryBlock(idsOffset, positionCount, valueBlock, ids, false, false, dictionarySourceId);
         }
-        return new DictionaryBlock(0, positionCount, dictionary, ids, false, false, dictionarySourceId);
+
+        // unwrap dictionary in dictionary
+        int[] newIds = new int[positionCount];
+        for (int position = 0; position < positionCount; position++) {
+            newIds[position] = dictionary.getUnderlyingValuePosition(ids[idsOffset + position]);
+        }
+        return new DictionaryBlock(0, positionCount, dictionary.getUnderlyingValueBlock(), newIds, false, false, randomDictionaryId());
     }
 
-    DictionaryBlock(int idsOffset, int positionCount, Block dictionary, int[] ids)
-    {
-        this(idsOffset, positionCount, dictionary, ids, false, false, randomDictionaryId());
-    }
-
-    private DictionaryBlock(int idsOffset, int positionCount, Block dictionary, int[] ids, boolean dictionaryIsCompacted, boolean isSequentialIds, DictionaryId dictionarySourceId)
+    private DictionaryBlock(int idsOffset, int positionCount, ValueBlock dictionary, int[] ids, boolean dictionaryIsCompacted, boolean isSequentialIds, DictionaryId dictionarySourceId)
     {
         requireNonNull(dictionary, "dictionary is null");
         requireNonNull(ids, "ids is null");
@@ -130,12 +123,12 @@ public class DictionaryBlock
         this.isSequentialIds = isSequentialIds;
     }
 
-    int[] getRawIds()
+    public int[] getRawIds()
     {
         return ids;
     }
 
-    int getRawIdsOffset()
+    public int getRawIdsOffset()
     {
         return idsOffset;
     }
@@ -177,49 +170,13 @@ public class DictionaryBlock
     }
 
     @Override
-    public void writeSliceTo(int position, int offset, int length, SliceOutput output)
-    {
-        dictionary.writeSliceTo(getId(position), offset, length, output);
-    }
-
-    @Override
     public <T> T getObject(int position, Class<T> clazz)
     {
         return dictionary.getObject(getId(position), clazz);
     }
 
     @Override
-    public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
-    {
-        return dictionary.bytesEqual(getId(position), offset, otherSlice, otherOffset, length);
-    }
-
-    @Override
-    public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
-    {
-        return dictionary.bytesCompare(getId(position), offset, length, otherSlice, otherOffset, otherLength);
-    }
-
-    @Override
-    public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
-    {
-        return dictionary.equals(getId(position), offset, otherBlock, otherPosition, otherOffset, length);
-    }
-
-    @Override
-    public long hash(int position, int offset, int length)
-    {
-        return dictionary.hash(getId(position), offset, length);
-    }
-
-    @Override
-    public int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength)
-    {
-        return dictionary.compareTo(getId(leftPosition), leftOffset, leftLength, rightBlock, rightPosition, rightOffset, rightLength);
-    }
-
-    @Override
-    public Block getSingleValueBlock(int position)
+    public ValueBlock getSingleValueBlock(int position)
     {
         return dictionary.getSingleValueBlock(getId(position));
     }
@@ -431,7 +388,7 @@ public class DictionaryBlock
             }
             newIds[i] = newId;
         }
-        Block compactDictionary = dictionary.copyPositions(positionsToCopy.elements(), 0, positionsToCopy.size());
+        ValueBlock compactDictionary = dictionary.copyPositions(positionsToCopy.elements(), 0, positionsToCopy.size());
         if (positionsToCopy.size() == length) {
             // discovered that all positions are unique, so return the unwrapped underlying dictionary directly
             return compactDictionary;
@@ -534,7 +491,7 @@ public class DictionaryBlock
     {
         int desiredLength = idsOffset + positionCount + 1;
         int[] newIds = Arrays.copyOf(ids, desiredLength);
-        Block newDictionary = dictionary;
+        ValueBlock newDictionary = dictionary;
 
         int nullIndex = NULL_NOT_FOUND;
 
@@ -569,29 +526,24 @@ public class DictionaryBlock
     }
 
     @Override
-    public boolean isLoaded()
-    {
-        return dictionary.isLoaded();
-    }
-
-    @Override
-    public Block getLoadedBlock()
-    {
-        Block loadedDictionary = dictionary.getLoadedBlock();
-
-        if (loadedDictionary == dictionary) {
-            return this;
-        }
-        return new DictionaryBlock(idsOffset, getPositionCount(), loadedDictionary, ids, false, false, randomDictionaryId());
-    }
-
-    @Override
-    public final List<Block> getChildren()
+    public List<Block> getChildren()
     {
         return singletonList(getDictionary());
     }
 
-    public Block getDictionary()
+    @Override
+    public ValueBlock getUnderlyingValueBlock()
+    {
+        return dictionary;
+    }
+
+    @Override
+    public int getUnderlyingValuePosition(int position)
+    {
+        return getId(position);
+    }
+
+    public ValueBlock getDictionary()
     {
         return dictionary;
     }
@@ -675,7 +627,7 @@ public class DictionaryBlock
             newIds[i] = newId;
         }
         try {
-            Block compactDictionary = dictionary.copyPositions(dictionaryPositionsToCopy.elements(), 0, dictionaryPositionsToCopy.size());
+            ValueBlock compactDictionary = dictionary.copyPositions(dictionaryPositionsToCopy.elements(), 0, dictionaryPositionsToCopy.size());
             return new DictionaryBlock(
                     0,
                     positionCount,
@@ -736,13 +688,13 @@ public class DictionaryBlock
             }
 
             try {
-                Block compactDictionary = dictionaryBlock.getDictionary().copyPositions(dictionaryPositionsToCopy, 0, numberOfIndexes);
+                ValueBlock compactDictionary = dictionaryBlock.getDictionary().copyPositions(dictionaryPositionsToCopy, 0, numberOfIndexes);
                 outputDictionaryBlocks.add(new DictionaryBlock(
                         0,
                         positionCount,
                         compactDictionary,
                         newIds,
-                        !(compactDictionary instanceof DictionaryBlock),
+                        true,
                         false,
                         newDictionaryId));
             }

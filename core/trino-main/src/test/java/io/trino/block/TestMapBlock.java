@@ -20,9 +20,9 @@ import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.DuplicateMapKeyException;
 import io.trino.spi.block.MapBlock;
 import io.trino.spi.block.MapBlockBuilder;
-import io.trino.spi.block.SingleMapBlock;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.MapType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -201,13 +201,9 @@ public class TestMapBlock
     private void testWith(Map<String, Long>[] expectedValues)
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-        assertFalse(blockBuilder.mayHaveNull());
 
-        assertBlock(blockBuilder, expectedValues);
         assertBlock(blockBuilder.build(), expectedValues);
-        assertBlockFilteredPositions(expectedValues, blockBuilder, 0, 1, 3, 4, 7);
         assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 0, 1, 3, 4, 7);
-        assertBlockFilteredPositions(expectedValues, blockBuilder, 2, 3, 5, 6);
         assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 2, 3, 5, 6);
 
         Block block = createBlockWithValuesFromKeyValueBlock(expectedValues);
@@ -219,13 +215,9 @@ public class TestMapBlock
 
         Map<String, Long>[] expectedValuesWithNull = alternatingNullValues(expectedValues);
         BlockBuilder blockBuilderWithNull = createBlockBuilderWithValues(expectedValuesWithNull);
-        assertTrue(blockBuilderWithNull.mayHaveNull());
 
-        assertBlock(blockBuilderWithNull, expectedValuesWithNull);
         assertBlock(blockBuilderWithNull.build(), expectedValuesWithNull);
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull, 0, 1, 5, 6, 7, 10, 11, 12, 15);
         assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), 0, 1, 5, 6, 7, 10, 11, 12, 15);
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull, 2, 3, 4, 9, 13, 14);
         assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), 2, 3, 4, 9, 13, 14);
 
         Block blockWithNull = createBlockWithValuesFromKeyValueBlock(expectedValuesWithNull);
@@ -314,35 +306,38 @@ public class TestMapBlock
         requireNonNull(map, "map is null");
 
         assertFalse(mapBlock.isNull(position));
-        SingleMapBlock elementBlock = (SingleMapBlock) mapType.getObject(mapBlock, position);
-        assertEquals(elementBlock.getPositionCount(), map.size() * 2);
+        SqlMap sqlMap = mapType.getObject(mapBlock, position);
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+        assertEquals(sqlMap.getSize(), map.size());
 
         // Test new/hash-index access: assert inserted keys
         for (Map.Entry<String, Long> entry : map.entrySet()) {
-            int pos = elementBlock.seekKey(utf8Slice(entry.getKey()));
-            assertNotEquals(pos, -1);
+            int index = sqlMap.seekKey(utf8Slice(entry.getKey()));
+            assertNotEquals(index, -1);
             if (entry.getValue() == null) {
-                assertTrue(elementBlock.isNull(pos));
+                assertTrue(rawValueBlock.isNull(rawOffset + index));
             }
             else {
-                assertFalse(elementBlock.isNull(pos));
-                assertEquals(BIGINT.getLong(elementBlock, pos), (long) entry.getValue());
+                assertFalse(rawValueBlock.isNull(rawOffset + index));
+                assertEquals(BIGINT.getLong(rawValueBlock, rawOffset + index), (long) entry.getValue());
             }
         }
         // Test new/hash-index access: assert non-existent keys
         for (int i = 0; i < 10; i++) {
-            assertEquals(elementBlock.seekKey(utf8Slice("not-inserted-" + i)), -1);
+            assertEquals(sqlMap.seekKey(utf8Slice("not-inserted-" + i)), -1);
         }
 
         // Test legacy/iterative access
-        for (int i = 0; i < elementBlock.getPositionCount(); i += 2) {
-            String actualKey = VARCHAR.getSlice(elementBlock, i).toStringUtf8();
+        for (int i = 0; i < sqlMap.getSize(); i++) {
+            String actualKey = VARCHAR.getSlice(rawKeyBlock, rawOffset + i).toStringUtf8();
             Long actualValue;
-            if (elementBlock.isNull(i + 1)) {
+            if (rawValueBlock.isNull(rawOffset + i)) {
                 actualValue = null;
             }
             else {
-                actualValue = BIGINT.getLong(elementBlock, i + 1);
+                actualValue = BIGINT.getLong(rawValueBlock, rawOffset + i);
             }
             assertTrue(map.containsKey(actualKey));
             assertEquals(actualValue, map.get(actualKey));
@@ -363,6 +358,7 @@ public class TestMapBlock
                 BIGINT.writeLong(valueBuilder, -1);
             });
         }
+        mapBlockBuilder.build();
 
         mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
             // Add 50 keys so we get some chance to get hash conflict
@@ -372,14 +368,16 @@ public class TestMapBlock
                 BIGINT.writeLong(valueBuilder, -1);
             }
         });
+        mapBlockBuilder.build();
 
-        assertThatThrownBy(
-                () -> mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
-                    for (int i = 0; i < 2; i++) {
-                        BIGINT.writeLong(keyBuilder, 99);
-                        BIGINT.writeLong(valueBuilder, -1);
-                    }
-                }))
+        // map block builder does not check for problems until the block is built
+        mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+            for (int i = 0; i < 2; i++) {
+                BIGINT.writeLong(keyBuilder, 99);
+                BIGINT.writeLong(valueBuilder, -1);
+            }
+        });
+        assertThatThrownBy(mapBlockBuilder::build)
                 .isInstanceOf(DuplicateMapKeyException.class)
                 .hasMessage("Duplicate map keys are not allowed");
     }
@@ -393,7 +391,6 @@ public class TestMapBlock
         assertEquals(block.getPositionCount(), expectedValues.length);
         for (int i = 0; i < block.getPositionCount(); i++) {
             int expectedSize = getExpectedEstimatedDataSize(expectedValues[i]);
-            assertEquals(blockBuilder.getEstimatedDataSizeForStats(i), expectedSize);
             assertEquals(block.getEstimatedDataSizeForStats(i), expectedSize);
         }
     }

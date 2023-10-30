@@ -69,6 +69,11 @@ final class TaskControl
         this.periodStart = ticker.read();
     }
 
+    public int id()
+    {
+        return id;
+    }
+
     public void setThread(Thread thread)
     {
         this.thread = thread;

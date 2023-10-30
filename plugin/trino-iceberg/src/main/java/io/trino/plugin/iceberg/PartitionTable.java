@@ -16,7 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -325,7 +325,7 @@ public class PartitionTable
         return partitionTypeBuilder.build();
     }
 
-    private static Block getColumnMetricBlock(RowType columnMetricType, Object min, Object max, Long nullCount, Long nanCount)
+    private static SqlRow getColumnMetricBlock(RowType columnMetricType, Object min, Object max, Long nullCount, Long nanCount)
     {
         return buildRowValue(columnMetricType, fieldBuilders -> {
             List<RowType.Field> fields = columnMetricType.getFields();

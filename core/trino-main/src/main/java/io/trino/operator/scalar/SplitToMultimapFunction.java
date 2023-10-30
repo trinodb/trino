@@ -19,8 +19,8 @@ import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedMapValueBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -45,7 +45,7 @@ public class SplitToMultimapFunction
     }
 
     @SqlType("map(varchar,array(varchar))")
-    public Block splitToMultimap(
+    public SqlMap splitToMultimap(
             @TypeParameter("map(varchar,array(varchar))") Type mapType,
             @SqlType(StandardTypes.VARCHAR) Slice string,
             @SqlType(StandardTypes.VARCHAR) Slice entryDelimiter,

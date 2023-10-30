@@ -13,12 +13,12 @@
  */
 package io.trino.spi.block;
 
-import io.trino.spi.block.BufferedMapValueBuilder.HashBuildMode;
+import io.trino.spi.block.MapHashTables.HashBuildMode;
 import io.trino.spi.type.MapType;
 
 public interface MapValueBuilder<E extends Throwable>
 {
-    static <E extends Throwable> Block buildMapValue(MapType mapType, int entryCount, MapValueBuilder<E> builder)
+    static <E extends Throwable> SqlMap buildMapValue(MapType mapType, int entryCount, MapValueBuilder<E> builder)
             throws E
     {
         return new BufferedMapValueBuilder(mapType, HashBuildMode.DUPLICATE_NOT_CHECKED, entryCount)

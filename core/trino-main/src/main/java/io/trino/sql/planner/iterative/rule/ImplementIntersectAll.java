@@ -26,7 +26,6 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.QualifiedName;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -94,7 +93,7 @@ public class ImplementIntersectAll
 
         // compute expected multiplicity for every row
         checkState(result.getCountSymbols().size() > 0, "IntersectNode translation result has no count symbols");
-        ResolvedFunction least = metadata.resolveFunction(context.getSession(), QualifiedName.of("least"), fromTypes(BIGINT, BIGINT));
+        ResolvedFunction least = metadata.resolveBuiltinFunction("least", fromTypes(BIGINT, BIGINT));
 
         Expression minCount = result.getCountSymbols().get(0).toSymbolReference();
         for (int i = 1; i < result.getCountSymbols().size(); i++) {

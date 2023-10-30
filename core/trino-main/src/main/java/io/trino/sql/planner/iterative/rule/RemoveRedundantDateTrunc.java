@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import io.airlift.slice.Slice;
 import io.trino.Session;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
@@ -32,6 +33,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import static com.google.common.base.Verify.verifyNotNull;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
@@ -74,8 +76,8 @@ public class RemoveRedundantDateTrunc
         @Override
         public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            String functionName = extractFunctionName(node.getName());
-            if (functionName.equals("date_trunc") && node.getArguments().size() == 2) {
+            CatalogSchemaFunctionName functionName = extractFunctionName(node.getName());
+            if (functionName.equals(builtinFunctionName("date_trunc")) && node.getArguments().size() == 2) {
                 Expression unitExpression = node.getArguments().get(0);
                 Expression argument = node.getArguments().get(1);
                 if (getType(argument) == DATE && getType(unitExpression) instanceof VarcharType && isEffectivelyLiteral(plannerContext, session, unitExpression)) {

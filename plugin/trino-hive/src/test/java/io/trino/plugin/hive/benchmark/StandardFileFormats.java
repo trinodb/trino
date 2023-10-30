@@ -70,9 +70,9 @@ public final class StandardFileFormats
         }
 
         @Override
-        public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
+        public HivePageSourceFactory getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
         {
-            return Optional.of(new RcFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, new HiveConfig().setRcfileTimeZone("UTC")));
+            return new RcFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, new HiveConfig().setRcfileTimeZone("UTC"));
         }
 
         @Override
@@ -101,9 +101,9 @@ public final class StandardFileFormats
         }
 
         @Override
-        public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
+        public HivePageSourceFactory getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
         {
-            return Optional.of(new RcFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, new HiveConfig().setRcfileTimeZone("UTC")));
+            return new RcFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, new HiveConfig().setRcfileTimeZone("UTC"));
         }
 
         @Override
@@ -132,9 +132,9 @@ public final class StandardFileFormats
         }
 
         @Override
-        public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
+        public HivePageSourceFactory getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
         {
-            return Optional.of(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_FILE_SYSTEM_FACTORY, new FileFormatDataSourceStats(), UTC));
+            return new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_FILE_SYSTEM_FACTORY, new FileFormatDataSourceStats(), UTC);
         }
 
         @Override
@@ -163,13 +163,13 @@ public final class StandardFileFormats
         }
 
         @Override
-        public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
+        public HivePageSourceFactory getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
         {
-            return Optional.of(new ParquetPageSourceFactory(
+            return new ParquetPageSourceFactory(
                     new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
                     new FileFormatDataSourceStats(),
                     new ParquetReaderConfig(),
-                    new HiveConfig()));
+                    new HiveConfig());
         }
 
         @Override

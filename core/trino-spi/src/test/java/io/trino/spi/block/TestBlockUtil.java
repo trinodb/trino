@@ -13,24 +13,24 @@
  */
 package io.trino.spi.block;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.block.BlockUtil.MAX_ARRAY_SIZE;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBlockUtil
 {
     @Test
     public void testCalculateNewArraySize()
     {
-        assertEquals(BlockUtil.calculateNewArraySize(200), 300);
-        assertEquals(BlockUtil.calculateNewArraySize(Integer.MAX_VALUE), MAX_ARRAY_SIZE);
+        assertThat(BlockUtil.calculateNewArraySize(200)).isEqualTo(300);
+        assertThat(BlockUtil.calculateNewArraySize(Integer.MAX_VALUE)).isEqualTo(MAX_ARRAY_SIZE);
         try {
             BlockUtil.calculateNewArraySize(MAX_ARRAY_SIZE);
         }
         catch (IllegalArgumentException e) {
-            assertEquals(e.getMessage(), format("Cannot grow array beyond '%s'", MAX_ARRAY_SIZE));
+            assertThat(e.getMessage()).isEqualTo(format("Cannot grow array beyond '%s'", MAX_ARRAY_SIZE));
         }
     }
 }

@@ -42,7 +42,6 @@ import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.TimeLiteral;
 import io.trino.sql.tree.TimestampLiteral;
@@ -154,10 +153,10 @@ public final class LiteralInterpreter
                 boolean isJson = JSON.equals(type);
                 ResolvedFunction resolvedFunction;
                 if (isJson) {
-                    resolvedFunction = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of("json_parse"), fromTypes(VARCHAR));
+                    resolvedFunction = plannerContext.getMetadata().resolveBuiltinFunction("json_parse", fromTypes(VARCHAR));
                 }
                 else {
-                    resolvedFunction = plannerContext.getMetadata().getCoercion(session, VARCHAR, type);
+                    resolvedFunction = plannerContext.getMetadata().getCoercion(VARCHAR, type);
                 }
                 return evaluatedNode -> {
                     try {

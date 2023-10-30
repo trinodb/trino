@@ -24,13 +24,16 @@ import io.trino.server.BasicQueryInfo;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.server.testing.TestingTrinoServer.TestShutdownAction;
 import io.trino.testing.DistributedQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.execution.QueryState.FINISHED;
@@ -39,10 +42,11 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
 public class TestGracefulShutdown
 {
     private static final long SHUTDOWN_TIMEOUT_MILLIS = 240_000;
@@ -53,19 +57,20 @@ public class TestGracefulShutdown
 
     private ListeningExecutorService executor;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         executor = MoreExecutors.listeningDecorator(newCachedThreadPool());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void shutdown()
     {
         executor.shutdownNow();
     }
 
-    @Test(timeOut = SHUTDOWN_TIMEOUT_MILLIS)
+    @Test
+    @Timeout(value = SHUTDOWN_TIMEOUT_MILLIS, unit = TimeUnit.MILLISECONDS)
     public void testShutdown()
             throws Exception
     {

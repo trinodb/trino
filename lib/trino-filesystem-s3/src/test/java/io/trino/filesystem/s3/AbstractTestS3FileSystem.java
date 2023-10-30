@@ -129,7 +129,7 @@ public abstract class AbstractTestS3FileSystem
     }
 
     @Override
-    protected final boolean supportsCreateWithoutOverwrite()
+    protected final boolean supportsCreateExclusive()
     {
         return false;
     }

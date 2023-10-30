@@ -13,6 +13,7 @@
  */
 package io.trino.execution.executor.scheduler;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 
@@ -46,6 +47,21 @@ final class BlockingSchedulingQueue<G, T>
         lock.lock();
         try {
             return queue.finishGroup(group);
+        }
+        finally {
+            lock.unlock();
+        }
+    }
+
+    public Set<T> getTasks(G group)
+    {
+        lock.lock();
+        try {
+            if (!queue.containsGroup(group)) {
+                return ImmutableSet.of();
+            }
+
+            return queue.getTasks(group);
         }
         finally {
             lock.unlock();
@@ -112,6 +128,22 @@ final class BlockingSchedulingQueue<G, T>
             while (result == null);
 
             return result;
+        }
+        finally {
+            lock.unlock();
+        }
+    }
+
+    public boolean finish(G group, T task)
+    {
+        lock.lock();
+        try {
+            if (!queue.containsGroup(group)) {
+                return false;
+            }
+
+            queue.finish(group, task);
+            return true;
         }
         finally {
             lock.unlock();

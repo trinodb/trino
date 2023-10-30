@@ -17,18 +17,14 @@ import io.trino.plugin.base.logging.FormatInterpolator.InterpolatedValue;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.regex.Pattern;
-
-import static java.util.Objects.requireNonNull;
 
 public enum SessionInterpolatedValues
         implements InterpolatedValue<ConnectorSession>
 {
     QUERY_ID(ConnectorSession::getQueryId),
-    SOURCE(new SanitizedValuesProvider(session -> session.getSource().orElse(""), "$SOURCE")),
+    SOURCE(session -> session.getSource().orElse("")),
     USER(ConnectorSession::getUser),
-    TRACE_TOKEN(new SanitizedValuesProvider(session -> session.getTraceToken().orElse(""), "$TRACE_TOKEN"));
+    TRACE_TOKEN(session -> session.getTraceToken().orElse(""));
 
     private final Function<ConnectorSession, String> valueProvider;
 
@@ -41,29 +37,5 @@ public enum SessionInterpolatedValues
     public String value(ConnectorSession session)
     {
         return valueProvider.apply(session);
-    }
-
-    static class SanitizedValuesProvider
-            implements Function<ConnectorSession, String>
-    {
-        private static final Predicate<String> VALIDATION_MATCHER = Pattern.compile("^[\\w_-]*$").asMatchPredicate();
-        private final Function<ConnectorSession, String> valueProvider;
-        private final String name;
-
-        private SanitizedValuesProvider(Function<ConnectorSession, String> valueProvider, String name)
-        {
-            this.valueProvider = requireNonNull(valueProvider, "valueProvider is null");
-            this.name = requireNonNull(name, "name is null");
-        }
-
-        @Override
-        public String apply(ConnectorSession session)
-        {
-            String value = valueProvider.apply(session);
-            if (VALIDATION_MATCHER.test(value)) {
-                return value;
-            }
-            throw new SecurityException("Passed value %s as %s does not meet security criteria. It can contain only letters, digits, underscores and hyphens".formatted(value, name));
-        }
     }
 }

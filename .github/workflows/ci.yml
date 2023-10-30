@@ -57,7 +57,7 @@ jobs:
       matrix:
         java-version:
           - 17
-          - 20
+          - 21
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -96,6 +96,8 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
+        with:
+          cleanup-node: true
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -436,6 +438,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           cache: restore
+          cleanup-node: true
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -457,6 +460,7 @@ jobs:
             !:trino-filesystem-azure,
             !:trino-filesystem-manager,
             !:trino-filesystem-s3,
+            !:trino-google-sheets,
             !:trino-hdfs,
             !:trino-hive,
             !:trino-hudi,
@@ -479,6 +483,7 @@ jobs:
             !:trino-raptor-legacy,
             !:trino-redis,
             !:trino-redshift,
+            !:trino-resource-group-managers,
             !:trino-server,
             !:trino-server-rpm,
             !:trino-singlestore,
@@ -566,8 +571,9 @@ jobs:
                 - lib/trino-filesystem-s3
                 - lib/trino-hdfs
             - { modules: core/trino-main }
-            - { modules: core/trino-main, jdk: 20 }
+            - { modules: core/trino-main, jdk: 21 }
             - { modules: lib/trino-filesystem-s3, profile: cloud-tests }
+            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
             - { modules: plugin/trino-accumulo }
             - { modules: plugin/trino-bigquery }
             - { modules: plugin/trino-bigquery, profile: cloud-tests-arrow }
@@ -578,6 +584,7 @@ jobs:
             - { modules: plugin/trino-delta-lake, profile: fte-tests }
             - { modules: plugin/trino-druid }
             - { modules: plugin/trino-elasticsearch }
+            - { modules: plugin/trino-google-sheets }
             - { modules: plugin/trino-hive }
             - { modules: plugin/trino-hive, profile: fte-tests }
             - { modules: plugin/trino-hive, profile: test-parquet }
@@ -601,6 +608,7 @@ jobs:
             - { modules: plugin/trino-redshift }
             - { modules: plugin/trino-redshift, profile: cloud-tests }
             - { modules: plugin/trino-redshift, profile: fte-tests }
+            - { modules: plugin/trino-resource-group-managers }
             - { modules: plugin/trino-singlestore }
             - { modules: plugin/trino-sqlserver }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
@@ -635,10 +643,7 @@ jobs:
         with:
           cache: restore
           java-version: ${{ matrix.jdk != '' && matrix.jdk || '17' }}
-      - name: Cleanup node
-        # This is required as a virtual environment update 20210219.1 left too little space for MemSQL to work
-        if: matrix.modules == 'plugin/trino-singlestore'
-        run: .github/bin/cleanup-node.sh
+          cleanup-node: ${{ format('{0}', matrix.modules == 'plugin/trino-singlestore') }}
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -652,6 +657,7 @@ jobs:
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'fte-tests'))
           && ! (contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests'))
+          && ! (contains(matrix.modules, 'trino-filesystem-azure') && contains(matrix.profile, 'cloud-tests'))
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
       # Additional tests for selected modules
       - name: HDFS file system cache isolated JVM tests
@@ -663,10 +669,36 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
-          S3_BUCKET: ${{ vars.TRINO_S3_S3FS_TESTS_BUCKET }}
         if: >-
           contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests') &&
           (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '')
+        run: |
+          # Create an empty S3 bucket for S3 filesystem cloud tests and add the bucket name to GitHub environment variables
+          .github/bin/s3/setup-empty-s3-bucket.sh
+          EMPTY_S3_BUCKET=$(cat .github/bin/s3/.bucket-identifier)
+          export EMPTY_S3_BUCKET
+          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
+      - name: Cleanup ephemeral S3 buckets
+        env:
+          AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
+        # Cancelled workflows may not have cleaned up the ephemeral bucket
+        if: always()
+        run: .github/bin/s3/delete-s3-bucket.sh || true
+      - name: Azure FileSystem Cloud Tests
+        env:
+          ABFS_BLOB_ACCOUNT: todo
+          ABFS_BLOB_ACCESS_KEY: todo
+          ABFS_FLAT_ACCOUNT: todo
+          ABFS_FLAT_ACCESS_KEY: todo
+          ABFS_ACCOUNT: todo
+          ABFS_ACCESS_KEY: todo
+        # todo(https://github.com/trinodb/trino/issues/18998) Enable when we have env variables in place
+        if: >-
+          false &&
+          contains(matrix.modules, 'trino-filesystem-azure') && contains(matrix.profile, 'cloud-tests') &&
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.ABFS_BLOB_ACCOUNT != '' || env.ABFS_BLOB_ACCESS_KEY != '' || env.ABFS_FLAT_ACCOUNT != '' || env.ABFS_FLAT_ACCESS_KEY != '' || env.ABFS_ACCOUNT != '' || env.ABFS_ACCESS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
       - name: Cloud Delta Lake Tests
@@ -843,6 +875,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           cache: restore
+          cleanup-node: true
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -885,14 +918,15 @@ jobs:
           cat <<EOF > .github/test-pt-matrix.yaml
           config:
             - default
-            - hdp3
-            # TODO: config-apache-hive3
           suite:
             - suite-1
             - suite-2
             - suite-3
             # suite-4 does not exist
             - suite-5
+            - suite-6-non-generic
+            - suite-7-non-generic
+            - suite-8-non-generic
             - suite-azure
             - suite-delta-lake-databricks91
             - suite-delta-lake-databricks104
@@ -903,18 +937,22 @@ jobs:
             - suite-clients
             - suite-functions
             - suite-tpch
+            - suite-tpcds
             - suite-storage-formats-detailed
+            - suite-parquet
+            - suite-oauth2
+            - suite-ldap
+            - suite-compatibility
+            - suite-all-connectors-smoke
+            - suite-delta-lake-oss
+            - suite-kafka
+            - suite-cassandra
+            - suite-clickhouse
+            - suite-mysql
+            - suite-iceberg
+            - suite-hudi
+            - suite-ignite
           exclude:
-            - config: default
-              ignore exclusion if: >-
-                ${{ github.event_name != 'pull_request'
-                 || github.event.pull_request.head.repo.full_name == github.repository
-                 || contains(github.event.pull_request.labels.*.name, 'tests:all')
-                 || contains(github.event.pull_request.labels.*.name, 'tests:hive')
-                 }}
-
-            - suite: suite-azure
-              config: default
             - suite: suite-azure
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' ||
@@ -923,33 +961,21 @@ jobs:
                     secrets.AZURE_ABFS_ACCESSKEY != '' }}
 
             - suite: suite-gcs
-              config: default
-            - suite: suite-gcs
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.GCP_CREDENTIALS_KEY != '' }}
 
             - suite: suite-delta-lake-databricks91
-              config: hdp3
-            - suite: suite-delta-lake-databricks91
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
-            - suite: suite-delta-lake-databricks104
-              config: hdp3
             - suite: suite-delta-lake-databricks104
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-delta-lake-databricks113
-              config: hdp3
-            - suite: suite-delta-lake-databricks113
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-delta-lake-databricks122
-              config: hdp3
-            - suite: suite-delta-lake-databricks122
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
-            - suite: suite-delta-lake-databricks133
-              config: hdp3
             - suite: suite-delta-lake-databricks133
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
@@ -966,60 +992,9 @@ jobs:
             #   value of the property, and the exclusion will apply normally.
             - "false"
           include:
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-6-non-generic
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-7-non-generic
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-8-non-generic
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-tpcds
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-parquet
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-oauth2
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-ldap
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-compatibility
             # this suite is designed specifically for apache-hive3. TODO remove the suite once we can run all regular tests on apache-hive3.
             - config: apache-hive3
               suite: suite-hms-only
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-all-connectors-smoke
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-delta-lake-oss
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-kafka
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-cassandra
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-clickhouse
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-mysql
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-iceberg
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-hudi
-            # this suite is not meant to be run with different configs
-            - config: default
-              suite: suite-ignite
           EOF
       - name: Build PT matrix (all)
         if: |

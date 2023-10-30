@@ -25,8 +25,10 @@ import io.trino.tests.product.launcher.env.common.Minio;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -41,7 +43,6 @@ import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
 import static io.trino.tests.product.launcher.env.common.Minio.MINIO_CONTAINER_NAME;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -56,6 +57,8 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class EnvSinglenodeDeltaLakeOss
         extends EnvironmentProvider
 {
+    private static final File HIVE_JDBC_PROVIDER = new File("testing/trino-product-tests-launcher/target/hive-jdbc.jar");
+
     private static final int SPARK_THRIFT_PORT = 10213;
 
     private static final String SPARK_CONTAINER_NAME = "spark";
@@ -86,11 +89,6 @@ public class EnvSinglenodeDeltaLakeOss
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        // Using hdp3.1 so we are using Hive metastore with version close to versions of  hive-*.jars Spark uses
-        builder.configureContainer(HADOOP, container -> {
-            container.setDockerImageName("ghcr.io/trinodb/testing/hdp3.1-hive:" + hadoopImagesVersion);
-        });
-
         builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
         builder.addConnector(
                 "delta_lake",
@@ -99,9 +97,8 @@ public class EnvSinglenodeDeltaLakeOss
 
         builder.configureContainer(TESTS, dockerContainer -> {
             dockerContainer.withEnv("S3_BUCKET", S3_BUCKET_NAME)
-                    .withCopyFileToContainer(
-                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-hive3.yaml")),
-                            CONTAINER_TEMPTO_PROFILE_CONFIG);
+                    // Binding instead of copying for avoiding OutOfMemoryError https://github.com/testcontainers/testcontainers-java/issues/2863
+                    .withFileSystemBind(HIVE_JDBC_PROVIDER.getParent(), "/docker/jdbc", BindMode.READ_ONLY);
         });
 
         builder.addContainer(createSparkContainer())

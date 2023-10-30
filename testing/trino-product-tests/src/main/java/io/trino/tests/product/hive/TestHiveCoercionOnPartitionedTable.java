@@ -84,6 +84,14 @@ public class TestHiveCoercionOnPartitionedTable
             .setNoData()
             .build();
 
+    public static final HiveTableDefinition HIVE_COERCION_SEQUENCE = tableDefinitionBuilder("SEQUENCEFILE", Optional.empty(), Optional.empty())
+            .setNoData()
+            .build();
+
+    public static final HiveTableDefinition HIVE_TIMESTAMP_COERCION_SEQUENCE = tableDefinitionForTimestampCoercionBuilder("SEQUENCEFILE", Optional.empty(), Optional.empty())
+            .setNoData()
+            .build();
+
     private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionBuilder(String fileFormat, Optional<String> recommendTableName, Optional<String> rowFormat)
     {
         String tableName = format("%s_hive_coercion", recommendTableName.orElse(fileFormat).toLowerCase(ENGLISH));
@@ -104,10 +112,23 @@ public class TestHiveCoercionOnPartitionedTable
                         "    bigint_to_varchar          BIGINT," +
                         "    float_to_double            " + floatType + "," +
                         "    double_to_float            DOUBLE," +
+                        "    double_to_string           DOUBLE," +
+                        "    double_to_bounded_varchar  DOUBLE," +
+                        "    double_infinity_to_string  DOUBLE," +
                         "    shortdecimal_to_shortdecimal          DECIMAL(10,2)," +
                         "    shortdecimal_to_longdecimal           DECIMAL(10,2)," +
                         "    longdecimal_to_shortdecimal           DECIMAL(20,12)," +
                         "    longdecimal_to_longdecimal            DECIMAL(20,12)," +
+                        "    longdecimal_to_tinyint                DECIMAL(20,12)," +
+                        "    shortdecimal_to_tinyint               DECIMAL(10,2)," +
+                        "    longdecimal_to_smallint               DECIMAL(20,12)," +
+                        "    shortdecimal_to_smallint              DECIMAL(10,2)," +
+                        "    too_big_shortdecimal_to_smallint      DECIMAL(10,2)," +
+                        "    longdecimal_to_int                    DECIMAL(20,12)," +
+                        "    shortdecimal_to_int                   DECIMAL(10,2)," +
+                        "    shortdecimal_with_0_scale_to_int      DECIMAL(10,0)," +
+                        "    longdecimal_to_bigint                 DECIMAL(20,4)," +
+                        "    shortdecimal_to_bigint                DECIMAL(10,2)," +
                         "    float_to_decimal           " + floatType + "," +
                         "    double_to_decimal          DOUBLE," +
                         "    decimal_to_float                   DECIMAL(10,5)," +
@@ -118,6 +139,8 @@ public class TestHiveCoercionOnPartitionedTable
                         "    long_decimal_to_bounded_varchar    DECIMAL(20,12)," +
                         "    varchar_to_bigger_varchar          VARCHAR(3)," +
                         "    varchar_to_smaller_varchar         VARCHAR(3)," +
+                        "    varchar_to_date                    VARCHAR(10)," +
+                        "    varchar_to_distant_date            VARCHAR(12)," +
                         "    char_to_bigger_char                CHAR(3)," +
                         "    char_to_smaller_char               CHAR(3)," +
                         "    timestamp_to_string                TIMESTAMP," +
@@ -230,6 +253,18 @@ public class TestHiveCoercionOnPartitionedTable
         }
     }
 
+    public static final class SequenceRequirements
+            implements RequirementsProvider
+    {
+        @Override
+        public Requirement getRequirements(Configuration configuration)
+        {
+            return compose(
+                    MutableTableRequirement.builder(HIVE_COERCION_SEQUENCE).withState(CREATED).build(),
+                    MutableTableRequirement.builder(HIVE_TIMESTAMP_COERCION_SEQUENCE).withState(CREATED).build());
+        }
+    }
+
     @Requires(TextRequirements.class)
     @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionTextFile()
@@ -298,6 +333,20 @@ public class TestHiveCoercionOnPartitionedTable
     public void testHiveCoercionWithDifferentTimestampPrecisionParquet()
     {
         doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_PARQUET);
+    }
+
+    @Requires(SequenceRequirements.class)
+    @Test(groups = {HIVE_COERCION, JDBC})
+    public void testHiveCoercionSequence()
+    {
+        doTestHiveCoercion(HIVE_COERCION_SEQUENCE);
+    }
+
+    @Requires(SequenceRequirements.class)
+    @Test(groups = {HIVE_COERCION, JDBC})
+    public void testHiveCoercionWithDifferentTimestampPrecisionSequence()
+    {
+        doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_SEQUENCE);
     }
 
     @Requires(AvroRequirements.class)

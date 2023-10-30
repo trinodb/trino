@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -195,13 +196,14 @@ public class TableChangesFunctionProcessor
                 0,
                 split.fileSize(),
                 splitColumns.stream().filter(column -> column.getColumnType() == REGULAR).map(DeltaLakeColumnHandle::toHiveColumnHandle).collect(toImmutableList()),
-                TupleDomain.all(), // TODO add predicate pushdown https://github.com/trinodb/trino/issues/16990
+                ImmutableList.of(TupleDomain.all()), // TODO add predicate pushdown https://github.com/trinodb/trino/issues/16990
                 true,
                 parquetDateTimeZone,
                 fileFormatDataSourceStats,
                 parquetReaderOptions,
                 Optional.empty(),
-                domainCompactionThreshold);
+                domainCompactionThreshold,
+                OptionalLong.empty());
 
         verify(pageSource.getReaderColumns().isEmpty(), "Unexpected reader columns: %s", pageSource.getReaderColumns().orElse(null));
 
@@ -214,6 +216,7 @@ public class TableChangesFunctionProcessor
                 Optional.empty(),
                 split.path(),
                 split.fileSize(),
-                0L);
+                0L,
+                Optional::empty);
     }
 }

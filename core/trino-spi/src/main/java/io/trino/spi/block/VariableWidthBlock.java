@@ -34,8 +34,8 @@ import static io.trino.spi.block.BlockUtil.compactSlice;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
 
-public class VariableWidthBlock
-        extends AbstractVariableWidthBlock
+public final class VariableWidthBlock
+        implements ValueBlock
 {
     private static final int INSTANCE_SIZE = instanceSize(VariableWidthBlock.class);
 
@@ -101,8 +101,7 @@ public class VariableWidthBlock
         return getPositionOffset(position);
     }
 
-    @Override
-    protected final int getPositionOffset(int position)
+    int getPositionOffset(int position)
     {
         return offsets[position + arrayOffset];
     }
@@ -112,18 +111,6 @@ public class VariableWidthBlock
     {
         checkReadablePosition(this, position);
         return getPositionOffset(position + 1) - getPositionOffset(position);
-    }
-
-    @Override
-    public boolean mayHaveNull()
-    {
-        return valueIsNull != null;
-    }
-
-    @Override
-    protected boolean isEntryNull(int position)
-    {
-        return valueIsNull != null && valueIsNull[position + arrayOffset];
     }
 
     @Override
@@ -175,6 +162,12 @@ public class VariableWidthBlock
     }
 
     @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        return isNull(position) ? 0 : getSliceLength(position);
+    }
+
+    @Override
     public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(slice, slice.getRetainedSize());
@@ -186,7 +179,78 @@ public class VariableWidthBlock
     }
 
     @Override
-    public Block copyPositions(int[] positions, int offset, int length)
+    public byte getByte(int position, int offset)
+    {
+        checkReadablePosition(this, position);
+        return slice.getByte(getPositionOffset(position) + offset);
+    }
+
+    @Override
+    public short getShort(int position, int offset)
+    {
+        checkReadablePosition(this, position);
+        return slice.getShort(getPositionOffset(position) + offset);
+    }
+
+    @Override
+    public int getInt(int position, int offset)
+    {
+        checkReadablePosition(this, position);
+        return slice.getInt(getPositionOffset(position) + offset);
+    }
+
+    @Override
+    public long getLong(int position, int offset)
+    {
+        checkReadablePosition(this, position);
+        return slice.getLong(getPositionOffset(position) + offset);
+    }
+
+    @Override
+    public Slice getSlice(int position, int offset, int length)
+    {
+        checkReadablePosition(this, position);
+        return slice.slice(getPositionOffset(position) + offset, length);
+    }
+
+    public Slice getSlice(int position)
+    {
+        checkReadablePosition(this, position);
+        int offset = offsets[position + arrayOffset];
+        int length = offsets[position + 1 + arrayOffset] - offset;
+        return slice.slice(offset, length);
+    }
+
+    @Override
+    public boolean mayHaveNull()
+    {
+        return valueIsNull != null;
+    }
+
+    @Override
+    public boolean isNull(int position)
+    {
+        checkReadablePosition(this, position);
+        return valueIsNull != null && valueIsNull[position + arrayOffset];
+    }
+
+    @Override
+    public VariableWidthBlock getSingleValueBlock(int position)
+    {
+        if (isNull(position)) {
+            return new VariableWidthBlock(0, 1, EMPTY_SLICE, new int[] {0, 0}, new boolean[] {true});
+        }
+
+        int offset = getPositionOffset(position);
+        int entrySize = getSliceLength(position);
+
+        Slice copy = slice.copy(offset, entrySize);
+
+        return new VariableWidthBlock(0, 1, copy, new int[] {0, copy.length()}, null);
+    }
+
+    @Override
+    public VariableWidthBlock copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
         if (length == 0) {
@@ -230,13 +294,7 @@ public class VariableWidthBlock
     }
 
     @Override
-    protected Slice getRawSlice(int position)
-    {
-        return slice;
-    }
-
-    @Override
-    public Block getRegion(int positionOffset, int length)
+    public VariableWidthBlock getRegion(int positionOffset, int length)
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
@@ -244,7 +302,7 @@ public class VariableWidthBlock
     }
 
     @Override
-    public Block copyRegion(int positionOffset, int length)
+    public VariableWidthBlock copyRegion(int positionOffset, int length)
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
         positionOffset += arrayOffset;
@@ -260,12 +318,24 @@ public class VariableWidthBlock
     }
 
     @Override
-    public Block copyWithAppendedNull()
+    public String getEncodingName()
+    {
+        return VariableWidthBlockEncoding.NAME;
+    }
+
+    @Override
+    public VariableWidthBlock copyWithAppendedNull()
     {
         boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
         int[] newOffsets = copyOffsetsAndAppendNull(offsets, arrayOffset, positionCount);
 
         return new VariableWidthBlock(arrayOffset, positionCount + 1, slice, newOffsets, newValueIsNull);
+    }
+
+    @Override
+    public VariableWidthBlock getUnderlyingValueBlock()
+    {
+        return this;
     }
 
     @Override

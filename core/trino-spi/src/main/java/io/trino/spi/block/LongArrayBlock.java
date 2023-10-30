@@ -29,8 +29,8 @@ import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
 import static java.lang.Math.toIntExact;
 
-public class LongArrayBlock
-        implements Block
+public final class LongArrayBlock
+        implements ValueBlock
 {
     private static final int INSTANCE_SIZE = instanceSize(LongArrayBlock.class);
     public static final int SIZE_IN_BYTES_PER_POSITION = Long.BYTES + Byte.BYTES;
@@ -127,10 +127,15 @@ public class LongArrayBlock
     @Override
     public long getLong(int position, int offset)
     {
-        checkReadablePosition(this, position);
         if (offset != 0) {
             throw new IllegalArgumentException("offset must be zero");
         }
+        return getLong(position);
+    }
+
+    public long getLong(int position)
+    {
+        checkReadablePosition(this, position);
         return values[position + arrayOffset];
     }
 
@@ -194,7 +199,7 @@ public class LongArrayBlock
     }
 
     @Override
-    public Block getSingleValueBlock(int position)
+    public LongArrayBlock getSingleValueBlock(int position)
     {
         checkReadablePosition(this, position);
         return new LongArrayBlock(
@@ -205,7 +210,7 @@ public class LongArrayBlock
     }
 
     @Override
-    public Block copyPositions(int[] positions, int offset, int length)
+    public LongArrayBlock copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
 
@@ -226,7 +231,7 @@ public class LongArrayBlock
     }
 
     @Override
-    public Block getRegion(int positionOffset, int length)
+    public LongArrayBlock getRegion(int positionOffset, int length)
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
@@ -234,7 +239,7 @@ public class LongArrayBlock
     }
 
     @Override
-    public Block copyRegion(int positionOffset, int length)
+    public LongArrayBlock copyRegion(int positionOffset, int length)
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
@@ -255,12 +260,18 @@ public class LongArrayBlock
     }
 
     @Override
-    public Block copyWithAppendedNull()
+    public LongArrayBlock copyWithAppendedNull()
     {
         boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
         long[] newValues = ensureCapacity(values, arrayOffset + positionCount + 1);
 
         return new LongArrayBlock(arrayOffset, positionCount + 1, newValueIsNull, newValues);
+    }
+
+    @Override
+    public LongArrayBlock getUnderlyingValueBlock()
+    {
+        return this;
     }
 
     @Override

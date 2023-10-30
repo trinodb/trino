@@ -13,6 +13,7 @@
  */
 package io.trino.security;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
@@ -20,18 +21,29 @@ import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.TestingTableFunctions;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.spi.connector.TableFunctionApplicationResult;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionId;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.FunctionProvider;
+import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.spi.function.Signature;
 import io.trino.spi.security.Identity;
+import io.trino.sql.SqlPath;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.lang.invoke.MethodHandles;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.io.Resources.getResource;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestFunctionsInViewsWithFileBasedSystemAccessControl
@@ -49,6 +61,7 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
                         .setCatalog(Optional.empty())
                         .setSchema(Optional.empty())
+                        .setPath(SqlPath.buildPath("mock.function", Optional.empty()))
                         .build())
                 .setNodeCount(1)
                 .setSystemAccessControl("file", Map.of(SECURITY_CONFIG_FILE, securityConfigFile))
@@ -63,6 +76,22 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
                     }
                     throw new IllegalStateException("Unsupported table function handle: " + handle.getClass().getSimpleName());
                 })
+                .withFunctions(ImmutableList.<FunctionMetadata>builder()
+                        .add(FunctionMetadata.scalarBuilder("my_function")
+                                .signature(Signature.builder().returnType(BIGINT).build())
+                                .noDescription()
+                                .build())
+                        .build())
+                .withFunctionProvider(Optional.of(new FunctionProvider()
+                {
+                    @Override
+                    public ScalarFunctionImplementation getScalarFunctionImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
+                    {
+                        return ScalarFunctionImplementation.builder()
+                                .methodHandle(MethodHandles.constant(long.class, 42L))
+                                .build();
+                    }
+                }))
                 .build()));
         queryRunner.createCatalog("mock", "mock");
         return queryRunner;
@@ -85,13 +114,13 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
         String securityInvokerQuery = "SELECT * FROM blackhole.default.view_ptf_alice_security_invoker";
         assertQuerySucceeds(ALICE_USER, securityInvokerQuery);
         assertQuerySucceeds(BOB_USER, securityInvokerQuery);
-        assertAccessDenied(CHARLIE_USER, securityInvokerQuery, "Cannot access catalog mock");
+        assertAccessDenied(CHARLIE_USER, securityInvokerQuery, "Cannot execute function mock.system.simple_table_function");
     }
 
     @Test
     public void testFunctionSecurityDefinerViewCreatedByAlice()
     {
-        assertQuerySucceeds(ALICE_USER, "CREATE VIEW blackhole.default.view_function_alice_security_definer SECURITY DEFINER AS SELECT now() AS t");
+        assertQuerySucceeds(ALICE_USER, "CREATE VIEW blackhole.default.view_function_alice_security_definer SECURITY DEFINER AS SELECT my_function() AS t");
         String securityDefinerQuery = "SELECT * FROM blackhole.default.view_function_alice_security_definer";
         assertQuerySucceeds(ALICE_USER, securityDefinerQuery);
         assertQuerySucceeds(BOB_USER, securityDefinerQuery);
@@ -101,11 +130,11 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
     @Test
     public void testFunctionSecurityInvokerViewCreatedByAlice()
     {
-        assertQuerySucceeds(ALICE_USER, "CREATE VIEW blackhole.default.view_function_alice_security_invoker SECURITY INVOKER AS SELECT now() AS t");
+        assertQuerySucceeds(ALICE_USER, "CREATE VIEW blackhole.default.view_function_alice_security_invoker SECURITY INVOKER AS SELECT my_function() AS t");
         String securityInvokerQuery = "SELECT * FROM blackhole.default.view_function_alice_security_invoker";
         assertQuerySucceeds(ALICE_USER, securityInvokerQuery);
         assertQuerySucceeds(BOB_USER, securityInvokerQuery);
-        assertAccessDenied(CHARLIE_USER, securityInvokerQuery, "Cannot execute function now");
+        assertAccessDenied(CHARLIE_USER, securityInvokerQuery, "Cannot execute function my_function");
     }
 
     @Test
@@ -113,9 +142,9 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
     {
         assertQuerySucceeds(BOB_USER, "CREATE VIEW blackhole.default.view_ptf_bob_security_definer SECURITY DEFINER AS SELECT * FROM TABLE(mock.system.simple_table_function())");
         String securityDefinerQuery = "SELECT * FROM blackhole.default.view_ptf_bob_security_definer";
-        assertAccessDenied(ALICE_USER, securityDefinerQuery, "View owner does not have sufficient privileges: 'bob' cannot grant 'mock\\.system\\.simple_table_function' execution to user 'alice'");
+        assertAccessDenied(ALICE_USER, securityDefinerQuery, "Cannot execute function mock.system.simple_table_function");
         assertQuerySucceeds(BOB_USER, securityDefinerQuery);
-        assertAccessDenied(CHARLIE_USER, securityDefinerQuery, "View owner does not have sufficient privileges: 'bob' cannot grant 'mock\\.system\\.simple_table_function' execution to user 'charlie'");
+        assertAccessDenied(CHARLIE_USER, securityDefinerQuery, "Cannot execute function mock.system.simple_table_function");
     }
 
     @Test
@@ -125,33 +154,34 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
         String securityInvokerQuery = "SELECT * FROM blackhole.default.view_ptf_bob_security_invoker";
         assertQuerySucceeds(ALICE_USER, securityInvokerQuery);
         assertQuerySucceeds(BOB_USER, securityInvokerQuery);
-        assertAccessDenied(CHARLIE_USER, securityInvokerQuery, "Cannot access catalog mock");
+        assertAccessDenied(CHARLIE_USER, securityInvokerQuery, "Cannot execute function mock.system.simple_table_function");
     }
 
     @Test
     public void testFunctionSecurityDefinerViewCreatedByBob()
     {
-        assertQuerySucceeds(BOB_USER, "CREATE VIEW blackhole.default.view_function_bob_security_definer SECURITY DEFINER AS SELECT now() AS t");
+        assertQuerySucceeds(BOB_USER, "CREATE VIEW blackhole.default.view_function_bob_security_definer SECURITY DEFINER AS SELECT my_function() AS t");
         String securityDefinerQuery = "SELECT * FROM blackhole.default.view_function_bob_security_definer";
-        assertAccessDenied(ALICE_USER, securityDefinerQuery, "View owner does not have sufficient privileges: 'bob' cannot grant 'now' execution to user 'alice'");
+        assertAccessDenied(ALICE_USER, securityDefinerQuery, "Cannot execute function my_function");
         assertQuerySucceeds(BOB_USER, securityDefinerQuery);
-        assertAccessDenied(CHARLIE_USER, securityDefinerQuery, "View owner does not have sufficient privileges: 'bob' cannot grant 'now' execution to user 'charlie'");
+        assertAccessDenied(CHARLIE_USER, securityDefinerQuery, "Cannot execute function my_function");
     }
 
     @Test
     public void testFunctionSecurityInvokerViewCreatedByBob()
     {
-        assertQuerySucceeds(BOB_USER, "CREATE VIEW blackhole.default.view_function_bob_security_invoker SECURITY INVOKER AS SELECT now() AS t");
+        assertQuerySucceeds(BOB_USER, "CREATE VIEW blackhole.default.view_function_bob_security_invoker SECURITY INVOKER AS SELECT my_function() AS t");
         String securityInvokerQuery = "SELECT * FROM blackhole.default.view_function_bob_security_invoker";
         assertQuerySucceeds(ALICE_USER, securityInvokerQuery);
         assertQuerySucceeds(BOB_USER, securityInvokerQuery);
-        assertAccessDenied(CHARLIE_USER, securityInvokerQuery, "Cannot execute function now");
+        assertAccessDenied(CHARLIE_USER, securityInvokerQuery, "Cannot execute function my_function");
     }
 
     private static Session user(String user)
     {
         return testSessionBuilder()
                 .setIdentity(Identity.ofUser(user))
+                .setPath(SqlPath.buildPath("mock.function", Optional.empty()))
                 .build();
     }
 }

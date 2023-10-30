@@ -31,7 +31,7 @@ import io.trino.spi.type.Type;
 import io.trino.tpch.Nation;
 import io.trino.tpch.NationColumn;
 import io.trino.tpch.NationGenerator;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.net.URISyntaxException;

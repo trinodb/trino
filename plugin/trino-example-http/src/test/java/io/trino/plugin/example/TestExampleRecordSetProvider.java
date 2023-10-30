@@ -18,9 +18,10 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -28,9 +29,10 @@ import java.util.Map;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestExampleRecordSetProvider
 {
     private ExampleHttpServer exampleHttpServer;
@@ -44,16 +46,20 @@ public class TestExampleRecordSetProvider
         RecordSet recordSet = recordSetProvider.getRecordSet(ExampleTransactionHandle.INSTANCE, SESSION, new ExampleSplit(dataUri), tableHandle, ImmutableList.of(
                 new ExampleColumnHandle("text", createUnboundedVarcharType(), 0),
                 new ExampleColumnHandle("value", BIGINT, 1)));
-        assertNotNull(recordSet, "recordSet is null");
+        assertThat(recordSet)
+                .describedAs("recordSet is null")
+                .isNotNull();
 
         RecordCursor cursor = recordSet.cursor();
-        assertNotNull(cursor, "cursor is null");
+        assertThat(cursor)
+                .describedAs("cursor is null")
+                .isNotNull();
 
         Map<String, Long> data = new LinkedHashMap<>();
         while (cursor.advanceNextPosition()) {
             data.put(cursor.getSlice(0).toStringUtf8(), cursor.getLong(1));
         }
-        assertEquals(data, ImmutableMap.<String, Long>builder()
+        assertThat(data).isEqualTo(ImmutableMap.<String, Long>builder()
                 .put("ten", 10L)
                 .put("eleven", 11L)
                 .put("twelve", 12L)
@@ -64,14 +70,14 @@ public class TestExampleRecordSetProvider
     // Start http server for testing
     //
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         exampleHttpServer = new ExampleHttpServer();
         dataUri = exampleHttpServer.resolve("/example-data/numbers-2.csv").toString();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         if (exampleHttpServer != null) {

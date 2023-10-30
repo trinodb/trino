@@ -13,6 +13,8 @@
  */
 package io.trino.sql.relational;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.Type;
 
 import java.util.Objects;
@@ -25,17 +27,22 @@ public final class VariableReferenceExpression
     private final String name;
     private final Type type;
 
-    public VariableReferenceExpression(String name, Type type)
+    @JsonCreator
+    public VariableReferenceExpression(
+            @JsonProperty String name,
+            @JsonProperty Type type)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
     }
 
+    @JsonProperty
     public String getName()
     {
         return name;
     }
 
+    @JsonProperty
     @Override
     public Type getType()
     {

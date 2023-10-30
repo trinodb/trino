@@ -231,6 +231,12 @@ public abstract class AbstractIcebergTableOperations
             return;
         }
 
+        // a table that is replaced doesn't need its metadata reloaded
+        if (newLocation == null) {
+            shouldRefresh = false;
+            return;
+        }
+
         TableMetadata newMetadata;
         try {
             newMetadata = Failsafe.with(RetryPolicy.builder()

@@ -228,8 +228,12 @@ public class MergeFileWriter
     private Page buildDeletePage(Block rowIds, long writeId)
     {
         ColumnarRow columnarRow = toColumnarRow(rowIds);
-        checkArgument(!columnarRow.mayHaveNull(), "The rowIdsRowBlock may not have null rows");
         int positionCount = rowIds.getPositionCount();
+        if (columnarRow.mayHaveNull()) {
+            for (int position = 0; position < positionCount; position++) {
+                checkArgument(!columnarRow.isNull(position), "The rowIdsRowBlock may not have null rows");
+            }
+        }
         // We've verified that the rowIds block has no null rows, so it's okay to get the field blocks
         Block[] blockArray = {
                 RunLengthEncodedBlock.create(DELETE_OPERATION_BLOCK, positionCount),

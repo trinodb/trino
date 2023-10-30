@@ -441,6 +441,7 @@ public class TrinoGlueCatalog
             }
             catch (RuntimeException e) {
                 // Table may be concurrently deleted
+                // TODO detect file not found failure when reading metadata file and silently skip table in such case. Avoid logging warnings for legitimate situations.
                 LOG.warn(e, "Failed to get metadata for table: %s", tableName);
                 return;
             }
@@ -535,6 +536,7 @@ public class TrinoGlueCatalog
             }
             catch (RuntimeException e) {
                 // Table may be concurrently deleted
+                // TODO detect file not found failure when reading metadata file and silently skip table in such case. Avoid logging warnings for legitimate situations.
                 LOG.warn(e, "Failed to get metadata for table: %s", tableName);
                 return;
             }
@@ -689,6 +691,27 @@ public class TrinoGlueCatalog
             Map<String, String> properties)
     {
         return newCreateTableTransaction(
+                session,
+                schemaTableName,
+                schema,
+                partitionSpec,
+                sortOrder,
+                location,
+                properties,
+                Optional.of(session.getUser()));
+    }
+
+    @Override
+    public Transaction newCreateOrReplaceTableTransaction(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            Schema schema,
+            PartitionSpec partitionSpec,
+            SortOrder sortOrder,
+            String location,
+            Map<String, String> properties)
+    {
+        return newCreateOrReplaceTableTransaction(
                 session,
                 schemaTableName,
                 schema,
@@ -1033,7 +1056,8 @@ public class TrinoGlueCatalog
                 definition.getColumns(),
                 comment,
                 definition.getOwner(),
-                definition.isRunAsInvoker());
+                definition.isRunAsInvoker(),
+                definition.getPath());
 
         updateView(session, viewName, newDefinition);
     }
@@ -1052,7 +1076,8 @@ public class TrinoGlueCatalog
                         .collect(toImmutableList()),
                 definition.getComment(),
                 definition.getOwner(),
-                definition.isRunAsInvoker());
+                definition.isRunAsInvoker(),
+                definition.getPath());
 
         updateView(session, viewName, newDefinition);
     }
@@ -1167,6 +1192,7 @@ public class TrinoGlueCatalog
                 definition.getGracePeriod(),
                 definition.getComment(),
                 definition.getOwner(),
+                definition.getPath(),
                 definition.getProperties());
 
         updateMaterializedView(session, viewName, newDefinition);

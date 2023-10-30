@@ -29,7 +29,7 @@ import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.exchange.ExchangeSink;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;

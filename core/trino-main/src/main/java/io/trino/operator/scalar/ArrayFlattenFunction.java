@@ -41,9 +41,8 @@ public class ArrayFlattenFunction
 
     private ArrayFlattenFunction()
     {
-        super(FunctionMetadata.scalarBuilder()
+        super(FunctionMetadata.scalarBuilder(FUNCTION_NAME)
                 .signature(Signature.builder()
-                        .name(FUNCTION_NAME)
                         .typeVariable("E")
                         .returnType(arrayType(new TypeSignature("E")))
                         .argumentType(arrayType(arrayType(new TypeSignature("E"))))

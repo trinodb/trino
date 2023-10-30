@@ -63,10 +63,10 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.TestingConnectorContext;
 import io.trino.tests.BogusType;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.File;
 import java.io.IOException;
@@ -94,9 +94,11 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestDeltaLakeMetadata
 {
     private static final String DATABASE_NAME = "mock_database";
@@ -204,7 +206,7 @@ public class TestDeltaLakeMetadata
     private File temporaryCatalogDirectory;
     private DeltaLakeMetadataFactory deltaLakeMetadataFactory;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
             throws IOException
     {
@@ -259,7 +261,7 @@ public class TestDeltaLakeMetadata
                         .build());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws Exception
     {
@@ -374,74 +376,57 @@ public class TestDeltaLakeMetadata
                 .isNotPresent();
     }
 
-    @DataProvider
-    public Object[][] testApplyProjectionProvider()
+    @Test
+    public void testApplyProjection()
     {
-        return new Object[][] {
-                {
-                        ImmutableSet.of(),
-                        SYNTHETIC_COLUMN_ASSIGNMENTS,
-                        SIMPLE_COLUMN_PROJECTIONS,
-                        SIMPLE_COLUMN_PROJECTIONS,
-                        ImmutableSet.of(BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
-                        SYNTHETIC_COLUMN_ASSIGNMENTS
-                },
-                {
-                        // table handle already contains subset of expected projected columns
-                        ImmutableSet.of(BOGUS_COLUMN_HANDLE),
-                        SYNTHETIC_COLUMN_ASSIGNMENTS,
-                        SIMPLE_COLUMN_PROJECTIONS,
-                        SIMPLE_COLUMN_PROJECTIONS,
-                        ImmutableSet.of(BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
-                        SYNTHETIC_COLUMN_ASSIGNMENTS
-                },
-                {
-                        // table handle already contains superset of expected projected columns
-                        ImmutableSet.of(DOUBLE_COLUMN_HANDLE, BOOLEAN_COLUMN_HANDLE, DATE_COLUMN_HANDLE, BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
-                        SYNTHETIC_COLUMN_ASSIGNMENTS,
-                        SIMPLE_COLUMN_PROJECTIONS,
-                        SIMPLE_COLUMN_PROJECTIONS,
-                        ImmutableSet.of(BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
-                        SYNTHETIC_COLUMN_ASSIGNMENTS
-                },
-                {
-                        // table handle has empty assignments
-                        ImmutableSet.of(DOUBLE_COLUMN_HANDLE, BOOLEAN_COLUMN_HANDLE, DATE_COLUMN_HANDLE, BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
-                        ImmutableMap.of(),
-                        SIMPLE_COLUMN_PROJECTIONS,
-                        SIMPLE_COLUMN_PROJECTIONS,
-                        ImmutableSet.of(),
-                        ImmutableMap.of()
-                },
-                {
-                        ImmutableSet.of(DOUBLE_COLUMN_HANDLE, BOOLEAN_COLUMN_HANDLE, DATE_COLUMN_HANDLE, BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
-                        ImmutableMap.of(),
-                        DEREFERENCE_COLUMN_PROJECTIONS,
-                        DEREFERENCE_COLUMN_PROJECTIONS,
-                        ImmutableSet.of(),
-                        ImmutableMap.of()
-                },
-                {
-                        ImmutableSet.of(NESTED_COLUMN_HANDLE),
-                        NESTED_COLUMN_ASSIGNMENTS,
-                        NESTED_DEREFERENCE_COLUMN_PROJECTIONS,
-                        EXPECTED_NESTED_DEREFERENCE_COLUMN_PROJECTIONS,
-                        ImmutableSet.of(EXPECTED_NESTED_COLUMN_HANDLE),
-                        EXPECTED_NESTED_COLUMN_ASSIGNMENTS
-                },
-                {
-                        ImmutableSet.of(HIGHLY_NESTED_ROW_FIELD),
-                        HIGHLY_NESTED_COLUMN_ASSIGNMENTS,
-                        HIGHLY_NESTED_DEREFERENCE_COLUMN_PROJECTIONS,
-                        EXPECTED_HIGHLY_NESTED_DEREFERENCE_COLUMN_PROJECTIONS,
-                        ImmutableSet.of(EXPECTED_NESTED_COLUMN_HANDLE_WITH_PROJECTION),
-                        EXPECTED_HIGHLY_NESTED_COLUMN_ASSIGNMENTS
-                }
-        };
+        testApplyProjection(
+                ImmutableSet.of(),
+                SYNTHETIC_COLUMN_ASSIGNMENTS,
+                SIMPLE_COLUMN_PROJECTIONS,
+                SIMPLE_COLUMN_PROJECTIONS,
+                ImmutableSet.of(BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
+                SYNTHETIC_COLUMN_ASSIGNMENTS);
+        testApplyProjection(
+                // table handle already contains subset of expected projected columns
+                ImmutableSet.of(BOGUS_COLUMN_HANDLE),
+                SYNTHETIC_COLUMN_ASSIGNMENTS,
+                SIMPLE_COLUMN_PROJECTIONS,
+                SIMPLE_COLUMN_PROJECTIONS,
+                ImmutableSet.of(BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
+                SYNTHETIC_COLUMN_ASSIGNMENTS);
+        testApplyProjection(
+                // table handle already contains superset of expected projected columns
+                ImmutableSet.of(DOUBLE_COLUMN_HANDLE, BOOLEAN_COLUMN_HANDLE, DATE_COLUMN_HANDLE, BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
+                SYNTHETIC_COLUMN_ASSIGNMENTS,
+                SIMPLE_COLUMN_PROJECTIONS,
+                SIMPLE_COLUMN_PROJECTIONS,
+                ImmutableSet.of(BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
+                SYNTHETIC_COLUMN_ASSIGNMENTS);
+        testApplyProjection(
+                // table handle has empty assignments
+                ImmutableSet.of(DOUBLE_COLUMN_HANDLE, BOOLEAN_COLUMN_HANDLE, DATE_COLUMN_HANDLE, BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
+                ImmutableMap.of(),
+                SIMPLE_COLUMN_PROJECTIONS,
+                SIMPLE_COLUMN_PROJECTIONS,
+                ImmutableSet.of(),
+                ImmutableMap.of());
+        testApplyProjection(
+                ImmutableSet.of(DOUBLE_COLUMN_HANDLE, BOOLEAN_COLUMN_HANDLE, DATE_COLUMN_HANDLE, BOGUS_COLUMN_HANDLE, VARCHAR_COLUMN_HANDLE),
+                ImmutableMap.of(),
+                DEREFERENCE_COLUMN_PROJECTIONS,
+                DEREFERENCE_COLUMN_PROJECTIONS,
+                ImmutableSet.of(),
+                ImmutableMap.of());
+        testApplyProjection(
+                ImmutableSet.of(NESTED_COLUMN_HANDLE),
+                NESTED_COLUMN_ASSIGNMENTS,
+                NESTED_DEREFERENCE_COLUMN_PROJECTIONS,
+                EXPECTED_NESTED_DEREFERENCE_COLUMN_PROJECTIONS,
+                ImmutableSet.of(EXPECTED_NESTED_COLUMN_HANDLE),
+                EXPECTED_NESTED_COLUMN_ASSIGNMENTS);
     }
 
-    @Test(dataProvider = "testApplyProjectionProvider")
-    public void testApplyProjection(
+    private void testApplyProjection(
             Set<DeltaLakeColumnHandle> inputProjectedColumns,
             Map<String, ColumnHandle> inputAssignments,
             List<ConnectorExpression> inputProjections,

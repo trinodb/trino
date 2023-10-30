@@ -82,8 +82,8 @@ public class TestUnaliasSymbolReferences
                                     TRUE_LITERAL, // additional filter to test recursive call
                                     p.filter(
                                             ExpressionUtils.and(
-                                                    dynamicFilterExpression(metadata, session, probeColumn1, dynamicFilterId1),
-                                                    dynamicFilterExpression(metadata, session, probeColumn2, dynamicFilterId2)),
+                                                    dynamicFilterExpression(metadata, probeColumn1, dynamicFilterId1),
+                                                    dynamicFilterExpression(metadata, probeColumn2, dynamicFilterId2)),
                                             p.tableScan(
                                                     tableHandle(probeTable),
                                                     ImmutableList.of(probeColumn1, probeColumn2),
@@ -145,7 +145,7 @@ public class TestUnaliasSymbolReferences
             Metadata metadata = queryRunner.getMetadata();
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
             PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-            PlanBuilder planBuilder = new PlanBuilder(idAllocator, metadata, session);
+            PlanBuilder planBuilder = new PlanBuilder(idAllocator, queryRunner.getPlannerContext(), session);
 
             SymbolAllocator symbolAllocator = new SymbolAllocator();
             PlanNode plan = planCreator.create(planBuilder, session, metadata);
@@ -165,9 +165,9 @@ public class TestUnaliasSymbolReferences
         });
     }
 
-    private Expression dynamicFilterExpression(Metadata metadata, Session session, Symbol symbol, DynamicFilterId id)
+    private Expression dynamicFilterExpression(Metadata metadata, Symbol symbol, DynamicFilterId id)
     {
-        return createDynamicFilterExpression(session, metadata, id, BigintType.BIGINT, symbol.toSymbolReference());
+        return createDynamicFilterExpression(metadata, id, BigintType.BIGINT, symbol.toSymbolReference());
     }
 
     private TableHandle tableHandle(String tableName)

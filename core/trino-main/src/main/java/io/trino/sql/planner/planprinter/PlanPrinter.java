@@ -36,10 +36,12 @@ import io.trino.execution.StageStats;
 import io.trino.execution.TableInfo;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.FunctionName;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.table.Argument;
 import io.trino.spi.function.table.DescriptorArgument;
 import io.trino.spi.function.table.ScalarArgument;
@@ -110,6 +112,7 @@ import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TableUpdateNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
@@ -157,6 +160,9 @@ import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctNanos;
 import static io.trino.execution.StageInfo.getAllStages;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
+import static io.trino.metadata.LanguageFunctionManager.isInlineFunction;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.trino.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
@@ -184,6 +190,7 @@ public class PlanPrinter
 {
     private static final JsonCodec<Map<PlanFragmentId, JsonRenderedNode>> DISTRIBUTED_PLAN_CODEC =
             mapJsonCodec(PlanFragmentId.class, JsonRenderedNode.class);
+    private static final CatalogSchemaFunctionName COUNT_NAME = builtinFunctionName("count");
 
     private final PlanRepresentation representation;
     private final Function<TableScanNode, TableInfo> tableInfoSupplier;
@@ -644,6 +651,7 @@ public class PlanPrinter
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Optional.empty());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
     }
@@ -677,23 +685,21 @@ public class PlanPrinter
         @Override
         public Void visitJoin(JoinNode node, Context context)
         {
-            List<Expression> joinExpressions = new ArrayList<>();
-            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(unresolveFunctions(clause.toExpression()));
-            }
-            node.getFilter()
-                    .map(PlanPrinter::unresolveFunctions)
-                    .ifPresent(joinExpressions::add);
+            List<Expression> criteriaExpressions = node.getCriteria().stream()
+                    .map(clause -> unresolveFunctions(clause.toExpression()))
+                    .collect(toImmutableList());
 
             NodeRepresentation nodeOutput;
             if (node.isCrossJoin()) {
-                checkState(joinExpressions.isEmpty());
+                checkState(criteriaExpressions.isEmpty());
+                checkState(node.getFilter().isEmpty());
                 nodeOutput = addNode(node, "CrossJoin", context.tag());
             }
             else {
                 ImmutableMap.Builder<String, String> descriptor = ImmutableMap.<String, String>builder()
-                        .put("criteria", Joiner.on(" AND ").join(anonymizeExpressions(joinExpressions)))
-                        .put("hash", formatHash(node.getLeftHashSymbol(), node.getRightHashSymbol()));
+                        .put("criteria", Joiner.on(" AND ").join(anonymizeExpressions(criteriaExpressions)));
+                node.getFilter().ifPresent(filter -> descriptor.put("filter", formatFilter(unresolveFunctions(filter))));
+                descriptor.put("hash", formatHash(node.getLeftHashSymbol(), node.getRightHashSymbol()));
                 node.getDistributionType().ifPresent(distribution -> descriptor.put("distribution", distribution.name()));
                 nodeOutput = addNode(node, node.getType().getJoinLabel(), descriptor.buildOrThrow(), node.getReorderJoinStatsAndCost(), context.tag());
             }
@@ -939,7 +945,7 @@ public class PlanPrinter
                 nodeOutput.appendDetails(
                         "%s := %s(%s) %s",
                         anonymizer.anonymize(entry.getKey()),
-                        function.getResolvedFunction().getSignature().getName(),
+                        formatFunctionName(function.getResolvedFunction()),
                         Joiner.on(", ").join(anonymizeExpressions(function.getArguments())),
                         frameInfo);
             }
@@ -991,7 +997,7 @@ public class PlanPrinter
                 nodeOutput.appendDetails(
                         "%s := %s(%s)",
                         anonymizer.anonymize(entry.getKey()),
-                        function.getResolvedFunction().getSignature().getName(),
+                        formatFunctionName(function.getResolvedFunction()),
                         Joiner.on(", ").join(anonymizeExpressions(function.getArguments())));
             }
 
@@ -1040,12 +1046,17 @@ public class PlanPrinter
                 }
                 else if (pointer instanceof AggregationValuePointer aggregationPointer) {
                     String processingMode = aggregationPointer.getSetDescriptor().isRunning() ? "RUNNING " : "FINAL ";
-                    String name = aggregationPointer.getFunction().getSignature().getName();
                     String arguments = Joiner.on(", ").join(anonymizeExpressions(aggregationPointer.getArguments()));
                     String labels = aggregationPointer.getSetDescriptor().getLabels().stream()
                             .map(IrLabel::getName)
                             .collect(joining(", ", "{", "}"));
-                    nodeOutput.appendDetails("%s%s := %s%s(%s)%s", indentString(1), anonymizer.anonymize(symbol), processingMode, name, arguments, labels);
+                    nodeOutput.appendDetails("%s%s := %s%s(%s)%s",
+                            indentString(1),
+                            anonymizer.anonymize(symbol),
+                            processingMode,
+                            formatFunctionName(aggregationPointer.getFunction()),
+                            arguments,
+                            labels);
                 }
                 else {
                     throw new UnsupportedOperationException("unexpected ValuePointer type: " + pointer.getClass().getSimpleName());
@@ -1347,11 +1358,11 @@ public class PlanPrinter
         {
             if (nodeStats.getPlanNodePhysicalInputDataSize().toBytes() > 0) {
                 buildFormatString(inputDetailBuilder, argsBuilder, ", Physical input: %s", nodeStats.getPlanNodePhysicalInputDataSize().toString());
-                buildFormatString(inputDetailBuilder, argsBuilder, ", Physical input time: %s", nodeStats.getPlanNodePhysicalInputReadTime().toString());
+                buildFormatString(inputDetailBuilder, argsBuilder, ", Physical input time: %s", nodeStats.getPlanNodePhysicalInputReadTime().convertToMostSuccinctTimeUnit().toString());
             }
             // Some connectors may report physical input time but not physical input data size
             else if (nodeStats.getPlanNodePhysicalInputReadTime().getValue() > 0) {
-                buildFormatString(inputDetailBuilder, argsBuilder, ", Physical input time: %s", nodeStats.getPlanNodePhysicalInputReadTime().toString());
+                buildFormatString(inputDetailBuilder, argsBuilder, ", Physical input time: %s", nodeStats.getPlanNodePhysicalInputReadTime().convertToMostSuccinctTimeUnit().toString());
             }
         }
 
@@ -1736,6 +1747,17 @@ public class PlanPrinter
         {
             addNode(node,
                     "TableDelete",
+                    ImmutableMap.of("target", anonymizer.anonymize(node.getTarget())),
+                    context.tag());
+
+            return processChildren(node, new Context());
+        }
+
+        @Override
+        public Void visitTableUpdate(TableUpdateNode node, Context context)
+        {
+            addNode(node,
+                    "TableUpdate",
                     ImmutableMap.of("target", anonymizer.anonymize(node.getTarget())),
                     context.tag());
 
@@ -2166,14 +2188,14 @@ public class PlanPrinter
                 .map(anonymizer::anonymize)
                 .collect(toImmutableList());
         String arguments = Joiner.on(", ").join(anonymizedArguments);
-        if (aggregation.getArguments().isEmpty() && "count".equalsIgnoreCase(aggregation.getResolvedFunction().getSignature().getName())) {
+        if (aggregation.getArguments().isEmpty() && COUNT_NAME.equals(aggregation.getResolvedFunction().getSignature().getName())) {
             arguments = "*";
         }
         if (aggregation.isDistinct()) {
             arguments = "DISTINCT " + arguments;
         }
 
-        builder.append(aggregation.getResolvedFunction().getSignature().getName())
+        builder.append(formatFunctionName(aggregation.getResolvedFunction()))
                 .append('(').append(arguments);
 
         aggregation.getOrderingScheme().ifPresent(orderingScheme -> builder.append(' ').append(orderingScheme.getOrderBy().stream()
@@ -2192,6 +2214,15 @@ public class PlanPrinter
         return builder.toString();
     }
 
+    private static String formatFunctionName(ResolvedFunction function)
+    {
+        CatalogSchemaFunctionName name = function.getSignature().getName();
+        if (isInlineFunction(name) || isBuiltinFunctionName(name)) {
+            return name.getFunctionName();
+        }
+        return name.toString();
+    }
+
     private static Expression unresolveFunctions(Expression expression)
     {
         return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
@@ -2200,10 +2231,17 @@ public class PlanPrinter
             public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
-
+                CatalogSchemaFunctionName name = extractFunctionName(node.getName());
+                QualifiedName qualifiedName;
+                if (isInlineFunction(name) || isBuiltinFunctionName(name)) {
+                    qualifiedName = QualifiedName.of(name.getFunctionName());
+                }
+                else {
+                    qualifiedName = QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getFunctionName());
+                }
                 return new FunctionCall(
                         rewritten.getLocation(),
-                        QualifiedName.of(extractFunctionName(node.getName())),
+                        qualifiedName,
                         rewritten.getWindow(),
                         rewritten.getFilter(),
                         rewritten.getOrderBy(),

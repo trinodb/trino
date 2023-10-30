@@ -14,7 +14,7 @@
 package io.trino.execution.resourcegroups.db;
 
 import io.trino.testing.DistributedQueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.execution.resourcegroups.TestResourceGroupIntegration.waitForGlobalResourceGroup;
 import static io.trino.execution.resourcegroups.db.H2TestUtil.getSimpleQueryRunner;
