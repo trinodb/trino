@@ -19,7 +19,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.metadata.Split;
-import io.trino.spi.HostAddress;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSplit;
 
@@ -148,18 +147,6 @@ public class MockSplitSource
     public static class MockConnectorSplit
             implements ConnectorSplit
     {
-        @Override
-        public boolean isRemotelyAccessible()
-        {
-            return false;
-        }
-
-        @Override
-        public List<HostAddress> getAddresses()
-        {
-            return ImmutableList.of();
-        }
-
         @Override
         public Object getInfo()
         {
