@@ -63,6 +63,7 @@ import static io.trino.spi.type.Timestamps.round;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class BigQueryQueryPageSource
         implements ConnectorPageSource
@@ -102,11 +103,14 @@ public class BigQueryQueryPageSource
 
     private static String buildSql(BigQueryTableHandle table, String projectId, List<String> columnNames, Optional<String> filter)
     {
+        String columns = columnNames.stream().map(column -> format("`%s`", column)).collect(joining(","));
+        String projection = columnNames.isEmpty() ? "*" : columns;
+
         if (table.getRelationHandle() instanceof BigQueryQueryRelationHandle queryRelationHandle) {
             if (filter.isEmpty()) {
-                return queryRelationHandle.getQuery();
+                return "SELECT %s FROM (%s)".formatted(projection, queryRelationHandle.getQuery());
             }
-            return "SELECT * FROM (" + queryRelationHandle.getQuery() + " ) WHERE " + filter.get();
+            return "SELECT %s FROM (%s) WHERE %s".formatted(projection, queryRelationHandle.getQuery(), filter.get());
         }
         TableId tableId = TableId.of(projectId, table.asPlainTable().getRemoteTableName().getDatasetName(), table.asPlainTable().getRemoteTableName().getTableName());
         return selectSql(tableId, ImmutableList.copyOf(columnNames), filter);
