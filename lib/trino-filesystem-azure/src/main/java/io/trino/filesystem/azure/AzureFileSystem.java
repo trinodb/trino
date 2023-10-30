@@ -53,6 +53,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.filesystem.azure.AzureUtils.handleAzureException;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 import static java.util.function.Predicate.not;
 
 public class AzureFileSystem
@@ -368,6 +369,34 @@ public class AzureFileSystem
         catch (RuntimeException e) {
             throw handleAzureException(e, "listing files", azureLocation);
         }
+    }
+
+    @Override
+    public Optional<Location> createTemporaryDirectory(Location targetPath, String temporaryPrefix, String relativePrefix)
+            throws IOException
+    {
+        AzureLocation azureLocation = new AzureLocation(targetPath);
+        if (!isHierarchicalNamespaceEnabled(azureLocation)) {
+            return Optional.empty();
+        }
+
+        // allow for absolute or relative temporary prefix
+        Location temporary;
+        if (temporaryPrefix.startsWith("/")) {
+            String prefix = temporaryPrefix;
+            while (prefix.startsWith("/")) {
+                prefix = prefix.substring(1);
+            }
+            temporary = azureLocation.baseLocation().appendPath(prefix);
+        }
+        else {
+            temporary = targetPath.appendPath(temporaryPrefix);
+        }
+
+        temporary = temporary.appendPath(randomUUID().toString());
+
+        createDirectory(temporary);
+        return Optional.of(temporary);
     }
 
     private Set<Location> listGen2Directories(AzureLocation location)

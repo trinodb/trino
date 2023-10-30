@@ -199,6 +199,14 @@ public class MemoryFileSystem
         return directories.build();
     }
 
+    @Override
+    public Optional<Location> createTemporaryDirectory(Location targetPath, String temporaryPrefix, String relativePrefix)
+    {
+        validateMemoryLocation(targetPath);
+        // memory file system does not have directories
+        return Optional.empty();
+    }
+
     private static String toBlobKey(Location location)
     {
         validateMemoryLocation(location);
