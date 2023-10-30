@@ -41,14 +41,11 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.IntUnaryOperator;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.execution.buffer.PageSplitterUtil.splitPage;
-import static io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputInfo;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -70,7 +67,6 @@ public class PagePartitioner
     private final boolean replicatesAnyRow;
     private final boolean partitionProcessRleAndDictionaryBlocks;
     private final int nullChannel; // when >= 0, send the position to every partition if this channel is null
-    private PartitionedOutputInfoSupplier partitionedOutputInfoSupplier;
 
     private boolean hasAnyRowBeenReplicated;
 
@@ -132,20 +128,14 @@ public class PagePartitioner
         return partitionFunction;
     }
 
-    // sets up this partitioner for the new operator
-    public void setupOperator(OperatorContext operatorContext)
-    {
-        // for new operator we need to reset the stats gathered by this PagePartitioner
-        partitionedOutputInfoSupplier = new PartitionedOutputInfoSupplier(outputBuffer, operatorContext);
-        operatorContext.setInfoSupplier(partitionedOutputInfoSupplier);
-    }
-
-    public void partitionPage(Page page)
+    public void partitionPage(Page page, OperatorContext operatorContext)
     {
         if (page.getPositionCount() == 0) {
             return;
         }
 
+        int outputPositionCount = replicatesAnyRow && !hasAnyRowBeenReplicated ? page.getPositionCount() + positionsAppenders.length - 1 : page.getPositionCount();
+        long positionsAppendersSizeBefore = getPositionsAppendersSizeInBytes();
         if (page.getPositionCount() < partitionFunction.partitionCount() * COLUMNAR_STRATEGY_COEFFICIENT) {
             // Partition will have on average less than COLUMNAR_STRATEGY_COEFFICIENT rows.
             // Doing it column-wise would degrade performance, so we fall back to row-wise approach.
@@ -156,7 +146,11 @@ public class PagePartitioner
         else {
             partitionPageByColumn(page);
         }
+        long positionsAppendersSizeAfter = getPositionsAppendersSizeInBytes();
+        flushPositionsAppenders(false);
         updateMemoryUsage();
+
+        operatorContext.recordOutput(positionsAppendersSizeAfter - positionsAppendersSizeBefore, outputPositionCount);
     }
 
     public void partitionPageByRow(Page page)
@@ -201,8 +195,6 @@ public class PagePartitioner
                 positionsAppenders[partition].appendToOutputPartition(page, position);
             }
         }
-
-        flushPositionsAppenders(false);
     }
 
     public void partitionPageByColumn(Page page)
@@ -216,8 +208,15 @@ public class PagePartitioner
                 partitionPositions.clear();
             }
         }
+    }
 
-        flushPositionsAppenders(false);
+    private long getPositionsAppendersSizeInBytes()
+    {
+        long sizeInBytes = 0;
+        for (PositionsAppenderPageBuilder pageBuilder : positionsAppenders) {
+            sizeInBytes += pageBuilder.getSizeInBytes();
+        }
+        return sizeInBytes;
     }
 
     private IntArrayList[] partitionPositions(Page page)
@@ -448,7 +447,6 @@ public class PagePartitioner
     private void enqueuePage(Page pagePartition, int partition)
     {
         outputBuffer.enqueue(partition, splitAndSerializePage(pagePartition));
-        partitionedOutputInfoSupplier.recordPage(pagePartition);
     }
 
     private List<Slice> splitAndSerializePage(Page page)
@@ -469,38 +467,5 @@ public class PagePartitioner
         }
         retainedSizeInBytes += serializer.getRetainedSizeInBytes();
         memoryContext.setBytes(retainedSizeInBytes);
-    }
-
-    /**
-     * Keeps statistics about output pages produced by the partitioner + updates the stats in the operatorContext.
-     */
-    private static class PartitionedOutputInfoSupplier
-            implements Supplier<PartitionedOutputInfo>
-    {
-        private final AtomicLong rowsAdded = new AtomicLong();
-        private final AtomicLong pagesAdded = new AtomicLong();
-        private final OutputBuffer outputBuffer;
-        private final OperatorContext operatorContext;
-
-        private PartitionedOutputInfoSupplier(OutputBuffer outputBuffer, OperatorContext operatorContext)
-        {
-            this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
-            this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        }
-
-        @Override
-        public PartitionedOutputInfo get()
-        {
-            // note that outputBuffer.getPeakMemoryUsage() will produce peak across many operators
-            // this is suboptimal but hard to fix properly
-            return new PartitionedOutputInfo(rowsAdded.get(), pagesAdded.get(), outputBuffer.getPeakMemoryUsage());
-        }
-
-        public void recordPage(Page pagePartition)
-        {
-            operatorContext.recordOutput(pagePartition.getSizeInBytes(), pagePartition.getPositionCount());
-            pagesAdded.incrementAndGet();
-            rowsAdded.addAndGet(pagePartition.getPositionCount());
-        }
     }
 }
