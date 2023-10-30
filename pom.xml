@@ -169,7 +169,7 @@
         <dep.swagger.version>1.6.12</dep.swagger.version>
         <dep.kotlin.version>1.9.10</dep.kotlin.version>
         <dep.google.http.client.version>1.43.3</dep.google.http.client.version>
-        <dep.errorprone.version>2.22.0</dep.errorprone.version>
+        <dep.errorprone.version>2.23.0</dep.errorprone.version>
         <dep.testcontainers.version>1.19.1</dep.testcontainers.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
         <dep.confluent.version>7.4.1</dep.confluent.version>
