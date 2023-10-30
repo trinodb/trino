@@ -35,7 +35,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.util.AcidTables.deleteDeltaSubdir;
 import static io.trino.plugin.hive.util.AcidTables.getAcidState;
 import static io.trino.plugin.hive.util.AcidTables.parseBase;
@@ -110,7 +109,7 @@ public class TestAcidTables
     public void testOriginal()
             throws Exception
     {
-        MockFileSystem fs = new MockFileSystem(newEmptyConfiguration(),
+        MockFileSystem fs = new MockFileSystem(new Configuration(false),
                 new MockFile("mock:/tbl/part1/000000_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/000000_0_copy_1", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/000000_0_copy_2", 500, FAKE_DATA),
@@ -144,7 +143,7 @@ public class TestAcidTables
     public void testOriginalDeltas()
             throws Exception
     {
-        MockFileSystem fs = new MockFileSystem(newEmptyConfiguration(),
+        MockFileSystem fs = new MockFileSystem(new Configuration(false),
                 new MockFile("mock:/tbl/part1/000000_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/000001_1", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/000002_0", 500, FAKE_DATA),
@@ -189,7 +188,7 @@ public class TestAcidTables
     public void testBaseDeltas()
             throws Exception
     {
-        MockFileSystem fs = new MockFileSystem(newEmptyConfiguration(),
+        MockFileSystem fs = new MockFileSystem(new Configuration(false),
                 new MockFile("mock:/tbl/part1/_tmp/bucket_0", 0, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/_tmp/base_5/bucket_0", 0, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/base_5/bucket_0", 500, FAKE_DATA),
@@ -220,7 +219,7 @@ public class TestAcidTables
     public void testObsoleteOriginals()
             throws Exception
     {
-        MockFileSystem fs = new MockFileSystem(newEmptyConfiguration(),
+        MockFileSystem fs = new MockFileSystem(new Configuration(false),
                 new MockFile("mock:/tbl/part1/base_10/bucket_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/base_5/bucket_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/000000_0", 500, FAKE_DATA),
@@ -237,7 +236,7 @@ public class TestAcidTables
     public void testOverlapingDelta()
             throws Exception
     {
-        MockFileSystem fs = new MockFileSystem(newEmptyConfiguration(),
+        MockFileSystem fs = new MockFileSystem(new Configuration(false),
                 new MockFile("mock:/tbl/part1/delta_0000063_63/bucket_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/delta_000062_62/bucket_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/delta_00061_61/bucket_0", 500, FAKE_DATA),
@@ -264,7 +263,7 @@ public class TestAcidTables
     public void testOverlapingDelta2()
             throws Exception
     {
-        MockFileSystem fs = new MockFileSystem(newEmptyConfiguration(),
+        MockFileSystem fs = new MockFileSystem(new Configuration(false),
                 new MockFile("mock:/tbl/part1/delta_0000063_63_0/bucket_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/delta_000062_62_0/bucket_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/delta_000062_62_3/bucket_0", 500, FAKE_DATA),
@@ -296,7 +295,7 @@ public class TestAcidTables
     public void deltasWithOpenTxnInRead()
             throws Exception
     {
-        MockFileSystem fs = new MockFileSystem(newEmptyConfiguration(),
+        MockFileSystem fs = new MockFileSystem(new Configuration(false),
                 new MockFile("mock:/tbl/part1/delta_1_1/bucket_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/delta_2_5/bucket_0", 500, FAKE_DATA));
         AcidState state = getAcidState(
@@ -314,7 +313,7 @@ public class TestAcidTables
     public void deltasWithOpenTxnInRead2()
             throws Exception
     {
-        MockFileSystem fs = new MockFileSystem(newEmptyConfiguration(),
+        MockFileSystem fs = new MockFileSystem(new Configuration(false),
                 new MockFile("mock:/tbl/part1/delta_1_1/bucket_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/delta_2_5/bucket_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/delta_4_4_1/bucket_0", 500, FAKE_DATA),
@@ -335,7 +334,7 @@ public class TestAcidTables
     public void testBaseWithDeleteDeltas()
             throws Exception
     {
-        MockFileSystem fs = new MockFileSystem(newEmptyConfiguration(),
+        MockFileSystem fs = new MockFileSystem(new Configuration(false),
                 new MockFile("mock:/tbl/part1/base_5/bucket_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/base_10/bucket_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/base_49/bucket_0", 500, FAKE_DATA),
@@ -366,7 +365,7 @@ public class TestAcidTables
     public void testOverlapingDeltaAndDeleteDelta()
             throws Exception
     {
-        MockFileSystem fs = new MockFileSystem(newEmptyConfiguration(),
+        MockFileSystem fs = new MockFileSystem(new Configuration(false),
                 new MockFile("mock:/tbl/part1/delta_0000063_63/bucket_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/delta_000062_62/bucket_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/delta_00061_61/bucket_0", 500, FAKE_DATA),
@@ -400,7 +399,7 @@ public class TestAcidTables
     {
         // This test checks that if we have a minor compacted delta for the txn range [40,60]
         // then it will make any delete delta in that range as obsolete.
-        MockFileSystem fs = new MockFileSystem(newEmptyConfiguration(),
+        MockFileSystem fs = new MockFileSystem(new Configuration(false),
                 new MockFile("mock:/tbl/part1/delta_40_60/bucket_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/delete_delta_50_50/bucket_0", 500, FAKE_DATA));
         AcidState state = getAcidState(
@@ -417,7 +416,7 @@ public class TestAcidTables
     public void deleteDeltasWithOpenTxnInRead()
             throws Exception
     {
-        MockFileSystem fs = new MockFileSystem(newEmptyConfiguration(),
+        MockFileSystem fs = new MockFileSystem(new Configuration(false),
                 new MockFile("mock:/tbl/part1/delta_1_1/bucket_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/delta_2_5/bucket_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/delete_delta_2_5/bucket_0", 500, FAKE_DATA),
@@ -448,7 +447,7 @@ public class TestAcidTables
 
     private static TrinoFileSystem testingTrinoFileSystem(FileSystem fileSystem)
     {
-        HdfsConfiguration hdfsConfiguration = (context, uri) -> newEmptyConfiguration();
+        HdfsConfiguration hdfsConfiguration = (context, uri) -> new Configuration(false);
 
         HdfsEnvironment environment = new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication())
         {

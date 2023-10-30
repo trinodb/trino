@@ -18,6 +18,7 @@ import io.airlift.concurrent.MoreFutures;
 import io.trino.hdfs.authentication.ImpersonatingHdfsAuthentication;
 import io.trino.hdfs.authentication.SimpleHadoopAuthentication;
 import io.trino.spi.security.ConnectorIdentity;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
@@ -34,7 +35,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.base.security.UserNameProvider.SIMPLE_USER_NAME_PROVIDER;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -124,7 +124,7 @@ public class TestFileSystemCache
     private static FileSystem getFileSystem(HdfsEnvironment environment, ConnectorIdentity identity)
             throws IOException
     {
-        return environment.getFileSystem(identity, new Path("/"), newEmptyConfiguration());
+        return environment.getFileSystem(identity, new Path("/"), new Configuration(false));
     }
 
     @FunctionalInterface
