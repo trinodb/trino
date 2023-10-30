@@ -38,7 +38,6 @@ public record TableChangesSplit(
         long fileSize,
         long fileRecordCount,
         IcebergFileFormat fileFormat,
-        List<HostAddress> addresses,
         String partitionSpecJson,
         String partitionDataJson,
         SplitWeight splitWeight) implements ConnectorSplit
@@ -50,7 +49,6 @@ public record TableChangesSplit(
         requireNonNull(changeType, "changeType is null");
         requireNonNull(path, "path is null");
         requireNonNull(fileFormat, "fileFormat is null");
-        addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         requireNonNull(partitionDataJson, "partitionDataJson is null");
         requireNonNull(splitWeight, "splitWeight is null");
@@ -65,7 +63,7 @@ public record TableChangesSplit(
     @Override
     public List<HostAddress> getAddresses()
     {
-        return addresses;
+        return ImmutableList.of();
     }
 
     @Override
@@ -89,7 +87,6 @@ public record TableChangesSplit(
     {
         return INSTANCE_SIZE
                 + estimatedSizeOf(path)
-                + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
                 + estimatedSizeOf(partitionSpecJson)
                 + estimatedSizeOf(partitionDataJson)
                 + splitWeight.getRetainedSizeInBytes();
