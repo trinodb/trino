@@ -167,9 +167,6 @@ public class SnowflakeArrowPageSource
         catch (SFException e) {
             throw new TrinoException(JDBC_ERROR, "Couldn't write Snowflake blocks", e);
         }
-        finally {
-            closeAllocator();
-        }
     }
 
     @Override
@@ -187,7 +184,7 @@ public class SnowflakeArrowPageSource
             }
             downloadFuture = null;
         }
-        closeAllocator();
+        bufferAllocator.close();
     }
 
     private BlockWriter createWriter(ValueVector vector, int columnIndex)
@@ -220,11 +217,6 @@ public class SnowflakeArrowPageSource
         }
 
         return columnToVectorOrder.buildOrThrow();
-    }
-
-    private void closeAllocator()
-    {
-        bufferAllocator.close();
     }
 
     private CloseableArrowBatch decodeArrowInputStream(byte[] data)
