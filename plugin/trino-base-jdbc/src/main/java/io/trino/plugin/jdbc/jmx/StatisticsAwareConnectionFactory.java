@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc.jmx;
 import com.google.inject.Inject;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
+import io.trino.plugin.jdbc.longrunning.EventListenerStats;
 import io.trino.spi.connector.ConnectorSession;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -32,16 +33,20 @@ public class StatisticsAwareConnectionFactory
     private final JdbcApiStats closeConnection = new JdbcApiStats();
     private final ConnectionFactory delegate;
 
+    private final EventListenerStats eventListenerStats;
+
     @Inject
-    public StatisticsAwareConnectionFactory(@ForBaseJdbc ConnectionFactory delegate)
+    public StatisticsAwareConnectionFactory(@ForBaseJdbc ConnectionFactory delegate, EventListenerStats eventListenerStats)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.eventListenerStats = requireNonNull(eventListenerStats, "eventListenerStats is null");
     }
 
     @Override
     public Connection openConnection(ConnectorSession session)
             throws SQLException
     {
+        eventListenerStats.artificialCount();
         return openConnection.wrap(() -> delegate.openConnection(session));
     }
 

@@ -32,7 +32,6 @@ import io.airlift.event.client.EventModule;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
-import io.airlift.jmx.testing.TestingJmxModule;
 import io.airlift.json.JsonModule;
 import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.openmetrics.JmxOpenMetricsModule;
@@ -45,6 +44,7 @@ import io.trino.cost.StatsCalculator;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
+import io.trino.eventlistener.EventListenerStatsModule;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.FailureInjector;
 import io.trino.execution.FailureInjector.InjectedFailureType;
@@ -67,6 +67,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TablePropertyManager;
+import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
@@ -269,7 +270,8 @@ public class TestingTrinoServer
                 .add(new JaxrsModule())
                 .add(new MBeanModule())
                 .add(new PrefixObjectNameGeneratorModule("io.trino"))
-                .add(new TestingJmxModule())
+                //.add(new TestingJmxModule())
+                .add(new MBeanServerModule())
                 .add(new JmxOpenMetricsModule())
                 .add(new EventModule())
                 .add(new TraceTokenModule())
@@ -279,6 +281,7 @@ public class TestingTrinoServer
                 .add(new TransactionManagerModule())
                 .add(new ServerMainModule(VERSION))
                 .add(new TestingWarningCollectorModule())
+                .add(new EventListenerStatsModule())
                 .add(binder -> {
                     binder.bind(EventListenerConfig.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControlConfig.class).in(Scopes.SINGLETON);

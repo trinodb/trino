@@ -44,11 +44,21 @@ public class JdbcDiagnosticModule
 
         Provider<CatalogName> catalogName = binder.getProvider(CatalogName.class);
         newExporter(binder).export(Key.get(JdbcClient.class, StatsCollecting.class))
-                .as(generator -> generator.generatedNameOf(JdbcClient.class, catalogName.get().toString()));
+                .as(generator -> {
+                    String name = generator.generatedNameOf(JdbcClient.class, catalogName.get().toString());
+                    return name;
+                });
         newExporter(binder).export(StatisticsAwareConnectionFactory.class)
-                .as(generator -> generator.generatedNameOf(ConnectionFactory.class, catalogName.get().toString()));
+                .as(generator -> {
+                    String name = generator.generatedNameOf(ConnectionFactory.class, catalogName.get().toString());
+                    return name;
+                });
         newExporter(binder).export(JdbcClient.class)
-                .as(generator -> generator.generatedNameOf(CachingJdbcClient.class, catalogName.get().toString()));
+                .as(generator -> {
+                    String name = generator.generatedNameOf(CachingJdbcClient.class, catalogName.get().toString());
+                    CatalogName cn = catalogName.get();
+                    return name;
+                });
     }
 
     @Provides

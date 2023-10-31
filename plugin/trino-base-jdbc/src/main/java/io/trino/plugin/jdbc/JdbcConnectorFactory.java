@@ -18,6 +18,7 @@ import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.jdbc.longrunning.EventListenerStatsModule;
 import io.trino.spi.NodeManager;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.connector.Connector;
@@ -65,6 +66,7 @@ public class JdbcConnectorFactory
                 binder -> binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry()),
                 binder -> binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName)),
                 new JdbcModule(),
+                new EventListenerStatsModule(),
                 module);
 
         Injector injector = app

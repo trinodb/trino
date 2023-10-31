@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
+import io.trino.eventlistener.EventListenerStats;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
@@ -40,17 +41,20 @@ public class TestingEventListenerManager
 {
     private static final long LISTENER_THRESHOLD_MILLIS = TimeUnit.MILLISECONDS.toMillis(500);
 
+    private final EventListenerStats stats;
+
     public static TestingEventListenerManager emptyEventListenerManager()
     {
-        return new TestingEventListenerManager(new EventListenerConfig());
+        return new TestingEventListenerManager(new EventListenerConfig(), new EventListenerStats());
     }
 
     private final Set<EventListener> configuredEventListeners = Collections.synchronizedSet(new HashSet<>());
 
     @Inject
-    public TestingEventListenerManager(EventListenerConfig config)
+    public TestingEventListenerManager(EventListenerConfig config, EventListenerStats stats)
     {
         super(config);
+        this.stats = stats;
     }
 
     @Override
@@ -68,9 +72,10 @@ public class TestingEventListenerManager
     @Override
     public void queryCompleted(Function<Boolean, QueryCompletedEvent> queryCompletedEventProvider, WarningCollector warningCollector)
     {
+        stats.artificialCount();
         for (EventListener listener : configuredEventListeners) {
             long elapsed = -currentTimeMillis();
-            listener.queryCompleted(queryCompletedEventProvider.apply(listener.requiresAnonymizedPlan()));
+            stats.queryCompleted(listener, queryCompletedEventProvider.apply(listener.requiresAnonymizedPlan()));
             elapsed += currentTimeMillis();
             if (elapsed > LISTENER_THRESHOLD_MILLIS) {
                 System.out.println("EventListener.queryCompleted " + listener.getName() + " is taking longer than expected: " + elapsed + " ms");
@@ -85,9 +90,10 @@ public class TestingEventListenerManager
     @Override
     public void queryCreated(QueryCreatedEvent queryCreatedEvent, WarningCollector warningCollector)
     {
+        stats.artificialCount();
         for (EventListener listener : configuredEventListeners) {
             long elapsed = -currentTimeMillis();
-            listener.queryCreated(queryCreatedEvent);
+            stats.queryCreated(listener, queryCreatedEvent);
             elapsed += currentTimeMillis();
             if (elapsed > LISTENER_THRESHOLD_MILLIS) {
                 System.out.println("EventListener.queryCreated " + listener.getName() + " for query: " + queryCreatedEvent.getMetadata().getQuery() + " is taking longer than expected: " + elapsed + " ms");
@@ -102,9 +108,10 @@ public class TestingEventListenerManager
     @Override
     public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
     {
+        stats.artificialCount();
         for (EventListener listener : configuredEventListeners) {
             long elapsed = -currentTimeMillis();
-            listener.splitCompleted(splitCompletedEvent);
+            stats.splitCompleted(listener, splitCompletedEvent);
             elapsed += currentTimeMillis();
             if (elapsed > LISTENER_THRESHOLD_MILLIS) {
                 System.out.println("EventListener.splitCompleted " + listener.getName() + " is taking longer than expected: " + elapsed + " ms");
