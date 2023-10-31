@@ -97,6 +97,7 @@ public class TestLocalDispatchQuery
         Metadata metadata = createTestMetadataManager();
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControl = new AccessControlManager(
+                NodeVersion.UNKNOWN,
                 transactionManager,
                 emptyEventListenerManager(),
                 new AccessControlConfig(),

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.opentelemetry.api.OpenTelemetry;
+import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.eventlistener.EventListenerManager;
@@ -558,17 +559,17 @@ public class TestAccessControlManager
 
     private AccessControlManager createAccessControlManager(TransactionManager testTransactionManager)
     {
-        return new AccessControlManager(testTransactionManager, emptyEventListenerManager(), new AccessControlConfig(), OpenTelemetry.noop(), DefaultSystemAccessControl.NAME);
+        return new AccessControlManager(NodeVersion.UNKNOWN, testTransactionManager, emptyEventListenerManager(), new AccessControlConfig(), OpenTelemetry.noop(), DefaultSystemAccessControl.NAME);
     }
 
     private AccessControlManager createAccessControlManager(EventListenerManager eventListenerManager, AccessControlConfig config)
     {
-        return new AccessControlManager(createTestTransactionManager(), eventListenerManager, config, OpenTelemetry.noop(), DefaultSystemAccessControl.NAME);
+        return new AccessControlManager(NodeVersion.UNKNOWN, createTestTransactionManager(), eventListenerManager, config, OpenTelemetry.noop(), DefaultSystemAccessControl.NAME);
     }
 
     private AccessControlManager createAccessControlManager(EventListenerManager eventListenerManager, String defaultAccessControlName)
     {
-        return new AccessControlManager(createTestTransactionManager(), eventListenerManager, new AccessControlConfig(), OpenTelemetry.noop(), defaultAccessControlName);
+        return new AccessControlManager(NodeVersion.UNKNOWN, createTestTransactionManager(), eventListenerManager, new AccessControlConfig(), OpenTelemetry.noop(), defaultAccessControlName);
     }
 
     private SystemAccessControlFactory eventListeningSystemAccessControlFactory(String name, EventListener... eventListeners)

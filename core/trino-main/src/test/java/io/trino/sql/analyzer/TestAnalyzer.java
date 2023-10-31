@@ -22,6 +22,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.StaticConnectorFactory;
@@ -6746,6 +6747,7 @@ public class TestAnalyzer
         transactionManager = queryRunner.getTransactionManager();
 
         AccessControlManager accessControlManager = new AccessControlManager(
+                NodeVersion.UNKNOWN,
                 transactionManager,
                 emptyEventListenerManager(),
                 new AccessControlConfig(),

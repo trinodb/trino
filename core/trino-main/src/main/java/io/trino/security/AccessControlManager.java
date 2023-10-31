@@ -23,6 +23,7 @@ import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.metadata.QualifiedObjectName;
@@ -95,6 +96,7 @@ public class AccessControlManager
     private static final File CONFIG_FILE = new File("etc/access-control.properties");
     private static final String NAME_PROPERTY = "access-control.name";
 
+    private final NodeVersion nodeVersion;
     private final TransactionManager transactionManager;
     private final EventListenerManager eventListenerManager;
     private final List<File> configFiles;
@@ -110,12 +112,14 @@ public class AccessControlManager
 
     @Inject
     public AccessControlManager(
+            NodeVersion nodeVersion,
             TransactionManager transactionManager,
             EventListenerManager eventListenerManager,
             AccessControlConfig config,
             OpenTelemetry openTelemetry,
             @DefaultSystemAccessControlName String defaultAccessControlName)
     {
+        this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.configFiles = ImmutableList.copyOf(config.getAccessControlFiles());
@@ -223,6 +227,13 @@ public class AccessControlManager
         return new SystemAccessControlContext()
         {
             private final Tracer tracer = openTelemetry.getTracer("trino.system-access-control." + systemAccessControlName);
+            private final String version = nodeVersion.getVersion();
+
+            @Override
+            public String getVersion()
+            {
+                return version;
+            }
 
             @Override
             public OpenTelemetry getOpenTelemetry()
