@@ -25,7 +25,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
-public class TransactionLogAssertions
+public final class TransactionLogAssertions
 {
     private TransactionLogAssertions() {}
 
