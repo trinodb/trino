@@ -1,3 +1,75 @@
+---
+---
+---
+
+# Starburst common engine for Starburst for Galaxy and SEP
+
+## What is this repo all about?
+
+It is a continues fork of Trino OSS that is used to based all Starburst proprietary software.
+This is project is updated with changes from OSS Trino in continues manner so all changes in Trino lands in this repo 
+eventually. That way we maintain relationship with Trino codebase in order to avoid the hard fork.
+
+## Development model
+
+<img alt="Forks" src=".github/forks.png" />
+
+In the proposed model we have following components:
+ * Trino OSS (trinodb/trino repository, airlift etc)
+ * Starburst Trino Engine - a continuous fork of Trino OSS that also contains all shared
+   components like Warp Speed. The fork is continuous as periodically it gets updated with all new changes from Trino OSS.
+ * Galaxy Trino fork (starburstdata/galaxy-trino repository) - a continuous fork of Starburst Common Trino Fork with Galaxy
+   specific changes. The fork is continuous as periodically it gets updated with all new changes from Common Trino
+   Fork. It is also using release artifacts of shared components.
+ * Galaxy - product that consumes Galaxy Trino fork to provision query execution clusters (control plane). It is also
+   using release artifacts of shared components (consider Buffer Service or Schema Discovery).
+ * Starburst Enterprise (SEP) (starburstdata/starburst-enterprise repository) a consumer of Starburst Common Trino fork.
+   Trino is used here as library and extension points are used to implement here SEP specific features.
+
+## Development
+
+### Code owners
+
+This is crucial repository for the company and so we need to be more strict about things we merge here. Especially one
+needs to consider that changes needs to be continues fork friendly. Therefore we would like to follow
+that:
+ - only limited set of people can merge the code. That group is known as Code Owners.
+ - Code Owners are defined in [CODEOWNERS file](.github/CODEOWNERS).
+ - Code Owners have the right to merge the code, but they also have the responsibility to periodically update the fork
+ with Trino changes.
+
+### How to build this project?
+
+You will need to use settings.xml file with credentials for AWS CodeArtifact.
+
+Use one either from [Galaxy](https://github.com/starburstdata/stargate) or
+[SEP](https://github.com/starburstdata/starburst-enterprise) repository.
+
+### How to update this Trino fork to a newer Trino version?
+
+We are updating this repository to each Trino release. Release by release.
+
+For example in order to update to 429 from 428 you need to:
+
+    ./bin/update-fork/update-fork.py -s 428
+
+See also [update script readme](bin/update-fork/README.md).
+
+This script will try to update to 429 and it will fail in case of conflict.
+Please resolve the conflict and repeat the command. Run:
+
+    git add ...
+    git cherry-pick --continue
+    ./bin/update-fork/update-fork.py
+
+Notice that second call is not using `-s`, so it won't cherry-pick commits that were already
+backported in second run. It will find the last cherry-picked commit and it will continue
+since it to the next Trino release.
+
+---
+---
+---
+
 <p align="center">
     <a href="https://trino.io/"><img alt="Trino Logo" src=".github/homepage.png" /></a>
 </p>
