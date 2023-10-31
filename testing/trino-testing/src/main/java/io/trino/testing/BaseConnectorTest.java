@@ -47,6 +47,7 @@ import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -184,6 +185,7 @@ import static org.testng.Assert.fail;
 /**
  * Generic test for connectors.
  */
+@Isolated
 public abstract class BaseConnectorTest
         extends AbstractTestQueries
 {
