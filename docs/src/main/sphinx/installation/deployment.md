@@ -138,10 +138,9 @@ The following provides a good starting point for creating `etc/jvm.config`:
 -XX:PerBytecodeRecompilationCutoff=10000
 -Djdk.attach.allowAttachSelf=true
 -Djdk.nio.maxCachedBufferSize=2000000
--XX:+UnlockDiagnosticVMOptions
--XX:+UseAESCTRIntrinsics
 -Dfile.encoding=UTF-8
 # Reduce starvation of threads by GClocker, recommend to set about the number of cpu cores (JDK-8192647)
+-XX:+UnlockDiagnosticVMOptions
 -XX:GCLockerRetryAllocationCount=32
 ```
 
@@ -173,7 +172,6 @@ prevents Trino from starting. You can workaround this by overriding the
 temporary directory by adding `-Djava.io.tmpdir=/path/to/other/tmpdir` to the
 list of JVM options.
 
-We enable `-XX:+UnlockDiagnosticVMOptions` and `-XX:+UseAESCTRIntrinsics` to improve AES performance for S3, etc. on ARM64 ([JDK-8271567](https://bugs.openjdk.java.net/browse/JDK-8271567))
 We set GCLocker retry allocation count (`-XX:GCLockerRetryAllocationCount=32`) to avoid OOM too early (see [JDK-8192647](https://bugs.openjdk.org/browse/JDK-8192647))
 
 (config-properties)=
