@@ -435,11 +435,6 @@
                         <artifactId>surefire-testng</artifactId>
                         <version>${dep.plugin.surefire.version}</version>
                     </dependency>
-                    <!--                    <dependency>-->
-                    <!--                        <groupId>org.junit.jupiter</groupId>-->
-                    <!--                        <artifactId>junit-jupiter-engine</artifactId>-->
-                    <!--                        <version>${dep.junit.version}</version>-->
-                    <!--                    </dependency>-->
                 </dependencies>
             </plugin>
         </plugins>
