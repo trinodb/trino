@@ -24,6 +24,7 @@ import io.trino.testing.LocalQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -37,8 +38,10 @@ import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregati
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public abstract class AbstractTestGeoAggregationFunctions
 {
     private LocalQueryRunner runner;

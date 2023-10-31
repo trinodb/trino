@@ -24,6 +24,7 @@ import io.trino.testing.minio.MinioClient;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Map;
@@ -40,7 +41,9 @@ import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+@Execution(SAME_THREAD)
 public abstract class BaseIcebergMinioConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
