@@ -20,6 +20,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 
@@ -30,9 +31,11 @@ import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.failuredetector.HeartbeatFailureDetector.Stats;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestNodeResource
 {
     private TestingTrinoServer server;

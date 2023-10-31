@@ -41,6 +41,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Optional;
 
@@ -66,9 +67,11 @@ import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.lang.Double.NaN;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestDetermineJoinDistributionType
 {
     private static final CostComparator COST_COMPARATOR = new CostComparator(1, 1, 1);

@@ -2587,7 +2587,10 @@
                 <configuration>
                     <properties>
                         <configurationParameters>junit.jupiter.execution.timeout.thread.mode.default = SEPARATE_THREAD
-                            junit.jupiter.extensions.autodetection.enabled = true</configurationParameters>
+                            junit.jupiter.extensions.autodetection.enabled = true
+                            junit.jupiter.execution.parallel.enabled = true
+                            junit.jupiter.execution.parallel.mode.default = concurrent
+                            junit.jupiter.execution.parallel.mode.classes.default = concurrent</configurationParameters>
                     </properties>
                     <includes>
                         <!-- Tests classes should start with "Test", but we do also want to include tests incorrectly named, with "Test" at the end -->

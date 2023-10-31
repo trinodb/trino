@@ -23,6 +23,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Set;
@@ -30,9 +31,11 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.connector.StandardWarningCode.TOO_MANY_STAGES;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.fail;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestWarnings
 {
     private static final int STAGE_COUNT_WARNING_THRESHOLD = 20;

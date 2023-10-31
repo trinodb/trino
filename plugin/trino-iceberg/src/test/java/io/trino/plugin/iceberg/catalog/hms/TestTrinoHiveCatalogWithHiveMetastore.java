@@ -41,6 +41,7 @@ import io.trino.spi.type.TestingTypeManager;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Map;
 import java.util.Optional;
@@ -55,8 +56,10 @@ import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestTrinoHiveCatalogWithHiveMetastore
         extends BaseTrinoCatalogTest
 {

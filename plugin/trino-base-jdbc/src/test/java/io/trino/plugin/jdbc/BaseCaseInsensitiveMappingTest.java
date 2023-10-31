@@ -23,6 +23,8 @@ import io.trino.testing.sql.SqlExecutor;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -40,6 +42,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 // Tests are using JSON based identifier mapping which is one for all tests
 @TestInstance(PER_CLASS)
+@Execution(ExecutionMode.SAME_THREAD)
 public abstract class BaseCaseInsensitiveMappingTest
         extends AbstractTestQueryFramework
 {

@@ -30,6 +30,7 @@ import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.URI;
 import java.util.List;
@@ -49,9 +50,11 @@ import static io.trino.transaction.InMemoryTransactionManager.createTestTransact
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestDeallocateTask
 {
     private final Metadata metadata = createTestMetadataManager();

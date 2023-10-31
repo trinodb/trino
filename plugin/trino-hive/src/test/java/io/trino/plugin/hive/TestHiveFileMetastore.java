@@ -23,7 +23,6 @@ import java.io.File;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static org.junit.jupiter.api.Assumptions.abort;
 
-// staging directory is shared mutable state
 public class TestHiveFileMetastore
         extends AbstractTestHiveLocal
 {

@@ -38,6 +38,7 @@ import io.trino.testing.TestingNodeManager;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.URI;
 import java.util.HashSet;
@@ -58,8 +59,10 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestJmxSplitManager
 {
     private static final Duration JMX_STATS_DUMP = new Duration(100, TimeUnit.MILLISECONDS);

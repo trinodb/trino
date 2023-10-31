@@ -27,6 +27,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -59,6 +60,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
+@Isolated
 public class TestDeltaLakeCreateTableStatistics
         extends AbstractTestQueryFramework
 {

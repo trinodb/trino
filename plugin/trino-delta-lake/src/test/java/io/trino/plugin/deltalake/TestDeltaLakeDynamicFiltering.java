@@ -39,6 +39,7 @@ import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -62,6 +63,7 @@ import static java.lang.String.format;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@Isolated
 public class TestDeltaLakeDynamicFiltering
         extends AbstractTestQueryFramework
 {

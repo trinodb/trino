@@ -36,6 +36,7 @@ import org.apache.accumulo.core.security.ColumnVisibility;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Iterator;
 import java.util.Map.Entry;
@@ -45,10 +46,12 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestIndexer
 {
     private static final LexicoderRowSerializer SERIALIZER = new LexicoderRowSerializer();

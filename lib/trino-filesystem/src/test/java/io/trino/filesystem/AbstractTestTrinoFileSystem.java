@@ -22,6 +22,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.Closeable;
 import java.io.EOFException;
@@ -44,8 +45,10 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(Lifecycle.PER_CLASS)
+@Execution(SAME_THREAD)
 public abstract class AbstractTestTrinoFileSystem
 {
     protected static final String TEST_BLOB_CONTENT_PREFIX = "test blob content for ";

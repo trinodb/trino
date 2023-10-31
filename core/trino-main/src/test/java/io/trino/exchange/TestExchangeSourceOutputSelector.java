@@ -27,17 +27,20 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.exchange.ExchangeSourceOutputSelector.Selection.EXCLUDED;
 import static io.trino.spi.exchange.ExchangeSourceOutputSelector.Selection.INCLUDED;
 import static io.trino.spi.exchange.ExchangeSourceOutputSelector.Selection.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestExchangeSourceOutputSelector
 {
     private static final ExchangeId EXCHANGE_ID_1 = new ExchangeId("exchange_1");

@@ -23,6 +23,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryRunnerUtil.createQuery;
@@ -32,9 +33,11 @@ import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestPendingStageState
 {
     private DistributedQueryRunner queryRunner;

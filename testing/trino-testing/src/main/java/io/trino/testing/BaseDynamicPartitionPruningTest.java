@@ -31,6 +31,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import java.util.List;
 import java.util.Map;
@@ -58,6 +59,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
+@Isolated
 public abstract class BaseDynamicPartitionPruningTest
         extends AbstractTestQueryFramework
 {

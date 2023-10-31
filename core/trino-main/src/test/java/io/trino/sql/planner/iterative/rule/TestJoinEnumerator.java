@@ -39,6 +39,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.LinkedHashSet;
 import java.util.Optional;
@@ -49,10 +50,12 @@ import static io.trino.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator.ge
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestJoinEnumerator
 {
     private LocalQueryRunner queryRunner;
