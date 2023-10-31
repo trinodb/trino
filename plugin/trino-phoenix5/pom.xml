@@ -15,7 +15,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.hbase.version>2.2.6</dep.hbase.version>
+        <dep.hbase.version>2.2.7</dep.hbase.version>
 
         <!-- This is required for JDK 17 to start HBase server due to illegal reflective access -->
         <air.test.jvm.additional-arguments>--add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED</air.test.jvm.additional-arguments>
