@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.iceberg.catalog.hms;
 
+import com.google.common.collect.Sets;
+import io.airlift.log.Logger;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
@@ -26,9 +28,13 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.util.Tasks;
+import org.apache.iceberg.util.ThreadPools;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
@@ -50,6 +56,8 @@ import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 public abstract class AbstractMetastoreTableOperations
         extends AbstractIcebergTableOperations
 {
+    private static final Logger log = Logger.get(AbstractMetastoreTableOperations.class);
+
     protected final CachingHiveMetastore metastore;
 
     protected AbstractMetastoreTableOperations(
@@ -135,5 +143,27 @@ public abstract class AbstractMetastoreTableOperations
     {
         return metastore.getTable(database, tableName)
                 .orElseThrow(() -> new TableNotFoundException(getSchemaTableName()));
+    }
+
+    public void deleteRemovedMetadataFiles(TableMetadata base, TableMetadata metadata)
+    {
+        if (base == null) {
+            return;
+        }
+
+        boolean deleteAfterCommit =
+                metadata.propertyAsBoolean(
+                        TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED,
+                        TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT);
+        if (deleteAfterCommit) {
+            Set<TableMetadata.MetadataLogEntry> removedPreviousMetadataFiles = Sets.newHashSet(base.previousFiles());
+            metadata.previousFiles().forEach(removedPreviousMetadataFiles::remove);
+            Tasks.foreach(removedPreviousMetadataFiles)
+                    .executeWith(ThreadPools.getWorkerPool())
+                    .noRetry()
+                    .suppressFailureWhenFinished()
+                    .onFailure((file, e) -> log.warn(e, "Delete failed for previous metadata file: %s", file))
+                    .run(previousMetadataFile -> io().deleteFile(previousMetadataFile.file()));
+        }
     }
 }
