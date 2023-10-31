@@ -46,6 +46,7 @@ import org.apache.parquet.schema.PrimitiveType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -80,9 +81,11 @@ import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertFalse;
 
 @TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestDeltaLakeBasic
         extends AbstractTestQueryFramework
 {

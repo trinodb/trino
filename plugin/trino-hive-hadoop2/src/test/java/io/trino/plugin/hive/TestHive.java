@@ -28,7 +28,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-// staging directory is shared mutable state
 @TestInstance(PER_CLASS)
 public class TestHive
         extends AbstractTestHive

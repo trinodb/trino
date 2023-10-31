@@ -22,6 +22,7 @@ import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -29,8 +30,10 @@ import java.util.concurrent.TimeUnit;
 import static io.trino.verifier.VerifyCommand.rewriteQueries;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestVerifierRewriteQueries
 {
     private static final String CATALOG = "TEST_VERIFIER_REWRITE_QUERIES";
