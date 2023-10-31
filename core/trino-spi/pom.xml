@@ -1061,6 +1061,10 @@
                                     <oldVisibility>protected</oldVisibility>
                                     <newVisibility>package</newVisibility>
                                 </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method java.lang.String io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext::getVersion()</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
