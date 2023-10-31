@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.CreationException;
 import io.opentelemetry.api.OpenTelemetry;
+import io.trino.client.NodeVersion;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.QualifiedObjectName;
@@ -138,7 +139,13 @@ public class TestFileBasedSystemAccessControl
     public void testDocsExample()
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig(), OpenTelemetry.noop(), DefaultSystemAccessControl.NAME);
+        AccessControlManager accessControlManager = new AccessControlManager(
+                NodeVersion.UNKNOWN,
+                transactionManager,
+                emptyEventListenerManager(),
+                new AccessControlConfig(),
+                OpenTelemetry.noop(),
+                DefaultSystemAccessControl.NAME);
         accessControlManager.loadSystemAccessControl(
                 FileBasedSystemAccessControl.NAME,
                 ImmutableMap.of("security.config-file", new File("../../docs/src/main/sphinx/security/user-impersonation.json").getAbsolutePath()));
@@ -792,7 +799,13 @@ public class TestFileBasedSystemAccessControl
     {
         TransactionManager transactionManager = createTestTransactionManager();
         Metadata metadata = MetadataManager.testMetadataManagerBuilder().withTransactionManager(transactionManager).build();
-        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig(), OpenTelemetry.noop(), DefaultSystemAccessControl.NAME);
+        AccessControlManager accessControlManager = new AccessControlManager(
+                NodeVersion.UNKNOWN,
+                transactionManager,
+                emptyEventListenerManager(),
+                new AccessControlConfig(),
+                OpenTelemetry.noop(),
+                DefaultSystemAccessControl.NAME);
         File configFile = newTemporaryFile();
         configFile.deleteOnExit();
         copy(new File(getResourcePath("catalog.json")), configFile);
@@ -852,7 +865,13 @@ public class TestFileBasedSystemAccessControl
 
     private AccessControlManager newAccessControlManager(TransactionManager transactionManager, String resourceName)
     {
-        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig(), OpenTelemetry.noop(), DefaultSystemAccessControl.NAME);
+        AccessControlManager accessControlManager = new AccessControlManager(
+                NodeVersion.UNKNOWN,
+                transactionManager,
+                emptyEventListenerManager(),
+                new AccessControlConfig(),
+                OpenTelemetry.noop(),
+                DefaultSystemAccessControl.NAME);
 
         accessControlManager.loadSystemAccessControl(FileBasedSystemAccessControl.NAME, ImmutableMap.of("security.config-file", getResourcePath(resourceName)));
 

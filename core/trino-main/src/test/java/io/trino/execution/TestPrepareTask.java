@@ -109,7 +109,13 @@ public class TestPrepareTask
     private Map<String, String> executePrepare(String statementName, Statement statement, String sqlString, Session session)
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControlManager accessControl = new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig(), OpenTelemetry.noop(), DefaultSystemAccessControl.NAME);
+        AccessControlManager accessControl = new AccessControlManager(
+                NodeVersion.UNKNOWN,
+                transactionManager,
+                emptyEventListenerManager(),
+                new AccessControlConfig(),
+                OpenTelemetry.noop(),
+                DefaultSystemAccessControl.NAME);
         accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 Optional.empty(),
