@@ -15,7 +15,6 @@ package io.trino.plugin.hive.metastore.glue;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.AmazonWebServiceRequest;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.handlers.AsyncHandler;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.model.AccessDeniedException;
@@ -63,7 +62,6 @@ import com.amazonaws.services.glue.model.UpdatePartitionRequest;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.amazonaws.services.glue.model.UpdateUserDefinedFunctionRequest;
 import com.amazonaws.services.glue.model.UserDefinedFunctionInput;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -79,14 +77,6 @@ import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
-import io.trino.hdfs.DynamicHdfsConfiguration;
-import io.trino.hdfs.HdfsConfig;
-import io.trino.hdfs.HdfsConfiguration;
-import io.trino.hdfs.HdfsConfigurationInitializer;
-import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.TrinoHdfsFileSystemStats;
-import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionNotFoundException;
@@ -152,7 +142,6 @@ import static com.google.common.collect.Comparators.lexicographical;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
@@ -162,7 +151,6 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toPartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
-import static io.trino.plugin.hive.metastore.glue.GlueClientUtil.createAsyncGlueClient;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter.convertFunction;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter.convertPartition;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
@@ -232,25 +220,6 @@ public class GlueHiveMetastore
         this.tableFilter = requireNonNull(tableFilter, "tableFilter is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.columnStatisticsProvider = columnStatisticsProviderFactory.createGlueColumnStatisticsProvider(glueClient, stats);
-    }
-
-    @VisibleForTesting
-    public static GlueHiveMetastore createTestingGlueHiveMetastore(java.nio.file.Path defaultWarehouseDir)
-    {
-        HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
-        GlueMetastoreStats stats = new GlueMetastoreStats();
-        GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
-                .setDefaultWarehouseDir(defaultWarehouseDir.toUri().toString());
-        return new GlueHiveMetastore(
-                new HdfsFileSystemFactory(hdfsEnvironment, new TrinoHdfsFileSystemStats()),
-                glueConfig,
-                directExecutor(),
-                new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),
-                createAsyncGlueClient(glueConfig, DefaultAWSCredentialsProviderChain.getInstance(), ImmutableSet.of(), stats.newRequestMetricsCollector()),
-                stats,
-                table -> true);
     }
 
     @Managed
