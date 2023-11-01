@@ -47,6 +47,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.dropSkipStatsColumns;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.renameSkipStatsColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeColumnType;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeSchemaAsJson;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
@@ -308,5 +310,47 @@ public class TestDeltaLakeSchemaSupport
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(new MapType(TIMESTAMP_TZ_SECONDS, TIMESTAMP_TZ_SECONDS, new TypeOperators()))).hasMessage("Unsupported type: timestamp(0) with time zone");
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(RowType.anonymous(ImmutableList.of(TIMESTAMP_TZ_SECONDS)))).hasMessage("Unsupported type: timestamp(0) with time zone");
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(new ArrayType(TIMESTAMP_TZ_SECONDS))).hasMessage("Unsupported type: timestamp(0) with time zone");
+    }
+
+    @Test
+    public void testRenameSkipStatsColumns()
+    {
+        assertThat(renameSkipStatsColumns("a,b,c", "a", "renamed"))
+                .isEqualTo("renamed,b,c");
+        assertThat(renameSkipStatsColumns("a,b,c", "not_found", "renamed"))
+                .isEqualTo("a,b,c");
+        assertThat(renameSkipStatsColumns("case_sensitive", "Case_Sensitive", "renamed"))
+                .isEqualTo("case_sensitive");
+
+        // Delta Lake allows leaf fields of a struct type in delta.dataSkippingStatsColumns
+        assertThat(renameSkipStatsColumns("struct.child", "struct", "renamed"))
+                .isEqualTo("renamed.child");
+
+        // Source column name contains a comma that requires escaping
+        assertThat(renameSkipStatsColumns("a\\,comma", "a,comma", "a,renamed"))
+                .isEqualTo("a\\,renamed");
+
+        // Target column name contains a comma that requires escaping
+        assertThat(renameSkipStatsColumns("a", "a", "a,comma"))
+                .isEqualTo("a\\,comma");
+    }
+
+    @Test
+    public void testDropSkipStatsColumns()
+    {
+        assertThat(dropSkipStatsColumns("a,b,c", "a"))
+                .isEqualTo("b,c");
+        assertThat(dropSkipStatsColumns("a,b,c", "not_found"))
+                .isEqualTo("a,b,c");
+        assertThat(dropSkipStatsColumns("case_sensitive", "Case_Sensitive"))
+                .isEqualTo("case_sensitive");
+
+        // Target column name contains a comma that requires escaping
+        assertThat(dropSkipStatsColumns("a\\,comma", "a,comma"))
+                .isEmpty();
+
+        // Non-dropped table should preserve the escaped character
+        assertThat(dropSkipStatsColumns("a,b\\,comma", "a"))
+                .isEqualTo("b\\,comma");
     }
 }

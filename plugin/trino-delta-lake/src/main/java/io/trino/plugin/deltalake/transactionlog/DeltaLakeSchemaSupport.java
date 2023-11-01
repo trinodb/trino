@@ -18,11 +18,15 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Enums;
+import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
+import com.google.common.escape.Escaper;
+import com.google.common.escape.Escapers;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
@@ -54,6 +58,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -91,6 +96,7 @@ public final class DeltaLakeSchemaSupport
     public static final String COLUMN_MAPPING_MODE_CONFIGURATION_KEY = "delta.columnMapping.mode";
     public static final String COLUMN_MAPPING_PHYSICAL_NAME_CONFIGURATION_KEY = "delta.columnMapping.physicalName";
     public static final String MAX_COLUMN_ID_CONFIGURATION_KEY = "delta.columnMapping.maxColumnId";
+    public static final String SKIP_STATS_COLUMN_CONFIGURATION_KEY = "delta.dataSkippingStatsColumns";
     private static final String DELETION_VECTORS_CONFIGURATION_KEY = "delta.enableDeletionVectors";
 
     // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#valid-feature-names-in-table-features
@@ -155,6 +161,55 @@ public final class DeltaLakeSchemaSupport
             return false;
         }
         return parseBoolean(metadataEntry.getConfiguration().get(DELETION_VECTORS_CONFIGURATION_KEY));
+    }
+
+    public static Optional<String> getSkipStatsColumns(MetadataEntry metadata)
+    {
+        return Optional.ofNullable(metadata.getConfiguration().get(SKIP_STATS_COLUMN_CONFIGURATION_KEY));
+    }
+
+    public static String renameSkipStatsColumns(String skipStatsColumns, String sourceColumn, String newColumn)
+    {
+        String escapedSourceColumn = escapeComma(sourceColumn);
+        String escapedNewColumn = escapeComma(newColumn);
+
+        List<String> columns = Splitter.onPattern("(?<!\\\\)" + Pattern.quote(",")).splitToList(skipStatsColumns);
+        ImmutableList.Builder<String> newSkipColumnStats = ImmutableList.builderWithExpectedSize(columns.size());
+        for (String fieldPath : columns) {
+            List<String> fields = Splitter.on(".").splitToList(fieldPath);
+            if (fields.get(0).equals(escapedSourceColumn)) {
+                List<String> renamedFieldPath = ImmutableList.<String>builder()
+                        .add(escapedNewColumn)
+                        .addAll(fields.subList(1, fields.size()))
+                        .build();
+                newSkipColumnStats.add(Joiner.on(".").join(renamedFieldPath));
+            }
+            else {
+                newSkipColumnStats.add(fieldPath);
+            }
+        }
+        return Joiner.on(",").join(newSkipColumnStats.build());
+    }
+
+    public static String dropSkipStatsColumns(String skipStatsColumns, String dropColumn)
+    {
+        String escapedSourceColumn = escapeComma(dropColumn);
+
+        List<String> columns = Splitter.onPattern("(?<!\\\\)" + Pattern.quote(",")).splitToList(skipStatsColumns);
+        ImmutableList.Builder<String> newSkipColumnStats = ImmutableList.builderWithExpectedSize(columns.size());
+        for (String fieldPath : columns) {
+            List<String> fields = Splitter.on(".").splitToList(fieldPath);
+            if (!fields.get(0).equals(escapedSourceColumn)) {
+                newSkipColumnStats.add(fieldPath);
+            }
+        }
+        return Joiner.on(",").join(newSkipColumnStats.build());
+    }
+
+    private static String escapeComma(String name)
+    {
+        Escaper escaper = Escapers.builder().addEscape(',', "\\,").build();
+        return escaper.escape(name);
     }
 
     public static ColumnMappingMode getColumnMappingMode(MetadataEntry metadata, ProtocolEntry protocolEntry)

@@ -1029,6 +1029,41 @@ public class TestDeltaLakeBasic
         assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1, 2, 3, 4, 5, 6, 7");
     }
 
+    /**
+     * @see deltalake.skip_stats_columns
+     */
+    @Test
+    public void testSkipStatsColumns()
+            throws Exception
+    {
+        String tableName = "test_skip_stats_columns_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/skip_stats_columns").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        assertQuery(
+                "SELECT value FROM \"" + tableName + "$properties\" WHERE key = 'delta.dataSkippingStatsColumns'",
+                "VALUES 'lower,UPPER,a\\.dot,a.nested'");
+
+        // Adding a new column shouldn't change the property
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN new_col int");
+        assertQuery(
+                "SELECT value FROM \"" + tableName + "$properties\" WHERE key = 'delta.dataSkippingStatsColumns'",
+                "VALUES 'lower,UPPER,a\\.dot,a.nested'");
+
+        // Renaming a column should update delta.dataSkippingStatsColumns property
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN lower TO renamed_lower");
+        assertQuery(
+                "SELECT value FROM \"" + tableName + "$properties\" WHERE key = 'delta.dataSkippingStatsColumns'",
+                "VALUES 'renamed_lower,UPPER,a\\.dot,a.nested'");
+
+        // Dropping a column should update delta.dataSkippingStatsColumns property
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN upper");
+        assertQuery(
+                "SELECT value FROM \"" + tableName + "$properties\" WHERE key = 'delta.dataSkippingStatsColumns'",
+                "VALUES 'renamed_lower,a\\.dot,a.nested'");
+    }
+
     private static MetadataEntry loadMetadataEntry(long entryNumber, Path tableLocation)
             throws IOException
     {
