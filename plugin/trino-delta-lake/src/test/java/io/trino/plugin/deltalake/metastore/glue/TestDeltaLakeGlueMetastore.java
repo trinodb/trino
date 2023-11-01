@@ -26,7 +26,6 @@ import io.airlift.json.JsonModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.manager.FileSystemModule;
-import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
@@ -76,7 +75,6 @@ import static io.trino.plugin.deltalake.DeltaLakeTableProperties.LOCATION_PROPER
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_PROPERTY;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_VALUE;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
@@ -129,7 +127,6 @@ public class TestDeltaLakeGlueMetastore
                 new DeltaLakeMetastoreModule(),
                 new DeltaLakeModule(),
                 // test setup
-                binder -> binder.bind(HdfsEnvironment.class).toInstance(HDFS_ENVIRONMENT),
                 new FileSystemModule());
 
         Injector injector = app
