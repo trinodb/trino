@@ -19,7 +19,6 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.fs.DirectoryLister;
@@ -59,7 +58,6 @@ public class HiveMetadataFactory
     private final HiveMetastoreFactory metastoreFactory;
     private final Set<HiveFileWriterFactory> fileWriterFactories;
     private final TrinoFileSystemFactory fileSystemFactory;
-    private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
     private final TypeManager typeManager;
     private final MetadataProvider metadataProvider;
@@ -90,7 +88,6 @@ public class HiveMetadataFactory
             HiveMetastoreFactory metastoreFactory,
             Set<HiveFileWriterFactory> fileWriterFactories,
             TrinoFileSystemFactory fileSystemFactory,
-            HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
             ExecutorService executorService,
             @ForHiveTransactionHeartbeats ScheduledExecutorService heartbeatService,
@@ -113,7 +110,6 @@ public class HiveMetadataFactory
                 metastoreFactory,
                 fileWriterFactories,
                 fileSystemFactory,
-                hdfsEnvironment,
                 partitionManager,
                 hiveConfig.getMaxConcurrentFileSystemOperations(),
                 hiveConfig.getMaxConcurrentMetastoreDrops(),
@@ -152,7 +148,6 @@ public class HiveMetadataFactory
             HiveMetastoreFactory metastoreFactory,
             Set<HiveFileWriterFactory> fileWriterFactories,
             TrinoFileSystemFactory fileSystemFactory,
-            HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
             int maxConcurrentFileSystemOperations,
             int maxConcurrentMetastoreDrops,
@@ -199,7 +194,6 @@ public class HiveMetadataFactory
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.metadataProvider = requireNonNull(metadataProvider, "metadataProvider is null");
@@ -256,7 +250,6 @@ public class HiveMetadataFactory
                 autoCommit,
                 fileWriterFactories,
                 fileSystemFactory,
-                hdfsEnvironment,
                 partitionManager,
                 writesToNonManagedTablesEnabled,
                 createsOfNonManagedTablesEnabled,
