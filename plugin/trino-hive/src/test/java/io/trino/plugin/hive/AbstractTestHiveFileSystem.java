@@ -224,7 +224,6 @@ public abstract class AbstractTestHiveFileSystem
                 HiveMetastoreFactory.ofInstance(metastoreClient),
                 getDefaultHiveFileWriterFactories(config, hdfsEnvironment),
                 fileSystemFactory,
-                hdfsEnvironment,
                 hivePartitionManager,
                 newDirectExecutorService(),
                 heartbeatService,
