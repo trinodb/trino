@@ -31,7 +31,6 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.HdfsNamenodeStats;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.metrics.LongCount;
@@ -909,7 +908,6 @@ public abstract class AbstractTestHive
                 transactionManager,
                 partitionManager,
                 fileSystemFactory,
-                new HdfsNamenodeStats(),
                 executor,
                 new CounterStat(),
                 100,
