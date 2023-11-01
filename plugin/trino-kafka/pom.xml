@@ -405,6 +405,7 @@
                         </goals>
                         <phase>generate-test-sources</phase>
                         <configuration>
+                            <protocArtifact>com.google.protobuf:protoc:${dep.protobuf.version}</protocArtifact>
                             <protocVersion>${dep.protobuf.version}</protocVersion>
                             <addSources>none</addSources>
                             <inputDirectories>
