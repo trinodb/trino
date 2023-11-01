@@ -15,10 +15,8 @@ package io.trino.plugin.hive.fs;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
-import io.airlift.stats.TimeStat;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.hdfs.HdfsNamenodeStats;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
 
@@ -43,11 +41,7 @@ public class HiveFileIterator
         FAIL
     }
 
-    private final Table table;
     private final Location location;
-    private final TrinoFileSystem fileSystem;
-    private final DirectoryLister directoryLister;
-    private final HdfsNamenodeStats namenodeStats;
     private final NestedDirectoryPolicy nestedDirectoryPolicy;
     private final Iterator<TrinoFileStatus> remoteIterator;
 
@@ -56,23 +50,18 @@ public class HiveFileIterator
             Location location,
             TrinoFileSystem fileSystem,
             DirectoryLister directoryLister,
-            HdfsNamenodeStats namenodeStats,
             NestedDirectoryPolicy nestedDirectoryPolicy)
     {
-        this.table = requireNonNull(table, "table is null");
         this.location = requireNonNull(location, "location is null");
-        this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
-        this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
-        this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
         this.nestedDirectoryPolicy = requireNonNull(nestedDirectoryPolicy, "nestedDirectoryPolicy is null");
-        this.remoteIterator = getLocatedFileStatusRemoteIterator(location);
+        this.remoteIterator = new FileStatusIterator(table, location, fileSystem, directoryLister, nestedDirectoryPolicy);
     }
 
     @Override
     protected TrinoFileStatus computeNext()
     {
         while (remoteIterator.hasNext()) {
-            TrinoFileStatus status = getLocatedFileStatus(remoteIterator);
+            TrinoFileStatus status = remoteIterator.next();
 
             // Ignore hidden files and directories
             if (nestedDirectoryPolicy == RECURSE) {
@@ -89,23 +78,6 @@ public class HiveFileIterator
         }
 
         return endOfData();
-    }
-
-    private Iterator<TrinoFileStatus> getLocatedFileStatusRemoteIterator(Location location)
-    {
-        try (TimeStat.BlockTimer ignored = namenodeStats.getListLocatedStatus().time()) {
-            return new FileStatusIterator(table, location, fileSystem, directoryLister, namenodeStats, nestedDirectoryPolicy);
-        }
-        catch (IOException e) {
-            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed to list files for location: " + location, e);
-        }
-    }
-
-    private TrinoFileStatus getLocatedFileStatus(Iterator<TrinoFileStatus> iterator)
-    {
-        try (TimeStat.BlockTimer ignored = namenodeStats.getRemoteIteratorNext().time()) {
-            return iterator.next();
-        }
     }
 
     @VisibleForTesting
@@ -148,7 +120,6 @@ public class HiveFileIterator
             implements Iterator<TrinoFileStatus>
     {
         private final Location location;
-        private final HdfsNamenodeStats namenodeStats;
         private final RemoteIterator<TrinoFileStatus> fileStatusIterator;
 
         private FileStatusIterator(
@@ -156,12 +127,9 @@ public class HiveFileIterator
                 Location location,
                 TrinoFileSystem fileSystem,
                 DirectoryLister directoryLister,
-                HdfsNamenodeStats namenodeStats,
                 NestedDirectoryPolicy nestedDirectoryPolicy)
-                throws IOException
         {
-            this.location = location;
-            this.namenodeStats = namenodeStats;
+            this.location = requireNonNull(location, "location is null");
             try {
                 if (nestedDirectoryPolicy == RECURSE) {
                     this.fileStatusIterator = directoryLister.listFilesRecursively(fileSystem, table, location);
@@ -202,7 +170,6 @@ public class HiveFileIterator
 
         private TrinoException processException(IOException exception)
         {
-            namenodeStats.getRemoteIteratorNext().recordException(exception);
             if (exception instanceof FileNotFoundException) {
                 return new TrinoException(HIVE_FILE_NOT_FOUND, "Partition location does not exist: " + location);
             }

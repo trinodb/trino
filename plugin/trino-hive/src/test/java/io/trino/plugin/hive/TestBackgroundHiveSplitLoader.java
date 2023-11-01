@@ -28,7 +28,6 @@ import io.trino.hdfs.DynamicHdfsConfiguration;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.HdfsNamenodeStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.HiveColumnHandle.ColumnType;
 import io.trino.plugin.hive.fs.CachingDirectoryLister;
@@ -491,7 +490,6 @@ public class TestBackgroundHiveSplitLoader
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 SESSION,
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
-                new HdfsNamenodeStats(),
                 new CachingDirectoryLister(new HiveConfig()),
                 executor,
                 threads,
@@ -1111,7 +1109,6 @@ public class TestBackgroundHiveSplitLoader
                 createBucketSplitInfo(bucketHandle, hiveBucketFilter),
                 SESSION,
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
-                new HdfsNamenodeStats(),
                 new CachingDirectoryLister(new HiveConfig()),
                 executor,
                 2,
@@ -1154,7 +1151,6 @@ public class TestBackgroundHiveSplitLoader
                 Optional.empty(),
                 connectorSession,
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
-                new HdfsNamenodeStats(),
                 directoryLister,
                 executor,
                 2,
@@ -1181,7 +1177,6 @@ public class TestBackgroundHiveSplitLoader
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 connectorSession,
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
-                new HdfsNamenodeStats(),
                 new CachingDirectoryLister(new HiveConfig()),
                 executor,
                 2,
