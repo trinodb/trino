@@ -32,7 +32,6 @@ import io.trino.hdfs.DynamicHdfsConfiguration;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfiguration;
 import io.trino.hdfs.HdfsConfigurationInitializer;
-import io.trino.hdfs.HdfsNamenodeStats;
 import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.hdfs.s3.HiveS3Config;
 import io.trino.hdfs.s3.TrinoS3ConfigurationInitializer;
@@ -208,7 +207,6 @@ public class TestHiveFileSystemS3
                 Location.of(basePath.toString()),
                 trinoFileSystem,
                 new FileSystemDirectoryLister(),
-                new HdfsNamenodeStats(),
                 HiveFileIterator.NestedDirectoryPolicy.RECURSE);
 
         List<String> recursiveListing = Streams.stream(recursiveIterator)
@@ -230,7 +228,6 @@ public class TestHiveFileSystemS3
                 Location.of(basePath.toString()),
                 trinoFileSystem,
                 new FileSystemDirectoryLister(),
-                new HdfsNamenodeStats(),
                 HiveFileIterator.NestedDirectoryPolicy.IGNORED);
         List<Path> shallowListing = Streams.stream(shallowIterator)
                 .map(TrinoFileStatus::getPath)
