@@ -185,7 +185,6 @@
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
         <dep.errorprone.version>2.23.0</dep.errorprone.version>
         <dep.flyway.version>10.0.0</dep.flyway.version>
-        <dep.gcs.version>2.2.17</dep.gcs.version>
         <dep.google.http.client.version>1.43.3</dep.google.http.client.version>
         <dep.iceberg.version>1.4.1</dep.iceberg.version>
         <dep.jna.version>5.13.0</dep.jna.version>
@@ -490,7 +489,7 @@
             <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
-                <version>hadoop3-${dep.gcs.version}</version>
+                <version>hadoop3-2.2.17</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
