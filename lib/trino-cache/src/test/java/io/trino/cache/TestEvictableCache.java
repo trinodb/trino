@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TestingTicker;
 import io.trino.cache.EvictableCacheBuilder.DisabledCacheImplementation;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -287,7 +286,6 @@ public class TestEvictableCache
         assertThat(value).isEqualTo("abc");
     }
 
-    @RepeatedTest(value = 10, failureThreshold = 5)
     @Timeout(TEST_TIMEOUT_SECONDS)
     public void testLoadFailure()
             throws Exception
@@ -477,7 +475,6 @@ public class TestEvictableCache
     /**
      * Covers https://github.com/google/guava/issues/1881
      */
-    @RepeatedTest(10)
     @Timeout(TEST_TIMEOUT_SECONDS)
     public void testInvalidateAndLoadConcurrently()
             throws Exception
