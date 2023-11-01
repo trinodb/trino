@@ -200,7 +200,6 @@
         <dep.takari.version>2.1.1</dep.takari.version>
         <dep.tcnative.version>2.0.62.Final</dep.tcnative.version>
         <dep.tempto.version>201</dep.tempto.version>
-        <dep.testcontainers.version>1.19.1</dep.testcontainers.version>
         <dep.wire.version>4.5.0</dep.wire.version>
     </properties>
 
@@ -274,7 +273,7 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>${dep.testcontainers.version}</version>
+                <version>1.19.1</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -2036,18 +2035,6 @@
                 <groupId>org.sonatype.aether</groupId>
                 <artifactId>aether-api</artifactId>
                 <version>1.13.1</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.testcontainers</groupId>
-                <artifactId>testcontainers</artifactId>
-                <version>${dep.testcontainers.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.osgi</groupId>
-                        <artifactId>org.osgi.core</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
