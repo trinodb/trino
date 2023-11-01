@@ -32,6 +32,8 @@ import io.trino.hdfs.authentication.HdfsAuthenticationModule;
 import io.trino.hdfs.azure.HiveAzureModule;
 import io.trino.hdfs.cos.HiveCosModule;
 import io.trino.hdfs.gcs.HiveGcsModule;
+import io.trino.hdfs.rubix.RubixEnabledConfig;
+import io.trino.hdfs.rubix.RubixModule;
 import io.trino.hdfs.s3.HiveS3Module;
 
 import java.util.Map;
@@ -39,6 +41,7 @@ import java.util.Optional;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 
 public class FileSystemModule
         extends AbstractConfigurationAwareModule
@@ -54,6 +57,7 @@ public class FileSystemModule
             install(new HdfsFileSystemModule());
             install(new HdfsModule());
             install(new HdfsAuthenticationModule());
+            install(conditionalModule(RubixEnabledConfig.class, RubixEnabledConfig::isCacheEnabled, new RubixModule()));
             install(new HiveCosModule());
             install(new HiveGcsModule());
         }
