@@ -27,7 +27,11 @@ import io.trino.filesystem.hdfs.HdfsFileSystemModule;
 import io.trino.filesystem.s3.S3FileSystemFactory;
 import io.trino.filesystem.s3.S3FileSystemModule;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
+import io.trino.hdfs.HdfsModule;
+import io.trino.hdfs.authentication.HdfsAuthenticationModule;
 import io.trino.hdfs.azure.HiveAzureModule;
+import io.trino.hdfs.cos.HiveCosModule;
+import io.trino.hdfs.gcs.HiveGcsModule;
 import io.trino.hdfs.s3.HiveS3Module;
 
 import java.util.Map;
@@ -48,6 +52,10 @@ public class FileSystemModule
 
         if (config.isHadoopEnabled()) {
             install(new HdfsFileSystemModule());
+            install(new HdfsModule());
+            install(new HdfsAuthenticationModule());
+            install(new HiveCosModule());
+            install(new HiveGcsModule());
         }
 
         var factories = newMapBinder(binder, String.class, TrinoFileSystemFactory.class);
@@ -57,7 +65,7 @@ public class FileSystemModule
             factories.addBinding("abfs").to(AzureFileSystemFactory.class);
             factories.addBinding("abfss").to(AzureFileSystemFactory.class);
         }
-        else {
+        else if (config.isHadoopEnabled()) {
             install(new HiveAzureModule());
         }
 
@@ -67,7 +75,7 @@ public class FileSystemModule
             factories.addBinding("s3a").to(S3FileSystemFactory.class);
             factories.addBinding("s3n").to(S3FileSystemFactory.class);
         }
-        else {
+        else if (config.isHadoopEnabled()) {
             install(new HiveS3Module());
         }
     }
