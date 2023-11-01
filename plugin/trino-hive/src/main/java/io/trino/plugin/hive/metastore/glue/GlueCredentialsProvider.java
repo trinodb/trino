@@ -23,7 +23,7 @@ import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 
-import static io.trino.hdfs.s3.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
+import static io.trino.plugin.hive.metastore.glue.AwsCurrentRegionHolder.getCurrentRegionFromEc2Metadata;
 import static java.lang.String.format;
 
 public class GlueCredentialsProvider
@@ -58,7 +58,7 @@ public class GlueCredentialsProvider
                     stsClientBuilder.setRegion(config.getGlueStsRegion().get());
                 }
                 else if (config.getPinGlueClientToCurrentRegion()) {
-                    stsClientBuilder.setRegion(getCurrentRegionFromEC2Metadata().getName());
+                    stsClientBuilder.setRegion(getCurrentRegionFromEc2Metadata().getName());
                 }
 
                 provider = new STSAssumeRoleSessionCredentialsProvider
