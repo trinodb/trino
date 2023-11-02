@@ -10,7 +10,6 @@
 package com.starburstdata.trino.plugins.dynamodb;
 
 import com.google.common.collect.ImmutableMap;
-import com.starburstdata.presto.server.StarburstEngineQueryRunner;
 import com.starburstdata.trino.plugins.license.LicenseManager;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -110,7 +109,7 @@ public final class DynamoDbQueryRunner
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            DistributedQueryRunner.Builder<?> builder = StarburstEngineQueryRunner.builder(createSession(catalogName));
+            DistributedQueryRunner.Builder<?> builder = DistributedQueryRunner.builder(createSession(catalogName));
             extraProperties.forEach(builder::addExtraProperty);
             queryRunner = builder.build();
 
