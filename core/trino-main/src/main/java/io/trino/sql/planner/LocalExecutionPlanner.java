@@ -100,7 +100,6 @@ import io.trino.operator.TopNRankingOperator;
 import io.trino.operator.ValuesOperator.ValuesOperatorFactory;
 import io.trino.operator.WindowFunctionDefinition;
 import io.trino.operator.WindowOperator.WindowOperatorFactory;
-import io.trino.operator.WorkProcessorPipelineSourceOperator;
 import io.trino.operator.aggregation.AccumulatorFactory;
 import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.operator.aggregation.DistinctAccumulatorFactory;
@@ -312,7 +311,6 @@ import static io.trino.SystemSessionProperties.isEnableCoordinatorDynamicFilters
 import static io.trino.SystemSessionProperties.isEnableLargeDynamicFilters;
 import static io.trino.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.trino.SystemSessionProperties.isForceSpillingOperator;
-import static io.trino.SystemSessionProperties.isLateMaterializationEnabled;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
@@ -328,7 +326,6 @@ import static io.trino.operator.TableWriterOperator.ROW_COUNT_CHANNEL;
 import static io.trino.operator.TableWriterOperator.STATS_START_CHANNEL;
 import static io.trino.operator.TableWriterOperator.TableWriterOperatorFactory;
 import static io.trino.operator.WindowFunctionDefinition.window;
-import static io.trino.operator.WorkProcessorPipelineSourceOperator.toOperatorFactories;
 import static io.trino.operator.aggregation.AccumulatorCompiler.generateAccumulatorFactory;
 import static io.trino.operator.join.JoinUtils.isBuildSideReplicated;
 import static io.trino.operator.join.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
@@ -718,24 +715,9 @@ public class LocalExecutionPlanner
         {
             boolean inputDriver = context.isInputDriver();
             OptionalInt driverInstances = context.getDriverInstanceCount();
-            List<OperatorFactoryWithTypes> operatorFactoriesWithTypes = physicalOperation.getOperatorFactoriesWithTypes();
-            addLookupOuterDrivers(outputDriver, toOperatorFactories(operatorFactoriesWithTypes));
-            List<OperatorFactory> operatorFactories;
-            if (isLateMaterializationEnabled(taskContext.getSession())) {
-                operatorFactories = handleLateMaterialization(operatorFactoriesWithTypes);
-            }
-            else {
-                operatorFactories = toOperatorFactories(operatorFactoriesWithTypes);
-            }
+            List<OperatorFactory> operatorFactories = physicalOperation.getOperatorFactories();
+            addLookupOuterDrivers(outputDriver, operatorFactories);
             addDriverFactory(inputDriver, outputDriver, operatorFactories, driverInstances);
-        }
-
-        private List<OperatorFactory> handleLateMaterialization(List<OperatorFactoryWithTypes> operatorFactories)
-        {
-            return WorkProcessorPipelineSourceOperator.convertOperators(
-                    operatorFactories,
-                    getFilterAndProjectMinOutputPageSize(taskContext.getSession()),
-                    getFilterAndProjectMinOutputPageRowCount(taskContext.getSession()));
         }
 
         private void addLookupOuterDrivers(boolean isOutputDriver, List<OperatorFactory> operatorFactories)
@@ -898,28 +880,6 @@ public class LocalExecutionPlanner
         public List<PlanNodeId> getPartitionedSourceOrder()
         {
             return partitionedSourceOrder;
-        }
-    }
-
-    public static class OperatorFactoryWithTypes
-    {
-        private final OperatorFactory operatorFactory;
-        private final List<Type> types;
-
-        public OperatorFactoryWithTypes(OperatorFactory operatorFactory, List<Type> types)
-        {
-            this.operatorFactory = requireNonNull(operatorFactory, "operatorFactory is null");
-            this.types = requireNonNull(types, "types is null");
-        }
-
-        public OperatorFactory getOperatorFactory()
-        {
-            return operatorFactory;
-        }
-
-        public List<Type> getTypes()
-        {
-            return types;
         }
     }
 
@@ -4277,7 +4237,7 @@ public class LocalExecutionPlanner
      */
     private static class PhysicalOperation
     {
-        private final List<OperatorFactoryWithTypes> operatorFactoriesWithTypes;
+        private final List<OperatorFactory> operatorFactories;
         private final Map<Symbol, Integer> layout;
         private final List<Type> types;
 
@@ -4308,9 +4268,9 @@ public class LocalExecutionPlanner
             requireNonNull(source, "source is null");
 
             this.types = toTypes(layout, typeProvider);
-            this.operatorFactoriesWithTypes = ImmutableList.<OperatorFactoryWithTypes>builder()
-                    .addAll(source.map(PhysicalOperation::getOperatorFactoriesWithTypes).orElse(ImmutableList.of()))
-                    .add(new OperatorFactoryWithTypes(operatorFactory, types))
+            this.operatorFactories = ImmutableList.<OperatorFactory>builder()
+                    .addAll(source.map(PhysicalOperation::getOperatorFactories).orElse(ImmutableList.of()))
+                    .add(operatorFactory)
                     .build();
             this.layout = ImmutableMap.copyOf(layout);
         }
@@ -4348,12 +4308,7 @@ public class LocalExecutionPlanner
 
         private List<OperatorFactory> getOperatorFactories()
         {
-            return toOperatorFactories(operatorFactoriesWithTypes);
-        }
-
-        private List<OperatorFactoryWithTypes> getOperatorFactoriesWithTypes()
-        {
-            return operatorFactoriesWithTypes;
+            return operatorFactories;
         }
     }
 
