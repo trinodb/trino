@@ -135,7 +135,6 @@ public final class SystemSessionProperties
     public static final String ALLOW_PUSHDOWN_INTO_CONNECTORS = "allow_pushdown_into_connectors";
     public static final String COMPLEX_EXPRESSION_PUSHDOWN = "complex_expression_pushdown";
     public static final String PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES = "predicate_pushdown_use_table_properties";
-    public static final String LATE_MATERIALIZATION = "late_materialization";
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
     public static final String ENABLE_COORDINATOR_DYNAMIC_FILTERS_DISTRIBUTION = "enable_coordinator_dynamic_filters_distribution";
     public static final String ENABLE_LARGE_DYNAMIC_FILTERS = "enable_large_dynamic_filters";
@@ -663,11 +662,6 @@ public final class SystemSessionProperties
                         PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES,
                         "Use table properties in predicate pushdown",
                         optimizerConfig.isPredicatePushdownUseTableProperties(),
-                        false),
-                booleanProperty(
-                        LATE_MATERIALIZATION,
-                        "Experimental: Use late materialization (including WorkProcessor pipelines)",
-                        featuresConfig.isLateMaterializationEnabled(),
                         false),
                 booleanProperty(
                         ENABLE_DYNAMIC_FILTERING,
@@ -1540,11 +1534,6 @@ public final class SystemSessionProperties
     public static boolean isPredicatePushdownUseTableProperties(Session session)
     {
         return session.getSystemProperty(PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES, Boolean.class);
-    }
-
-    public static boolean isLateMaterializationEnabled(Session session)
-    {
-        return session.getSystemProperty(LATE_MATERIALIZATION, Boolean.class);
     }
 
     public static boolean isEnableDynamicFiltering(Session session)

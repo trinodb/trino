@@ -18,7 +18,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.units.Duration;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.metadata.Split;
-import io.trino.operator.WorkProcessorSourceOperatorAdapter.AdapterWorkProcessorSourceOperatorFactory;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.metrics.Metrics;
@@ -91,7 +90,7 @@ public class TestWorkProcessorSourceOperatorAdapter
     }
 
     private static class TestWorkProcessorOperatorFactory
-            implements AdapterWorkProcessorSourceOperatorFactory
+            implements WorkProcessorSourceOperatorFactory
     {
         @Override
         public WorkProcessorSourceOperator create(
