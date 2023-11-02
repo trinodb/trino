@@ -16,7 +16,6 @@ package io.trino.plugin.iceberg.containers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
 import io.trino.testing.containers.BaseTestContainer;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
@@ -31,8 +30,6 @@ import java.util.Set;
 public class KeycloakContainer
         extends BaseTestContainer
 {
-    private static final Logger log = Logger.get(KeycloakContainer.class);
-
     public static final String DEFAULT_IMAGE = "quay.io/keycloak/keycloak:21.1.2";
     public static final String DEFAULT_HOST_NAME = "keycloak";
 
@@ -70,7 +67,6 @@ public class KeycloakContainer
     public void start()
     {
         super.start();
-        log.info("Keycloak container started with URL: %s", getUrl());
     }
 
     public String getUrl()
