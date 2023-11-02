@@ -13,12 +13,12 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
-import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
 import com.starburstdata.trino.plugins.license.LicenseManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMappingModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.RetryingConnectionFactory;
@@ -27,7 +27,6 @@ import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule.noImpersonationModuleWithCredentialProvider;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
@@ -57,7 +56,7 @@ public class DynamoDbModule
         bindSessionPropertiesProvider(binder, DynamoDbSessionProperties.class);
 
         install(new CredentialProviderModule());
-        install(noImpersonationModuleWithCredentialProvider());
+        install(new ExtraCredentialsBasedIdentityCacheMappingModule());
         install(new JdbcTableScanRedirectionModule());
 
         // Set the connection URL to some value as it is a required property in the JdbcModule
@@ -67,7 +66,7 @@ public class DynamoDbModule
 
     @Provides
     @Singleton
-    @ForImpersonation
+    @ForBaseJdbc
     public ConnectionFactory getConnectionFactory(DynamoDbConfig dynamoDbConfig, CredentialProvider credentialProvider)
     {
         // The CData JDBC driver will intermittently throw an exception with no error message
