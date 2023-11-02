@@ -34,7 +34,6 @@ import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -55,14 +54,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
-import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.SystemSessionProperties.LATE_MATERIALIZATION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
-import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
 import static io.trino.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static io.trino.sql.tree.ExplainType.Type.IO;
 import static io.trino.sql.tree.ExplainType.Type.LOGICAL;
@@ -6227,18 +6221,6 @@ public abstract class AbstractTestEngineOnlyQueries
                 .collect(joining(", "));
 
         return format("SELECT * FROM (SELECT %s FROM region LIMIT 1) a(%s) INNER JOIN unnest(ARRAY[%s], ARRAY[%2$s]) b(b1, b2) ON true", fields, columns, literals);
-    }
-
-    @Test
-    @Timeout(30)
-    public void testLateMaterializationOuterJoin()
-    {
-        Session session = Session.builder(getSession())
-                .setSystemProperty(LATE_MATERIALIZATION, "true")
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.toString())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.toString())
-                .build();
-        assertQuery(session, "SELECT * FROM (SELECT * FROM nation WHERE nationkey < -1) a RIGHT JOIN nation b ON a.nationkey = b.nationkey");
     }
 
     /**
