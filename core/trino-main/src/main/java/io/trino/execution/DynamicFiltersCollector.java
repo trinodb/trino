@@ -19,11 +19,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.plan.DynamicFilterId;
+import io.trino.util.LockUtils;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.util.LockUtils.closeable;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
@@ -33,10 +36,11 @@ public class DynamicFiltersCollector
     public static final VersionedDynamicFilterDomains INITIAL_DYNAMIC_FILTER_DOMAINS =
             new VersionedDynamicFilterDomains(INITIAL_DYNAMIC_FILTERS_VERSION, ImmutableMap.of());
 
+    private final ReentrantLock thisLock = new ReentrantLock();
     private final Runnable notifyTaskStatusChanged;
-    @GuardedBy("this")
+    @GuardedBy("thisLock")
     private final Map<DynamicFilterId, VersionedDomain> dynamicFilterDomains = new HashMap<>();
-    @GuardedBy("this")
+    @GuardedBy("thisLock")
     private long currentVersion;
 
     public DynamicFiltersCollector(Runnable notifyTaskStatusChanged)
@@ -50,7 +54,7 @@ public class DynamicFiltersCollector
             return;
         }
 
-        synchronized (this) {
+        try (LockUtils.CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
             long currentVersion = ++this.currentVersion;
             for (Map.Entry<DynamicFilterId, Domain> entry : newDynamicFilterDomains.entrySet()) {
                 dynamicFilterDomains.merge(
@@ -65,31 +69,39 @@ public class DynamicFiltersCollector
         notifyTaskStatusChanged.run();
     }
 
-    public synchronized long getDynamicFiltersVersion()
+    public long getDynamicFiltersVersion()
     {
-        return currentVersion;
+        try (LockUtils.CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            return currentVersion;
+        }
     }
 
-    public synchronized VersionedDynamicFilterDomains acknowledgeAndGetNewDomains(long callersCurrentVersion)
+    public VersionedDynamicFilterDomains acknowledgeAndGetNewDomains(long callersCurrentVersion)
     {
-        acknowledge(callersCurrentVersion);
+        try (LockUtils.CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            acknowledge(callersCurrentVersion);
 
-        return getCurrentDynamicFilterDomains();
+            return getCurrentDynamicFilterDomains();
+        }
     }
 
-    public synchronized void acknowledge(long callersCurrentVersion)
+    public void acknowledge(long callersCurrentVersion)
     {
-        // Remove dynamic filter domains that are already received by caller.
-        // This assumes there is only one dynamic filters consumer.
-        dynamicFilterDomains.values().removeIf(domain -> domain.getVersion() <= callersCurrentVersion);
+        try (LockUtils.CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            // Remove dynamic filter domains that are already received by caller.
+            // This assumes there is only one dynamic filters consumer.
+            dynamicFilterDomains.values().removeIf(domain -> domain.getVersion() <= callersCurrentVersion);
+        }
     }
 
-    public synchronized VersionedDynamicFilterDomains getCurrentDynamicFilterDomains()
+    public VersionedDynamicFilterDomains getCurrentDynamicFilterDomains()
     {
-        return new VersionedDynamicFilterDomains(
-                currentVersion,
-                dynamicFilterDomains.entrySet().stream()
-                        .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getDomain())));
+        try (LockUtils.CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            return new VersionedDynamicFilterDomains(
+                    currentVersion,
+                    dynamicFilterDomains.entrySet().stream()
+                            .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getDomain())));
+        }
     }
 
     public static class VersionedDynamicFilterDomains

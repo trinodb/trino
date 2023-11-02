@@ -29,6 +29,7 @@ import io.trino.execution.SplitAssignment;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.util.LockUtils.CloseableLock;
 
 import java.io.Closeable;
 import java.util.ArrayList;
@@ -52,6 +53,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.operator.Operator.NOT_BLOCKED;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.util.LockUtils.closeable;
 import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -763,6 +765,7 @@ public class Driver
 
     private static class DriverLock
     {
+        private final ReentrantLock thisLock = new ReentrantLock();
         private final ReentrantLock lock = new ReentrantLock();
 
         private final AtomicReference<State> state;
@@ -774,12 +777,12 @@ public class Driver
             this.destroyedFuture = requireNonNull(destroyedFuture, "destroyedFuture is null");
         }
 
-        @GuardedBy("this")
+        @GuardedBy("thisLock")
         private Thread currentOwner;
-        @GuardedBy("this")
+        @GuardedBy("thisLock")
         private boolean currentOwnerInterruptionAllowed;
 
-        @GuardedBy("this")
+        @GuardedBy("thisLock")
         private List<StackTraceElement> interrupterStack;
 
         public boolean isHeldByCurrentThread()
@@ -808,22 +811,24 @@ public class Driver
             return acquired;
         }
 
-        private synchronized void setOwner(boolean interruptionAllowed)
+        private void setOwner(boolean interruptionAllowed)
         {
-            checkState(lock.isHeldByCurrentThread(), "Current thread does not hold lock");
-            currentOwner = Thread.currentThread();
-            currentOwnerInterruptionAllowed = interruptionAllowed;
-            // NOTE: We do not use interrupted stack information to know that another
-            // thread has attempted to interrupt the driver, and interrupt this new lock
-            // owner.  The interrupted stack information is for debugging purposes only.
-            // In the case of interruption, the caller should (and does) have a separate
-            // state to prevent further processing in the Driver.
+            try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+                checkState(lock.isHeldByCurrentThread(), "Current thread does not hold lock");
+                currentOwner = Thread.currentThread();
+                currentOwnerInterruptionAllowed = interruptionAllowed;
+                // NOTE: We do not use interrupted stack information to know that another
+                // thread has attempted to interrupt the driver, and interrupt this new lock
+                // owner.  The interrupted stack information is for debugging purposes only.
+                // In the case of interruption, the caller should (and does) have a separate
+                // state to prevent further processing in the Driver.
+            }
         }
 
         public void unlock()
         {
             checkState(lock.isHeldByCurrentThread(), "Current thread does not hold lock");
-            synchronized (this) {
+            try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
                 currentOwner = null;
                 currentOwnerInterruptionAllowed = false;
             }
@@ -835,26 +840,30 @@ public class Driver
             }
         }
 
-        public synchronized List<StackTraceElement> getInterrupterStack()
+        public List<StackTraceElement> getInterrupterStack()
         {
-            return interrupterStack;
+            try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+                return interrupterStack;
+            }
         }
 
-        public synchronized void interruptCurrentOwner()
+        public void interruptCurrentOwner()
         {
-            if (!currentOwnerInterruptionAllowed) {
-                return;
-            }
-            // there is a benign race condition here were the lock holder
-            // can be change between attempting to get lock and grabbing
-            // the synchronized lock here, but in either case we want to
-            // interrupt the lock holder thread
-            if (interrupterStack == null) {
-                interrupterStack = ImmutableList.copyOf(Thread.currentThread().getStackTrace());
-            }
+            try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+                if (!currentOwnerInterruptionAllowed) {
+                    return;
+                }
+                // there is a benign race condition here were the lock holder
+                // can be change between attempting to get lock and grabbing
+                // the exclusive lock here, but in either case we want to
+                // interrupt the lock holder thread
+                if (interrupterStack == null) {
+                    interrupterStack = ImmutableList.copyOf(Thread.currentThread().getStackTrace());
+                }
 
-            if (currentOwner != null) {
-                currentOwner.interrupt();
+                if (currentOwner != null) {
+                    currentOwner.interrupt();
+                }
             }
         }
     }

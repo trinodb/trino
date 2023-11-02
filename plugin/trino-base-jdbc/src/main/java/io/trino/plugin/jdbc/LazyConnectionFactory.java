@@ -16,13 +16,16 @@ package io.trino.plugin.jdbc;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
+import io.trino.plugin.base.util.LockUtils.CloseableLock;
 import io.trino.spi.connector.ConnectorSession;
 import jakarta.annotation.Nullable;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.plugin.base.util.LockUtils.closeable;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -54,11 +57,13 @@ public final class LazyConnectionFactory
     private static final class LazyConnection
             extends ForwardingConnection
     {
+        private final ReentrantLock lock = new ReentrantLock();
+
         private final SqlSupplier<Connection> connectionSupplier;
         @Nullable
-        @GuardedBy("this")
+        @GuardedBy("lock")
         private Connection connection;
-        @GuardedBy("this")
+        @GuardedBy("lock")
         private boolean closed;
 
         public LazyConnection(SqlSupplier<Connection> connectionSupplier)
@@ -67,23 +72,27 @@ public final class LazyConnectionFactory
         }
 
         @Override
-        protected synchronized Connection delegate()
+        protected Connection delegate()
                 throws SQLException
         {
-            checkState(!closed, "Connection is already closed");
-            if (connection == null) {
-                connection = requireNonNull(connectionSupplier.get(), "connectionSupplier.get() is null");
+            try (CloseableLock<ReentrantLock> ignored = closeable(lock)) {
+                checkState(!closed, "Connection is already closed");
+                if (connection == null) {
+                    connection = requireNonNull(connectionSupplier.get(), "connectionSupplier.get() is null");
+                }
+                return connection;
             }
-            return connection;
         }
 
         @Override
-        public synchronized void close()
+        public void close()
                 throws SQLException
         {
-            closed = true;
-            if (connection != null) {
-                connection.close();
+            try (CloseableLock<ReentrantLock> ignored = closeable(lock)) {
+                closed = true;
+                if (connection != null) {
+                    connection.close();
+                }
             }
         }
     }

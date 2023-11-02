@@ -16,15 +16,18 @@ package io.trino.operator.output;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.trino.util.LockUtils.CloseableLock;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.util.LockUtils.closeable;
 import static java.util.Objects.requireNonNull;
 
 public class PagePartitionerPool
@@ -41,9 +44,12 @@ public class PagePartitionerPool
      * thus limiting unused memory.
      */
     private final int maxFree;
-    @GuardedBy("this")
+
+    private final ReentrantLock thisLock = new ReentrantLock();
+
+    @GuardedBy("thisLock")
     private final Queue<PagePartitioner> free = new ArrayDeque<>();
-    @GuardedBy("this")
+    @GuardedBy("thisLock")
     private boolean closed;
 
     public PagePartitionerPool(int maxFree, Supplier<PagePartitioner> pagePartitionerSupplier)
@@ -52,17 +58,19 @@ public class PagePartitionerPool
         this.pagePartitionerSupplier = requireNonNull(pagePartitionerSupplier, "pagePartitionerSupplier is null");
     }
 
-    public synchronized PagePartitioner poll()
+    public PagePartitioner poll()
     {
-        checkArgument(!closed, "The pool is already closed");
-        return free.isEmpty() ? pagePartitionerSupplier.get() : free.poll();
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            checkArgument(!closed, "The pool is already closed");
+            return free.isEmpty() ? pagePartitionerSupplier.get() : free.poll();
+        }
     }
 
     public void release(PagePartitioner pagePartitioner)
     {
         // pagePartitioner.close can take a long time (flush->serialization), we want to keep it out of the synchronized block
         boolean shouldRetain;
-        synchronized (this) {
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
             shouldRetain = !closed && free.size() < maxFree;
             if (shouldRetain) {
                 free.add(pagePartitioner);
@@ -90,11 +98,13 @@ public class PagePartitionerPool
         }
     }
 
-    private synchronized Collection<PagePartitioner> markClosed()
+    private Collection<PagePartitioner> markClosed()
     {
-        closed = true;
-        List<PagePartitioner> toClose = ImmutableList.copyOf(free);
-        free.clear();
-        return toClose;
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            closed = true;
+            List<PagePartitioner> toClose = ImmutableList.copyOf(free);
+            free.clear();
+            return toClose;
+        }
     }
 }

@@ -23,6 +23,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.util.LockUtils.CloseableLock;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -32,6 +33,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -40,6 +42,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.predicate.TupleDomain.columnWiseUnion;
+import static io.trino.util.LockUtils.closeable;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -53,12 +56,13 @@ public class LocalDynamicFilterConsumer
     private final List<Consumer<Map<DynamicFilterId, Domain>>> collectors;
     private final long domainSizeLimitInBytes;
 
+    private final ReentrantLock thisLock = new ReentrantLock();
     // Number of build-side partitions to be collected, must be provided by setPartitionCount
-    @GuardedBy("this")
+    @GuardedBy("thisLock")
     private Integer expectedPartitionCount;
-    @GuardedBy("this")
+    @GuardedBy("thisLock")
     private int collectedPartitionCount;
-    @GuardedBy("this")
+    @GuardedBy("thisLock")
     private volatile boolean collected;
 
     private final Queue<TupleDomain<DynamicFilterId>> summaryDomains = new ConcurrentLinkedQueue<>();
@@ -93,7 +97,7 @@ public class LocalDynamicFilterConsumer
         unionSummaryDomainsIfNecessary(false);
 
         TupleDomain<DynamicFilterId> result;
-        synchronized (this) {
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
             verify(expectedPartitionCount == null || collectedPartitionCount < expectedPartitionCount);
 
             if (collected) {
@@ -148,7 +152,7 @@ public class LocalDynamicFilterConsumer
     public void setPartitionCount(int partitionCount)
     {
         TupleDomain<DynamicFilterId> result;
-        synchronized (this) {
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
             if (collected) {
                 return;
             }
@@ -210,9 +214,11 @@ public class LocalDynamicFilterConsumer
     }
 
     @Override
-    public synchronized boolean isDomainCollectionComplete()
+    public boolean isDomainCollectionComplete()
     {
-        return collected;
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            return collected;
+        }
     }
 
     private void clearSummaryDomains()
@@ -282,18 +288,20 @@ public class LocalDynamicFilterConsumer
     }
 
     @Override
-    public synchronized String toString()
+    public String toString()
     {
-        return toStringHelper(this)
-                .add("buildChannels", buildChannels)
-                .add("filterBuildTypes", filterBuildTypes)
-                .add("domainSizeLimitInBytes", domainSizeLimitInBytes)
-                .add("expectedPartitionCount", expectedPartitionCount)
-                .add("collectedPartitionCount", collectedPartitionCount)
-                .add("collected", collected)
-                .add("summaryDomains", summaryDomains)
-                .add("summaryDomainsRetainedSizeInBytes", summaryDomainsRetainedSizeInBytes)
-                .toString();
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            return toStringHelper(this)
+                    .add("buildChannels", buildChannels)
+                    .add("filterBuildTypes", filterBuildTypes)
+                    .add("domainSizeLimitInBytes", domainSizeLimitInBytes)
+                    .add("expectedPartitionCount", expectedPartitionCount)
+                    .add("collectedPartitionCount", collectedPartitionCount)
+                    .add("collected", collected)
+                    .add("summaryDomains", summaryDomains)
+                    .add("summaryDomainsRetainedSizeInBytes", summaryDomainsRetainedSizeInBytes)
+                    .toString();
+        }
     }
 
     private static long getRetainedSizeInBytes(TupleDomain<DynamicFilterId> summary)

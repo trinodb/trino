@@ -43,6 +43,7 @@ import io.trino.spi.TrinoException;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
+import io.trino.util.LockUtils.CloseableLock;
 import jakarta.annotation.Nullable;
 
 import java.lang.ref.WeakReference;
@@ -61,6 +62,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -76,12 +78,15 @@ import static io.trino.execution.SqlTaskExecution.SplitsState.ADDING_SPLITS;
 import static io.trino.execution.SqlTaskExecution.SplitsState.FINISHED;
 import static io.trino.execution.SqlTaskExecution.SplitsState.NO_MORE_SPLITS;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.util.LockUtils.closeable;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
 public class SqlTaskExecution
 {
+    private final ReentrantLock thisLock = new ReentrantLock();
+
     private final TaskId taskId;
     private final TaskStateMachine taskStateMachine;
     private final Span taskSpan;
@@ -101,15 +106,15 @@ public class SqlTaskExecution
     private final Map<PlanNodeId, DriverSplitRunnerFactory> driverRunnerFactoriesWithRemoteSource;
     private final List<DriverSplitRunnerFactory> allDriverRunnerFactories;
 
-    @GuardedBy("this")
+    @GuardedBy("thisLock")
     private final Map<PlanNodeId, Long> maxAcknowledgedSplitByPlanNode = new HashMap<>();
 
-    @GuardedBy("this")
+    @GuardedBy("thisLock")
     private final List<PlanNodeId> sourceStartOrder;
-    @GuardedBy("this")
+    @GuardedBy("thisLock")
     private int schedulingPlanNodeOrdinal;
 
-    @GuardedBy("this")
+    @GuardedBy("thisLock")
     private final Map<PlanNodeId, PendingSplitsForPlanNode> pendingSplitsByPlanNode;
 
     // number of created PrioritizedSplitRunners that haven't yet finished
@@ -191,20 +196,22 @@ public class SqlTaskExecution
     }
 
     // this must be synchronized to prevent a concurrent call to checkTaskCompletion() from proceeding before all task lifecycle drivers are created
-    public synchronized void start()
+    public void start()
     {
-        try (SetThreadName ignored = new SetThreadName("Task-%s", getTaskId())) {
-            // Signal immediate termination complete if task termination has started
-            if (taskStateMachine.getState().isTerminating()) {
-                taskStateMachine.terminationComplete();
-            }
-            else if (taskHandle != null) {
-                // The scheduleDriversForTaskLifeCycle method calls enqueueDriverSplitRunner, which registers a callback with access to this object.
-                // The call back is accessed from another thread, so this code cannot be placed in the constructor. This must also happen before outputBuffer
-                // callbacks are registered to prevent a task completion check before task lifecycle splits are created
-                scheduleDriversForTaskLifeCycle();
-                // Output buffer state change listener callback must not run in the constructor to avoid leaking a reference to "this" across to another thread
-                outputBuffer.addStateChangeListener(new CheckTaskCompletionOnBufferFinish(SqlTaskExecution.this));
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            try (SetThreadName ignored2 = new SetThreadName("Task-%s", getTaskId())) {
+                // Signal immediate termination complete if task termination has started
+                if (taskStateMachine.getState().isTerminating()) {
+                    taskStateMachine.terminationComplete();
+                }
+                else if (taskHandle != null) {
+                    // The scheduleDriversForTaskLifeCycle method calls enqueueDriverSplitRunner, which registers a callback with access to this object.
+                    // The call back is accessed from another thread, so this code cannot be placed in the constructor. This must also happen before outputBuffer
+                    // callbacks are registered to prevent a task completion check before task lifecycle splits are created
+                    scheduleDriversForTaskLifeCycle();
+                    // Output buffer state change listener callback must not run in the constructor to avoid leaking a reference to "this" across to another thread
+                    outputBuffer.addStateChangeListener(new CheckTaskCompletionOnBufferFinish(SqlTaskExecution.this));
+                }
             }
         }
     }
@@ -274,57 +281,59 @@ public class SqlTaskExecution
         }
     }
 
-    private synchronized Set<PlanNodeId> updateSplitAssignments(List<SplitAssignment> splitAssignments)
+    private Set<PlanNodeId> updateSplitAssignments(List<SplitAssignment> splitAssignments)
     {
         ImmutableSet.Builder<PlanNodeId> updatedUnpartitionedSources = ImmutableSet.builder();
         List<SplitAssignment> unacknowledgedSplitAssignment = new ArrayList<>(splitAssignments.size());
 
-        // first remove any split that was already acknowledged
-        for (SplitAssignment splitAssignment : splitAssignments) {
-            // drop assignments containing no unacknowledged splits
-            // the noMoreSplits signal acknowledgement is not tracked but it is okay to deliver it more than once
-            if (!splitAssignment.getSplits().isEmpty() || splitAssignment.isNoMoreSplits()) {
-                PlanNodeId planNodeId = splitAssignment.getPlanNodeId();
-                long currentMaxAcknowledgedSplit = maxAcknowledgedSplitByPlanNode.getOrDefault(planNodeId, Long.MIN_VALUE);
-                long maxAcknowledgedSplit = currentMaxAcknowledgedSplit;
-                ImmutableSet.Builder<ScheduledSplit> builder = ImmutableSet.builderWithExpectedSize(splitAssignment.getSplits().size());
-                for (ScheduledSplit split : splitAssignment.getSplits()) {
-                    long sequenceId = split.getSequenceId();
-                    // previously acknowledged splits can be included in source
-                    if (sequenceId > currentMaxAcknowledgedSplit) {
-                        builder.add(split);
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            // first remove any split that was already acknowledged
+            for (SplitAssignment splitAssignment : splitAssignments) {
+                // drop assignments containing no unacknowledged splits
+                // the noMoreSplits signal acknowledgement is not tracked but it is okay to deliver it more than once
+                if (!splitAssignment.getSplits().isEmpty() || splitAssignment.isNoMoreSplits()) {
+                    PlanNodeId planNodeId = splitAssignment.getPlanNodeId();
+                    long currentMaxAcknowledgedSplit = maxAcknowledgedSplitByPlanNode.getOrDefault(planNodeId, Long.MIN_VALUE);
+                    long maxAcknowledgedSplit = currentMaxAcknowledgedSplit;
+                    ImmutableSet.Builder<ScheduledSplit> builder = ImmutableSet.builderWithExpectedSize(splitAssignment.getSplits().size());
+                    for (ScheduledSplit split : splitAssignment.getSplits()) {
+                        long sequenceId = split.getSequenceId();
+                        // previously acknowledged splits can be included in source
+                        if (sequenceId > currentMaxAcknowledgedSplit) {
+                            builder.add(split);
+                        }
+                        if (sequenceId > maxAcknowledgedSplit) {
+                            maxAcknowledgedSplit = sequenceId;
+                        }
                     }
-                    if (sequenceId > maxAcknowledgedSplit) {
-                        maxAcknowledgedSplit = sequenceId;
+                    if (maxAcknowledgedSplit > currentMaxAcknowledgedSplit) {
+                        maxAcknowledgedSplitByPlanNode.put(planNodeId, maxAcknowledgedSplit);
+                    }
+
+                    Set<ScheduledSplit> newSplits = builder.build();
+                    // We may have filtered all splits out, so only proceed with updates if new splits are
+                    // present or noMoreSplits is set
+                    if (!newSplits.isEmpty() || splitAssignment.isNoMoreSplits()) {
+                        unacknowledgedSplitAssignment.add(new SplitAssignment(splitAssignment.getPlanNodeId(), newSplits, splitAssignment.isNoMoreSplits()));
                     }
                 }
-                if (maxAcknowledgedSplit > currentMaxAcknowledgedSplit) {
-                    maxAcknowledgedSplitByPlanNode.put(planNodeId, maxAcknowledgedSplit);
+            }
+
+            // update task with new sources
+            for (SplitAssignment splitAssignment : unacknowledgedSplitAssignment) {
+                if (driverRunnerFactoriesWithSplitLifeCycle.containsKey(splitAssignment.getPlanNodeId())) {
+                    schedulePartitionedSource(splitAssignment);
                 }
-
-                Set<ScheduledSplit> newSplits = builder.build();
-                // We may have filtered all splits out, so only proceed with updates if new splits are
-                // present or noMoreSplits is set
-                if (!newSplits.isEmpty() || splitAssignment.isNoMoreSplits()) {
-                    unacknowledgedSplitAssignment.add(new SplitAssignment(splitAssignment.getPlanNodeId(), newSplits, splitAssignment.isNoMoreSplits()));
+                else {
+                    // tell existing drivers about the new splits
+                    DriverSplitRunnerFactory factory = driverRunnerFactoriesWithRemoteSource.get(splitAssignment.getPlanNodeId());
+                    factory.enqueueSplits(splitAssignment.getSplits(), splitAssignment.isNoMoreSplits());
+                    updatedUnpartitionedSources.add(splitAssignment.getPlanNodeId());
                 }
             }
-        }
 
-        // update task with new sources
-        for (SplitAssignment splitAssignment : unacknowledgedSplitAssignment) {
-            if (driverRunnerFactoriesWithSplitLifeCycle.containsKey(splitAssignment.getPlanNodeId())) {
-                schedulePartitionedSource(splitAssignment);
-            }
-            else {
-                // tell existing drivers about the new splits
-                DriverSplitRunnerFactory factory = driverRunnerFactoriesWithRemoteSource.get(splitAssignment.getPlanNodeId());
-                factory.enqueueSplits(splitAssignment.getSplits(), splitAssignment.isNoMoreSplits());
-                updatedUnpartitionedSources.add(splitAssignment.getPlanNodeId());
-            }
+            return updatedUnpartitionedSources.build();
         }
-
-        return updatedUnpartitionedSources.build();
     }
 
     @GuardedBy("this")
@@ -344,35 +353,36 @@ public class SqlTaskExecution
         }
     }
 
-    private synchronized void schedulePartitionedSource(SplitAssignment splitAssignmentUpdate)
+    private void schedulePartitionedSource(SplitAssignment splitAssignmentUpdate)
     {
-        mergeIntoPendingSplits(splitAssignmentUpdate.getPlanNodeId(), splitAssignmentUpdate.getSplits(), splitAssignmentUpdate.isNoMoreSplits());
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            mergeIntoPendingSplits(splitAssignmentUpdate.getPlanNodeId(), splitAssignmentUpdate.getSplits(), splitAssignmentUpdate.isNoMoreSplits());
+            while (schedulingPlanNodeOrdinal < sourceStartOrder.size()) {
+                PlanNodeId schedulingPlanNode = sourceStartOrder.get(schedulingPlanNodeOrdinal);
 
-        while (schedulingPlanNodeOrdinal < sourceStartOrder.size()) {
-            PlanNodeId schedulingPlanNode = sourceStartOrder.get(schedulingPlanNodeOrdinal);
+                DriverSplitRunnerFactory partitionedDriverRunnerFactory = driverRunnerFactoriesWithSplitLifeCycle.get(schedulingPlanNode);
 
-            DriverSplitRunnerFactory partitionedDriverRunnerFactory = driverRunnerFactoriesWithSplitLifeCycle.get(schedulingPlanNode);
+                PendingSplitsForPlanNode pendingSplits = pendingSplitsByPlanNode.get(schedulingPlanNode);
 
-            PendingSplitsForPlanNode pendingSplits = pendingSplitsByPlanNode.get(schedulingPlanNode);
+                // Enqueue driver runners with split lifecycle for this plan node and driver life cycle combination.
+                Set<ScheduledSplit> removed = pendingSplits.removeAllSplits();
+                ImmutableList.Builder<DriverSplitRunner> runners = ImmutableList.builderWithExpectedSize(removed.size());
+                for (ScheduledSplit scheduledSplit : removed) {
+                    // create a new driver for the split
+                    runners.add(partitionedDriverRunnerFactory.createPartitionedDriverRunner(scheduledSplit));
+                }
+                enqueueDriverSplitRunner(false, runners.build());
 
-            // Enqueue driver runners with split lifecycle for this plan node and driver life cycle combination.
-            Set<ScheduledSplit> removed = pendingSplits.removeAllSplits();
-            ImmutableList.Builder<DriverSplitRunner> runners = ImmutableList.builderWithExpectedSize(removed.size());
-            for (ScheduledSplit scheduledSplit : removed) {
-                // create a new driver for the split
-                runners.add(partitionedDriverRunnerFactory.createPartitionedDriverRunner(scheduledSplit));
+                // If all driver runners have been enqueued for this plan node and driver life cycle combination,
+                // move on to the next plan node.
+                if (pendingSplits.getState() != NO_MORE_SPLITS) {
+                    break;
+                }
+                partitionedDriverRunnerFactory.noMoreDriverRunner();
+                pendingSplits.markAsCleanedUp();
+
+                schedulingPlanNodeOrdinal++;
             }
-            enqueueDriverSplitRunner(false, runners.build());
-
-            // If all driver runners have been enqueued for this plan node and driver life cycle combination,
-            // move on to the next plan node.
-            if (pendingSplits.getState() != NO_MORE_SPLITS) {
-                break;
-            }
-            partitionedDriverRunnerFactory.noMoreDriverRunner();
-            pendingSplits.markAsCleanedUp();
-
-            schedulingPlanNodeOrdinal++;
         }
     }
 
@@ -394,135 +404,141 @@ public class SqlTaskExecution
         checkTaskCompletion();
     }
 
-    private synchronized void enqueueDriverSplitRunner(boolean forceRunSplit, List<DriverSplitRunner> runners)
+    private void enqueueDriverSplitRunner(boolean forceRunSplit, List<DriverSplitRunner> runners)
     {
         // schedule driver to be executed
-        List<ListenableFuture<Void>> finishedFutures = taskExecutor.enqueueSplits(taskHandle, forceRunSplit, runners);
-        checkState(finishedFutures.size() == runners.size(), "Expected %s futures but got %s", runners.size(), finishedFutures.size());
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            List<ListenableFuture<Void>> finishedFutures = taskExecutor.enqueueSplits(taskHandle, forceRunSplit, runners);
+            checkState(finishedFutures.size() == runners.size(), "Expected %s futures but got %s", runners.size(), finishedFutures.size());
 
-        // record new split runners
-        remainingSplitRunners.addAndGet(runners.size());
+            // record new split runners
+            remainingSplitRunners.addAndGet(runners.size());
 
-        // when split runner completes, update state and fire events
-        for (int i = 0; i < finishedFutures.size(); i++) {
-            ListenableFuture<Void> finishedFuture = finishedFutures.get(i);
-            DriverSplitRunner splitRunner = runners.get(i);
+            // when split runner completes, update state and fire events
+            for (int i = 0; i < finishedFutures.size(); i++) {
+                ListenableFuture<Void> finishedFuture = finishedFutures.get(i);
+                DriverSplitRunner splitRunner = runners.get(i);
 
-            Futures.addCallback(finishedFuture, new FutureCallback<Object>()
-            {
-                @Override
-                public void onSuccess(Object result)
+                Futures.addCallback(finishedFuture, new FutureCallback<Object>()
                 {
-                    try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
-                        // record driver is finished
-                        if (remainingSplitRunners.decrementAndGet() == 0) {
-                            checkTaskCompletion();
+                    @Override
+                    public void onSuccess(Object result)
+                    {
+                        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
+                            // record driver is finished
+                            if (remainingSplitRunners.decrementAndGet() == 0) {
+                                checkTaskCompletion();
+                            }
+
+                            splitMonitor.splitCompletedEvent(taskId, getDriverStats());
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Throwable cause)
+                    {
+                        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
+                            taskStateMachine.failed(cause);
+
+                            // record driver is finished
+                            if (remainingSplitRunners.decrementAndGet() == 0) {
+                                checkTaskCompletion();
+                            }
+
+                            // fire failed event with cause
+                            splitMonitor.splitFailedEvent(taskId, getDriverStats(), cause);
+                        }
+                    }
+
+                    private DriverStats getDriverStats()
+                    {
+                        DriverContext driverContext = splitRunner.getDriverContext();
+                        DriverStats driverStats;
+                        if (driverContext != null) {
+                            driverStats = driverContext.getDriverStats();
+                        }
+                        else {
+                            // split runner did not start successfully
+                            driverStats = new DriverStats();
                         }
 
-                        splitMonitor.splitCompletedEvent(taskId, getDriverStats());
+                        return driverStats;
                     }
-                }
-
-                @Override
-                public void onFailure(Throwable cause)
-                {
-                    try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
-                        taskStateMachine.failed(cause);
-
-                        // record driver is finished
-                        if (remainingSplitRunners.decrementAndGet() == 0) {
-                            checkTaskCompletion();
-                        }
-
-                        // fire failed event with cause
-                        splitMonitor.splitFailedEvent(taskId, getDriverStats(), cause);
-                    }
-                }
-
-                private DriverStats getDriverStats()
-                {
-                    DriverContext driverContext = splitRunner.getDriverContext();
-                    DriverStats driverStats;
-                    if (driverContext != null) {
-                        driverStats = driverContext.getDriverStats();
-                    }
-                    else {
-                        // split runner did not start successfully
-                        driverStats = new DriverStats();
-                    }
-
-                    return driverStats;
-                }
-            }, notificationExecutor);
+                }, notificationExecutor);
+            }
         }
     }
 
-    public synchronized Set<PlanNodeId> getNoMoreSplits()
+    public Set<PlanNodeId> getNoMoreSplits()
     {
         ImmutableSet.Builder<PlanNodeId> noMoreSplits = ImmutableSet.builder();
-        for (Map.Entry<PlanNodeId, DriverSplitRunnerFactory> entry : driverRunnerFactoriesWithSplitLifeCycle.entrySet()) {
-            if (entry.getValue().isNoMoreDriverRunner()) {
-                noMoreSplits.add(entry.getKey());
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            for (Map.Entry<PlanNodeId, DriverSplitRunnerFactory> entry : driverRunnerFactoriesWithSplitLifeCycle.entrySet()) {
+                if (entry.getValue().isNoMoreDriverRunner()) {
+                    noMoreSplits.add(entry.getKey());
+                }
             }
-        }
-        for (Map.Entry<PlanNodeId, DriverSplitRunnerFactory> entry : driverRunnerFactoriesWithRemoteSource.entrySet()) {
-            if (entry.getValue().isNoMoreSplits()) {
-                noMoreSplits.add(entry.getKey());
+            for (Map.Entry<PlanNodeId, DriverSplitRunnerFactory> entry : driverRunnerFactoriesWithRemoteSource.entrySet()) {
+                if (entry.getValue().isNoMoreSplits()) {
+                    noMoreSplits.add(entry.getKey());
+                }
             }
         }
         return noMoreSplits.build();
     }
 
-    private synchronized void checkTaskCompletion()
+    private void checkTaskCompletion()
     {
-        TaskState taskState = taskStateMachine.getState();
-        if (taskState.isDone()) {
-            return;
-        }
-
-        // have all drivers finished terminating?
-        if (taskState.isTerminating()) {
-            driverAndTaskTerminationTracker.checkTaskTermination();
-            return;
-        }
-
-        // do we still have running tasks?
-        if (remainingSplitRunners.get() != 0) {
-            return;
-        }
-
-        // are there more drivers expected?
-        for (DriverSplitRunnerFactory driverSplitRunnerFactory : allDriverRunnerFactories) {
-            if (!driverSplitRunnerFactory.isNoMoreDrivers()) {
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            TaskState taskState = taskStateMachine.getState();
+            if (taskState.isDone()) {
                 return;
             }
+
+            // have all drivers finished terminating?
+            if (taskState.isTerminating()) {
+                driverAndTaskTerminationTracker.checkTaskTermination();
+                return;
+            }
+
+            // do we still have running tasks?
+            if (remainingSplitRunners.get() != 0) {
+                return;
+            }
+
+            // are there more drivers expected?
+            for (DriverSplitRunnerFactory driverSplitRunnerFactory : allDriverRunnerFactories) {
+                if (!driverSplitRunnerFactory.isNoMoreDrivers()) {
+                    return;
+                }
+            }
+
+            // no more output will be created
+            outputBuffer.setNoMorePages();
+
+            BufferState bufferState = outputBuffer.getState();
+            if (!bufferState.isTerminal()) {
+                taskStateMachine.transitionToFlushing();
+                return;
+            }
+
+            if (bufferState == BufferState.FINISHED) {
+                // Cool! All done!
+                taskStateMachine.finished();
+                return;
+            }
+
+            if (bufferState == BufferState.FAILED) {
+                Throwable failureCause = outputBuffer.getFailureCause()
+                        .orElseGet(() -> new TrinoException(GENERIC_INTERNAL_ERROR, "Output buffer is failed but the failure cause is missing"));
+                taskStateMachine.failed(failureCause);
+                return;
+            }
+
+            // The only terminal state that remains is ABORTED.
+            // Buffer is expected to be aborted only if the task itself is aborted. In this scenario the following statement is expected to be noop.
+            taskStateMachine.failed(new TrinoException(GENERIC_INTERNAL_ERROR, "Unexpected buffer state: " + bufferState));
         }
-
-        // no more output will be created
-        outputBuffer.setNoMorePages();
-
-        BufferState bufferState = outputBuffer.getState();
-        if (!bufferState.isTerminal()) {
-            taskStateMachine.transitionToFlushing();
-            return;
-        }
-
-        if (bufferState == BufferState.FINISHED) {
-            // Cool! All done!
-            taskStateMachine.finished();
-            return;
-        }
-
-        if (bufferState == BufferState.FAILED) {
-            Throwable failureCause = outputBuffer.getFailureCause()
-                    .orElseGet(() -> new TrinoException(GENERIC_INTERNAL_ERROR, "Output buffer is failed but the failure cause is missing"));
-            taskStateMachine.failed(failureCause);
-            return;
-        }
-
-        // The only terminal state that remains is ABORTED.
-        // Buffer is expected to be aborted only if the task itself is aborted. In this scenario the following statement is expected to be noop.
-        taskStateMachine.failed(new TrinoException(GENERIC_INTERNAL_ERROR, "Unexpected buffer state: " + bufferState));
     }
 
     @Override
@@ -540,7 +556,7 @@ public class SqlTaskExecution
         // This method serves a similar purpose at runtime as GuardedBy on method serves during static analysis.
         // This method should not have significant performance impact. If it does, it may be reasonably to remove this method.
         // This intentionally does not use checkState.
-        if (!Thread.holdsLock(this)) {
+        if (!thisLock.isHeldByCurrentThread()) {
             throw new IllegalStateException(format("Thread must hold a lock on the %s", getClass().getSimpleName()));
         }
     }
@@ -813,16 +829,18 @@ public class SqlTaskExecution
     private static class DriverSplitRunner
             implements SplitRunner
     {
+        private final ReentrantLock lock = new ReentrantLock();
+
         private final DriverSplitRunnerFactory driverSplitRunnerFactory;
         private final DriverContext driverContext;
 
-        @GuardedBy("this")
+        @GuardedBy("lock")
         private boolean closed;
 
         @Nullable
         private final ScheduledSplit partitionedSplit;
 
-        @GuardedBy("this")
+        @GuardedBy("lock")
         private Driver driver;
 
         private DriverSplitRunner(DriverSplitRunnerFactory driverSplitRunnerFactory, DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit)
@@ -832,12 +850,14 @@ public class SqlTaskExecution
             this.partitionedSplit = partitionedSplit;
         }
 
-        public synchronized DriverContext getDriverContext()
+        public DriverContext getDriverContext()
         {
-            if (driver == null) {
-                return null;
+            try (CloseableLock<ReentrantLock> ignored = closeable(lock)) {
+                if (driver == null) {
+                    return null;
+                }
+                return driver.getDriverContext();
             }
-            return driver.getDriverContext();
         }
 
         @Override
@@ -853,20 +873,22 @@ public class SqlTaskExecution
         }
 
         @Override
-        public synchronized boolean isFinished()
+        public boolean isFinished()
         {
-            if (closed) {
-                return true;
-            }
+            try (CloseableLock<ReentrantLock> ignored = closeable(lock)) {
+                if (closed) {
+                    return true;
+                }
 
-            return driver != null && driver.isFinished();
+                return driver != null && driver.isFinished();
+            }
         }
 
         @Override
         public ListenableFuture<Void> processFor(Duration duration)
         {
             Driver driver;
-            synchronized (this) {
+            try (CloseableLock<ReentrantLock> ignored = closeable(lock)) {
                 // if close() was called before we get here, there's not point in even creating the driver
                 if (closed) {
                     return immediateVoidFuture();
@@ -897,7 +919,7 @@ public class SqlTaskExecution
         public void close()
         {
             Driver driver;
-            synchronized (this) {
+            try (CloseableLock<ReentrantLock> ignored = closeable(lock)) {
                 closed = true;
                 driver = this.driver;
             }

@@ -16,19 +16,24 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.util.LockUtils.CloseableLock;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.util.LockUtils.closeable;
 import static java.util.Objects.requireNonNull;
 
 public class DriverFactory
 {
+    private final ReentrantLock lock = new ReentrantLock();
+
     private final int pipelineId;
     private final boolean inputDriver;
     private final boolean outputDriver;
@@ -37,7 +42,7 @@ public class DriverFactory
     private final OptionalInt driverInstances;
 
     // must synchronize between createDriver() and noMoreDrivers(), but isNoMoreDrivers() is safe without synchronizing
-    @GuardedBy("this")
+    @GuardedBy("lock")
     private volatile boolean noMoreDrivers;
 
     public DriverFactory(int pipelineId, boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances)
@@ -98,7 +103,7 @@ public class DriverFactory
         requireNonNull(driverContext, "driverContext is null");
         List<Operator> operators = new ArrayList<>(operatorFactories.size());
         try {
-            synchronized (this) {
+            try (CloseableLock<ReentrantLock> ignored = closeable(lock)) {
                 // must check noMoreDrivers after acquiring the lock
                 checkState(!noMoreDrivers, "noMoreDrivers is already set");
                 for (OperatorFactory operatorFactory : operatorFactories) {
@@ -135,14 +140,16 @@ public class DriverFactory
         }
     }
 
-    public synchronized void noMoreDrivers()
+    public void noMoreDrivers()
     {
-        if (noMoreDrivers) {
-            return;
-        }
-        noMoreDrivers = true;
-        for (OperatorFactory operatorFactory : operatorFactories) {
-            operatorFactory.noMoreOperators();
+        try (CloseableLock<ReentrantLock> ignored = closeable(lock)) {
+            if (noMoreDrivers) {
+                return;
+            }
+            noMoreDrivers = true;
+            for (OperatorFactory operatorFactory : operatorFactories) {
+                operatorFactory.noMoreOperators();
+            }
         }
     }
 

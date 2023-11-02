@@ -25,12 +25,15 @@ import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeManager;
+import io.trino.util.LockUtils.CloseableLock;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
+import static io.trino.util.LockUtils.closeable;
 import static java.util.Objects.requireNonNull;
 
 public class LazyExchangeDataSource
@@ -47,6 +50,7 @@ public class LazyExchangeDataSource
     private final SettableFuture<Void> initializationFuture = SettableFuture.create();
     private final AtomicReference<ExchangeDataSource> delegate = new AtomicReference<>();
     private final AtomicBoolean closed = new AtomicBoolean();
+    private final ReentrantLock thisLock = new ReentrantLock();
 
     public LazyExchangeDataSource(
             QueryId queryId,
@@ -109,10 +113,10 @@ public class LazyExchangeDataSource
     public void addInput(ExchangeInput input)
     {
         boolean initialized = false;
-        synchronized (this) {
-            if (closed.get()) {
-                return;
-            }
+        if (closed.get()) {
+            return;
+        }
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
             ExchangeDataSource dataSource = delegate.get();
             if (dataSource == null) {
                 if (input instanceof DirectExchangeInput) {
@@ -138,18 +142,20 @@ public class LazyExchangeDataSource
     }
 
     @Override
-    public synchronized void noMoreInputs()
+    public void noMoreInputs()
     {
         if (closed.get()) {
             return;
         }
-        ExchangeDataSource dataSource = delegate.get();
-        if (dataSource != null) {
-            dataSource.noMoreInputs();
-        }
-        else {
-            // to unblock when no splits are provided (and delegate hasn't been created)
-            close();
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            ExchangeDataSource dataSource = delegate.get();
+            if (dataSource != null) {
+                dataSource.noMoreInputs();
+            }
+            else {
+                // to unblock when no splits are provided (and delegate hasn't been created)
+                close();
+            }
         }
     }
 
@@ -166,7 +172,7 @@ public class LazyExchangeDataSource
     @Override
     public void close()
     {
-        synchronized (this) {
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
             if (!closed.compareAndSet(false, true)) {
                 return;
             }

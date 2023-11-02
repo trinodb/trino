@@ -31,6 +31,7 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.HttpPageBufferClient.ClientCallback;
 import io.trino.operator.WorkProcessor.ProcessState;
 import io.trino.plugin.base.metrics.TDigestHistogram;
+import io.trino.util.LockUtils.CloseableLock;
 import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
@@ -45,11 +46,13 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
+import static io.trino.util.LockUtils.closeable;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -67,24 +70,26 @@ public class DirectExchangeClient
     private final HttpClient httpClient;
     private final ScheduledExecutorService scheduledExecutor;
 
-    @GuardedBy("this")
+    private final ReentrantLock thisLock = new ReentrantLock();
+
+    @GuardedBy("thisLock")
     private boolean noMoreLocations;
 
     private final Map<URI, HttpPageBufferClient> allClients = new ConcurrentHashMap<>();
 
-    @GuardedBy("this")
+    @GuardedBy("thisLock")
     private final Deque<HttpPageBufferClient> queuedClients = new LinkedList<>();
 
     private final Set<HttpPageBufferClient> completedClients = newConcurrentHashSet();
     private final DirectExchangeBuffer buffer;
 
-    @GuardedBy("this")
+    @GuardedBy("thisLock")
     private long successfulRequests;
-    @GuardedBy("this")
+    @GuardedBy("thisLock")
     private long averageBytesPerRequest;
-    @GuardedBy("this")
+    @GuardedBy("thisLock")
     private boolean closed;
-    @GuardedBy("this")
+    @GuardedBy("thisLock")
     private final TDigest requestDuration = new TDigest();
 
     @GuardedBy("memoryContextLock")
@@ -136,7 +141,7 @@ public class DirectExchangeClient
             pageBufferClientStatusBuilder.add(client.getStatus());
         }
         List<PageBufferClientStatus> pageBufferClientStatus = pageBufferClientStatusBuilder.build();
-        synchronized (this) {
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
             return new DirectExchangeClientStatus(
                     buffer.getRetainedSizeInBytes(),
                     buffer.getMaxRetainedSizeInBytes(),
@@ -151,43 +156,47 @@ public class DirectExchangeClient
         }
     }
 
-    public synchronized void addLocation(TaskId taskId, URI location)
+    public void addLocation(TaskId taskId, URI location)
     {
         requireNonNull(location, "location is null");
 
-        // Ignore new locations after close
-        // NOTE: this MUST happen before checking no more locations is checked
-        if (closed) {
-            return;
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            // Ignore new locations after close
+            // NOTE: this MUST happen before checking no more locations is checked
+            if (closed) {
+                return;
+            }
+
+            checkArgument(!allClients.containsKey(location), "location already exist: %s", location);
+
+            checkState(!noMoreLocations, "No more locations already set");
+            buffer.addTask(taskId);
+            HttpPageBufferClient client = new HttpPageBufferClient(
+                    selfAddress,
+                    httpClient,
+                    dataIntegrityVerification,
+                    maxResponseSize,
+                    maxErrorDuration,
+                    acknowledgePages,
+                    taskId,
+                    location,
+                    new ExchangeClientCallback(),
+                    scheduledExecutor,
+                    pageBufferClientCallbackExecutor);
+            allClients.put(location, client);
+            queuedClients.add(client);
+
+            scheduleRequestIfNecessary();
         }
-
-        checkArgument(!allClients.containsKey(location), "location already exist: %s", location);
-
-        checkState(!noMoreLocations, "No more locations already set");
-        buffer.addTask(taskId);
-        HttpPageBufferClient client = new HttpPageBufferClient(
-                selfAddress,
-                httpClient,
-                dataIntegrityVerification,
-                maxResponseSize,
-                maxErrorDuration,
-                acknowledgePages,
-                taskId,
-                location,
-                new ExchangeClientCallback(),
-                scheduledExecutor,
-                pageBufferClientCallbackExecutor);
-        allClients.put(location, client);
-        queuedClients.add(client);
-
-        scheduleRequestIfNecessary();
     }
 
-    public synchronized void noMoreLocations()
+    public void noMoreLocations()
     {
-        noMoreLocations = true;
-        buffer.noMoreTasks();
-        scheduleRequestIfNecessary();
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            noMoreLocations = true;
+            buffer.noMoreTasks();
+            scheduleRequestIfNecessary();
+        }
     }
 
     public WorkProcessor<Slice> pages()
@@ -214,7 +223,7 @@ public class DirectExchangeClient
     @SuppressWarnings("checkstyle:IllegalToken")
     private void assertNotHoldsLock()
     {
-        assert !Thread.holdsLock(this) : "Cannot get next page while holding a lock on this";
+        assert !thisLock.isHeldByCurrentThread() : "Cannot get next page while holding a lock on this";
     }
 
     @Nullable
@@ -244,58 +253,62 @@ public class DirectExchangeClient
     }
 
     @Override
-    public synchronized void close()
+    public void close()
     {
-        if (closed) {
-            return;
-        }
-        closed = true;
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            if (closed) {
+                return;
+            }
+            closed = true;
 
-        for (HttpPageBufferClient client : allClients.values()) {
-            closeQuietly(client);
-        }
-        try {
-            buffer.close();
-        }
-        catch (RuntimeException e) {
-            log.warn(e, "error closing buffer");
-        }
-        finally {
-            releaseMemoryContext();
+            for (HttpPageBufferClient client : allClients.values()) {
+                closeQuietly(client);
+            }
+            try {
+                buffer.close();
+            }
+            catch (RuntimeException e) {
+                log.warn(e, "error closing buffer");
+            }
+            finally {
+                releaseMemoryContext();
+            }
         }
     }
 
     @VisibleForTesting
-    synchronized int scheduleRequestIfNecessary()
+    int scheduleRequestIfNecessary()
     {
-        if ((buffer.isFinished() || buffer.isFailed()) && completedClients.size() == allClients.size()) {
-            return 0;
-        }
-
-        long neededBytes = buffer.getRemainingCapacityInBytes();
-        if (neededBytes <= 0) {
-            return 0;
-        }
-
-        long reservedBytesForScheduledClients = allClients.values().stream()
-                .filter(client -> !queuedClients.contains(client) && !completedClients.contains(client))
-                .mapToLong(HttpPageBufferClient::getAverageRequestSizeInBytes)
-                .sum();
-        long projectedBytesToBeRequested = 0;
-        int clientCount = 0;
-
-        for (HttpPageBufferClient client : queuedClients) {
-            if (projectedBytesToBeRequested >= neededBytes * concurrentRequestMultiplier - reservedBytesForScheduledClients) {
-                break;
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            if ((buffer.isFinished() || buffer.isFailed()) && completedClients.size() == allClients.size()) {
+                return 0;
             }
-            projectedBytesToBeRequested += client.getAverageRequestSizeInBytes();
-            clientCount++;
+
+            long neededBytes = buffer.getRemainingCapacityInBytes();
+            if (neededBytes <= 0) {
+                return 0;
+            }
+
+            long reservedBytesForScheduledClients = allClients.values().stream()
+                    .filter(client -> !queuedClients.contains(client) && !completedClients.contains(client))
+                    .mapToLong(HttpPageBufferClient::getAverageRequestSizeInBytes)
+                    .sum();
+            long projectedBytesToBeRequested = 0;
+            int clientCount = 0;
+
+            for (HttpPageBufferClient client : queuedClients) {
+                if (projectedBytesToBeRequested >= neededBytes * concurrentRequestMultiplier - reservedBytesForScheduledClients) {
+                    break;
+                }
+                projectedBytesToBeRequested += client.getAverageRequestSizeInBytes();
+                clientCount++;
+            }
+            for (int i = 0; i < clientCount; i++) {
+                HttpPageBufferClient client = queuedClients.poll();
+                client.scheduleRequest();
+            }
+            return clientCount;
         }
-        for (int i = 0; i < clientCount; i++) {
-            HttpPageBufferClient client = queuedClients.poll();
-            client.scheduleRequest();
-        }
-        return clientCount;
     }
 
     public ListenableFuture<Void> isBlocked()
@@ -330,7 +343,7 @@ public class DirectExchangeClient
             updateRetainedMemory();
         }
 
-        synchronized (this) {
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
             if (closed || buffer.isFinished() || buffer.isFailed()) {
                 return false;
             }
@@ -371,33 +384,39 @@ public class DirectExchangeClient
         }
     }
 
-    private synchronized void requestComplete(HttpPageBufferClient client)
+    private void requestComplete(HttpPageBufferClient client)
     {
-        requestDuration.add(client.getLastRequestDurationMillis());
-        if (!completedClients.contains(client) && !queuedClients.contains(client)) {
-            queuedClients.add(client);
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            requestDuration.add(client.getLastRequestDurationMillis());
+            if (!completedClients.contains(client) && !queuedClients.contains(client)) {
+                queuedClients.add(client);
+            }
+            scheduleRequestIfNecessary();
         }
-        scheduleRequestIfNecessary();
     }
 
-    private synchronized void clientFinished(HttpPageBufferClient client)
+    private void clientFinished(HttpPageBufferClient client)
     {
         requireNonNull(client, "client is null");
-        if (completedClients.add(client)) {
-            buffer.taskFinished(client.getRemoteTaskId());
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            if (completedClients.add(client)) {
+                buffer.taskFinished(client.getRemoteTaskId());
+            }
+            scheduleRequestIfNecessary();
         }
-        scheduleRequestIfNecessary();
     }
 
-    private synchronized void clientFailed(HttpPageBufferClient client, Throwable cause)
+    private void clientFailed(HttpPageBufferClient client, Throwable cause)
     {
         requireNonNull(client, "client is null");
-        if (completedClients.add(client)) {
-            buffer.taskFailed(client.getRemoteTaskId(), cause);
-            scheduledExecutor.execute(() -> taskFailureListener.onTaskFailed(client.getRemoteTaskId(), cause));
-            closeQuietly(client);
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            if (completedClients.add(client)) {
+                buffer.taskFailed(client.getRemoteTaskId(), cause);
+                scheduledExecutor.execute(() -> taskFailureListener.onTaskFailed(client.getRemoteTaskId(), cause));
+                closeQuietly(client);
+            }
+            scheduleRequestIfNecessary();
         }
-        scheduleRequestIfNecessary();
     }
 
     private class ExchangeClientCallback

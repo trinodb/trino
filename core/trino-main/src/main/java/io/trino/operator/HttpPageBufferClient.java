@@ -40,6 +40,7 @@ import io.trino.execution.buffer.PagesSerdeUtil;
 import io.trino.server.remotetask.Backoff;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoTransportException;
+import io.trino.util.LockUtils.CloseableLock;
 import jakarta.annotation.Nullable;
 import org.joda.time.DateTime;
 
@@ -56,6 +57,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -88,6 +90,7 @@ import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
 import static io.trino.util.Failures.WORKER_NODE_ERROR;
+import static io.trino.util.LockUtils.closeable;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -130,23 +133,25 @@ public final class HttpPageBufferClient
     private final ScheduledExecutorService scheduledExecutor;
     private final Backoff backoff;
 
-    @GuardedBy("this")
+    private final ReentrantLock thisLock = new ReentrantLock();
+
+    @GuardedBy("thisLock")
     private boolean closed;
-    @GuardedBy("this")
+    @GuardedBy("thisLock")
     private HttpResponseFuture<?> future;
-    @GuardedBy("this")
+    @GuardedBy("thisLock")
     private DateTime lastUpdate = DateTime.now();
-    @GuardedBy("this")
+    @GuardedBy("thisLock")
     private long token;
-    @GuardedBy("this")
+    @GuardedBy("thisLock")
     private boolean scheduled;
-    @GuardedBy("this")
+    @GuardedBy("thisLock")
     private boolean completed;
-    @GuardedBy("this")
+    @GuardedBy("thisLock")
     private String taskInstanceId;
     private volatile long lastRequestStartNanos;
     private volatile long lastRequestDurationMillis;
-    // it is synchronized on `this` for update
+    // it is synchronized on `thisLock` for update
     private volatile long averageRequestSizeInBytes;
 
     private final AtomicLong rowsReceived = new AtomicLong();
@@ -221,45 +226,47 @@ public final class HttpPageBufferClient
         this.ticker = ticker;
     }
 
-    public synchronized PageBufferClientStatus getStatus()
+    public PageBufferClientStatus getStatus()
     {
-        String state;
-        if (closed) {
-            state = "closed";
-        }
-        else if (future != null) {
-            state = "running";
-        }
-        else if (scheduled) {
-            state = "scheduled";
-        }
-        else if (completed) {
-            state = "completed";
-        }
-        else {
-            state = "queued";
-        }
-        String httpRequestState = "not scheduled";
-        if (future != null) {
-            httpRequestState = future.getState();
-        }
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            String state;
+            if (closed) {
+                state = "closed";
+            }
+            else if (future != null) {
+                state = "running";
+            }
+            else if (scheduled) {
+                state = "scheduled";
+            }
+            else if (completed) {
+                state = "completed";
+            }
+            else {
+                state = "queued";
+            }
+            String httpRequestState = "not scheduled";
+            if (future != null) {
+                httpRequestState = future.getState();
+            }
 
-        long rejectedRows = rowsRejected.get();
-        int rejectedPages = pagesRejected.get();
+            long rejectedRows = rowsRejected.get();
+            int rejectedPages = pagesRejected.get();
 
-        return new PageBufferClientStatus(
-                location,
-                state,
-                lastUpdate,
-                rowsReceived.get(),
-                pagesReceived.get(),
-                rejectedRows == 0 ? OptionalLong.empty() : OptionalLong.of(rejectedRows),
-                rejectedPages == 0 ? OptionalInt.empty() : OptionalInt.of(rejectedPages),
-                requestsScheduled.get(),
-                requestsCompleted.get(),
-                requestsFailed.get(),
-                requestsSucceeded.get(),
-                httpRequestState);
+            return new PageBufferClientStatus(
+                    location,
+                    state,
+                    lastUpdate,
+                    rowsReceived.get(),
+                    pagesReceived.get(),
+                    rejectedRows == 0 ? OptionalLong.empty() : OptionalLong.of(rejectedRows),
+                    rejectedPages == 0 ? OptionalInt.empty() : OptionalInt.of(rejectedPages),
+                    requestsScheduled.get(),
+                    requestsCompleted.get(),
+                    requestsFailed.get(),
+                    requestsSucceeded.get(),
+                    httpRequestState);
+        }
     }
 
     public TaskId getRemoteTaskId()
@@ -272,9 +279,11 @@ public final class HttpPageBufferClient
         return averageRequestSizeInBytes;
     }
 
-    public synchronized boolean isRunning()
+    public boolean isRunning()
     {
-        return future != null;
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            return future != null;
+        }
     }
 
     @Override
@@ -282,7 +291,7 @@ public final class HttpPageBufferClient
     {
         boolean shouldDestroyTaskResults;
         Future<?> future;
-        synchronized (this) {
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
             shouldDestroyTaskResults = !closed;
 
             closed = true;
@@ -304,29 +313,31 @@ public final class HttpPageBufferClient
         }
     }
 
-    public synchronized void scheduleRequest()
+    public void scheduleRequest()
     {
-        if (closed || (future != null) || scheduled) {
-            return;
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            if (closed || (future != null) || scheduled) {
+                return;
+            }
+            scheduled = true;
+
+            // start before scheduling to include error delay
+            backoff.startRequest();
+
+            long delayNanos = backoff.getBackoffDelayNanos();
+            scheduledExecutor.schedule(() -> {
+                try {
+                    initiateRequest();
+                }
+                catch (Throwable t) {
+                    // should not happen, but be safe and fail the operator
+                    clientCallback.clientFailed(HttpPageBufferClient.this, t);
+                }
+            }, delayNanos, NANOSECONDS);
+
+            lastUpdate = DateTime.now();
+            requestsScheduled.incrementAndGet();
         }
-        scheduled = true;
-
-        // start before scheduling to include error delay
-        backoff.startRequest();
-
-        long delayNanos = backoff.getBackoffDelayNanos();
-        scheduledExecutor.schedule(() -> {
-            try {
-                initiateRequest();
-            }
-            catch (Throwable t) {
-                // should not happen, but be safe and fail the operator
-                clientCallback.clientFailed(HttpPageBufferClient.this, t);
-            }
-        }, delayNanos, NANOSECONDS);
-
-        lastUpdate = DateTime.now();
-        requestsScheduled.incrementAndGet();
     }
 
     public long getLastRequestDurationMillis()
@@ -334,248 +345,256 @@ public final class HttpPageBufferClient
         return lastRequestDurationMillis;
     }
 
-    private synchronized void initiateRequest()
+    private void initiateRequest()
     {
-        scheduled = false;
-        if (closed || (future != null)) {
-            return;
-        }
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            scheduled = false;
+            if (closed || (future != null)) {
+                return;
+            }
 
-        if (completed) {
-            destroyTaskResults();
-        }
-        else {
-            sendGetResults();
-        }
+            if (completed) {
+                destroyTaskResults();
+            }
+            else {
+                sendGetResults();
+            }
 
-        lastUpdate = DateTime.now();
+            lastUpdate = DateTime.now();
+        }
     }
 
-    private synchronized void sendGetResults()
+    private void sendGetResults()
     {
-        URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(token)).build();
-        lastRequestStartNanos = ticker.read();
-        HttpResponseFuture<PagesResponse> resultFuture = httpClient.executeAsync(
-                prepareGet()
-                        .setHeader(TRINO_MAX_SIZE, maxResponseSize.toString())
-                        .setUri(uri).build(),
-                new PageResponseHandler(dataIntegrityVerification != DataIntegrityVerification.NONE));
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(token)).build();
+            lastRequestStartNanos = ticker.read();
+            HttpResponseFuture<PagesResponse> resultFuture = httpClient.executeAsync(
+                    prepareGet()
+                            .setHeader(TRINO_MAX_SIZE, maxResponseSize.toString())
+                            .setUri(uri).build(),
+                    new PageResponseHandler(dataIntegrityVerification != DataIntegrityVerification.NONE));
 
-        future = resultFuture;
-        Futures.addCallback(resultFuture, new FutureCallback<>()
-        {
-            @Override
-            public void onSuccess(PagesResponse result)
+            future = resultFuture;
+            Futures.addCallback(resultFuture, new FutureCallback<>()
             {
-                assertNotHoldsLock(this);
-                lastRequestDurationMillis = (ticker.read() - lastRequestStartNanos) / 1_000_000;
-                backoff.success();
+                @Override
+                public void onSuccess(PagesResponse result)
+                {
+                    assertNotHoldsLock(thisLock);
+                    lastRequestDurationMillis = (ticker.read() - lastRequestStartNanos) / 1_000_000;
+                    backoff.success();
 
-                List<Slice> pages;
-                boolean pagesAccepted;
-                try {
-                    if (result.isTaskFailed()) {
-                        throw new TrinoException(REMOTE_TASK_FAILED, format("Remote task failed: %s", remoteTaskId));
+                    List<Slice> pages;
+                    boolean pagesAccepted;
+                    try {
+                        if (result.isTaskFailed()) {
+                            throw new TrinoException(REMOTE_TASK_FAILED, format("Remote task failed: %s", remoteTaskId));
+                        }
+
+                        boolean shouldAcknowledge = false;
+                        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+                            if (taskInstanceId == null) {
+                                taskInstanceId = result.getTaskInstanceId();
+                            }
+
+                            if (!isNullOrEmpty(taskInstanceId) && !result.getTaskInstanceId().equals(taskInstanceId)) {
+                                throw new TrinoException(REMOTE_TASK_MISMATCH, format("%s (%s). Expected taskInstanceId: %s, received taskInstanceId: %s",
+                                        REMOTE_TASK_MISMATCH_ERROR,
+                                        fromUri(uri),
+                                        taskInstanceId,
+                                        result.getTaskInstanceId()));
+                            }
+
+                            if (result.getToken() == token) {
+                                pages = result.getPages();
+                                token = result.getNextToken();
+                                shouldAcknowledge = pages.size() > 0;
+                            }
+                            else {
+                                pages = ImmutableList.of();
+                            }
+                        }
+
+                        if (shouldAcknowledge && acknowledgePages) {
+                            // Acknowledge token without handling the response.
+                            // The next request will also make sure the token is acknowledged.
+                            // This is to fast release the pages on the buffer side.
+                            URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(result.getNextToken())).appendPath("acknowledge").build();
+                            httpClient.executeAsync(prepareGet().setUri(uri).build(), new ResponseHandler<Void, RuntimeException>()
+                            {
+                                @Override
+                                public Void handleException(Request request, Exception exception)
+                                {
+                                    log.debug(exception, "Acknowledge request failed: %s", uri);
+                                    return null;
+                                }
+
+                                @Override
+                                public Void handle(Request request, Response response)
+                                {
+                                    if (familyForStatusCode(response.getStatusCode()) != HttpStatus.Family.SUCCESSFUL) {
+                                        log.debug("Unexpected acknowledge response code: %s", response.getStatusCode());
+                                    }
+                                    return null;
+                                }
+                            });
+                        }
+
+                        // add pages:
+                        // addPages must be called regardless of whether pages is an empty list because
+                        // clientCallback can keep stats of requests and responses. For example, it may
+                        // keep track of how often a client returns empty response and adjust request
+                        // frequency or buffer size.
+                        pagesAccepted = clientCallback.addPages(HttpPageBufferClient.this, pages);
+                    }
+                    catch (TrinoException e) {
+                        handleFailure(e, resultFuture);
+                        return;
                     }
 
-                    boolean shouldAcknowledge = false;
-                    synchronized (HttpPageBufferClient.this) {
-                        if (taskInstanceId == null) {
-                            taskInstanceId = result.getTaskInstanceId();
-                        }
-
-                        if (!isNullOrEmpty(taskInstanceId) && !result.getTaskInstanceId().equals(taskInstanceId)) {
-                            throw new TrinoException(REMOTE_TASK_MISMATCH, format("%s (%s). Expected taskInstanceId: %s, received taskInstanceId: %s",
-                                    REMOTE_TASK_MISMATCH_ERROR,
-                                    fromUri(uri),
-                                    taskInstanceId,
-                                    result.getTaskInstanceId()));
-                        }
-
-                        if (result.getToken() == token) {
-                            pages = result.getPages();
-                            token = result.getNextToken();
-                            shouldAcknowledge = pages.size() > 0;
+                    // update client stats
+                    if (!pages.isEmpty()) {
+                        int pageCount = pages.size();
+                        long rowCount = pages.stream().mapToLong(PagesSerdeUtil::getSerializedPagePositionCount).sum();
+                        if (pagesAccepted) {
+                            pagesReceived.addAndGet(pageCount);
+                            rowsReceived.addAndGet(rowCount);
                         }
                         else {
-                            pages = ImmutableList.of();
+                            pagesRejected.addAndGet(pageCount);
+                            rowsRejected.addAndGet(rowCount);
+                        }
+                    }
+                    requestsCompleted.incrementAndGet();
+                    long responseSize = pages.stream().mapToLong(Slice::length).sum();
+                    requestSucceeded(responseSize);
+
+                    try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+                        // client is complete, acknowledge it by sending it a delete in the next request
+                        if (result.isClientComplete()) {
+                            completed = true;
+                        }
+                        if (future == resultFuture) {
+                            future = null;
+                        }
+                        lastUpdate = DateTime.now();
+                    }
+                    clientCallback.requestComplete(HttpPageBufferClient.this);
+                }
+
+                @Override
+                public void onFailure(Throwable t)
+                {
+                    log.debug("Request to %s failed %s", uri, t);
+                    assertNotHoldsLock(thisLock);
+
+                    lastRequestDurationMillis = (ticker.read() - lastRequestStartNanos) / 1_000_000;
+
+                    if (t instanceof ChecksumVerificationException) {
+                        switch (dataIntegrityVerification) {
+                            case NONE:
+                                // In case of NONE, failure is possible in case of inconsistent cluster configuration, so we should not retry.
+                            case ABORT:
+                                // TrinoException will not be retried
+                                t = new TrinoException(GENERIC_INTERNAL_ERROR, format("Checksum verification failure on %s when reading from %s: %s", selfAddress, uri, t.getMessage()), t);
+                                break;
+                            case RETRY:
+                                log.warn("Checksum verification failure on %s when reading from %s, may be retried: %s", selfAddress, uri, t.getMessage());
+                                break;
+                            default:
+                                throw new AssertionError("Unsupported option: " + dataIntegrityVerification);
                         }
                     }
 
-                    if (shouldAcknowledge && acknowledgePages) {
-                        // Acknowledge token without handling the response.
-                        // The next request will also make sure the token is acknowledged.
-                        // This is to fast release the pages on the buffer side.
-                        URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(result.getNextToken())).appendPath("acknowledge").build();
-                        httpClient.executeAsync(prepareGet().setUri(uri).build(), new ResponseHandler<Void, RuntimeException>()
-                        {
-                            @Override
-                            public Void handleException(Request request, Exception exception)
-                            {
-                                log.debug(exception, "Acknowledge request failed: %s", uri);
-                                return null;
-                            }
-
-                            @Override
-                            public Void handle(Request request, Response response)
-                            {
-                                if (familyForStatusCode(response.getStatusCode()) != HttpStatus.Family.SUCCESSFUL) {
-                                    log.debug("Unexpected acknowledge response code: %s", response.getStatusCode());
-                                }
-                                return null;
-                            }
-                        });
+                    t = rewriteException(t);
+                    if (!(t instanceof TrinoException) && backoff.failure()) {
+                        String message = format("%s (%s - %s failures, failure duration %s, total failed request time %s)",
+                                WORKER_NODE_ERROR,
+                                uri,
+                                backoff.getFailureCount(),
+                                backoff.getFailureDuration().convertTo(SECONDS),
+                                backoff.getFailureRequestTimeTotal().convertTo(SECONDS));
+                        t = new PageTransportTimeoutException(fromUri(uri), message, t);
                     }
-
-                    // add pages:
-                    // addPages must be called regardless of whether pages is an empty list because
-                    // clientCallback can keep stats of requests and responses. For example, it may
-                    // keep track of how often a client returns empty response and adjust request
-                    // frequency or buffer size.
-                    pagesAccepted = clientCallback.addPages(HttpPageBufferClient.this, pages);
+                    handleFailure(t, resultFuture);
                 }
-                catch (TrinoException e) {
-                    handleFailure(e, resultFuture);
-                    return;
-                }
-
-                // update client stats
-                if (!pages.isEmpty()) {
-                    int pageCount = pages.size();
-                    long rowCount = pages.stream().mapToLong(PagesSerdeUtil::getSerializedPagePositionCount).sum();
-                    if (pagesAccepted) {
-                        pagesReceived.addAndGet(pageCount);
-                        rowsReceived.addAndGet(rowCount);
-                    }
-                    else {
-                        pagesRejected.addAndGet(pageCount);
-                        rowsRejected.addAndGet(rowCount);
-                    }
-                }
-                requestsCompleted.incrementAndGet();
-                long responseSize = pages.stream().mapToLong(Slice::length).sum();
-                requestSucceeded(responseSize);
-
-                synchronized (HttpPageBufferClient.this) {
-                    // client is complete, acknowledge it by sending it a delete in the next request
-                    if (result.isClientComplete()) {
-                        completed = true;
-                    }
-                    if (future == resultFuture) {
-                        future = null;
-                    }
-                    lastUpdate = DateTime.now();
-                }
-                clientCallback.requestComplete(HttpPageBufferClient.this);
-            }
-
-            @Override
-            public void onFailure(Throwable t)
-            {
-                log.debug("Request to %s failed %s", uri, t);
-                assertNotHoldsLock(this);
-
-                lastRequestDurationMillis = (ticker.read() - lastRequestStartNanos) / 1_000_000;
-
-                if (t instanceof ChecksumVerificationException) {
-                    switch (dataIntegrityVerification) {
-                        case NONE:
-                            // In case of NONE, failure is possible in case of inconsistent cluster configuration, so we should not retry.
-                        case ABORT:
-                            // TrinoException will not be retried
-                            t = new TrinoException(GENERIC_INTERNAL_ERROR, format("Checksum verification failure on %s when reading from %s: %s", selfAddress, uri, t.getMessage()), t);
-                            break;
-                        case RETRY:
-                            log.warn("Checksum verification failure on %s when reading from %s, may be retried: %s", selfAddress, uri, t.getMessage());
-                            break;
-                        default:
-                            throw new AssertionError("Unsupported option: " + dataIntegrityVerification);
-                    }
-                }
-
-                t = rewriteException(t);
-                if (!(t instanceof TrinoException) && backoff.failure()) {
-                    String message = format("%s (%s - %s failures, failure duration %s, total failed request time %s)",
-                            WORKER_NODE_ERROR,
-                            uri,
-                            backoff.getFailureCount(),
-                            backoff.getFailureDuration().convertTo(SECONDS),
-                            backoff.getFailureRequestTimeTotal().convertTo(SECONDS));
-                    t = new PageTransportTimeoutException(fromUri(uri), message, t);
-                }
-                handleFailure(t, resultFuture);
-            }
-        }, pageBufferClientCallbackExecutor);
+            }, pageBufferClientCallbackExecutor);
+        }
     }
 
     @VisibleForTesting
-    synchronized void requestSucceeded(long responseSize)
+    void requestSucceeded(long responseSize)
     {
-        int successfulRequests = requestsSucceeded.incrementAndGet();
-        // AVG_n = AVG_(n-1) * (n-1)/n + VALUE_n / n
-        averageRequestSizeInBytes = (long) ((1.0 * averageRequestSizeInBytes * (successfulRequests - 1)) + responseSize) / successfulRequests;
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            int successfulRequests = requestsSucceeded.incrementAndGet();
+            // AVG_n = AVG_(n-1) * (n-1)/n + VALUE_n / n
+            averageRequestSizeInBytes = (long) ((1.0 * averageRequestSizeInBytes * (successfulRequests - 1)) + responseSize) / successfulRequests;
+        }
     }
 
-    private synchronized void destroyTaskResults()
+    private void destroyTaskResults()
     {
-        HttpResponseFuture<StatusResponse> resultFuture = httpClient.executeAsync(prepareDelete().setUri(location).build(), createStatusResponseHandler());
-        future = resultFuture;
-        Futures.addCallback(resultFuture, new FutureCallback<>()
-        {
-            @Override
-            public void onSuccess(@Nullable StatusResponse result)
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            HttpResponseFuture<StatusResponse> resultFuture = httpClient.executeAsync(prepareDelete().setUri(location).build(), createStatusResponseHandler());
+            future = resultFuture;
+            Futures.addCallback(resultFuture, new FutureCallback<>()
             {
-                assertNotHoldsLock(this);
+                @Override
+                public void onSuccess(@Nullable StatusResponse result)
+                {
+                    assertNotHoldsLock(thisLock);
 
-                if (result.getStatusCode() != NO_CONTENT.code()) {
-                    onFailure(new TrinoTransportException(
-                            REMOTE_BUFFER_CLOSE_FAILED,
-                            fromUri(location),
-                            format("Error closing remote buffer, expected %s got %s", NO_CONTENT.code(), result.getStatusCode())));
-                    return;
-                }
-
-                backoff.success();
-                synchronized (HttpPageBufferClient.this) {
-                    closed = true;
-                    if (future == resultFuture) {
-                        future = null;
+                    if (result.getStatusCode() != NO_CONTENT.code()) {
+                        onFailure(new TrinoTransportException(
+                                REMOTE_BUFFER_CLOSE_FAILED,
+                                fromUri(location),
+                                format("Error closing remote buffer, expected %s got %s", NO_CONTENT.code(), result.getStatusCode())));
+                        return;
                     }
-                    lastUpdate = DateTime.now();
-                }
-                requestsCompleted.incrementAndGet();
-                clientCallback.clientFinished(HttpPageBufferClient.this);
-            }
 
-            @Override
-            public void onFailure(Throwable t)
-            {
-                assertNotHoldsLock(this);
-
-                log.error("Request to delete %s failed %s", location, t);
-                if (!(t instanceof TrinoException) && backoff.failure()) {
-                    String message = format("Error closing remote buffer (%s - %s failures, failure duration %s, total failed request time %s)",
-                            location,
-                            backoff.getFailureCount(),
-                            backoff.getFailureDuration().convertTo(SECONDS),
-                            backoff.getFailureRequestTimeTotal().convertTo(SECONDS));
-                    t = new TrinoTransportException(REMOTE_BUFFER_CLOSE_FAILED, fromUri(location), message, t);
+                    backoff.success();
+                    try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+                        closed = true;
+                        if (future == resultFuture) {
+                            future = null;
+                        }
+                        lastUpdate = DateTime.now();
+                    }
+                    requestsCompleted.incrementAndGet();
+                    clientCallback.clientFinished(HttpPageBufferClient.this);
                 }
-                handleFailure(t, resultFuture);
-            }
-        }, pageBufferClientCallbackExecutor);
+
+                @Override
+                public void onFailure(Throwable t)
+                {
+                    assertNotHoldsLock(thisLock);
+
+                    log.error("Request to delete %s failed %s", location, t);
+                    if (!(t instanceof TrinoException) && backoff.failure()) {
+                        String message = format("Error closing remote buffer (%s - %s failures, failure duration %s, total failed request time %s)",
+                                location,
+                                backoff.getFailureCount(),
+                                backoff.getFailureDuration().convertTo(SECONDS),
+                                backoff.getFailureRequestTimeTotal().convertTo(SECONDS));
+                        t = new TrinoTransportException(REMOTE_BUFFER_CLOSE_FAILED, fromUri(location), message, t);
+                    }
+                    handleFailure(t, resultFuture);
+                }
+            }, pageBufferClientCallbackExecutor);
+        }
     }
 
     @SuppressWarnings("checkstyle:IllegalToken")
-    private static void assertNotHoldsLock(Object lock)
+    private static void assertNotHoldsLock(ReentrantLock lock)
     {
-        assert !Thread.holdsLock(lock) : "Cannot execute this method while holding a lock";
+        assert !lock.isHeldByCurrentThread() : "Cannot execute this method while holding a lock";
     }
 
     private void handleFailure(Throwable t, HttpResponseFuture<?> expectedFuture)
     {
         // Cannot delegate to other callback while holding a lock on this
-        assertNotHoldsLock(this);
+        assertNotHoldsLock(thisLock);
 
         requestsFailed.incrementAndGet();
         requestsCompleted.incrementAndGet();
@@ -584,7 +603,7 @@ public final class HttpPageBufferClient
             clientCallback.clientFailed(HttpPageBufferClient.this, t);
         }
 
-        synchronized (HttpPageBufferClient.this) {
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
             if (future == expectedFuture) {
                 future = null;
             }
@@ -622,7 +641,7 @@ public final class HttpPageBufferClient
     public String toString()
     {
         String state;
-        synchronized (this) {
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
             if (closed) {
                 state = "CLOSED";
             }

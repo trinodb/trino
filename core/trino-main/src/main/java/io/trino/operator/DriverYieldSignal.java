@@ -16,13 +16,16 @@ package io.trino.operator;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.trino.util.LockUtils.CloseableLock;
 
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.util.LockUtils.closeable;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
@@ -41,45 +44,51 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 @ThreadSafe
 public class DriverYieldSignal
 {
-    @GuardedBy("this")
+    private final ReentrantLock lock = new ReentrantLock();
+
+    @GuardedBy("lock")
     private long runningSequence;
 
-    @GuardedBy("this")
+    @GuardedBy("lock")
     private boolean terminationStarted;
 
-    @GuardedBy("this")
+    @GuardedBy("lock")
     private ScheduledFuture<?> yieldFuture;
 
     private final AtomicBoolean yield = new AtomicBoolean();
 
-    public synchronized void setWithDelay(long maxRunNanos, ScheduledExecutorService executor)
+    public void setWithDelay(long maxRunNanos, ScheduledExecutorService executor)
     {
-        checkState(yieldFuture == null, "there is an ongoing yield");
-        checkState(!isSet(), "yield while driver was not running");
-        if (terminationStarted) {
-            return;
-        }
-
-        this.runningSequence++;
-        long expectedRunningSequence = this.runningSequence;
-        yieldFuture = executor.schedule(() -> {
-            synchronized (this) {
-                if (expectedRunningSequence == runningSequence && yieldFuture != null) {
-                    yield.set(true);
-                }
+        try (CloseableLock<ReentrantLock> ignored = closeable(lock)) {
+            checkState(yieldFuture == null, "there is an ongoing yield");
+            checkState(!isSet(), "yield while driver was not running");
+            if (terminationStarted) {
+                return;
             }
-        }, maxRunNanos, NANOSECONDS);
+
+            this.runningSequence++;
+            long expectedRunningSequence = this.runningSequence;
+            yieldFuture = executor.schedule(() -> {
+                try (CloseableLock<ReentrantLock> ignored2 = closeable(lock)) {
+                    if (expectedRunningSequence == runningSequence && yieldFuture != null) {
+                        yield.set(true);
+                    }
+                }
+            }, maxRunNanos, NANOSECONDS);
+        }
     }
 
-    public synchronized void reset()
+    public void reset()
     {
-        if (terminationStarted) {
-            return;
+        try (CloseableLock<ReentrantLock> ignored = closeable(lock)) {
+            if (terminationStarted) {
+                return;
+            }
+            checkState(yieldFuture != null, "there is no ongoing yield");
+            yield.set(false);
+            yieldFuture.cancel(true);
+            yieldFuture = null;
         }
-        checkState(yieldFuture != null, "there is no ongoing yield");
-        yield.set(false);
-        yieldFuture.cancel(true);
-        yieldFuture = null;
     }
 
     public boolean isSet()
@@ -92,34 +101,42 @@ public class DriverYieldSignal
      * still running. After calling this method, the driver should not attempt to start another interval of running and attempting
      * to call {@link DriverYieldSignal#setWithDelay(long, ScheduledExecutorService)} will fail.
      */
-    public synchronized void yieldImmediatelyForTermination()
+    public void yieldImmediatelyForTermination()
     {
-        terminationStarted = true;
-        yield.set(true);
-        if (yieldFuture != null) {
-            yieldFuture.cancel(true);
-            yieldFuture = null;
+        try (CloseableLock<ReentrantLock> ignored = closeable(lock)) {
+            terminationStarted = true;
+            yield.set(true);
+            if (yieldFuture != null) {
+                yieldFuture.cancel(true);
+                yieldFuture = null;
+            }
         }
     }
 
     @Override
-    public synchronized String toString()
+    public String toString()
     {
-        return toStringHelper(this)
-                .add("yieldScheduled", yieldFuture != null)
-                .add("yield", yield.get())
-                .toString();
+        try (CloseableLock<ReentrantLock> ignored = closeable(lock)) {
+            return toStringHelper(this)
+                    .add("yieldScheduled", yieldFuture != null)
+                    .add("yield", yield.get())
+                    .toString();
+        }
     }
 
     @VisibleForTesting
-    public synchronized void forceYieldForTesting()
+    public void forceYieldForTesting()
     {
-        yield.set(true);
+        try (CloseableLock<ReentrantLock> ignored = closeable(lock)) {
+            yield.set(true);
+        }
     }
 
     @VisibleForTesting
-    public synchronized void resetYieldForTesting()
+    public void resetYieldForTesting()
     {
-        yield.set(false);
+        try (CloseableLock<ReentrantLock> ignored = closeable(lock)) {
+            yield.set(false);
+        }
     }
 }

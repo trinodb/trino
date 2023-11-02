@@ -21,16 +21,19 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
+import io.trino.util.LockUtils.CloseableLock;
 
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.util.LockUtils.closeable;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -59,7 +62,8 @@ public final class FairScheduler
 
     private final Gate paused = new Gate(true);
 
-    @GuardedBy("this")
+    private final ReentrantLock thisLock = new ReentrantLock();
+    @GuardedBy("thisLock")
     private boolean closed;
 
     public FairScheduler(int maxConcurrentTasks, String threadNameFormat, Ticker ticker)
@@ -107,26 +111,30 @@ public final class FairScheduler
     }
 
     @Override
-    public synchronized void close()
+    public void close()
     {
-        if (closed) {
-            return;
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            if (closed) {
+                return;
+            }
+            closed = true;
+
+            Set<TaskControl> tasks = queue.finishAll();
+
+            for (TaskControl task : tasks) {
+                task.cancel();
+            }
+
+            taskExecutor.shutdownNow();
+            schedulerExecutor.shutdownNow();
         }
-        closed = true;
-
-        Set<TaskControl> tasks = queue.finishAll();
-
-        for (TaskControl task : tasks) {
-            task.cancel();
-        }
-
-        taskExecutor.shutdownNow();
-        schedulerExecutor.shutdownNow();
     }
 
-    public synchronized Group createGroup(String name)
+    public Group createGroup(String name)
     {
-        checkArgument(!closed, "Already closed");
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            checkArgument(!closed, "Already closed");
+        }
 
         Group group = new Group(name);
         queue.startGroup(group);
@@ -134,9 +142,11 @@ public final class FairScheduler
         return group;
     }
 
-    public synchronized void removeGroup(Group group)
+    public void removeGroup(Group group)
     {
-        checkArgument(!closed, "Already closed");
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            checkArgument(!closed, "Already closed");
+        }
 
         Set<TaskControl> tasks = queue.finishGroup(group);
 
@@ -152,9 +162,11 @@ public final class FairScheduler
                 .collect(toImmutableSet());
     }
 
-    public synchronized ListenableFuture<Void> submit(Group group, int id, Schedulable runner)
+    public ListenableFuture<Void> submit(Group group, int id, Schedulable runner)
     {
-        checkArgument(!closed, "Already closed");
+        try (CloseableLock<ReentrantLock> ignored = closeable(thisLock)) {
+            checkArgument(!closed, "Already closed");
+        }
 
         TaskControl task = new TaskControl(group, id, ticker);
 
