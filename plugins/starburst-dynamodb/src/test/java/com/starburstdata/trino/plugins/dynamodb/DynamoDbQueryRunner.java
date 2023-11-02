@@ -27,7 +27,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest.redirectionDisabled;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -89,7 +88,7 @@ public final class DynamoDbQueryRunner
         }
         // Create QueryRunner with writes enabled to create TPC-H tables
         DistributedQueryRunner queryRunner = createQueryRunner(catalogName, extraProperties, connectorProperties, true);
-        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, redirectionDisabled(createSession(catalogName)), tables);
+        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(catalogName), tables);
         if (enableWrites) {
             return queryRunner;
         }

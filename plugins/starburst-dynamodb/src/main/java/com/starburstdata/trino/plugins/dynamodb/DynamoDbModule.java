@@ -13,7 +13,6 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
-import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
 import com.starburstdata.trino.plugins.license.LicenseManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -57,7 +56,6 @@ public class DynamoDbModule
 
         install(new CredentialProviderModule());
         install(new ExtraCredentialsBasedIdentityCacheMappingModule());
-        install(new JdbcTableScanRedirectionModule());
 
         // Set the connection URL to some value as it is a required property in the JdbcModule
         // The actual connection URL is set via the DynamoDbConnectionFactory

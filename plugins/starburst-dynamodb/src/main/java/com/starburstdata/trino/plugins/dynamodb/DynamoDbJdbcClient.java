@@ -14,7 +14,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import com.google.inject.Inject;
 import com.hubspot.jinjava.Jinjava;
-import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -36,7 +35,6 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
@@ -121,7 +119,6 @@ public class DynamoDbJdbcClient
 {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
 
-    private final TableScanRedirection tableScanRedirection;
     private final File schemaDirectory;
     private final boolean isFirstKeyAsPrimaryKeyEnabled;
 
@@ -136,7 +133,6 @@ public class DynamoDbJdbcClient
     public DynamoDbJdbcClient(
             BaseJdbcConfig config,
             DynamoDbConfig dynamoDbConfig,
-            TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
             IdentifierMapping identifierMapping,
             QueryBuilder queryBuilder,
@@ -144,7 +140,6 @@ public class DynamoDbJdbcClient
             @EnableWrites boolean enableWrites)
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
-        this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
         this.schemaDirectory = new File(requireNonNull(dynamoDbConfig, "dynamoDbConfig is null").getSchemaDirectory());
         this.isFirstKeyAsPrimaryKeyEnabled = dynamoDbConfig.isFirstColumnAsPrimaryKeyEnabled();
         this.endpointUrl = dynamoDbConfig.getEndpointUrl();
@@ -152,12 +147,6 @@ public class DynamoDbJdbcClient
         this.secretAccessKey = dynamoDbConfig.getAwsSecretKey();
         this.region = Region.of(dynamoDbConfig.getAwsRegion());
         this.enableWrites = enableWrites;
-    }
-
-    @Override
-    public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle handle)
-    {
-        return tableScanRedirection.getTableScanRedirection(session, handle, this);
     }
 
     @Override
