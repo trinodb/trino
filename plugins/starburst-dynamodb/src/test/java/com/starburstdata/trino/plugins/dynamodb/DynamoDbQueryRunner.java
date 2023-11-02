@@ -11,6 +11,7 @@ package com.starburstdata.trino.plugins.dynamodb;
 
 import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.server.StarburstEngineQueryRunner;
+import com.starburstdata.trino.plugins.license.LicenseManager;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -40,6 +41,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public final class DynamoDbQueryRunner
 {
+    public static final LicenseManager NOOP_LICENSE_MANAGER = () -> true;
+
     private static final Logger log = Logger.get(DynamoDbQueryRunner.class);
 
     private static final Map<TpchTable<?>, KeyDefinition> TPCH_KEY_DEFINITIONS;

@@ -19,20 +19,9 @@ import java.io.File;
 import java.nio.file.Files;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDynamoDbPlugin
 {
-    @Test
-    public void testLicenseRequired()
-    {
-        Plugin plugin = new DynamoDbPlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        assertThatThrownBy(() -> factory.create("test", ImmutableMap.of(), new TestingConnectorContext()))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Valid license required to use the feature: Starburst DynamoDB connector");
-    }
-
     @Test
     public void testCreateConnector()
             throws Exception

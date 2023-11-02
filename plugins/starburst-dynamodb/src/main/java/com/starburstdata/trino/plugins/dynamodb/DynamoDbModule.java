@@ -15,6 +15,7 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
+import com.starburstdata.trino.plugins.license.LicenseManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
@@ -30,15 +31,25 @@ import static com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule.no
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
+import static java.util.Objects.requireNonNull;
 
 public class DynamoDbModule
         extends AbstractConfigurationAwareModule
 {
+    private final LicenseManager licenseManager;
+
+    public DynamoDbModule(LicenseManager licenseManager)
+    {
+        this.licenseManager = requireNonNull(licenseManager, "licenseManager is null");
+    }
+
     @Override
     protected void setup(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(DynamoDbJdbcClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(DynamoDbConfig.class);
+
+        binder.bind(LicenseManager.class).toInstance(licenseManager);
 
         newOptionalBinder(binder, ConnectorPageSinkProvider.class).setBinding().to(DynamoDbJdbcPageSinkProvider.class).in(Scopes.SINGLETON);
 
