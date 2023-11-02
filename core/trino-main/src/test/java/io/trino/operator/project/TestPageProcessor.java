@@ -155,37 +155,6 @@ public class TestPageProcessor
     }
 
     @Test
-    public void testSelectAllFilterLazyBlock()
-    {
-        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new InputPageProjection(0, BIGINT), new InputPageProjection(1, BIGINT)), OptionalInt.of(100));
-
-        LazyBlock inputFilterBlock = lazyWrapper(createLongSequenceBlock(0, 100));
-        LazyBlock inputProjectionBlock = lazyWrapper(createLongSequenceBlock(100, 200));
-        Page inputPage = new Page(inputFilterBlock, inputProjectionBlock);
-
-        Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, new DriverYieldSignal(), newSimpleAggregatedMemoryContext(), inputPage, true);
-        List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
-
-        assertTrue(inputFilterBlock.isLoaded());
-        assertFalse(inputProjectionBlock.isLoaded());
-        assertEquals(outputPages.size(), 1);
-
-        inputFilterBlock = lazyWrapper(createLongSequenceBlock(0, 200));
-        inputProjectionBlock = lazyWrapper(createLongSequenceBlock(100, 300));
-        inputPage = new Page(inputFilterBlock, inputProjectionBlock);
-
-        // batch size should increase because filter block was materialized
-        output = processAndAssertRetainedPageSize(pageProcessor, new DriverYieldSignal(), newSimpleAggregatedMemoryContext(), inputPage, true);
-        outputPages = ImmutableList.copyOf(output);
-
-        assertEquals(outputPages.size(), 1);
-        assertTrue(inputFilterBlock.isLoaded());
-        assertFalse(inputProjectionBlock.isLoaded());
-        assertPageEquals(ImmutableList.of(BIGINT, BIGINT), outputPages.get(0).get(), new Page(createLongSequenceBlock(0, 200), createLongSequenceBlock(100, 300)));
-        assertTrue(inputProjectionBlock.isLoaded());
-    }
-
-    @Test
     public void testSelectNoneFilter()
     {
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectNoneFilter()), ImmutableList.of(new InputPageProjection(0, BIGINT)));
@@ -533,22 +502,11 @@ public class TestPageProcessor
 
     private Iterator<Optional<Page>> processAndAssertRetainedPageSize(PageProcessor pageProcessor, DriverYieldSignal yieldSignal, AggregatedMemoryContext memoryContext, Page inputPage)
     {
-        return processAndAssertRetainedPageSize(pageProcessor, yieldSignal, memoryContext, inputPage, false);
-    }
-
-    private Iterator<Optional<Page>> processAndAssertRetainedPageSize(
-            PageProcessor pageProcessor,
-            DriverYieldSignal yieldSignal,
-            AggregatedMemoryContext memoryContext,
-            Page inputPage,
-            boolean avoidPageMaterialization)
-    {
         Iterator<Optional<Page>> output = pageProcessor.process(
                 SESSION,
                 yieldSignal,
                 memoryContext.newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                inputPage,
-                avoidPageMaterialization);
+                inputPage);
         assertEquals(memoryContext.getBytes(), 0);
         return output;
     }
