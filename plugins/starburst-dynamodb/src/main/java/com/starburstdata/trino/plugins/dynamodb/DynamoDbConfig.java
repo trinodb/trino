@@ -7,7 +7,7 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-package com.starburstdata.presto.plugin.dynamodb;
+package com.starburstdata.trino.plugins.dynamodb;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
@@ -22,7 +22,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.StandardSystemProperty.JAVA_IO_TMPDIR;
-import static com.starburstdata.presto.plugin.dynamodb.DynamoDbConnectionFactory.AWS_REGION_TO_CDATA_REGION;
+import static com.starburstdata.trino.plugins.dynamodb.DynamoDbConnectionFactory.AWS_REGION_TO_CDATA_REGION;
 import static java.util.stream.Collectors.joining;
 
 public class DynamoDbConfig

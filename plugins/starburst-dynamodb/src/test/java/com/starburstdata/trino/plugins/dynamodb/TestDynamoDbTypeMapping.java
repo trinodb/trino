@@ -7,10 +7,10 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-package com.starburstdata.presto.plugin.dynamodb;
+package com.starburstdata.trino.plugins.dynamodb;
 
 import com.google.common.collect.ImmutableList;
-import com.starburstdata.presto.plugin.dynamodb.testing.DynamoDbDataSetup;
+import com.starburstdata.trino.plugins.dynamodb.testing.DynamoDbDataSetup;
 import io.trino.Session;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.TimeZoneKey;

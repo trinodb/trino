@@ -7,7 +7,7 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-package com.starburstdata.presto.plugin.dynamodb;
+package com.starburstdata.trino.plugins.dynamodb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -75,10 +75,10 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.starburstdata.presto.plugin.dynamodb.DynamoDbTableProperties.getPartitionKeyAttribute;
-import static com.starburstdata.presto.plugin.dynamodb.DynamoDbTableProperties.getReadCapacityUnits;
-import static com.starburstdata.presto.plugin.dynamodb.DynamoDbTableProperties.getSortKeyAttribute;
-import static com.starburstdata.presto.plugin.dynamodb.DynamoDbTableProperties.getWriteCapacityUnits;
+import static com.starburstdata.trino.plugins.dynamodb.DynamoDbTableProperties.getPartitionKeyAttribute;
+import static com.starburstdata.trino.plugins.dynamodb.DynamoDbTableProperties.getReadCapacityUnits;
+import static com.starburstdata.trino.plugins.dynamodb.DynamoDbTableProperties.getSortKeyAttribute;
+import static com.starburstdata.trino.plugins.dynamodb.DynamoDbTableProperties.getWriteCapacityUnits;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.jdbc.ColumnMapping.booleanMapping;
 import static io.trino.plugin.jdbc.ColumnMapping.doubleMapping;

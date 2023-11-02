@@ -7,7 +7,7 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-package com.starburstdata.presto.plugin.dynamodb;
+package com.starburstdata.trino.plugins.dynamodb;
 
 import com.google.inject.Inject;
 import io.trino.plugin.jdbc.JdbcClient;

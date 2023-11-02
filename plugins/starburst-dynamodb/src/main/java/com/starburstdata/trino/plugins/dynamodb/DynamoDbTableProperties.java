@@ -7,7 +7,7 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-package com.starburstdata.presto.plugin.dynamodb;
+package com.starburstdata.trino.plugins.dynamodb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;

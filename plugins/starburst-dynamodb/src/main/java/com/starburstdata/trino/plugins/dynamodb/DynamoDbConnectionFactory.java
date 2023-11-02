@@ -7,7 +7,7 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-package com.starburstdata.presto.plugin.dynamodb;
+package com.starburstdata.trino.plugins.dynamodb;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.ConnectionFactory;
@@ -26,9 +26,9 @@ import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.starburstdata.presto.plugin.dynamodb.DynamoDbSessionProperties.getFlattenArrayElementCount;
-import static com.starburstdata.presto.plugin.dynamodb.DynamoDbSessionProperties.getGenerateSchemaFiles;
-import static com.starburstdata.presto.plugin.dynamodb.DynamoDbSessionProperties.isFlattenObjectsEnabled;
+import static com.starburstdata.trino.plugins.dynamodb.DynamoDbSessionProperties.getFlattenArrayElementCount;
+import static com.starburstdata.trino.plugins.dynamodb.DynamoDbSessionProperties.getGenerateSchemaFiles;
+import static com.starburstdata.trino.plugins.dynamodb.DynamoDbSessionProperties.isFlattenObjectsEnabled;
 
 /**
  * We implement our own ConnectionFactory in order to add our OEM key to the connection URL but prevent it from being logged

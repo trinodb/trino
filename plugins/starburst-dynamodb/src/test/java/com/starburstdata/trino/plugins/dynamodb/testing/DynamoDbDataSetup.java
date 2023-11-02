@@ -7,9 +7,9 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-package com.starburstdata.presto.plugin.dynamodb.testing;
+package com.starburstdata.trino.plugins.dynamodb.testing;
 
-import com.starburstdata.presto.plugin.dynamodb.DynamoDbConfig;
+import com.starburstdata.trino.plugins.dynamodb.DynamoDbConfig;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;

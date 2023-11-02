@@ -7,11 +7,11 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-package com.starburstdata.presto.plugin.dynamodb;
+package com.starburstdata.trino.plugins.dynamodb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
-import com.starburstdata.presto.plugin.dynamodb.DynamoDbConfig.GenerateSchemaFiles;
+import com.starburstdata.trino.plugins.dynamodb.DynamoDbConfig.GenerateSchemaFiles;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;

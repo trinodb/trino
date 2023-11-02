@@ -7,7 +7,7 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-package com.starburstdata.presto.plugin.dynamodb;
+package com.starburstdata.trino.plugins.dynamodb;
 
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -26,8 +26,8 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.StandardSystemProperty.JAVA_IO_TMPDIR;
-import static com.starburstdata.presto.plugin.dynamodb.DynamoDbConfig.GenerateSchemaFiles.NEVER;
-import static com.starburstdata.presto.plugin.dynamodb.DynamoDbConfig.GenerateSchemaFiles.ON_USE;
+import static com.starburstdata.trino.plugins.dynamodb.DynamoDbConfig.GenerateSchemaFiles.NEVER;
+import static com.starburstdata.trino.plugins.dynamodb.DynamoDbConfig.GenerateSchemaFiles.ON_USE;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;

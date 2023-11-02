@@ -7,14 +7,14 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-package com.starburstdata.presto.plugin.dynamodb.testing;
+package com.starburstdata.trino.plugins.dynamodb.testing;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import com.hubspot.jinjava.Jinjava;
-import com.starburstdata.presto.plugin.dynamodb.DynamoDbConfig;
-import com.starburstdata.presto.plugin.dynamodb.DynamoDbJdbcClient;
+import com.starburstdata.trino.plugins.dynamodb.DynamoDbConfig;
+import com.starburstdata.trino.plugins.dynamodb.DynamoDbJdbcClient;
 import io.trino.spi.TrinoException;
 import io.trino.testing.datatype.ColumnSetup;
 import io.trino.testing.sql.SqlExecutor;

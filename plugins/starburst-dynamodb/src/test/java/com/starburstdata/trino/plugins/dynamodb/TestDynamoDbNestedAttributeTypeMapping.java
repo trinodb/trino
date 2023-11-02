@@ -7,7 +7,7 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-package com.starburstdata.presto.plugin.dynamodb;
+package com.starburstdata.trino.plugins.dynamodb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,8 +39,8 @@ import java.net.URI;
 import java.nio.file.Paths;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.starburstdata.presto.plugin.dynamodb.DynamoDbSessionProperties.FLATTEN_ARRAY_ELEMENT_COUNT;
-import static com.starburstdata.presto.plugin.dynamodb.DynamoDbSessionProperties.FLATTEN_OBJECTS_ENABLED;
+import static com.starburstdata.trino.plugins.dynamodb.DynamoDbSessionProperties.FLATTEN_ARRAY_ELEMENT_COUNT;
+import static com.starburstdata.trino.plugins.dynamodb.DynamoDbSessionProperties.FLATTEN_OBJECTS_ENABLED;
 
 public class TestDynamoDbNestedAttributeTypeMapping
         extends AbstractTestQueryFramework
