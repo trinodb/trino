@@ -174,4 +174,30 @@ public abstract class AbstractTestS3FileSystem
             }
         }
     }
+
+    @Test
+    void testExistingFileWithTrailingSlash()
+            throws IOException
+    {
+        try (S3Client s3Client = createS3Client()) {
+            String key = "data/file/";
+            s3Client.putObject(request -> request.bucket(bucket()).key(key), RequestBody.empty());
+            try {
+                assertThat(fileSystem.listFiles(getRootLocation()).hasNext()).isFalse();
+
+                Location data = getRootLocation().appendPath("data/");
+                assertThat(fileSystem.listDirectories(getRootLocation())).containsExactly(data);
+                assertThat(fileSystem.listDirectories(data)).containsExactly(data.appendPath("file/"));
+
+                fileSystem.deleteDirectory(data);
+                assertThat(fileSystem.listDirectories(getRootLocation())).containsExactly(data);
+
+                fileSystem.deleteDirectory(getRootLocation());
+                assertThat(fileSystem.listDirectories(getRootLocation())).containsExactly(data);
+            }
+            finally {
+                s3Client.deleteObject(delete -> delete.bucket(bucket()).key(key));
+            }
+        }
+    }
 }
