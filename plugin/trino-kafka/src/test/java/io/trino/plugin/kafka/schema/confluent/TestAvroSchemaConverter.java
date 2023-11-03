@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.DUMMY_FIELD_NAME;
+import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EMPTY_FIELD_MARKER;
 import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.FAIL;
 import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.IGNORE;
 import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.MARK;
@@ -288,9 +288,9 @@ public class TestAvroSchemaConverter
 
         List<Type> typesForAddDummyStrategy = ImmutableList.<Type>builder()
                 .add(INTEGER)
-                .add(RowType.from(ImmutableList.of(new RowType.Field(Optional.of(DUMMY_FIELD_NAME), BOOLEAN))))
-                .add(new ArrayType(RowType.from(ImmutableList.of(new RowType.Field(Optional.of(DUMMY_FIELD_NAME), BOOLEAN)))))
-                .add(createType(RowType.from(ImmutableList.of(new RowType.Field(Optional.of(DUMMY_FIELD_NAME), BOOLEAN)))))
+                .add(RowType.from(ImmutableList.of(new RowType.Field(Optional.of(EMPTY_FIELD_MARKER), BOOLEAN))))
+                .add(new ArrayType(RowType.from(ImmutableList.of(new RowType.Field(Optional.of(EMPTY_FIELD_MARKER), BOOLEAN)))))
+                .add(createType(RowType.from(ImmutableList.of(new RowType.Field(Optional.of(EMPTY_FIELD_MARKER), BOOLEAN)))))
                 .build();
 
         assertEquals(new AvroSchemaConverter(new TestingTypeManager(), MARK).convertAvroSchema(schema), typesForAddDummyStrategy);
@@ -318,9 +318,9 @@ public class TestAvroSchemaConverter
                 .hasMessage("Struct type has no valid fields for schema: '%s'", SchemaBuilder.record("nested_record").fields().endRecord());
 
         List<Type> typesForAddDummyStrategy = ImmutableList.<Type>builder()
-                .add(RowType.from(ImmutableList.of(new RowType.Field(Optional.of(DUMMY_FIELD_NAME), BOOLEAN))))
-                .add(new ArrayType(RowType.from(ImmutableList.of(new RowType.Field(Optional.of(DUMMY_FIELD_NAME), BOOLEAN)))))
-                .add(createType(RowType.from(ImmutableList.of(new RowType.Field(Optional.of(DUMMY_FIELD_NAME), BOOLEAN)))))
+                .add(RowType.from(ImmutableList.of(new RowType.Field(Optional.of(EMPTY_FIELD_MARKER), BOOLEAN))))
+                .add(new ArrayType(RowType.from(ImmutableList.of(new RowType.Field(Optional.of(EMPTY_FIELD_MARKER), BOOLEAN)))))
+                .add(createType(RowType.from(ImmutableList.of(new RowType.Field(Optional.of(EMPTY_FIELD_MARKER), BOOLEAN)))))
                 .build();
 
         assertEquals(new AvroSchemaConverter(new TestingTypeManager(), MARK).convertAvroSchema(schema), typesForAddDummyStrategy);
