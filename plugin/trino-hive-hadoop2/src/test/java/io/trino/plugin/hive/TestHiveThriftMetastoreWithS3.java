@@ -46,6 +46,7 @@ public class TestHiveThriftMetastoreWithS3
         extends AbstractTestQueryFramework
 {
     private final String s3endpoint;
+    private final String s3Region;
     private final String awsAccessKey;
     private final String awsSecretKey;
     private final String writableBucket;
@@ -55,18 +56,21 @@ public class TestHiveThriftMetastoreWithS3
 
     @Parameters({
             "hive.hadoop2.s3.endpoint",
+            "hive.hadoop2.s3.region",
             "hive.hadoop2.s3.awsAccessKey",
             "hive.hadoop2.s3.awsSecretKey",
             "hive.hadoop2.s3.writableBucket",
     })
     public TestHiveThriftMetastoreWithS3(
             String s3endpoint,
+            String s3Region,
             String awsAccessKey,
             String awsSecretKey,
             String writableBucket)
             throws IOException
     {
         this.s3endpoint = requireNonNull(s3endpoint, "s3endpoint is null");
+        this.s3Region = requireNonNull(s3Region, "s3Region is null");
         this.awsAccessKey = requireNonNull(awsAccessKey, "awsAccessKey is null");
         this.awsSecretKey = requireNonNull(awsSecretKey, "awsSecretKey is null");
         this.writableBucket = requireNonNull(writableBucket, "writableBucket is null");
@@ -99,6 +103,7 @@ public class TestHiveThriftMetastoreWithS3
         return S3HiveQueryRunner.builder()
                 .setHiveMetastoreEndpoint(hiveHadoop.getHiveMetastoreEndpoint())
                 .setS3Endpoint(s3endpoint)
+                .setS3Region(s3Region)
                 .setS3AccessKey(awsAccessKey)
                 .setS3SecretKey(awsSecretKey)
                 .setBucketName(writableBucket)

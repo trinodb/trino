@@ -101,7 +101,7 @@ public class TestHive3OnDataLake
                                 .put("hive.metastore-cache-ttl", "1d")
                                 .put("hive.metastore-refresh-interval", "1d")
                                 // This is required to reduce memory pressure to test writing large files
-                                .put("hive.s3.streaming.part-size", HIVE_S3_STREAMING_PART_SIZE.toString())
+                                .put("s3.streaming.part-size", HIVE_S3_STREAMING_PART_SIZE.toString())
                                 // This is required to enable AWS Athena partition projection
                                 .put("hive.partition-projection-enabled", "true")
                                 .buildOrThrow())
@@ -1686,7 +1686,7 @@ public class TestHive3OnDataLake
     public void testRenameSchemaToInvalidObjectName()
     {
         String schemaName = "test_rename_schema_invalid_name_" + randomNameSuffix();
-        assertUpdate("CREATE SCHEMA " + schemaName);
+        assertUpdate("CREATE SCHEMA %1$s WITH (location='s3a://%2$s/%1$s')".formatted(schemaName, bucketName));
 
         for (String invalidSchemaName : Arrays.asList(".", "..", "foo/bar")) {
             assertThatThrownBy(() -> assertUpdate("ALTER SCHEMA hive." + schemaName + " RENAME TO  \"" + invalidSchemaName + "\""))
