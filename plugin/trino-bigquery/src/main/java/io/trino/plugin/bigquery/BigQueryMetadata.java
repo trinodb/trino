@@ -205,7 +205,7 @@ public class BigQueryMetadata
             Iterable<Table> tables = client.listTables(DatasetId.of(projectId, remoteSchemaName));
             for (Table table : tables) {
                 // filter ambiguous tables
-                client.toRemoteTable(projectId, remoteSchemaName, table.getTableId().getTable().toLowerCase(ENGLISH), tables)
+                client.toRemoteTable(projectId, remoteSchemaName, table.getTableId().getTable().toLowerCase(ENGLISH))
                         .filter(RemoteDatabaseObject::isAmbiguous)
                         .ifPresentOrElse(
                                 remoteTable -> log.debug("Filtered out [%s.%s] from list of tables due to ambiguous name", remoteSchemaName, table.getTableId().getTable()),

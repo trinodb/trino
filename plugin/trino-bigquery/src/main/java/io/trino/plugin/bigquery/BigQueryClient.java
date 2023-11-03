@@ -33,6 +33,7 @@ import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.http.BaseHttpServiceException;
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableSet;
@@ -51,7 +52,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Supplier;
 
 import static com.google.cloud.bigquery.JobStatistics.QueryStatistics.StatementType.SELECT;
 import static com.google.cloud.bigquery.TableDefinition.Type.EXTERNAL;
@@ -88,6 +88,8 @@ public class BigQueryClient
     private final ViewMaterializationCache materializationCache;
     private final boolean caseInsensitiveNameMatching;
     private final LoadingCache<String, List<Dataset>> remoteDatasetCache;
+    private final Cache<DatasetId, Map<TableId, RemoteDatabaseObject>> remoteTableCaseInsentiveCache;
+    private final Cache<String, Map<String, RemoteDatabaseObject>> remoteDatasetCaseInsentiveCache;
     private final Optional<String> configProjectId;
 
     public BigQueryClient(
@@ -106,6 +108,8 @@ public class BigQueryClient
                 .expireAfterWrite(metadataCacheTtl.toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()
                 .build(CacheLoader.from(this::listDatasetsFromBigQuery));
+        this.remoteDatasetCaseInsentiveCache = buildCache(metadataCacheTtl);
+        this.remoteTableCaseInsentiveCache = buildCache(metadataCacheTtl);
         this.configProjectId = requireNonNull(configProjectId, "projectId is null");
     }
 
@@ -118,34 +122,26 @@ public class BigQueryClient
             return Optional.of(RemoteDatabaseObject.of(datasetName));
         }
 
-        Map<String, Optional<RemoteDatabaseObject>> mapping = new HashMap<>();
-        for (Dataset dataset : listDatasets(projectId)) {
-            mapping.merge(
-                    dataset.getDatasetId().getDataset().toLowerCase(ENGLISH),
-                    Optional.of(RemoteDatabaseObject.of(dataset.getDatasetId().getDataset())),
-                    (currentValue, collision) -> currentValue.map(current -> current.registerCollision(collision.get().getOnlyRemoteName())));
-        }
+        try {
+            Map<String, RemoteDatabaseObject> datasetMap = remoteDatasetCaseInsentiveCache.get(projectId, () -> {
+                Map<String, RemoteDatabaseObject> mapping = new HashMap<>();
+                for (Dataset dataset : listDatasets(projectId)) {
+                    mapping.merge(
+                            dataset.getDatasetId().getDataset().toLowerCase(ENGLISH),
+                            RemoteDatabaseObject.of(dataset.getDatasetId().getDataset()),
+                            (currentValue, collision) -> currentValue.registerCollision(collision.getOnlyRemoteName()));
+                }
+                return mapping;
+            });
 
-        if (!mapping.containsKey(datasetName)) {
-            // dataset doesn't exist
-            mapping.put(datasetName, Optional.empty());
+            return Optional.ofNullable(datasetMap.get(datasetName));
         }
-
-        verify(mapping.containsKey(datasetName));
-        return mapping.get(datasetName);
+        catch (ExecutionException e) {
+            return Optional.empty();
+        }
     }
 
     public Optional<RemoteDatabaseObject> toRemoteTable(String projectId, String remoteDatasetName, String tableName)
-    {
-        return toRemoteTable(projectId, remoteDatasetName, tableName, () -> listTables(DatasetId.of(projectId, remoteDatasetName)));
-    }
-
-    public Optional<RemoteDatabaseObject> toRemoteTable(String projectId, String remoteDatasetName, String tableName, Iterable<Table> tables)
-    {
-        return toRemoteTable(projectId, remoteDatasetName, tableName, () -> tables);
-    }
-
-    private Optional<RemoteDatabaseObject> toRemoteTable(String projectId, String remoteDatasetName, String tableName, Supplier<Iterable<Table>> tables)
     {
         requireNonNull(projectId, "projectId is null");
         requireNonNull(remoteDatasetName, "remoteDatasetName is null");
@@ -156,22 +152,24 @@ public class BigQueryClient
         }
 
         TableId cacheKey = TableId.of(projectId, remoteDatasetName, tableName);
+        DatasetId datasetId = DatasetId.of(projectId, remoteDatasetName);
+        try {
+            Map<TableId, RemoteDatabaseObject> tableMap = remoteTableCaseInsentiveCache.get(datasetId, () -> {
+                Map<TableId, RemoteDatabaseObject> mapping = new HashMap<>();
+                for (Table table : listTables(datasetId)) {
+                    mapping.merge(
+                            tableIdToLowerCase(table.getTableId()),
+                            RemoteDatabaseObject.of(table.getTableId().getTable()),
+                            (currentValue, collision) -> currentValue.registerCollision(collision.getOnlyRemoteName()));
+                }
+                return mapping;
+            });
 
-        Map<TableId, Optional<RemoteDatabaseObject>> mapping = new HashMap<>();
-        for (Table table : tables.get()) {
-            mapping.merge(
-                    tableIdToLowerCase(table.getTableId()),
-                    Optional.of(RemoteDatabaseObject.of(table.getTableId().getTable())),
-                    (currentValue, collision) -> currentValue.map(current -> current.registerCollision(collision.get().getOnlyRemoteName())));
+            return Optional.ofNullable(tableMap.get(cacheKey));
         }
-
-        if (!mapping.containsKey(cacheKey)) {
-            // table doesn't exist
-            mapping.put(cacheKey, Optional.empty());
+        catch (ExecutionException e) {
+            return Optional.empty();
         }
-
-        verify(mapping.containsKey(cacheKey));
-        return mapping.get(cacheKey);
     }
 
     private static TableId tableIdToLowerCase(TableId tableId)
@@ -442,5 +440,13 @@ public class BigQueryClient
         {
             return remoteNames.size() > 1;
         }
+    }
+
+    private static <K, V> Cache<K, V> buildCache(Duration cachingTtl)
+    {
+        return EvictableCacheBuilder.newBuilder()
+                .expireAfterWrite(cachingTtl.toMillis(), MILLISECONDS)
+                .shareNothingWhenDisabled()
+                .build();
     }
 }
