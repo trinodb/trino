@@ -15,6 +15,8 @@ package io.trino.execution.resourcegroups.db;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryManager;
@@ -38,6 +40,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.testing.Assertions.assertContains;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
 import static io.trino.execution.QueryRunnerUtil.cancelQuery;
 import static io.trino.execution.QueryRunnerUtil.createQuery;
@@ -62,6 +65,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
 import static io.trino.spi.StandardErrorCode.QUERY_QUEUE_FULL;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
@@ -367,6 +371,37 @@ public class TestQueuesDb
         QueryId invalidResourceGroupQuery = createQuery(queryRunner, session, LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, invalidResourceGroupQuery, FAILED);
         assertEquals(queryRunner.getCoordinator().getDispatchManager().getQueryInfo(invalidResourceGroupQuery).getErrorCode(), INVALID_RESOURCE_GROUP.toErrorCode());
+    }
+
+    @Test
+    public void testUpdateSoftMemoryLimit()
+    {
+        // trigger resource group creation
+        queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
+        InternalResourceGroupManager<?> manager = queryRunner.getCoordinator().getResourceGroupManager().orElseThrow();
+        DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
+
+        dao.updateResourceGroup(2, "bi-${USER}", "100%", 3, 2, 2, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
+        dbConfigurationManager.load();
+        assertEquals(
+                manager.tryGetResourceGroupInfo(new ResourceGroupId(new ResourceGroupId("global"), "bi-user"))
+                        .orElseThrow(() -> new IllegalStateException("Resource group not found"))
+                        .getSoftMemoryLimit()
+                        .toBytes(),
+                queryRunner.getCoordinator().getClusterMemoryManager().getClusterMemoryBytes());
+
+        dao.updateResourceGroup(2, "bi-${USER}", "123MB", 3, 2, 2, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
+        dbConfigurationManager.load();
+
+        // wait for SqlQueryManager which enforce memory limits per second
+        assertEventually(
+                new Duration(2, TimeUnit.SECONDS),
+                new Duration(100, TimeUnit.MILLISECONDS),
+                () -> assertEquals(
+                        manager.tryGetResourceGroupInfo(new ResourceGroupId(new ResourceGroupId("global"), "bi-user"))
+                                .orElseThrow(() -> new IllegalStateException("Resource group not found"))
+                                .getSoftMemoryLimit(),
+                        DataSize.of(123, MEGABYTE)));
     }
 
     private void assertResourceGroupWithClientTags(Set<String> clientTags, ResourceGroupId expectedResourceGroup)
