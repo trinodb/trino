@@ -1164,12 +1164,6 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public Set<RoleGrant> listGrantedPrincipals(String role)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "listPrincipals is not supported by Glue");
-    }
-
-    @Override
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         if (principal.getType() == USER) {
