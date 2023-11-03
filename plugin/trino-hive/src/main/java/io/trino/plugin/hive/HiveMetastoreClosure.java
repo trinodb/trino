@@ -310,11 +310,6 @@ public class HiveMetastoreClosure
         delegate.revokeRoles(roles, grantees, adminOption, grantor);
     }
 
-    public Set<RoleGrant> listGrantedPrincipals(String role)
-    {
-        return delegate.listGrantedPrincipals(role);
-    }
-
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         return delegate.listRoleGrants(principal);
