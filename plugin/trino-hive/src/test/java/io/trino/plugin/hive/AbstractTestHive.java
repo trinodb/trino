@@ -213,7 +213,6 @@ import static io.trino.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
 import static io.trino.plugin.hive.HiveBasicStatistics.createZeroStatistics;
 import static io.trino.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
-import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.bucketColumnHandle;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
@@ -636,7 +635,6 @@ public abstract class AbstractTestHive
     protected SchemaTableName tableBucketedDoubleFloat;
     protected SchemaTableName tablePartitionSchemaChange;
     protected SchemaTableName tablePartitionSchemaChangeNonCanonical;
-    protected SchemaTableName tableBucketEvolution;
 
     protected ConnectorTableHandle invalidTableHandle;
 
@@ -644,12 +642,10 @@ public abstract class AbstractTestHive
     protected ColumnHandle fileFormatColumn;
     protected ColumnHandle dummyColumn;
     protected ColumnHandle intColumn;
-    protected ColumnHandle invalidColumnHandle;
     protected ColumnHandle pStringColumn;
     protected ColumnHandle pIntegerColumn;
 
     protected ConnectorTableProperties tablePartitionFormatProperties;
-    protected ConnectorTableProperties tableUnpartitionedProperties;
     protected List<HivePartition> tablePartitionFormatPartitions;
     protected List<HivePartition> tableUnpartitionedPartitions;
 
@@ -717,7 +713,6 @@ public abstract class AbstractTestHive
         tableBucketedDoubleFloat = new SchemaTableName(database, "trino_test_bucketed_by_double_float");
         tablePartitionSchemaChange = new SchemaTableName(database, "trino_test_partition_schema_change");
         tablePartitionSchemaChangeNonCanonical = new SchemaTableName(database, "trino_test_partition_schema_change_non_canonical");
-        tableBucketEvolution = new SchemaTableName(database, "trino_test_bucket_evolution");
 
         invalidTableHandle = new HiveTableHandle(database, INVALID_TABLE, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
 
@@ -725,7 +720,6 @@ public abstract class AbstractTestHive
         fileFormatColumn = createBaseColumn("file_format", -1, HIVE_STRING, VARCHAR, PARTITION_KEY, Optional.empty());
         dummyColumn = createBaseColumn("dummy", -1, HIVE_INT, INTEGER, PARTITION_KEY, Optional.empty());
         intColumn = createBaseColumn("t_int", -1, HIVE_INT, INTEGER, PARTITION_KEY, Optional.empty());
-        invalidColumnHandle = createBaseColumn(INVALID_COLUMN, 0, HIVE_STRING, VARCHAR, REGULAR, Optional.empty());
         pStringColumn = createBaseColumn("p_string", -1, HIVE_STRING, VARCHAR, PARTITION_KEY, Optional.empty());
         pIntegerColumn = createBaseColumn("p_integer", -1, HIVE_INT, INTEGER, PARTITION_KEY, Optional.empty());
 
@@ -785,7 +779,6 @@ public abstract class AbstractTestHive
                                 fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("rcbinary"))), false),
                                 dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 4L)), false)))))),
                 ImmutableList.of());
-        tableUnpartitionedProperties = new ConnectorTableProperties();
     }
 
     protected final void setup(HostAndPort metastoreAddress, String databaseName)

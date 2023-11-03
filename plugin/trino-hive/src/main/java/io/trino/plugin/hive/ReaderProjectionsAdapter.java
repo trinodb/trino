@@ -81,13 +81,13 @@ public class ReaderProjectionsAdapter
             ChannelMapping mapping = outputToInputMapping.get(i);
 
             Block inputBlock = input.getBlock(mapping.getInputChannelIndex());
-            blocks[i] = createAdaptedLazyBlock(inputBlock, mapping.getDereferenceSequence(), outputTypes.get(i));
+            blocks[i] = createAdaptedLazyBlock(inputBlock, mapping.getDereferenceSequence());
         }
 
         return new Page(input.getPositionCount(), blocks);
     }
 
-    private static Block createAdaptedLazyBlock(Block inputBlock, List<Integer> dereferenceSequence, Type type)
+    private static Block createAdaptedLazyBlock(Block inputBlock, List<Integer> dereferenceSequence)
     {
         if (dereferenceSequence.size() == 0) {
             return inputBlock;
@@ -97,22 +97,20 @@ public class ReaderProjectionsAdapter
             return null;
         }
 
-        return new LazyBlock(inputBlock.getPositionCount(), new DereferenceBlockLoader(inputBlock, dereferenceSequence, type));
+        return new LazyBlock(inputBlock.getPositionCount(), new DereferenceBlockLoader(inputBlock, dereferenceSequence));
     }
 
     private static class DereferenceBlockLoader
             implements LazyBlockLoader
     {
         private final List<Integer> dereferenceSequence;
-        private final Type type;
         private boolean loaded;
         private Block inputBlock;
 
-        DereferenceBlockLoader(Block inputBlock, List<Integer> dereferenceSequence, Type type)
+        DereferenceBlockLoader(Block inputBlock, List<Integer> dereferenceSequence)
         {
             this.inputBlock = requireNonNull(inputBlock, "inputBlock is null");
             this.dereferenceSequence = requireNonNull(dereferenceSequence, "dereferenceSequence is null");
-            this.type = type;
         }
 
         @Override

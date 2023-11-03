@@ -294,11 +294,6 @@ public class TestReaderProjectionsAdapter
             return new RowData(data);
         }
 
-        List<? extends Object> getData()
-        {
-            return data;
-        }
-
         Object getField(int field)
         {
             checkArgument(field >= 0 && field < data.size());

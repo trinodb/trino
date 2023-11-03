@@ -169,16 +169,6 @@ public final class HiveTestUtils
                 parquetWriterConfig);
     }
 
-    public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig, ParquetReaderConfig parquetReaderConfig)
-    {
-        return new HiveSessionProperties(
-                hiveConfig,
-                new OrcReaderConfig(),
-                new OrcWriterConfig(),
-                parquetReaderConfig,
-                new ParquetWriterConfig());
-    }
-
     public static Set<HivePageSourceFactory> getDefaultHivePageSourceFactories(HdfsEnvironment hdfsEnvironment, HiveConfig hiveConfig)
     {
         TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS);

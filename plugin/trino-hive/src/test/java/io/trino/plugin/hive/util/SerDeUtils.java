@@ -62,9 +62,6 @@ import java.util.Map.Entry;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
-import static io.trino.spi.block.ArrayValueBuilder.buildArrayValue;
-import static io.trino.spi.block.MapValueBuilder.buildMapValue;
-import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.round;
@@ -75,31 +72,6 @@ import static java.util.Objects.requireNonNull;
 public final class SerDeUtils
 {
     private SerDeUtils() {}
-
-    public static Object getBlockObject(Type type, Object object, ObjectInspector inspector)
-    {
-        requireNonNull(object, "object is null");
-        if (inspector instanceof ListObjectInspector listObjectInspector) {
-            List<?> list = listObjectInspector.getList(object);
-            ArrayType arrayType = (ArrayType) type;
-            ObjectInspector elementInspector = listObjectInspector.getListElementObjectInspector();
-            return buildArrayValue(arrayType, list.size(), valuesBuilder -> buildList(list, arrayType.getElementType(), elementInspector, valuesBuilder));
-        }
-        if (inspector instanceof MapObjectInspector mapObjectInspector) {
-            Map<?, ?> map = mapObjectInspector.getMap(object);
-            MapType mapType = (MapType) type;
-            return buildMapValue(mapType, map.size(), (keyBuilder, valueBuilder) -> buildMap(mapType, keyBuilder, valueBuilder, map, mapObjectInspector, true));
-        }
-        if (inspector instanceof StructObjectInspector structObjectInspector) {
-            RowType rowType = (RowType) type;
-            return buildRowValue(rowType, fieldBuilders -> buildStruct(rowType, object, structObjectInspector, fieldBuilders));
-        }
-        if (inspector instanceof UnionObjectInspector unionObjectInspector) {
-            RowType rowType = (RowType) type;
-            return buildRowValue(rowType, fieldBuilders -> buildUnion(rowType, object, unionObjectInspector, fieldBuilders));
-        }
-        throw new RuntimeException("Unknown object inspector category: " + inspector.getCategory());
-    }
 
     public static void serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector)
     {
