@@ -87,7 +87,6 @@ public class HiveMetastoreRecording
     private final NonEvictableCache<HivePartitionName, Optional<Partition>> partitionsByNamesCache;
     private final NonEvictableCache<UserTableKey, Set<HivePrivilegeInfo>> tablePrivilegesCache;
     private final NonEvictableCache<HivePrincipal, Set<RoleGrant>> roleGrantsCache;
-    private final NonEvictableCache<String, Set<RoleGrant>> grantedPrincipalsCache;
     private final NonEvictableCache<DatabaseFunctionSignatureKey, Boolean> functionExistsCache;
     private final NonEvictableCache<String, Collection<LanguageFunction>> functionsByDatabaseCache;
     private final NonEvictableCache<DatabaseFunctionKey, Collection<LanguageFunction>> functionsByNameCache;
@@ -115,7 +114,6 @@ public class HiveMetastoreRecording
         partitionsByNamesCache = createCache(replay, recordingDuration);
         tablePrivilegesCache = createCache(replay, recordingDuration);
         roleGrantsCache = createCache(replay, recordingDuration);
-        grantedPrincipalsCache = createCache(replay, recordingDuration);
         functionExistsCache = createCache(replay, recordingDuration);
         functionsByDatabaseCache = createCache(replay, recordingDuration);
         functionsByNameCache = createCache(replay, recordingDuration);
@@ -151,7 +149,6 @@ public class HiveMetastoreRecording
         partitionsByNamesCache.putAll(toMap(recording.getPartitionsByNames()));
         tablePrivilegesCache.putAll(toMap(recording.getTablePrivileges()));
         roleGrantsCache.putAll(toMap(recording.getRoleGrants()));
-        grantedPrincipalsCache.putAll(toMap(recording.getGrantedPrincipals()));
         functionExistsCache.putAll(toMap(recording.getFunctionExists()));
         functionsByDatabaseCache.putAll(toMap(recording.getFunctionsByDatabase()));
         functionsByNameCache.putAll(toMap(recording.getFunctionsByName()));
@@ -249,11 +246,6 @@ public class HiveMetastoreRecording
         return result;
     }
 
-    public Set<RoleGrant> listGrantedPrincipals(String role, Supplier<Set<RoleGrant>> valueSupplier)
-    {
-        return loadValue(grantedPrincipalsCache, role, valueSupplier);
-    }
-
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal, Supplier<Set<RoleGrant>> valueSupplier)
     {
         return loadValue(roleGrantsCache, principal, valueSupplier);
@@ -308,7 +300,6 @@ public class HiveMetastoreRecording
                 toPairs(partitionsByNamesCache),
                 toPairs(tablePrivilegesCache),
                 toPairs(roleGrantsCache),
-                toPairs(grantedPrincipalsCache),
                 toPairs(functionExistsCache),
                 toPairs(functionsByDatabaseCache),
                 toPairs(functionsByNameCache));
@@ -379,7 +370,6 @@ public class HiveMetastoreRecording
         private final List<Pair<HivePartitionName, Optional<Partition>>> partitionsByNames;
         private final List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> tablePrivileges;
         private final List<Pair<HivePrincipal, Set<RoleGrant>>> roleGrants;
-        private final List<Pair<String, Set<RoleGrant>>> grantedPrincipals;
         private final List<Pair<DatabaseFunctionSignatureKey, Boolean>> functionExists;
         private final List<Pair<String, Collection<LanguageFunction>>> functionsByDatabase;
         private final List<Pair<DatabaseFunctionKey, Collection<LanguageFunction>>> functionsByName;
@@ -401,7 +391,6 @@ public class HiveMetastoreRecording
                 @JsonProperty("partitionsByNames") List<Pair<HivePartitionName, Optional<Partition>>> partitionsByNames,
                 @JsonProperty("tablePrivileges") List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> tablePrivileges,
                 @JsonProperty("roleGrants") List<Pair<HivePrincipal, Set<RoleGrant>>> roleGrants,
-                @JsonProperty("grantedPrincipals") List<Pair<String, Set<RoleGrant>>> grantedPrincipals,
                 @JsonProperty("functionExists") List<Pair<DatabaseFunctionSignatureKey, Boolean>> functionExists,
                 @JsonProperty("functionsByDatabase") List<Pair<String, Collection<LanguageFunction>>> functionsByDatabase,
                 @JsonProperty("functionsByName") List<Pair<DatabaseFunctionKey, Collection<LanguageFunction>>> functionsByName)
@@ -421,7 +410,6 @@ public class HiveMetastoreRecording
             this.partitionsByNames = partitionsByNames;
             this.tablePrivileges = tablePrivileges;
             this.roleGrants = roleGrants;
-            this.grantedPrincipals = grantedPrincipals;
             this.functionExists = requireNonNullElse(functionExists, List.of());
             this.functionsByDatabase = requireNonNullElse(functionsByDatabase, List.of());
             this.functionsByName = requireNonNullElse(functionsByName, List.of());
@@ -509,12 +497,6 @@ public class HiveMetastoreRecording
         public List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> getTablePrivileges()
         {
             return tablePrivileges;
-        }
-
-        @JsonProperty
-        public List<Pair<String, Set<RoleGrant>>> getGrantedPrincipals()
-        {
-            return grantedPrincipals;
         }
 
         @JsonProperty

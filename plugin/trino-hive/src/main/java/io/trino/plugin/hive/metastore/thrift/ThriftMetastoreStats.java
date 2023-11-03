@@ -51,7 +51,6 @@ public class ThriftMetastoreStats
     private final ThriftMetastoreApiStats grantRole = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats revokeRole = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats listRoleGrants = new ThriftMetastoreApiStats();
-    private final ThriftMetastoreApiStats listGrantedPrincipals = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats createRole = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats dropRole = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats openTransaction = new ThriftMetastoreApiStats();
@@ -294,13 +293,6 @@ public class ThriftMetastoreStats
     public ThriftMetastoreApiStats getRevokeRole()
     {
         return revokeRole;
-    }
-
-    @Managed
-    @Nested
-    public ThriftMetastoreApiStats getListGrantedPrincipals()
-    {
-        return listGrantedPrincipals;
     }
 
     @Managed
