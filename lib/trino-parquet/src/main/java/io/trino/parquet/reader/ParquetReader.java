@@ -511,7 +511,7 @@ public class ParquetReader
                 return metadata;
             }
         }
-        throw new ParquetCorruptionException("Metadata is missing for column: %s", columnDescriptor);
+        throw new ParquetCorruptionException(dataSource.getId(), "Metadata is missing for column: %s", columnDescriptor);
     }
 
     private void initializeColumnReaders()
