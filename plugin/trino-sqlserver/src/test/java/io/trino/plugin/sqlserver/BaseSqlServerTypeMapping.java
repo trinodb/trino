@@ -34,6 +34,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -53,9 +54,11 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTim
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -834,6 +837,138 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("DATETIMEOFFSET(6)", "'1969-12-31 23:59:59.9999994'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1969-12-31 23:59:59.999999+00:00'")
 
                 .execute(getQueryRunner(), session, sqlServerCreateAndInsert("test_sqlserver_datetimeoffset"));
+    }
+
+    @Test
+    public void testSqlServerDatetimeOffsetHistoricalDates()
+    {
+        testSqlServerDatetimeOffsetHistoricalDates(UTC);
+        testSqlServerDatetimeOffsetHistoricalDates(ZoneId.systemDefault());
+        // using two non-JVM zones so that we don't need to worry what SQL Server system zone is
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testSqlServerDatetimeOffsetHistoricalDates(ZoneId.of("Europe/Vilnius"));
+        // minutes offset change since 1970-01-01, no DST
+        testSqlServerDatetimeOffsetHistoricalDates(ZoneId.of("Asia/Kathmandu"));
+        testSqlServerDatetimeOffsetHistoricalDates(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    public void testSqlServerDatetimeOffsetHistoricalDates(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("DATETIMEOFFSET(0)", "'1400-09-27 00:00:00+07:00'", createTimestampWithTimeZoneType(0), "TIMESTAMP '1400-09-27 00:00:00+07:00'")
+                .addRoundTrip("DATETIMEOFFSET(1)", "'1400-09-27 00:00:00.1+07:00'", createTimestampWithTimeZoneType(1), "TIMESTAMP '1400-09-27 00:00:00.1+07:00'")
+                .addRoundTrip("DATETIMEOFFSET(2)", "'1400-09-27 00:00:00.12+07:00'", createTimestampWithTimeZoneType(2), "TIMESTAMP '1400-09-27 00:00:00.12+07:00'")
+                .addRoundTrip("DATETIMEOFFSET(3)", "'1400-09-27 00:00:00.123+07:00'", createTimestampWithTimeZoneType(3), "TIMESTAMP '1400-09-27 00:00:00.123+07:00'")
+                .addRoundTrip("DATETIMEOFFSET(4)", "'1400-09-27 00:00:00.1234+07:00'", createTimestampWithTimeZoneType(4), "TIMESTAMP '1400-09-27 00:00:00.1234+07:00'")
+                .addRoundTrip("DATETIMEOFFSET(5)", "'1400-09-27 00:00:00.12345+07:00'", createTimestampWithTimeZoneType(5), "TIMESTAMP '1400-09-27 00:00:00.12345+07:00'")
+                .addRoundTrip("DATETIMEOFFSET(6)", "'1400-09-27 00:00:00.123456+07:00'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1400-09-27 00:00:00.123456+07:00'")
+                .addRoundTrip("DATETIMEOFFSET(7)", "'1400-09-27 00:00:00.1234567+07:00'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1400-09-27 00:00:00.1234567+07:00'")
+                .execute(getQueryRunner(), session, sqlServerCreateAndInsert("test_sqlserver_datetimeoffset_historical_date"));
+    }
+
+    @Test
+    public void testSqlServerDatetimeOffsetHistoricalDatesRangeQuery()
+    {
+        // Tests the custom predicate push down controller for DATETIMEOFFSET types with values before and after 1583
+        List<String> dateTimeOffsetValues = List.of(
+                "'1400-01-01 00:00:00.1234567+00:00'",
+                "'1500-01-01 00:00:00.1234567+00:00'",
+                "'1582-12-31 23:59:59.9999999+00:00'",
+                "'1583-01-01 00:00:00+00:00'",
+                "'1583-01-01 00:00:00.1234567+00:00'",
+                "'1600-01-01 00:00:00.1234567+00:00'",
+                "'1700-01-01 00:00:00.1234567+00:00'",
+                "'1800-01-01 00:00:00.1234567+00:00'",
+                "'1900-01-01 00:00:00.1234567+00:00'");
+
+        try (TestTable table = new TestTable(onRemoteDatabase(), "test_sqlserver_datetimeoffset_historical_date_range_query", "(col0 datetimeoffset(7))", dateTimeOffsetValues)) {
+            assertThat(query("SELECT count(*) FROM " + table.getName()))
+                    .matches("SELECT CAST(9 AS BIGINT)")
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col0 <= TIMESTAMP '1582-12-31 23:59:59.9999999+00:00'"))
+                    .matches("""
+                             VALUES (TIMESTAMP '1400-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1500-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1582-12-31 23:59:59.9999999+00:00')""")
+                    .isNotFullyPushedDown(tableScan(table.getName()));
+
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col0 >= TIMESTAMP '1583-01-01 00:00:00+00:00'"))
+                    .matches("""
+                             VALUES (TIMESTAMP '1583-01-01 00:00:00+00:00'),
+                                    (TIMESTAMP '1583-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1600-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1700-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1800-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1900-01-01 00:00:00.1234567+00:00')""")
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col0 IN (TIMESTAMP '1582-12-31 23:59:59.9999999+00:00', TIMESTAMP '1583-01-01 00:00:00+00:00')"))
+                    .matches("""
+                             VALUES (TIMESTAMP '1582-12-31 23:59:59.9999999+00:00'),
+                                    (TIMESTAMP '1583-01-01 00:00:00+00:00')""")
+                    .isNotFullyPushedDown(tableScan(table.getName()));
+
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col0 IN (TIMESTAMP '1583-01-01 00:00:00+00:00', TIMESTAMP '1600-01-01 00:00:00.1234567+00:00')"))
+                    .matches("""
+                             VALUES (TIMESTAMP '1583-01-01 00:00:00+00:00'),
+                                    (TIMESTAMP '1600-01-01 00:00:00.1234567+00:00')""")
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col0 NOT IN (TIMESTAMP '1582-12-31 23:59:59.9999999+00:00', TIMESTAMP '1600-01-01 00:00:00.1234567+00:00')"))
+                    .matches("""
+                             VALUES (TIMESTAMP '1400-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1500-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1583-01-01 00:00:00+00:00'),
+                                    (TIMESTAMP '1583-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1700-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1800-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1900-01-01 00:00:00.1234567+00:00')""")
+                    .isNotFullyPushedDown(tableScan(table.getName()));
+
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col0 NOT IN (TIMESTAMP '1583-01-01 00:00:00+00:00', TIMESTAMP '1600-01-01 00:00:00.1234567+00:00')"))
+                    .matches("""
+                             VALUES (TIMESTAMP '1400-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1500-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1582-12-31 23:59:59.9999999+00:00'),
+                                    (TIMESTAMP '1583-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1700-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1800-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1900-01-01 00:00:00.1234567+00:00')""")
+                    .isNotFullyPushedDown(tableScan(table.getName()));
+
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col0 BETWEEN TIMESTAMP '1582-12-31 23:59:59.9999999+00:00' AND TIMESTAMP '1600-01-01 00:00:00.1234567+00:00'"))
+                    .matches("""
+                             VALUES (TIMESTAMP '1582-12-31 23:59:59.9999999+00:00'),
+                                    (TIMESTAMP '1583-01-01 00:00:00+00:00'),
+                                    (TIMESTAMP '1583-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1600-01-01 00:00:00.1234567+00:00')""")
+                    .isNotFullyPushedDown(tableScan(table.getName()));
+
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col0 BETWEEN TIMESTAMP '1583-01-01 00:00:00+00:00' AND TIMESTAMP '1600-01-01 00:00:00.1234567+00:00'"))
+                    .matches("""
+                             VALUES (TIMESTAMP '1583-01-01 00:00:00+00:00'),
+                                    (TIMESTAMP '1583-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1600-01-01 00:00:00.1234567+00:00')""")
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col0 <= TIMESTAMP '1990-01-01 00:00:00+00:00'"))
+                    .matches("""
+                             VALUES (TIMESTAMP '1400-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1500-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1582-12-31 23:59:59.9999999+00:00'),
+                                    (TIMESTAMP '1583-01-01 00:00:00+00:00'),
+                                    (TIMESTAMP '1583-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1600-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1700-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1800-01-01 00:00:00.1234567+00:00'),
+                                    (TIMESTAMP '1900-01-01 00:00:00.1234567+00:00')""")
+                    .isNotFullyPushedDown(tableScan(table.getName()));
+        }
     }
 
     protected DataSetup trinoCreateAsSelect(String tableNamePrefix)
