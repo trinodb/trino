@@ -83,6 +83,6 @@ ignore on startup.
 - **Default value:** `false`
 
 Requires [](prop-catalog-store) to be set to `file`. If true, existing catalog
-property files cannot be removed with `DROP CATALOG`, and now new catalog files
+property files cannot be removed with `DROP CATALOG`, and no new catalog files
 can be written with identical names with `CREATE CATALOG`. As a result, a
 coordinator restart resets the known catalogs to the existing files only.
