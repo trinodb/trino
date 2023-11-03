@@ -128,11 +128,6 @@ public class HivePageSource
         this.coercers = coercers.build();
     }
 
-    public ConnectorPageSource getDelegate()
-    {
-        return delegate;
-    }
-
     @Override
     public long getCompletedBytes()
     {
