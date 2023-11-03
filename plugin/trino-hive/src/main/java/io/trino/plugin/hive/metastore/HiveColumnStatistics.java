@@ -291,21 +291,9 @@ public class HiveColumnStatistics
             this.distinctValuesCount = other.getDistinctValuesCount();
         }
 
-        public Builder setIntegerStatistics(Optional<IntegerStatistics> integerStatistics)
-        {
-            this.integerStatistics = integerStatistics;
-            return this;
-        }
-
         public Builder setIntegerStatistics(IntegerStatistics integerStatistics)
         {
             this.integerStatistics = Optional.of(integerStatistics);
-            return this;
-        }
-
-        public Builder setDoubleStatistics(Optional<DoubleStatistics> doubleStatistics)
-        {
-            this.doubleStatistics = doubleStatistics;
             return this;
         }
 
@@ -315,33 +303,15 @@ public class HiveColumnStatistics
             return this;
         }
 
-        public Builder setDecimalStatistics(Optional<DecimalStatistics> decimalStatistics)
-        {
-            this.decimalStatistics = decimalStatistics;
-            return this;
-        }
-
         public Builder setDecimalStatistics(DecimalStatistics decimalStatistics)
         {
             this.decimalStatistics = Optional.of(decimalStatistics);
             return this;
         }
 
-        public Builder setDateStatistics(Optional<DateStatistics> dateStatistics)
-        {
-            this.dateStatistics = dateStatistics;
-            return this;
-        }
-
         public Builder setDateStatistics(DateStatistics dateStatistics)
         {
             this.dateStatistics = Optional.of(dateStatistics);
-            return this;
-        }
-
-        public Builder setBooleanStatistics(Optional<BooleanStatistics> booleanStatistics)
-        {
-            this.booleanStatistics = booleanStatistics;
             return this;
         }
 
