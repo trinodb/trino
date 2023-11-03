@@ -14,8 +14,6 @@
 package io.trino.plugin.hive.metastore.glue;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.metastore.Column;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -33,11 +31,6 @@ import static org.testng.Assert.assertEquals;
 
 public class TestGlueExpressionUtil
 {
-    private static Column getColumn(String name, String type)
-    {
-        return new Column(name, HiveType.valueOf(type), Optional.empty());
-    }
-
     @Test
     public void testBuildGlueExpressionDomainEqualsSingleValue()
     {
