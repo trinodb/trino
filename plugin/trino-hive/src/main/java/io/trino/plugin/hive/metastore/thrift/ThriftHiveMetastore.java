@@ -1955,28 +1955,6 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
-    {
-        checkArgument(writeId > 0, "writeId should be a positive integer, but was %s", writeId);
-        try {
-            retry()
-                    .stopOnIllegalExceptions()
-                    .run("alterPartitions", stats.getAlterPartitions().wrap(() -> {
-                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
-                            metastoreClient.alterPartitions(dbName, tableName, partitions, writeId);
-                        }
-                        return null;
-                    }));
-        }
-        catch (TException e) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, e);
-        }
-        catch (Exception e) {
-            throw propagate(e);
-        }
-    }
-
-    @Override
     public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
     {
         checkArgument(writeId > 0, "writeId should be a positive integer, but was %s", writeId);
