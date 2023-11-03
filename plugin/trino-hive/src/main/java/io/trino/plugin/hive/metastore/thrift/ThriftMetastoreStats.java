@@ -62,7 +62,6 @@ public class ThriftMetastoreStats
     private final ThriftMetastoreApiStats validWriteIds = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats allocateWriteId = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats updateTableWriteId = new ThriftMetastoreApiStats();
-    private final ThriftMetastoreApiStats alterPartitions = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats addDynamicPartitions = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats alterTransactionalTable = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats getFunction = new ThriftMetastoreApiStats();
@@ -377,13 +376,6 @@ public class ThriftMetastoreStats
     public ThriftMetastoreApiStats getUpdateTableWriteId()
     {
         return updateTableWriteId;
-    }
-
-    @Managed
-    @Nested
-    public ThriftMetastoreApiStats getAlterPartitions()
-    {
-        return alterPartitions;
     }
 
     @Managed
