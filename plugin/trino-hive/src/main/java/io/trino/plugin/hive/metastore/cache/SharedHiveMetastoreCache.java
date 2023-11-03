@@ -403,16 +403,6 @@ public class SharedHiveMetastoreCache
             return requestCount;
         }
 
-        public long getHitCount()
-        {
-            return hitCount;
-        }
-
-        public long getMissCount()
-        {
-            return missCount;
-        }
-
         public double getHitRate()
         {
             return (requestCount == 0) ? 1.0 : (double) hitCount / requestCount;
