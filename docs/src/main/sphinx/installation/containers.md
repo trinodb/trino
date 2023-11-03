@@ -88,6 +88,18 @@ at `/etc/trino/catalog`, or individual catalog property files in it.
 
 If you want to use additional plugins, mount them at `/usr/lib/trino/plugin`.
 
+To avoid having to create catalog files and mount them in the container,
+you can enable dynamic catalog management by setting the `CATALOG_MANAGEMENT`
+environmental variable to `dynamic`.
+
+```shell
+$ docker run --name trino -d -p 8080:8080 -e CATALOG_MANAGEMENT=dynamic trinodb/trino
+```
+
+After connecting to Trino, execute (sql-catalog-management)= statements to
+create drop catalogs as desired. To make these changes persistent across
+container restarts, a volume must be mounted at `/etc/trino/catalog`.
+
 ## Cleaning up
 
 You can stop and start the container, using the `docker stop trino` and

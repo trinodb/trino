@@ -31,6 +31,7 @@ FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 ARG JDK_VERSION
 ENV JAVA_HOME="/usr/lib/jvm/jdk-${JDK_VERSION}"
 ENV PATH=$PATH:$JAVA_HOME/bin
+ENV CATALOG_MANAGEMENT=static
 COPY --from=jdk-download $JAVA_HOME $JAVA_HOME
 
 RUN \
