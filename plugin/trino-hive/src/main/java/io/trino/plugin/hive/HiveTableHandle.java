@@ -421,19 +421,6 @@ public class HiveTableHandle
     }
 
     @JsonIgnore
-    public boolean isInAcidTransaction()
-    {
-        return transaction.isAcidTransactionRunning();
-    }
-
-    @JsonIgnore
-    public long getWriteId()
-    {
-        checkState(transaction.isAcidTransactionRunning(), "The AcidTransaction is not running");
-        return transaction.getWriteId();
-    }
-
-    @JsonIgnore
     public boolean isRecordScannedFiles()
     {
         return recordScannedFiles;
