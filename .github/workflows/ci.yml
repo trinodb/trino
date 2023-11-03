@@ -310,6 +310,7 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
           S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
           S3_BUCKET_ENDPOINT: "https://s3.${{ vars.TRINO_AWS_REGION }}.amazonaws.com"
         run: |
