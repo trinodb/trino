@@ -33,8 +33,6 @@ import io.trino.hive.thrift.metastore.Database;
 import io.trino.hive.thrift.metastore.EnvironmentContext;
 import io.trino.hive.thrift.metastore.FieldSchema;
 import io.trino.hive.thrift.metastore.Function;
-import io.trino.hive.thrift.metastore.GetPrincipalsInRoleRequest;
-import io.trino.hive.thrift.metastore.GetPrincipalsInRoleResponse;
 import io.trino.hive.thrift.metastore.GetRoleGrantsForPrincipalRequest;
 import io.trino.hive.thrift.metastore.GetRoleGrantsForPrincipalResponse;
 import io.trino.hive.thrift.metastore.GetTableRequest;
@@ -610,15 +608,6 @@ public class ThriftHiveMetastoreClient
         if (!response.isSetSuccess()) {
             throw new MetaException("GrantRevokeResponse missing success field");
         }
-    }
-
-    @Override
-    public List<RolePrincipalGrant> listGrantedPrincipals(String role)
-            throws TException
-    {
-        GetPrincipalsInRoleRequest request = new GetPrincipalsInRoleRequest(role);
-        GetPrincipalsInRoleResponse response = client.getPrincipalsInRole(request);
-        return ImmutableList.copyOf(response.getPrincipalGrants());
     }
 
     @Override

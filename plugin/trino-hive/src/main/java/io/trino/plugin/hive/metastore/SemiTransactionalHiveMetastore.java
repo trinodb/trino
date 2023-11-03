@@ -1149,13 +1149,6 @@ public class SemiTransactionalHiveMetastore
     }
 
     @Override
-    public synchronized Set<RoleGrant> listGrantedPrincipals(String role)
-    {
-        checkReadable();
-        return delegate.listGrantedPrincipals(role);
-    }
-
-    @Override
     public synchronized Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         checkReadable();

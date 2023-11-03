@@ -130,7 +130,6 @@ public class CachingHiveMetastore
     private final LoadingCache<UserTableKey, Set<HivePrivilegeInfo>> tablePrivilegesCache;
     private final LoadingCache<String, Set<String>> rolesCache;
     private final LoadingCache<HivePrincipal, Set<RoleGrant>> roleGrantsCache;
-    private final LoadingCache<String, Set<RoleGrant>> grantedPrincipalsCache;
     private final LoadingCache<String, Optional<String>> configValuesCache;
 
     public static CachingHiveMetastoreBuilder builder()
@@ -371,7 +370,6 @@ public class CachingHiveMetastore
         tablePrivilegesCache = cacheFactory.buildCache(key -> loadTablePrivileges(key.getDatabase(), key.getTable(), key.getOwner(), key.getPrincipal()));
         rolesCache = cacheFactory.buildCache(ignored -> loadRoles());
         roleGrantsCache = cacheFactory.buildCache(this::loadRoleGrants);
-        grantedPrincipalsCache = cacheFactory.buildCache(this::loadPrincipals);
         configValuesCache = cacheFactory.buildCache(this::loadConfigValue);
 
         partitionStatisticsCache = partitionStatsCacheFactory.buildBulkCache();
@@ -1131,12 +1129,6 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public Set<RoleGrant> listGrantedPrincipals(String role)
-    {
-        return get(grantedPrincipalsCache, role);
-    }
-
-    @Override
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         return get(roleGrantsCache, principal);
@@ -1145,11 +1137,6 @@ public class CachingHiveMetastore
     private Set<RoleGrant> loadRoleGrants(HivePrincipal principal)
     {
         return delegate.listRoleGrants(principal);
-    }
-
-    private Set<RoleGrant> loadPrincipals(String role)
-    {
-        return delegate.listGrantedPrincipals(role);
     }
 
     private void invalidatePartitionCache(String databaseName, String tableName)
@@ -1548,13 +1535,6 @@ public class CachingHiveMetastore
 
     @Managed
     @Nested
-    public CacheStatsMBean getGrantedPrincipalsStats()
-    {
-        return new CacheStatsMBean(grantedPrincipalsCache);
-    }
-
-    @Managed
-    @Nested
     public CacheStatsMBean getConfigValuesStats()
     {
         return new CacheStatsMBean(configValuesCache);
@@ -1636,11 +1616,6 @@ public class CachingHiveMetastore
     LoadingCache<HivePrincipal, Set<RoleGrant>> getRoleGrantsCache()
     {
         return roleGrantsCache;
-    }
-
-    LoadingCache<String, Set<RoleGrant>> getGrantedPrincipalsCache()
-    {
-        return grantedPrincipalsCache;
     }
 
     LoadingCache<String, Optional<String>> getConfigValuesCache()

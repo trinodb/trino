@@ -1018,14 +1018,6 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Set<RoleGrant> listGrantedPrincipals(String role)
-    {
-        return listRoleGrantsSanitized().stream()
-                .filter(grant -> grant.getRoleName().equals(role))
-                .collect(toImmutableSet());
-    }
-
-    @Override
     public synchronized Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         ImmutableSet.Builder<RoleGrant> result = ImmutableSet.builder();

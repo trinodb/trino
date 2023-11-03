@@ -333,13 +333,6 @@ public class SharedHiveMetastoreCache
 
         @Managed
         @Nested
-        public AggregateCacheStatsMBean getGrantedPrincipalsStats()
-        {
-            return new AggregateCacheStatsMBean(CachingHiveMetastore::getGrantedPrincipalsCache);
-        }
-
-        @Managed
-        @Nested
         public AggregateCacheStatsMBean getConfigValuesStats()
         {
             return new AggregateCacheStatsMBean(CachingHiveMetastore::getConfigValuesCache);
