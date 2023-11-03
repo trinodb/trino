@@ -791,8 +791,7 @@ public class SemiTransactionalHiveMetastore
                                     table,
                                     Optional.of(principalPrivileges),
                                     Optional.of(currentLocation),
-                                    partitionUpdateAndMergeResults,
-                                    partitions),
+                                    partitionUpdateAndMergeResults),
                             session.getIdentity(),
                             session.getQueryId()));
             return;
@@ -2949,18 +2948,11 @@ public class SemiTransactionalHiveMetastore
             extends TableAndMore
     {
         private final List<PartitionUpdateAndMergeResults> partitionMergeResults;
-        private final List<Partition> partitions;
 
-        public TableAndMergeResults(Table table, Optional<PrincipalPrivileges> principalPrivileges, Optional<Location> currentLocation, List<PartitionUpdateAndMergeResults> partitionMergeResults, List<Partition> partitions)
+        public TableAndMergeResults(Table table, Optional<PrincipalPrivileges> principalPrivileges, Optional<Location> currentLocation, List<PartitionUpdateAndMergeResults> partitionMergeResults)
         {
             super(table, principalPrivileges, currentLocation, Optional.empty(), false, PartitionStatistics.empty(), PartitionStatistics.empty(), false); // retries are not supported for transactional tables
             this.partitionMergeResults = requireNonNull(partitionMergeResults, "partitionMergeResults is null");
-            this.partitions = requireNonNull(partitions, "partitions is nul");
-        }
-
-        public List<Partition> getPartitions()
-        {
-            return partitions;
         }
 
         @Override
@@ -2969,7 +2961,6 @@ public class SemiTransactionalHiveMetastore
             return toStringHelper(this)
                     .add("table", getTable())
                     .add("partitionMergeResults", partitionMergeResults)
-                    .add("partitions", partitions)
                     .add("principalPrivileges", getPrincipalPrivileges())
                     .add("currentLocation", getCurrentLocation())
                     .toString();
@@ -3577,19 +3568,9 @@ public class SemiTransactionalHiveMetastore
         delegate.updateTableWriteId(dbName, tableName, transactionId, writeId, rowCountChange);
     }
 
-    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
-    {
-        delegate.alterPartitions(dbName, tableName, partitions, writeId);
-    }
-
     public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
     {
         delegate.addDynamicPartitions(dbName, tableName, partitionNames, transactionId, writeId, operation);
-    }
-
-    public void commitTransaction(long transactionId)
-    {
-        delegate.commitTransaction(transactionId);
     }
 
     public static void cleanExtraOutputFiles(TrinoFileSystem fileSystem, String queryId, Location path, Set<String> filesToKeep)

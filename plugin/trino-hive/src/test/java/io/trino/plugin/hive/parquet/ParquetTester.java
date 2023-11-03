@@ -921,11 +921,6 @@ public class ParquetTester
             return new ParquetSchemaOptions(true, HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING, HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING);
         }
 
-        public static ParquetSchemaOptions withIntegerBackedDecimals()
-        {
-            return new ParquetSchemaOptions(false, false, HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING);
-        }
-
         public static ParquetSchemaOptions withInt64BackedTimestamps()
         {
             return new ParquetSchemaOptions(false, false, false);
