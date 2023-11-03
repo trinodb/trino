@@ -254,11 +254,6 @@ public class HiveColumnStatistics
                 .build();
     }
 
-    public static Builder builder(HiveColumnStatistics other)
-    {
-        return new Builder(other);
-    }
-
     public static Builder builder()
     {
         return new Builder();
@@ -277,19 +272,6 @@ public class HiveColumnStatistics
         private OptionalLong distinctValuesCount = OptionalLong.empty();
 
         private Builder() {}
-
-        private Builder(HiveColumnStatistics other)
-        {
-            this.integerStatistics = other.getIntegerStatistics();
-            this.doubleStatistics = other.getDoubleStatistics();
-            this.decimalStatistics = other.getDecimalStatistics();
-            this.dateStatistics = other.getDateStatistics();
-            this.booleanStatistics = other.getBooleanStatistics();
-            this.maxValueSizeInBytes = other.getMaxValueSizeInBytes();
-            this.totalSizeInBytes = other.getTotalSizeInBytes();
-            this.nullsCount = other.getNullsCount();
-            this.distinctValuesCount = other.getDistinctValuesCount();
-        }
 
         public Builder setIntegerStatistics(IntegerStatistics integerStatistics)
         {
