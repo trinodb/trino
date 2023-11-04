@@ -29,7 +29,6 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.containers.Minio;
 import io.trino.testing.minio.MinioClient;
 import io.trino.testng.services.ManageTestResources;
-import org.apache.hadoop.hive.metastore.TableType;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeClass;
@@ -46,6 +45,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.iceberg.CatalogType.TESTING_FILE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergConfig.EXTENDED_STATISTICS_CONFIG;
@@ -177,7 +177,7 @@ public abstract class BaseIcebergCostBasedPlanTest
                         .setDatabaseName(schema)
                         .setTableName(tableName)
                         .setOwner(Optional.empty())
-                        .setTableType(TableType.EXTERNAL_TABLE.name())
+                        .setTableType(EXTERNAL_TABLE.name())
                         .setDataColumns(List.of())
                         .withStorage(storage -> storage.setLocation(tableLocation))
                         .withStorage(storage -> storage.setStorageFormat(ICEBERG_METASTORE_STORAGE_FORMAT))

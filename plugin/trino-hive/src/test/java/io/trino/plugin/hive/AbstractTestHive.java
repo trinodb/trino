@@ -139,7 +139,6 @@ import io.trino.testing.TestingNodeManager;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.metastore.TableType;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.joda.time.DateTime;
 import org.junit.jupiter.api.AfterAll;
@@ -255,6 +254,7 @@ import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
+import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
@@ -323,7 +323,6 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
-import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.joda.time.DateTimeZone.UTC;
@@ -2777,7 +2776,7 @@ public abstract class AbstractTestHive
                 .setDatabaseName(schemaName)
                 .setTableName(tableName)
                 .setOwner(Optional.of(tableOwner))
-                .setTableType(TableType.MANAGED_TABLE.name())
+                .setTableType(MANAGED_TABLE.name())
                 .setParameters(ImmutableMap.of(
                         PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
                         PRESTO_QUERY_ID_NAME, queryId))
@@ -3555,7 +3554,7 @@ public abstract class AbstractTestHive
                     .setDatabaseName(schemaName)
                     .setTableName(tableName)
                     .setOwner(Optional.of(tableOwner))
-                    .setTableType(TableType.MANAGED_TABLE.name())
+                    .setTableType(MANAGED_TABLE.name())
                     .setParameters(ImmutableMap.of(
                             PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
                             PRESTO_QUERY_ID_NAME, session.getQueryId()))
@@ -5640,7 +5639,7 @@ public abstract class AbstractTestHive
                     .setDatabaseName(schemaName)
                     .setTableName(tableName)
                     .setOwner(Optional.of(tableOwner))
-                    .setTableType(TableType.MANAGED_TABLE.name())
+                    .setTableType(MANAGED_TABLE.name())
                     .setParameters(tableParamBuilder.buildOrThrow())
                     .setDataColumns(columns)
                     .setPartitionColumns(partitionColumns);

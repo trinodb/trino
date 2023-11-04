@@ -15,7 +15,6 @@ package io.trino.plugin.hive.metastore.file;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.TableType;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
@@ -36,6 +35,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.util.HiveClassNames.HUDI_PARQUET_INPUT_FORMAT;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -92,7 +92,7 @@ public class TestFileHiveMetastore
         Table table = Table.builder()
                 .setDatabaseName("default")
                 .setTableName("some_table_name" + randomNameSuffix())
-                .setTableType(TableType.EXTERNAL_TABLE.name())
+                .setTableType(EXTERNAL_TABLE.name())
                 .setOwner(Optional.of("public"))
                 .addDataColumn(new Column("foo", HIVE_INT, Optional.empty()))
                 .setParameters(ImmutableMap.of("serialization.format", "1", "EXTERNAL", "TRUE"))

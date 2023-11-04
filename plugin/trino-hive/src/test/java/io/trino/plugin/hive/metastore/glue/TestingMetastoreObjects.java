@@ -33,6 +33,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.ViewReaderUtil.ICEBERG_MATERIALIZED_VIEW_COMMENT;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static java.lang.String.format;
@@ -61,7 +62,7 @@ public final class TestingMetastoreObjects
                 .withParameters(ImmutableMap.of())
                 .withPartitionKeys(ImmutableList.of(getGlueTestColumn()))
                 .withStorageDescriptor(getGlueTestStorageDescriptor())
-                .withTableType(TableType.EXTERNAL_TABLE.name())
+                .withTableType(EXTERNAL_TABLE.name())
                 .withViewOriginalText("originalText")
                 .withViewExpandedText("expandedText");
     }
