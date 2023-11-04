@@ -11,32 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.benchmark;
+package io.trino.plugin.hive.parquet;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
-import io.trino.plugin.hive.HivePageSourceProvider;
-import io.trino.plugin.hive.HiveSplit;
 import io.trino.plugin.hive.HiveStorageFormat;
-import io.trino.plugin.hive.HiveTableHandle;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.HiveTypeName;
 import io.trino.plugin.hive.ReaderPageSource;
-import io.trino.plugin.hive.TableToPartitionMapping;
-import io.trino.spi.SplitWeight;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import io.trino.sql.planner.TestingConnectorTransactionHandle;
 
 import java.io.File;
 import java.util.List;
@@ -50,86 +41,37 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
-import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.join;
 import static java.util.stream.Collectors.joining;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
 
-public abstract class AbstractFileFormat
-        implements FileFormat
+final class ParquetUtil
 {
-    @Override
-    public boolean supportsDate()
+    private ParquetUtil() {}
+
+    public static HivePageSourceFactory createHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
     {
-        return true;
+        return new ParquetPageSourceFactory(
+                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
+                new FileFormatDataSourceStats(),
+                new ParquetReaderConfig(),
+                new HiveConfig());
     }
 
-    @Override
-    public ConnectorPageSource createFileFormatReader(
+    public static ConnectorPageSource createParquetPageSource(
             ConnectorSession session,
             HdfsEnvironment hdfsEnvironment,
             File targetFile,
             List<String> columnNames,
             List<Type> columnTypes)
     {
-        return createPageSource(getHivePageSourceFactory(hdfsEnvironment), session, targetFile, columnNames, columnTypes, getFormat());
+        return createPageSource(createHivePageSourceFactory(hdfsEnvironment), session, targetFile, columnNames, columnTypes, HiveStorageFormat.PARQUET);
     }
 
-    @Override
-    public ConnectorPageSource createGenericReader(
-            ConnectorSession session,
-            HdfsEnvironment hdfsEnvironment,
-            File targetFile,
-            List<ColumnHandle> readColumns,
-            List<String> schemaColumnNames,
-            List<Type> schemaColumnTypes)
-    {
-        HivePageSourceProvider factory = new HivePageSourceProvider(
-                TESTING_TYPE_MANAGER,
-                new HiveConfig(),
-                ImmutableSet.of(getHivePageSourceFactory(hdfsEnvironment)));
-
-        Properties schema = createSchema(getFormat(), schemaColumnNames, schemaColumnTypes);
-
-        HiveSplit split = new HiveSplit(
-                "",
-                targetFile.getPath(),
-                0,
-                targetFile.length(),
-                targetFile.length(),
-                targetFile.lastModified(),
-                schema,
-                ImmutableList.of(),
-                ImmutableList.of(),
-                OptionalInt.empty(),
-                OptionalInt.empty(),
-                false,
-                TableToPartitionMapping.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                SplitWeight.standard());
-
-        return factory.createPageSource(
-                TestingConnectorTransactionHandle.INSTANCE,
-                session, split,
-                new HiveTableHandle("schema_name", "table_name", ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty()),
-                readColumns,
-                DynamicFilter.EMPTY);
-    }
-
-    @Override
-    public boolean supports(TestData testData)
-    {
-        return true;
-    }
-
-    static ConnectorPageSource createPageSource(
+    private static ConnectorPageSource createPageSource(
             HivePageSourceFactory pageSourceFactory,
             ConnectorSession session,
             File targetFile,
@@ -162,7 +104,7 @@ public abstract class AbstractFileFormat
         return readerPageSourceWithProjections.get().get();
     }
 
-    static List<HiveColumnHandle> getBaseColumns(List<String> columnNames, List<Type> columnTypes)
+    private static List<HiveColumnHandle> getBaseColumns(List<String> columnNames, List<Type> columnTypes)
     {
         return IntStream.range(0, columnNames.size())
                 .boxed()
@@ -176,13 +118,13 @@ public abstract class AbstractFileFormat
                 .collect(toImmutableList());
     }
 
-    static Properties createSchema(HiveStorageFormat format, List<String> columnNames, List<Type> columnTypes)
+    private static Properties createSchema(HiveStorageFormat format, List<String> columnNames, List<Type> columnTypes)
     {
         Properties schema = new Properties();
         schema.setProperty(SERIALIZATION_LIB, format.getSerde());
-        schema.setProperty(FILE_INPUT_FORMAT, format.getInputFormat());
-        schema.setProperty(META_TABLE_COLUMNS, join(",", columnNames));
-        schema.setProperty(META_TABLE_COLUMN_TYPES, columnTypes.stream()
+        schema.setProperty("file.inputformat", format.getInputFormat());
+        schema.setProperty("columns", join(",", columnNames));
+        schema.setProperty("columns.types", columnTypes.stream()
                 .map(HiveType::toHiveType)
                 .map(HiveType::getHiveTypeName)
                 .map(HiveTypeName::toString)
