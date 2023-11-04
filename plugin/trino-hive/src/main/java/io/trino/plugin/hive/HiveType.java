@@ -116,15 +116,6 @@ public final class HiveType
         return toTypeSignature(typeInfo, timestampPrecision);
     }
 
-    /**
-     * @deprecated Prefer {@link #getType(TypeManager, HiveTimestampPrecision)}.
-     */
-    @Deprecated
-    public Type getType(TypeManager typeManager)
-    {
-        return typeManager.getType(getTypeSignature());
-    }
-
     public Type getType(TypeManager typeManager, HiveTimestampPrecision timestampPrecision)
     {
         return typeManager.getType(getTypeSignature(timestampPrecision));

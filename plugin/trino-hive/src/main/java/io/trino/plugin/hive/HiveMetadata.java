@@ -1814,7 +1814,7 @@ public class HiveMetadata
         }
 
         Map<String, Type> columnTypes = handle.getInputColumns().stream()
-                .collect(toImmutableMap(HiveColumnHandle::getName, column -> column.getHiveType().getType(typeManager)));
+                .collect(toImmutableMap(HiveColumnHandle::getName, column -> typeManager.getType(column.getHiveType().getTypeSignature())));
         Map<List<String>, ComputedStatistics> partitionComputedStatistics = createComputedStatisticsToPartitionMap(computedStatistics, handle.getPartitionedBy(), columnTypes);
 
         PartitionStatistics tableStatistics;
@@ -2176,7 +2176,7 @@ public class HiveMetadata
                 .map(Column::getName)
                 .collect(toImmutableList());
         Map<String, Type> columnTypes = handle.getInputColumns().stream()
-                .collect(toImmutableMap(HiveColumnHandle::getName, column -> column.getHiveType().getType(typeManager)));
+                .collect(toImmutableMap(HiveColumnHandle::getName, column -> typeManager.getType(column.getHiveType().getTypeSignature())));
         Map<List<String>, ComputedStatistics> partitionComputedStatistics = createComputedStatisticsToPartitionMap(computedStatistics, partitionedBy, columnTypes);
 
         ImmutableList.Builder<PartitionUpdateInfo> partitionUpdateInfosBuilder = ImmutableList.builder();
@@ -3127,7 +3127,7 @@ public class HiveMetadata
                         .addAll(oldHiveType.getHiveDereferenceNames(indices))
                         .build(),
                 newHiveType,
-                newHiveType.getType(typeManager));
+                typeManager.getType(newHiveType.getTypeSignature()));
 
         return new HiveColumnHandle(
                 column.getBaseColumnName(),

@@ -232,7 +232,7 @@ public class TestHiveBucketing
                 .map(HiveType::getTypeInfo)
                 .collect(toImmutableList());
         List<Type> trinoTypes = hiveTypes.stream()
-                .map(type -> type.getType(TESTING_TYPE_MANAGER))
+                .map(type -> TESTING_TYPE_MANAGER.getType(type.getTypeSignature()))
                 .collect(toImmutableList());
 
         ImmutableList.Builder<List<NullableValue>> values = ImmutableList.builder();
@@ -306,7 +306,7 @@ public class TestHiveBucketing
         Object[] nativeContainerValues = new Object[hiveValues.size()];
         for (int i = 0; i < hiveTypeStrings.size(); i++) {
             Object hiveValue = hiveValues.get(i);
-            Type type = hiveTypes.get(i).getType(TESTING_TYPE_MANAGER);
+            Type type = TESTING_TYPE_MANAGER.getType(hiveTypes.get(i).getTypeSignature());
 
             BlockBuilder blockBuilder = type.createBlockBuilder(null, 3);
             // prepend 2 nulls to make sure position is respected when HiveBucketing function

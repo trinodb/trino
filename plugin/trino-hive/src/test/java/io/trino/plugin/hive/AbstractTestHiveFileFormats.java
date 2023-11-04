@@ -496,7 +496,7 @@ public abstract class AbstractTestHiveFileFormats
 
             if (testColumn.getDereferenceNames().size() == 0) {
                 HiveType hiveType = HiveType.valueOf(testColumn.getObjectInspector().getTypeName());
-                columns.add(createBaseColumn(testColumn.getName(), columnIndex, hiveType, hiveType.getType(TESTING_TYPE_MANAGER), testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty()));
+                columns.add(createBaseColumn(testColumn.getName(), columnIndex, hiveType, TESTING_TYPE_MANAGER.getType(hiveType.getTypeSignature()), testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty()));
             }
             else {
                 HiveType baseHiveType = HiveType.valueOf(testColumn.getBaseObjectInspector().getTypeName());
@@ -505,12 +505,12 @@ public abstract class AbstractTestHiveFileFormats
                         testColumn.getBaseName(),
                         columnIndex,
                         baseHiveType,
-                        baseHiveType.getType(TESTING_TYPE_MANAGER),
+                        TESTING_TYPE_MANAGER.getType(baseHiveType.getTypeSignature()),
                         Optional.of(new HiveColumnProjectionInfo(
                                 testColumn.getDereferenceIndices(),
                                 testColumn.getDereferenceNames(),
                                 partialHiveType,
-                                partialHiveType.getType(TESTING_TYPE_MANAGER))),
+                                TESTING_TYPE_MANAGER.getType(partialHiveType.getTypeSignature()))),
                         testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR,
                         Optional.empty());
                 columns.add(hiveColumnHandle);
@@ -536,7 +536,7 @@ public abstract class AbstractTestHiveFileFormats
         List<Type> types = testColumns.stream()
                 .map(TestColumn::getType)
                 .map(HiveType::valueOf)
-                .map(type -> type.getType(TESTING_TYPE_MANAGER))
+                .map(type -> TESTING_TYPE_MANAGER.getType(type.getTypeSignature()))
                 .collect(toList());
 
         PageBuilder pageBuilder = new PageBuilder(types);

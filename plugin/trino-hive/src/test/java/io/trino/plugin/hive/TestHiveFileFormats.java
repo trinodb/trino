@@ -990,7 +990,7 @@ public class TestHiveFileFormats
                     ImmutableList.of(childColumn.getObjectInspector()));
 
             HiveType hiveType = (HiveType.valueOf(childColumn.getObjectInspector().getTypeName()));
-            Type trinoType = hiveType.getType(TESTING_TYPE_MANAGER);
+            Type trinoType = TESTING_TYPE_MANAGER.getType(hiveType.getTypeSignature());
 
             List<Object> list = new ArrayList<>();
             list.add(childColumn.getWriteValue());

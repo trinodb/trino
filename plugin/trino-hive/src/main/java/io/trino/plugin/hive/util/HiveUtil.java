@@ -573,7 +573,7 @@ public final class HiveUtil
             if (!hiveType.isSupportedType(table.getStorage().getStorageFormat())) {
                 throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
             }
-            columns.add(createBaseColumn(field.getName(), -1, hiveType, hiveType.getType(typeManager), PARTITION_KEY, field.getComment()));
+            columns.add(createBaseColumn(field.getName(), -1, hiveType, typeManager.getType(hiveType.getTypeSignature()), PARTITION_KEY, field.getComment()));
         }
 
         return columns.build();
