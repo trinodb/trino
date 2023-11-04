@@ -54,7 +54,7 @@ function free_up_disk_space_ubuntu()
       /usr/share/dotnet/ \
       /opt/ghc/ \
       /usr/local/share/boost/ \
-      "${AGENT_TOOLSDIRECTORY}"
+      "${AGENT_TOOLSDIRECTORY:-}"
 
       echo "Prune docker images"
       sudo docker system prune --all -f
