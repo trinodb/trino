@@ -116,6 +116,6 @@ public class ExceptionWrappingMetadataReader
     private OrcCorruptionException propagate(Throwable throwable, String message)
     {
         propagateIfPossible(throwable, TrinoException.class);
-        return new OrcCorruptionException(throwable, orcDataSourceId, message);
+        return new OrcCorruptionException(throwable, orcDataSourceId, "%s", message);
     }
 }

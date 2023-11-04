@@ -17,6 +17,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ChunkKey;
@@ -627,6 +628,8 @@ public class ParquetReader
         }
     }
 
+    @SuppressWarnings("FormatStringAnnotation")
+    @FormatMethod
     private void validateWrite(java.util.function.Predicate<ParquetWriteValidation> test, String messageFormat, Object... args)
             throws ParquetCorruptionException
     {

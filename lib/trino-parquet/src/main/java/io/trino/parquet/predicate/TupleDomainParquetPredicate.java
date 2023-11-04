@@ -595,12 +595,12 @@ public class TupleDomainParquetPredicate
 
     private static ParquetCorruptionException corruptionException(String column, ParquetDataSourceId id, Statistics<?> statistics, Exception cause)
     {
-        return new ParquetCorruptionException(cause, format("Corrupted statistics for column \"%s\" in Parquet file \"%s\": [%s]", column, id, statistics));
+        return new ParquetCorruptionException(cause, "Corrupted statistics for column \"%s\" in Parquet file \"%s\": [%s]", column, id, statistics);
     }
 
     private static ParquetCorruptionException corruptionException(String column, ParquetDataSourceId id, ColumnIndex columnIndex, Exception cause)
     {
-        return new ParquetCorruptionException(cause, format("Corrupted statistics for column \"%s\" in Parquet file \"%s\". Corrupted column index: [%s]", column, id, columnIndex));
+        return new ParquetCorruptionException(cause, "Corrupted statistics for column \"%s\" in Parquet file \"%s\". Corrupted column index: [%s]", column, id, columnIndex);
     }
 
     private static boolean isCorruptedColumnIndex(
