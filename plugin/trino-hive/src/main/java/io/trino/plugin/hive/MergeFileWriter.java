@@ -111,7 +111,7 @@ public class MergeFileWriter
         this.session = requireNonNull(session, "session is null");
         checkArgument(transaction.isTransactional(), "Not in a transaction: %s", transaction);
         this.hiveAcidSchema = createAcidSchema(hiveRowType);
-        this.hiveRowTypeNullsBlock = nativeValueToBlock(hiveRowType.getType(typeManager), null);
+        this.hiveRowTypeNullsBlock = nativeValueToBlock(typeManager.getType(hiveRowType.getTypeSignature()), null);
         Matcher matcher = BASE_PATH_MATCHER.matcher(bucketPath);
         if (!matcher.matches()) {
             matcher = BUCKET_PATH_MATCHER.matcher(bucketPath);
