@@ -112,9 +112,8 @@ import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_LE
 import static io.trino.plugin.hive.AbstractTestHiveFileFormats.getFieldFromCursor;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
-import static io.trino.plugin.hive.parquet.ParquetUtil.createParquetPageSource;
+import static io.trino.plugin.hive.parquet.ParquetUtil.createPageSource;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -455,9 +454,8 @@ class ParquetTester
                     DateTimeZone.getDefault());
 
             Iterator<?>[] expectedValues = getIterators(readValues);
-            try (ConnectorPageSource pageSource = createParquetPageSource(
+            try (ConnectorPageSource pageSource = createPageSource(
                     session,
-                    HDFS_ENVIRONMENT,
                     tempFile.getFile(),
                     columnNames,
                     columnTypes)) {
@@ -479,9 +477,8 @@ class ParquetTester
             List<Type> columnTypes)
             throws IOException
     {
-        try (ConnectorPageSource pageSource = createParquetPageSource(
+        try (ConnectorPageSource pageSource = createPageSource(
                 session,
-                HDFS_ENVIRONMENT,
                 dataFile,
                 columnNames,
                 columnTypes)) {
