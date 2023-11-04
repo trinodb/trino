@@ -37,7 +37,6 @@ import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.UnimplementedHiveMetastore;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.CachingHiveMetastoreBuilder;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastore;
@@ -66,6 +65,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -73,7 +73,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -90,8 +89,7 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFi
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
-import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
-import static io.trino.plugin.hive.metastore.cache.TestCachingHiveMetastore.PartitionCachingAssertions.assertThatCachingWithDisabledPartitionCache;
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_DATABASE;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_PARTITION;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.PARTITION_COLUMN_NAMES;
@@ -130,10 +128,11 @@ public class TestCachingHiveMetastore
             .setColumnStatistics(ImmutableMap.of(TEST_COLUMN, createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty())))
             .build();
     private static final SchemaTableName TEST_SCHEMA_TABLE = new SchemaTableName(TEST_DATABASE, TEST_TABLE);
+    private static final Duration CACHE_TTL = new Duration(5, TimeUnit.MINUTES);
 
     private MockThriftMetastoreClient mockClient;
+    private ThriftMetastore thriftHiveMetastore;
     private ListeningExecutorService executor;
-    private CachingHiveMetastoreBuilder metastoreBuilder;
     private CachingHiveMetastore metastore;
     private CachingHiveMetastore statsOnlyCacheMetastore;
     private ThriftMetastoreStats stats;
@@ -142,25 +141,11 @@ public class TestCachingHiveMetastore
     public void setUp()
     {
         mockClient = new MockThriftMetastoreClient();
-        ThriftMetastore thriftHiveMetastore = createThriftHiveMetastore();
+        thriftHiveMetastore = createThriftHiveMetastore();
         executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s")));
 
-        metastoreBuilder = CachingHiveMetastore.builder()
-                .delegate(new BridgingHiveMetastore(thriftHiveMetastore))
-                .executor(executor)
-                .metadataCacheEnabled(true)
-                .statsCacheEnabled(true)
-                .cacheTtl(new Duration(5, TimeUnit.MINUTES))
-                .refreshInterval(new Duration(1, TimeUnit.MINUTES))
-                .maximumSize(1000)
-                .cacheMissing(new CachingHiveMetastoreConfig().isCacheMissing())
-                .partitionCacheEnabled(true);
-
-        metastore = metastoreBuilder.build();
-        statsOnlyCacheMetastore = CachingHiveMetastore.builder(metastoreBuilder)
-                .metadataCacheEnabled(false)
-                .statsCacheEnabled(true) // only cache stats
-                .build();
+        metastore = createCachingHiveMetastore(new BridgingHiveMetastore(thriftHiveMetastore), CACHE_TTL, true, true, executor);
+        statsOnlyCacheMetastore = createCachingHiveMetastore(new BridgingHiveMetastore(thriftHiveMetastore), Duration.ZERO, true, true, executor);
 
         stats = ((ThriftHiveMetastore) thriftHiveMetastore).getStats();
     }
@@ -638,7 +623,7 @@ public class TestCachingHiveMetastore
                 return result;
             }
         };
-        CachingHiveMetastore metastore = createMetastore(mockClient);
+        CachingHiveMetastore metastore = createCachingHiveMetastore(new BridgingHiveMetastore(createThriftHiveMetastore(mockClient)), CACHE_TTL, true, true, executor);
 
         Table table = metastore.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
 
@@ -812,7 +797,7 @@ public class TestCachingHiveMetastore
                 return result;
             }
         };
-        CachingHiveMetastore metastore = createMetastore(mockClient);
+        CachingHiveMetastore metastore = createCachingHiveMetastore(new BridgingHiveMetastore(createThriftHiveMetastore(mockClient)), CACHE_TTL, true, true, executor);
 
         Table table = metastore.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
 
@@ -846,21 +831,6 @@ public class TestCachingHiveMetastore
         finally {
             executorService.shutdownNow();
         }
-    }
-
-    private CachingHiveMetastore createMetastore(MockThriftMetastoreClient mockClient)
-    {
-        return CachingHiveMetastore.builder()
-                .delegate(new BridgingHiveMetastore(createThriftHiveMetastore(mockClient)))
-                .executor(executor)
-                .metadataCacheEnabled(true)
-                .statsCacheEnabled(true)
-                .cacheTtl(new Duration(5, TimeUnit.MINUTES))
-                .refreshInterval(new Duration(1, TimeUnit.MINUTES))
-                .maximumSize(1000)
-                .cacheMissing(new CachingHiveMetastoreConfig().isCacheMissing())
-                .partitionCacheEnabled(true)
-                .build();
     }
 
     @Test
@@ -911,9 +881,7 @@ public class TestCachingHiveMetastore
     @Test
     public void testNoCacheMissing()
     {
-        CachingHiveMetastore metastore = CachingHiveMetastore.builder(metastoreBuilder)
-                .cacheMissing(false)
-                .build();
+        CachingHiveMetastore metastore = createCachingHiveMetastore(new BridgingHiveMetastore(thriftHiveMetastore), CACHE_TTL, false, true, executor);
 
         mockClient.setReturnTable(false);
         assertEquals(mockClient.getAccessCount(), 0);
@@ -948,23 +916,9 @@ public class TestCachingHiveMetastore
     }
 
     @Test
-    public void testCachingHiveMetastoreCreationWithTtlOnly()
-    {
-        CachingHiveMetastoreConfig config = new CachingHiveMetastoreConfig();
-        config.setMetastoreCacheTtl(new Duration(10, TimeUnit.MILLISECONDS));
-
-        CachingHiveMetastore metastore = createMetastoreWithDirectExecutor(config);
-
-        assertThat(metastore).isNotNull();
-    }
-
-    @Test
     public void testCachingHiveMetastoreCreationViaMemoize()
     {
-        ThriftMetastore thriftHiveMetastore = createThriftHiveMetastore();
-        metastore = memoizeMetastore(
-                new BridgingHiveMetastore(thriftHiveMetastore),
-                1000);
+        metastore = createPerTransactionCache(new BridgingHiveMetastore(createThriftHiveMetastore()), 1000);
 
         assertEquals(mockClient.getAccessCount(), 0);
         assertEquals(metastore.getAllDatabases(), ImmutableList.of(TEST_DATABASE));
@@ -1053,17 +1007,7 @@ public class TestCachingHiveMetastore
         };
 
         // Caching metastore
-        metastore = CachingHiveMetastore.builder()
-                .delegate(mockMetastore)
-                .executor(executor)
-                .metadataCacheEnabled(true)
-                .statsCacheEnabled(true)
-                .cacheTtl(new Duration(5, TimeUnit.MINUTES))
-                .refreshInterval(new Duration(1, TimeUnit.MINUTES))
-                .maximumSize(1000)
-                .cacheMissing(new CachingHiveMetastoreConfig().isCacheMissing())
-                .partitionCacheEnabled(true)
-                .build();
+        metastore = createCachingHiveMetastore(mockMetastore, CACHE_TTL, true, true, executor);
 
         // The test. Main thread does modifications and verifies subsequent load sees them. Background thread loads the state into the cache.
         ExecutorService executor = Executors.newFixedThreadPool(1);
@@ -1244,31 +1188,21 @@ public class TestCachingHiveMetastore
         }
     }
 
+    private PartitionCachingAssertions assertThatCachingWithDisabledPartitionCache()
+    {
+        return new PartitionCachingAssertions(executor);
+    }
+
     static class PartitionCachingAssertions
     {
         private final CachingHiveMetastore cachingHiveMetastore;
         private final MockThriftMetastoreClient thriftClient;
         private Consumer<CachingHiveMetastore> metastoreInteractions = hiveMetastore -> {};
 
-        static PartitionCachingAssertions assertThatCachingWithDisabledPartitionCache()
-        {
-            return new PartitionCachingAssertions();
-        }
-
-        private PartitionCachingAssertions()
+        private PartitionCachingAssertions(Executor refreshExecutor)
         {
             thriftClient = new MockThriftMetastoreClient();
-            cachingHiveMetastore = CachingHiveMetastore.builder()
-                    .delegate(new BridgingHiveMetastore(createThriftHiveMetastore(thriftClient)))
-                    .executor(listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s"))))
-                    .metadataCacheEnabled(true)
-                    .statsCacheEnabled(true)
-                    .cacheTtl(new Duration(5, TimeUnit.MINUTES))
-                    .refreshInterval(new Duration(1, TimeUnit.MINUTES))
-                    .maximumSize(1000)
-                    .cacheMissing(true)
-                    .partitionCacheEnabled(false)
-                    .build();
+            cachingHiveMetastore = createCachingHiveMetastore(new BridgingHiveMetastore(createThriftHiveMetastore(thriftClient)), CACHE_TTL, true, false, refreshExecutor);
         }
 
         PartitionCachingAssertions whenExecuting(Consumer<CachingHiveMetastore> interactions)
@@ -1309,18 +1243,17 @@ public class TestCachingHiveMetastore
         }
     }
 
-    private CachingHiveMetastore createMetastoreWithDirectExecutor(CachingHiveMetastoreConfig config)
+    private static CachingHiveMetastore createCachingHiveMetastore(HiveMetastore hiveMetastore, Duration cacheTtl, boolean cacheMissing, boolean partitionCacheEnabled, Executor executor)
     {
-        return CachingHiveMetastore.builder()
-                .delegate(new BridgingHiveMetastore(createThriftHiveMetastore()))
-                .executor(directExecutor())
-                .metadataCacheEnabled(true)
-                .statsCacheEnabled(true)
-                .cacheTtl(config.getMetastoreCacheTtl())
-                .refreshInterval(config.getMetastoreRefreshInterval())
-                .maximumSize(config.getMetastoreCacheMaximumSize())
-                .cacheMissing(config.isCacheMissing())
-                .partitionCacheEnabled(config.isPartitionCacheEnabled())
-                .build();
+        return CachingHiveMetastore.createCachingHiveMetastore(
+                hiveMetastore,
+                cacheTtl,
+                CACHE_TTL,
+                Optional.of(new Duration(1, TimeUnit.MINUTES)),
+                executor,
+                1000,
+                CachingHiveMetastore.StatsRecording.ENABLED,
+                cacheMissing,
+                partitionCacheEnabled);
     }
 }
