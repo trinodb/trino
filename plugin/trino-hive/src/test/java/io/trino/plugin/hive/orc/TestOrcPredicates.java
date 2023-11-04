@@ -37,6 +37,7 @@ import org.apache.hadoop.mapred.FileSplit;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
@@ -44,7 +45,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -67,7 +67,7 @@ import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TestOrcPredicates
+class TestOrcPredicates
         extends AbstractTestHiveFileFormats
 {
     private static final int NUM_ROWS = 50000;
@@ -83,14 +83,14 @@ public class TestOrcPredicates
     private static final TestColumn columnPrimitiveBigInt = new TestColumn("column_primitive_bigint", javaLongObjectInspector, 6L, 6L);
 
     @Test
-    public void testOrcPredicates()
+    void testOrcPredicates()
             throws Exception
     {
         testOrcPredicates(getHiveSession(new HiveConfig(), new OrcReaderConfig().setUseColumnNames(true)));
         testOrcPredicates(getHiveSession(new HiveConfig(), new OrcReaderConfig()));
     }
 
-    private void testOrcPredicates(ConnectorSession session)
+    private static void testOrcPredicates(ConnectorSession session)
             throws Exception
     {
         List<TestColumn> columnsToWrite = ImmutableList.of(columnPrimitiveInteger, columnStruct, columnPrimitiveBigInt);
@@ -137,27 +137,27 @@ public class TestOrcPredicates
         }
     }
 
-    private void assertFilteredRows(
+    private static void assertFilteredRows(
             TupleDomain<TestColumn> effectivePredicate,
             List<TestColumn> columnsToRead,
             ConnectorSession session,
             FileSplit split,
             int expectedRows)
+            throws IOException
     {
-        ConnectorPageSource pageSource = createPageSource(effectivePredicate, columnsToRead, session, split);
-
-        int filteredRows = 0;
-        while (!pageSource.isFinished()) {
-            Page page = pageSource.getNextPage();
-            if (page != null) {
-                filteredRows += page.getPositionCount();
+        try (ConnectorPageSource pageSource = createPageSource(effectivePredicate, columnsToRead, session, split)) {
+            int filteredRows = 0;
+            while (!pageSource.isFinished()) {
+                Page page = pageSource.getNextPage();
+                if (page != null) {
+                    filteredRows += page.getPositionCount();
+                }
             }
+            assertEquals(filteredRows, expectedRows);
         }
-
-        assertEquals(filteredRows, expectedRows);
     }
 
-    private ConnectorPageSource createPageSource(
+    private static ConnectorPageSource createPageSource(
             TupleDomain<TestColumn> effectivePredicate,
             List<TestColumn> columnsToRead,
             ConnectorSession session,
@@ -182,8 +182,8 @@ public class TestOrcPredicates
             }
         }
 
-        splitProperties.setProperty("columns", splitPropertiesColumnNames.build().stream().collect(Collectors.joining(",")));
-        splitProperties.setProperty("columns.types", splitPropertiesColumnTypes.build().stream().collect(Collectors.joining(",")));
+        splitProperties.setProperty("columns", String.join(",", splitPropertiesColumnNames.build()));
+        splitProperties.setProperty("columns.types", String.join(",", splitPropertiesColumnTypes.build()));
 
         List<HivePartitionKey> partitionKeys = columnsToRead.stream()
                 .filter(TestColumn::isPartitionKey)
