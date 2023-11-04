@@ -20,9 +20,9 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.VarcharType;
 import org.apache.avro.Schema;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hive.serde2.avro.AvroSerdeUtils;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Properties;
 import java.util.stream.Collectors;
@@ -37,27 +37,27 @@ public class TestAvroSchemaGeneration
 {
     @Test
     public void testOldVsNewSchemaGeneration()
-            throws IOException
+            throws Exception
     {
         Properties properties = new Properties();
         properties.setProperty(TABLE_NAME, "testingTable");
         properties.setProperty(LIST_COLUMNS, "a,b");
         properties.setProperty(LIST_COLUMN_TYPES, Stream.of(HiveType.HIVE_INT, HiveType.HIVE_STRING).map(HiveType::getTypeInfo).map(TypeInfo::toString).collect(Collectors.joining(",")));
         Schema actual = AvroHiveFileUtils.determineSchemaOrThrowException(new LocalFileSystem(Path.of("/")), properties);
-        Schema expected = new TrinoAvroSerDe().determineSchemaOrReturnErrorSchema(new Configuration(false), properties);
+        Schema expected = AvroSerdeUtils.determineSchemaOrThrowException(new Configuration(false), properties);
         assertThat(actual).isEqualTo(expected);
     }
 
     @Test
     public void testOldVsNewSchemaGenerationWithNested()
-            throws IOException
+            throws Exception
     {
         Properties properties = new Properties();
         properties.setProperty(TABLE_NAME, "testingTable");
         properties.setProperty(LIST_COLUMNS, "a,b");
         properties.setProperty(LIST_COLUMN_TYPES, Stream.of(HiveType.toHiveType(RowType.rowType(RowType.field("a", VarcharType.VARCHAR))), HiveType.HIVE_STRING).map(HiveType::getTypeInfo).map(TypeInfo::toString).collect(Collectors.joining(",")));
         Schema actual = AvroHiveFileUtils.determineSchemaOrThrowException(new LocalFileSystem(Path.of("/")), properties);
-        Schema expected = new TrinoAvroSerDe().determineSchemaOrReturnErrorSchema(new Configuration(false), properties);
+        Schema expected = AvroSerdeUtils.determineSchemaOrThrowException(new Configuration(false), properties);
         assertThat(actual).isEqualTo(expected);
     }
 }
