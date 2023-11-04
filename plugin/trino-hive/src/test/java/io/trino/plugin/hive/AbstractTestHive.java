@@ -268,6 +268,7 @@ import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.createCachingHiveMetastore;
 import static io.trino.plugin.hive.orc.OrcPageSource.ORC_CODEC_METRIC_PREFIX;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
@@ -787,23 +788,24 @@ public abstract class AbstractTestHive
                 .setRcfileTimeZone("UTC");
 
         hdfsEnvironment = HDFS_ENVIRONMENT;
-        HiveMetastore metastore = CachingHiveMetastore.builder()
-                .delegate(new BridgingHiveMetastore(testingThriftHiveMetastoreBuilder()
+
+        CachingHiveMetastoreConfig cachingHiveMetastoreConfig = new CachingHiveMetastoreConfig();
+        HiveMetastore metastore = createCachingHiveMetastore(
+                new BridgingHiveMetastore(testingThriftHiveMetastoreBuilder()
                         .metastoreClient(metastoreAddress)
                         .hiveConfig(hiveConfig)
                         .thriftMetastoreConfig(new ThriftMetastoreConfig()
                                 .setAssumeCanonicalPartitionKeys(true))
                         .hdfsEnvironment(hdfsEnvironment)
-                        .build()))
-                .executor(executor)
-                .metadataCacheEnabled(true)
-                .statsCacheEnabled(true)
-                .cacheTtl(new Duration(1, MINUTES))
-                .refreshInterval(new Duration(15, SECONDS))
-                .maximumSize(10000)
-                .cacheMissing(new CachingHiveMetastoreConfig().isCacheMissing())
-                .partitionCacheEnabled(new CachingHiveMetastoreConfig().isPartitionCacheEnabled())
-                .build();
+                        .build()),
+                new Duration(1, MINUTES),
+                new Duration(1, MINUTES),
+                Optional.of(new Duration(15, SECONDS)),
+                executor,
+                10000,
+                CachingHiveMetastore.StatsRecording.ENABLED,
+                cachingHiveMetastoreConfig.isCacheMissing(),
+                cachingHiveMetastoreConfig.isPartitionCacheEnabled());
 
         setup(databaseName, hiveConfig, metastore, hdfsEnvironment);
     }
