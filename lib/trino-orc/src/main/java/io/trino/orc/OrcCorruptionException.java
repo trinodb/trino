@@ -13,6 +13,8 @@
  */
 package io.trino.orc;
 
+import com.google.errorprone.annotations.FormatMethod;
+
 import java.io.IOException;
 
 import static java.lang.String.format;
@@ -25,11 +27,13 @@ public class OrcCorruptionException
         this(orcDataSourceId, "%s", message);
     }
 
+    @FormatMethod
     public OrcCorruptionException(OrcDataSourceId orcDataSourceId, String messageFormat, Object... args)
     {
         super(formatMessage(orcDataSourceId, messageFormat, args));
     }
 
+    @FormatMethod
     public OrcCorruptionException(Throwable cause, OrcDataSourceId orcDataSourceId, String messageFormat, Object... args)
     {
         super(formatMessage(orcDataSourceId, messageFormat, args), cause);
