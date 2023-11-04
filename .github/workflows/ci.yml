@@ -86,7 +86,7 @@ jobs:
 
   artifact-checks:
     runs-on: [self-hosted, sep-cicd, gha-fleet-nano]
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
@@ -628,7 +628,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.build-test-matrix.outputs.matrix) }}
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       SECRETS_PRESENT: ${{ secrets.SECRETS_PRESENT }}
     steps:
