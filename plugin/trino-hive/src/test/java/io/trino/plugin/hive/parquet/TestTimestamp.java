@@ -42,7 +42,6 @@ import java.util.Optional;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Iterables.transform;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
@@ -136,7 +135,7 @@ public class TestTimestamp
              throws IOException
     {
         Iterator<?> expected = expectedValues.iterator();
-        try (ConnectorPageSource pageSource = ParquetUtil.createParquetPageSource(session, HDFS_ENVIRONMENT, tempFile.getFile(), columnNames, ImmutableList.of(type))) {
+        try (ConnectorPageSource pageSource = ParquetUtil.createPageSource(session, tempFile.getFile(), columnNames, ImmutableList.of(type))) {
             // skip a page to exercise the decoder's skip() logic
             Page firstPage = pageSource.getNextPage();
             assertTrue(firstPage.getPositionCount() > 0, "Expected first page to have at least 1 row");
