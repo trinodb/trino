@@ -49,7 +49,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
-import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -75,7 +74,6 @@ import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TimeZone;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -97,6 +95,7 @@ import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.HiveTestUtils.getTypes;
+import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.testing.StructuralTestUtil.rowBlockOf;
@@ -188,7 +187,7 @@ public class TestHiveFileFormats
             throws Exception
     {
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
-                // CSV table only support Hive string columns. Notice that CSV does not allow to store null, it uses an empty string instead.
+                // CSV tables only support Hive string columns. Notice that CSV does not allow to store null, it uses an empty string instead.
                 .filter(column -> column.isPartitionKey() || ("string".equals(column.getType()) && !column.getName().contains("_null_")))
                 .collect(toImmutableList());
 
@@ -295,7 +294,7 @@ public class TestHiveFileFormats
     public void testRcBinaryPageSource(int rowCount)
             throws Exception
     {
-        // RCBinary does not support complex type as key of a map and interprets empty VARCHAR as nulls
+        // RCBinary does not support complex types as the key of a map and interprets empty VARCHAR as null
         // Hive binary writers are broken for timestamps
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
                 .filter(testColumn -> !testColumn.getName().equals("t_empty_varchar"))
@@ -360,7 +359,7 @@ public class TestHiveFileFormats
                 .setPropertyMetadata(hiveSessionProperties.getSessionProperties())
                 .build();
 
-        // A Trino page cannot contain a map with null keys, so a page based writer cannot write null keys
+        // A Trino page cannot contain a map with null keys, so null keys cannot be written
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
                 .filter(TestHiveFileFormats::withoutNullMapKeyTests)
                 .collect(toList());
@@ -423,7 +422,7 @@ public class TestHiveFileFormats
     }
 
     @Test(dataProvider = "rowCount")
-    public void testAvroFileInSymlinkTable(int rowCount)
+    public static void testAvroFileInSymlinkTable(int rowCount)
             throws Exception
     {
         File file = File.createTempFile("trino_test", AVRO.name());
@@ -431,9 +430,6 @@ public class TestHiveFileFormats
         file.delete();
         try {
             FileSplit split = createTestFileHive(file.getAbsolutePath(), AVRO, HiveCompressionCodec.NONE, getTestColumnsSupportedByAvro(), rowCount);
-            Properties splitProperties = new Properties();
-            splitProperties.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
-            splitProperties.setProperty(SERIALIZATION_LIB, AVRO.getSerde());
             testPageSourceFactory(new AvroPageSourceFactory(FILE_SYSTEM_FACTORY), split, AVRO, getTestColumnsSupportedByAvro(), SESSION, file.length(), rowCount);
         }
         finally {
@@ -500,7 +496,7 @@ public class TestHiveFileFormats
     {
         List<TestColumn> writeColumns = getTestColumnsSupportedByParquet();
 
-        // test index-based access
+        // test the index-based access
         List<TestColumn> readColumns = writeColumns.stream()
                 .map(column -> new TestColumn(
                         column.getName() + "_new",
@@ -516,7 +512,7 @@ public class TestHiveFileFormats
                 .withRowsCount(rowCount)
                 .isReadableByPageSource(PARQUET_PAGE_SOURCE_FACTORY);
 
-        // test name-based access
+        // test the name-based access
         readColumns = Lists.reverse(writeColumns);
         assertThatFileFormat(PARQUET)
                 .withWriteColumns(writeColumns)
@@ -758,7 +754,7 @@ public class TestHiveFileFormats
     public void testRCBinaryProjectedColumns(int rowCount)
             throws Exception
     {
-        // RCBinary does not support complex type as key of a map and interprets empty VARCHAR as nulls
+        // RCBinary does not support complex types as the key of a map and interprets empty VARCHAR as null
         List<TestColumn> supportedColumns = TEST_COLUMNS.stream()
                 .filter(testColumn -> {
                     String name = testColumn.getName();
@@ -791,7 +787,7 @@ public class TestHiveFileFormats
     public void testRCBinaryProjectedColumnsPageSource(int rowCount)
             throws Exception
     {
-        // RCBinary does not support complex type as key of a map and interprets empty VARCHAR as nulls
+        // RCBinary does not support complex types as the key of a map and interprets empty VARCHAR as null
         List<TestColumn> supportedColumns = TEST_COLUMNS.stream()
                 .filter(testColumn -> !testColumn.getName().equals("t_empty_varchar"))
                 .collect(toList());
@@ -819,7 +815,6 @@ public class TestHiveFileFormats
 
     @Test
     public void testFailForLongVarcharPartitionColumn()
-            throws Exception
     {
         TestColumn partitionColumn = new TestColumn("partition_column", getPrimitiveJavaObjectInspector(new VarcharTypeInfo(3)), "test", utf8Slice("tes"), true);
         TestColumn varcharColumn = new TestColumn("varchar_column", getPrimitiveJavaObjectInspector(new VarcharTypeInfo(3)), new HiveVarchar("tes", 3), utf8Slice("tes"));
@@ -847,7 +842,7 @@ public class TestHiveFileFormats
                 .isFailingForPageSource(PARQUET_PAGE_SOURCE_FACTORY, expectedErrorCode, expectedMessage);
     }
 
-    private void testPageSourceFactory(
+    private static void testPageSourceFactory(
             HivePageSourceFactory sourceFactory,
             FileSplit split,
             HiveStorageFormat storageFormat,
@@ -875,8 +870,8 @@ public class TestHiveFileFormats
             }
         }
 
-        splitProperties.setProperty("columns", splitPropertiesColumnNames.build().stream().collect(Collectors.joining(",")));
-        splitProperties.setProperty("columns.types", splitPropertiesColumnTypes.build().stream().collect(Collectors.joining(",")));
+        splitProperties.setProperty("columns", String.join(",", splitPropertiesColumnNames.build()));
+        splitProperties.setProperty("columns.types", String.join(",", splitPropertiesColumnTypes.build()));
 
         List<HivePartitionKey> partitionKeys = testReadColumns.stream()
                 .filter(TestColumn::isPartitionKey)
@@ -923,7 +918,7 @@ public class TestHiveFileFormats
         checkPageSource(pageSource.get(), testReadColumns, getTypes(columnHandles), rowCount);
     }
 
-    public static boolean hasType(ObjectInspector objectInspector, PrimitiveCategory... types)
+    private static boolean hasType(ObjectInspector objectInspector, PrimitiveCategory... types)
     {
         if (objectInspector instanceof PrimitiveObjectInspector primitiveInspector) {
             PrimitiveCategory primitiveCategory = primitiveInspector.getPrimitiveCategory();
@@ -968,7 +963,7 @@ public class TestHiveFileFormats
                 !name.equals("t_array_timestamp");
     }
 
-    private FileFormatAssertion assertThatFileFormat(HiveStorageFormat hiveStorageFormat)
+    private static FileFormatAssertion assertThatFileFormat(HiveStorageFormat hiveStorageFormat)
     {
         return new FileFormatAssertion(hiveStorageFormat.name())
                 .withStorageFormat(hiveStorageFormat);
@@ -980,17 +975,17 @@ public class TestHiveFileFormats
                 .setUseParquetColumnNames(useParquetColumnNames);
     }
 
-    private void generateProjectedColumns(List<TestColumn> childColumns, ImmutableList.Builder<TestColumn> testFullColumnsBuilder, ImmutableList.Builder<TestColumn> testDereferencedColumnsBuilder)
+    private static void generateProjectedColumns(List<TestColumn> childColumns, ImmutableList.Builder<TestColumn> testFullColumnsBuilder, ImmutableList.Builder<TestColumn> testDereferencedColumnsBuilder)
     {
         for (int i = 0; i < childColumns.size(); i++) {
             TestColumn childColumn = childColumns.get(i);
-            checkState(childColumn.getDereferenceIndices().size() == 0);
+            checkState(childColumn.getDereferenceIndices().isEmpty());
             ObjectInspector newObjectInspector = getStandardStructObjectInspector(
                     ImmutableList.of("field0"),
                     ImmutableList.of(childColumn.getObjectInspector()));
 
             HiveType hiveType = (HiveType.valueOf(childColumn.getObjectInspector().getTypeName()));
-            Type trinoType = TESTING_TYPE_MANAGER.getType(hiveType.getTypeSignature());
+            Type trinoType = TESTING_TYPE_MANAGER.getType(hiveType.getTypeSignature(DEFAULT_PRECISION));
 
             List<Object> list = new ArrayList<>();
             list.add(childColumn.getWriteValue());
@@ -1011,21 +1006,21 @@ public class TestHiveFileFormats
         }
     }
 
-    private List<TestColumn> getRegularColumns(List<TestColumn> columns)
+    private static List<TestColumn> getRegularColumns(List<TestColumn> columns)
     {
         return columns.stream()
                 .filter(column -> !column.isPartitionKey())
                 .collect(toImmutableList());
     }
 
-    private List<TestColumn> getPartitionColumns(List<TestColumn> columns)
+    private static List<TestColumn> getPartitionColumns(List<TestColumn> columns)
     {
         return columns.stream()
                 .filter(TestColumn::isPartitionKey)
                 .collect(toImmutableList());
     }
 
-    private class FileFormatAssertion
+    private static class FileFormatAssertion
     {
         private final String formatName;
         private HiveStorageFormat storageFormat;
@@ -1111,11 +1106,9 @@ public class TestHiveFileFormats
             return this;
         }
 
-        public FileFormatAssertion isFailingForPageSource(HivePageSourceFactory pageSourceFactory, HiveErrorCode expectedErrorCode, String expectedMessage)
-                throws Exception
+        public void isFailingForPageSource(HivePageSourceFactory pageSourceFactory, HiveErrorCode expectedErrorCode, String expectedMessage)
         {
             assertFailure(Optional.of(pageSourceFactory), expectedErrorCode, expectedMessage);
-            return this;
         }
 
         private void assertRead(Optional<HivePageSourceFactory> pageSourceFactory)
