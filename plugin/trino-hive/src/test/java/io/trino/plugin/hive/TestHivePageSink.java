@@ -173,7 +173,7 @@ public class TestHivePageSink
         List<Type> columnTypes = columns.stream()
                 .map(LineItemColumn::getType)
                 .map(TestHivePageSink::getHiveType)
-                .map(hiveType -> hiveType.getType(TESTING_TYPE_MANAGER))
+                .map(hiveType -> TESTING_TYPE_MANAGER.getType(hiveType.getTypeSignature()))
                 .collect(toList());
 
         PageBuilder pageBuilder = new PageBuilder(columnTypes);
@@ -320,7 +320,7 @@ public class TestHivePageSink
         for (int i = 0; i < columns.size(); i++) {
             LineItemColumn column = columns.get(i);
             HiveType hiveType = getHiveType(column.getType());
-            handles.add(createBaseColumn(column.getColumnName(), i, hiveType, hiveType.getType(TESTING_TYPE_MANAGER), REGULAR, Optional.empty()));
+            handles.add(createBaseColumn(column.getColumnName(), i, hiveType, TESTING_TYPE_MANAGER.getType(hiveType.getTypeSignature()), REGULAR, Optional.empty()));
         }
         return handles.build();
     }

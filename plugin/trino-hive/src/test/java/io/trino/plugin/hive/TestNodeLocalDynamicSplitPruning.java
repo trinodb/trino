@@ -66,7 +66,7 @@ public class TestNodeLocalDynamicSplitPruning
             BUCKET_COLUMN.getName(),
             0,
             BUCKET_COLUMN.getType(),
-            BUCKET_COLUMN.getType().getType(TESTING_TYPE_MANAGER),
+            TESTING_TYPE_MANAGER.getType(BUCKET_COLUMN.getType().getTypeSignature()),
             Optional.empty(),
             REGULAR,
             Optional.empty());
@@ -74,7 +74,7 @@ public class TestNodeLocalDynamicSplitPruning
             PARTITION_COLUMN.getName(),
             0,
             PARTITION_COLUMN.getType(),
-            PARTITION_COLUMN.getType().getType(TESTING_TYPE_MANAGER),
+            TESTING_TYPE_MANAGER.getType(PARTITION_COLUMN.getType().getTypeSignature()),
             Optional.empty(),
             PARTITION_KEY,
             Optional.empty());
