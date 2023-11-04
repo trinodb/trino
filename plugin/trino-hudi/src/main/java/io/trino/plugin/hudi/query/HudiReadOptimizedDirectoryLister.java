@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.hudi.query;
 
+import io.airlift.units.DataSize;
+import io.trino.filesystem.FileEntry.Block;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -25,6 +27,7 @@ import io.trino.plugin.hudi.partition.HudiPartitionInfo;
 import io.trino.plugin.hudi.table.HudiTableFileSystemView;
 import io.trino.plugin.hudi.table.HudiTableMetaClient;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -32,10 +35,15 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 
 public class HudiReadOptimizedDirectoryLister
         implements HudiDirectoryLister
 {
+    private static final long MIN_BLOCK_SIZE = DataSize.of(32, MEGABYTE).toBytes();
+
     private final HudiTableFileSystemView fileSystemView;
     private final List<Column> partitionColumns;
     private final Map<String, HudiPartitionInfo> allPartitionInfoMap;
@@ -72,7 +80,7 @@ public class HudiReadOptimizedDirectoryLister
                         false,
                         fileEntry.length(),
                         fileEntry.lastModified().toEpochMilli(),
-                        fileEntry.blocks().map(listOfBlocks -> (!listOfBlocks.isEmpty()) ? listOfBlocks.get(0).length() : 0).orElse(0L)))
+                        max(blockSize(fileEntry.blocks()), min(fileEntry.length(), MIN_BLOCK_SIZE))))
                 .collect(toImmutableList());
     }
 
@@ -88,5 +96,14 @@ public class HudiReadOptimizedDirectoryLister
         if (fileSystemView != null && !fileSystemView.isClosed()) {
             fileSystemView.close();
         }
+    }
+
+    private static long blockSize(Optional<List<Block>> blocks)
+    {
+        return blocks.stream()
+                .flatMap(Collection::stream)
+                .mapToLong(Block::length)
+                .findFirst()
+                .orElse(0);
     }
 }
