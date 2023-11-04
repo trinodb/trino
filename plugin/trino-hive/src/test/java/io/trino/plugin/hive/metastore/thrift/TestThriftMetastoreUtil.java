@@ -57,15 +57,15 @@ import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getBasic
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreDecimal;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
+import static io.trino.plugin.hive.util.SerdeConstants.BIGINT_TYPE_NAME;
+import static io.trino.plugin.hive.util.SerdeConstants.BINARY_TYPE_NAME;
+import static io.trino.plugin.hive.util.SerdeConstants.BOOLEAN_TYPE_NAME;
+import static io.trino.plugin.hive.util.SerdeConstants.DATE_TYPE_NAME;
+import static io.trino.plugin.hive.util.SerdeConstants.DECIMAL_TYPE_NAME;
+import static io.trino.plugin.hive.util.SerdeConstants.DOUBLE_TYPE_NAME;
+import static io.trino.plugin.hive.util.SerdeConstants.STRING_TYPE_NAME;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
-import static org.apache.hadoop.hive.serde.serdeConstants.BIGINT_TYPE_NAME;
-import static org.apache.hadoop.hive.serde.serdeConstants.BINARY_TYPE_NAME;
-import static org.apache.hadoop.hive.serde.serdeConstants.BOOLEAN_TYPE_NAME;
-import static org.apache.hadoop.hive.serde.serdeConstants.DATE_TYPE_NAME;
-import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
-import static org.apache.hadoop.hive.serde.serdeConstants.DOUBLE_TYPE_NAME;
-import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
