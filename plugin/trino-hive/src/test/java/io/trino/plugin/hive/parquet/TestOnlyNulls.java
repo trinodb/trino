@@ -21,7 +21,6 @@ import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.benchmark.StandardFileFormats;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -81,7 +80,7 @@ public class TestOnlyNulls
 
     private static ConnectorPageSource createPageSource(File parquetFile, HiveColumnHandle column, TupleDomain<HiveColumnHandle> domain)
     {
-        HivePageSourceFactory pageSourceFactory = StandardFileFormats.TRINO_PARQUET.getHivePageSourceFactory(HDFS_ENVIRONMENT);
+        HivePageSourceFactory pageSourceFactory = ParquetUtil.createHivePageSourceFactory(HDFS_ENVIRONMENT);
 
         Properties schema = new Properties();
         schema.setProperty(SERIALIZATION_LIB, HiveStorageFormat.PARQUET.getSerde());

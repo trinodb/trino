@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveTimestampPrecision;
-import io.trino.plugin.hive.benchmark.StandardFileFormats;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -137,7 +136,7 @@ public class TestTimestamp
              throws IOException
     {
         Iterator<?> expected = expectedValues.iterator();
-        try (ConnectorPageSource pageSource = StandardFileFormats.TRINO_PARQUET.createFileFormatReader(session, HDFS_ENVIRONMENT, tempFile.getFile(), columnNames, ImmutableList.of(type))) {
+        try (ConnectorPageSource pageSource = ParquetUtil.createParquetPageSource(session, HDFS_ENVIRONMENT, tempFile.getFile(), columnNames, ImmutableList.of(type))) {
             // skip a page to exercise the decoder's skip() logic
             Page firstPage = pageSource.getNextPage();
             assertTrue(firstPage.getPositionCount() > 0, "Expected first page to have at least 1 row");
