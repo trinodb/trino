@@ -471,15 +471,13 @@ public abstract class AbstractTestHiveFileFormats
         return map;
     }
 
-    protected List<HiveColumnHandle> getColumnHandles(List<TestColumn> testColumns)
+    protected static List<HiveColumnHandle> getColumnHandles(List<TestColumn> testColumns)
     {
         List<HiveColumnHandle> columns = new ArrayList<>();
         Map<String, Integer> hiveColumnIndexes = new HashMap<>();
 
         int nextHiveColumnIndex = 0;
-        for (int i = 0; i < testColumns.size(); i++) {
-            TestColumn testColumn = testColumns.get(i);
-
+        for (TestColumn testColumn : testColumns) {
             int columnIndex;
             if (testColumn.isPartitionKey()) {
                 columnIndex = -1;
@@ -494,13 +492,13 @@ public abstract class AbstractTestHiveFileFormats
                 }
             }
 
-            if (testColumn.getDereferenceNames().size() == 0) {
+            if (testColumn.getDereferenceNames().isEmpty()) {
                 HiveType hiveType = HiveType.valueOf(testColumn.getObjectInspector().getTypeName());
                 columns.add(createBaseColumn(testColumn.getName(), columnIndex, hiveType, TESTING_TYPE_MANAGER.getType(hiveType.getTypeSignature()), testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty()));
             }
             else {
                 HiveType baseHiveType = HiveType.valueOf(testColumn.getBaseObjectInspector().getTypeName());
-                HiveType partialHiveType = baseHiveType.getHiveTypeForDereferences(testColumn.getDereferenceIndices()).get();
+                HiveType partialHiveType = baseHiveType.getHiveTypeForDereferences(testColumn.getDereferenceIndices()).orElseThrow();
                 HiveColumnHandle hiveColumnHandle = new HiveColumnHandle(
                         testColumn.getBaseName(),
                         columnIndex,
@@ -720,10 +718,10 @@ public abstract class AbstractTestHiveFileFormats
         throw new RuntimeException("unknown type");
     }
 
-    protected void checkPageSource(ConnectorPageSource pageSource, List<TestColumn> testColumns, List<Type> types, int rowCount)
+    protected static void checkPageSource(ConnectorPageSource pageSource, List<TestColumn> testColumns, List<Type> types, int rowCount)
             throws IOException
     {
-        try {
+        try (pageSource) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, types);
             assertEquals(result.getMaterializedRows().size(), rowCount);
             for (MaterializedRow row : result) {
@@ -757,17 +755,13 @@ public abstract class AbstractTestHiveFileFormats
                         assertEquals(actualValue, expectedValue);
                     }
                     else if (testColumn.getObjectInspector().getTypeName().equals("timestamp")) {
-                        SqlTimestamp expectedTimestamp = sqlTimestampOf(floorDiv((Long) expectedValue, MICROSECONDS_PER_MILLISECOND));
+                        SqlTimestamp expectedTimestamp = sqlTimestampOf(3, floorDiv((Long) expectedValue, MICROSECONDS_PER_MILLISECOND));
                         assertEquals(actualValue, expectedTimestamp, "Wrong value for column " + testColumn.getName());
                     }
                     else if (testColumn.getObjectInspector().getTypeName().startsWith("char")) {
                         assertEquals(actualValue, padSpaces((String) expectedValue, (CharType) type), "Wrong value for column " + testColumn.getName());
                     }
                     else if (testColumn.getObjectInspector().getCategory() == Category.PRIMITIVE) {
-                        if (expectedValue instanceof Slice) {
-                            expectedValue = ((Slice) expectedValue).toStringUtf8();
-                        }
-
                         if (actualValue instanceof Slice) {
                             actualValue = ((Slice) actualValue).toStringUtf8();
                         }
@@ -788,9 +782,6 @@ public abstract class AbstractTestHiveFileFormats
                     }
                 }
             }
-        }
-        finally {
-            pageSource.close();
         }
     }
 
@@ -836,7 +827,7 @@ public abstract class AbstractTestHiveFileFormats
             this.writeValue = writeValue;
             this.expectedValue = expectedValue;
             this.partitionKey = partitionKey;
-            checkArgument(dereferenceNames.size() == 0 || partitionKey == false, "partial column cannot be a partition key");
+            checkArgument(dereferenceNames.isEmpty() || !partitionKey, "partial column cannot be a partition key");
         }
 
         public String getName()
@@ -894,7 +885,7 @@ public abstract class AbstractTestHiveFileFormats
         {
             StringBuilder sb = new StringBuilder("TestColumn{");
             sb.append("baseName='").append(baseName).append("'");
-            sb.append("dereferenceNames=").append("[").append(dereferenceNames.stream().collect(Collectors.joining(","))).append("]");
+            sb.append("dereferenceNames=").append("[").append(String.join(",", dereferenceNames)).append("]");
             sb.append("name=").append(name);
             sb.append(", objectInspector=").append(objectInspector);
             sb.append(", writeValue=").append(writeValue);
