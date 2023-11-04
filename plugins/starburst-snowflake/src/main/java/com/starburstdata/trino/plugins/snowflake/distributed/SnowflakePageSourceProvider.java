@@ -9,6 +9,7 @@
  */
 package com.starburstdata.trino.plugins.snowflake.distributed;
 
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -147,7 +148,7 @@ public class SnowflakePageSourceProvider
                 snowflakeSplit.getStart(),
                 snowflakeSplit.getLength(),
                 transformedColumns,
-                filePredicate,
+                ImmutableList.of(filePredicate),
                 true,
                 parquetTimeZone,
                 stats,

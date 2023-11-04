@@ -27,7 +27,6 @@ import io.airlift.units.Duration;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.HdfsNamenodeStats;
 import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveMetastoreClosure;
@@ -353,7 +352,6 @@ public class SnowflakeSplitSource
                 transactionManager,
                 new HivePartitionManager(hiveConfig),
                 new HdfsFileSystemFactory(hdfsEnvironment, new TrinoHdfsFileSystemStats()),
-                new HdfsNamenodeStats(),
                 executorService,
                 new CounterStat(),
                 hiveConfig.getMaxOutstandingSplits(),
@@ -387,7 +385,7 @@ public class SnowflakeSplitSource
                 OptionalLong.empty());
         HiveMetastore metastore = new SnowflakeHiveMetastore(table);
         return new SemiTransactionalHiveMetastore(
-                hdfsEnvironment,
+                new HdfsFileSystemFactory(hdfsEnvironment, new TrinoHdfsFileSystemStats()),
                 new HiveMetastoreClosure(metastore),
                 executorService,
                 executorService,

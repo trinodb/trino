@@ -34,6 +34,7 @@ public class SnowflakeMetadata
         super(jdbcClient, true, jdbcQueryEventListeners);
     }
 
+    @SuppressWarnings({"deprecation", "DeprecatedApi"})
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
@@ -41,6 +42,7 @@ public class SnowflakeMetadata
         return super.beginCreateTable(session, tableMetadata, layout, retryMode);
     }
 
+    @SuppressWarnings({"deprecation", "DeprecatedApi"})
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {

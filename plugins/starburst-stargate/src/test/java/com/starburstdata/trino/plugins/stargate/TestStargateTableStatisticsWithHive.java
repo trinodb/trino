@@ -18,10 +18,9 @@ import io.trino.testing.QueryAssertions;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -38,6 +37,7 @@ import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestStargateTableStatisticsWithHive
         extends BaseStargateTableStatisticsTest
@@ -67,18 +67,11 @@ public class TestStargateTableStatisticsWithHive
                 .build();
     }
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         executeInRemoteStarburst("CREATE TABLE nation_partitioned(nationkey BIGINT, name VARCHAR, comment VARCHAR, regionkey BIGINT) WITH (partitioned_by = ARRAY['regionkey'])");
         executeInRemoteStarburst("INSERT INTO nation_partitioned SELECT nationkey, name, comment, regionkey FROM tpch.tiny.nation");
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void closeTemporaryFiles()
-    {
-        remoteStarburst = null;
-        h2QueryRunner = null;
     }
 
     @Override
@@ -256,7 +249,8 @@ public class TestStargateTableStatisticsWithHive
         }
     }
 
-    @Test(enabled = false) // TODO: Investigate why the assertion isn't deterministic
+    @Test
+    @Disabled // TODO: Investigate why the assertion isn't deterministic
     public void testUnevenPartitionedTable()
     {
         String tableName = "test_stats_uneven_partitioned_table";
@@ -312,12 +306,11 @@ public class TestStargateTableStatisticsWithHive
     @Test
     public void testMaterializedView()
     {
-        throw new SkipException("Hive < 3.0 doesn't have materialized views");
+        abort("Hive < 3.0 doesn't have materialized views");
     }
 
     @Override
-    @Test(dataProvider = "testCaseColumnNamesDataProvider")
-    public void testCaseColumnNames(String tableName)
+    protected void testCaseColumnNames(String tableName)
     {
         executeInRemoteStarburst("" +
                 "CREATE TABLE " + tableName + " " +

@@ -32,6 +32,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -49,6 +50,7 @@ import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
+import static io.trino.block.BlockAssertions.createTypedLongsBlock;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.onlyNull;
 import static io.trino.spi.predicate.Domain.singleValue;
@@ -142,8 +144,8 @@ public class TestDynamicPageFilter
                 ImmutableMap.of(column, 0));
         assertThat(blockFilters).isPresent();
         Page page = new Page(
-                createLongsBlock(1L, 2L, null, 5L, null),
-                createLongsBlock(null, 102L, 135L, null, 3L));
+                createTypedLongsBlock(INTEGER, Stream.of(1L, 2L, null, 5L, null).toList()),
+                createTypedLongsBlock(INTEGER, Stream.of(null, 102L, 135L, null, 3L).toList()));
         assertThat(filterPage(page, blockFilters.get()).getPositions())
                 .isEqualTo(positionsList(new int[] {2, 4}, 2));
 
@@ -226,16 +228,16 @@ public class TestDynamicPageFilter
                 ImmutableMap.of(column, 0));
         assertThat(blockFilters).isPresent();
 
-        Block blockWithNulls = createLongsBlock(3L, null, 4L);
+        Block blockWithNulls = createTypedLongsBlock(INTEGER, Stream.of(3L, null, 4L).toList());
         assertThat(filterPage(new Page(blockWithNulls), blockFilters.get()).getPositions())
                 .isEqualTo(positionsList(new int[] {0, 1}, 2));
 
         // select all values in block
-        assertThat(filterPage(new Page(createLongsBlock(3L, null, 1L)), blockFilters.get())
+        assertThat(filterPage(new Page(createTypedLongsBlock(INTEGER, Stream.of(3L, null, 1L).toList())), blockFilters.get())
                 .getPositions())
                 .isEqualTo(positionsRange(3));
 
-        Block blockWithoutNulls = createLongsBlock(3, 4, 5);
+        Block blockWithoutNulls = createTypedLongsBlock(INTEGER, List.of(3L, 4L, 5L));
         assertThat(filterPage(new Page(blockWithoutNulls), blockFilters.get()).getPositions())
                 .isEqualTo(positionsList(new int[] {0}, 1));
     }

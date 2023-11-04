@@ -16,16 +16,19 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.SharedResource.Lease;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.util.List;
 
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static java.lang.String.format;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(ExecutionMode.SAME_THREAD)
 public class TestOracleTableStatistics
         extends BaseJdbcTableStatisticsTest
 {
@@ -44,12 +47,6 @@ public class TestOracleTableStatistics
                         .buildOrThrow())
                 .withTables(ImmutableList.of(TpchTable.ORDERS))
                 .build();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void cleanup()
-    {
-        oracleServer = null;
     }
 
     @Override
@@ -272,8 +269,7 @@ public class TestOracleTableStatistics
     }
 
     @Override
-    @Test(dataProvider = "testCaseColumnNamesDataProvider")
-    public void testCaseColumnNames(String tableName)
+    protected void testCaseColumnNames(String tableName)
     {
         oracleServer.get().executeInOracle("" +
                 "CREATE TABLE " + tableName + " " +
@@ -301,20 +297,6 @@ public class TestOracleTableStatistics
         finally {
             oracleServer.get().executeInOracle("DROP TABLE " + tableName);
         }
-    }
-
-    @Override
-    @DataProvider
-    public Object[][] testCaseColumnNamesDataProvider()
-    {
-        return new Object[][] {
-                {"TEST_STATS_MIXED_UNQUOTED_UPPER"},
-                {"test_stats_mixed_unquoted_lower"},
-                {"test_stats_mixed_uNQuoTeD_miXED"},
-                {"\"TEST_STATS_MIXED_QUOTED_UPPER\""},
-                {"\"test_stats_mixed_quoted_lower\""},
-                {"\"test_stats_mixed_QuoTeD_miXED\""},
-        };
     }
 
     @Test

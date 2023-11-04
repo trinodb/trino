@@ -22,9 +22,7 @@ import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.ManageTestResources;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.assertj.core.api.SoftAssertions;
-import org.testng.SkipException;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -41,6 +39,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.from;
 import static org.assertj.core.api.Assertions.withinPercentage;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestSynapseTableStatistics
         extends BaseJdbcTableStatisticsTest
@@ -248,12 +247,11 @@ public class TestSynapseTableStatistics
     @Test
     public void testMaterializedView()
     {
-        throw new SkipException("Synapse does not support statistics on materialized views");
+        abort("Synapse does not support statistics on materialized views");
     }
 
     @Override
-    @Test(dataProvider = "testCaseColumnNamesDataProvider")
-    public void testCaseColumnNames(String tableName)
+    protected void testCaseColumnNames(String tableName)
     {
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         synapseServer.execute("" +
@@ -285,17 +283,15 @@ public class TestSynapseTableStatistics
     }
 
     @Override
-    @DataProvider
-    public Object[][] testCaseColumnNamesDataProvider()
+    @Test
+    public void testCaseColumnNames()
     {
-        return new Object[][] {
-                {format("TEST_STATS_MIXED_UNQUOTED_UPPER_%s", randomNameSuffix())},
-                {format("test_stats_mixed_unquoted_lower_%s", randomNameSuffix())},
-                {format("test_stats_mixed_uNQuoTeD_miXED_%s", randomNameSuffix())},
-                {format("\"TEST_STATS_MIXED_QUOTED_UPPER_%s\"", randomNameSuffix())},
-                {format("\"test_stats_mixed_quoted_lower_%s\"", randomNameSuffix())},
-                {format("\"test_stats_mixed_QuoTeD_miXED_%s\"", randomNameSuffix())},
-        };
+        this.testCaseColumnNames(format("TEST_STATS_MIXED_UNQUOTED_UPPER_%s", randomNameSuffix()));
+        this.testCaseColumnNames(format("test_stats_mixed_unquoted_lower_%s", randomNameSuffix()));
+        this.testCaseColumnNames(format("test_stats_mixed_uNQuoTeD_miXED_%s", randomNameSuffix()));
+        this.testCaseColumnNames(format("\"TEST_STATS_MIXED_QUOTED_UPPER_%s\"", randomNameSuffix()));
+        this.testCaseColumnNames(format("\"test_stats_mixed_quoted_lower_%s\"", randomNameSuffix()));
+        this.testCaseColumnNames(format("\"test_stats_mixed_QuoTeD_miXED_%s\"", randomNameSuffix()));
     }
 
     @Override

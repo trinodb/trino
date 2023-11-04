@@ -20,10 +20,9 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
-import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -37,6 +36,7 @@ import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestStargateTableStatisticsWithPostgreSql
         extends BaseStargateTableStatisticsTest
@@ -71,7 +71,7 @@ public class TestStargateTableStatisticsWithPostgreSql
                 .build();
     }
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         gatherStats("orders");
@@ -79,15 +79,8 @@ public class TestStargateTableStatisticsWithPostgreSql
         gatherStats("region");
     }
 
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        remoteStarburst = null;
-        h2QueryRunner = null;
-    }
-
     @Override
-    @Test(invocationCount = 10, successPercentage = 50) // PostgreSQL can auto-analyze data before we SHOW STATS
+    @RepeatedTest(value = 10, failureThreshold = 5) // PostgreSQL can auto-analyze data before we SHOW STATS
     public void testNotAnalyzed()
     {
         String tableName = "test_stats_not_analyzed";
@@ -234,7 +227,7 @@ public class TestStargateTableStatisticsWithPostgreSql
     @Test
     public void testPartitionedTable()
     {
-        throw new SkipException("Not implemented"); // TODO upgrade testing PostgreSQL server to newer version
+        abort("Not implemented"); // TODO upgrade testing PostgreSQL server to newer version
     }
 
     @Override
@@ -285,8 +278,7 @@ public class TestStargateTableStatisticsWithPostgreSql
     }
 
     @Override
-    @Test(dataProvider = "testCaseColumnNamesDataProvider")
-    public void testCaseColumnNames(String tableName)
+    protected void testCaseColumnNames(String tableName)
     {
         executeInPostgres("" +
                 "CREATE TABLE " + tableName + " " +

@@ -338,14 +338,9 @@ public class TestDynamicRowFilteringPageSource
                 // top level dictionary block is lazy
                 new LazyBlock(4, () -> DictionaryBlock.create(firstPageBlockIds.length, dictionary, firstPageBlockIds)));
         Page secondPage = new Page(longsBlock, longsBlock);
-        int[] thirdPageBlockIds = new int[] {1, 1, 0, 0};
-        Page thirdPage = new Page(
-                longsBlock,
-                // nested lazy blocks
-                new LazyBlock(4, () -> DictionaryBlock.create(thirdPageBlockIds.length, new LazyBlock(2, () -> dictionary), thirdPageBlockIds)));
 
         TestingConnectorPageSource testingPageSource = new TestingConnectorPageSource()
-                .addPages(ImmutableList.of(thirdPage, secondPage, firstPage));
+                .addPages(ImmutableList.of(secondPage, firstPage));
         DynamicRowFilteringPageSource pageSource = new DynamicRowFilteringPageSource(
                 testingPageSource,
                 1,
@@ -361,18 +356,14 @@ public class TestDynamicRowFilteringPageSource
         assertThat(firstOutputPage).isNotNull();
         Page secondOutputPage = pageSource.getNextPage();
         assertThat(secondOutputPage).isNotNull();
-        Page thirdOutputPage = pageSource.getNextPage();
-        assertThat(thirdOutputPage).isNotNull();
         assertThat(pageSource.getNextPage()).isNull();
 
         // all output pages should have two positions
         assertThat(firstOutputPage.getPositionCount()).isEqualTo(2);
         assertThat(secondOutputPage.getPositionCount()).isEqualTo(2);
-        assertThat(thirdOutputPage.getPositionCount()).isEqualTo(2);
 
         // make sure first and third blocks are still lazy
         assertThat(firstOutputPage.getBlock(1)).isInstanceOf(LazyBlock.class);
-        assertThat(thirdOutputPage.getBlock(1)).isInstanceOf(LazyBlock.class);
 
         // make sure that first and second output block have correct type
         Block firstOutputBlock = ((LazyBlock) firstOutputPage.getBlock(1)).getBlock();
@@ -383,16 +374,8 @@ public class TestDynamicRowFilteringPageSource
         assertThat(secondOutputBlock).isInstanceOf(LongArrayBlock.class);
         assertThat(secondOutputBlock.isLoaded()).isTrue();
 
-        // make sure that only top-level block is loaded for third output page (produced from third input page)
-        Block thirdOutputBlock = ((LazyBlock) thirdOutputPage.getBlock(1)).getBlock();
-        assertThat(thirdOutputBlock).isInstanceOf(DictionaryBlock.class);
-        assertThat(thirdOutputBlock.isLoaded()).isFalse();
-
         // make sure first and third page share same dictionary
         Block firstOutputDictionary = ((DictionaryBlock) firstOutputBlock).getDictionary();
-        Block thirdOutputDictionary = ((DictionaryBlock) thirdOutputBlock).getDictionary().getLoadedBlock();
-        assertThat(firstOutputBlock).isNotSameAs(thirdOutputBlock);
-        assertThat(firstOutputDictionary).isSameAs(thirdOutputDictionary);
 
         // assert that output dictionary is same as input dictionary
         assertThat(firstOutputDictionary).isSameAs(dictionary);
