@@ -754,22 +754,22 @@ The following example creates a block for an `array(varchar)`  column:
 private Block encodeArray(List<String> names)
 {
     BlockBuilder builder = VARCHAR.createBlockBuilder(null, names.size());
-    for (String name : names) {
+    blockBuilder.buildEntry(elementBuilder -> names.forEach(name -> {
         if (name == null) {
-            builder.appendNull();
+            elementBuilder.appendNull();
         }
         else {
-            VARCHAR.writeString(builder, name);
+            VARCHAR.writeString(elementBuilder, name);
         }
-    }
+    }));
     return builder.build();
 }
 ```
 
-The following example creates a block for a `map(varchar, varchar)` column:
+The following example creates a SqlMap object for a `map(varchar, varchar)` column:
 
 ```java
-private Block encodeMap(Map<String, ?> map)
+private SqlMap encodeMap(Map<String, ?> map)
 {
     MapType mapType = typeManager.getType(TypeSignature.mapType(
                             VARCHAR.getTypeSignature(),
@@ -780,18 +780,16 @@ private Block encodeMap(Map<String, ?> map)
         return values.build().getObject(0, Block.class);
     }
     BlockBuilder builder = values.beginBlockEntry();
-    for (Map.Entry<String, ?> entry : map.entrySet()) {
-        VARCHAR.writeString(builder, entry.getKey());
-        Object value = entry.getValue();
+    builder.buildEntry((keyBuilder, valueBuilder) -> map.foreach((key, value) -> {
+        VARCHAR.writeString(keyBuilder, key);
         if (value == null) {
-            builder.appendNull();
+            valueBuilder.appendNull();
         }
         else {
-            VARCHAR.writeString(builder, value.toString());
+            VARCHAR.writeString(valueBuilder, value.toString());
         }
-    }
-    values.closeEntry();
-    return values.build().getObject(0, Block.class);
+    }));
+    return values.build().getObject(0, SqlMap.class);
 }
 ```
 
