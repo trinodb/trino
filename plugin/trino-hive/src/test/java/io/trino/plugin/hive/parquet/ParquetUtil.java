@@ -14,22 +14,22 @@
 package io.trino.plugin.hive.parquet;
 
 import io.trino.filesystem.Location;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
-import io.trino.hdfs.HdfsEnvironment;
+import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.HiveStorageFormat;
-import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.HiveTypeName;
-import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Type;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -37,78 +37,64 @@ import java.util.Properties;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
-import static java.lang.String.join;
-import static java.util.stream.Collectors.joining;
 
 final class ParquetUtil
 {
     private ParquetUtil() {}
 
-    public static HivePageSourceFactory createHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
+    public static ConnectorPageSource createPageSource(ConnectorSession session, File parquetFile, List<String> columnNames, List<Type> columnTypes)
+            throws IOException
     {
-        return new ParquetPageSourceFactory(
-                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
+        return createPageSource(session, parquetFile, getBaseColumns(columnNames, columnTypes), TupleDomain.all());
+    }
+
+    public static ConnectorPageSource createPageSource(ConnectorSession session, File parquetFile, List<HiveColumnHandle> columns, TupleDomain<HiveColumnHandle> domain)
+            throws IOException
+    {
+        // copy the test file into the memory filesystem
+        MemoryFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
+        Location location = Location.of("memory:///test.file");
+        try (OutputStream out = fileSystemFactory.create(ConnectorIdentity.ofUser("test")).newOutputFile(location).create()) {
+            out.write(Files.readAllBytes(parquetFile.toPath()));
+        }
+
+        HivePageSourceFactory hivePageSourceFactory = new ParquetPageSourceFactory(
+                fileSystemFactory,
                 new FileFormatDataSourceStats(),
                 new ParquetReaderConfig(),
                 new HiveConfig());
-    }
 
-    public static ConnectorPageSource createParquetPageSource(
-            ConnectorSession session,
-            HdfsEnvironment hdfsEnvironment,
-            File targetFile,
-            List<String> columnNames,
-            List<Type> columnTypes)
-    {
-        return createPageSource(createHivePageSourceFactory(hdfsEnvironment), session, targetFile, columnNames, columnTypes, HiveStorageFormat.PARQUET);
-    }
-
-    private static ConnectorPageSource createPageSource(
-            HivePageSourceFactory pageSourceFactory,
-            ConnectorSession session,
-            File targetFile,
-            List<String> columnNames,
-            List<Type> columnTypes,
-            HiveStorageFormat format)
-    {
-        checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes should have the same size");
-
-        List<HiveColumnHandle> readColumns = getBaseColumns(columnNames, columnTypes);
-
-        Properties schema = createSchema(format, columnNames, columnTypes);
-        Optional<ReaderPageSource> readerPageSourceWithProjections = pageSourceFactory
-                .createPageSource(
+        Properties schema = new Properties();
+        schema.setProperty(SERIALIZATION_LIB, HiveStorageFormat.PARQUET.getSerde());
+        return hivePageSourceFactory.createPageSource(
                         session,
-                        Location.of(targetFile.getAbsolutePath()),
+                        location,
                         0,
-                        targetFile.length(),
-                        targetFile.length(),
+                        parquetFile.length(),
+                        parquetFile.length(),
                         schema,
-                        readColumns,
-                        TupleDomain.all(),
+                        columns,
+                        domain,
                         Optional.empty(),
                         OptionalInt.empty(),
                         false,
-                        NO_ACID_TRANSACTION);
-
-        checkState(readerPageSourceWithProjections.isPresent(), "readerPageSourceWithProjections is not present");
-        checkState(readerPageSourceWithProjections.get().getReaderColumns().isEmpty(), "projection should not be required");
-        return readerPageSourceWithProjections.get().get();
+                        NO_ACID_TRANSACTION)
+                .orElseThrow()
+                .get();
     }
 
     private static List<HiveColumnHandle> getBaseColumns(List<String> columnNames, List<Type> columnTypes)
     {
+        checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes should have the same size");
+
         return IntStream.range(0, columnNames.size())
-                .boxed()
-                .map(index -> createBaseColumn(
+                .mapToObj(index -> createBaseColumn(
                         columnNames.get(index),
                         index,
                         toHiveType(columnTypes.get(index)),
@@ -116,19 +102,5 @@ final class ParquetUtil
                         REGULAR,
                         Optional.empty()))
                 .collect(toImmutableList());
-    }
-
-    private static Properties createSchema(HiveStorageFormat format, List<String> columnNames, List<Type> columnTypes)
-    {
-        Properties schema = new Properties();
-        schema.setProperty(SERIALIZATION_LIB, format.getSerde());
-        schema.setProperty("file.inputformat", format.getInputFormat());
-        schema.setProperty("columns", join(",", columnNames));
-        schema.setProperty("columns.types", columnTypes.stream()
-                .map(HiveType::toHiveType)
-                .map(HiveType::getHiveTypeName)
-                .map(HiveTypeName::toString)
-                .collect(joining(":")));
-        return schema;
     }
 }
