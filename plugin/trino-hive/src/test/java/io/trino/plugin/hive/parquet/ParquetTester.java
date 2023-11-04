@@ -31,8 +31,6 @@ import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveSessionProperties;
 import io.trino.plugin.hive.HiveStorageFormat;
-import io.trino.plugin.hive.benchmark.FileFormat;
-import io.trino.plugin.hive.benchmark.StandardFileFormats;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.write.MapKeyValuesSchemaConverter;
@@ -116,6 +114,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
+import static io.trino.plugin.hive.parquet.ParquetUtil.createParquetPageSource;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -152,7 +151,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class ParquetTester
+class ParquetTester
 {
     private static final int MAX_PRECISION_INT64 = toIntExact(maxPrecision(8));
 
@@ -170,16 +169,13 @@ public class ParquetTester
 
     private final Set<ConnectorSession> sessions;
 
-    private final FileFormat fileFormat;
-
     public static ParquetTester quickParquetTester()
     {
         return new ParquetTester(
                 ImmutableSet.of(GZIP),
                 ImmutableSet.of(GZIP),
                 ImmutableSet.of(PARQUET_1_0),
-                ImmutableSet.of(SESSION),
-                StandardFileFormats.TRINO_PARQUET);
+                ImmutableSet.of(SESSION));
     }
 
     public static ParquetTester fullParquetTester()
@@ -188,22 +184,19 @@ public class ParquetTester
                 ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, LZO, LZ4, ZSTD),
                 ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, ZSTD),
                 ImmutableSet.copyOf(WriterVersion.values()),
-                ImmutableSet.of(SESSION, SESSION_USE_NAME),
-                StandardFileFormats.TRINO_PARQUET);
+                ImmutableSet.of(SESSION, SESSION_USE_NAME));
     }
 
     public ParquetTester(
             Set<CompressionCodec> compressions,
             Set<CompressionCodec> writerCompressions,
             Set<WriterVersion> versions,
-            Set<ConnectorSession> sessions,
-            FileFormat fileFormat)
+            Set<ConnectorSession> sessions)
     {
         this.compressions = requireNonNull(compressions, "compressions is null");
         this.writerCompressions = requireNonNull(writerCompressions, "writerCompressions is null");
         this.versions = requireNonNull(versions, "writerCompressions is null");
         this.sessions = requireNonNull(sessions, "sessions is null");
-        this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
     }
 
     public void testRoundTrip(PrimitiveObjectInspector columnObjectInspector, Iterable<?> writeValues, Type parameterType)
@@ -462,7 +455,7 @@ public class ParquetTester
                     DateTimeZone.getDefault());
 
             Iterator<?>[] expectedValues = getIterators(readValues);
-            try (ConnectorPageSource pageSource = fileFormat.createFileFormatReader(
+            try (ConnectorPageSource pageSource = createParquetPageSource(
                     session,
                     HDFS_ENVIRONMENT,
                     tempFile.getFile(),
@@ -486,7 +479,7 @@ public class ParquetTester
             List<Type> columnTypes)
             throws IOException
     {
-        try (ConnectorPageSource pageSource = fileFormat.createFileFormatReader(
+        try (ConnectorPageSource pageSource = createParquetPageSource(
                 session,
                 HDFS_ENVIRONMENT,
                 dataFile,
