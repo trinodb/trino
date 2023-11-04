@@ -30,7 +30,7 @@ import io.trino.spi.type.TypeManager;
 
 import java.util.Optional;
 
-import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.SYSTEM;
 import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.TRINO_CREATED_BY_VALUE;
 import static java.util.Objects.requireNonNull;
@@ -73,7 +73,7 @@ public class TrinoHiveCatalogFactory
     @Override
     public TrinoCatalog create(ConnectorIdentity identity)
     {
-        CachingHiveMetastore metastore = memoizeMetastore(metastoreFactory.createMetastore(Optional.of(identity)), 1000);
+        CachingHiveMetastore metastore = createPerTransactionCache(metastoreFactory.createMetastore(Optional.of(identity)), 1000);
         return new TrinoHiveCatalog(
                 catalogName,
                 metastore,

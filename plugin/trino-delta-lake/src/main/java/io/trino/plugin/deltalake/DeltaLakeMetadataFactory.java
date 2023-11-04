@@ -33,7 +33,7 @@ import io.trino.spi.type.TypeManager;
 
 import java.util.Optional;
 
-import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeMetadataFactory
@@ -102,8 +102,7 @@ public class DeltaLakeMetadataFactory
 
     public DeltaLakeMetadata create(ConnectorIdentity identity)
     {
-        // create per-transaction cache over hive metastore interface
-        CachingHiveMetastore cachingHiveMetastore = memoizeMetastore(
+        CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(
                 hiveMetastoreFactory.createMetastore(Optional.of(identity)),
                 perTransactionMetastoreCacheMaximumSize);
         AccessControlMetadata accessControlMetadata = accessControlMetadataFactory.create(cachingHiveMetastore);

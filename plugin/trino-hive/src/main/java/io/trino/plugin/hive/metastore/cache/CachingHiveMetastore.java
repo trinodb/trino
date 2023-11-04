@@ -22,8 +22,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets.SetView;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.errorprone.annotations.Immutable;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.units.Duration;
@@ -104,7 +102,7 @@ import static java.util.function.UnaryOperator.identity;
  * Hive Metastore Cache
  */
 @ThreadSafe
-public class CachingHiveMetastore
+public final class CachingHiveMetastore
         implements HiveMetastore
 {
     public enum StatsRecording
@@ -113,7 +111,7 @@ public class CachingHiveMetastore
         DISABLED
     }
 
-    protected final HiveMetastore delegate;
+    private final HiveMetastore delegate;
     private final boolean cacheMissing;
     private final LoadingCache<String, Optional<Database>> databaseCache;
     private final LoadingCache<String, List<String>> databaseNamesCache;
@@ -132,231 +130,75 @@ public class CachingHiveMetastore
     private final LoadingCache<HivePrincipal, Set<RoleGrant>> roleGrantsCache;
     private final LoadingCache<String, Optional<String>> configValuesCache;
 
-    public static CachingHiveMetastoreBuilder builder()
+    public static CachingHiveMetastore createPerTransactionCache(HiveMetastore delegate, long maximumSize)
     {
-        return new CachingHiveMetastoreBuilder();
+        return new CachingHiveMetastore(
+                delegate,
+                true,
+                new CacheFactory(maximumSize),
+                new CacheFactory(maximumSize),
+                new CacheFactory(maximumSize),
+                new CacheFactory(maximumSize));
     }
 
-    public static CachingHiveMetastoreBuilder builder(CachingHiveMetastoreBuilder other)
-    {
-        return new CachingHiveMetastoreBuilder(
-                other.delegate,
-                other.executor,
-                other.metadataCacheEnabled,
-                other.statsCacheEnabled,
-                other.expiresAfterWriteMillis,
-                other.statsExpiresAfterWriteMillis,
-                other.refreshMills,
-                other.maximumSize,
-                other.statsRecording,
-                other.cacheMissing,
-                other.partitionCacheEnabled);
-    }
-
-    public static CachingHiveMetastore memoizeMetastore(HiveMetastore delegate, long maximumSize)
-    {
-        return builder()
-                .delegate(delegate)
-                .metadataCacheEnabled(true)
-                .statsCacheEnabled(true)
-                .maximumSize(maximumSize)
-                .statsRecording(StatsRecording.DISABLED)
-                .cacheMissing(true)
-                .partitionCacheEnabled(true)
-                .build();
-    }
-
-    @Immutable
-    public static class CachingHiveMetastoreBuilder
-    {
-        private HiveMetastore delegate;
-        private Optional<Executor> executor = Optional.empty();
-        private Boolean metadataCacheEnabled;
-        private Boolean statsCacheEnabled;
-        private OptionalLong expiresAfterWriteMillis = OptionalLong.empty();
-        private OptionalLong statsExpiresAfterWriteMillis = OptionalLong.empty();
-        private OptionalLong refreshMills = OptionalLong.empty();
-        private Long maximumSize;
-        private StatsRecording statsRecording = StatsRecording.ENABLED;
-        private Boolean cacheMissing;
-        private Boolean partitionCacheEnabled;
-
-        public CachingHiveMetastoreBuilder() {}
-
-        private CachingHiveMetastoreBuilder(
-                HiveMetastore delegate,
-                Optional<Executor> executor,
-                boolean metadataCacheEnabled,
-                boolean statsCacheEnabled,
-                OptionalLong expiresAfterWriteMillis,
-                OptionalLong statsExpiresAfterWriteMillis,
-                OptionalLong refreshMills,
-                Long maximumSize,
-                StatsRecording statsRecording,
-                Boolean cacheMissing,
-                Boolean partitionCacheEnabled)
-        {
-            this.delegate = delegate;
-            this.executor = executor;
-            this.metadataCacheEnabled = metadataCacheEnabled;
-            this.statsCacheEnabled = statsCacheEnabled;
-            this.expiresAfterWriteMillis = expiresAfterWriteMillis;
-            this.statsExpiresAfterWriteMillis = statsExpiresAfterWriteMillis;
-            this.refreshMills = refreshMills;
-            this.maximumSize = maximumSize;
-            this.statsRecording = statsRecording;
-            this.cacheMissing = cacheMissing;
-            this.partitionCacheEnabled = partitionCacheEnabled;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder delegate(HiveMetastore delegate)
-        {
-            this.delegate = requireNonNull(delegate, "delegate is null");
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder executor(Executor executor)
-        {
-            this.executor = Optional.of(requireNonNull(executor, "executor is null"));
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder metadataCacheEnabled(boolean metadataCacheEnabled)
-        {
-            this.metadataCacheEnabled = metadataCacheEnabled;
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder statsCacheEnabled(boolean statsCacheEnabled)
-        {
-            this.statsCacheEnabled = statsCacheEnabled;
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder cacheTtl(Duration cacheTtl)
-        {
-            expiresAfterWriteMillis = OptionalLong.of(requireNonNull(cacheTtl, "cacheTtl is null").toMillis());
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder statsCacheTtl(Duration statsCacheTtl)
-        {
-            statsExpiresAfterWriteMillis = OptionalLong.of(requireNonNull(statsCacheTtl, "statsCacheTtl is null").toMillis());
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder refreshInterval(Duration refreshInterval)
-        {
-            return refreshInterval(Optional.of(refreshInterval));
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder refreshInterval(Optional<Duration> refreshInterval)
-        {
-            refreshMills = requireNonNull(refreshInterval, "refreshInterval is null")
-                    .map(Duration::toMillis)
-                    .map(OptionalLong::of)
-                    .orElse(OptionalLong.empty());
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder maximumSize(long maximumSize)
-        {
-            this.maximumSize = maximumSize;
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder statsRecording(StatsRecording statsRecording)
-        {
-            this.statsRecording = requireNonNull(statsRecording, "statsRecording is null");
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder cacheMissing(boolean cacheMissing)
-        {
-            this.cacheMissing = cacheMissing;
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public CachingHiveMetastoreBuilder partitionCacheEnabled(boolean partitionCacheEnabled)
-        {
-            this.partitionCacheEnabled = partitionCacheEnabled;
-            return this;
-        }
-
-        public CachingHiveMetastore build()
-        {
-            requireNonNull(metadataCacheEnabled, "metadataCacheEnabled not set");
-            requireNonNull(statsCacheEnabled, "statsCacheEnabled is null");
-            requireNonNull(delegate, "delegate not set");
-            requireNonNull(maximumSize, "maximumSize not set");
-            requireNonNull(cacheMissing, "cacheMissing not set");
-            requireNonNull(partitionCacheEnabled, "partitionCacheEnabled not set");
-            return new CachingHiveMetastore(
-                    delegate,
-                    metadataCacheEnabled,
-                    statsCacheEnabled,
-                    expiresAfterWriteMillis,
-                    statsExpiresAfterWriteMillis,
-                    refreshMills,
-                    executor,
-                    maximumSize,
-                    statsRecording,
-                    cacheMissing,
-                    partitionCacheEnabled);
-        }
-    }
-
-    protected CachingHiveMetastore(
+    public static CachingHiveMetastore createCachingHiveMetastore(
             HiveMetastore delegate,
-            boolean metadataCacheEnabled,
-            boolean statsCacheEnabled,
-            OptionalLong expiresAfterWriteMillis,
-            OptionalLong statsExpiresAfterWriteMillis,
-            OptionalLong refreshMills,
-            Optional<Executor> executor,
+            Duration metadataCacheTtl,
+            Duration statsCacheTtl,
+            Optional<Duration> refreshInterval,
+            Executor refreshExecutor,
             long maximumSize,
             StatsRecording statsRecording,
             boolean cacheMissing,
             boolean partitionCacheEnabled)
     {
-        checkArgument(metadataCacheEnabled || statsCacheEnabled, "Cache not enabled");
+        // refresh executor is only required when the refresh interval is set, but the executor is
+        // always set, so it is simpler to just enforce that
+        requireNonNull(refreshExecutor, "refreshExecutor is null");
+
+        long metadataCacheMillis = metadataCacheTtl.toMillis();
+        long statsCacheMillis = statsCacheTtl.toMillis();
+        checkArgument(metadataCacheMillis > 0 || statsCacheMillis > 0, "Cache not enabled");
+
+        OptionalLong refreshMillis = refreshInterval.stream().mapToLong(Duration::toMillis).findAny();
+
+        CacheFactory cacheFactory = CacheFactory.NEVER_CACHE;
+        CacheFactory partitionCacheFactory = CacheFactory.NEVER_CACHE;
+        if (metadataCacheMillis > 0) {
+            cacheFactory = new CacheFactory(OptionalLong.of(metadataCacheMillis), refreshMillis, Optional.of(refreshExecutor), maximumSize, statsRecording);
+            if (partitionCacheEnabled) {
+                partitionCacheFactory = cacheFactory;
+            }
+        }
+
+        CacheFactory statsCacheFactory = CacheFactory.NEVER_CACHE;
+        CacheFactory partitionStatsCacheFactory = CacheFactory.NEVER_CACHE;
+        if (statsCacheMillis > 0) {
+            statsCacheFactory = new CacheFactory(OptionalLong.of(statsCacheMillis), refreshMillis, Optional.of(refreshExecutor), maximumSize, statsRecording);
+            if (partitionCacheEnabled) {
+                partitionStatsCacheFactory = statsCacheFactory;
+            }
+        }
+
+        return new CachingHiveMetastore(
+                delegate,
+                cacheMissing,
+                cacheFactory,
+                partitionCacheFactory,
+                statsCacheFactory,
+                partitionStatsCacheFactory);
+    }
+
+    private CachingHiveMetastore(
+            HiveMetastore delegate,
+            boolean cacheMissing,
+            CacheFactory cacheFactory,
+            CacheFactory partitionCacheFactory,
+            CacheFactory statsCacheFactory,
+            CacheFactory partitionStatsCacheFactory)
+    {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.cacheMissing = cacheMissing;
-        requireNonNull(executor, "executor is null");
-
-        CacheFactory cacheFactory;
-        CacheFactory partitionCacheFactory;
-        if (metadataCacheEnabled) {
-            cacheFactory = cacheFactory(expiresAfterWriteMillis, refreshMills, executor, maximumSize, statsRecording);
-            partitionCacheFactory = partitionCacheEnabled ? cacheFactory : neverCacheFactory();
-        }
-        else {
-            cacheFactory = neverCacheFactory();
-            partitionCacheFactory = neverCacheFactory();
-        }
-
-        CacheFactory statsCacheFactory;
-        CacheFactory partitionStatsCacheFactory;
-        if (statsCacheEnabled) {
-            statsCacheFactory = cacheFactory(statsExpiresAfterWriteMillis, refreshMills, executor, maximumSize, statsRecording);
-            partitionStatsCacheFactory = partitionCacheEnabled ? statsCacheFactory : neverCacheFactory();
-        }
-        else {
-            statsCacheFactory = neverCacheFactory();
-            partitionStatsCacheFactory = neverCacheFactory();
-        }
 
         databaseNamesCache = cacheFactory.buildCache(ignored -> loadAllDatabases());
         databaseCache = cacheFactory.buildCache(this::loadDatabase);
@@ -541,7 +383,7 @@ public class CachingHiveMetastore
 
         keys.forEach(key -> {
             // make sure the value holder is retrieved before the new values are loaded
-            // so that in case of invalidation we will not set the stale value
+            // so that in case of invalidation, we will not set the stale value
             AtomicReference<V> currentValueHolder = uncheckedCacheGet(cache, key, AtomicReference::new);
             V currentValue = currentValueHolder.get();
             if (currentValue != null && isSufficient.test(currentValue)) {
@@ -830,7 +672,7 @@ public class CachingHiveMetastore
         }
     }
 
-    protected void invalidateDatabase(String databaseName)
+    private void invalidateDatabase(String databaseName)
     {
         databaseCache.invalidate(databaseName);
         databaseNamesCache.invalidateAll();
@@ -1342,26 +1184,6 @@ public class CachingHiveMetastore
         delegate.dropFunction(databaseName, functionName, signatureToken);
     }
 
-    private static CacheFactory cacheFactory(
-            OptionalLong expiresAfterWriteMillis,
-            OptionalLong refreshMillis,
-            Optional<Executor> refreshExecutor,
-            long maximumSize,
-            StatsRecording statsRecording)
-    {
-        return new CacheFactory(expiresAfterWriteMillis, refreshMillis, refreshExecutor, maximumSize, statsRecording);
-    }
-
-    private static CacheFactory neverCacheFactory()
-    {
-        return cacheFactory(
-                OptionalLong.of(0),
-                OptionalLong.empty(),
-                Optional.empty(),
-                0,
-                StatsRecording.DISABLED);
-    }
-
     private static <K, V> LoadingCache<K, V> buildCache(
             OptionalLong expiresAfterWriteMillis,
             OptionalLong refreshMillis,
@@ -1612,31 +1434,33 @@ public class CachingHiveMetastore
         return configValuesCache;
     }
 
-    private static class CacheFactory
+    private record CacheFactory(OptionalLong expiresAfterWriteMillis, OptionalLong refreshMillis, Optional<Executor> refreshExecutor, long maximumSize, StatsRecording statsRecording)
     {
-        private final OptionalLong expiresAfterWriteMillis;
-        private final OptionalLong refreshMillis;
-        private final Optional<Executor> refreshExecutor;
-        private final long maximumSize;
-        private final StatsRecording statsRecording;
+        private static final CacheFactory NEVER_CACHE = new CacheFactory(OptionalLong.empty(), OptionalLong.empty(), Optional.empty(), 0, StatsRecording.DISABLED);
 
-        public CacheFactory(OptionalLong expiresAfterWriteMillis, OptionalLong refreshMillis, Optional<Executor> refreshExecutor, long maximumSize, StatsRecording statsRecording)
+        private CacheFactory(long maximumSize)
         {
-            this.expiresAfterWriteMillis = requireNonNull(expiresAfterWriteMillis, "expiresAfterWriteMillis is null");
-            this.refreshMillis = requireNonNull(refreshMillis, "refreshMillis is null");
-            this.refreshExecutor = requireNonNull(refreshExecutor, "refreshExecutor is null");
-            this.maximumSize = maximumSize;
-            this.statsRecording = requireNonNull(statsRecording, "statsRecording is null");
+            this(OptionalLong.empty(), OptionalLong.empty(), Optional.empty(), maximumSize, StatsRecording.DISABLED);
         }
 
-        public <K, V> LoadingCache<K, V> buildCache(com.google.common.base.Function<K, V> loader)
+        private CacheFactory
         {
-            return CachingHiveMetastore.buildCache(expiresAfterWriteMillis, refreshMillis, refreshExecutor, maximumSize, statsRecording, CacheLoader.from(loader));
+            requireNonNull(expiresAfterWriteMillis, "expiresAfterWriteMillis is null");
+            checkArgument(expiresAfterWriteMillis.isEmpty() || expiresAfterWriteMillis.getAsLong() > 0, "expiresAfterWriteMillis must be empty or at least 1 millisecond");
+            requireNonNull(refreshMillis, "refreshMillis is null");
+            checkArgument(refreshMillis.isEmpty() || refreshMillis.getAsLong() > 0, "refreshMillis must be empty or at least 1 millisecond");
+            requireNonNull(refreshExecutor, "refreshExecutor is null");
+            requireNonNull(statsRecording, "statsRecording is null");
         }
 
-        public <K, V> Cache<K, V> buildCache(BiFunction<K, V, V> reloader)
+        public <K, V> LoadingCache<K, V> buildCache(Function<K, V> loader)
         {
-            CacheLoader<K, V> onlyReloader = new CacheLoader<>()
+            return CachingHiveMetastore.buildCache(expiresAfterWriteMillis, refreshMillis, refreshExecutor, maximumSize, statsRecording, CacheLoader.from(loader::apply));
+        }
+
+        public <K, V> Cache<K, V> buildCache(BiFunction<K, V, V> loader)
+        {
+            CacheLoader<K, V> cacheLoader = new CacheLoader<>()
             {
                 @Override
                 public V load(K key)
@@ -1650,10 +1474,10 @@ public class CachingHiveMetastore
                     requireNonNull(key);
                     requireNonNull(oldValue);
                     // async reloading is configured in CachingHiveMetastore.buildCache if refreshMillis is present
-                    return immediateFuture(reloader.apply(key, oldValue));
+                    return immediateFuture(loader.apply(key, oldValue));
                 }
             };
-            return CachingHiveMetastore.buildCache(expiresAfterWriteMillis, refreshMillis, refreshExecutor, maximumSize, statsRecording, onlyReloader);
+            return CachingHiveMetastore.buildCache(expiresAfterWriteMillis, refreshMillis, refreshExecutor, maximumSize, statsRecording, cacheLoader);
         }
 
         public <K, V> Cache<K, AtomicReference<V>> buildBulkCache()
