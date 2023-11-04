@@ -22,10 +22,10 @@ import com.amazonaws.services.glue.model.Table;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.TableType;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.security.PrincipalType;
-import org.apache.hadoop.hive.metastore.TableType;
 
 import java.util.List;
 import java.util.Optional;

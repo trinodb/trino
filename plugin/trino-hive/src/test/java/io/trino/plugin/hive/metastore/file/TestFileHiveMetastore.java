@@ -15,12 +15,12 @@ package io.trino.plugin.hive.metastore.file;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.TableType;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
-import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.junit.jupiter.api.AfterAll;

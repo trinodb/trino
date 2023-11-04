@@ -68,7 +68,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
@@ -112,7 +112,7 @@ public class TestIcebergSplitSource
                 .build();
 
         this.fileSystemFactory = getFileSystemFactory(queryRunner);
-        CachingHiveMetastore cachingHiveMetastore = memoizeMetastore(metastore, 1000);
+        CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastore, 1000);
         this.catalog = new TrinoHiveCatalog(
                 new CatalogName("hive"),
                 cachingHiveMetastore,
