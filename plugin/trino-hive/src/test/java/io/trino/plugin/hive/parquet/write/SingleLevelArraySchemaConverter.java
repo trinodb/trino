@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.parquet.write;
 
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
-import org.apache.hadoop.hive.serde.serdeConstants;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
@@ -33,6 +32,9 @@ import org.apache.parquet.schema.Types;
 
 import java.util.List;
 import java.util.Locale;
+
+import static io.trino.plugin.hive.util.SerdeConstants.CHAR_TYPE_NAME;
+import static io.trino.plugin.hive.util.SerdeConstants.VARCHAR_TYPE_NAME;
 
 /**
  * This class is copied from org.apache.hadoop.hive.ql.io.parquet.convert.HiveSchemaConverter
@@ -100,15 +102,13 @@ public final class SingleLevelArraySchemaConverter
             if (typeInfo.equals(TypeInfoFactory.voidTypeInfo)) {
                 throw new UnsupportedOperationException("Void type not implemented");
             }
-            if (typeInfo.getTypeName().toLowerCase(Locale.ENGLISH).startsWith(
-                    serdeConstants.CHAR_TYPE_NAME)) {
+            if (typeInfo.getTypeName().toLowerCase(Locale.ENGLISH).startsWith(CHAR_TYPE_NAME)) {
                 if (repetition == Repetition.OPTIONAL) {
                     return Types.optional(PrimitiveTypeName.BINARY).as(LogicalTypeAnnotation.stringType()).named(name);
                 }
                 return Types.repeated(PrimitiveTypeName.BINARY).as(LogicalTypeAnnotation.stringType()).named(name);
             }
-            if (typeInfo.getTypeName().toLowerCase(Locale.ENGLISH).startsWith(
-                    serdeConstants.VARCHAR_TYPE_NAME)) {
+            if (typeInfo.getTypeName().toLowerCase(Locale.ENGLISH).startsWith(VARCHAR_TYPE_NAME)) {
                 if (repetition == Repetition.OPTIONAL) {
                     return Types.optional(PrimitiveTypeName.BINARY).as(LogicalTypeAnnotation.stringType()).named(name);
                 }

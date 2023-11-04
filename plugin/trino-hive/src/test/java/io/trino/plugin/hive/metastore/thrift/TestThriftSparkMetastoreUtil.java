@@ -30,13 +30,13 @@ import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
 import static io.trino.plugin.hive.metastore.thrift.ThriftSparkMetastoreUtil.fromMetastoreColumnStatistics;
-import static org.apache.hadoop.hive.serde.serdeConstants.BIGINT_TYPE_NAME;
-import static org.apache.hadoop.hive.serde.serdeConstants.BINARY_TYPE_NAME;
-import static org.apache.hadoop.hive.serde.serdeConstants.BOOLEAN_TYPE_NAME;
-import static org.apache.hadoop.hive.serde.serdeConstants.DATE_TYPE_NAME;
-import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
-import static org.apache.hadoop.hive.serde.serdeConstants.DOUBLE_TYPE_NAME;
-import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
+import static io.trino.plugin.hive.util.SerdeConstants.BIGINT_TYPE_NAME;
+import static io.trino.plugin.hive.util.SerdeConstants.BINARY_TYPE_NAME;
+import static io.trino.plugin.hive.util.SerdeConstants.BOOLEAN_TYPE_NAME;
+import static io.trino.plugin.hive.util.SerdeConstants.DATE_TYPE_NAME;
+import static io.trino.plugin.hive.util.SerdeConstants.DECIMAL_TYPE_NAME;
+import static io.trino.plugin.hive.util.SerdeConstants.DOUBLE_TYPE_NAME;
+import static io.trino.plugin.hive.util.SerdeConstants.STRING_TYPE_NAME;
 import static org.testng.Assert.assertEquals;
 
 public class TestThriftSparkMetastoreUtil
