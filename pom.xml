@@ -186,7 +186,7 @@
         <dep.errorprone.version>2.23.0</dep.errorprone.version>
         <dep.flyway.version>10.0.0</dep.flyway.version>
         <dep.google.http.client.version>1.43.3</dep.google.http.client.version>
-        <dep.iceberg.version>1.4.1</dep.iceberg.version>
+        <dep.iceberg.version>1.4.2</dep.iceberg.version>
         <dep.jna.version>5.13.0</dep.jna.version>
         <dep.jsonwebtoken.version>0.12.3</dep.jsonwebtoken.version>
         <dep.kafka-clients.version>3.6.0</dep.kafka-clients.version>
