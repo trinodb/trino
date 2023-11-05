@@ -24,12 +24,10 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Int128;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
@@ -37,7 +35,6 @@ import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.VarcharType;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import org.apache.hadoop.conf.Configuration;
@@ -68,7 +65,6 @@ import org.joda.time.format.DateTimeFormat;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -91,7 +87,6 @@ import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.mapType;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.util.CompressionConfigUtil.configureCompression;
-import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.plugin.hive.util.SerDeUtils.serializeObject;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -102,7 +97,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
@@ -114,7 +108,6 @@ import static io.trino.testing.StructuralTestUtil.rowBlockOf;
 import static io.trino.testing.StructuralTestUtil.sqlMapOf;
 import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.fill;
@@ -669,53 +662,6 @@ public abstract class AbstractTestHiveFileFormats
             throws ReflectiveOperationException
     {
         return HiveStorageFormat.class.getClassLoader().loadClass(className).asSubclass(superType).getConstructor().newInstance();
-    }
-
-    public static Object getFieldFromCursor(RecordCursor cursor, Type type, int field)
-    {
-        if (cursor.isNull(field)) {
-            return null;
-        }
-        if (BOOLEAN.equals(type)) {
-            return cursor.getBoolean(field);
-        }
-        if (TINYINT.equals(type)) {
-            return cursor.getLong(field);
-        }
-        if (SMALLINT.equals(type)) {
-            return cursor.getLong(field);
-        }
-        if (INTEGER.equals(type)) {
-            return (int) cursor.getLong(field);
-        }
-        if (BIGINT.equals(type)) {
-            return cursor.getLong(field);
-        }
-        if (REAL.equals(type)) {
-            return intBitsToFloat((int) cursor.getLong(field));
-        }
-        if (DOUBLE.equals(type)) {
-            return cursor.getDouble(field);
-        }
-        if (type instanceof VarcharType || type instanceof CharType || VARBINARY.equals(type)) {
-            return cursor.getSlice(field);
-        }
-        if (DateType.DATE.equals(type)) {
-            return cursor.getLong(field);
-        }
-        if (TimestampType.TIMESTAMP_MILLIS.equals(type)) {
-            return cursor.getLong(field);
-        }
-        if (isStructuralType(type)) {
-            return cursor.getObject(field);
-        }
-        if (type instanceof DecimalType decimalType) {
-            if (decimalType.isShort()) {
-                return BigInteger.valueOf(cursor.getLong(field));
-            }
-            return ((Int128) cursor.getObject(field)).toBigInteger();
-        }
-        throw new RuntimeException("unknown type");
     }
 
     protected static void checkPageSource(ConnectorPageSource pageSource, List<TestColumn> testColumns, List<Type> types, int rowCount)
