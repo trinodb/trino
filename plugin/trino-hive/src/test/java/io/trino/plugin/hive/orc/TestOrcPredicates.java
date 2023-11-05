@@ -17,70 +17,88 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcWriterOptions;
-import io.trino.plugin.hive.AbstractTestHiveFileFormats;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveColumnProjectionInfo;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceProvider;
-import io.trino.plugin.hive.HivePartitionKey;
+import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TableToPartitionMapping;
+import io.trino.plugin.hive.WriterKind;
+import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.IntArrayBlock;
+import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import org.apache.hadoop.mapred.FileSplit;
+import io.trino.spi.type.RowType;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.io.IOException;
 import java.time.Instant;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
-import java.util.Set;
+import java.util.stream.Collectors;
 
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
+import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.buildColumnMappings;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.testing.StructuralTestUtil.rowBlockOf;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RowType.field;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
-import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaIntObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 class TestOrcPredicates
-        extends AbstractTestHiveFileFormats
 {
     private static final int NUM_ROWS = 50000;
     private static final FileFormatDataSourceStats STATS = new FileFormatDataSourceStats();
 
-    // Prepare test columns
-    private static final TestColumn columnPrimitiveInteger = new TestColumn("column_primitive_integer", javaIntObjectInspector, 3, 3);
-    private static final TestColumn columnStruct = new TestColumn(
+    private static final HiveColumnHandle INTEGER_COLUMN = createBaseColumn("column_primitive_integer", 0, HiveType.HIVE_INT, INTEGER, REGULAR, Optional.empty());
+    private static final HiveColumnHandle STRUCT_COLUMN = createBaseColumn(
             "column1_struct",
-            getStandardStructObjectInspector(ImmutableList.of("field0", "field1"), ImmutableList.of(javaLongObjectInspector, javaLongObjectInspector)),
-            new Long[] {4L, 5L},
-            rowBlockOf(ImmutableList.of(BIGINT, BIGINT), 4L, 5L));
-    private static final TestColumn columnPrimitiveBigInt = new TestColumn("column_primitive_bigint", javaLongObjectInspector, 6L, 6L);
+            1,
+            HiveType.toHiveType(RowType.rowType(field("field0", BIGINT), field("field1", BIGINT))),
+            RowType.rowType(field("field0", BIGINT), field("field1", BIGINT)),
+            REGULAR,
+            Optional.empty());
+    private static final HiveColumnHandle BIGINT_COLUMN = createBaseColumn("column_primitive_bigint", 2, HiveType.HIVE_LONG, BIGINT, REGULAR, Optional.empty());
+    private static final List<HiveColumnHandle> COLUMNS = ImmutableList.of(INTEGER_COLUMN, STRUCT_COLUMN, BIGINT_COLUMN);
+
+    private static final HiveColumnHandle STRUCT_FIELD1_COLUMN = new HiveColumnHandle(
+            STRUCT_COLUMN.getBaseColumnName(),
+            STRUCT_COLUMN.getBaseHiveColumnIndex(),
+            STRUCT_COLUMN.getBaseHiveType(),
+            STRUCT_COLUMN.getBaseType(),
+            Optional.of(new HiveColumnProjectionInfo(
+                    ImmutableList.of(1),
+                    ImmutableList.of("field1"),
+                    HiveType.HIVE_LONG,
+                    BIGINT)),
+            STRUCT_COLUMN.getColumnType(),
+            STRUCT_COLUMN.getComment());
+    private static final List<HiveColumnHandle> PROJECTED_COLUMNS = ImmutableList.of(BIGINT_COLUMN, STRUCT_FIELD1_COLUMN);
 
     @Test
     void testOrcPredicates()
@@ -93,59 +111,33 @@ class TestOrcPredicates
     private static void testOrcPredicates(ConnectorSession session)
             throws Exception
     {
-        List<TestColumn> columnsToWrite = ImmutableList.of(columnPrimitiveInteger, columnStruct, columnPrimitiveBigInt);
+        TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
+        Location location = Location.of("memory:///test");
+        writeTestFile(session, fileSystemFactory, location);
 
-        File file = File.createTempFile("test", "orc_predicate");
-        file.delete();
-        try {
-            // Write data
-            OrcFileWriterFactory writerFactory = new OrcFileWriterFactory(TESTING_TYPE_MANAGER, new NodeVersion("test"), STATS, new OrcWriterOptions(), HDFS_FILE_SYSTEM_FACTORY);
-            FileSplit split = createTestFileTrino(file.getAbsolutePath(), ORC, HiveCompressionCodec.NONE, columnsToWrite, session, NUM_ROWS, writerFactory);
+        // Verify predicates on base column
+        // All rows returned for a satisfying predicate
+        assertFilteredRows(fileSystemFactory, location, TupleDomain.withColumnDomains(ImmutableMap.of(BIGINT_COLUMN, Domain.singleValue(BIGINT, 6L))), COLUMNS, session, NUM_ROWS);
+        // No rows returned for a mismatched predicate
+        assertFilteredRows(fileSystemFactory, location, TupleDomain.withColumnDomains(ImmutableMap.of(BIGINT_COLUMN, Domain.singleValue(BIGINT, 1L))), COLUMNS, session, 0);
 
-            TupleDomain<TestColumn> testingPredicate;
-
-            // Verify predicates on base column
-            List<TestColumn> columnsToRead = columnsToWrite;
-            // All rows returned for a satisfying predicate
-            testingPredicate = TupleDomain.withColumnDomains(ImmutableMap.of(columnPrimitiveBigInt, Domain.singleValue(BIGINT, 6L)));
-            assertFilteredRows(testingPredicate, columnsToRead, session, split, NUM_ROWS);
-            // No rows returned for a mismatched predicate
-            testingPredicate = TupleDomain.withColumnDomains(ImmutableMap.of(columnPrimitiveBigInt, Domain.singleValue(BIGINT, 1L)));
-            assertFilteredRows(testingPredicate, columnsToRead, session, split, 0);
-
-            // Verify predicates on projected column
-            TestColumn projectedColumn = new TestColumn(
-                    columnStruct.getBaseName(),
-                    columnStruct.getBaseObjectInspector(),
-                    ImmutableList.of("field1"),
-                    ImmutableList.of(1),
-                    javaLongObjectInspector,
-                    5L,
-                    5L,
-                    false);
-
-            columnsToRead = ImmutableList.of(columnPrimitiveBigInt, projectedColumn);
-            // All rows returned for a satisfying predicate
-            testingPredicate = TupleDomain.withColumnDomains(ImmutableMap.of(projectedColumn, Domain.singleValue(BIGINT, 5L)));
-            assertFilteredRows(testingPredicate, columnsToRead, session, split, NUM_ROWS);
-            // No rows returned for a mismatched predicate
-            testingPredicate = TupleDomain.withColumnDomains(ImmutableMap.of(projectedColumn, Domain.singleValue(BIGINT, 6L)));
-            assertFilteredRows(testingPredicate, columnsToRead, session, split, 0);
-        }
-        finally {
-            file.delete();
-        }
+        // Verify predicates on projected column
+        // All rows returned for a satisfying predicate
+        assertFilteredRows(fileSystemFactory, location, TupleDomain.withColumnDomains(ImmutableMap.of(STRUCT_FIELD1_COLUMN, Domain.singleValue(BIGINT, 5L))), PROJECTED_COLUMNS, session, NUM_ROWS);
+        // No rows returned for a mismatched predicate
+        assertFilteredRows(fileSystemFactory, location, TupleDomain.withColumnDomains(ImmutableMap.of(STRUCT_FIELD1_COLUMN, Domain.singleValue(BIGINT, 6L))), PROJECTED_COLUMNS, session, 0);
     }
 
     private static void assertFilteredRows(
-            TupleDomain<TestColumn> effectivePredicate,
-            List<TestColumn> columnsToRead,
+            TrinoFileSystemFactory fileSystemFactory,
+            Location location,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            List<HiveColumnHandle> columnsToRead,
             ConnectorSession session,
-            FileSplit split,
             int expectedRows)
             throws IOException
     {
-        try (ConnectorPageSource pageSource = createPageSource(effectivePredicate, columnsToRead, session, split)) {
+        try (ConnectorPageSource pageSource = createPageSource(fileSystemFactory, location, effectivePredicate, columnsToRead, session)) {
             int filteredRows = 0;
             while (!pageSource.isFinished()) {
                 Page page = pageSource.getNextPage();
@@ -158,83 +150,91 @@ class TestOrcPredicates
     }
 
     private static ConnectorPageSource createPageSource(
-            TupleDomain<TestColumn> effectivePredicate,
-            List<TestColumn> columnsToRead,
-            ConnectorSession session,
-            FileSplit split)
+            TrinoFileSystemFactory fileSystemFactory,
+            Location location,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            List<HiveColumnHandle> columns,
+            ConnectorSession session)
+            throws IOException
     {
-        OrcPageSourceFactory readerFactory = new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_FILE_SYSTEM_FACTORY, STATS, UTC);
+        OrcPageSourceFactory readerFactory = new OrcPageSourceFactory(new OrcReaderOptions(), fileSystemFactory, STATS, UTC);
 
-        Properties splitProperties = new Properties();
-        splitProperties.setProperty(FILE_INPUT_FORMAT, ORC.getInputFormat());
-        splitProperties.setProperty(SERIALIZATION_LIB, ORC.getSerde());
-
-        // Use full columns in split properties
-        ImmutableList.Builder<String> splitPropertiesColumnNames = ImmutableList.builder();
-        ImmutableList.Builder<String> splitPropertiesColumnTypes = ImmutableList.builder();
-        Set<String> baseColumnNames = new HashSet<>();
-        for (TestColumn columnToRead : columnsToRead) {
-            String name = columnToRead.getBaseName();
-            if (!baseColumnNames.contains(name) && !columnToRead.isPartitionKey()) {
-                baseColumnNames.add(name);
-                splitPropertiesColumnNames.add(name);
-                splitPropertiesColumnTypes.add(columnToRead.getBaseObjectInspector().getTypeName());
-            }
-        }
-
-        splitProperties.setProperty("columns", String.join(",", splitPropertiesColumnNames.build()));
-        splitProperties.setProperty("columns.types", String.join(",", splitPropertiesColumnTypes.build()));
-
-        List<HivePartitionKey> partitionKeys = columnsToRead.stream()
-                .filter(TestColumn::isPartitionKey)
-                .map(input -> new HivePartitionKey(input.getName(), (String) input.getWriteValue()))
-                .collect(toList());
-
-        String partitionName = String.join("/", partitionKeys.stream()
-                .map(partitionKey -> format("%s=%s", partitionKey.getName(), partitionKey.getValue()))
-                .collect(toImmutableList()));
-
-        List<HiveColumnHandle> columnHandles = getColumnHandles(columnsToRead);
-
-        TupleDomain<HiveColumnHandle> predicate = effectivePredicate.transformKeys(testColumn -> {
-            Optional<HiveColumnHandle> handle = columnHandles.stream()
-                    .filter(column -> testColumn.getName().equals(column.getName()))
-                    .findFirst();
-
-            checkState(handle.isPresent(), "Predicate on invalid column");
-            return handle.get();
-        });
-
+        long length = fileSystemFactory.create(session).newInputFile(location).length();
         List<HivePageSourceProvider.ColumnMapping> columnMappings = buildColumnMappings(
-                partitionName,
-                partitionKeys,
-                columnHandles,
+                "",
+                ImmutableList.of(),
+                columns,
                 ImmutableList.of(),
                 TableToPartitionMapping.empty(),
-                split.getPath().toString(),
+                location.toString(),
                 OptionalInt.empty(),
-                split.getLength(),
+                length,
                 Instant.now().toEpochMilli());
 
-        Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
-                ImmutableSet.of(readerFactory),
-                session,
-                Location.of(split.getPath().toString()),
-                OptionalInt.empty(),
-                split.getStart(),
-                split.getLength(),
-                split.getLength(),
-                splitProperties,
-                predicate,
-                TESTING_TYPE_MANAGER,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                false,
-                NO_ACID_TRANSACTION,
-                columnMappings);
+        return HivePageSourceProvider.createHivePageSource(
+                        ImmutableSet.of(readerFactory),
+                        session,
+                        location,
+                        OptionalInt.empty(),
+                        0,
+                        length,
+                        length,
+                        getTableProperties(),
+                        effectivePredicate,
+                        TESTING_TYPE_MANAGER,
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        NO_ACID_TRANSACTION,
+                        columnMappings)
+                .orElseThrow();
+    }
 
-        assertTrue(pageSource.isPresent());
-        return pageSource.get();
+    private static void writeTestFile(ConnectorSession session, TrinoFileSystemFactory fileSystemFactory, Location location)
+    {
+        FileWriter fileWriter = new OrcFileWriterFactory(TESTING_TYPE_MANAGER, new NodeVersion("test"), STATS, new OrcWriterOptions(), fileSystemFactory)
+                .createFileWriter(
+                        location,
+                        COLUMNS.stream().map(HiveColumnHandle::getName).collect(toList()),
+                        StorageFormat.fromHiveStorageFormat(ORC),
+                        HiveCompressionCodec.NONE,
+                        getTableProperties(),
+                        session,
+                        OptionalInt.empty(),
+                        NO_ACID_TRANSACTION,
+                        false,
+                        WriterKind.INSERT)
+                .orElseThrow();
+
+        fileWriter.appendRows(new Page(
+                RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.empty(), new int[] {3}), NUM_ROWS),
+                RunLengthEncodedBlock.create(
+                        RowBlock.fromFieldBlocks(1, new Block[] {
+                                new LongArrayBlock(1, Optional.empty(), new long[] {4}),
+                                new LongArrayBlock(1, Optional.empty(), new long[] {5})}),
+                        NUM_ROWS),
+                RunLengthEncodedBlock.create(new LongArrayBlock(1, Optional.empty(), new long[] {6}), NUM_ROWS)));
+
+        fileWriter.commit();
+    }
+
+    private static Properties getTableProperties()
+    {
+        Properties tableProperties = new Properties();
+        tableProperties.setProperty(FILE_INPUT_FORMAT, ORC.getInputFormat());
+        tableProperties.setProperty(SERIALIZATION_LIB, ORC.getSerde());
+        tableProperties.setProperty(
+                "columns",
+                COLUMNS.stream()
+                        .map(HiveColumnHandle::getName)
+                        .collect(Collectors.joining(",")));
+        tableProperties.setProperty(
+                "columns.types",
+                COLUMNS.stream()
+                        .map(HiveColumnHandle::getHiveType)
+                        .map(HiveType::toString)
+                        .collect(Collectors.joining(",")));
+        return tableProperties;
     }
 }
