@@ -52,6 +52,7 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
@@ -62,6 +63,7 @@ import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlVarbinary;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.TestingConnectorSession;
@@ -109,7 +111,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.parquet.ParquetWriteValidation.ParquetWriteValidationBuilder;
 import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING;
 import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING;
-import static io.trino.plugin.hive.AbstractTestHiveFileFormats.getFieldFromCursor;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
@@ -129,6 +130,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.Varchars.truncateToLength;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.stream;
@@ -565,6 +567,53 @@ class ParquetTester
             return SqlTimestamp.fromMillis(3, (long) fieldFromCursor);
         }
         return fieldFromCursor;
+    }
+
+    private static Object getFieldFromCursor(RecordCursor cursor, Type type, int field)
+    {
+        if (cursor.isNull(field)) {
+            return null;
+        }
+        if (BOOLEAN.equals(type)) {
+            return cursor.getBoolean(field);
+        }
+        if (TINYINT.equals(type)) {
+            return cursor.getLong(field);
+        }
+        if (SMALLINT.equals(type)) {
+            return cursor.getLong(field);
+        }
+        if (INTEGER.equals(type)) {
+            return (int) cursor.getLong(field);
+        }
+        if (BIGINT.equals(type)) {
+            return cursor.getLong(field);
+        }
+        if (REAL.equals(type)) {
+            return intBitsToFloat((int) cursor.getLong(field));
+        }
+        if (DOUBLE.equals(type)) {
+            return cursor.getDouble(field);
+        }
+        if (type instanceof VarcharType || type instanceof CharType || VARBINARY.equals(type)) {
+            return cursor.getSlice(field);
+        }
+        if (DateType.DATE.equals(type)) {
+            return cursor.getLong(field);
+        }
+        if (TimestampType.TIMESTAMP_MILLIS.equals(type)) {
+            return cursor.getLong(field);
+        }
+        if (isStructuralType(type)) {
+            return cursor.getObject(field);
+        }
+        if (type instanceof DecimalType decimalType) {
+            if (decimalType.isShort()) {
+                return BigInteger.valueOf(cursor.getLong(field));
+            }
+            return ((Int128) cursor.getObject(field)).toBigInteger();
+        }
+        throw new RuntimeException("unknown type");
     }
 
     private static Map<?, ?> toMapValue(SqlMap sqlMap, Type keyType, Type valueType)
