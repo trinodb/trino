@@ -22,21 +22,15 @@ import static java.lang.String.format;
 public class ParquetCorruptionException
         extends IOException
 {
-    public ParquetCorruptionException(String message)
+    public ParquetCorruptionException(ParquetDataSourceId dataSourceId, String message)
     {
-        super(message);
+        this(dataSourceId, "%s", message);
     }
 
     @FormatMethod
-    public ParquetCorruptionException(String messageFormat, Object... args)
+    public ParquetCorruptionException(Throwable cause, ParquetDataSourceId dataSourceId, String messageFormat, Object... args)
     {
-        super(format(messageFormat, args));
-    }
-
-    @FormatMethod
-    public ParquetCorruptionException(Throwable cause, String messageFormat, Object... args)
-    {
-        super(format(messageFormat, args), cause);
+        super(formatMessage(dataSourceId, messageFormat, args), cause);
     }
 
     @FormatMethod
