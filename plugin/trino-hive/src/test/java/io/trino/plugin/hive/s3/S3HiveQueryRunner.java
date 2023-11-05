@@ -50,25 +50,6 @@ public final class S3HiveQueryRunner
                 .build();
     }
 
-    public static DistributedQueryRunner create(
-            HostAndPort hiveMetastoreEndpoint,
-            String s3Endpoint,
-            String s3AccessKey,
-            String s3SecretKey,
-            String bucketName,
-            Map<String, String> additionalHiveProperties)
-            throws Exception
-    {
-        return builder()
-                .setHiveMetastoreEndpoint(hiveMetastoreEndpoint)
-                .setS3Endpoint(s3Endpoint)
-                .setS3AccessKey(s3AccessKey)
-                .setS3SecretKey(s3SecretKey)
-                .setBucketName(bucketName)
-                .setHiveProperties(additionalHiveProperties)
-                .build();
-    }
-
     public static Builder builder(HiveMinioDataLake hiveMinioDataLake)
     {
         return builder()
