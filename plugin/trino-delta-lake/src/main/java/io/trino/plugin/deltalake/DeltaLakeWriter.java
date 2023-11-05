@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import io.trino.filesystem.Location;
+import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.deltalake.DataFileInfo.DataFileType;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
@@ -196,7 +197,7 @@ public class DeltaLakeWriter
     private static DeltaLakeJsonFileStatistics readStatistics(FileMetaData fileMetaData, Location path, Map</* lowercase */ String, Type> typeForColumn, long rowCount)
             throws IOException
     {
-        ParquetMetadata parquetMetadata = MetadataReader.createParquetMetadata(fileMetaData, path.fileName());
+        ParquetMetadata parquetMetadata = MetadataReader.createParquetMetadata(fileMetaData, new ParquetDataSourceId(path.toString()));
 
         ImmutableMultimap.Builder<String, ColumnChunkMetaData> metadataForColumn = ImmutableMultimap.builder();
         for (BlockMetaData blockMetaData : parquetMetadata.getBlocks()) {

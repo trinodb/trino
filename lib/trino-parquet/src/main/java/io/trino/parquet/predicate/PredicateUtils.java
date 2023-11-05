@@ -21,6 +21,7 @@ import io.airlift.slice.SliceInput;
 import io.trino.parquet.BloomFilterStore;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetDataSource;
+import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.DecimalType;
@@ -254,7 +255,7 @@ public final class PredicateUtils
         }
         // Get the dictionary page header and the dictionary in single read
         Slice buffer = dataSource.readFully(columnMetaData.getStartingPos(), dictionaryPageSize);
-        return readPageHeaderWithData(buffer.getInput()).map(data -> decodeDictionaryPage(data, columnMetaData));
+        return readPageHeaderWithData(buffer.getInput()).map(data -> decodeDictionaryPage(dataSource.getId(), data, columnMetaData));
     }
 
     private static Optional<Integer> getDictionaryPageSize(ColumnIndexStore columnIndexStore, ColumnChunkMetaData columnMetaData)
@@ -293,7 +294,7 @@ public final class PredicateUtils
                 inputStream.readSlice(pageHeader.getCompressed_page_size())));
     }
 
-    private static DictionaryPage decodeDictionaryPage(PageHeaderWithData pageHeaderWithData, ColumnChunkMetaData chunkMetaData)
+    private static DictionaryPage decodeDictionaryPage(ParquetDataSourceId dataSourceId, PageHeaderWithData pageHeaderWithData, ColumnChunkMetaData chunkMetaData)
     {
         PageHeader pageHeader = pageHeaderWithData.pageHeader();
         DictionaryPageHeader dicHeader = pageHeader.getDictionary_page_header();
@@ -302,7 +303,7 @@ public final class PredicateUtils
 
         Slice compressedData = pageHeaderWithData.compressedData();
         try {
-            return new DictionaryPage(decompress(chunkMetaData.getCodec().getParquetCompressionCodec(), compressedData, pageHeader.getUncompressed_page_size()), dictionarySize, encoding);
+            return new DictionaryPage(decompress(dataSourceId, chunkMetaData.getCodec().getParquetCompressionCodec(), compressedData, pageHeader.getUncompressed_page_size()), dictionarySize, encoding);
         }
         catch (IOException e) {
             throw new ParquetDecodingException("Could not decode the dictionary for " + chunkMetaData.getPath(), e);

@@ -23,6 +23,7 @@ import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV1;
 import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
+import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetTypeUtils;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -407,6 +408,7 @@ public class TestPageReader
                 0,
                 0);
         return PageReader.createPageReader(
+                new ParquetDataSourceId("test"),
                 new ChunkedInputStream(slices.stream().map(TestingChunkReader::new).collect(toImmutableList())),
                 columnChunkMetaData,
                 new ColumnDescriptor(new String[] {}, new PrimitiveType(REQUIRED, INT32, ""), 0, 0),

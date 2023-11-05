@@ -22,6 +22,7 @@ import io.airlift.units.DataSize;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DiskRange;
 import io.trino.parquet.ParquetDataSource;
+import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.reader.ChunkedInputStream;
 import io.trino.parquet.reader.MetadataReader;
@@ -110,6 +111,7 @@ public class TestParquetWriter
         Map<Integer, ChunkedInputStream> chunkReader = dataSource.planRead(ImmutableListMultimap.of(0, range), newSimpleAggregatedMemoryContext());
 
         PageReader pageReader = PageReader.createPageReader(
+                new ParquetDataSourceId("test"),
                 chunkReader.get(0),
                 chunkMetaData,
                 new ColumnDescriptor(new String[] {"columna"}, new PrimitiveType(REQUIRED, INT32, "columna"), 0, 0),
@@ -265,7 +267,11 @@ public class TestParquetWriter
             assertThat(pageHeader.getType()).isEqualTo(PageType.DICTIONARY_PAGE);
             assertThat(pageHeader.getDictionary_page_header().getNum_values()).isEqualTo(100);
             Slice compressedData = inputStream.readSlice(pageHeader.getCompressed_page_size());
-            Slice uncompressedData = decompress(chunkMetaData.getCodec().getParquetCompressionCodec(), compressedData, pageHeader.getUncompressed_page_size());
+            Slice uncompressedData = decompress(
+                    new ParquetDataSourceId("test"),
+                    chunkMetaData.getCodec().getParquetCompressionCodec(),
+                    compressedData,
+                    pageHeader.getUncompressed_page_size());
             int[] ids = new int[100];
             uncompressedData.getInts(0, ids, 0, 100);
             for (int i = 0; i < 100; i++) {
