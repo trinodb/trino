@@ -21,22 +21,13 @@ import io.trino.filesystem.Location;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.SqlDate;
-import io.trino.spi.type.SqlDecimal;
-import io.trino.spi.type.SqlTimestamp;
-import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
-import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedRow;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.Date;
@@ -48,7 +39,6 @@ import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
 import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveCharObjectInspector;
@@ -59,11 +49,9 @@ import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 
 import java.io.File;
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -83,7 +71,6 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveColumnProjectionInfo.generatePartialName;
 import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
-import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.mapType;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.util.CompressionConfigUtil.configureCompression;
@@ -91,7 +78,6 @@ import static io.trino.plugin.hive.util.SerDeUtils.serializeObject;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
-import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -99,8 +85,6 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static io.trino.testing.StructuralTestUtil.arrayBlockOf;
 import static io.trino.testing.StructuralTestUtil.decimalArrayBlockOf;
 import static io.trino.testing.StructuralTestUtil.decimalSqlMapOf;
@@ -108,8 +92,6 @@ import static io.trino.testing.StructuralTestUtil.rowBlockOf;
 import static io.trino.testing.StructuralTestUtil.sqlMapOf;
 import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static java.lang.Math.floorDiv;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.fill;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -130,14 +112,9 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharTypeInfo;
 import static org.joda.time.DateTimeZone.UTC;
-import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestHiveFileFormats
 {
-    protected static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
-
-    private static final double EPSILON = 0.001;
-
     private static final long DATE_MILLIS_UTC = new DateTime(2011, 5, 6, 0, 0, UTC).getMillis();
     private static final long DATE_DAYS = TimeUnit.MILLISECONDS.toDays(DATE_MILLIS_UTC);
     private static final String DATE_STRING = DateTimeFormat.forPattern("yyyy-MM-dd").withZoneUTC().print(DATE_MILLIS_UTC);
@@ -662,73 +639,6 @@ public abstract class AbstractTestHiveFileFormats
             throws ReflectiveOperationException
     {
         return HiveStorageFormat.class.getClassLoader().loadClass(className).asSubclass(superType).getConstructor().newInstance();
-    }
-
-    protected static void checkPageSource(ConnectorPageSource pageSource, List<TestColumn> testColumns, List<Type> types, int rowCount)
-            throws IOException
-    {
-        try (pageSource) {
-            MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, types);
-            assertEquals(result.getMaterializedRows().size(), rowCount);
-            for (MaterializedRow row : result) {
-                for (int i = 0, testColumnsSize = testColumns.size(); i < testColumnsSize; i++) {
-                    TestColumn testColumn = testColumns.get(i);
-                    Type type = types.get(i);
-
-                    Object actualValue = row.getField(i);
-                    Object expectedValue = testColumn.getExpectedValue();
-
-                    if (expectedValue instanceof Slice) {
-                        expectedValue = ((Slice) expectedValue).toStringUtf8();
-                    }
-
-                    if (actualValue == null || expectedValue == null) {
-                        assertEquals(actualValue, expectedValue, "Wrong value for column " + testColumn.getName());
-                    }
-                    else if (testColumn.getObjectInspector().getTypeName().equals("float")) {
-                        assertEquals((float) actualValue, (float) expectedValue, EPSILON, "Wrong value for column " + testColumn.getName());
-                    }
-                    else if (testColumn.getObjectInspector().getTypeName().equals("double")) {
-                        assertEquals((double) actualValue, (double) expectedValue, EPSILON, "Wrong value for column " + testColumn.getName());
-                    }
-                    else if (testColumn.getObjectInspector().getTypeName().equals("date")) {
-                        SqlDate expectedDate = new SqlDate(((Long) expectedValue).intValue());
-                        assertEquals(actualValue, expectedDate, "Wrong value for column " + testColumn.getName());
-                    }
-                    else if (testColumn.getObjectInspector().getTypeName().equals("int") ||
-                            testColumn.getObjectInspector().getTypeName().equals("smallint") ||
-                            testColumn.getObjectInspector().getTypeName().equals("tinyint")) {
-                        assertEquals(actualValue, expectedValue);
-                    }
-                    else if (testColumn.getObjectInspector().getTypeName().equals("timestamp")) {
-                        SqlTimestamp expectedTimestamp = sqlTimestampOf(3, floorDiv((Long) expectedValue, MICROSECONDS_PER_MILLISECOND));
-                        assertEquals(actualValue, expectedTimestamp, "Wrong value for column " + testColumn.getName());
-                    }
-                    else if (testColumn.getObjectInspector().getTypeName().startsWith("char")) {
-                        assertEquals(actualValue, padSpaces((String) expectedValue, (CharType) type), "Wrong value for column " + testColumn.getName());
-                    }
-                    else if (testColumn.getObjectInspector().getCategory() == Category.PRIMITIVE) {
-                        if (actualValue instanceof Slice) {
-                            actualValue = ((Slice) actualValue).toStringUtf8();
-                        }
-                        if (actualValue instanceof SqlVarbinary) {
-                            actualValue = new String(((SqlVarbinary) actualValue).getBytes(), UTF_8);
-                        }
-
-                        if (actualValue instanceof SqlDecimal) {
-                            actualValue = new BigDecimal(actualValue.toString());
-                        }
-                        assertEquals(actualValue, expectedValue, "Wrong value for column " + testColumn.getName());
-                    }
-                    else {
-                        BlockBuilder builder = type.createBlockBuilder(null, 1);
-                        type.writeObject(builder, expectedValue);
-                        expectedValue = type.getObjectValue(SESSION, builder.build(), 0);
-                        assertEquals(actualValue, expectedValue, "Wrong value for column " + testColumn.getName());
-                    }
-                }
-            }
-        }
     }
 
     public static final class TestColumn
