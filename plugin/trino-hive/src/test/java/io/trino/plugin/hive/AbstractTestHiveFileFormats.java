@@ -18,10 +18,13 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
@@ -46,12 +49,12 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalOb
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 
 import java.io.File;
+import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -92,6 +95,7 @@ import static io.trino.testing.StructuralTestUtil.rowBlockOf;
 import static io.trino.testing.StructuralTestUtil.sqlMapOf;
 import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static java.nio.file.Files.readAllBytes;
 import static java.util.Arrays.fill;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -487,8 +491,8 @@ public abstract class AbstractTestHiveFileFormats
         return columns;
     }
 
-    public static FileSplit createTestFileTrino(
-            String filePath,
+    public static void createTestFileTrino(
+            Location location,
             HiveStorageFormat storageFormat,
             HiveCompressionCodec compressionCodec,
             List<TestColumn> testColumns,
@@ -536,7 +540,7 @@ public abstract class AbstractTestHiveFileFormats
                         .collect(Collectors.joining(",")));
 
         Optional<FileWriter> fileWriter = fileWriterFactory.createFileWriter(
-                Location.of(filePath),
+                location,
                 testColumns.stream()
                         .map(TestColumn::getName)
                         .collect(toList()),
@@ -552,12 +556,11 @@ public abstract class AbstractTestHiveFileFormats
         FileWriter hiveFileWriter = fileWriter.orElseThrow(() -> new IllegalArgumentException("fileWriterFactory"));
         hiveFileWriter.appendRows(page);
         hiveFileWriter.commit();
-
-        return new FileSplit(new Path(filePath), 0, new File(filePath).length(), new String[0]);
     }
 
-    public static FileSplit createTestFileHive(
-            String filePath,
+    public static void createTestFileHive(
+            TrinoFileSystemFactory fileSystemFactory,
+            Location location,
             HiveStorageFormat storageFormat,
             HiveCompressionCodec compressionCodec,
             List<TestColumn> testColumns,
@@ -588,15 +591,17 @@ public abstract class AbstractTestHiveFileFormats
         JobConf jobConf = new JobConf(false);
         configureCompression(jobConf, compressionCodec);
 
-        RecordWriter recordWriter = outputFormat.getHiveRecordWriter(
-                jobConf,
-                new Path(filePath),
-                Text.class,
-                compressionCodec != HiveCompressionCodec.NONE,
-                tableProperties,
-                () -> {});
-
+        File file = File.createTempFile("trino_test", "data");
+        file.delete();
         try {
+            RecordWriter recordWriter = outputFormat.getHiveRecordWriter(
+                    jobConf,
+                    new Path(file.getAbsolutePath()),
+                    Text.class,
+                    compressionCodec != HiveCompressionCodec.NONE,
+                    tableProperties,
+                    () -> {});
+
             serializer.initialize(new Configuration(false), tableProperties);
 
             SettableStructObjectInspector objectInspector = getStandardStructObjectInspector(
@@ -623,16 +628,17 @@ public abstract class AbstractTestHiveFileFormats
                 Writable record = serializer.serialize(row, objectInspector);
                 recordWriter.write(record);
             }
+            recordWriter.close(false);
+
+            // copy the file data to the TrinoFileSystem
+            TrinoFileSystem fileSystem = fileSystemFactory.create(ConnectorIdentity.ofUser("test"));
+            try (OutputStream outputStream = fileSystem.newOutputFile(location).create()) {
+                outputStream.write(readAllBytes(file.toPath()));
+            }
         }
         finally {
-            recordWriter.close(false);
+            file.delete();
         }
-
-        // todo to test with compression, the file must be renamed with the compression extension
-        Path path = new Path(filePath);
-        path.getFileSystem(new Configuration(false)).setVerifyChecksum(true);
-        File file = new File(filePath);
-        return new FileSplit(path, 0, file.length(), new String[0]);
     }
 
     private static <T> T newInstance(String className, Class<T> superType)
