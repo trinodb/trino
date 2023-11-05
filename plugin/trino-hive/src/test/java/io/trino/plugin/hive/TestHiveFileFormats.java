@@ -1102,16 +1102,18 @@ public class TestHiveFileFormats
         public FileFormatAssertion isReadableByPageSource(HivePageSourceFactory pageSourceFactory)
                 throws Exception
         {
-            assertRead(Optional.of(pageSourceFactory));
+            assertRead(pageSourceFactory);
             return this;
         }
 
         public void isFailingForPageSource(HivePageSourceFactory pageSourceFactory, HiveErrorCode expectedErrorCode, String expectedMessage)
         {
-            assertFailure(Optional.of(pageSourceFactory), expectedErrorCode, expectedMessage);
+            assertTrinoExceptionThrownBy(() -> assertRead(pageSourceFactory))
+                    .hasErrorCode(expectedErrorCode)
+                    .hasMessage(expectedMessage);
         }
 
-        private void assertRead(Optional<HivePageSourceFactory> pageSourceFactory)
+        private void assertRead(HivePageSourceFactory pageSourceFactory)
                 throws Exception
         {
             assertNotNull(storageFormat, "storageFormat must be specified");
@@ -1143,25 +1145,13 @@ public class TestHiveFileFormats
                     }
 
                     long fileSize = split.getLength() + fileSizePadding;
-                    if (pageSourceFactory.isPresent()) {
-                        testPageSourceFactory(pageSourceFactory.get(), split, storageFormat, readColumns, session, fileSize, rowsCount);
-                    }
+                    testPageSourceFactory(pageSourceFactory, split, storageFormat, readColumns, session, fileSize, rowsCount);
                 }
                 finally {
                     //noinspection ResultOfMethodCallIgnored
                     file.delete();
                 }
             }
-        }
-
-        private void assertFailure(
-                Optional<HivePageSourceFactory> pageSourceFactory,
-                HiveErrorCode expectedErrorCode,
-                String expectedMessage)
-        {
-            assertTrinoExceptionThrownBy(() -> assertRead(pageSourceFactory))
-                    .hasErrorCode(expectedErrorCode)
-                    .hasMessage(expectedMessage);
         }
     }
 }
