@@ -1923,6 +1923,35 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testCreateTableAndAgg()
+    {
+        testWithAllStorageFormats(this::testCreateTableAndSelectAgg);
+    }
+
+    private void testCreateTableAndSelectAgg(Session session, HiveStorageFormat storageFormat)
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_create_table_and_agg " +
+                "WITH (" +
+                "format = '" + storageFormat + "'" +
+                ") " +
+                "AS " +
+                "SELECT cast(c AS decimal(38,2)) decimal_col FROM (VALUES (0.00),(null)) AS a(c) ";
+
+        assertUpdate(session, createTable, 2);
+
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_create_table_and_agg");
+        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+
+        assertQuery(session, "SELECT count(*), count(distinct decimal_col), sum(decimal_col) FROM test_create_table_and_agg",
+                "VALUES (2, 1, 0)");
+
+        assertUpdate(session, "DROP TABLE test_create_table_and_agg");
+
+        assertFalse(getQueryRunner().tableExists(session, "test_create_table_and_agg"));
+    }
+
+    @Test
     public void testCreatePartitionedTableAs()
     {
         testWithAllStorageFormats(this::testCreatePartitionedTableAs);
