@@ -486,7 +486,7 @@
             <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
-                <version>hadoop3-2.2.17</version>
+                <version>hadoop3-2.2.18</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
