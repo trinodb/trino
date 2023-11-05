@@ -49,25 +49,15 @@ public final class ParquetCompressionUtils
             return EMPTY_SLICE;
         }
 
-        switch (codec) {
-            case GZIP:
-                return decompressGzip(input, uncompressedSize);
-            case SNAPPY:
-                return decompressSnappy(input, uncompressedSize);
-            case UNCOMPRESSED:
-                return input;
-            case LZO:
-                return decompressLZO(input, uncompressedSize);
-            case LZ4:
-                return decompressLz4(input, uncompressedSize);
-            case ZSTD:
-                return decompressZstd(input, uncompressedSize);
-            case BROTLI:
-            case LZ4_RAW:
-                // unsupported
-                break;
-        }
-        throw new ParquetCorruptionException(dataSourceId, "Codec not supported in Parquet: %s", codec);
+        return switch (codec) {
+            case UNCOMPRESSED -> input;
+            case GZIP -> decompressGzip(input, uncompressedSize);
+            case SNAPPY -> decompressSnappy(input, uncompressedSize);
+            case LZO -> decompressLZO(input, uncompressedSize);
+            case LZ4 -> decompressLz4(input, uncompressedSize);
+            case ZSTD -> decompressZstd(input, uncompressedSize);
+            case BROTLI, LZ4_RAW -> throw new ParquetCorruptionException(dataSourceId, "Codec not supported in Parquet: %s", codec);
+        };
     }
 
     private static Slice decompressSnappy(Slice input, int uncompressedSize)
