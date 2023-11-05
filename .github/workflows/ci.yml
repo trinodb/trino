@@ -330,9 +330,7 @@ jobs:
           S3_BUCKET_ENDPOINT: "s3.${{ vars.TRINO_AWS_REGION }}.amazonaws.com"
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
-            $MAVEN test ${MAVEN_TEST} -pl :trino-hive -P aws-tests \
-              -Ds3.bucket="${S3_BUCKET}" \
-              -Ds3.bucket-endpoint="${S3_BUCKET_ENDPOINT}"
+            $MAVEN test ${MAVEN_TEST} -pl :trino-hive -P aws-tests
           fi
       - name: Run Hive Azure ABFS Access Key Tests
         if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
