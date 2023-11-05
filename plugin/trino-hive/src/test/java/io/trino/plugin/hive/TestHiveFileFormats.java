@@ -16,6 +16,7 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import io.airlift.slice.Slice;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
@@ -43,10 +44,18 @@ import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.SqlDate;
+import io.trino.spi.type.SqlDecimal;
+import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.Type;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedRow;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
@@ -58,12 +67,14 @@ import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.VarcharTypeInfo;
 import org.apache.hadoop.mapred.FileSplit;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -98,10 +109,16 @@ import static io.trino.plugin.hive.HiveTestUtils.getTypes;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
+import static io.trino.spi.type.Chars.padSpaces;
+import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
+import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static io.trino.testing.StructuralTestUtil.rowBlockOf;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -117,9 +134,12 @@ import static org.testng.Assert.assertTrue;
 // uses a single record writer across all threads.
 // For example org.apache.parquet.column.values.factory.DefaultValuesWriterFactory#DEFAULT_V1_WRITER_FACTORY is shared mutable state.
 @Test(singleThreaded = true)
-public class TestHiveFileFormats
+public final class TestHiveFileFormats
         extends AbstractTestHiveFileFormats
 {
+    private static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
+    private static final double EPSILON = 0.001;
+
     private static final FileFormatDataSourceStats STATS = new FileFormatDataSourceStats();
     private static final ConnectorSession PARQUET_SESSION = getHiveSession(createParquetHiveConfig(false));
     private static final ConnectorSession PARQUET_SESSION_USE_NAME = getHiveSession(createParquetHiveConfig(true));
@@ -916,6 +936,73 @@ public class TestHiveFileFormats
         assertTrue(pageSource.isPresent());
 
         checkPageSource(pageSource.get(), testReadColumns, getTypes(columnHandles), rowCount);
+    }
+
+    private static void checkPageSource(ConnectorPageSource pageSource, List<TestColumn> testColumns, List<Type> types, int rowCount)
+            throws IOException
+    {
+        try (pageSource) {
+            MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, types);
+            assertEquals(result.getMaterializedRows().size(), rowCount);
+            for (MaterializedRow row : result) {
+                for (int i = 0, testColumnsSize = testColumns.size(); i < testColumnsSize; i++) {
+                    TestColumn testColumn = testColumns.get(i);
+                    Type type = types.get(i);
+
+                    Object actualValue = row.getField(i);
+                    Object expectedValue = testColumn.getExpectedValue();
+
+                    if (expectedValue instanceof Slice) {
+                        expectedValue = ((Slice) expectedValue).toStringUtf8();
+                    }
+
+                    if (actualValue == null || expectedValue == null) {
+                        assertEquals(actualValue, expectedValue, "Wrong value for column " + testColumn.getName());
+                    }
+                    else if (testColumn.getObjectInspector().getTypeName().equals("float")) {
+                        assertEquals((float) actualValue, (float) expectedValue, EPSILON, "Wrong value for column " + testColumn.getName());
+                    }
+                    else if (testColumn.getObjectInspector().getTypeName().equals("double")) {
+                        assertEquals((double) actualValue, (double) expectedValue, EPSILON, "Wrong value for column " + testColumn.getName());
+                    }
+                    else if (testColumn.getObjectInspector().getTypeName().equals("date")) {
+                        SqlDate expectedDate = new SqlDate(((Long) expectedValue).intValue());
+                        assertEquals(actualValue, expectedDate, "Wrong value for column " + testColumn.getName());
+                    }
+                    else if (testColumn.getObjectInspector().getTypeName().equals("int") ||
+                            testColumn.getObjectInspector().getTypeName().equals("smallint") ||
+                            testColumn.getObjectInspector().getTypeName().equals("tinyint")) {
+                        assertEquals(actualValue, expectedValue);
+                    }
+                    else if (testColumn.getObjectInspector().getTypeName().equals("timestamp")) {
+                        SqlTimestamp expectedTimestamp = sqlTimestampOf(3, floorDiv((Long) expectedValue, MICROSECONDS_PER_MILLISECOND));
+                        assertEquals(actualValue, expectedTimestamp, "Wrong value for column " + testColumn.getName());
+                    }
+                    else if (testColumn.getObjectInspector().getTypeName().startsWith("char")) {
+                        assertEquals(actualValue, padSpaces((String) expectedValue, (CharType) type), "Wrong value for column " + testColumn.getName());
+                    }
+                    else if (testColumn.getObjectInspector().getCategory() == ObjectInspector.Category.PRIMITIVE) {
+                        if (actualValue instanceof Slice) {
+                            actualValue = ((Slice) actualValue).toStringUtf8();
+                        }
+                        if (actualValue instanceof SqlVarbinary) {
+                            actualValue = new String(((SqlVarbinary) actualValue).getBytes(), UTF_8);
+                        }
+
+                        if (actualValue instanceof SqlDecimal) {
+                            actualValue = new BigDecimal(actualValue.toString());
+                        }
+                        assertEquals(actualValue, expectedValue, "Wrong value for column " + testColumn.getName());
+                    }
+                    else {
+                        BlockBuilder builder = type.createBlockBuilder(null, 1);
+                        type.writeObject(builder, expectedValue);
+                        expectedValue = type.getObjectValue(SESSION, builder.build(), 0);
+                        assertEquals(actualValue, expectedValue, "Wrong value for column " + testColumn.getName());
+                    }
+                }
+            }
+        }
     }
 
     private static boolean hasType(ObjectInspector objectInspector, PrimitiveCategory... types)
