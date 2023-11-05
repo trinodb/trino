@@ -394,7 +394,7 @@ public class ParquetReader
         }
 
         if (columnChunk == null) {
-            throw new ParquetCorruptionException("Struct field does not have any children: " + field);
+            throw new ParquetCorruptionException(dataSource.getId(), "Struct field does not have any children: %s", field);
         }
 
         StructColumnReader.RowBlockPositions structIsNull = StructColumnReader.calculateStructOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
@@ -467,7 +467,7 @@ public class ParquetReader
         int fieldId = field.getId();
         ColumnReader columnReader = columnReaders.get(fieldId);
         if (!columnReader.hasPageReader()) {
-            validateParquet(currentBlockMetadata.getRowCount() > 0, "Row group has 0 rows");
+            validateParquet(currentBlockMetadata.getRowCount() > 0, dataSource.getId(), "Row group has 0 rows");
             ColumnChunkMetaData metadata = getColumnChunkMetaData(currentBlockMetadata, columnDescriptor);
             FilteredRowRanges rowRanges = blockRowRanges[currentRowGroup];
             OffsetIndex offsetIndex = null;
@@ -476,7 +476,7 @@ public class ParquetReader
             }
             ChunkedInputStream columnChunkInputStream = chunkReaders.get(new ChunkKey(fieldId, currentRowGroup));
             columnReader.setPageReader(
-                    createPageReader(columnChunkInputStream, metadata, columnDescriptor, offsetIndex, fileCreatedBy),
+                    createPageReader(dataSource.getId(), columnChunkInputStream, metadata, columnDescriptor, offsetIndex, fileCreatedBy),
                     Optional.ofNullable(rowRanges));
         }
         ColumnChunk columnChunk = columnReader.readPrimitive();
