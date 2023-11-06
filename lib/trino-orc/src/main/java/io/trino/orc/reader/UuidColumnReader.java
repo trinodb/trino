@@ -42,6 +42,7 @@ import static io.trino.orc.metadata.Stream.StreamKind.DATA;
 import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.type.UuidType.UUID;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -256,7 +257,7 @@ public class UuidColumnReader
 
     private Block createAllNullsBlock()
     {
-        return RunLengthEncodedBlock.create(new Int128ArrayBlock(1, Optional.of(new boolean[] {true}), new long[2]), nextBatchSize);
+        return RunLengthEncodedBlock.create(UUID, null, nextBatchSize);
     }
 
     private void openRowGroup()
