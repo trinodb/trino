@@ -23,6 +23,7 @@ import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.QueryInfo;
+import io.trino.filesystem.Location;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
@@ -2933,7 +2934,7 @@ public abstract class BaseHiveConnectorTest
         List<MaterializedRow> paths = getQueryRunner().execute(getSession(), "SELECT \"$path\" FROM " + tableName + " ORDER BY \"$path\" ASC").toTestTypes().getMaterializedRows();
         assertEquals(paths.size(), 3);
 
-        String firstPartition = new Path((String) paths.get(0).getField(0)).getParent().toString();
+        String firstPartition = Location.of((String) paths.get(0).getField(0)).parentDirectory().toString();
 
         assertAccessDenied(
                 format("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['first'])", TPCH_SCHEMA, tableName),
