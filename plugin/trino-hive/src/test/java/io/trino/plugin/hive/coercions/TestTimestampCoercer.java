@@ -22,8 +22,7 @@ import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 
@@ -46,24 +45,93 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTimestampCoercer
 {
-    @Test(dataProvider = "timestampValuesProvider")
-    public void testTimestampToVarchar(String timestampValue, String hiveTimestampValue)
+    @Test
+    public void testTimestampToVarchar()
+    {
+        testTimestampToVarchar("1900-01-01T00:00:00.000", "1900-01-01 00:00:00");
+        testTimestampToVarchar("1958-01-01T13:18:03.123", "1958-01-01 13:18:03.123");
+        // after epoch
+        testTimestampToVarchar("2019-03-18T10:01:17.987", "2019-03-18 10:01:17.987");
+        // time doubled in JVM zone
+        testTimestampToVarchar("2018-10-28T01:33:17.456", "2018-10-28 01:33:17.456");
+        // time doubled in JVM zone
+        testTimestampToVarchar("2018-10-28T03:33:33.333", "2018-10-28 03:33:33.333");
+        // epoch
+        testTimestampToVarchar("1970-01-01T00:00:00.000", "1970-01-01 00:00:00");
+        // time gap in JVM zone
+        testTimestampToVarchar("1970-01-01T00:13:42.000", "1970-01-01 00:13:42");
+        testTimestampToVarchar("2018-04-01T02:13:55.123", "2018-04-01 02:13:55.123");
+        // time gap in Vilnius
+        testTimestampToVarchar("2018-03-25T03:17:17.000", "2018-03-25 03:17:17");
+        // time gap in Kathmandu
+        testTimestampToVarchar("1986-01-01T00:13:07.000", "1986-01-01 00:13:07");
+        // before epoch with second fraction
+        testTimestampToVarchar("1969-12-31T23:59:59.123456", "1969-12-31 23:59:59.123456");
+    }
+
+    private static void testTimestampToVarchar(String timestampValue, String hiveTimestampValue)
     {
         LocalDateTime localDateTime = LocalDateTime.parse(timestampValue);
         SqlTimestamp timestamp = SqlTimestamp.fromSeconds(TIMESTAMP_PICOS.getPrecision(), localDateTime.toEpochSecond(UTC), localDateTime.get(NANO_OF_SECOND));
         assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, new LongTimestamp(timestamp.getEpochMicros(), timestamp.getPicosOfMicros()), createUnboundedVarcharType(), hiveTimestampValue);
     }
 
-    @Test(dataProvider = "timestampValuesProvider")
-    public void testVarcharToShortTimestamp(String timestampValue, String hiveTimestampValue)
+    @Test
+    public void testVarcharToShortTimestamp()
+    {
+        testVarcharToShortTimestamp("1900-01-01T00:00:00.000", "1900-01-01 00:00:00");
+        testVarcharToShortTimestamp("1958-01-01T13:18:03.123", "1958-01-01 13:18:03.123");
+        // after epoch
+        testVarcharToShortTimestamp("2019-03-18T10:01:17.987", "2019-03-18 10:01:17.987");
+        // time doubled in JVM zone
+        testVarcharToShortTimestamp("2018-10-28T01:33:17.456", "2018-10-28 01:33:17.456");
+        // time doubled in JVM zone
+        testVarcharToShortTimestamp("2018-10-28T03:33:33.333", "2018-10-28 03:33:33.333");
+        // epoch
+        testVarcharToShortTimestamp("1970-01-01T00:00:00.000", "1970-01-01 00:00:00");
+        // time gap in JVM zone
+        testVarcharToShortTimestamp("1970-01-01T00:13:42.000", "1970-01-01 00:13:42");
+        testVarcharToShortTimestamp("2018-04-01T02:13:55.123", "2018-04-01 02:13:55.123");
+        // time gap in Vilnius
+        testVarcharToShortTimestamp("2018-03-25T03:17:17.000", "2018-03-25 03:17:17");
+        // time gap in Kathmandu
+        testVarcharToShortTimestamp("1986-01-01T00:13:07.000", "1986-01-01 00:13:07");
+        // before epoch with second fraction
+        testVarcharToShortTimestamp("1969-12-31T23:59:59.123456", "1969-12-31 23:59:59.123456");
+    }
+
+    private static void testVarcharToShortTimestamp(String timestampValue, String hiveTimestampValue)
     {
         LocalDateTime localDateTime = LocalDateTime.parse(timestampValue);
         SqlTimestamp timestamp = SqlTimestamp.fromSeconds(TIMESTAMP_MICROS.getPrecision(), localDateTime.toEpochSecond(UTC), localDateTime.get(NANO_OF_SECOND));
         assertVarcharToShortTimestampCoercions(createUnboundedVarcharType(), utf8Slice(hiveTimestampValue), TIMESTAMP_MICROS, timestamp.getEpochMicros());
     }
 
-    @Test(dataProvider = "timestampValuesProvider")
-    public void testVarcharToLongTimestamp(String timestampValue, String hiveTimestampValue)
+    @Test
+    public void testVarcharToLongTimestamp()
+    {
+        testVarcharToLongTimestamp("1900-01-01T00:00:00.000", "1900-01-01 00:00:00");
+        testVarcharToLongTimestamp("1958-01-01T13:18:03.123", "1958-01-01 13:18:03.123");
+        // after epoch
+        testVarcharToLongTimestamp("2019-03-18T10:01:17.987", "2019-03-18 10:01:17.987");
+        // time doubled in JVM zone
+        testVarcharToLongTimestamp("2018-10-28T01:33:17.456", "2018-10-28 01:33:17.456");
+        // time doubled in JVM zone
+        testVarcharToLongTimestamp("2018-10-28T03:33:33.333", "2018-10-28 03:33:33.333");
+        // epoch
+        testVarcharToLongTimestamp("1970-01-01T00:00:00.000", "1970-01-01 00:00:00");
+        // time gap in JVM zone
+        testVarcharToLongTimestamp("1970-01-01T00:13:42.000", "1970-01-01 00:13:42");
+        testVarcharToLongTimestamp("2018-04-01T02:13:55.123", "2018-04-01 02:13:55.123");
+        // time gap in Vilnius
+        testVarcharToLongTimestamp("2018-03-25T03:17:17.000", "2018-03-25 03:17:17");
+        // time gap in Kathmandu
+        testVarcharToLongTimestamp("1986-01-01T00:13:07.000", "1986-01-01 00:13:07");
+        // before epoch with second fraction
+        testVarcharToLongTimestamp("1969-12-31T23:59:59.123456", "1969-12-31 23:59:59.123456");
+    }
+
+    private static void testVarcharToLongTimestamp(String timestampValue, String hiveTimestampValue)
     {
         LocalDateTime localDateTime = LocalDateTime.parse(timestampValue);
         SqlTimestamp timestamp = SqlTimestamp.fromSeconds(TIMESTAMP_PICOS.getPrecision(), localDateTime.toEpochSecond(UTC), localDateTime.get(NANO_OF_SECOND));
@@ -122,14 +190,38 @@ public class TestTimestampCoercer
                 .hasMessageContaining("Coercion on historical dates is not supported");
     }
 
-    @Test(dataProvider = "invalidValue")
-    public void testInvalidVarcharToShortTimestamp(String invalidValue)
+    @Test
+    public void testInvalidVarcharToShortTimestamp()
+    {
+        testInvalidVarcharToShortTimestamp("Invalid timestamp"); // Invalid string
+        testInvalidVarcharToShortTimestamp("2022"); // Partial timestamp value
+        testInvalidVarcharToShortTimestamp("2001-04-01T00:13:42.000"); // ISOFormat date
+        testInvalidVarcharToShortTimestamp("2001-14-01 00:13:42.000"); // Invalid month
+        testInvalidVarcharToShortTimestamp("2001-01-32 00:13:42.000"); // Invalid day
+        testInvalidVarcharToShortTimestamp("2001-04-01 23:59:60.000"); // Invalid second
+        testInvalidVarcharToShortTimestamp("2001-04-01 23:60:01.000"); // Invalid minute
+        testInvalidVarcharToShortTimestamp("2001-04-01 27:01:01.000"); // Invalid hour
+    }
+
+    private static void testInvalidVarcharToShortTimestamp(String invalidValue)
     {
         assertVarcharToShortTimestampCoercions(createUnboundedVarcharType(), utf8Slice(invalidValue), TIMESTAMP_MICROS, null);
     }
 
-    @Test(dataProvider = "invalidValue")
-    public void testInvalidVarcharLongTimestamp(String invalidValue)
+    @Test
+    public void testInvalidVarcharLongTimestamp()
+    {
+        testInvalidVarcharLongTimestamp("Invalid timestamp"); // Invalid string
+        testInvalidVarcharLongTimestamp("2022"); // Partial timestamp value
+        testInvalidVarcharLongTimestamp("2001-04-01T00:13:42.000"); // ISOFormat date
+        testInvalidVarcharLongTimestamp("2001-14-01 00:13:42.000"); // Invalid month
+        testInvalidVarcharLongTimestamp("2001-01-32 00:13:42.000"); // Invalid day
+        testInvalidVarcharLongTimestamp("2001-04-01 23:59:60.000"); // Invalid second
+        testInvalidVarcharLongTimestamp("2001-04-01 23:60:01.000"); // Invalid minute
+        testInvalidVarcharLongTimestamp("2001-04-01 27:01:01.000"); // Invalid hour
+    }
+
+    private static void testInvalidVarcharLongTimestamp(String invalidValue)
     {
         assertVarcharToLongTimestampCoercions(createUnboundedVarcharType(), utf8Slice(invalidValue), TIMESTAMP_MICROS, null);
     }
@@ -161,48 +253,6 @@ public class TestTimestampCoercer
                 timestamp.getEpochMicros()))
                 .isInstanceOf(TrinoException.class)
                 .hasMessageContaining("Coercion on historical dates is not supported");
-    }
-
-    @DataProvider
-    public Object[][] timestampValuesProvider()
-    {
-        return new Object[][] {
-                // before epoch
-                {"1900-01-01T00:00:00.000", "1900-01-01 00:00:00"},
-                {"1958-01-01T13:18:03.123", "1958-01-01 13:18:03.123"},
-                // after epoch
-                {"2019-03-18T10:01:17.987", "2019-03-18 10:01:17.987"},
-                // time doubled in JVM zone
-                {"2018-10-28T01:33:17.456", "2018-10-28 01:33:17.456"},
-                // time doubled in JVM zone
-                {"2018-10-28T03:33:33.333", "2018-10-28 03:33:33.333"},
-                // epoch
-                {"1970-01-01T00:00:00.000", "1970-01-01 00:00:00"},
-                // time gap in JVM zone
-                {"1970-01-01T00:13:42.000", "1970-01-01 00:13:42"},
-                {"2018-04-01T02:13:55.123", "2018-04-01 02:13:55.123"},
-                // time gap in Vilnius
-                {"2018-03-25T03:17:17.000", "2018-03-25 03:17:17"},
-                // time gap in Kathmandu
-                {"1986-01-01T00:13:07.000", "1986-01-01 00:13:07"},
-                // before epoch with second fraction
-                {"1969-12-31T23:59:59.123456", "1969-12-31 23:59:59.123456"}
-        };
-    }
-
-    @DataProvider
-    public Object[][] invalidValue()
-    {
-        return new Object[][] {
-                {"Invalid timestamp"}, // Invalid string
-                {"2022"}, // Partial timestamp value
-                {"2001-04-01T00:13:42.000"}, // ISOFormat date
-                {"2001-14-01 00:13:42.000"}, // Invalid month
-                {"2001-01-32 00:13:42.000"}, // Invalid day
-                {"2001-04-01 23:59:60.000"}, // Invalid second
-                {"2001-04-01 23:60:01.000"}, // Invalid minute
-                {"2001-04-01 27:01:01.000"}, // Invalid hour
-        };
     }
 
     public static void assertLongTimestampToVarcharCoercions(TimestampType fromType, LongTimestamp valueToBeCoerced, VarcharType toType, String expectedValue)
