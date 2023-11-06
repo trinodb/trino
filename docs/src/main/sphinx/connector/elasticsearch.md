@@ -26,61 +26,60 @@ elasticsearch.default-schema-name=default
 
 ### Configuration properties
 
-```{eval-rst}
-.. list-table:: Elasticsearch configuration properties
-    :widths: 35, 55, 10
-    :header-rows: 1
+:::{list-table} Elasticsearch configuration properties
+:widths: 35, 55, 10
+:header-rows: 1
 
-    * - Property name
-      - Description
-      - Default
-    * - ``elasticsearch.host``
-      - The comma-separated list of host names for the Elasticsearch node to
-        connect to. This property is required.
-      -
-    * - ``elasticsearch.port``
-      - Port of the Elasticsearch node to connect to.
-      - ``9200``
-    * - ``elasticsearch.default-schema-name``
-      - The schema that contains all tables defined without a qualifying schema
-        name.
-      - ``default``
-    * - ``elasticsearch.scroll-size``
-      - Sets the maximum number of hits that can be returned with each
-        Elasticsearch scroll request.
-      - ``1000``
-    * - ``elasticsearch.scroll-timeout``
-      - Amount of time Elasticsearch keeps the
-        `search context <https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-scroll.html#scroll-search-context>`_
-        alive for scroll requests.
-      - ``1m``
-    * - ``elasticsearch.request-timeout``
-      - Timeout value for all Elasticsearch requests.
-      - ``10s``
-    * - ``elasticsearch.connect-timeout``
-      - Timeout value for all Elasticsearch connection attempts.
-      - ``1s``
-    * - ``elasticsearch.backoff-init-delay``
-      - The minimum duration between backpressure retry attempts for a single
-        request to Elasticsearch. Setting it too low might overwhelm an already
-        struggling ES cluster.
-      - ``500ms``
-    * - ``elasticsearch.backoff-max-delay``
-      - The maximum duration between backpressure retry attempts for a single
-        request to Elasticsearch.
-      - ``20s``
-    * - ``elasticsearch.max-retry-time``
-      - The maximum duration across all retry attempts for a single request to
-        Elasticsearch.
-      - ``20s``
-    * - ``elasticsearch.node-refresh-interval``
-      - How often the list of available Elasticsearch nodes is refreshed.
-      - ``1m``
-    * - ``elasticsearch.ignore-publish-address``
-      - Disables using the address published by Elasticsearch to connect for
-        queries.
-      -
-```
+* - Property name
+  - Description
+  - Default
+* - `elasticsearch.host`
+  - The comma-separated list of host names for the Elasticsearch node to connect
+    to. This property is required.
+  -
+* - `elasticsearch.port`
+  - Port of the Elasticsearch node to connect to.
+  - `9200`
+* - `elasticsearch.default-schema-name`
+  - The schema that contains all tables defined without a qualifying schema
+    name.
+  - `default`
+* - `elasticsearch.scroll-size`
+  - Sets the maximum number of hits that can be returned with each Elasticsearch
+    scroll request.
+  - `1000`
+* - `elasticsearch.scroll-timeout`
+  - Amount of time Elasticsearch keeps the
+    [search context](https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-scroll.html#scroll-search-context)
+    alive for scroll requests.
+  - `1m`
+* - `elasticsearch.request-timeout`
+  - Timeout value for all Elasticsearch requests.
+  - `10s`
+* - `elasticsearch.connect-timeout`
+  - Timeout value for all Elasticsearch connection attempts.
+  - `1s`
+* - `elasticsearch.backoff-init-delay`
+  - The minimum duration between backpressure retry attempts for a single
+    request to Elasticsearch. Setting it too low might overwhelm an already
+    struggling ES cluster.
+  - `500ms`
+* - `elasticsearch.backoff-max-delay`
+  - The maximum duration between backpressure retry attempts for a single
+    request to Elasticsearch.
+  - `20s`
+* - `elasticsearch.max-retry-time`
+  - The maximum duration across all retry attempts for a single request to
+    Elasticsearch.
+  - `20s`
+* - `elasticsearch.node-refresh-interval`
+  - How often the list of available Elasticsearch nodes is refreshed.
+  - `1m`
+* - `elasticsearch.ignore-publish-address`
+  - Disables using the address published by Elasticsearch to connect for
+    queries.
+  -
+:::
 
 ## TLS security
 
@@ -93,28 +92,27 @@ supports key stores and trust stores in PEM or Java Key Store (JKS) format.
 
 The allowed configuration values are:
 
-```{eval-rst}
-.. list-table:: TLS Security Properties
-    :widths: 40, 60
-    :header-rows: 1
+:::{list-table} TLS Security Properties
+:widths: 40, 60
+:header-rows: 1
 
-    * - Property name
-      - Description
-    * - ``elasticsearch.tls.enabled``
-      - Enables TLS security.
-    * - ``elasticsearch.tls.keystore-path``
-      - The path to the :doc:`PEM </security/inspect-pem>` or
-        :doc:`JKS </security/inspect-jks>` key store.
-    * - ``elasticsearch.tls.truststore-path``
-      - The path to :doc:`PEM </security/inspect-pem>` or
-        :doc:`JKS </security/inspect-jks>` trust store.
-    * - ``elasticsearch.tls.keystore-password``
-      - The key password for the key store specified by
-        ``elasticsearch.tls.keystore-path``.
-    * - ``elasticsearch.tls.truststore-password``
-      - The key password for the trust store specified by
-        ``elasticsearch.tls.truststore-path``.
-```
+* - Property name
+  - Description
+* - `elasticsearch.tls.enabled`
+  - Enables TLS security.
+* - `elasticsearch.tls.keystore-path`
+  - The path to the [PEM](/security/inspect-pem) or [JKS](/security/inspect-jks)
+    key store.
+* - `elasticsearch.tls.truststore-path`
+  - The path to [PEM](/security/inspect-pem) or [JKS](/security/inspect-jks)
+    trust store.
+* - `elasticsearch.tls.keystore-password`
+  - The key password for the key store specified by
+    `elasticsearch.tls.keystore-path`.
+* - `elasticsearch.tls.truststore-password`
+  - The key password for the trust store specified by
+    `elasticsearch.tls.truststore-path`.
+:::
 
 (elasticesearch-type-mapping)=
 
@@ -128,48 +126,47 @@ connector {ref}`maps some types <type-mapping-overview>` when reading data.
 The connector maps Elasticsearch types to the corresponding Trino types
 according to the following table:
 
-```{eval-rst}
-.. list-table:: Elasticsearch type to Trino type mapping
-  :widths: 30, 30, 50
-  :header-rows: 1
+:::{list-table} Elasticsearch type to Trino type mapping
+:widths: 30, 30, 50
+:header-rows: 1
 
-  * - Elasticsearch type
-    - Trino type
-    - Notes
-  * - ``BOOLEAN``
-    - ``BOOLEAN``
-    -
-  * - ``DOUBLE``
-    - ``DOUBLE``
-    -
-  * - ``FLOAT``
-    - ``REAL``
-    -
-  * - ``BYTE``
-    - ``TINYINT``
-    -
-  * - ``SHORT``
-    - ``SMALLINT``
-    -
-  * - ``INTEGER``
-    - ``INTEGER``
-    -
-  * - ``LONG``
-    - ``BIGINT``
-    -
-  * - ``KEYWORD``
-    - ``VARCHAR``
-    -
-  * - ``TEXT``
-    - ``VARCHAR``
-    -
-  * - ``DATE``
-    - ``TIMESTAMP``
-    - For more information, see :ref:`elasticsearch-date-types`.
-  * - ``IPADDRESS``
-    - ``IP``
-    -
-```
+* - Elasticsearch type
+  - Trino type
+  - Notes
+* - `BOOLEAN`
+  - `BOOLEAN`
+  -
+* - `DOUBLE`
+  - `DOUBLE`
+  -
+* - `FLOAT`
+  - `REAL`
+  -
+* - `BYTE`
+  - `TINYINT`
+  -
+* - `SHORT`
+  - `SMALLINT`
+  -
+* - `INTEGER`
+  - `INTEGER`
+  -
+* - `LONG`
+  - `BIGINT`
+  -
+* - `KEYWORD`
+  - `VARCHAR`
+  -
+* - `TEXT`
+  - `VARCHAR`
+  -
+* - `DATE`
+  - `TIMESTAMP`
+  - For more information, see [](elasticsearch-date-types).
+* - `IPADDRESS`
+  - `IP`
+  -
+:::
 
 No other types are supported.
 
@@ -401,8 +398,7 @@ This can be useful for accessing native features which are not available in
 Trino or for improving query performance in situations where running a query
 natively may be faster.
 
-```{eval-rst}
-.. include:: query-passthrough-warning.fragment
+```{include} query-passthrough-warning.fragment
 ```
 
 The `raw_query` function requires three parameters:

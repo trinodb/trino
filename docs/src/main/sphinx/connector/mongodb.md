@@ -363,51 +363,50 @@ each direction.
 The connector maps MongoDB types to the corresponding Trino types following
 this table:
 
-```{eval-rst}
-.. list-table:: MongoDB to Trino type mapping
-  :widths: 30, 20, 50
-  :header-rows: 1
+:::{list-table} MongoDB to Trino type mapping
+:widths: 30, 20, 50
+:header-rows: 1
 
-  * - MongoDB type
-    - Trino type
-    - Notes
-  * - ``Boolean``
-    - ``BOOLEAN``
-    -
-  * - ``Int32``
-    - ``BIGINT``
-    -
-  * - ``Int64``
-    - ``BIGINT``
-    -
-  * - ``Double``
-    - ``DOUBLE``
-    -
-  * - ``Decimal128``
-    - ``DECIMAL(p, s)``
-    -
-  * - ``Date``
-    - ``TIMESTAMP(3)``
-    -
-  * - ``String``
-    - ``VARCHAR``
-    -
-  * - ``Binary``
-    - ``VARBINARY``
-    -
-  * - ``ObjectId``
-    - ``ObjectId``
-    -
-  * - ``Object``
-    - ``ROW``
-    -
-  * - ``Array``
-    - ``ARRAY``
-    -   Map to ``ROW`` if the element type is not unique.
-  * - ``DBRef``
-    - ``ROW``
-    -
-```
+* - MongoDB type
+  - Trino type
+  - Notes
+* - `Boolean`
+  - `BOOLEAN`
+  -
+* - `Int32`
+  - `BIGINT`
+  -
+* - `Int64`
+  - `BIGINT`
+  -
+* - `Double`
+  - `DOUBLE`
+  -
+* - `Decimal128`
+  - `DECIMAL(p, s)`
+  -
+* - `Date`
+  - `TIMESTAMP(3)`
+  -
+* - `String`
+  - `VARCHAR`
+  -
+* - `Binary`
+  - `VARBINARY`
+  -
+* - `ObjectId`
+  - `ObjectId`
+  -
+* - `Object`
+  - `ROW`
+  -
+* - `Array`
+  - `ARRAY`
+  -  Map to `ROW` if the element type is not unique.
+* - `DBRef`
+  - `ROW`
+  -
+:::
 
 No other types are supported.
 
@@ -416,34 +415,33 @@ No other types are supported.
 The connector maps Trino types to the corresponding MongoDB types following
 this table:
 
-```{eval-rst}
-.. list-table:: Trino to MongoDB type mapping
-  :widths: 30, 20
-  :header-rows: 1
+:::{list-table} Trino to MongoDB type mapping
+:widths: 30, 20
+:header-rows: 1
 
-  * - Trino type
-    - MongoDB type
-  * - ``BOOLEAN``
-    - ``Boolean``
-  * - ``BIGINT``
-    - ``Int64``
-  * - ``DOUBLE``
-    - ``Double``
-  * - ``DECIMAL(p, s)``
-    - ``Decimal128``
-  * - ``TIMESTAMP(3)``
-    - ``Date``
-  * - ``VARCHAR``
-    - ``String``
-  * - ``VARBINARY``
-    - ``Binary``
-  * - ``ObjectId``
-    - ``ObjectId``
-  * - ``ROW``
-    - ``Object``
-  * - ``ARRAY``
-    - ``Array``
-```
+* - Trino type
+  - MongoDB type
+* - `BOOLEAN`
+  - `Boolean`
+* - `BIGINT`
+  - `Int64`
+* - `DOUBLE`
+  - `Double`
+* - `DECIMAL(p, s)`
+  - `Decimal128`
+* - `TIMESTAMP(3)`
+  - `Date`
+* - `VARCHAR`
+  - `String`
+* - `VARBINARY`
+  - `Binary`
+* - `ObjectId`
+  - `ObjectId`
+* - `ROW`
+  - `Object`
+* - `ARRAY`
+  - `Array`
+:::
 
 No other types are supported.
 

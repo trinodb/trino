@@ -24,19 +24,18 @@ The default root path used by the `gs:\\` prefix is set in the catalog by the
 contents of the specified key file, or the key file used to create the OAuth
 token.
 
-```{eval-rst}
-.. list-table:: Google Cloud Storage configuration properties
-    :widths: 35, 65
-    :header-rows: 1
+:::{list-table} Google Cloud Storage configuration properties
+:widths: 35, 65
+:header-rows: 1
 
-    * - Property Name
-      - Description
-    * - ``hive.gcs.json-key-file-path``
-      - JSON key file used to authenticate your Google Cloud service account
-        with Google Cloud Storage.
-    * - ``hive.gcs.use-access-token``
-      - Use client-provided OAuth token to access Google Cloud Storage.
-```
+* - Property Name
+  - Description
+* - `hive.gcs.json-key-file-path`
+  - JSON key file used to authenticate your Google Cloud service account with
+    Google Cloud Storage.
+* - `hive.gcs.use-access-token`
+  - Use client-provided OAuth token to access Google Cloud Storage.
+:::
 
 The following uses the Delta Lake connector in an example of a minimal
 configuration file for an object storage catalog using a JSON key file:

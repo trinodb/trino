@@ -137,87 +137,86 @@ each direction.
 The connector maps Cassandra types to the corresponding Trino types according to
 the following table:
 
-```{eval-rst}
-.. list-table:: Cassandra type to Trino type mapping
-  :widths: 30, 25, 50
-  :header-rows: 1
+:::{list-table} Cassandra type to Trino type mapping
+:widths: 30, 25, 50
+:header-rows: 1
 
-  * - Cassandra type
-    - Trino type
-    - Notes
-  * - ``BOOLEAN``
-    - ``BOOLEAN``
-    -
-  * - ``TINYINT``
-    - ``TINYINT``
-    -
-  * - ``SMALLINT``
-    - ``SMALLINT``
-    -
-  * - ``INT``
-    - ``INTEGER``
-    -
-  * - ``BIGINT``
-    - ``BIGINT``
-    -
-  * - ``FLOAT``
-    - ``REAL``
-    -
-  * - ``DOUBLE``
-    - ``DOUBLE``
-    -
-  * - ``DECIMAL``
-    - ``DOUBLE``
-    -
-  * - ``ASCII``
-    - ``VARCHAR``
-    - US-ASCII character string
-  * - ``TEXT``
-    - ``VARCHAR``
-    - UTF-8 encoded string
-  * - ``VARCHAR``
-    - ``VARCHAR``
-    - UTF-8 encoded string
-  * - ``VARINT``
-    - ``VARCHAR``
-    - Arbitrary-precision integer
-  * - ``BLOB``
-    - ``VARBINARY``
-    -
-  * - ``DATE``
-    - ``DATE``
-    -
-  * - ``TIME``
-    - ``TIME(9)``
-    -
-  * - ``TIMESTAMP``
-    - ``TIMESTAMP(3) WITH TIME ZONE``
-    -
-  * - ``LIST<?>``
-    - ``VARCHAR``
-    -
-  * - ``MAP<?, ?>``
-    - ``VARCHAR``
-    -
-  * - ``SET<?>``
-    - ``VARCHAR``
-    -
-  * - ``TUPLE``
-    - ``ROW`` with anonymous fields
-    -
-  * - ``UDT``
-    - ``ROW`` with field names
-    -
-  * - ``INET``
-    - ``IPADDRESS``
-    -
-  * - ``UUID``
-    - ``UUID``
-    -
-  * - ``TIMEUUID``
-    - ``UUID``
-    -
-```
+* - Cassandra type
+  - Trino type
+  - Notes
+* - `BOOLEAN`
+  - `BOOLEAN`
+  -
+* - `TINYINT`
+  - `TINYINT`
+  -
+* - `SMALLINT`
+  - `SMALLINT`
+  -
+* - `INT`
+  - `INTEGER`
+  -
+* - `BIGINT`
+  - `BIGINT`
+  -
+* - `FLOAT`
+  - `REAL`
+  -
+* - `DOUBLE`
+  - `DOUBLE`
+  -
+* - `DECIMAL`
+  - `DOUBLE`
+  -
+* - `ASCII`
+  - `VARCHAR`
+  - US-ASCII character string
+* - `TEXT`
+  - `VARCHAR`
+  - UTF-8 encoded string
+* - `VARCHAR`
+  - `VARCHAR`
+  - UTF-8 encoded string
+* - `VARINT`
+  - `VARCHAR`
+  - Arbitrary-precision integer
+* - `BLOB`
+  - `VARBINARY`
+  -
+* - `DATE`
+  - `DATE`
+  -
+* - `TIME`
+  - `TIME(9)`
+  -
+* - `TIMESTAMP`
+  - `TIMESTAMP(3) WITH TIME ZONE`
+  -
+* - `LIST<?>`
+  - `VARCHAR`
+  -
+* - `MAP<?, ?>`
+  - `VARCHAR`
+  -
+* - `SET<?>`
+  - `VARCHAR`
+  -
+* - `TUPLE`
+  - `ROW` with anonymous fields
+  -
+* - `UDT`
+  - `ROW` with field names
+  -
+* - `INET`
+  - `IPADDRESS`
+  -
+* - `UUID`
+  - `UUID`
+  -
+* - `TIMEUUID`
+  - `UUID`
+  -
+:::
 
 No other types are supported.
 
@@ -226,53 +225,51 @@ No other types are supported.
 The connector maps Trino types to the corresponding Cassandra types according to
 the following table:
 
-```{eval-rst}
-.. list-table:: Trino type to Cassandra type mapping
-  :widths: 30, 25, 50
-  :header-rows: 1
+:::{list-table} Trino type to Cassandra type mapping
+:widths: 30, 25, 50
+:header-rows: 1
 
-  * - Trino type
-    - Cassandra type
-    - Notes
+* - Trino type
+  - Cassandra type
+  - Notes
 
-  * - ``BOOLEAN``
-    - ``BOOLEAN``
-    -
-  * - ``TINYINT``
-    - ``TINYINT``
-    -
-  * - ``SMALLINT``
-    - ``SMALLINT``
-    -
-  * - ``INTEGER``
-    - ``INT``
-    -
-  * - ``BIGINT``
-    - ``BIGINT``
-    -
-  * - ``REAL``
-    - ``FLOAT``
-    -
-  * - ``DOUBLE``
-    - ``DOUBLE``
-    -
-  * - ``VARCHAR``
-    - ``TEXT``
-    -
-  * - ``DATE``
-    - ``DATE``
-    -
-  * - ``TIMESTAMP(3) WITH TIME ZONE``
-    - ``TIMESTAMP``
-    -
-  * - ``IPADDRESS``
-    - ``INET``
-    -
-  * - ``UUID``
-    - ``UUID``
-    -
-
-```
+* - `BOOLEAN`
+  - `BOOLEAN`
+  -
+* - `TINYINT`
+  - `TINYINT`
+  -
+* - `SMALLINT`
+  - `SMALLINT`
+  -
+* - `INTEGER`
+  - `INT`
+  -
+* - `BIGINT`
+  - `BIGINT`
+  -
+* - `REAL`
+  - `FLOAT`
+  -
+* - `DOUBLE`
+  - `DOUBLE`
+  -
+* - `VARCHAR`
+  - `TEXT`
+  -
+* - `DATE`
+  - `DATE`
+  -
+* - `TIMESTAMP(3) WITH TIME ZONE`
+  - `TIMESTAMP`
+  -
+* - `IPADDRESS`
+  - `INET`
+  -
+* - `UUID`
+  - `UUID`
+  -
+:::
 
 No other types are supported.
 

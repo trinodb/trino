@@ -112,68 +112,65 @@ authenticates using Kerberos. Kerberos authentication for the metastore is
 configured in the connector's properties file using the following optional
 properties:
 
-```{eval-rst}
-.. list-table:: Hive metastore Thrift service authentication properties
-  :widths: 30, 55, 15
-  :header-rows: 1
+:::{list-table} Hive metastore Thrift service authentication properties
+:widths: 30, 55, 15
+:header-rows: 1
 
-  * - Property value
-    - Description
-    - Default
-  * - ``hive.metastore.authentication.type``
-    - Hive metastore authentication type. One of ``NONE`` or ``KERBEROS``. When
-      using the default value of ``NONE``, Kerberos authentication is disabled,
-      and no other properties must be configured.
+* - Property value
+  - Description
+  - Default
+* - `hive.metastore.authentication.type`
+  - Hive metastore authentication type. One of `NONE` or `KERBEROS`. When using
+    the default value of `NONE`, Kerberos authentication is disabled, and no
+    other properties must be configured.
 
-      When set to ``KERBEROS`` the Hive connector connects to the Hive metastore
-      Thrift service using SASL and authenticate using Kerberos.
-    - ``NONE``
-  * - ``hive.metastore.thrift.impersonation.enabled``
-    - Enable Hive metastore end user impersonation. See
-      :ref:`hive-security-metastore-impersonation` for more information.
-    - ``false``
-  * - ``hive.metastore.service.principal``
-    - The Kerberos principal of the Hive metastore service. The coordinator
-      uses this to authenticate the Hive metastore.
+    When set to `KERBEROS` the Hive connector connects to the Hive metastore
+    Thrift service using SASL and authenticate using Kerberos.
+  - `NONE`
+* - `hive.metastore.thrift.impersonation.enabled`
+  - Enable Hive metastore end user impersonation. See
+    [](hive-security-metastore-impersonation) for more information.
+  - `false`
+* - `hive.metastore.service.principal`
+  - The Kerberos principal of the Hive metastore service. The coordinator uses
+    this to authenticate the Hive metastore.
 
-      The ``_HOST`` placeholder can be used in this property value. When
-      connecting to the Hive metastore, the Hive connector substitutes in the
-      hostname of the **metastore** server it is connecting to. This is useful
-      if the metastore runs on multiple hosts.
+    The `_HOST` placeholder can be used in this property value. When connecting
+    to the Hive metastore, the Hive connector substitutes in the hostname of the
+    **metastore** server it is connecting to. This is useful if the metastore
+    runs on multiple hosts.
 
-      Example: ``hive/hive-server-host@EXAMPLE.COM`` or
-      ``hive/_HOST@EXAMPLE.COM``.
-    -
-  * - ``hive.metastore.client.principal``
-    - The Kerberos principal that Trino uses when connecting to the Hive
-      metastore service.
+    Example: `hive/hive-server-host@EXAMPLE.COM` or `hive/_HOST@EXAMPLE.COM`.
+  -
+* - `hive.metastore.client.principal`
+  - The Kerberos principal that Trino uses when connecting to the Hive metastore
+    service.
 
-      Example: ``trino/trino-server-node@EXAMPLE.COM`` or
-      ``trino/_HOST@EXAMPLE.COM``.
+    Example: `trino/trino-server-node@EXAMPLE.COM` or `trino/_HOST@EXAMPLE.COM`.
 
-      The ``_HOST`` placeholder can be used in this property value. When
-      connecting to the Hive metastore, the Hive connector substitutes in the
-      hostname of the **worker** node Trino is running on. This is useful if
-      each worker node has its own Kerberos principal.
+    The `_HOST` placeholder can be used in this property value. When connecting
+    to the Hive metastore, the Hive connector substitutes in the hostname of the
+    **worker** node Trino is running on. This is useful if each worker node has
+    its own Kerberos principal.
 
-      Unless :ref:`hive-security-metastore-impersonation` is enabled,
-      the principal specified by ``hive.metastore.client.principal`` must have
-      sufficient privileges to remove files and directories within the
-      ``hive/warehouse`` directory.
+    Unless [](hive-security-metastore-impersonation) is enabled, the principal
+    specified by `hive.metastore.client.principal` must have sufficient
+    privileges to remove files and directories within the `hive/warehouse`
+    directory.
 
-      **Warning:** If the principal does have sufficient permissions, only the
-      metadata is removed, and the data continues to consume disk space. This
-      occurs because the Hive metastore is responsible for deleting the
-      internal table data. When the metastore is configured to use Kerberos
-      authentication, all of the HDFS operations performed by the metastore are
-      impersonated. Errors deleting data are silently ignored.
-    -
-  * - ``hive.metastore.client.keytab``
-    - The path to the keytab file that contains a key for the principal
-      specified by ``hive.metastore.client.principal``. This file must be
+    **Warning:** If the principal does have sufficient permissions, only the
+    metadata is removed, and the data continues to consume disk space. This
+    occurs because the Hive metastore is responsible for deleting the internal
+    table data. When the metastore is configured to use Kerberos authentication,
+    all of the HDFS operations performed by the metastore are impersonated.
+    Errors deleting data are silently ignored.
+  -
+* - `hive.metastore.client.keytab`
+  - The path to the keytab file that contains a key for the principal
+      specified by `hive.metastore.client.principal`. This file must be
       readable by the operating system user running Trino.
-    -
-```
+  -
+:::
 
 #### Configuration examples
 
@@ -225,53 +222,51 @@ In a Kerberized Hadoop cluster, Trino authenticates to HDFS using Kerberos.
 Kerberos authentication for HDFS is configured in the connector's properties
 file using the following optional properties:
 
-```{eval-rst}
-.. list-table:: HDFS authentication properties
-  :widths: 30, 55, 15
-  :header-rows: 1
+:::{list-table} HDFS authentication properties
+:widths: 30, 55, 15
+:header-rows: 1
 
-  * - Property value
-    - Description
-    - Default
-  * - ``hive.hdfs.authentication.type``
-    - HDFS authentication type; one of ``NONE`` or ``KERBEROS``. When using the
-      default value of ``NONE``, Kerberos authentication is disabled, and no
-      other properties must be configured.
+* - Property value
+  - Description
+  - Default
+* - `hive.hdfs.authentication.type`
+  - HDFS authentication type; one of `NONE` or `KERBEROS`. When using the
+    default value of `NONE`, Kerberos authentication is disabled, and no other
+    properties must be configured.
 
-      When set to ``KERBEROS``, the Hive connector authenticates to HDFS using
-      Kerberos.
-    - ``NONE``
-  * - ``hive.hdfs.impersonation.enabled``
-    - Enable HDFS end-user impersonation. Impersonating the end user can provide
-      additional security when accessing HDFS if HDFS permissions or ACLs are
-      used.
+    When set to `KERBEROS`, the Hive connector authenticates to HDFS using
+    Kerberos.
+  - `NONE`
+* - `hive.hdfs.impersonation.enabled`
+  - Enable HDFS end-user impersonation. Impersonating the end user can provide
+    additional security when accessing HDFS if HDFS permissions or ACLs are
+    used.
 
-      HDFS Permissions and ACLs are explained in the `HDFS Permissions Guide
-      <https://hadoop.apache.org/docs/current/hadoop-project-dist/hadoop-hdfs/HdfsPermissionsGuide.html>`_.
-    - ``false``
-  * - ``hive.hdfs.trino.principal``
-    - The Kerberos principal Trino uses when connecting to HDFS.
+    HDFS Permissions and ACLs are explained in the [HDFS Permissions
+    Guide](https://hadoop.apache.org/docs/current/hadoop-project-dist/hadoop-hdfs/HdfsPermissionsGuide.html).
+  - `false`
+* - `hive.hdfs.trino.principal`
+  - The Kerberos principal Trino uses when connecting to HDFS.
 
-      Example: ``trino-hdfs-superuser/trino-server-node@EXAMPLE.COM`` or
-      ``trino-hdfs-superuser/_HOST@EXAMPLE.COM``.
+    Example: `trino-hdfs-superuser/trino-server-node@EXAMPLE.COM` or
+    `trino-hdfs-superuser/_HOST@EXAMPLE.COM`.
 
-      The ``_HOST`` placeholder can be used in this property value. When
-      connecting to HDFS, the Hive connector substitutes in the hostname of the
-      **worker** node Trino is running on. This is useful if each worker node
-      has its own Kerberos principal.
-    -
-  * - ``hive.hdfs.trino.keytab``
-    - The path to the keytab file that contains a key for the principal
-      specified by ``hive.hdfs.trino.principal``. This file must be readable by
-      the operating system user running Trino.
-    -
-  * - ``hive.hdfs.wire-encryption.enabled``
-    - Enable HDFS wire encryption. In a Kerberized Hadoop cluster that uses HDFS
-      wire encryption, this must be set to ``true`` to enable Trino to access
-      HDFS. Note that using wire encryption may impact query execution
-      performance.
-    -
-```
+    The `_HOST` placeholder can be used in this property value. When connecting
+    to HDFS, the Hive connector substitutes in the hostname of the **worker**
+    node Trino is running on. This is useful if each worker node has its own
+    Kerberos principal.
+  -
+* - `hive.hdfs.trino.keytab`
+  - The path to the keytab file that contains a key for the principal specified
+    by `hive.hdfs.trino.principal`. This file must be readable by the operating
+    system user running Trino.
+  -
+* - `hive.hdfs.wire-encryption.enabled`
+  - Enable HDFS wire encryption. In a Kerberized Hadoop cluster that uses HDFS
+    wire encryption, this must be set to `true` to enable Trino to access HDFS.
+    Note that using wire encryption may impact query execution performance.
+  -
+:::
 
 #### Configuration examples
 
@@ -352,38 +347,37 @@ You can enable authorization checks for the {doc}`hive` by setting
 the `hive.security` property in the Hive catalog properties file. This
 property must be one of the following values:
 
-```{eval-rst}
-.. list-table:: ``hive.security`` property values
-  :widths: 30, 60
-  :header-rows: 1
+:::{list-table} `hive.security` property values
+:widths: 30, 60
+:header-rows: 1
 
-  * - Property value
-    - Description
-  * - ``legacy`` (default value)
-    - Few authorization checks are enforced, thus allowing most operations. The
-      config properties ``hive.allow-drop-table``, ``hive.allow-rename-table``,
-      ``hive.allow-add-column``, ``hive.allow-drop-column`` and
-      ``hive.allow-rename-column`` are used.
-  * - ``read-only``
-    - Operations that read data or metadata, such as ``SELECT``, are permitted,
-      but none of the operations that write data or metadata, such as
-      ``CREATE``, ``INSERT`` or ``DELETE``, are allowed.
-  * - ``file``
-    - Authorization checks are enforced using a catalog-level access control
-      configuration file whose path is specified in the ``security.config-file``
-      catalog configuration property. See
-      :ref:`catalog-file-based-access-control` for details.
-  * - ``sql-standard``
-    - Users are permitted to perform the operations as long as they have the
-      required privileges as per the SQL standard. In this mode, Trino enforces
-      the authorization checks for queries based on the privileges defined in
-      Hive metastore. To alter these privileges, use the :doc:`/sql/grant` and
-      :doc:`/sql/revoke` commands.
+* - Property value
+  - Description
+* - `legacy` (default value)
+  - Few authorization checks are enforced, thus allowing most operations. The
+    config properties `hive.allow-drop-table`, `hive.allow-rename-table`,
+    `hive.allow-add-column`, `hive.allow-drop-column` and
+    `hive.allow-rename-column` are used.
+* - `read-only`
+  - Operations that read data or metadata, such as `SELECT`, are permitted, but
+    none of the operations that write data or metadata, such as `CREATE`,
+    `INSERT` or `DELETE`, are allowed.
+* - `file`
+  - Authorization checks are enforced using a catalog-level access control
+    configuration file whose path is specified in the `security.config-file`
+    catalog configuration property. See [](catalog-file-based-access-control)
+    for details.
+* - `sql-standard`
+  - Users are permitted to perform the operations as long as they have the
+    required privileges as per the SQL standard. In this mode, Trino enforces
+    the authorization checks for queries based on the privileges defined in Hive
+    metastore. To alter these privileges, use the [](/sql/grant) and
+    [](/sql/revoke) commands.
 
-      See the :ref:`hive-sql-standard-based-authorization` section for details.
-  * - ``allow-all``
-    - No authorization checks are enforced.
-```
+    See the [](hive-sql-standard-based-authorization) section for details.
+* - `allow-all`
+  - No authorization checks are enforced.
+:::
 
 (hive-sql-standard-based-authorization)=
 
