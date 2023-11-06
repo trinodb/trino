@@ -161,66 +161,65 @@ each direction.
 Trino supports selecting Oracle database types. This table shows the Oracle to
 Trino data type mapping:
 
-```{eval-rst}
-.. list-table:: Oracle to Trino type mapping
-  :widths: 30, 25, 50
-  :header-rows: 1
+:::{list-table} Oracle to Trino type mapping
+:widths: 30, 25, 50
+:header-rows: 1
 
-  * - Oracle database type
-    - Trino type
-    - Notes
-  * - ``NUMBER(p, s)``
-    - ``DECIMAL(p, s)``
-    -  See :ref:`oracle-number-mapping`
-  * - ``NUMBER(p)``
-    - ``DECIMAL(p, 0)``
-    - See :ref:`oracle-number-mapping`
-  * - ``FLOAT[(p)]``
-    - ``DOUBLE``
-    -
-  * - ``BINARY_FLOAT``
-    - ``REAL``
-    -
-  * - ``BINARY_DOUBLE``
-    - ``DOUBLE``
-    -
-  * - ``VARCHAR2(n CHAR)``
-    - ``VARCHAR(n)``
-    -
-  * - ``VARCHAR2(n BYTE)``
-    - ``VARCHAR(n)``
-    -
-  * - ``NVARCHAR2(n)``
-    - ``VARCHAR(n)``
-    -
-  * - ``CHAR(n)``
-    - ``CHAR(n)``
-    -
-  * - ``NCHAR(n)``
-    - ``CHAR(n)``
-    -
-  * - ``CLOB``
-    - ``VARCHAR``
-    -
-  * - ``NCLOB``
-    - ``VARCHAR``
-    -
-  * - ``RAW(n)``
-    - ``VARBINARY``
-    -
-  * - ``BLOB``
-    - ``VARBINARY``
-    -
-  * - ``DATE``
-    - ``TIMESTAMP(0)``
-    - See :ref:`oracle-datetime-mapping`
-  * - ``TIMESTAMP(p)``
-    - ``TIMESTAMP(p)``
-    - See :ref:`oracle-datetime-mapping`
-  * - ``TIMESTAMP(p) WITH TIME ZONE``
-    - ``TIMESTAMP WITH TIME ZONE``
-    - See :ref:`oracle-datetime-mapping`
-```
+* - Oracle database type
+  - Trino type
+  - Notes
+* - `NUMBER(p, s)`
+  - `DECIMAL(p, s)`
+  -  See [](oracle-number-mapping)
+* - `NUMBER(p)`
+  - `DECIMAL(p, 0)`
+  - See [](oracle-number-mapping)
+* - `FLOAT[(p)]`
+  - `DOUBLE`
+  -
+* - `BINARY_FLOAT`
+  - `REAL`
+  -
+* - `BINARY_DOUBLE`
+  - `DOUBLE`
+  -
+* - `VARCHAR2(n CHAR)`
+  - `VARCHAR(n)`
+  -
+* - `VARCHAR2(n BYTE)`
+  - `VARCHAR(n)`
+  -
+* - `NVARCHAR2(n)`
+  - `VARCHAR(n)`
+  -
+* - `CHAR(n)`
+  - `CHAR(n)`
+  -
+* - `NCHAR(n)`
+  - `CHAR(n)`
+  -
+* - `CLOB`
+  - `VARCHAR`
+  -
+* - `NCLOB`
+  - `VARCHAR`
+  -
+* - `RAW(n)`
+  - `VARBINARY`
+  -
+* - `BLOB`
+  - `VARBINARY`
+  -
+* - `DATE`
+  - `TIMESTAMP(0)`
+  - See [](oracle-datetime-mapping)
+* - `TIMESTAMP(p)`
+  - `TIMESTAMP(p)`
+  - See [](oracle-datetime-mapping)
+* - `TIMESTAMP(p) WITH TIME ZONE`
+  - `TIMESTAMP WITH TIME ZONE`
+  - See [](oracle-datetime-mapping)
+:::
 
 No other types are supported.
 
@@ -235,57 +234,56 @@ TABLE <table> AS SELECT` operations. When data is inserted into existing
 tables, `Oracle to Trino` type mapping is used.
 :::
 
-```{eval-rst}
-.. list-table:: Trino to Oracle Type Mapping
-  :widths: 30, 25, 50
-  :header-rows: 1
+:::{list-table} Trino to Oracle Type Mapping
+:widths: 30, 25, 50
+:header-rows: 1
 
-  * - Trino type
-    - Oracle database type
-    - Notes
-  * - ``TINYINT``
-    - ``NUMBER(3)``
-    -
-  * - ``SMALLINT``
-    - ``NUMBER(5)``
-    -
-  * - ``INTEGER``
-    - ``NUMBER(10)``
-    -
-  * - ``BIGINT``
-    - ``NUMBER(19)``
-    -
-  * - ``DECIMAL(p, s)``
-    - ``NUMBER(p, s)``
-    -
-  * - ``REAL``
-    - ``BINARY_FLOAT``
-    -
-  * - ``DOUBLE``
-    - ``BINARY_DOUBLE``
-    -
-  * - ``VARCHAR``
-    - ``NCLOB``
-    -
-  * - ``VARCHAR(n)``
-    - ``VARCHAR2(n CHAR)`` or ``NCLOB``
-    - See :ref:`oracle-character-mapping`
-  * - ``CHAR(n)``
-    - ``CHAR(n CHAR)`` or ``NCLOB``
-    - See :ref:`oracle-character-mapping`
-  * - ``VARBINARY``
-    - ``BLOB``
-    -
-  * - ``DATE``
-    - ``DATE``
-    - See :ref:`oracle-datetime-mapping`
-  * - ``TIMESTAMP``
-    - ``TIMESTAMP(3)``
-    - See :ref:`oracle-datetime-mapping`
-  * - ``TIMESTAMP WITH TIME ZONE``
-    - ``TIMESTAMP(3) WITH TIME ZONE``
-    - See :ref:`oracle-datetime-mapping`
-```
+* - Trino type
+  - Oracle database type
+  - Notes
+* - `TINYINT`
+  - `NUMBER(3)`
+  -
+* - `SMALLINT`
+  - `NUMBER(5)`
+  -
+* - `INTEGER`
+  - `NUMBER(10)`
+  -
+* - `BIGINT`
+  - `NUMBER(19)`
+  -
+* - `DECIMAL(p, s)`
+  - `NUMBER(p, s)`
+  -
+* - `REAL`
+  - `BINARY_FLOAT`
+  -
+* - `DOUBLE`
+  - `BINARY_DOUBLE`
+  -
+* - `VARCHAR`
+  - `NCLOB`
+  -
+* - `VARCHAR(n)`
+  - `VARCHAR2(n CHAR)` or `NCLOB`
+  - See [](oracle-character-mapping)
+* - `CHAR(n)`
+  - `CHAR(n CHAR)` or `NCLOB`
+  - See [](oracle-character-mapping)
+* - `VARBINARY`
+  - `BLOB`
+  -
+* - `DATE`
+  - `DATE`
+  - See [](oracle-datetime-mapping)
+* - `TIMESTAMP`
+  - `TIMESTAMP(3)`
+  - See [](oracle-datetime-mapping)
+* - `TIMESTAMP WITH TIME ZONE`
+  - `TIMESTAMP(3) WITH TIME ZONE`
+  - See [](oracle-datetime-mapping)
+:::
 
 No other types are supported.
 
@@ -359,49 +357,47 @@ fails. This is also true for the equivalent `VARCHAR` types.
 
 ### Number to decimal configuration properties
 
-```{eval-rst}
-.. list-table::
-  :widths: 20, 20, 50, 10
-  :header-rows: 1
+:::{list-table}
+:widths: 20, 20, 50, 10
+:header-rows: 1
 
-  * - Configuration property name
-    - Session property name
-    - Description
-    - Default
-  * - ``oracle.number.default-scale``
-    - ``number_default_scale``
-    - Default Trino ``DECIMAL`` scale for Oracle ``NUMBER`` (without precision
-      and scale) date type. When not set then such column is treated as not
-      supported.
-    - not set
-  * - ``oracle.number.rounding-mode``
-    - ``number_rounding_mode``
-    - Rounding mode for the Oracle ``NUMBER`` data type. This is useful when
-      Oracle ``NUMBER`` data type specifies higher scale than is supported in
-      Trino. Possible values are:
+* - Configuration property name
+  - Session property name
+  - Description
+  - Default
+* - `oracle.number.default-scale`
+  - `number_default_scale`
+  - Default Trino `DECIMAL` scale for Oracle `NUMBER` (without precision and
+    scale) date type. When not set then such column is treated as not supported.
+  - not set
+* - `oracle.number.rounding-mode`
+  - `number_rounding_mode`
+  - Rounding mode for the Oracle `NUMBER` data type. This is useful when Oracle
+    `NUMBER` data type specifies higher scale than is supported in Trino.
+    Possible values are:
 
-      - ``UNNECESSARY`` - Rounding mode to assert that the
-        requested operation has an exact result,
-        hence no rounding is necessary.
-      - ``CEILING`` - Rounding mode to round towards
-        positive infinity.
-      - ``FLOOR`` - Rounding mode to round towards negative
-        infinity.
-      - ``HALF_DOWN`` - Rounding mode to round towards
-        ``nearest neighbor`` unless both neighbors are
-        equidistant, in which case rounding down is used.
-      - ``HALF_EVEN`` - Rounding mode to round towards the
-        ``nearest neighbor`` unless both neighbors are equidistant,
-        in which case rounding towards the even neighbor is
-        performed.
-      - ``HALF_UP`` - Rounding mode to round towards
-        ``nearest neighbor`` unless both neighbors are
-        equidistant, in which case rounding up is used
-      - ``UP`` - Rounding mode to round towards zero.
-      - ``DOWN`` - Rounding mode to round towards zero.
+    - `UNNECESSARY` - Rounding mode to assert that the
+            requested operation has an exact result,
+            hence no rounding is necessary.
+    - `CEILING` - Rounding mode to round towards
+            positive infinity.
+    - `FLOOR` - Rounding mode to round towards negative
+            infinity.
+    - `HALF_DOWN` - Rounding mode to round towards
+            `nearest neighbor` unless both neighbors are
+            equidistant, in which case rounding down is used.
+    - `HALF_EVEN` - Rounding mode to round towards the
+            `nearest neighbor` unless both neighbors are equidistant,
+            in which case rounding towards the even neighbor is
+            performed.
+    - `HALF_UP` - Rounding mode to round towards
+            `nearest neighbor` unless both neighbors are
+            equidistant, in which case rounding up is used
+    - `UP` - Rounding mode to round towards zero.
+    - `DOWN` - Rounding mode to round towards zero.
 
-    - ``UNNECESSARY``
-```
+  - `UNNECESSARY`
+:::
 
 (oracle-sql-support)=
 

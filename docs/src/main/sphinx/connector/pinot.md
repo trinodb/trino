@@ -151,40 +151,39 @@ connector {ref}`maps some types <type-mapping-overview>` when reading data.
 The connector maps Pinot types to the corresponding Trino types
 according to the following table:
 
-```{eval-rst}
-.. list-table:: Pinot type to Trino type mapping
-  :widths: 75,60
-  :header-rows: 1
+:::{list-table} Pinot type to Trino type mapping
+:widths: 75,60
+:header-rows: 1
 
-  * - Pinot type
-    - Trino type
-  * - ``INT``
-    - ``INTEGER``
-  * - ``LONG``
-    - ``BIGINT``
-  * - ``FLOAT``
-    - ``REAL``
-  * - ``DOUBLE``
-    - ``DOUBLE``
-  * - ``STRING``
-    - ``VARCHAR``
-  * - ``BYTES``
-    - ``VARBINARY``
-  * - ``JSON``
-    - ``JSON``
-  * - ``TIMESTAMP``
-    - ``TIMESTAMP``
-  * - ``INT_ARRAY``
-    - ``VARCHAR``
-  * - ``LONG_ARRAY``
-    - ``VARCHAR``
-  * - ``FLOAT_ARRAY``
-    - ``VARCHAR``
-  * - ``DOUBLE_ARRAY``
-    - ``VARCHAR``
-  * - ``STRING_ARRAY``
-    - ``VARCHAR``
-```
+* - Pinot type
+  - Trino type
+* - `INT`
+  - `INTEGER`
+* - `LONG`
+  - `BIGINT`
+* - `FLOAT`
+  - `REAL`
+* - `DOUBLE`
+  - `DOUBLE`
+* - `STRING`
+  - `VARCHAR`
+* - `BYTES`
+  - `VARBINARY`
+* - `JSON`
+  - `JSON`
+* - `TIMESTAMP`
+  - `TIMESTAMP`
+* - `INT_ARRAY`
+  - `VARCHAR`
+* - `LONG_ARRAY`
+  - `VARCHAR`
+* - `FLOAT_ARRAY`
+  - `VARCHAR`
+* - `DOUBLE_ARRAY`
+  - `VARCHAR`
+* - `STRING_ARRAY`
+  - `VARCHAR`
+:::
 
 Pinot does not allow null values in any data type.
 
