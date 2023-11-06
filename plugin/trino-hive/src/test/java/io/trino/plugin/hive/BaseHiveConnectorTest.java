@@ -66,7 +66,6 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import io.trino.type.TypeDeserializer;
-import org.apache.hadoop.fs.Path;
 import org.assertj.core.api.AbstractLongAssert;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -4404,8 +4403,7 @@ public abstract class BaseHiveConnectorTest
 
         // Table properties
         StringJoiner propertiesSql = new StringJoiner(",\n   ");
-        propertiesSql.add(
-                format("external_location = '%s'", new Path(tempDir.toUri().toASCIIString())));
+        propertiesSql.add(format("external_location = '%s'", tempDir.toUri().toASCIIString()));
         propertiesSql.add("format = 'TEXTFILE'");
         tableProperties.forEach(propertiesSql::add);
 
@@ -4737,7 +4735,7 @@ public abstract class BaseHiveConnectorTest
             int col0 = (int) row.getField(0);
             int col1 = (int) row.getField(1);
             String pathName = (String) row.getField(2);
-            String parentDirectory = new Path(pathName).getParent().toString();
+            String parentDirectory = Location.of(pathName).parentDirectory().toString();
 
             assertTrue(pathName.length() > 0);
             assertEquals(col0 % 3, col1);
