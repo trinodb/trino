@@ -2343,7 +2343,6 @@ public class DeltaLakeMetadata
         }
         ColumnMappingMode columnMappingMode = DeltaLakeTableProperties.getColumnMappingMode(properties);
         if (columnMappingMode == ID || columnMappingMode == NAME) {
-            // TODO Add 'columnMapping' feature to reader and writer features when supporting writer version 7
             readerVersion = max(readerVersion, COLUMN_MAPPING_MODE_SUPPORTED_READER_VERSION);
             writerVersion = max(writerVersion, COLUMN_MAPPING_MODE_SUPPORTED_WRITER_VERSION);
         }
