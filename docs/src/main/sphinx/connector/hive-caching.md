@@ -89,42 +89,41 @@ transfer, by default 8898 and 8899, need to be available.
 To use caching on multiple catalogs, you need to configure different caching
 directories  and different BookKeeper and data-transfer ports.
 
-```{eval-rst}
-.. list-table:: **Cache Configuration Parameters**
-  :widths: 25, 63, 12
-  :header-rows: 1
+:::{list-table} Cache Configuration Parameters
+:widths: 25, 63, 12
+:header-rows: 1
 
-  * - Property
-    - Description
-    - Default
-  * - ``hive.cache.enabled``
-    - Toggle to enable or disable caching
-    - ``false``
-  * - ``hive.cache.location``
-    - Required directory location to use for the cache storage on each worker.
-      Separate multiple directories, which can be mount points for separate
-      drives, with commas. More tips can be found in the :ref:`recommendations
-      <hive-cache-recommendations>`. Example:
-      ``hive.cache.location=/var/lib/trino/cache1,/var/lib/trino/cache2``
-    -
-  * - ``hive.cache.data-transfer-port``
-    -  The TCP/IP port used to transfer data managed by the cache.
-    - ``8898``
-  * - ``hive.cache.bookkeeper-port``
-    -  The TCP/IP port used by the BookKeeper managing the cache.
-    - ``8899``
-  * - ``hive.cache.read-mode``
-    - Operational mode for the cache as described earlier in the architecture
-      section. ``async`` and ``read-through`` are the supported modes.
-    - ``async``
-  * - ``hive.cache.ttl``
-    - Time to live for objects in the cache. Objects, which have not been
-      requested for the TTL value, are removed from the cache.
-    - ``7d``
-  * - ``hive.cache.disk-usage-percentage``
-    - Percentage of disk space used for cached data.
-    - 80
-```
+* - Property
+  - Description
+  - Default
+* - `hive.cache.enabled`
+  - Toggle to enable or disable caching
+  - `false`
+* - `hive.cache.location`
+  - Required directory location to use for the cache storage on each worker.
+    Separate multiple directories, which can be mount points for separate
+    drives, with commas. More tips can be found in the
+    [recommendations](hive-cache-recommendations). Example:
+    `hive.cache.location=/var/lib/trino/cache1,/var/lib/trino/cache2`
+  -
+* - `hive.cache.data-transfer-port`
+  -  The TCP/IP port used to transfer data managed by the cache.
+  - `8898`
+* - `hive.cache.bookkeeper-port`
+  -  The TCP/IP port used by the BookKeeper managing the cache.
+  - `8899`
+* - `hive.cache.read-mode`
+  - Operational mode for the cache as described earlier in the architecture
+    section. `async` and `read-through` are the supported modes.
+  - `async`
+* - `hive.cache.ttl`
+  - Time to live for objects in the cache. Objects, which have not been
+    requested for the TTL value, are removed from the cache.
+  - `7d`
+* - `hive.cache.disk-usage-percentage`
+  - Percentage of disk space used for cached data.
+  - 80
+:::
 
 (hive-cache-recommendations)=
 
