@@ -112,56 +112,55 @@ each direction.
 The connector maps Phoenix types to the corresponding Trino types following this
 table:
 
-```{eval-rst}
-.. list-table:: Phoenix type to Trino type mapping
-  :widths: 30, 20
-  :header-rows: 1
+:::{list-table} Phoenix type to Trino type mapping
+:widths: 50, 50
+:header-rows: 1
 
-  * - Phoenix database type
-    - Trino type
-  * - ``BOOLEAN``
-    - ``BOOLEAN``
-  * - ``TINYINT``
-    - ``TINYINT``
-  * - ``UNSIGNED_TINYINT``
-    - ``TINYINT``
-  * - ``SMALLINT``
-    - ``SMALLINT``
-  * - ``UNSIGNED_SMALLINT``
-    - ``SMALLINT``
-  * - ``INTEGER``
-    - ``INTEGER``
-  * - ``UNSIGNED_INT``
-    - ``INTEGER``
-  * - ``BIGINT``
-    - ``BIGINT``
-  * - ``UNSIGNED_LONG``
-    - ``BIGINT``
-  * - ``FLOAT``
-    - ``REAL``
-  * - ``UNSIGNED_FLOAT``
-    - ``REAL``
-  * - ``DOUBLE``
-    - ``DOUBLE``
-  * - ``UNSIGNED_DOUBLE``
-    - ``DOUBLE``
-  * - ``DECIMAL(p,s)``
-    - ``DECIMAL(p,s)``
-  * - ``CHAR(n)``
-    - ``CHAR(n)``
-  * - ``VARCHAR(n)``
-    - ``VARCHAR(n)``
-  * - ``BINARY``
-    - ``VARBINARY``
-  * - ``VARBINARY``
-    - ``VARBINARY``
-  * - ``DATE``
-    - ``DATE``
-  * - ``UNSIGNED_DATE``
-    - ``DATE``
-  * - ``ARRAY``
-    - ``ARRAY``
-```
+* - Phoenix database type
+  - Trino type
+* - `BOOLEAN`
+  - `BOOLEAN`
+* - `TINYINT`
+  - `TINYINT`
+* - `UNSIGNED_TINYINT`
+  - `TINYINT`
+* - `SMALLINT`
+  - `SMALLINT`
+* - `UNSIGNED_SMALLINT`
+  - `SMALLINT`
+* - `INTEGER`
+  - `INTEGER`
+* - `UNSIGNED_INT`
+  - `INTEGER`
+* - `BIGINT`
+  - `BIGINT`
+* - `UNSIGNED_LONG`
+  - `BIGINT`
+* - `FLOAT`
+  - `REAL`
+* - `UNSIGNED_FLOAT`
+  - `REAL`
+* - `DOUBLE`
+  - `DOUBLE`
+* - `UNSIGNED_DOUBLE`
+  - `DOUBLE`
+* - `DECIMAL(p,s)`
+  - `DECIMAL(p,s)`
+* - `CHAR(n)`
+  - `CHAR(n)`
+* - `VARCHAR(n)`
+  - `VARCHAR(n)`
+* - `BINARY`
+  - `VARBINARY`
+* - `VARBINARY`
+  - `VARBINARY`
+* - `DATE`
+  - `DATE`
+* - `UNSIGNED_DATE`
+  - `DATE`
+* - `ARRAY`
+  - `ARRAY`
+:::
 
 No other types are supported.
 
@@ -175,42 +174,41 @@ type.
 The connector maps Trino types to the corresponding Phoenix types following this
 table:
 
-```{eval-rst}
-.. list-table:: Trino type to Phoenix type mapping
-  :widths: 30, 20
-  :header-rows: 1
+:::{list-table} Trino type to Phoenix type mapping
+:widths: 50, 50
+:header-rows: 1
 
-  * - Trino database type
-    - Phoenix type
-  * - ``BOOLEAN``
-    - ``BOOLEAN``
-  * - ``TINYINT``
-    - ``TINYINT``
-  * - ``SMALLINT``
-    - ``SMALLINT``
-  * - ``INTEGER``
-    - ``INTEGER``
-  * - ``BIGINT``
-    - ``BIGINT``
-  * - ``REAL``
-    - ``FLOAT``
-  * - ``DOUBLE``
-    - ``DOUBLE``
-  * - ``DECIMAL(p,s)``
-    - ``DECIMAL(p,s)``
-  * - ``CHAR(n)``
-    - ``CHAR(n)``
-  * - ``VARCHAR(n)``
-    - ``VARCHAR(n)``
-  * - ``VARBINARY``
-    - ``VARBINARY``
-  * - ``TIME``
-    - ``TIME``
-  * - ``DATE``
-    - ``DATE``
-  * - ``ARRAY``
-    - ``ARRAY``
-```
+* - Trino database type
+  - Phoenix type
+* - `BOOLEAN`
+  - `BOOLEAN`
+* - `TINYINT`
+  - `TINYINT`
+* - `SMALLINT`
+  - `SMALLINT`
+* - `INTEGER`
+  - `INTEGER`
+* - `BIGINT`
+  - `BIGINT`
+* - `REAL`
+  - `FLOAT`
+* - `DOUBLE`
+  - `DOUBLE`
+* - `DECIMAL(p,s)`
+  - `DECIMAL(p,s)`
+* - `CHAR(n)`
+  - `CHAR(n)`
+* - `VARCHAR(n)`
+  - `VARCHAR(n)`
+* - `VARBINARY`
+  - `VARBINARY`
+* - `TIME`
+  - `TIME`
+* - `DATE`
+  - `DATE`
+* - `ARRAY`
+  - `ARRAY`
+:::
 
 No other types are supported.
 
