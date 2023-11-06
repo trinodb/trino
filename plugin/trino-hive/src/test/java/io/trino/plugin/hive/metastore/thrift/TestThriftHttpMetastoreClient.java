@@ -19,7 +19,6 @@ import io.trino.hive.thrift.metastore.Database;
 import io.trino.hive.thrift.metastore.NoSuchObjectException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.http.HttpHeaders;
-import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -40,50 +39,45 @@ public class TestThriftHttpMetastoreClient
     private static final HiveMetastoreAuthentication NO_HIVE_METASTORE_AUTHENTICATION = new NoHiveMetastoreAuthentication();
     private static final Duration TIMEOUT = new Duration(20, SECONDS);
     private static InMemoryThriftMetastore delegate;
-    private static TestingThriftHttpMetastoreServer metastoreServer;
 
     @BeforeClass
     public static void setup()
             throws Exception
     {
-        TestRequestHeaderInterceptor requestHeaderInterceptor = new TestRequestHeaderInterceptor();
         File tempDir = Files.createTempDirectory(null).toFile();
         tempDir.deleteOnExit();
         delegate = new InMemoryThriftMetastore(new File(tempDir, "/metastore"), new ThriftMetastoreConfig());
-        metastoreServer = new TestingThriftHttpMetastoreServer(delegate, requestHeaderInterceptor);
-    }
-
-    @AfterClass
-    public static void tearDown()
-            throws Exception
-    {
-        Closeables.closeAll(metastoreServer);
-        metastoreServer = null;
     }
 
     @Test
     public void testHttpThriftConnection()
             throws Exception
     {
-        String testDbName = "testdb";
-        Database db = new Database().setName(testDbName);
-        delegate.createDatabase(db);
+        TestingThriftHttpMetastoreServer metastoreServer = getMetastoreServer(new TestRequestHeaderInterceptor());
+        try {
+            String testDbName = "testdb";
+            Database db = new Database().setName(testDbName);
+            delegate.createDatabase(db);
 
-        ThriftMetastoreClientFactory factory = new DefaultThriftMetastoreClientFactory(
-                Optional.empty(),
-                Optional.empty(),
-                TIMEOUT,
-                TIMEOUT,
-                NO_HIVE_METASTORE_AUTHENTICATION,
-                "localhost",
-                DefaultThriftMetastoreClientFactory.buildThriftHttpContext(getHttpMetastoreConfig()));
-        URI metastoreUri = URI.create("http://localhost:" + metastoreServer.getPort());
-        ThriftMetastoreClient client = factory.create(
-                metastoreUri, Optional.empty());
-        assertThat(client.getAllDatabases()).containsAll(List.of(testDbName));
-        // negative case
-        assertThatThrownBy(() -> client.getDatabase("does-not-exist"))
-                .isInstanceOf(NoSuchObjectException.class);
+            ThriftMetastoreClientFactory factory = new DefaultThriftMetastoreClientFactory(
+                    Optional.empty(),
+                    Optional.empty(),
+                    TIMEOUT,
+                    TIMEOUT,
+                    NO_HIVE_METASTORE_AUTHENTICATION,
+                    "localhost",
+                    Optional.of(DefaultThriftMetastoreClientFactory.buildThriftHttpContext(getHttpMetastoreConfig())));
+            URI metastoreUri = URI.create("http://localhost:" + metastoreServer.getPort());
+            ThriftMetastoreClient client = factory.create(
+                    metastoreUri, Optional.empty());
+            assertThat(client.getAllDatabases()).containsAll(List.of(testDbName));
+            // negative case
+            assertThatThrownBy(() -> client.getDatabase("does-not-exist"))
+                    .isInstanceOf(NoSuchObjectException.class);
+        }
+        finally {
+            Closeables.closeAll(metastoreServer);
+        }
     }
 
     private static ThriftHttpMetastoreConfig getHttpMetastoreConfig()
@@ -104,5 +98,10 @@ public class TestThriftHttpMetastoreClient
             assertThat(httpServletRequest.getHeader("key2")).isEqualTo("value2");
             assertThat(httpServletRequest.getHeader(HttpHeaders.AUTHORIZATION)).isNull();
         }
+    }
+
+    private TestingThriftHttpMetastoreServer getMetastoreServer(Consumer<HttpServletRequest> requestHeaderInterceptor)
+    {
+        return new TestingThriftHttpMetastoreServer(delegate, requestHeaderInterceptor);
     }
 }

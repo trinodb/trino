@@ -35,8 +35,9 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class EnvMultinodeDatabricksHttpHms
         extends EnvironmentProvider
 {
-    private final DockerFiles.ResourceProvider configDir;
     private static final File DATABRICKS_JDBC_PROVIDER = new File("testing/trino-product-tests-launcher/target/databricks-jdbc.jar");
+
+    private final DockerFiles.ResourceProvider configDir;
 
     @Inject
     public EnvMultinodeDatabricksHttpHms(StandardMultinode standardMultinode, DockerFiles dockerFiles)

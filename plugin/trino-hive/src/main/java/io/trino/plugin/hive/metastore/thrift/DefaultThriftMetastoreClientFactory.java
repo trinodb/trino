@@ -91,7 +91,7 @@ public class DefaultThriftMetastoreClientFactory
     @Inject
     public DefaultThriftMetastoreClientFactory(
             ThriftMetastoreConfig config,
-            ThriftHttpMetastoreConfig httpMetastoreConfig,
+            Optional<ThriftHttpMetastoreConfig> httpMetastoreConfig,
             HiveMetastoreAuthentication metastoreAuthentication,
             NodeManager nodeManager)
     {
@@ -107,7 +107,7 @@ public class DefaultThriftMetastoreClientFactory
                 config.getReadTimeout(),
                 metastoreAuthentication,
                 nodeManager.getCurrentNode().getHost(),
-                buildThriftHttpContext(httpMetastoreConfig));
+                httpMetastoreConfig.map(DefaultThriftMetastoreClientFactory::buildThriftHttpContext));
     }
 
     @Override
@@ -206,13 +206,8 @@ public class DefaultThriftMetastoreClientFactory
     }
 
     @VisibleForTesting
-    public static Optional<ThriftHttpContext> buildThriftHttpContext(ThriftHttpMetastoreConfig config)
+    public static ThriftHttpContext buildThriftHttpContext(ThriftHttpMetastoreConfig config)
     {
-        if (config.getAdditionalHeaders().isEmpty()) {
-            return Optional.empty();
-        }
-        return Optional.of(new ThriftHttpContext(
-                config.getHttpBearerToken(),
-                config.getAdditionalHeaders()));
+        return new ThriftHttpContext(config.getHttpBearerToken(), config.getAdditionalHeaders());
     }
 }
