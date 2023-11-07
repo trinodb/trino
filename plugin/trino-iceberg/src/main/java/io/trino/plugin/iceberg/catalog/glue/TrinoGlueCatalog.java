@@ -53,6 +53,7 @@ import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
@@ -821,14 +822,7 @@ public class TrinoGlueCatalog
             String metadataLocation = parameters.get(METADATA_LOCATION_PROP);
             try {
                 // Cache the TableMetadata while we have the Table retrieved anyway
-                TableOperations operations = tableOperationsProvider.createTableOperations(
-                        this,
-                        session,
-                        schemaTableName.getSchemaName(),
-                        schemaTableName.getTableName(),
-                        Optional.empty(),
-                        Optional.empty());
-                FileIO io = operations.io();
+                ForwardingFileIo io = new ForwardingFileIo(fileSystemFactory.create(session));
                 tableMetadataCache.put(schemaTableName, TableMetadataParser.read(io, io.newInputFile(metadataLocation)));
             }
             catch (RuntimeException e) {
