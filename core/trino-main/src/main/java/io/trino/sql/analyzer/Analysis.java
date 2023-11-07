@@ -102,6 +102,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -2057,6 +2058,15 @@ public class Analysis
             SourceColumn entry = (SourceColumn) obj;
             return Objects.equals(tableName, entry.tableName) &&
                     Objects.equals(columnName, entry.columnName);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("tableName", tableName)
+                    .add("columnName", columnName)
+                    .toString();
         }
     }
 
