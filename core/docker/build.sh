@@ -13,7 +13,8 @@ Builds the Trino Docker image
 EOF
 }
 
-ARCHITECTURES=(amd64 arm64 ppc64le)
+# ppc64le is skipped because it is not supported by Starburst GHA fleet
+ARCHITECTURES=(amd64 arm64)
 TRINO_VERSION=
 
 while getopts ":a:h:r:" o; do
