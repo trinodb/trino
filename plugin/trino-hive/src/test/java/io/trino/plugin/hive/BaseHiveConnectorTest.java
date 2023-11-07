@@ -3627,17 +3627,17 @@ public abstract class BaseHiveConnectorTest
         assertQueryFails(
                 getSession(),
                 "SHOW COLUMNS FROM \"$partitions\"",
-                ".*Table '.*\\.tpch\\.\\$partitions' does not exist");
+                ".*Table '.*\\.tpch\\.\"\\$partitions\"' does not exist");
 
         assertQueryFails(
                 getSession(),
                 "SHOW COLUMNS FROM \"orders$partitions\"",
-                ".*Table '.*\\.tpch\\.orders\\$partitions' does not exist");
+                ".*Table '.*\\.tpch\\.\"orders\\$partitions\"' does not exist");
 
         assertQueryFails(
                 getSession(),
                 "SHOW COLUMNS FROM \"blah$partitions\"",
-                ".*Table '.*\\.tpch\\.blah\\$partitions' does not exist");
+                ".*Table '.*\\.tpch\\.\"blah\\$partitions\"' does not exist");
     }
 
     @Test
@@ -3659,12 +3659,12 @@ public abstract class BaseHiveConnectorTest
         assertQueryFails(
                 getSession(),
                 "SELECT * FROM \"test_partitions_invalid$partitions$partitions\"",
-                ".*Table '.*\\.tpch\\.test_partitions_invalid\\$partitions\\$partitions' does not exist");
+                ".*Table '.*\\.tpch\\.\"test_partitions_invalid\\$partitions\\$partitions\"' does not exist");
 
         assertQueryFails(
                 getSession(),
                 "SELECT * FROM \"non_existent$partitions\"",
-                ".*Table '.*\\.tpch\\.non_existent\\$partitions' does not exist");
+                ".*Table '.*\\.tpch\\.\"non_existent\\$partitions\"' does not exist");
     }
 
     @Test

@@ -107,7 +107,7 @@ public class TestRenameMaterializedViewTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameMaterializedView(viewName, qualifiedName("existing_view_new"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("Materialized View '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW test-catalog.schema.existing_view RENAME TO ...?", viewName);
+                .hasMessage("Materialized View '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW test_catalog.schema.existing_view RENAME TO ...?", viewName);
     }
 
     @Test
@@ -118,7 +118,7 @@ public class TestRenameMaterializedViewTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameMaterializedView(viewName, qualifiedName("existing_view_new"), true)))
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("Materialized View '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW test-catalog.schema.existing_view RENAME TO ...?", viewName);
+                .hasMessage("Materialized View '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW test_catalog.schema.existing_view RENAME TO ...?", viewName);
     }
 
     @Test

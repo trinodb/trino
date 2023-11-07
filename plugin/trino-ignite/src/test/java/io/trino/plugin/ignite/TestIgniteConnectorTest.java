@@ -148,8 +148,8 @@ public class TestIgniteConnectorTest
             assertThat((String) computeScalar("SHOW CREATE TABLE " + normalTableName)).contains("primary_key = ARRAY['a']");
             assertThat((String) computeScalar("SHOW CREATE TABLE " + underscoreTableName)).contains("primary_key = ARRAY['b']");
             assertThat((String) computeScalar("SHOW CREATE TABLE " + percentTableName)).contains("primary_key = ARRAY['c']");
-            assertQueryFails("SHOW CREATE TABLE " + "\"test%\"", ".*Table 'ignite.public.test%' does not exist");
-            assertQueryFails("SHOW COLUMNS FROM " + "\"test%\"", ".*Table 'ignite.public.test%' does not exist");
+            assertQueryFails("SHOW CREATE TABLE " + "\"test%\"", ".*Table 'ignite.public.\"test%\"' does not exist");
+            assertQueryFails("SHOW COLUMNS FROM " + "\"test%\"", ".*Table 'ignite.public.\"test%\"' does not exist");
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + normalTableName);

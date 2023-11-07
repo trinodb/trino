@@ -131,12 +131,12 @@ public class TestIcebergRedirectionToHive
     {
         String tableName = "hive_unpartitioned_table_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
-        String icebergTableName = "iceberg.default." + tableName;
 
         createHiveTable(hiveTableName, false);
 
         assertQueryFailure(() -> onTrino().executeQuery("TABLE iceberg.default.\"" + tableName + "$partitions\""))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Table '" + icebergTableName + "$partitions' redirected to '" + hiveTableName + "$partitions', but the target table '" + hiveTableName + "$partitions' does not exist");
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Table 'iceberg.default.\"" + tableName + "$partitions\"' redirected to 'hive.default.\"" + tableName + "$partitions\"', " +
+                        "but the target table 'hive.default.\"" + tableName + "$partitions\"' does not exist");
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -146,12 +146,12 @@ public class TestIcebergRedirectionToHive
     {
         String tableName = "hive_invalid_table_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
-        String icebergTableName = "iceberg.default." + tableName;
 
         createHiveTable(hiveTableName, false);
 
         assertQueryFailure(() -> onTrino().executeQuery("TABLE iceberg.default.\"" + tableName + "$invalid\""))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Table '" + icebergTableName + "$invalid' redirected to '" + hiveTableName + "$invalid', but the target table '" + hiveTableName + "$invalid' does not exist");
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Table 'iceberg.default.\"" + tableName + "$invalid\"' redirected to 'hive.default.\"" + tableName + "$invalid\"', " +
+                        "but the target table 'hive.default.\"" + tableName + "$invalid\"' does not exist");
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }
