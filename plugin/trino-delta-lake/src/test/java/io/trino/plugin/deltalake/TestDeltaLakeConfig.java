@@ -66,7 +66,6 @@ public class TestDeltaLakeConfig
                 .setPerTransactionMetastoreCacheMaximumSize(1000)
                 .setTargetMaxFileSize(DataSize.of(1, GIGABYTE))
                 .setUniqueTableLocation(true)
-                .setLegacyCreateTableWithExistingLocationEnabled(false)
                 .setRegisterTableProcedureEnabled(false)
                 .setProjectionPushdownEnabled(true)
                 .setQueryPartitionFilterRequired(false));
@@ -103,7 +102,6 @@ public class TestDeltaLakeConfig
                 .put("delta.parquet.time-zone", nonDefaultTimeZone().getID())
                 .put("delta.target-max-file-size", "2 GB")
                 .put("delta.unique-table-location", "false")
-                .put("delta.legacy-create-table-with-existing-location.enabled", "true")
                 .put("delta.register-table-procedure.enabled", "true")
                 .put("delta.projection-pushdown-enabled", "false")
                 .put("delta.query-partition-filter-required", "true")
@@ -137,7 +135,6 @@ public class TestDeltaLakeConfig
                 .setPerTransactionMetastoreCacheMaximumSize(500)
                 .setTargetMaxFileSize(DataSize.of(2, GIGABYTE))
                 .setUniqueTableLocation(false)
-                .setLegacyCreateTableWithExistingLocationEnabled(true)
                 .setRegisterTableProcedureEnabled(true)
                 .setProjectionPushdownEnabled(false)
                 .setQueryPartitionFilterRequired(true);
