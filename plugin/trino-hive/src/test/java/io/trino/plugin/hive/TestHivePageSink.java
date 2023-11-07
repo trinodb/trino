@@ -99,7 +99,7 @@ public class TestHivePageSink
     private static final String TABLE_NAME = "test";
 
     @Test
-    public void testAllFormats()
+    void testAllFormats()
             throws Exception
     {
         HiveConfig config = new HiveConfig();
@@ -109,7 +109,7 @@ public class TestHivePageSink
         HiveMetastore metastore = createTestingFileHiveMetastore(fileSystemFactory, Location.of("memory:///metastore"));
         for (HiveStorageFormat format : HiveStorageFormat.values()) {
             if (format == HiveStorageFormat.CSV) {
-                // CSV supports only unbounded VARCHAR type, which is not provided by lineitem
+                // CSV supports only the unbounded VARCHAR type, which is not provided by lineitem
                 continue;
             }
             if (format == HiveStorageFormat.REGEX) {
@@ -143,7 +143,7 @@ public class TestHivePageSink
         }
     }
 
-    private boolean isSupportedCodec(HiveStorageFormat storageFormat, HiveCompressionOption compressionOption)
+    private static boolean isSupportedCodec(HiveStorageFormat storageFormat, HiveCompressionOption compressionOption)
     {
         if (storageFormat == HiveStorageFormat.AVRO && compressionOption == LZ4) {
             return false;
@@ -209,15 +209,16 @@ public class TestHivePageSink
         FileEntry fileEntry = fileIterator.next();
         assertThat(fileIterator.hasNext()).isFalse();
 
-        ConnectorPageSource pageSource = createPageSource(fileSystemFactory, transaction, config, fileEntry.location());
-
         List<Page> pages = new ArrayList<>();
-        while (!pageSource.isFinished()) {
-            Page nextPage = pageSource.getNextPage();
-            if (nextPage != null) {
-                pages.add(nextPage.getLoadedPage());
+        try (ConnectorPageSource pageSource = createPageSource(fileSystemFactory, transaction, config, fileEntry.location())) {
+            while (!pageSource.isFinished()) {
+                Page nextPage = pageSource.getNextPage();
+                if (nextPage != null) {
+                    pages.add(nextPage.getLoadedPage());
+                }
             }
         }
+
         MaterializedResult expectedResults = toMaterializedResult(getHiveSession(config), columnTypes, ImmutableList.of(page));
         MaterializedResult results = toMaterializedResult(getHiveSession(config), columnTypes, pages);
         assertThat(results).containsExactlyElementsOf(expectedResults);
@@ -225,7 +226,7 @@ public class TestHivePageSink
         return fileEntry.length();
     }
 
-    public static MaterializedResult toMaterializedResult(ConnectorSession session, List<Type> types, List<Page> pages)
+    static MaterializedResult toMaterializedResult(ConnectorSession session, List<Type> types, List<Page> pages)
     {
         // materialize pages
         MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(session, types);
@@ -329,18 +330,12 @@ public class TestHivePageSink
 
     private static Type getType(TpchColumnType type)
     {
-        switch (type.getBase()) {
-            case IDENTIFIER:
-                return BIGINT;
-            case INTEGER:
-                return INTEGER;
-            case DATE:
-                return DATE;
-            case DOUBLE:
-                return DOUBLE;
-            case VARCHAR:
-                return VARCHAR;
-        }
-        throw new UnsupportedOperationException();
+        return switch (type.getBase()) {
+            case IDENTIFIER -> BIGINT;
+            case INTEGER -> INTEGER;
+            case DATE -> DATE;
+            case DOUBLE -> DOUBLE;
+            case VARCHAR -> VARCHAR;
+        };
     }
 }
