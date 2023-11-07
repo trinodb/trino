@@ -56,7 +56,7 @@ public class TestDropSchemaTask
 
         assertThatExceptionOfType(TrinoException.class)
                 .isThrownBy(() -> getFutureValue(dropSchemaTask.execute(dropSchema, queryStateMachine, emptyList(), NOOP)))
-                .withMessage("Schema 'test-catalog.test_db' does not exist");
+                .withMessage("Schema 'test_catalog.test_db' does not exist");
     }
 
     @Test

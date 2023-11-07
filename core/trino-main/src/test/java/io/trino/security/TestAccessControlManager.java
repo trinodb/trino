@@ -136,7 +136,7 @@ public class TestAccessControlManager
                     accessControlManager.checkCanInsertIntoTable(new SecurityContext(transactionId, identity, queryId, queryStart), tableName);
                 }))
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot insert into table test-catalog.schema.table");
+                .hasMessage("Access Denied: Cannot insert into table test_catalog.schema.table");
     }
 
     @Test
@@ -311,7 +311,7 @@ public class TestAccessControlManager
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         accessControlManager.loadSystemAccessControl("deny-all", ImmutableMap.of());
 
-        assertDenyExecuteProcedure(transactionManager, metadata, accessControlManager, "Access Denied: Cannot execute procedure test-catalog.schema.procedure");
+        assertDenyExecuteProcedure(transactionManager, metadata, accessControlManager, "Access Denied: Cannot execute procedure test_catalog.schema.procedure");
     }
 
     @Test

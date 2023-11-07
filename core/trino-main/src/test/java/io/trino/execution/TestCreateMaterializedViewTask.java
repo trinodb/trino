@@ -227,7 +227,7 @@ public class TestCreateMaterializedViewTask
         assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(plannerContext, new AllowAllAccessControl(), parser, analyzerFactory, materializedViewPropertyManager)
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
                 .hasErrorCode(INVALID_MATERIALIZED_VIEW_PROPERTY)
-                .hasMessage("Catalog 'test-catalog' materialized view property 'baz' does not exist");
+                .hasMessage("Catalog 'test_catalog' materialized view property 'baz' does not exist");
 
         assertEquals(metadata.getCreateMaterializedViewCallCount(), 0);
     }
@@ -283,7 +283,7 @@ public class TestCreateMaterializedViewTask
         assertThatThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(plannerContext, accessControl, parser, analyzerFactory, materializedViewPropertyManager)
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessageContaining("Cannot create materialized view test-catalog.schema.test_mv");
+                .hasMessageContaining("Cannot create materialized view test_catalog.schema.test_mv");
     }
 
     private QueryStateMachine stateMachine(TransactionManager transactionManager, MetadataManager metadata, AccessControl accessControl)

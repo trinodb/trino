@@ -46,7 +46,7 @@ public class TestCreateSchemaTask
         assertTrue(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME));
         assertThatExceptionOfType(TrinoException.class)
                 .isThrownBy(() -> getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP)))
-                .withMessage("Schema 'test-catalog.test_db' already exists");
+                .withMessage("Schema 'test_catalog.test_db' already exists");
     }
 
     @Test
@@ -71,14 +71,14 @@ public class TestCreateSchemaTask
                         queryStateMachine,
                         emptyList(),
                         WarningCollector.NOOP)))
-                .withMessage("TEST create schema fail: test-catalog.test_db");
+                .withMessage("TEST create schema fail: test_catalog.test_db");
         assertThatExceptionOfType(TrinoException.class)
                 .isThrownBy(() -> getFutureValue(task.execute(
                         new CreateSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), true, ImmutableList.of()),
                         queryStateMachine,
                         emptyList(),
                         WarningCollector.NOOP)))
-                .withMessage("TEST create schema fail: test-catalog.test_db");
+                .withMessage("TEST create schema fail: test_catalog.test_db");
     }
 
     private CreateSchemaTask getCreateSchemaTask()

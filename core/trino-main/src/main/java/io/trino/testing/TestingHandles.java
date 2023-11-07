@@ -25,7 +25,7 @@ public final class TestingHandles
     private TestingHandles() {}
 
     private static final CatalogVersion TEST_CATALOG_VERSION = new CatalogVersion("test");
-    public static final String TEST_CATALOG_NAME = "test-catalog";
+    public static final String TEST_CATALOG_NAME = "test_catalog";
     public static final CatalogHandle TEST_CATALOG_HANDLE = createTestCatalogHandle(TEST_CATALOG_NAME);
     public static final TableHandle TEST_TABLE_HANDLE = new TableHandle(
             TEST_CATALOG_HANDLE,
