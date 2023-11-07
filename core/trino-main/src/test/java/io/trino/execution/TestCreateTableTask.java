@@ -224,7 +224,7 @@ public class TestCreateTableTask
         CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {})))
                 .hasErrorCode(INVALID_TABLE_PROPERTY)
-                .hasMessage("Catalog 'test-catalog' table property 'foo' does not exist");
+                .hasMessage("Catalog 'test_catalog' table property 'foo' does not exist");
 
         assertEquals(metadata.getCreateTableCallCount(), 0);
     }
@@ -276,7 +276,7 @@ public class TestCreateTableTask
         assertTrinoExceptionThrownBy(() ->
                 getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {})))
                 .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("Catalog 'test-catalog' does not support non-null column for column name 'b'");
+                .hasMessage("Catalog 'test_catalog' does not support non-null column for column name 'b'");
     }
 
     @Test

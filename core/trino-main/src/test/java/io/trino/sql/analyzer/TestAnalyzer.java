@@ -944,11 +944,11 @@ public class TestAnalyzer
         // table name containing dots
         assertFails("SELECT * FROM \"table.not.existing\"")
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("line 1:15: Table 'tpch.s1.table.not.existing' does not exist");
+                .hasMessage("line 1:15: Table 'tpch.s1.\"table.not.existing\"' does not exist");
         // table name containing whitespace
         assertFails("SELECT * FROM \"table' does not exist, or maybe 'view\"")
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("line 1:15: Table 'tpch.s1.table' does not exist, or maybe 'view' does not exist");
+                .hasMessage("line 1:15: Table 'tpch.s1.\"table' does not exist, or maybe 'view\"' does not exist");
     }
 
     @Test
