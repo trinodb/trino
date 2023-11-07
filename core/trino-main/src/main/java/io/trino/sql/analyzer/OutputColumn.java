@@ -23,6 +23,7 @@ import io.trino.sql.analyzer.Analysis.SourceColumn;
 import java.util.Objects;
 import java.util.Set;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -68,5 +69,14 @@ public final class OutputColumn
         OutputColumn entry = (OutputColumn) obj;
         return Objects.equals(column, entry.column) &&
                 Objects.equals(sourceColumns, entry.sourceColumns);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("column", column)
+                .add("sourceColumns", sourceColumns)
+                .toString();
     }
 }
