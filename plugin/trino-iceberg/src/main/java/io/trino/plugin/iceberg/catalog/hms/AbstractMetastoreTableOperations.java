@@ -40,6 +40,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameFrom;
+import static io.trino.plugin.iceberg.IcebergUtil.TRINO_QUERY_ID_NAME;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -124,12 +125,32 @@ public abstract class AbstractMetastoreTableOperations
         try {
             metastore.createTable(table, privileges);
         }
-        catch (SchemaNotFoundException
-               | TableAlreadyExistsException e) {
+        catch (SchemaNotFoundException e) {
             // clean up metadata files corresponding to the current transaction
             fileIo.deleteFile(newMetadataLocation);
             throw e;
         }
+        catch (TableAlreadyExistsException e) {
+            // Ignore TableAlreadyExistsException when table looks like created by us.
+            // This may happen when an actually successful metastore create call is retried
+            // e.g. because of a timeout on our side.
+            refreshFromMetadataLocation(getRefreshedLocation(true));
+            if (!isCreatedBy(this.currentMetadata, session.getQueryId())) {
+                fileIo.deleteFile(newMetadataLocation);
+                throw e;
+            }
+        }
+    }
+
+    public static boolean isCreatedBy(TableMetadata existingTableMetadata, String queryId)
+    {
+        Optional<String> tableQueryId = getQueryId(existingTableMetadata);
+        return tableQueryId.isPresent() && tableQueryId.get().equals(queryId);
+    }
+
+    private static Optional<String> getQueryId(TableMetadata tableMetadata)
+    {
+        return Optional.ofNullable(tableMetadata.currentSnapshot().summary().get(TRINO_QUERY_ID_NAME));
     }
 
     protected Table.Builder updateMetastoreTable(Table.Builder builder, TableMetadata metadata, String metadataLocation, Optional<String> previousMetadataLocation)
