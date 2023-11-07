@@ -34,10 +34,14 @@ import org.junit.jupiter.api.TestInstance;
 import java.io.File;
 import java.io.IOException;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
+import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -72,6 +76,12 @@ public class TestIcebergCreateTableInternalRetry
             @Override
             public synchronized void createTable(Table table, PrincipalPrivileges principalPrivileges)
             {
+                if (table.getTableName().startsWith("test_different_session")) {
+                    // By modifying query id test simulates that table was created from different session.
+                    table = Table.builder(table)
+                            .setParameters(ImmutableMap.of(PRESTO_QUERY_ID_NAME, "new_query_id"))
+                            .build();
+                }
                 // Simulate retry mechanism with timeout failure of ThriftHiveMetastore.
                 // 1. createTable correctly create table but timeout is triggered
                 // 2. Retry to createTable throws TableAlreadyExistsException
@@ -105,5 +115,41 @@ public class TestIcebergCreateTableInternalRetry
     {
         assertQuerySucceeds("CREATE TABLE test_ctas_internal_retry AS SELECT 1 a");
         assertQuery("SHOW TABLES LIKE 'test_ctas_internal_retry'", "VALUES 'test_ctas_internal_retry'");
+    }
+
+    @Test
+    public void testRegisterTableInternalRetry()
+    {
+        assertQuerySucceeds("CREATE TABLE test_register_table_internal_retry AS SELECT 1 a");
+        String tableLocation = getTableLocation("test_register_table_internal_retry");
+        assertUpdate("CALL system.unregister_table(current_schema, 'test_register_table_internal_retry')");
+
+        assertQuerySucceeds("CALL system.register_table(current_schema, 'test_register_table_internal_retry', '" + tableLocation + "')");
+        assertQuery("SHOW TABLES LIKE 'test_register_table_internal_retry'", "VALUES 'test_register_table_internal_retry'");
+    }
+
+    @Test
+    public void testRegisterTableFailureWithDifferentSession()
+    {
+        assertQuerySucceeds("CREATE TABLE test_register_table_failure AS SELECT 1 a");
+        String tableLocation = getTableLocation("test_register_table_failure");
+        assertUpdate("CALL system.unregister_table(current_schema, 'test_register_table_failure')");
+
+        assertQueryFails(
+                "CALL system.register_table(current_schema, 'test_different_session_register_table_failure', '" + tableLocation + "')",
+                "Table already exists: .*");
+        assertQuery("SHOW TABLES LIKE 'test_different_session_register_table_failure'", "VALUES 'test_different_session_register_table_failure'");
+    }
+
+    private String getTableLocation(String tableName)
+    {
+        Pattern locationPattern = Pattern.compile(".*location = '(.*?)'.*", Pattern.DOTALL);
+        Matcher m = locationPattern.matcher((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue());
+        if (m.find()) {
+            String location = m.group(1);
+            verify(!m.find(), "Unexpected second match");
+            return location;
+        }
+        throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
     }
 }
