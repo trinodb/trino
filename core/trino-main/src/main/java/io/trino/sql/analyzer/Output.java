@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -100,5 +101,17 @@ public final class Output
     public int hashCode()
     {
         return Objects.hash(catalogName, catalogVersion, schema, table, columns);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("catalogName", catalogName)
+                .add("catalogVersion", catalogVersion)
+                .add("schema", schema)
+                .add("table", table)
+                .add("columns", columns)
+                .toString();
     }
 }
