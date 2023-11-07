@@ -18,6 +18,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class EventListenerModule
         implements Module
@@ -27,5 +28,7 @@ public class EventListenerModule
     {
         configBinder(binder).bindConfig(EventListenerConfig.class);
         binder.bind(EventListenerManager.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(EventListenerManager.class)
+                .as(generator -> generator.generatedNameOf(EventListenerManager.class));
     }
 }
