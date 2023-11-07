@@ -15,8 +15,11 @@ package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 import io.trino.filesystem.Location;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -27,14 +30,15 @@ import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Type;
 import io.trino.tpch.Nation;
 import io.trino.tpch.NationColumn;
 import io.trino.tpch.NationGenerator;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
-import java.net.URISyntaxException;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -51,8 +55,7 @@ import static com.google.common.io.Resources.getResource;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
+import static io.trino.plugin.hive.HiveTableProperties.TRANSACTIONAL;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
@@ -66,8 +69,6 @@ import static io.trino.tpch.NationColumn.NATION_KEY;
 import static io.trino.tpch.NationColumn.REGION_KEY;
 import static java.util.Collections.nCopies;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.TABLE_IS_TRANSACTIONAL;
-import static org.apache.hadoop.hive.ql.io.AcidUtils.deleteDeltaSubdir;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -75,20 +76,17 @@ import static org.testng.Assert.assertFalse;
 public class TestOrcPageSourceFactory
 {
     private static final Map<NationColumn, Integer> ALL_COLUMNS = ImmutableMap.of(NATION_KEY, 0, NAME, 1, REGION_KEY, 2, COMMENT, 3);
-    private static final HivePageSourceFactory PAGE_SOURCE_FACTORY = new OrcPageSourceFactory(
-            new OrcReaderConfig(),
-            new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS),
-            new FileFormatDataSourceStats(),
-            new HiveConfig());
 
     @Test
     public void testFullFileRead()
+            throws IOException
     {
         assertRead(ImmutableMap.of(NATION_KEY, 0, NAME, 1, REGION_KEY, 2, COMMENT, 3), OptionalLong.empty(), Optional.empty(), nationKey -> false);
     }
 
     @Test
     public void testSingleColumnRead()
+            throws IOException
     {
         assertRead(ImmutableMap.of(REGION_KEY, ALL_COLUMNS.get(REGION_KEY)), OptionalLong.empty(), Optional.empty(), nationKey -> false);
     }
@@ -98,6 +96,7 @@ public class TestOrcPageSourceFactory
      */
     @Test
     public void testFullFileSkipped()
+            throws IOException
     {
         assertRead(ALL_COLUMNS, OptionalLong.of(100L), Optional.empty(), nationKey -> false);
     }
@@ -107,34 +106,44 @@ public class TestOrcPageSourceFactory
      */
     @Test
     public void testSomeStripesAndRowGroupRead()
+            throws IOException
     {
         assertRead(ALL_COLUMNS, OptionalLong.of(5L), Optional.empty(), nationKey -> false);
     }
 
     @Test
     public void testDeletedRows()
+            throws IOException
     {
-        Location partitionLocation = Location.of(getResource("nation_delete_deltas").toString());
-        Optional<AcidInfo> acidInfo = AcidInfo.builder(partitionLocation)
-                .addDeleteDelta(partitionLocation.appendPath(deleteDeltaSubdir(3L, 3L, 0)))
-                .addDeleteDelta(partitionLocation.appendPath(deleteDeltaSubdir(4L, 4L, 0)))
+        TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
+        Location fileLocation = copyResource(fileSystemFactory, "nationFile25kRowsSortedOnNationKey/bucket_00000");
+        long fileLength = fileSystemFactory.create(ConnectorIdentity.ofUser("test")).newInputFile(fileLocation).length();
+
+        Location deleteFile3 = copyResource(fileSystemFactory, "nation_delete_deltas/delete_delta_0000003_0000003_0000/bucket_00000");
+        Location deleteFile4 = copyResource(fileSystemFactory, "nation_delete_deltas/delete_delta_0000004_0000004_0000/bucket_00000");
+        Optional<AcidInfo> acidInfo = AcidInfo.builder(deleteFile3.parentDirectory().parentDirectory())
+                .addDeleteDelta(deleteFile3.parentDirectory())
+                .addDeleteDelta(deleteFile4.parentDirectory())
                 .build();
 
-        assertRead(ALL_COLUMNS, OptionalLong.empty(), acidInfo, nationKey -> nationKey == 5 || nationKey == 19);
+        List<Nation> actual = readFile(fileSystemFactory, ALL_COLUMNS, OptionalLong.empty(), acidInfo, fileLocation, fileLength);
+
+        List<Nation> expected = expectedResult(OptionalLong.empty(), nationKey -> nationKey == 5 || nationKey == 19, 1000);
+        assertEqualsByColumns(ALL_COLUMNS.keySet(), actual, expected);
     }
 
     @Test
     public void testReadWithAcidVersionValidationHive3()
             throws Exception
     {
-        File tableFile = new File(getResource("acid_version_validation/acid_version_hive_3/00000_0").toURI());
-        Location tablePath = Location.of(tableFile.getParentFile().toURI().toString());
+        TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
+        Location fileLocation = copyResource(fileSystemFactory, "acid_version_validation/acid_version_hive_3/00000_0");
 
-        Optional<AcidInfo> acidInfo = AcidInfo.builder(tablePath)
+        Optional<AcidInfo> acidInfo = AcidInfo.builder(fileLocation.parentDirectory())
                 .setOrcAcidVersionValidated(false)
                 .build();
 
-        List<Nation> result = readFile(Map.of(), OptionalLong.empty(), acidInfo, tableFile.getPath(), 625);
+        List<Nation> result = readFile(fileSystemFactory, Map.of(), OptionalLong.empty(), acidInfo, fileLocation, 625);
         assertEquals(result.size(), 1);
     }
 
@@ -142,14 +151,14 @@ public class TestOrcPageSourceFactory
     public void testReadWithAcidVersionValidationNoVersionInMetadata()
             throws Exception
     {
-        File tableFile = new File(getResource("acid_version_validation/no_orc_acid_version_in_metadata/00000_0").toURI());
-        Location tablePath = Location.of(tableFile.getParentFile().toURI().toString());
+        TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
+        Location fileLocation = copyResource(fileSystemFactory, "acid_version_validation/no_orc_acid_version_in_metadata/00000_0");
 
-        Optional<AcidInfo> acidInfo = AcidInfo.builder(tablePath)
+        Optional<AcidInfo> acidInfo = AcidInfo.builder(fileLocation.parentDirectory())
                 .setOrcAcidVersionValidated(false)
                 .build();
 
-        assertThatThrownBy(() -> readFile(Map.of(), OptionalLong.empty(), acidInfo, tableFile.getPath(), 730))
+        assertThatThrownBy(() -> readFile(fileSystemFactory, Map.of(), OptionalLong.empty(), acidInfo, fileLocation, 730))
                 .hasMessageMatching("Hive transactional tables are supported since Hive 3.0. Expected `hive.acid.version` in ORC metadata" +
                         " in .*/acid_version_validation/no_orc_acid_version_in_metadata/00000_0 to be >=2 but was <empty>." +
                         " If you have upgraded from an older version of Hive, make sure a major compaction has been run at least once after the upgrade.");
@@ -159,17 +168,19 @@ public class TestOrcPageSourceFactory
     public void testFullFileReadOriginalFilesTable()
             throws Exception
     {
-        File tableFile = new File(getResource("fullacidNationTableWithOriginalFiles/000000_0").toURI());
-        Location tablePath = Location.of(tableFile.toURI().toString()).parentDirectory();
+        TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
+        Location fileLocation = copyResource(fileSystemFactory, "fullacidNationTableWithOriginalFiles/000000_0");
+        Location deleteDeltaLocation = copyResource(fileSystemFactory, "fullacidNationTableWithOriginalFiles/delete_delta_10000001_10000001_0000/bucket_00000");
+        Location tablePath = fileLocation.parentDirectory();
 
         AcidInfo acidInfo = AcidInfo.builder(tablePath)
-                .addDeleteDelta(tablePath.appendPath(deleteDeltaSubdir(10000001, 10000001, 0)))
-                .addOriginalFile(tablePath.appendPath("000000_0"), 1780, 0)
+                .addDeleteDelta(deleteDeltaLocation.parentDirectory())
+                .addOriginalFile(fileLocation, 1780, 0)
                 .setOrcAcidVersionValidated(true)
                 .buildWithRequiredOriginalFiles(0);
 
         List<Nation> expected = expectedResult(OptionalLong.empty(), nationKey -> nationKey == 24, 1);
-        List<Nation> result = readFile(ALL_COLUMNS, OptionalLong.empty(), Optional.of(acidInfo), tablePath + "/000000_0", 1780);
+        List<Nation> result = readFile(fileSystemFactory, ALL_COLUMNS, OptionalLong.empty(), Optional.of(acidInfo), fileLocation, 1780);
 
         assertEquals(result.size(), expected.size());
         int deletedRowKey = 24;
@@ -179,6 +190,7 @@ public class TestOrcPageSourceFactory
     }
 
     private static void assertRead(Map<NationColumn, Integer> columns, OptionalLong nationKeyPredicate, Optional<AcidInfo> acidInfo, LongPredicate deletedRows)
+            throws IOException
     {
         List<Nation> actual = readFile(columns, nationKeyPredicate, acidInfo);
 
@@ -203,18 +215,22 @@ public class TestOrcPageSourceFactory
     }
 
     private static List<Nation> readFile(Map<NationColumn, Integer> columns, OptionalLong nationKeyPredicate, Optional<AcidInfo> acidInfo)
+            throws IOException
     {
         // This file has the contains the TPC-H nation table which each row repeated 1000 times
-        try {
-            File testFile = new File(getResource("nationFile25kRowsSortedOnNationKey/bucket_00000").toURI());
-            return readFile(columns, nationKeyPredicate, acidInfo, testFile.toURI().getPath(), testFile.length());
-        }
-        catch (URISyntaxException e) {
-            throw new RuntimeException(e);
-        }
+        TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
+        Location fileLocation = copyResource(fileSystemFactory, "nationFile25kRowsSortedOnNationKey/bucket_00000");
+        long fileLength = fileSystemFactory.create(ConnectorIdentity.ofUser("test")).newInputFile(fileLocation).length();
+        return readFile(fileSystemFactory, columns, nationKeyPredicate, acidInfo, fileLocation, fileLength);
     }
 
-    private static List<Nation> readFile(Map<NationColumn, Integer> columns, OptionalLong nationKeyPredicate, Optional<AcidInfo> acidInfo, String filePath, long fileSize)
+    private static List<Nation> readFile(
+            TrinoFileSystemFactory fileSystemFactory,
+            Map<NationColumn, Integer> columns,
+            OptionalLong nationKeyPredicate,
+            Optional<AcidInfo> acidInfo,
+            Location location,
+            long fileSize)
     {
         TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.all();
         if (nationKeyPredicate.isPresent()) {
@@ -229,9 +245,15 @@ public class TestOrcPageSourceFactory
                 .map(HiveColumnHandle::getName)
                 .collect(toImmutableList());
 
-        Optional<ReaderPageSource> pageSourceWithProjections = PAGE_SOURCE_FACTORY.createPageSource(
+        HivePageSourceFactory pageSourceFactory = new OrcPageSourceFactory(
+                new OrcReaderConfig(),
+                fileSystemFactory,
+                new FileFormatDataSourceStats(),
+                new HiveConfig());
+
+        Optional<ReaderPageSource> pageSourceWithProjections = pageSourceFactory.createPageSource(
                 SESSION,
-                Location.of(filePath),
+                location,
                 0,
                 fileSize,
                 fileSize,
@@ -291,17 +313,11 @@ public class TestOrcPageSourceFactory
 
     private static HiveColumnHandle toHiveColumnHandle(NationColumn nationColumn, int hiveColumnIndex)
     {
-        Type trinoType;
-        switch (nationColumn.getType().getBase()) {
-            case IDENTIFIER:
-                trinoType = BIGINT;
-                break;
-            case VARCHAR:
-                trinoType = VARCHAR;
-                break;
-            default:
-                throw new IllegalStateException("Unexpected value: " + nationColumn.getType().getBase());
-        }
+        Type trinoType = switch (nationColumn.getType().getBase()) {
+            case IDENTIFIER -> BIGINT;
+            case VARCHAR -> VARCHAR;
+            default -> throw new IllegalStateException("Unexpected value: " + nationColumn.getType().getBase());
+        };
 
         return createBaseColumn(
                 nationColumn.getColumnName(),
@@ -317,7 +333,7 @@ public class TestOrcPageSourceFactory
         Properties schema = new Properties();
         schema.setProperty(SERIALIZATION_LIB, ORC.getSerde());
         schema.setProperty(FILE_INPUT_FORMAT, ORC.getInputFormat());
-        schema.setProperty(TABLE_IS_TRANSACTIONAL, "true");
+        schema.setProperty(TRANSACTIONAL, "true");
         return schema;
     }
 
@@ -332,5 +348,16 @@ public class TestOrcPageSourceFactory
             assertEquals(actual.getRegionKey(), columns.contains(REGION_KEY) ? expected.getRegionKey() : -42);
             assertEquals(actual.getComment(), columns.contains(COMMENT) ? expected.getComment() : "<not read>");
         }
+    }
+
+    private static Location copyResource(TrinoFileSystemFactory fileSystemFactory, String resourceName)
+            throws IOException
+    {
+        Location location = Location.of("memory:///" + resourceName);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(ConnectorIdentity.ofUser("test"));
+        try (OutputStream outputStream = fileSystem.newOutputFile(location).create()) {
+            Resources.copy(getResource(resourceName), outputStream);
+        }
+        return location;
     }
 }
