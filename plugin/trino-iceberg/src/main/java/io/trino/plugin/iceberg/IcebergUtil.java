@@ -171,8 +171,8 @@ public final class IcebergUtil
 
     public static final String METADATA_FOLDER_NAME = "metadata";
     public static final String METADATA_FILE_EXTENSION = ".metadata.json";
+    public static final String TRINO_QUERY_ID_NAME = "trino_query_id";
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
-    static final String TRINO_QUERY_ID_NAME = "trino_query_id";
     // Metadata file name examples
     //  - 00001-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json
     //  - 00001-409702ba-4735-4645-8f14-09537cc0b2c8.gz.metadata.json (https://github.com/apache/iceberg/blob/ab398a0d5ff195f763f8c7a4358ac98fa38a8de7/core/src/main/java/org/apache/iceberg/TableMetadataParser.java#L141)
