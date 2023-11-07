@@ -104,7 +104,7 @@ public class TestCallTask
         assertThatThrownBy(
                 () -> executeCallTask(PROCEDURE_METHOD_HANDLE.bindTo(target), transactionManager -> new DenyAllAccessControl()))
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot execute procedure test-catalog.test.testing_procedure");
+                .hasMessage("Access Denied: Cannot execute procedure test_catalog.test.testing_procedure");
         assertThat(target.invoked).isFalse();
     }
 
@@ -121,7 +121,7 @@ public class TestCallTask
                             return accessControl;
                         }))
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot insert into table test-catalog.test.testing_table");
+                .hasMessage("Access Denied: Cannot insert into table test_catalog.test.testing_table");
     }
 
     private void executeCallTask(MethodHandle methodHandle, Function<TransactionManager, AccessControl> accessControlProvider)

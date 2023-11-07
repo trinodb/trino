@@ -5365,7 +5365,7 @@ public abstract class BaseConnectorTest
     public void testNoDataSystemTable()
     {
         assertQuerySucceeds("TABLE nation");
-        assertQueryFails("TABLE \"nation$data\"", "line 1:1: Table '\\w+.\\w+.nation\\$data' does not exist");
+        assertQueryFails("TABLE \"nation$data\"", "line 1:1: Table '\\w+.\\w+.\"nation\\$data\"' does not exist");
     }
 
     @Test(dataProvider = "testColumnNameDataProvider")

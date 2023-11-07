@@ -94,7 +94,7 @@ public class TestRenameTableTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameTable(viewName, qualifiedName("existing_materialized_view_new"), false)))
                 .hasErrorCode(GENERIC_USER_ERROR)
-                .hasMessage("Table '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW test-catalog.schema.existing_materialized_view RENAME TO ...?", viewName);
+                .hasMessage("Table '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW test_catalog.schema.existing_materialized_view RENAME TO ...?", viewName);
     }
 
     @Test
@@ -105,7 +105,7 @@ public class TestRenameTableTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameTable(viewName, qualifiedName("existing_materialized_view_new"), true)))
                 .hasErrorCode(GENERIC_USER_ERROR)
-                .hasMessage("Table '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW test-catalog.schema.existing_materialized_view RENAME TO ...?", viewName);
+                .hasMessage("Table '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW test_catalog.schema.existing_materialized_view RENAME TO ...?", viewName);
     }
 
     @Test

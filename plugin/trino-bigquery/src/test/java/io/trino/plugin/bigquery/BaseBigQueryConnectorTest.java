@@ -290,7 +290,7 @@ public abstract class BaseBigQueryConnectorTest
                         "Expecting message:\n" +
                         "  \"Cannot read partition information from a table that is not partitioned: \\E\\S+\\Q:tpch.nation$data\"\n" +
                         "to match regex:\n" +
-                        "  \"line 1:1: Table '\\w+.\\w+.nation\\$data' does not exist\"\n" +
+                        "  \"line 1:1: Table '\\w+.\\w+.\"nation\\$data\"' does not exist\"\n" +
                         "but did not.");
         throw new SkipException("TODO");
     }
