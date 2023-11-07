@@ -636,7 +636,7 @@ public class TestCheckpointEntryIterator
         ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.empty(), Optional.empty());
         AddFileEntry addFileEntryJsonStats = new AddFileEntry(
                 "addFilePathJson",
-                ImmutableMap.of(),
+                ImmutableMap.of("part_key", "2023-01-01 00:00:00"),
                 1000,
                 1001,
                 true,
