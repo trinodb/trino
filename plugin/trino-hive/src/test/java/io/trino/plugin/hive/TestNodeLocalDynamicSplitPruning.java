@@ -57,17 +57,17 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.testng.Assert.assertEquals;
 
-public class TestNodeLocalDynamicSplitPruning
+class TestNodeLocalDynamicSplitPruning
 {
     private static final String SCHEMA_NAME = "test";
     private static final String TABLE_NAME = "test";
-    private static final Column BUCKET_COLUMN = new Column("l_orderkey", HIVE_INT, Optional.empty());
-    private static final Column PARTITION_COLUMN = new Column("l_partkey", HIVE_INT, Optional.empty());
+    private static final Column BUCKET_COLUMN = new Column("l_orderkey", HIVE_INT, Optional.empty(), ImmutableMap.of());
+    private static final Column PARTITION_COLUMN = new Column("l_partkey", HIVE_INT, Optional.empty(), ImmutableMap.of());
     private static final HiveColumnHandle BUCKET_HIVE_COLUMN_HANDLE = new HiveColumnHandle(
             BUCKET_COLUMN.getName(),
             0,
             BUCKET_COLUMN.getType(),
-            TESTING_TYPE_MANAGER.getType(BUCKET_COLUMN.getType().getTypeSignature()),
+            INTEGER,
             Optional.empty(),
             REGULAR,
             Optional.empty());
@@ -75,13 +75,13 @@ public class TestNodeLocalDynamicSplitPruning
             PARTITION_COLUMN.getName(),
             0,
             PARTITION_COLUMN.getType(),
-            TESTING_TYPE_MANAGER.getType(PARTITION_COLUMN.getType().getTypeSignature()),
+            INTEGER,
             Optional.empty(),
             PARTITION_KEY,
             Optional.empty());
 
     @Test
-    public void testDynamicBucketPruning()
+    void testDynamicBucketPruning()
             throws IOException
     {
         HiveConfig config = new HiveConfig();
@@ -96,7 +96,7 @@ public class TestNodeLocalDynamicSplitPruning
     }
 
     @Test
-    public void testDynamicPartitionPruning()
+    void testDynamicPartitionPruning()
             throws IOException
     {
         HiveConfig config = new HiveConfig();
