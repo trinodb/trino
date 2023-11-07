@@ -92,16 +92,21 @@ import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
+import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
@@ -344,6 +349,53 @@ public class PostgreSqlClient
                         .add(new ImplementRegrIntercept())
                         .add(new ImplementRegrSlope())
                         .build());
+    }
+
+    @Override
+    public Optional<JdbcExpression> convertProjection(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return connectorExpressionRewriter.rewrite(session, expression, assignments)
+                .flatMap(parExp -> convertType(expression.getType()).map(type -> new JdbcExpression(parExp.expression(), parExp.parameters(), type)));
+    }
+
+    private Optional<JdbcTypeHandle> convertType(Type type)
+    {
+        if (type instanceof BooleanType) {
+            return Optional.of(
+                    new JdbcTypeHandle(Types.BIT, Optional.of("bit"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+        }
+        else if (type instanceof TinyintType) {
+            return Optional.of(
+                    new JdbcTypeHandle(Types.TINYINT, Optional.of("tinyint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+        }
+        else if (type instanceof SmallintType) {
+            return Optional.of(
+                    new JdbcTypeHandle(Types.SMALLINT, Optional.of("smallint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+        }
+        else if (type instanceof IntegerType) {
+            return Optional.of(
+                    new JdbcTypeHandle(Types.INTEGER, Optional.of("integer"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+        }
+        else if (type instanceof BigintType) {
+            return Optional.of(
+                    new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+        }
+        else if (type instanceof DecimalType decimalType) {
+            return toTypeHandle(decimalType);
+        }
+        else if (type instanceof VarcharType varcharType) {
+            if (!jdbcTypesMappedToVarchar.isEmpty()) {
+                return Optional.empty();
+            }
+            return Optional.of(
+                    new JdbcTypeHandle(Types.VARCHAR, Optional.of("varchar"), varcharType.getLength()
+                            .or(() -> Optional.of(Integer.MAX_VALUE)), Optional.empty(), Optional.empty(), Optional.empty()));
+        }
+        else if (type instanceof CharType charType) {
+            return Optional.of(
+                    new JdbcTypeHandle(Types.CHAR, Optional.of("char"), Optional.of(charType.getLength()), Optional.empty(), Optional.empty(), Optional.empty()));
+        }
+        return Optional.empty();
     }
 
     @Override
