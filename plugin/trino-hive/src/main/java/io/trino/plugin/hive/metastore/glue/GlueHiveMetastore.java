@@ -354,7 +354,7 @@ public class GlueHiveMetastore
             columnStatisticsProvider.updateTableColumnStatistics(table, updatedStatistics.getColumnStatistics());
         }
         catch (EntityNotFoundException e) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName), e);
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -486,7 +486,7 @@ public class GlueHiveMetastore
                     glueClient.createDatabase(new CreateDatabaseRequest().withDatabaseInput(databaseInput)));
         }
         catch (AlreadyExistsException e) {
-            throw new SchemaAlreadyExistsException(database.getDatabaseName());
+            throw new SchemaAlreadyExistsException(database.getDatabaseName(), e);
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -518,7 +518,7 @@ public class GlueHiveMetastore
                     glueClient.deleteDatabase(new DeleteDatabaseRequest().withName(databaseName)));
         }
         catch (EntityNotFoundException e) {
-            throw new SchemaNotFoundException(databaseName);
+            throw new SchemaNotFoundException(databaseName, e);
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -562,10 +562,10 @@ public class GlueHiveMetastore
                             .withTableInput(input)));
         }
         catch (AlreadyExistsException e) {
-            throw new TableAlreadyExistsException(new SchemaTableName(table.getDatabaseName(), table.getTableName()));
+            throw new TableAlreadyExistsException(new SchemaTableName(table.getDatabaseName(), table.getTableName()), e);
         }
         catch (EntityNotFoundException e) {
-            throw new SchemaNotFoundException(table.getDatabaseName());
+            throw new SchemaNotFoundException(table.getDatabaseName(), e);
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -625,7 +625,7 @@ public class GlueHiveMetastore
                             .withTableInput(newTableInput)));
         }
         catch (EntityNotFoundException e) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName), e);
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -706,7 +706,7 @@ public class GlueHiveMetastore
                             .withTableInput(newTableInput)));
         }
         catch (EntityNotFoundException e) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName), e);
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -1121,7 +1121,7 @@ public class GlueHiveMetastore
                     partition.getStatistics().getColumnStatistics());
         }
         catch (EntityNotFoundException e) {
-            throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partition.getPartition().getValues());
+            throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partition.getPartition().getValues(), e);
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -1265,10 +1265,10 @@ public class GlueHiveMetastore
                             .withFunctionInput(functionInput)));
         }
         catch (AlreadyExistsException e) {
-            throw new TrinoException(ALREADY_EXISTS, "Function already exists");
+            throw new TrinoException(ALREADY_EXISTS, "Function already exists", e);
         }
         catch (EntityNotFoundException e) {
-            throw new SchemaNotFoundException(databaseName);
+            throw new SchemaNotFoundException(databaseName, e);
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -1301,7 +1301,7 @@ public class GlueHiveMetastore
                             .withFunctionName(metastoreFunctionName(functionName, signatureToken))));
         }
         catch (EntityNotFoundException e) {
-            throw new TrinoException(FUNCTION_NOT_FOUND, "Function not found");
+            throw new TrinoException(FUNCTION_NOT_FOUND, "Function not found", e);
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
