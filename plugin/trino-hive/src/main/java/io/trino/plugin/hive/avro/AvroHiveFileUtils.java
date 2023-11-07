@@ -94,9 +94,7 @@ public final class AvroHiveFileUtils
                 throw new IOException("Unable to read avro schema file from given path: " + schemaURL, e);
             }
         }
-        Schema schema = getSchemaFromProperties(properties);
-        properties.setProperty(SCHEMA_LITERAL, schema.toString());
-        return schema;
+        return getSchemaFromProperties(properties);
     }
 
     private static Schema getSchemaFromProperties(Properties properties)
