@@ -203,7 +203,6 @@ import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SC
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getHiveCatalogName;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isCollectExtendedStatisticsColumnStatisticsOnWrite;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isExtendedStatisticsEnabled;
-import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isLegacyCreateTableWithExistingLocationEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isQueryPartitionFilterRequired;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isTableStatisticsEnabled;
@@ -977,13 +976,9 @@ public class DeltaLakeMetadata
             boolean transactionLogFileExists = fileSystem.listFiles(deltaLogDirectory).hasNext();
 
             if (!replaceExistingTable && transactionLogFileExists) {
-                if (!isLegacyCreateTableWithExistingLocationEnabled(session)) {
-                    throw new TrinoException(
-                            NOT_SUPPORTED,
-                            "Using CREATE TABLE with an existing table content is deprecated, instead use the system.register_table() procedure." +
-                                    " The CREATE TABLE syntax can be temporarily re-enabled using the 'delta.legacy-create-table-with-existing-location.enabled' config property" +
-                                    " or 'legacy_create_table_with_existing_location_enabled' session property.");
-                }
+                throw new TrinoException(
+                        NOT_SUPPORTED,
+                        "Using CREATE TABLE with an existing table content is disallowed, instead use the system.register_table() procedure.");
             }
             else {
                 long commitVersion = 0;

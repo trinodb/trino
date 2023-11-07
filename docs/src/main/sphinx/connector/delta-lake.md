@@ -516,27 +516,16 @@ When Delta Lake tables exist in storage but not in the metastore, Trino can be
 used to register the tables:
 
 ```
-CREATE TABLE example.default.example_table (
-  dummy BIGINT
-)
-WITH (
-  location = '...'
-)
+CALL example.system.register_table(schema_name => 'testdb', table_name => 'example_table', table_location => 's3://my-bucket/a/path')
 ```
 
-Columns listed in the DDL, such as `dummy` in the preceding example, are
-ignored. The table schema is read from the transaction log instead. If the
+The table schema is read from the transaction log instead. If the
 schema is changed by an external system, Trino automatically uses the new
 schema.
 
 :::{warning}
-Using `CREATE TABLE` with an existing table content is deprecated, instead
-use the `system.register_table` procedure. The `CREATE TABLE ... WITH
-(location=...)` syntax can be temporarily re-enabled using the
-`delta.legacy-create-table-with-existing-location.enabled` catalog
-configuration property or
-`legacy_create_table_with_existing_location_enabled` catalog session
-property.
+Using ``CREATE TABLE`` with an existing table content is disallowed,
+use the ``system.register_table`` procedure instead.
 :::
 
 If the specified location does not already contain a Delta table, the connector
