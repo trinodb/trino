@@ -672,9 +672,9 @@ jobs:
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
           S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
           S3_BUCKET_ENDPOINT: "s3.${{ vars.TRINO_AWS_REGION }}.amazonaws.com"
-          if: >-
-            contains(matrix.modules, 'trino-hdfs') && contains(matrix.profile, 'cloud-tests') &&
-            (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '')
+        if: >-
+          contains(matrix.modules, 'trino-hdfs') && contains(matrix.profile, 'cloud-tests') &&
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-hdfs -P cloud-tests
       - name: S3 FileSystem Cloud Tests
