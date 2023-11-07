@@ -31,6 +31,9 @@ import java.util.List;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
+/**
+ * Test the expected behavior of the Hive AcidUtils class from the Hive codebase.
+ */
 public class TestHiveAcidUtils
 {
     @Test

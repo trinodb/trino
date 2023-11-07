@@ -33,6 +33,9 @@ import static io.trino.plugin.hive.util.AcidTables.parseDelta;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
+/**
+ * See TestHiveAcidUtils for equivalent tests against Hive AcidUtils from the Hive codebase.
+ */
 public class TestAcidTables
 {
     private static final byte[] FAKE_DATA = {65, 66, 67};
