@@ -2031,6 +2031,21 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testCreateTableWithExistingLocation()
+    {
+        String tableName = "test_legacy_create_table_" + randomNameSuffix();
+
+        assertQuerySucceeds("CREATE TABLE " + tableName + " AS SELECT 1 as a, 'INDIA' as b, true as c");
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'INDIA', true)");
+
+        String tableLocation = (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName);
+        assertUpdate("CALL system.unregister_table(CURRENT_SCHEMA, '" + tableName + "')");
+
+        assertQueryFails(format("CREATE TABLE %s (dummy int) with (location = '%s')", tableName, tableLocation),
+                ".*Using CREATE TABLE with an existing table content is disallowed.*");
+    }
+
+    @Test
     public void testProjectionPushdownOnPartitionedTables()
     {
         String tableNamePartitionAtBeginning = "test_table_with_partition_at_beginning_" + randomNameSuffix();
