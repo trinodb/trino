@@ -20,6 +20,7 @@ import io.trino.filesystem.TrinoOutputFile;
 import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
+import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
@@ -59,10 +60,12 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonValueToTrinoValue;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.toJsonValues;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.toNullCounts;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHECKPOINT_WRITE_STATS_AS_JSON_PROPERTY;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHECKPOINT_WRITE_STATS_AS_STRUCT_PROPERTY;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.multiplyExact;
@@ -112,14 +115,12 @@ public class CheckpointWriter
         RowType metadataEntryType = checkpointSchemaManager.getMetadataEntryType();
         RowType protocolEntryType = checkpointSchemaManager.getProtocolEntryType(protocolEntry.getReaderFeatures().isPresent(), protocolEntry.getWriterFeatures().isPresent());
         RowType txnEntryType = checkpointSchemaManager.getTxnEntryType();
-        // TODO https://github.com/trinodb/trino/issues/19586 Add support for writing 'partitionValues_parsed' field
         RowType addEntryType = checkpointSchemaManager.getAddEntryType(
                 entries.getMetadataEntry(),
                 entries.getProtocolEntry(),
                 alwaysTrue(),
                 writeStatsAsJson,
-                writeStatsAsStruct,
-                false);
+                writeStatsAsStruct);
         RowType removeEntryType = checkpointSchemaManager.getRemoveEntryType();
 
         List<String> columnNames = ImmutableList.of(
@@ -154,8 +155,12 @@ public class CheckpointWriter
         for (TransactionEntry transactionEntry : entries.getTransactionEntries()) {
             writeTransactionEntry(pageBuilder, txnEntryType, transactionEntry);
         }
+        List<DeltaLakeColumnHandle> partitionColumns = extractPartitionColumns(entries.getMetadataEntry(), entries.getProtocolEntry(), typeManager);
+        List<RowType.Field> partitionValuesParsedFieldTypes = partitionColumns.stream()
+                .map(column -> RowType.field(column.getColumnName(), column.getType()))
+                .collect(toImmutableList());
         for (AddFileEntry addFileEntry : entries.getAddFileEntries()) {
-            writeAddFileEntry(pageBuilder, addEntryType, addFileEntry, entries.getMetadataEntry(), entries.getProtocolEntry(), writeStatsAsJson, writeStatsAsStruct);
+            writeAddFileEntry(pageBuilder, addEntryType, addFileEntry, entries.getMetadataEntry(), entries.getProtocolEntry(), partitionColumns, partitionValuesParsedFieldTypes, writeStatsAsJson, writeStatsAsStruct);
         }
         for (RemoveFileEntry removeFileEntry : entries.getRemoveFileEntries()) {
             writeRemoveFileEntry(pageBuilder, removeEntryType, removeFileEntry);
@@ -228,7 +233,16 @@ public class CheckpointWriter
         appendNullOtherBlocks(pageBuilder, TXN_BLOCK_CHANNEL);
     }
 
-    private void writeAddFileEntry(PageBuilder pageBuilder, RowType entryType, AddFileEntry addFileEntry, MetadataEntry metadataEntry, ProtocolEntry protocolEntry, boolean writeStatsAsJson, boolean writeStatsAsStruct)
+    private void writeAddFileEntry(
+            PageBuilder pageBuilder,
+            RowType entryType,
+            AddFileEntry addFileEntry,
+            MetadataEntry metadataEntry,
+            ProtocolEntry protocolEntry,
+            List<DeltaLakeColumnHandle> partitionColumns,
+            List<RowType.Field> partitionValuesParsedFieldTypes,
+            boolean writeStatsAsJson,
+            boolean writeStatsAsStruct)
     {
         pageBuilder.declarePosition();
         RowBlockBuilder blockBuilder = (RowBlockBuilder) pageBuilder.getBlockBuilder(ADD_BLOCK_CHANNEL);
@@ -255,6 +269,11 @@ public class CheckpointWriter
             }
 
             if (writeStatsAsStruct) {
+                if (!addFileEntry.getPartitionValues().isEmpty()) {
+                    writeParsedPartitionValues(fieldBuilders.get(fieldId), entryType, addFileEntry, partitionColumns, partitionValuesParsedFieldTypes, fieldId);
+                    fieldId++;
+                }
+
                 writeParsedStats(fieldBuilders.get(fieldId), entryType, addFileEntry, fieldId);
                 fieldId++;
             }
@@ -301,6 +320,32 @@ public class CheckpointWriter
         catch (JsonProcessingException e) {
             return Optional.empty();
         }
+    }
+
+    private void writeParsedPartitionValues(
+            BlockBuilder entryBlockBuilder,
+            RowType entryType,
+            AddFileEntry addFileEntry,
+            List<DeltaLakeColumnHandle> partitionColumns,
+            List<RowType.Field> partitionValuesParsedFieldTypes,
+            int fieldId)
+    {
+        RowType partitionValuesParsedType = getInternalRowType(entryType, fieldId, "partitionValues_parsed");
+        ((RowBlockBuilder) entryBlockBuilder).buildEntry(fieldBuilders -> {
+            for (int i = 0; i < partitionValuesParsedFieldTypes.size(); i++) {
+                RowType.Field partitionValueField = partitionValuesParsedFieldTypes.get(i);
+                String partitionColumnName = partitionValueField.getName().orElseThrow();
+                String partitionValue = addFileEntry.getPartitionValues().get(partitionColumnName);
+                validateAndGetField(partitionValuesParsedType, i, partitionColumnName);
+                if (partitionValue == null) {
+                    fieldBuilders.get(i).appendNull();
+                    continue;
+                }
+                DeltaLakeColumnHandle partitionColumn = partitionColumns.get(i);
+                Object deserializedPartitionValue = deserializePartitionValue(partitionColumn, Optional.of(partitionValue));
+                writeNativeValue(partitionValueField.getType(), fieldBuilders.get(i), deserializedPartitionValue);
+            }
+        });
     }
 
     private void writeParsedStats(BlockBuilder entryBlockBuilder, RowType entryType, AddFileEntry addFileEntry, int fieldId)

@@ -1199,6 +1199,102 @@ public class TestDeltaLakeBasic
         assertPartitionValuesParsedCondition(tableName, 3, "part_timestamp_ntz IS NULL");
     }
 
+    /**
+     * @see deltalake.partition_values_parsed_all_types
+     */
+    @Test
+    public void testDeltaLakeWritePartitionValuesParsedAllTypesInCheckpoint()
+            throws Exception
+    {
+        String tableName = "test_write_partition_values_parsed_checkpoint_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/partition_values_parsed_all_types").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("""
+                        VALUES
+                            (1, true, TINYINT '1', SMALLINT '10', 100, BIGINT '1000', CAST('123.12' AS DECIMAL(5,2)), CAST('123456789012345678.123' AS DECIMAL(21,3)), DOUBLE '1.2', REAL '3.4', 'a', DATE '2020-08-21', TIMESTAMP '2020-10-21 01:00:00.123 UTC', TIMESTAMP '2023-01-02 01:02:03.456'),
+                            (2, false, TINYINT '2', SMALLINT '20', 200, BIGINT '2000', CAST('223.12' AS DECIMAL (5,2)), CAST('223456789012345678.123' AS DECIMAL(21,3)), DOUBLE '10.2', REAL '30.4', 'b', DATE '2020-08-22', TIMESTAMP '2020-10-22 01:00:00.123 UTC', TIMESTAMP '2023-01-03 01:02:03.456'),
+                            (3, null, null, null, null, null, null, null, null, null, null, null, null, null)""");
+
+        // Create a new checkpoint
+        assertUpdate("INSERT INTO " + tableName + " VALUES (4, false, TINYINT '4', SMALLINT '40', 400, BIGINT '4000', CAST('444.44' AS DECIMAL(5,2)), CAST('4444444.444' AS DECIMAL(21,3)), DOUBLE '4.4', REAL '4.4', 'd', DATE '2020-08-24', TIMESTAMP '2020-10-24 01:00:00.123 UTC', TIMESTAMP '2023-01-04 01:02:03.456')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (5, false, TINYINT '5', SMALLINT '50', 500, BIGINT '5000', CAST('555.5' AS DECIMAL(5,2)), CAST('55555.55' AS DECIMAL(21,3)), DOUBLE '5.55', REAL '5.5555', 'd', DATE '2020-08-25', TIMESTAMP '2020-10-25 01:00:00.123 UTC', TIMESTAMP '2023-01-05 01:02:03.456')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (6, null, null, null, null, null, null, null, null, null, null, null, null, null)", 1);
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("""
+                        VALUES
+                            (1, true, TINYINT '1', SMALLINT '10', 100, BIGINT '1000', CAST('123.12' AS DECIMAL(5,2)), CAST('123456789012345678.123' AS DECIMAL(21,3)), DOUBLE '1.2', REAL '3.4', 'a', DATE '2020-08-21', TIMESTAMP '2020-10-21 01:00:00.123 UTC', TIMESTAMP '2023-01-02 01:02:03.456'),
+                            (2, false, TINYINT '2', SMALLINT '20', 200, BIGINT '2000', CAST('223.12' AS DECIMAL (5,2)), CAST('223456789012345678.123' AS DECIMAL(21,3)), DOUBLE '10.2', REAL '30.4', 'b', DATE '2020-08-22', TIMESTAMP '2020-10-22 01:00:00.123 UTC', TIMESTAMP '2023-01-03 01:02:03.456'),
+                            (3, null, null, null, null, null, null, null, null, null, null, null, null, null),
+                            (4, false, TINYINT '4', SMALLINT '40', 400, BIGINT '4000', CAST('444.44' AS DECIMAL(5,2)), CAST('4444444.444' AS DECIMAL(21,3)), DOUBLE '4.4', REAL '4.4', 'd', DATE '2020-08-24', TIMESTAMP '2020-10-24 01:00:00.123 UTC', TIMESTAMP '2023-01-04 01:02:03.456'),
+                            (5, false, TINYINT '5', SMALLINT '50', 500, BIGINT '5000', CAST('555.5' AS DECIMAL(5,2)), CAST('55555.55' AS DECIMAL(21,3)), DOUBLE '5.55', REAL '5.5555', 'd', DATE '2020-08-25', TIMESTAMP '2020-10-25 01:00:00.123 UTC', TIMESTAMP '2023-01-05 01:02:03.456'),
+                            (6, null, null, null, null, null, null, null, null, null, null, null, null, null)""");
+
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "true")
+                .build();
+        assertThat(query(session, """
+                SELECT id
+                FROM %s
+                WHERE
+                    part_boolean = true AND
+                    part_tinyint = TINYINT '1' AND
+                    part_smallint= SMALLINT '10' AND
+                    part_int = 100 AND
+                    part_bigint = BIGINT '1000' AND
+                    part_short_decimal = CAST('123.12' AS DECIMAL(5,2)) AND
+                    part_long_decimal = CAST('123456789012345678.123' AS DECIMAL(21,3)) AND
+                    part_double = DOUBLE '1.2' AND
+                    part_float = REAL '3.4' AND
+                    part_varchar = 'a' AND
+                    part_date = DATE '2020-08-21' AND
+                    part_timestamp = TIMESTAMP '2020-10-21 01:00:00.123 UTC' AND
+                    part_timestamp_ntz =TIMESTAMP '2023-01-02 01:02:03.456'""".formatted(tableName)))
+                .matches("VALUES 1");
+    }
+
+    /**
+     * @see databricks133.partition_values_parsed_case_sensitive
+     */
+    @Test
+    public void testDeltaLakeWritePartitionValuesParsedCaseSensitiveInCheckpoint()
+            throws Exception
+    {
+        String tableName = "test_write_partition_values_parsed_checkpoint_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("databricks133/partition_values_parsed_case_sensitive").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("""
+                        VALUES
+                            (100, 1, 'ala'),
+                            (200, 2,'kota'),
+                            (300, 3, 'osla')""");
+
+        // Create a new checkpoint
+        assertUpdate("INSERT INTO " + tableName + " VALUES (400, 4, 'kon')", 1);
+        assertThat(query("SELECT * FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("""
+                        VALUES
+                            (100, 1, 'ala'),
+                            (200, 2,'kota'),
+                            (300, 3, 'osla'),
+                            (400, 4, 'kon')""");
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "true")
+                .build();
+        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE part_NuMbEr = 1 AND part_StRiNg = 'ala'"))
+                .matches("VALUES 100");
+    }
+
     private void assertPartitionValuesParsedCondition(String tableName, int id, @Language("SQL") String condition)
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
