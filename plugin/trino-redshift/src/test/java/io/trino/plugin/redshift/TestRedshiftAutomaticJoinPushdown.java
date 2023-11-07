@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseAutomaticJoinPushdownTest;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.redshift.RedshiftQueryRunner.TEST_SCHEMA;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.createRedshiftQueryRunner;
@@ -38,6 +39,7 @@ public class TestRedshiftAutomaticJoinPushdown
                 ImmutableList.of());
     }
 
+    @Test
     @Override
     @Disabled
     public void testJoinPushdownWithEmptyStatsInitially()
