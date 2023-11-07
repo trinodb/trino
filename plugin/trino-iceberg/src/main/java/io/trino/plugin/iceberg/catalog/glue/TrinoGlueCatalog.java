@@ -267,7 +267,7 @@ public class TrinoGlueCatalog
                     glueClient.deleteDatabase(new DeleteDatabaseRequest().withName(namespace)));
         }
         catch (EntityNotFoundException e) {
-            throw new SchemaNotFoundException(namespace);
+            throw new SchemaNotFoundException(namespace, e);
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
@@ -291,7 +291,7 @@ public class TrinoGlueCatalog
             return metadata.buildOrThrow();
         }
         catch (EntityNotFoundException e) {
-            throw new SchemaNotFoundException(namespace);
+            throw new SchemaNotFoundException(namespace, e);
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
@@ -316,7 +316,7 @@ public class TrinoGlueCatalog
                             .withDatabaseInput(createDatabaseInput(namespace, properties))));
         }
         catch (AlreadyExistsException e) {
-            throw new SchemaAlreadyExistsException(namespace);
+            throw new SchemaAlreadyExistsException(namespace, e);
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
