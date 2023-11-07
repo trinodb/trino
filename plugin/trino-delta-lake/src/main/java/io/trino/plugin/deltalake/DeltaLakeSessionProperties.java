@@ -67,7 +67,6 @@ public final class DeltaLakeSessionProperties
     private static final String TABLE_STATISTICS_ENABLED = "statistics_enabled";
     public static final String EXTENDED_STATISTICS_ENABLED = "extended_statistics_enabled";
     public static final String EXTENDED_STATISTICS_COLLECT_ON_WRITE = "extended_statistics_collect_on_write";
-    public static final String LEGACY_CREATE_TABLE_WITH_EXISTING_LOCATION_ENABLED = "legacy_create_table_with_existing_location_enabled";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
     private static final String CHECKPOINT_FILTERING_ENABLED = "checkpoint_filtering_enabled";
@@ -172,11 +171,6 @@ public final class DeltaLakeSessionProperties
                         EXTENDED_STATISTICS_ENABLED,
                         "Enable collection (ANALYZE) and use of extended statistics.",
                         deltaLakeConfig.isExtendedStatisticsEnabled(),
-                        false),
-                booleanProperty(
-                        LEGACY_CREATE_TABLE_WITH_EXISTING_LOCATION_ENABLED,
-                        "Enable using the CREATE TABLE statement to register an existing table",
-                        deltaLakeConfig.isLegacyCreateTableWithExistingLocationEnabled(),
                         false),
                 booleanProperty(
                         EXTENDED_STATISTICS_COLLECT_ON_WRITE,
@@ -285,12 +279,6 @@ public final class DeltaLakeSessionProperties
     public static boolean isExtendedStatisticsEnabled(ConnectorSession session)
     {
         return session.getProperty(EXTENDED_STATISTICS_ENABLED, Boolean.class);
-    }
-
-    @Deprecated
-    public static boolean isLegacyCreateTableWithExistingLocationEnabled(ConnectorSession session)
-    {
-        return session.getProperty(LEGACY_CREATE_TABLE_WITH_EXISTING_LOCATION_ENABLED, Boolean.class);
     }
 
     public static boolean isCollectExtendedStatisticsColumnStatisticsOnWrite(ConnectorSession session)
