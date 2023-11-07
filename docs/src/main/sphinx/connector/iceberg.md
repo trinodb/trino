@@ -168,6 +168,12 @@ implementation is used:
     `query_partition_filter_required` catalog session property for temporary,
     catalog specific use.
   - `false`
+* - `iceberg.max-splits-per-second`
+  - The maximum number of splits generated per second per table scan. This
+    can be used to reduce the load on the storage system. By default, there
+    is no limit, which results in Trino maximizing the parallelization of
+    data access.
+  - 
 :::
 
 (iceberg-file-system-configuration)=

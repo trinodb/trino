@@ -79,6 +79,7 @@ public class IcebergConfig
     private boolean sortedWritingEnabled = true;
     private boolean queryPartitionFilterRequired;
     private int splitManagerThreads = Runtime.getRuntime().availableProcessors() * 2;
+    private int maxSplitsPerSecond = Integer.MAX_VALUE;
 
     public CatalogType getCatalogType()
     {
@@ -434,5 +435,19 @@ public class IcebergConfig
     public boolean isStorageSchemaSetWhenHidingIsEnabled()
     {
         return hideMaterializedViewStorageTable && materializedViewsStorageSchema.isPresent();
+    }
+
+    @Min(1)
+    public int getMaxSplitsPerSecond()
+    {
+        return maxSplitsPerSecond;
+    }
+
+    @Config("iceberg.max-splits-per-second")
+    @ConfigDescription("Throttles the maximum number of splits that can be assigned to tasks per second")
+    public IcebergConfig setMaxSplitsPerSecond(int maxSplitsPerSecond)
+    {
+        this.maxSplitsPerSecond = maxSplitsPerSecond;
+        return this;
     }
 }

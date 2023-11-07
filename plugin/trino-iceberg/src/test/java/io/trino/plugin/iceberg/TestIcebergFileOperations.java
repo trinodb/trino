@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
+import com.google.common.math.IntMath;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.math.RoundingMode;
 import java.nio.file.Path;
 import java.util.Optional;
 
@@ -51,6 +53,7 @@ import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.DATA;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.DELETE;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.MANIFEST;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.METADATA_JSON;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.METASTORE;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.SNAPSHOT;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.STATS;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.Scope.ALL_FILES;
@@ -61,6 +64,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Execution(ExecutionMode.SAME_THREAD)
 public class TestIcebergFileOperations
@@ -224,40 +228,33 @@ public class TestIcebergFileOperations
     {
         assertUpdate("DROP TABLE IF EXISTS test_select_with_limit"); // test is parameterized
 
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "merge_manifests_on_write", "false")
+                .build();
+
         // Create table with multiple files
         assertUpdate("CREATE TABLE test_select_with_limit(k varchar, v integer) WITH (partitioning=ARRAY['truncate(k, 1)'])");
-        // 2 files per partition, numberOfFiles files in total, in numberOfFiles separate manifests (due to fastAppend)
+        // 2 files per partition, numberOfFiles files in total, in numberOfFiles separate manifests (due to merge_manifests_on_write=false)
         for (int i = 0; i < numberOfFiles; i++) {
             String k = Integer.toString(10 + i * 5);
-            assertUpdate("INSERT INTO test_select_with_limit VALUES ('" + k + "', " + i + ")", 1);
+            assertUpdate(session, "INSERT INTO test_select_with_limit VALUES ('" + k + "', " + i + ")", 1);
         }
 
         // org.apache.iceberg.util.ParallelIterable, even if used with a direct executor, schedules 2 * ThreadPools.WORKER_THREAD_POOL_SIZE upfront
         int icebergManifestPrefetching = 2 * ThreadPools.WORKER_THREAD_POOL_SIZE;
 
-        assertFileSystemAccesses("SELECT * FROM test_select_with_limit LIMIT 3",
-                ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
-                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
-                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
-                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), min(icebergManifestPrefetching, numberOfFiles))
-                        .build());
+        int limit = 5;
+        int manifestLowerBound = min(numberOfFiles, icebergManifestPrefetching);
+        // To obtain 'limit' number of splits, we would need to fill up the split queue Math.ceil(limit, queueSize) number of times.
+        // We add +1 to that since in the worst case, even after getNextBatch() signalled finish=true, the queue could be filled up one last time as split enqueuing is done async
+        // Additionally, in the worst case, the iceberg library could have eagerly loaded up one more batch of manifests due to prefetching.
+        int queueSize = 1000;
+        int maxQueueFillUps = IntMath.divide(limit, queueSize, RoundingMode.UP) + 1;
+        int manifestUpperBound = min(numberOfFiles, queueSize * maxQueueFillUps + icebergManifestPrefetching);
 
-        assertFileSystemAccesses("EXPLAIN SELECT * FROM test_select_with_limit LIMIT 3",
-                ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
-                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
-                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
-                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), numberOfFiles)
-                        .build());
-
-        assertFileSystemAccesses("EXPLAIN ANALYZE SELECT * FROM test_select_with_limit LIMIT 3",
-                ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
-                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
-                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
-                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), numberOfFiles + min(icebergManifestPrefetching, numberOfFiles))
-                        .build());
+        assertManifestAndDataFileAccesses(session, "SELECT * FROM test_select_with_limit LIMIT " + limit, manifestLowerBound, manifestUpperBound, limit);
+        assertManifestAndDataFileAccesses(session, "EXPLAIN SELECT * FROM test_select_with_limit LIMIT " + limit, numberOfFiles, numberOfFiles, 0);
+        assertManifestAndDataFileAccesses(session, "EXPLAIN ANALYZE SELECT * FROM test_select_with_limit LIMIT " + limit, numberOfFiles + manifestLowerBound, numberOfFiles + manifestUpperBound, limit);
 
         assertUpdate("DROP TABLE test_select_with_limit");
     }
@@ -266,9 +263,8 @@ public class TestIcebergFileOperations
     {
         return new Object[][] {
                 {10},
-                {50},
-                // 2 * ThreadPools.WORKER_THREAD_POOL_SIZE manifest is always read, so include one more data point to show this is a constant number
-                {2 * 2 * ThreadPools.WORKER_THREAD_POOL_SIZE + 6},
+                {70},
+                {138}
         };
     }
 
@@ -860,6 +856,28 @@ public class TestIcebergFileOperations
         assertMultisetsEqual(
                 FileOperationUtils.getOperations(getDistributedQueryRunner().getSpans()).stream()
                         .filter(scope)
+                        .collect(toImmutableMultiset()),
+                expectedAccesses);
+    }
+
+    private void assertManifestAndDataFileAccesses(Session session, @Language("SQL") String query, int manifestLowerBound, int manifestUpperBound, int dataFileAccesses)
+    {
+        getDistributedQueryRunner().execute(session, query);
+
+        // check manifest accesses within range
+        int manifestCount = FileOperationUtils.getOperations(getDistributedQueryRunner().getSpans()).count(new FileOperation(MANIFEST, "InputFile.newStream"));
+        assertTrue(manifestLowerBound <= manifestCount && manifestCount <= manifestUpperBound);
+
+        // check other file accesses
+        ImmutableMultiset<FileOperation> expectedAccesses = ImmutableMultiset.<FileOperation>builder()
+                .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                .add(new FileOperation(SNAPSHOT, "InputFile.length"))
+                .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                .addCopies(new FileOperation(DATA, "InputFile.newInput"), dataFileAccesses)
+                .build();
+        assertMultisetsEqual(
+                FileOperationUtils.getOperations(getDistributedQueryRunner().getSpans()).stream()
+                        .filter(operation -> operation.fileType() != MANIFEST && operation.fileType() != METASTORE)
                         .collect(toImmutableMultiset()),
                 expectedAccesses);
     }

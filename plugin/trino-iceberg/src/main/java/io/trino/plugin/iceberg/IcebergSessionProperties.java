@@ -98,6 +98,7 @@ public final class IcebergSessionProperties
     private static final String MERGE_MANIFESTS_ON_WRITE = "merge_manifests_on_write";
     private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
+    private static final String MAX_SPLITS_PER_SECOND = "max_splits_per_second";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -354,6 +355,11 @@ public final class IcebergSessionProperties
                         "Require filter on partition column",
                         icebergConfig.isQueryPartitionFilterRequired(),
                         false))
+                .add(integerProperty(
+                        MAX_SPLITS_PER_SECOND,
+                        "Throttle the maximum number of splits that can be assigned to tasks per second",
+                        icebergConfig.getMaxSplitsPerSecond(),
+                        false))
                 .build();
     }
 
@@ -578,5 +584,10 @@ public final class IcebergSessionProperties
     public static boolean isQueryPartitionFilterRequired(ConnectorSession session)
     {
         return session.getProperty(QUERY_PARTITION_FILTER_REQUIRED, Boolean.class);
+    }
+
+    public static int getMaxSplitsPerSecond(ConnectorSession session)
+    {
+        return session.getProperty(MAX_SPLITS_PER_SECOND, Integer.class);
     }
 }

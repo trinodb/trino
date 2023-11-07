@@ -70,6 +70,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergSplitSource.createFileStatisticsDomain;
@@ -150,6 +151,7 @@ public class TestIcebergSplitSource
         IcebergTableHandle tableHandle = createTableHandle(schemaTableName, nationTable, TupleDomain.all());
 
         CompletableFuture<?> isBlocked = new CompletableFuture<>();
+        IcebergConfig icebergConfig = new IcebergConfig();
         try (IcebergSplitSource splitSource = new IcebergSplitSource(
                 new DefaultIcebergFileSystemFactory(fileSystemFactory),
                 SESSION,
@@ -194,7 +196,9 @@ public class TestIcebergSplitSource
                 new TestingTypeManager(),
                 false,
                 new IcebergConfig().getMinimumAssignedSplitWeight(),
-                new DefaultCachingHostAddressProvider())) {
+                new DefaultCachingHostAddressProvider(),
+                icebergConfig.getMaxSplitsPerSecond(),
+                directExecutor())) {
             ImmutableList.Builder<IcebergSplit> splits = ImmutableList.builder();
             while (!splitSource.isFinished()) {
                 splitSource.getNextBatch(100).get()
@@ -375,6 +379,7 @@ public class TestIcebergSplitSource
     private IcebergSplit generateSplit(Table nationTable, IcebergTableHandle tableHandle, DynamicFilter dynamicFilter)
             throws Exception
     {
+        IcebergConfig icebergConfig = new IcebergConfig();
         try (IcebergSplitSource splitSource = new IcebergSplitSource(
                 new DefaultIcebergFileSystemFactory(fileSystemFactory),
                 SESSION,
@@ -387,8 +392,10 @@ public class TestIcebergSplitSource
                 alwaysTrue(),
                 new TestingTypeManager(),
                 false,
-                new IcebergConfig().getMinimumAssignedSplitWeight(),
-                new DefaultCachingHostAddressProvider())) {
+                icebergConfig.getMinimumAssignedSplitWeight(),
+                new DefaultCachingHostAddressProvider(),
+                icebergConfig.getMaxSplitsPerSecond(),
+                directExecutor())) {
             ImmutableList.Builder<IcebergSplit> builder = ImmutableList.builder();
             while (!splitSource.isFinished()) {
                 splitSource.getNextBatch(100).get()
