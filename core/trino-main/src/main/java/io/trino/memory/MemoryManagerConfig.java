@@ -44,6 +44,8 @@ public class MemoryManagerConfig
     private DataSize faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead = DataSize.of(1, GIGABYTE);
     private boolean faultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled = true;
     private DataSize faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit = DataSize.of(20, GIGABYTE);
+    private DataSize faultTolerantTaskSplitMemoryThreshold = DataSize.of(5, GIGABYTE);
+    private int faultTolerantTaskSplitFactor = 10;
     private LowMemoryQueryKillerPolicy lowMemoryQueryKillerPolicy = LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
     private LowMemoryTaskKillerPolicy lowMemoryTaskKillerPolicy = LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
     // default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
@@ -173,6 +175,32 @@ public class MemoryManagerConfig
     public MemoryManagerConfig setFaultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit(DataSize faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit)
     {
         this.faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit = faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit;
+        return this;
+    }
+
+    public DataSize getFaultTolerantTaskSplitMemoryThreshold()
+    {
+        return faultTolerantTaskSplitMemoryThreshold;
+    }
+
+    @Config("fault-tolerant-execution-task-split-memory-threshold")
+    @ConfigDescription("Memory threshold at which we consider task splitting if task fails with OOM error")
+    public MemoryManagerConfig setFaultTolerantTaskSplitMemoryThreshold(DataSize faultTolerantTaskSplitMemoryThreshold)
+    {
+        this.faultTolerantTaskSplitMemoryThreshold = faultTolerantTaskSplitMemoryThreshold;
+        return this;
+    }
+
+    public int getFaultTolerantTaskSplitFactor()
+    {
+        return faultTolerantTaskSplitFactor;
+    }
+
+    @Config("fault-tolerant-execution-task-split-factor")
+    @ConfigDescription("Task splitting factor if task failes with OOM error")
+    public MemoryManagerConfig setFaultTolerantTaskSplitFactor(int faultTolerantTaskSplitFactor)
+    {
+        this.faultTolerantTaskSplitFactor = faultTolerantTaskSplitFactor;
         return this;
     }
 

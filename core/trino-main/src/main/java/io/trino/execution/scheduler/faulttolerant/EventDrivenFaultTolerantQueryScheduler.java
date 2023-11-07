@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
@@ -101,6 +102,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import jakarta.annotation.Nullable;
@@ -135,10 +137,13 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Multimaps.filterKeys;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskSplitFactor;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskSplitMemoryThreshold;
 import static io.trino.SystemSessionProperties.getMaxTasksWaitingForExecutionPerQuery;
 import static io.trino.SystemSessionProperties.getMaxTasksWaitingForNodePerStage;
 import static io.trino.SystemSessionProperties.getRetryDelayScaleFactor;
@@ -342,6 +347,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                             Stopwatch.createUnstarted()),
                     originalPlan,
                     maxPartitionCount,
+                    getFaultTolerantExecutionTaskSplitMemoryThreshold(session),
+                    getFaultTolerantExecutionTaskSplitFactor(session),
                     isFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled(session),
                     getFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount(session),
                     getFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize(session),
@@ -523,6 +530,8 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final TaskExecutionStats taskExecutionStats;
         private final DynamicFilterService dynamicFilterService;
         private final int maxPartitionCount;
+        private final DataSize taskSplitMemoryThreshold;
+        private final int taskSplitFactor;
         private final boolean runtimeAdaptivePartitioningEnabled;
         private final int runtimeAdaptivePartitioningPartitionCount;
         private final long runtimeAdaptivePartitioningMaxTaskSizeInBytes;
@@ -576,6 +585,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                 SchedulingDelayer schedulingDelayer,
                 SubPlan plan,
                 int maxPartitionCount,
+                DataSize taskSplitMemoryThreshold,
+                int taskSplitFactor,
                 boolean runtimeAdaptivePartitioningEnabled,
                 int runtimeAdaptivePartitioningPartitionCount,
                 DataSize runtimeAdaptivePartitioningMaxTaskSize,
@@ -608,6 +619,8 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.schedulingDelayer = requireNonNull(schedulingDelayer, "schedulingDelayer is null");
             this.plan = requireNonNull(plan, "plan is null");
             this.maxPartitionCount = maxPartitionCount;
+            this.taskSplitMemoryThreshold = requireNonNull(taskSplitMemoryThreshold, " is null");
+            this.taskSplitFactor = taskSplitFactor;
             this.runtimeAdaptivePartitioningEnabled = runtimeAdaptivePartitioningEnabled;
             this.runtimeAdaptivePartitioningPartitionCount = runtimeAdaptivePartitioningPartitionCount;
             this.runtimeAdaptivePartitioningMaxTaskSizeInBytes = requireNonNull(runtimeAdaptivePartitioningMaxTaskSize, "runtimeAdaptivePartitioningMaxTaskSize is null").toBytes();
@@ -712,6 +725,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
             optimize();
             updateStageExecutions();
+            splitPartitions();
             scheduleTasks();
             processNodeAcquisitions();
             updateMemoryRequirements();
@@ -1179,10 +1193,13 @@ public class EventDrivenFaultTolerantQueryScheduler
                         exchange,
                         memoryEstimatorFactory.createPartitionMemoryEstimator(session, fragment, planFragmentLookup),
                         outputDataSizeEstimator,
+                        schedulingQueue,
                         // do not retry coordinator only tasks
                         coordinatorStage ? 1 : maxTaskExecutionAttempts,
                         schedulingPriority,
                         eager,
+                        taskSplitMemoryThreshold,
+                        taskSplitFactor,
                         dynamicFilterService);
 
                 stageExecutions.put(execution.getStageId(), execution);
@@ -1209,6 +1226,13 @@ public class EventDrivenFaultTolerantQueryScheduler
         private StageId getStageId(PlanFragmentId fragmentId)
         {
             return StageId.create(queryStateMachine.getQueryId(), fragmentId);
+        }
+
+        private void splitPartitions()
+        {
+            for (StageExecution execution : stageExecutions.values()) {
+                execution.splitPartitions();
+            }
         }
 
         private void scheduleTasks()
@@ -1565,17 +1589,23 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final Exchange exchange;
         private final PartitionMemoryEstimator partitionMemoryEstimator;
         private final OutputDataSizeEstimator outputDataSizeEstimator;
+        private final SchedulingQueue schedulingQueue;
         private final int maxTaskExecutionAttempts;
         private final int schedulingPriority;
         private final boolean eager;
         private final DynamicFilterService dynamicFilterService;
         private final long[] outputDataSize;
 
+        private final DataSize taskSplitMemoryThreshold;
+        private final int taskSplitFactor;
+
         private final Int2ObjectMap<StagePartition> partitions = new Int2ObjectOpenHashMap<>();
         private boolean noMorePartitions;
+        private int nextPartitionId = -1;
 
         private final IntSet runningPartitions = new IntOpenHashSet();
         private final IntSet remainingPartitions = new IntOpenHashSet();
+        private final IntSet partitionsToSplit = new IntOpenHashSet();
 
         private ExchangeSourceOutputSelector.Builder sinkOutputSelectorBuilder;
         private ExchangeSourceOutputSelector finalSinkOutputSelector;
@@ -1597,9 +1627,12 @@ public class EventDrivenFaultTolerantQueryScheduler
                 Exchange exchange,
                 PartitionMemoryEstimator partitionMemoryEstimator,
                 OutputDataSizeEstimator outputDataSizeEstimator,
+                SchedulingQueue schedulingQueue,
                 int maxTaskExecutionAttempts,
                 int schedulingPriority,
                 boolean eager,
+                DataSize taskSplitMemoryThreshold,
+                int taskSplitFactor,
                 DynamicFilterService dynamicFilterService)
         {
             this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
@@ -1609,9 +1642,12 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.exchange = requireNonNull(exchange, "exchange is null");
             this.partitionMemoryEstimator = requireNonNull(partitionMemoryEstimator, "partitionMemoryEstimator is null");
             this.outputDataSizeEstimator = requireNonNull(outputDataSizeEstimator, "outputDataSizeEstimator is null");
+            this.schedulingQueue = requireNonNull(schedulingQueue, "schedulingQueue is null");
             this.maxTaskExecutionAttempts = maxTaskExecutionAttempts;
             this.schedulingPriority = schedulingPriority;
             this.eager = eager;
+            this.taskSplitMemoryThreshold = requireNonNull(taskSplitMemoryThreshold, "taskSplitMemoryThreshold is null");
+            this.taskSplitFactor = taskSplitFactor;
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
             outputDataSize = new long[sinkPartitioningScheme.getPartitionCount()];
             sinkOutputSelectorBuilder = ExchangeSourceOutputSelector.builder(ImmutableSet.of(exchange.getId()));
@@ -1739,9 +1775,12 @@ public class EventDrivenFaultTolerantQueryScheduler
             return Optional.empty();
         }
 
+        // Marks that no more task partitions will be registered as part of split processing.
+        // New partitions may still be added as a result of spliting existing into smaller ones.
         public void noMorePartitions()
         {
             noMorePartitions = true;
+            nextPartitionId = partitions.keySet().intStream().max().orElseThrow() + 1;
             if (getState().isDone()) {
                 return;
             }
@@ -1964,8 +2003,13 @@ public class EventDrivenFaultTolerantQueryScheduler
                 runningPartitions.remove(partitionId);
             }
 
+            if (partitionsToSplit.contains(partitionId)) {
+                // task for partition successfully completed after splitting requested; canceling splitting request
+                partitionsToSplit.remove(partitionId);
+            }
+
             if (!remainingPartitions.remove(partitionId)) {
-                // a different task for the same partition finished before
+                // a different task for the same partition finished before or partition no longer needed (split)
                 return;
             }
 
@@ -2015,8 +2059,12 @@ public class EventDrivenFaultTolerantQueryScheduler
                 runningPartitions.remove(partitionId);
             }
 
+            if (partitionsToSplit.contains(partitionId)) {
+                return ImmutableList.of();
+            }
+
             if (!remainingPartitions.contains(partitionId)) {
-                // another task for this partition finished successfully
+                // another task for this partition finished successfully or partition not requried anymore (split)
                 return ImmutableList.of();
             }
 
@@ -2043,6 +2091,11 @@ public class EventDrivenFaultTolerantQueryScheduler
                     taskStatus.getPeakMemoryReservation(),
                     partitionMemoryEstimator);
 
+            if (errorCode != null && isOutOfMemoryError(errorCode) && taskStatus.getPeakMemoryReservation().toBytes() > taskSplitMemoryThreshold.toBytes() && isSplittable(partitionId)) {
+                schedulePartitionSplitting(partitionId);
+                return ImmutableList.of();
+            }
+
             if (errorCode != null && isOutOfMemoryError(errorCode) && newMemoryLimits.getRequiredMemory().toBytes() * 0.99 <= taskStatus.getPeakMemoryReservation().toBytes()) {
                 String message = format(
                         "Cannot allocate enough memory for task %s. Reported peak memory reservation: %s. Maximum possible reservation: %s.",
@@ -2068,6 +2121,121 @@ public class EventDrivenFaultTolerantQueryScheduler
 
             // reschedule a task
             return ImmutableList.of(PrioritizedScheduledTask.create(stage.getStageId(), partitionId, schedulingPriority));
+        }
+
+        public boolean isSplittable(int partitionId)
+        {
+            StagePartition stagePartition = getStagePartition(partitionId);
+            PlanFragment fragment = stage.getFragment();
+            Set<PlanNodeId> partitionedSources = getPartitionedSources(fragment);
+            SplitsMapping splits = stagePartition.getSplits();
+
+            Set<Integer> sourcePartitions = new HashSet<>();
+            for (PlanNodeId sourceId : partitionedSources) {
+                sourcePartitions.addAll(splits.getSplits(sourceId).keySet());
+            }
+
+            // Treat taskPartition with one source partition for partitioned source as not splittable even
+            // though we more source partitions can be added later (we are not enforcing stagePartition is sealed here).
+            // This is fine as we are using this logic to assess if splitting task into more than one may improve memory utilization.
+            // If we have high memory utilization with just one partition splitting will not help.
+            return sourcePartitions.size() > 1;
+        }
+
+        private void schedulePartitionSplitting(int partitionId)
+        {
+            partitionsToSplit.add(partitionId);
+        }
+
+        public void splitPartitions()
+        {
+            if (!noMorePartitions) {
+                // wait for all partition enumerated before splitting; otherwise we do not know what is the next taskPartitionId we can use.
+                return;
+            }
+
+            IntIterator iterator = partitionsToSplit.iterator();
+            while (iterator.hasNext()) {
+                int partitionId = iterator.nextInt();
+                StagePartition partition = getStagePartition(partitionId);
+                if (!partition.isSealed()) {
+                    // wait with splitting until partition is sealed
+                    continue;
+                }
+                splitPartition(partitionId);
+                iterator.remove();
+            }
+        }
+
+        private Set<PlanNodeId> getPartitionedSources(PlanFragment fragment)
+        {
+            Set<PlanNodeId> partitionedRemoteSources = fragment.getRemoteSourceNodes().stream()
+                    .filter(node -> node.getExchangeType() != REPLICATE)
+                    .map(PlanNode::getId)
+                    .collect(toImmutableSet());
+
+            return ImmutableSet.<PlanNodeId>builder()
+                    .addAll(partitionedRemoteSources)
+                    .addAll(fragment.getPartitionedSources())
+                    .build();
+        }
+
+        public void splitPartition(int partitionId)
+        {
+            checkArgument(remainingPartitions.contains(partitionId), "task partition %s not in remainingPartitions", partitionId);
+            StagePartition stagePartition = getStagePartition(partitionId);
+            checkArgument(stagePartition.isSealed(), "partition %s not sealed", partitionId);
+            checkArgument(isSplittable(partitionId), "partition %s not splittable", partitionId);
+
+            Set<PlanNodeId> partitionedSources = getPartitionedSources(stage.getFragment());
+            SplitsMapping splits = stagePartition.getSplits();
+            Set<Integer> sourcePartitions = new HashSet<>();
+
+            for (PlanNodeId sourceId : partitionedSources) {
+                sourcePartitions.addAll(splits.getSplits(sourceId).keySet());
+            }
+
+            verify(sourcePartitions.size() > 1); // ensured by isSplittable()
+
+            List<List<Integer>> subPartitions = ImmutableList.copyOf(Iterables.partition(sourcePartitions, max(sourcePartitions.size() / taskSplitFactor, 1)));
+            log.info("Splitting task partition %s.%s into %s task partitions", stage.getStageId(), partitionId, subPartitions.size());
+            for (List<Integer> newSourcePartitions : subPartitions) {
+                int newPartitionId = nextPartitionId();
+                addPartition(newPartitionId, stagePartition.getNodeRequirements().orElseThrow());
+                for (PlanNodeId planNodeId : splits.getPlanNodeIds()) {
+                    if (!partitionedSources.contains(planNodeId)) {
+                        // just copy non-partitioned splits
+                        updatePartition(
+                                newPartitionId,
+                                planNodeId,
+                                true,
+                                splits.getSplits(planNodeId),
+                                true);
+                    }
+                    else {
+                        // filter out some source partitions for partitioned splits
+                        updatePartition(
+                                newPartitionId,
+                                planNodeId,
+                                true,
+                                filterKeys(splits.getSplits(planNodeId), newSourcePartitions::contains),
+                                true);
+                    }
+                }
+                Optional<PrioritizedScheduledTask> task = sealPartition(newPartitionId);
+                verify(task.isPresent());
+                schedulingQueue.addOrUpdate(task.orElseThrow());
+            }
+
+            // mark original partition as no longer needed and update output selectors
+            remainingPartitions.remove(partitionId);
+            sinkOutputSelectorBuilder.exclude(exchange.getId(), partitionId);
+        }
+
+        private int nextPartitionId()
+        {
+            checkArgument(noMorePartitions, "noMorePartitions not set yet");
+            return nextPartitionId++;
         }
 
         public MemoryRequirements getMemoryRequirements(int partitionId)

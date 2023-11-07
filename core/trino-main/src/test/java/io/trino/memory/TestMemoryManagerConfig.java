@@ -45,6 +45,8 @@ public class TestMemoryManagerConfig
                 .setFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(DataSize.of(1, GIGABYTE))
                 .setFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled(true)
                 .setFaultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit(DataSize.of(20, GIGABYTE))
+                .setFaultTolerantTaskSplitMemoryThreshold(DataSize.of(5, GIGABYTE))
+                .setFaultTolerantTaskSplitFactor(10)
                 .setLowMemoryQueryKillerPolicy(LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES)
                 .setLowMemoryTaskKillerPolicy(LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES)
                 .setKillOnOutOfMemoryDelay(new Duration(5, MINUTES)));
@@ -63,6 +65,8 @@ public class TestMemoryManagerConfig
                 .put("fault-tolerant-execution-task-runtime-memory-estimation-overhead", "300MB")
                 .put("fault-tolerant-execution.memory-requirement-increase-on-worker-crash-enabled", "false")
                 .put("fault-tolerant-execution-eager-speculative-tasks-node_memory-overcommit", "21GB")
+                .put("fault-tolerant-execution-task-split-memory-threshold", "6GB")
+                .put("fault-tolerant-execution-task-split-factor", "11")
                 .put("query.low-memory-killer.policy", "none")
                 .put("task.low-memory-killer.policy", "none")
                 .put("query.low-memory-killer.delay", "20s")
@@ -78,6 +82,8 @@ public class TestMemoryManagerConfig
                 .setFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(DataSize.of(300, MEGABYTE))
                 .setFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled(false)
                 .setFaultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit(DataSize.of(21, GIGABYTE))
+                .setFaultTolerantTaskSplitMemoryThreshold(DataSize.of(6, GIGABYTE))
+                .setFaultTolerantTaskSplitFactor(11)
                 .setLowMemoryQueryKillerPolicy(LowMemoryQueryKillerPolicy.NONE)
                 .setLowMemoryTaskKillerPolicy(LowMemoryTaskKillerPolicy.NONE)
                 .setKillOnOutOfMemoryDelay(new Duration(20, SECONDS));

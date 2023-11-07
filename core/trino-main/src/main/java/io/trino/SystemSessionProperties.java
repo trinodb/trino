@@ -188,6 +188,8 @@ public final class SystemSessionProperties
     public static final String FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT = "fault_tolerant_execution_max_partition_count";
     public static final String FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT = "fault_tolerant_execution_min_partition_count";
     public static final String FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE = "fault_tolerant_execution_min_partition_count_for_write";
+    public static final String FAULT_TOLERANT_EXECUTION_TASK_SPLIT_MEMORY_THRESHOLD = "fault_tolerant_execution_task_split_memory_threshold";
+    public static final String FAULT_TOLERANT_EXECUTION_TASK_SPLIT_FACTOR = "fault_tolerant_execution_task_split_factor";
     public static final String FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_ENABLED = "fault_tolerant_execution_runtime_adaptive_partitioning_enabled";
     public static final String FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_PARTITION_COUNT = "fault_tolerant_execution_runtime_adaptive_partitioning_partition_count";
     public static final String FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_MAX_TASK_SIZE = "fault_tolerant_execution_runtime_adaptive_partitioning_max_task_size";
@@ -957,6 +959,16 @@ public final class SystemSessionProperties
                         "Minimum number of partitions for distributed joins and aggregations in write queries executed with fault tolerant execution enabled",
                         queryManagerConfig.getFaultTolerantExecutionMinPartitionCountForWrite(),
                         value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE, 1, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT, false),
+                        true),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_TASK_SPLIT_MEMORY_THRESHOLD,
+                        "Memory threshold at which we consider task splitting if task fails with OOM error",
+                        memoryManagerConfig.getFaultTolerantTaskSplitMemoryThreshold(),
+                        true),
+                integerProperty(
+                        FAULT_TOLERANT_EXECUTION_TASK_SPLIT_FACTOR,
+                        "Task splitting factor if task failes with OOM error",
+                        memoryManagerConfig.getFaultTolerantTaskSplitFactor(),
                         true),
                 booleanProperty(
                         FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_ENABLED,
@@ -1818,6 +1830,16 @@ public final class SystemSessionProperties
     public static int getFaultTolerantExecutionMinPartitionCountForWrite(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE, Integer.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionTaskSplitMemoryThreshold(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_SPLIT_MEMORY_THRESHOLD, DataSize.class);
+    }
+
+    public static int getFaultTolerantExecutionTaskSplitFactor(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_SPLIT_FACTOR, Integer.class);
     }
 
     public static boolean isFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled(Session session)
