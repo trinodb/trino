@@ -2,8 +2,9 @@
 name: Ok To Test
 
 on:
-  issue_comment:
-    types: [created]
+  # Disable this workflow in the common fork since everyone has access to secrets here
+  #issue_comment:
+  #  types: [created]
 
 jobs:
   test-with-secrets:
