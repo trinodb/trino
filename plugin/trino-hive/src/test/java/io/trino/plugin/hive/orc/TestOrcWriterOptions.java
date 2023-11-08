@@ -15,7 +15,6 @@ package io.trino.plugin.hive.orc;
 
 import io.airlift.units.DataSize;
 import io.trino.orc.OrcWriterOptions;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Properties;
@@ -90,31 +89,29 @@ public class TestOrcWriterOptions
     @Test
     public void testOrcWriterOptionsWithInvalidFPPValue()
     {
-        Properties tableProperties = new Properties();
-        tableProperties.setProperty(ORC_BLOOM_FILTER_COLUMNS_KEY, "column_with_bloom_filter");
-        tableProperties.setProperty(ORC_BLOOM_FILTER_FPP_KEY, "abc");
+        Properties tableProperties = createTablePropertiesWithFpp("abc");
         assertThatThrownBy(() -> getOrcWriterOptions(tableProperties, new OrcWriterOptions()))
                 .hasMessage("Invalid value for orc_bloom_filter_fpp property: abc");
     }
 
-    @Test(dataProvider = "invalidBloomFilterFpp")
-    public void testOrcBloomFilterWithInvalidRange(String fpp)
+    @Test
+    public void testOrcBloomFilterWithInvalidRange()
     {
-        Properties tableProperties = new Properties();
-        tableProperties.setProperty(ORC_BLOOM_FILTER_COLUMNS_KEY, "column_with_bloom_filter");
-        tableProperties.setProperty(ORC_BLOOM_FILTER_FPP_KEY, fpp);
-        assertThatThrownBy(() -> getOrcWriterOptions(tableProperties, new OrcWriterOptions()))
+        assertThatThrownBy(() -> getOrcWriterOptions(createTablePropertiesWithFpp("100"), new OrcWriterOptions()))
+                .hasMessage("bloomFilterFpp should be > 0.0 & < 1.0");
+        assertThatThrownBy(() -> getOrcWriterOptions(createTablePropertiesWithFpp("-100"), new OrcWriterOptions()))
+                .hasMessage("bloomFilterFpp should be > 0.0 & < 1.0");
+        assertThatThrownBy(() -> getOrcWriterOptions(createTablePropertiesWithFpp("0"), new OrcWriterOptions()))
+                .hasMessage("bloomFilterFpp should be > 0.0 & < 1.0");
+        assertThatThrownBy(() -> getOrcWriterOptions(createTablePropertiesWithFpp("1"), new OrcWriterOptions()))
                 .hasMessage("bloomFilterFpp should be > 0.0 & < 1.0");
     }
 
-    @DataProvider
-    public Object[][] invalidBloomFilterFpp()
+    private static Properties createTablePropertiesWithFpp(String fpp)
     {
-        return new Object[][]{
-                {"100"},
-                {"-100"},
-                {"0"},
-                {"1"}
-        };
+        Properties properties = new Properties();
+        properties.setProperty(ORC_BLOOM_FILTER_COLUMNS_KEY, "column_with_bloom_filter");
+        properties.setProperty(ORC_BLOOM_FILTER_FPP_KEY, fpp);
+        return properties;
     }
 }
