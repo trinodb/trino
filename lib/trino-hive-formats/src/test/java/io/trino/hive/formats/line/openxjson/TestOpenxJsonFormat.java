@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
+import io.airlift.log.Level;
+import io.airlift.log.Logging;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 import io.trino.hive.formats.FormatTestUtils;
@@ -72,8 +74,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.function.LongFunction;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -125,8 +125,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestOpenxJsonFormat
 {
     static {
+        Logging logging = Logging.initialize();
         // Increase the level of the JsonSerDe logger as it is excessively logs
-        Logger.getLogger(JsonSerDe.class.getName()).setLevel(Level.SEVERE);
+        logging.setLevel(JsonSerDe.class.getName(), Level.ERROR);
     }
 
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
