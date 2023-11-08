@@ -28,6 +28,11 @@ public class TestKuduPlugin
     {
         Plugin plugin = new KuduPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("kudu.client.master-addresses", "localhost:7051"), new TestingConnectorContext()).shutdown();
+        factory.create(
+                "test",
+                ImmutableMap.of(
+                        "kudu.client.master-addresses", "localhost:7051",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()).shutdown();
     }
 }

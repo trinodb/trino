@@ -28,7 +28,12 @@ public class TestPhoenixPlugin
     {
         Plugin plugin = new PhoenixPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("phoenix.connection-url", "jdbc:phoenix:test"), new TestingConnectorContext())
+        factory.create(
+                        "test",
+                        ImmutableMap.of(
+                                "phoenix.connection-url", "jdbc:phoenix:test",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
                 .shutdown();
     }
 }

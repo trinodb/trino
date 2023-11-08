@@ -28,6 +28,11 @@ public class TestDruidJdbcPlugin
     {
         Plugin plugin = new DruidJdbcPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("connection-url", "jdbc:druid:test"), new TestingConnectorContext()).shutdown();
+        factory.create(
+                "test",
+                ImmutableMap.of(
+                        "connection-url", "jdbc:druid:test",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()).shutdown();
     }
 }
