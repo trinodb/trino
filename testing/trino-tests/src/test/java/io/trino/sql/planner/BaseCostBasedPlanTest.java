@@ -78,12 +78,12 @@ public abstract class BaseCostBasedPlanTest
 
     public static final List<String> TPCH_SQL_FILES = IntStream.rangeClosed(1, 22)
             .mapToObj(i -> format("q%02d", i))
-            .map(queryId -> format("/sql/presto/tpch/%s.sql", queryId))
+            .map(queryId -> format("/sql/trino/tpch/%s.sql", queryId))
             .collect(toImmutableList());
 
     public static final List<String> TPCDS_SQL_FILES = IntStream.range(1, 100)
             .mapToObj(i -> format("q%02d", i))
-            .map(queryId -> format("/sql/presto/tpcds/%s.sql", queryId))
+            .map(queryId -> format("/sql/trino/tpcds/%s.sql", queryId))
             .collect(toImmutableList());
 
     private static final String CATALOG_NAME = "local";
