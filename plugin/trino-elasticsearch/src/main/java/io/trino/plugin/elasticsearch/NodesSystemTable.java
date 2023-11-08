@@ -43,8 +43,8 @@ public class NodesSystemTable
     private static final ConnectorTableMetadata METADATA = new ConnectorTableMetadata(
             new SchemaTableName("system", "nodes"),
             ImmutableList.<ColumnMetadata>builder()
-                    .add(new ColumnMetadata("presto_node_id", createUnboundedVarcharType()))
-                    .add(new ColumnMetadata("presto_node_address", createUnboundedVarcharType()))
+                    .add(new ColumnMetadata("trino_node_id", createUnboundedVarcharType()))
+                    .add(new ColumnMetadata("trino_node_address", createUnboundedVarcharType()))
                     .add(new ColumnMetadata("elasticsearch_node_id", createUnboundedVarcharType()))
                     .add(new ColumnMetadata("elasticsearch_node_address", createUnboundedVarcharType()))
                     .build());
@@ -79,13 +79,13 @@ public class NodesSystemTable
         Set<ElasticsearchNode> nodes = client.getNodes();
 
         BlockBuilder nodeId = VARCHAR.createBlockBuilder(null, nodes.size());
-        BlockBuilder prestoAddress = VARCHAR.createBlockBuilder(null, nodes.size());
+        BlockBuilder trinoAddress = VARCHAR.createBlockBuilder(null, nodes.size());
         BlockBuilder elasticsearchNodeId = VARCHAR.createBlockBuilder(null, nodes.size());
         BlockBuilder elasticsearchAddress = VARCHAR.createBlockBuilder(null, nodes.size());
 
         for (ElasticsearchNode node : nodes) {
             VARCHAR.writeString(nodeId, currentNode.getNodeIdentifier());
-            VARCHAR.writeString(prestoAddress, currentNode.getHostAndPort().toString());
+            VARCHAR.writeString(trinoAddress, currentNode.getHostAndPort().toString());
             VARCHAR.writeString(elasticsearchNodeId, node.getId());
 
             if (node.getAddress().isPresent()) {
@@ -98,7 +98,7 @@ public class NodesSystemTable
 
         return new FixedPageSource(ImmutableList.of(new Page(
                 nodeId.build(),
-                prestoAddress.build(),
+                trinoAddress.build(),
                 elasticsearchNodeId.build(),
                 elasticsearchAddress.build())));
     }
