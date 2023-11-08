@@ -17,6 +17,7 @@ import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
+import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 
 import java.io.FileNotFoundException;
@@ -31,11 +32,16 @@ import static java.util.Objects.requireNonNull;
 
 public class GcsUtils
 {
+    private static final Logger LOG = Logger.get(GcsUtils.class);
+
     private GcsUtils() {}
 
     public static IOException handleGcsException(RuntimeException exception, String action, GcsLocation location)
             throws IOException
     {
+        if (action.equals("TEST")) {
+            LOG.info("Test log");
+        }
         throw new IOException("Error %s: %s".formatted(action, location), exception);
     }
 

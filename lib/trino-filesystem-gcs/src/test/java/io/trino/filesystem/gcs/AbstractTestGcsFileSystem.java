@@ -16,6 +16,7 @@ package io.trino.filesystem.gcs;
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.testing.RemoteStorageHelper;
+import io.airlift.log.Logger;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -38,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class AbstractTestGcsFileSystem
         extends AbstractTestTrinoFileSystem
 {
+    private static final Logger LOG = Logger.get(AbstractTestGcsFileSystem.class);
     private TrinoFileSystem fileSystem;
     private Location rootLocation;
     private Storage storage;
@@ -57,6 +59,7 @@ public abstract class AbstractTestGcsFileSystem
         // For gcp testing this corresponds to the Cluster Storage Admin and Cluster Storage Object Admin roles
         byte[] jsonKeyBytes = Base64.getDecoder().decode(gcpCredentialKey);
         GcsFileSystemConfig config = new GcsFileSystemConfig().setJsonKey(new String(jsonKeyBytes, UTF_8));
+        LOG.info("Key is %s".formatted(new String(jsonKeyBytes, UTF_8)));
         GcsStorageFactory storageFactory = new TestingGcsStorageFactory(config);
         this.gcsFileSystemFactory = new GcsFileSystemFactory(config, storageFactory);
         this.storage = storageFactory.create(ConnectorIdentity.ofUser("test"));
