@@ -18,4 +18,4 @@ import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 
 import java.util.Optional;
 
-public record RowGroupInfo(BlockMetaData blockMetaData, long fileRowOffset, Optional<ColumnIndexStore> columnIndexStore) {}
+public record RowGroupInfo(BlockMetaData blockMetaData, long fileRowOffset, long splitRowOffset, Optional<ColumnIndexStore> columnIndexStore) {}

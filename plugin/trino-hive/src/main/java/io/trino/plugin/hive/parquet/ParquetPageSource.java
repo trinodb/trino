@@ -137,6 +137,12 @@ public class ParquetPageSource
         return parquetReader.getMetrics();
     }
 
+    @Override
+    public Optional<RowRanges> getNextFilteredRowRanges()
+    {
+        return parquetReader.getNextFilteredRowRanges();
+    }
+
     public static Builder builder()
     {
         return new Builder();

@@ -22,6 +22,7 @@ import io.trino.spi.metrics.Metrics;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 
@@ -113,6 +114,12 @@ public class ConstantPopulatingPageSource
     public Metrics getMetrics()
     {
         return delegate.getMetrics();
+    }
+
+    @Override
+    public Optional<RowRanges> getNextFilteredRowRanges()
+    {
+        return delegate.getNextFilteredRowRanges();
     }
 
     public static Builder builder()

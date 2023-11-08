@@ -254,7 +254,7 @@ public class ParquetWriter
         long nextStart = 0;
         ImmutableList.Builder<RowGroupInfo> rowGroupInfoBuilder = ImmutableList.builder();
         for (BlockMetaData block : parquetMetadata.getBlocks()) {
-            rowGroupInfoBuilder.add(new RowGroupInfo(block, nextStart, Optional.empty()));
+            rowGroupInfoBuilder.add(new RowGroupInfo(block, nextStart, nextStart, Optional.empty()));
             nextStart += block.getRowCount();
         }
         return new ParquetReader(

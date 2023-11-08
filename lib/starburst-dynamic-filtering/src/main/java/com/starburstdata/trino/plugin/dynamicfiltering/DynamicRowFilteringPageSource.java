@@ -196,6 +196,12 @@ public class DynamicRowFilteringPageSource
     }
 
     @Override
+    public Optional<RowRanges> getNextFilteredRowRanges()
+    {
+        return delegate.getNextFilteredRowRanges();
+    }
+
+    @Override
     public long getMemoryUsage()
     {
         return delegate.getMemoryUsage();

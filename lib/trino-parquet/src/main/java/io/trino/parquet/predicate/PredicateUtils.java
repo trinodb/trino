@@ -192,6 +192,7 @@ public final class PredicateUtils
             throws IOException
     {
         long fileRowCount = 0;
+        long splitRowCount = 0;
         ImmutableList.Builder<RowGroupInfo> rowGroupInfoBuilder = ImmutableList.builder();
         Decompressor decompressor = new Decompressor(options);
         for (BlockMetaData block : blocksMetaData) {
@@ -214,10 +215,11 @@ public final class PredicateUtils
                             timeZone,
                             domainCompactionThreshold,
                             decompressor)) {
-                        rowGroupInfoBuilder.add(new RowGroupInfo(block, fileRowCount, columnIndex));
+                        rowGroupInfoBuilder.add(new RowGroupInfo(block, fileRowCount, splitRowCount, columnIndex));
                         break;
                     }
                 }
+                splitRowCount += block.getRowCount();
             }
             fileRowCount += block.getRowCount();
         }

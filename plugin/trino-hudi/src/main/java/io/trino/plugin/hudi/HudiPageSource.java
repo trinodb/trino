@@ -23,6 +23,7 @@ import io.trino.spi.metrics.Metrics;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 
@@ -164,6 +165,12 @@ public class HudiPageSource
     public long getMemoryUsage()
     {
         return dataPageSource.getMemoryUsage();
+    }
+
+    @Override
+    public Optional<RowRanges> getNextFilteredRowRanges()
+    {
+        return dataPageSource.getNextFilteredRowRanges();
     }
 
     @Override

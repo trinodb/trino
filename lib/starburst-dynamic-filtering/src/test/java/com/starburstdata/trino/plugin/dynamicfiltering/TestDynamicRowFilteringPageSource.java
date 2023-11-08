@@ -51,6 +51,7 @@ import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.singleValue;
+import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -60,6 +61,12 @@ public class TestDynamicRowFilteringPageSource
 {
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
     private static final IsolatedBlockFilterFactory BLOCK_FILTER_FACTORY = new IsolatedBlockFilterFactory();
+
+    @Test
+    public void testEverythingImplemented()
+    {
+        assertAllMethodsOverridden(ConnectorPageSource.class, DynamicRowFilteringPageSource.class);
+    }
 
     @Test
     public void testEmptyPageSource()

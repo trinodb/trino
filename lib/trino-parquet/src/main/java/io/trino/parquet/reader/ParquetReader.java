@@ -39,12 +39,14 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.filter2.compat.FilterCompat;
@@ -130,6 +132,7 @@ public class ParquetReader
     private final Map<String, Metric<?>> codecMetrics;
 
     private long columnIndexRowsFiltered = -1;
+    private boolean noMoreFilteredRowRanges;
 
     public ParquetReader(
             Optional<String> fileCreatedBy,
@@ -488,6 +491,75 @@ public class ParquetReader
         }
 
         return new Metrics(metrics.buildOrThrow());
+    }
+
+    public Optional<ConnectorPageSource.RowRanges> getNextFilteredRowRanges()
+    {
+        if (noMoreFilteredRowRanges) {
+            return Optional.of(ConnectorPageSource.RowRanges.EMPTY);
+        }
+        int maxRangesCount = getMaxRowRangesCount(); // Avoids re-sizing arrays
+        LongArrayList lowerInclusive = new LongArrayList(maxRangesCount);
+        LongArrayList upperExclusive = new LongArrayList(maxRangesCount);
+        for (int rowGroup = 0; rowGroup < rowGroups.size(); rowGroup++) {
+            RowGroupInfo rowGroupInfo = rowGroups.get(rowGroup);
+            long rowGroupFirstRow = rowGroupInfo.splitRowOffset();
+            FilteredRowRanges rowGroupRanges = blockRowRanges[rowGroup];
+            if (rowGroupRanges == null) {
+                long rowCount = rowGroupInfo.blockMetaData().getRowCount();
+                if (rowCount == 0) {
+                    continue;
+                }
+                addRowRange(lowerInclusive, upperExclusive, rowGroupFirstRow, rowGroupFirstRow + rowCount);
+            }
+            else {
+                for (FilteredRowRanges.RowRange rowRange : rowGroupRanges.getRowRanges()) {
+                    addRowRange(lowerInclusive, upperExclusive, rowGroupFirstRow + rowRange.start(), rowGroupFirstRow + rowRange.end() + 1);
+                }
+            }
+        }
+
+        noMoreFilteredRowRanges = true;
+        return Optional.of(new ConnectorPageSource.RowRanges(lowerInclusive.toLongArray(), upperExclusive.toLongArray(), true));
+    }
+
+    private int getMaxRowRangesCount()
+    {
+        int maxRangesCount = 0;
+        for (int rowGroup = 0; rowGroup < rowGroups.size(); rowGroup++) {
+            FilteredRowRanges rowRanges = blockRowRanges[rowGroup];
+            if (rowRanges == null) {
+                if (rowGroups.get(rowGroup).blockMetaData().getRowCount() > 0) {
+                    maxRangesCount++;
+                }
+            }
+            else {
+                maxRangesCount += rowRanges.getRowRanges().size();
+            }
+        }
+        return maxRangesCount;
+    }
+
+    private static void addRowRange(LongArrayList lowerInclusive, LongArrayList upperExclusive, long startInclusive, long endExclusive)
+    {
+        // union with last range if possible
+        if (!upperExclusive.isEmpty() && getLastElement(upperExclusive) == startInclusive) {
+            removeLastElement(upperExclusive);
+            upperExclusive.add(endExclusive);
+            return;
+        }
+        lowerInclusive.add(startInclusive);
+        upperExclusive.add(endExclusive);
+    }
+
+    private static long getLastElement(LongArrayList arrayList)
+    {
+        return arrayList.getLong(arrayList.size() - 1);
+    }
+
+    private static void removeLastElement(LongArrayList arrayList)
+    {
+        arrayList.removeLong(arrayList.size() - 1);
     }
 
     private ColumnChunkMetaData getColumnChunkMetaData(BlockMetaData blockMetaData, ColumnDescriptor columnDescriptor)

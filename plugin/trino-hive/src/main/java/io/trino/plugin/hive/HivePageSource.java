@@ -160,6 +160,12 @@ public class HivePageSource
     }
 
     @Override
+    public Optional<RowRanges> getNextFilteredRowRanges()
+    {
+        return delegate.getNextFilteredRowRanges();
+    }
+
+    @Override
     public Page getNextPage()
     {
         try {
