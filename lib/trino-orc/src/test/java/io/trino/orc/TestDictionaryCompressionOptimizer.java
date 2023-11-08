@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.trino.orc.DictionaryCompressionOptimizer.DictionaryColumn;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.OptionalInt;

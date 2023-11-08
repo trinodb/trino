@@ -15,7 +15,7 @@ package io.trino.parquet.reader;
 
 import io.airlift.slice.Slices;
 import org.apache.parquet.bytes.BytesUtils;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

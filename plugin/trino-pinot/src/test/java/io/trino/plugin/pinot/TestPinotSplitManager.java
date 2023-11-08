@@ -22,7 +22,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.TestingConnectorSession;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -37,6 +37,7 @@ import static io.trino.plugin.pinot.query.DynamicTableBuilder.buildFromPql;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -58,12 +59,15 @@ public class TestPinotSplitManager
         assertSplits(splits, 1, BROKER);
     }
 
-    @Test(expectedExceptions = PinotSplitManager.QueryNotAdequatelyPushedDownException.class)
+    @Test
     public void testBrokerNonShortQuery()
     {
-        PinotTableHandle pinotTableHandle = new PinotTableHandle(realtimeOnlyTable.getSchemaName(), realtimeOnlyTable.getTableName());
-        List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, 1, true);
-        assertSplits(splits, 1, BROKER);
+        assertThatThrownBy(() -> {
+            PinotTableHandle pinotTableHandle = new PinotTableHandle(realtimeOnlyTable.getSchemaName(), realtimeOnlyTable.getTableName());
+            List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, 1, true);
+            assertSplits(splits, 1, BROKER);
+        })
+                .isInstanceOf(PinotSplitManager.QueryNotAdequatelyPushedDownException.class);
     }
 
     @Test

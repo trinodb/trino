@@ -16,12 +16,13 @@ package io.trino.memory.context;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -146,22 +147,30 @@ public class TestMemoryContexts
         assertEquals(reservationHandler.getReservation(), maxMemory);
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "SimpleLocalMemoryContext is already closed")
+    @Test
     public void testClosedLocalMemoryContext()
     {
-        AggregatedMemoryContext aggregateContext = newSimpleAggregatedMemoryContext();
-        LocalMemoryContext localContext = aggregateContext.newLocalMemoryContext("test");
-        localContext.close();
-        localContext.setBytes(100);
+        assertThatThrownBy(() -> {
+            AggregatedMemoryContext aggregateContext = newSimpleAggregatedMemoryContext();
+            LocalMemoryContext localContext = aggregateContext.newLocalMemoryContext("test");
+            localContext.close();
+            localContext.setBytes(100);
+        })
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("SimpleLocalMemoryContext is already closed");
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "SimpleAggregatedMemoryContext is already closed")
+    @Test
     public void testClosedAggregateMemoryContext()
     {
-        AggregatedMemoryContext aggregateContext = newSimpleAggregatedMemoryContext();
-        LocalMemoryContext localContext = aggregateContext.newLocalMemoryContext("test");
-        aggregateContext.close();
-        localContext.setBytes(100);
+        assertThatThrownBy(() -> {
+            AggregatedMemoryContext aggregateContext = newSimpleAggregatedMemoryContext();
+            LocalMemoryContext localContext = aggregateContext.newLocalMemoryContext("test");
+            aggregateContext.close();
+            localContext.setBytes(100);
+        })
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("SimpleAggregatedMemoryContext is already closed");
     }
 
     private static class TestMemoryReservationHandler

@@ -20,7 +20,7 @@ import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;

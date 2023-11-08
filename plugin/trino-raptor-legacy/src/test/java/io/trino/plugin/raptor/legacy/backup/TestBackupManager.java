@@ -16,9 +16,11 @@ package io.trino.plugin.raptor.legacy.backup;
 import io.trino.plugin.raptor.legacy.storage.BackupStats;
 import io.trino.plugin.raptor.legacy.storage.FileStorageService;
 import io.trino.spi.TrinoException;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -42,11 +44,14 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.FileAssert.assertFile;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestBackupManager
 {
     private static final UUID FAILURE_UUID = randomUUID();
@@ -57,7 +62,7 @@ public class TestBackupManager
     private FileStorageService storageService;
     private BackupManager backupManager;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws IOException
     {
@@ -73,7 +78,7 @@ public class TestBackupManager
         backupManager = new BackupManager(Optional.of(backupStore), storageService, 5);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
             throws Exception
     {

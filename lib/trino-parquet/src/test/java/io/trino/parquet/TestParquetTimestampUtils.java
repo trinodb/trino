@@ -17,7 +17,7 @@ import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.TrinoException;
 import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.parquet.io.api.Binary;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 

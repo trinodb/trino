@@ -23,9 +23,11 @@ import io.trino.spi.TrinoException;
 import io.trino.testing.TestingNodeManager;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -48,13 +50,17 @@ import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.createTempFile;
 import static java.nio.file.Files.writeString;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestShardRecovery
 {
     private StorageService storageService;
@@ -63,7 +69,7 @@ public class TestShardRecovery
     private Path temporary;
     private FileBackupStore backupStore;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws IOException
     {
@@ -82,7 +88,7 @@ public class TestShardRecovery
         recoveryManager = createShardRecoveryManager(storageService, Optional.of(backupStore), shardManager);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
             throws Exception
     {
@@ -235,10 +241,14 @@ public class TestShardRecovery
         assertTrue(getOnlyElement(quarantined).startsWith(shardUuid + ".orc.corrupt"));
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "No backup file found for shard: .*")
+    @Test
     public void testNoBackupException()
     {
-        recoveryManager.restoreFromBackup(UUID.randomUUID(), 0, OptionalLong.empty());
+        assertThatThrownBy(() -> {
+            recoveryManager.restoreFromBackup(UUID.randomUUID(), 0, OptionalLong.empty());
+        })
+                .isInstanceOf(TrinoException.class)
+                .hasMessageMatching("No backup file found for shard: .*");
     }
 
     public static ShardRecoveryManager createShardRecoveryManager(

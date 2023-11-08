@@ -16,7 +16,7 @@ package io.trino.plugin.thrift.api.datatypes;
 import io.trino.plugin.thrift.api.TrinoThriftBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;

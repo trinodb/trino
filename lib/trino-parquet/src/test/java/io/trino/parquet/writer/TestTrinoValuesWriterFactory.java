@@ -28,7 +28,7 @@ import org.apache.parquet.column.values.plain.BooleanPlainValuesWriter;
 import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static java.util.Locale.ENGLISH;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;

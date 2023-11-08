@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.ConfigurationException;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.trino.plugin.pinot.client.PinotGrpcServerQueryClientTlsConfig;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.FileWriter;
 import java.io.IOException;

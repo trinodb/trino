@@ -36,9 +36,11 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -67,9 +69,12 @@ import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestShardCompactor
 {
     private static final int MAX_SHARD_ROWS = 1000;
@@ -85,7 +90,7 @@ public class TestShardCompactor
     private Path temporary;
     private Handle dummyHandle;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws IOException
     {
@@ -96,7 +101,7 @@ public class TestShardCompactor
         compactor = new ShardCompactor(storageManager, READER_OPTIONS, new TypeOperators());
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
             throws Exception
     {

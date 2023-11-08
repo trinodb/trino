@@ -14,7 +14,7 @@
 package io.trino.plugin.base.security;
 
 import io.trino.spi.security.SystemAccessControl;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
