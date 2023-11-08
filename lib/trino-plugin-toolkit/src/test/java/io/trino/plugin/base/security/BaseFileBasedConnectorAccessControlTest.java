@@ -31,8 +31,8 @@ import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
+import org.junit.jupiter.api.Test;
 import org.testng.Assert.ThrowingRunnable;
-import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.List;

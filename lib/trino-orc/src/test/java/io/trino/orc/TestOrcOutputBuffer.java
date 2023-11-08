@@ -15,7 +15,7 @@ package io.trino.orc;
 
 import io.airlift.slice.DynamicSliceOutput;
 import io.trino.orc.metadata.CompressionKind;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 

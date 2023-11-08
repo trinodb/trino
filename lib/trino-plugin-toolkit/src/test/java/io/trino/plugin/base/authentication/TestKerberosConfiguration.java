@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.base.authentication;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.base.authentication.KerberosConfiguration.Builder.getServerPrincipal;
 import static org.assertj.core.api.Assertions.assertThat;

@@ -27,7 +27,8 @@ import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
 import io.trino.spi.session.ResourceEstimates;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -177,7 +178,8 @@ public class TestDbResourceGroupConfigurationManager
                 .hasMessage("No matching configuration found for [missing] using [missing]");
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testReconfig()
             throws Exception
     {

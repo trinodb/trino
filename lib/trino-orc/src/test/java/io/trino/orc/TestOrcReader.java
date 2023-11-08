@@ -13,7 +13,7 @@
  */
 package io.trino.orc;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.orc.OrcTester.fullOrcTester;
 import static io.trino.spi.type.DoubleType.DOUBLE;

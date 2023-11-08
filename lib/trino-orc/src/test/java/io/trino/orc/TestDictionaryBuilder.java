@@ -16,7 +16,7 @@ package io.trino.orc;
 import com.google.common.collect.ImmutableSet;
 import io.trino.orc.writer.DictionaryBuilder;
 import io.trino.spi.block.VariableWidthBlock;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
 import java.util.Optional;

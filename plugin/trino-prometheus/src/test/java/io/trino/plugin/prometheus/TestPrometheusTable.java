@@ -16,7 +16,7 @@ package io.trino.plugin.prometheus;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.DoubleType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.prometheus.MetadataUtil.TABLE_CODEC;
 import static io.trino.plugin.prometheus.MetadataUtil.varcharMapType;

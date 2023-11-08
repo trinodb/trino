@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.pinot.auth.none;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 

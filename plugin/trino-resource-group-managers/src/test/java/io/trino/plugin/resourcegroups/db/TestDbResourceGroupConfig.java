@@ -16,7 +16,7 @@ package io.trino.plugin.resourcegroups.db;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import jakarta.validation.constraints.AssertTrue;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 

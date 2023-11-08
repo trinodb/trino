@@ -14,7 +14,7 @@
 package io.trino.plugin.thrift.api;
 
 import com.google.common.primitives.UnsignedBytes;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.thrift.api.TrinoThriftId.summarize;
 import static org.testng.Assert.assertEquals;
