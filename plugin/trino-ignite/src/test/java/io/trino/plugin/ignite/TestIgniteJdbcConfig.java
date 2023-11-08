@@ -14,7 +14,7 @@
 package io.trino.plugin.ignite;
 
 import jakarta.validation.constraints.AssertTrue;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.testing.ValidationAssertions.assertValidates;

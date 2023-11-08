@@ -29,7 +29,7 @@ import io.trino.spi.type.Type;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
