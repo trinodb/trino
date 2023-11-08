@@ -252,7 +252,7 @@
                                     <destination>/usr/lib/trino/plugin</destination>
                                     <base>${server.tar.package}/plugin</base>
                                     <includes>
-                                        <include>*/*</include>
+                                        <include>*/**</include>
                                     </includes>
                                 </rule>
 
