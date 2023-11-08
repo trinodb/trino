@@ -48,7 +48,9 @@ public class TestHudiConnectorFactory
 
     private static void assertCreateConnector(String metastoreUri)
     {
-        Map<String, String> config = ImmutableMap.of("hive.metastore.uri", metastoreUri);
+        Map<String, String> config = ImmutableMap.of(
+                "hive.metastore.uri", metastoreUri,
+                "bootstrap.quiet", "true");
 
         ConnectorFactory factory = new HudiConnectorFactory();
         Connector connector = factory.create("test", config, new TestingConnectorContext());

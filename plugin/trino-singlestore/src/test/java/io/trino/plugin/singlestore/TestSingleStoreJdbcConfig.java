@@ -37,7 +37,11 @@ public class TestSingleStoreJdbcConfig
                 .filter(connectorFactory -> connectorFactory.getName().equals("singlestore"))
                 .collect(toOptional())
                 .orElseThrow();
-        assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "jdbc:mariadb:test"), new TestingConnectorContext()))
+        assertThatThrownBy(() -> factory.create(
+                "test", ImmutableMap.of(
+                        "connection-url", "jdbc:mariadb:test",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()))
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining(DRIVER_PROTOCOL_ERROR);
     }

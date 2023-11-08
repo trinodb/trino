@@ -33,7 +33,12 @@ public class TestHudiPlugin
     public void testCreateConnector()
     {
         ConnectorFactory factory = getConnectorFactory();
-        factory.create("test", Map.of("hive.metastore.uri", "thrift://foo:1234"), new TestingConnectorContext())
+        factory.create(
+                "test",
+                        Map.of(
+                                "hive.metastore.uri", "thrift://foo:1234",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
                 .shutdown();
     }
 
@@ -42,7 +47,12 @@ public class TestHudiPlugin
     {
         Plugin plugin = new TestingHudiPlugin(Optional.empty());
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", Map.of("hive.metastore.uri", "thrift://foo:1234"), new TestingConnectorContext())
+        factory.create(
+                "test",
+                        Map.of(
+                                "hive.metastore.uri", "thrift://foo:1234",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
                 .shutdown();
     }
 
@@ -54,7 +64,8 @@ public class TestHudiPlugin
                         "test",
                         ImmutableMap.of(
                                 "hive.metastore", "file",
-                                "hive.metastore.catalog.dir", "/tmp"),
+                                "hive.metastore.catalog.dir", "/tmp",
+                                "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown();
     }
@@ -67,7 +78,8 @@ public class TestHudiPlugin
                         "test",
                         Map.of(
                                 "hive.metastore", "thrift",
-                                "hive.metastore.uri", "thrift://foo:1234"),
+                                "hive.metastore.uri", "thrift://foo:1234",
+                                "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown();
     }
@@ -80,7 +92,8 @@ public class TestHudiPlugin
                         "test",
                         Map.of(
                                 "hive.metastore", "glue",
-                                "hive.metastore.glue.region", "us-east-2"),
+                                "hive.metastore.glue.region", "us-east-2",
+                                "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown();
 
@@ -88,7 +101,8 @@ public class TestHudiPlugin
                 "test",
                 Map.of(
                         "hive.metastore", "glue",
-                        "hive.metastore.uri", "thrift://foo:1234"),
+                        "hive.metastore.uri", "thrift://foo:1234",
+                        "bootstrap.quiet", "true"),
                 new TestingConnectorContext()))
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining("Error: Configuration property 'hive.metastore.uri' was not used");
@@ -102,7 +116,8 @@ public class TestHudiPlugin
                 Map.of(
                         "hive.metastore.uri", "thrift://foo:1234",
                         // Try setting any property provided by HiveConfig class
-                        HiveConfig.CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED, "true"),
+                        HiveConfig.CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED, "true",
+                        "bootstrap.quiet", "true"),
                 new TestingConnectorContext()))
                 .hasMessageContaining("Error: Configuration property 'hive.partition-projection-enabled' was not used");
     }

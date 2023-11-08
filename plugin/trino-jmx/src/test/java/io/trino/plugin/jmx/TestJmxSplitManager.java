@@ -79,7 +79,8 @@ public class TestJmxSplitManager
                     .create(CONNECTOR_ID, ImmutableMap.of(
                             "jmx.dump-tables", TEST_BEANS,
                             "jmx.dump-period", format("%dms", JMX_STATS_DUMP.toMillis()),
-                            "jmx.max-entries", "1000"),
+                            "jmx.max-entries", "1000",
+                            "bootstrap.quiet", "true"),
                             new ConnectorContext()
                             {
                                 @Override

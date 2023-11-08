@@ -44,6 +44,7 @@ public class TestRaptorPlugin
                     .put("metadata.db.type", "h2")
                     .put("metadata.db.filename", tmpDir.getAbsolutePath())
                     .put("storage.data-directory", tmpDir.getAbsolutePath())
+                    .put("bootstrap.quiet", "true")
                     .buildOrThrow();
 
             factory.create("test", config, new TestingConnectorContext()).shutdown();
