@@ -14,54 +14,62 @@
 package io.trino.filesystem.manager;
 
 import com.google.inject.Binder;
-import com.google.inject.Inject;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.azure.AzureFileSystemFactory;
 import io.trino.filesystem.azure.AzureFileSystemModule;
 import io.trino.filesystem.gcs.GcsFileSystemFactory;
 import io.trino.filesystem.gcs.GcsFileSystemModule;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
-import io.trino.filesystem.hdfs.HdfsFileSystemModule;
 import io.trino.filesystem.s3.S3FileSystemFactory;
 import io.trino.filesystem.s3.S3FileSystemModule;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
-import io.trino.hdfs.HdfsModule;
-import io.trino.hdfs.authentication.HdfsAuthenticationModule;
-import io.trino.hdfs.azure.HiveAzureModule;
-import io.trino.hdfs.cos.HiveCosModule;
-import io.trino.hdfs.gcs.HiveGcsModule;
-import io.trino.hdfs.rubix.RubixEnabledConfig;
-import io.trino.hdfs.rubix.RubixModule;
-import io.trino.hdfs.s3.HiveS3Module;
+import io.trino.spi.NodeManager;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static java.util.Objects.requireNonNull;
 
 public class FileSystemModule
         extends AbstractConfigurationAwareModule
 {
+    private final String catalogName;
+    private final NodeManager nodeManager;
+    private final OpenTelemetry openTelemetry;
+
+    public FileSystemModule(String catalogName, NodeManager nodeManager, OpenTelemetry openTelemetry)
+    {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
+    }
+
     @Override
     protected void setup(Binder binder)
     {
         FileSystemConfig config = buildConfigObject(FileSystemConfig.class);
 
-        binder.bind(HdfsFileSystemFactoryHolder.class).in(SINGLETON);
+        newOptionalBinder(binder, HdfsFileSystemLoader.class);
 
         if (config.isHadoopEnabled()) {
-            install(new HdfsFileSystemModule());
-            install(new HdfsModule());
-            install(new HdfsAuthenticationModule());
-            install(conditionalModule(RubixEnabledConfig.class, RubixEnabledConfig::isCacheEnabled, new RubixModule()));
-            install(new HiveCosModule());
-            install(new HiveGcsModule());
+            HdfsFileSystemLoader loader = new HdfsFileSystemLoader(
+                    getProperties(),
+                    !config.isNativeAzureEnabled(),
+                    !config.isNativeGcsEnabled(),
+                    !config.isNativeS3Enabled(),
+                    catalogName,
+                    nodeManager,
+                    openTelemetry);
+
+            loader.configure().forEach(this::consumeProperty);
+            binder.bind(HdfsFileSystemLoader.class).toInstance(loader);
         }
 
         var factories = newMapBinder(binder, String.class, TrinoFileSystemFactory.class);
@@ -71,9 +79,6 @@ public class FileSystemModule
             factories.addBinding("abfs").to(AzureFileSystemFactory.class);
             factories.addBinding("abfss").to(AzureFileSystemFactory.class);
         }
-        else if (config.isHadoopEnabled()) {
-            install(new HiveAzureModule());
-        }
 
         if (config.isNativeS3Enabled()) {
             install(new S3FileSystemModule());
@@ -81,38 +86,25 @@ public class FileSystemModule
             factories.addBinding("s3a").to(S3FileSystemFactory.class);
             factories.addBinding("s3n").to(S3FileSystemFactory.class);
         }
-        else if (config.isHadoopEnabled()) {
-            install(new HiveS3Module());
-        }
 
         if (config.isNativeGcsEnabled()) {
             install(new GcsFileSystemModule());
             factories.addBinding("gs").to(GcsFileSystemFactory.class);
-        }
-        else {
-            install(new HiveGcsModule());
         }
     }
 
     @Provides
     @Singleton
     public TrinoFileSystemFactory createFileSystemFactory(
-            HdfsFileSystemFactoryHolder hdfsFileSystemFactory,
+            Optional<HdfsFileSystemLoader> hdfsFileSystemLoader,
+            LifeCycleManager lifeCycleManager,
             Map<String, TrinoFileSystemFactory> factories,
             Tracer tracer)
     {
-        TrinoFileSystemFactory delegate = new SwitchingFileSystemFactory(hdfsFileSystemFactory.value(), factories);
+        Optional<TrinoFileSystemFactory> hdfsFactory = hdfsFileSystemLoader.map(HdfsFileSystemLoader::create);
+        hdfsFactory.ifPresent(lifeCycleManager::addInstance);
+
+        TrinoFileSystemFactory delegate = new SwitchingFileSystemFactory(hdfsFactory, factories);
         return new TracingFileSystemFactory(tracer, delegate);
-    }
-
-    public static class HdfsFileSystemFactoryHolder
-    {
-        @Inject(optional = true)
-        private HdfsFileSystemFactory hdfsFileSystemFactory;
-
-        public Optional<TrinoFileSystemFactory> value()
-        {
-            return Optional.ofNullable(hdfsFileSystemFactory);
-        }
     }
 }

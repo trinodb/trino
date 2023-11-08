@@ -78,6 +78,11 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>bootstrap</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>concurrent</artifactId>
         </dependency>
 
@@ -282,6 +287,21 @@
                         <version>${dep.plugin.surefire.version}</version>
                     </dependency>
                 </dependencies>
+            </plugin>
+
+            <plugin>
+                <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
+                <artifactId>provisio-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>provision</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/hdfs</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

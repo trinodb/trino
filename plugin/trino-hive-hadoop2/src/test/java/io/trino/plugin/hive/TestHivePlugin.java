@@ -307,7 +307,7 @@ public class TestHivePlugin
                         .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext()))
-                .hasRootCauseMessage("None of the cache parent directories exists");
+                .hasMessageContaining("None of the cache parent directories exists");
 
         assertThatThrownBy(() -> connectorFactory.create(
                 "test",
@@ -318,7 +318,7 @@ public class TestHivePlugin
                         .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext()))
-                .hasRootCauseMessage("caching directories were not provided");
+                .hasMessageContaining("caching directories were not provided");
 
         // cache directories should not be required when cache is not explicitly started on coordinator
         connectorFactory.create(

@@ -120,12 +120,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.trino.hadoop</groupId>
-            <artifactId>hadoop-apache</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>junit-extensions</artifactId>
             <scope>test</scope>
@@ -152,6 +146,12 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-tpch</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino.hadoop</groupId>
+            <artifactId>hadoop-apache</artifactId>
             <scope>test</scope>
         </dependency>
 
