@@ -33,10 +33,10 @@ public class ForwardingOutputFile
     private final TrinoFileSystem fileSystem;
     private final TrinoOutputFile outputFile;
 
-    public ForwardingOutputFile(TrinoFileSystem fileSystem, String path)
+    public ForwardingOutputFile(TrinoFileSystem fileSystem, Location location)
     {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
-        this.outputFile = fileSystem.newOutputFile(Location.of(path));
+        this.outputFile = fileSystem.newOutputFile(location);
     }
 
     @Override
