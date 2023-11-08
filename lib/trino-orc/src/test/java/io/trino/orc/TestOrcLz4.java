@@ -18,7 +18,6 @@ import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import org.joda.time.DateTimeZone;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.nio.file.Path;
@@ -41,8 +40,15 @@ public class TestOrcLz4
 {
     private static final long POSITION_COUNT = 10_000;
 
-    @Test(dataProvider = "testOrcDataProvider")
-    public void testReadLz4(byte[] data)
+    @Test
+    public void testReadLz4()
+            throws Exception
+    {
+        testReadLz4(readOrcTestData("apache-lz4.orc"));
+        testReadLz4(generateOrcTestData());
+    }
+
+    private void testReadLz4(byte[] data)
             throws Exception
     {
         OrcReader orcReader = OrcReader.createOrcReader(new MemoryOrcDataSource(new OrcDataSourceId("memory"), Slices.wrappedBuffer(data)), new OrcReaderOptions())
@@ -81,16 +87,6 @@ public class TestOrcLz4
 
             assertEquals(rows, reader.getFileRowCount());
         }
-    }
-
-    @DataProvider
-    public static Object[][] testOrcDataProvider()
-            throws Exception
-    {
-        return new Object[][] {
-                {readOrcTestData("apache-lz4.orc")},
-                {generateOrcTestData()}
-        };
     }
 
     private static byte[] readOrcTestData(String resourceFile)

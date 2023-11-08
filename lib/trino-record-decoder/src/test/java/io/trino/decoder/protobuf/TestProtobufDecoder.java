@@ -74,6 +74,8 @@ import static java.lang.Math.PI;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -83,8 +85,49 @@ public class TestProtobufDecoder
 {
     private static final ProtobufRowDecoderFactory DECODER_FACTORY = new ProtobufRowDecoderFactory(new FixedSchemaDynamicMessageProvider.Factory(), TESTING_TYPE_MANAGER, new FileDescriptorProvider());
 
-    @Test(dataProvider = "allTypesDataProvider", dataProviderClass = ProtobufDataProviders.class)
-    public void testAllDataTypes(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
+    @Test
+    public void testAllDataTypes()
+            throws Exception
+    {
+        testAllDataTypes(
+                "Trino",
+                1,
+                493857959588286460L,
+                PI,
+                3.14f,
+                true,
+                "ONE",
+                sqlTimestampOf(3, LocalDateTime.parse("2020-12-12T15:35:45.923")),
+                "X'65683F'".getBytes(UTF_8));
+
+        testAllDataTypes(
+                range(0, 5000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MAX_VALUE,
+                Long.MIN_VALUE,
+                Double.MAX_VALUE,
+                Float.MIN_VALUE,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("1856-01-12T05:25:14.456")),
+                new byte[0]);
+
+        testAllDataTypes(
+                range(5000, 10000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MIN_VALUE,
+                Long.MAX_VALUE,
+                Double.NaN,
+                Float.NEGATIVE_INFINITY,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("0001-01-01T00:00:00.923")),
+                "X'65683F'".getBytes(UTF_8));
+    }
+
+    private void testAllDataTypes(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
             throws Exception
     {
         DecoderTestColumnHandle stringColumn = new DecoderTestColumnHandle(0, "stringColumn", createVarcharType(30000), "stringColumn", null, null, false, false, false);
@@ -372,8 +415,49 @@ public class TestProtobufDecoder
         assertEquals(actual.get("bytesColumn").binaryValue(), bytesData);
     }
 
-    @Test(dataProvider = "allTypesDataProvider", dataProviderClass = ProtobufDataProviders.class)
-    public void testStructuralDataTypes(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
+    @Test
+    public void testStructuralDataTypes()
+            throws Exception
+    {
+        testStructuralDataTypes(
+                "Trino",
+                1,
+                493857959588286460L,
+                PI,
+                3.14f,
+                true,
+                "ONE",
+                sqlTimestampOf(3, LocalDateTime.parse("2020-12-12T15:35:45.923")),
+                "X'65683F'".getBytes(UTF_8));
+
+        testStructuralDataTypes(
+                range(0, 5000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MAX_VALUE,
+                Long.MIN_VALUE,
+                Double.MAX_VALUE,
+                Float.MIN_VALUE,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("1856-01-12T05:25:14.456")),
+                new byte[0]);
+
+        testStructuralDataTypes(
+                range(5000, 10000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MIN_VALUE,
+                Long.MAX_VALUE,
+                Double.NaN,
+                Float.NEGATIVE_INFINITY,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("0001-01-01T00:00:00.923")),
+                "X'65683F'".getBytes(UTF_8));
+    }
+
+    private void testStructuralDataTypes(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
             throws Exception
     {
         DecoderTestColumnHandle listColumn = new DecoderTestColumnHandle(0, "list", new ArrayType(createVarcharType(100)), "list", null, null, false, false, false);
@@ -480,8 +564,49 @@ public class TestProtobufDecoder
                 .hasMessageMatching("Unknown Field unknown_mapping");
     }
 
-    @Test(dataProvider = "allTypesDataProvider", dataProviderClass = ProtobufDataProviders.class)
-    public void testRowFlattening(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
+    @Test
+    public void testRowFlattening()
+            throws Exception
+    {
+        testRowFlattening(
+                "Trino",
+                1,
+                493857959588286460L,
+                PI,
+                3.14f,
+                true,
+                "ONE",
+                sqlTimestampOf(3, LocalDateTime.parse("2020-12-12T15:35:45.923")),
+                "X'65683F'".getBytes(UTF_8));
+
+        testRowFlattening(
+                range(0, 5000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MAX_VALUE,
+                Long.MIN_VALUE,
+                Double.MAX_VALUE,
+                Float.MIN_VALUE,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("1856-01-12T05:25:14.456")),
+                new byte[0]);
+
+        testRowFlattening(
+                range(5000, 10000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MIN_VALUE,
+                Long.MAX_VALUE,
+                Double.NaN,
+                Float.NEGATIVE_INFINITY,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("0001-01-01T00:00:00.923")),
+                "X'65683F'".getBytes(UTF_8));
+    }
+
+    private void testRowFlattening(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
             throws Exception
     {
         DecoderTestColumnHandle stringColumn = new DecoderTestColumnHandle(0, "stringColumn", createVarcharType(30000), "row/string_column", null, null, false, false, false);

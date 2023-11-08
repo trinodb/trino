@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container.ExecResult;
 import org.testcontainers.containers.GenericContainer;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -45,8 +44,21 @@ public class ServerIT
     private static final String BASE_IMAGE_PREFIX = "eclipse-temurin:";
     private static final String BASE_IMAGE_SUFFIX = "-jre-ubi9-minimal";
 
-    @Test(dataProvider = "rpmJavaTestDataProvider")
-    public void testInstall(String rpmHostPath, String javaVersion)
+    private final String rpmHostPath;
+
+    public ServerIT()
+    {
+        rpmHostPath = requireNonNull(System.getProperty("rpm"), "rpm is null");
+    }
+
+    @Test
+    public void testInstall()
+    {
+        testInstall("17");
+        testInstall("21");
+    }
+
+    private void testInstall(String javaVersion)
     {
         String rpm = "/" + new File(rpmHostPath).getName();
         String command = "" +
@@ -89,8 +101,15 @@ public class ServerIT
         }
     }
 
-    @Test(dataProvider = "rpmJavaTestDataProvider")
-    public void testUninstall(String rpmHostPath, String javaVersion)
+    @Test
+    public void testUninstall()
+            throws Exception
+    {
+        testUninstall("17");
+        testUninstall("21");
+    }
+
+    private void testUninstall(String javaVersion)
             throws Exception
     {
         String rpm = "/" + new File(rpmHostPath).getName();
@@ -120,15 +139,6 @@ public class ServerIT
             assertPathDeleted(container, "/etc/init.d/trino");
             assertPathDeleted(container, "/usr/shared/doc/trino");
         }
-    }
-
-    @DataProvider
-    public static Object[][] rpmJavaTestDataProvider()
-    {
-        String rpmHostPath = requireNonNull(System.getProperty("rpm"), "rpm is null");
-        return new Object[][]{
-                {rpmHostPath, "17"},
-                {rpmHostPath, "21"}};
     }
 
     private static void assertPathDeleted(GenericContainer<?> container, String path)
