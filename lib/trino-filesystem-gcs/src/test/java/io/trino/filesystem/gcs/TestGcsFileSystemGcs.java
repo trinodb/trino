@@ -26,6 +26,6 @@ public class TestGcsFileSystemGcs
     void setup()
             throws IOException
     {
-        initialize(getRequiredEnvironmentVariable("GCP_CREDENTIALS_KEY"));
+        initialize(getRequiredEnvironmentVariable("GCP_CREDENTIALS_KEY"), getRequiredEnvironmentVariable("GCP_STORAGE_BUCKET"));
     }
 }

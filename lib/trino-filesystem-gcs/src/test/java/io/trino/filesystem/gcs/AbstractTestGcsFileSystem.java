@@ -13,9 +13,8 @@
  */
 package io.trino.filesystem.gcs;
 
-import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
-import com.google.cloud.storage.testing.RemoteStorageHelper;
+import com.google.cloud.storage.Storage.BlobListOption;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -24,12 +23,11 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.TestInstance;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Base64;
-import java.util.concurrent.TimeUnit;
+import java.util.UUID;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,31 +46,29 @@ public abstract class AbstractTestGcsFileSystem
         return requireNonNull(System.getenv(name), "Environment variable not set: " + name);
     }
 
-    protected void initialize(String gcpCredentialKey)
+    protected void initialize(String gcpCredentialKey, String bucket)
             throws IOException
     {
         // Note: the account needs the following permissions:
-        // create/get/delete bucket
+        // get bucket
         // create/get/list/delete blob
         // For gcp testing this corresponds to the Cluster Storage Admin and Cluster Storage Object Admin roles
         byte[] jsonKeyBytes = Base64.getDecoder().decode(gcpCredentialKey);
         GcsFileSystemConfig config = new GcsFileSystemConfig().setJsonKey(new String(jsonKeyBytes, UTF_8));
-        GcsStorageFactory storageFactory = new TestingGcsStorageFactory(config);
+        GcsStorageFactory storageFactory = new DefaultGcsStorageFactory(config);
         this.gcsFileSystemFactory = new GcsFileSystemFactory(config, storageFactory);
         this.storage = storageFactory.create(ConnectorIdentity.ofUser("test"));
-        String bucket = RemoteStorageHelper.generateBucketName();
-        storage.create(BucketInfo.of(bucket));
-        this.rootLocation = Location.of("gs://%s/".formatted(bucket));
+        // The bucket must exist.
+        checkState(storage.get(bucket) != null, "Bucket not found: '%s'", bucket);
+        this.rootLocation = Location.of("gs://%s/%s/".formatted(bucket, UUID.randomUUID()));
         this.fileSystem = gcsFileSystemFactory.create(ConnectorIdentity.ofUser("test"));
         cleanupFiles();
     }
 
     @AfterAll
     void tearDown()
-            throws Exception
     {
         try {
-            RemoteStorageHelper.forceDelete(storage, rootLocation.host().get(), 5, TimeUnit.SECONDS);
             gcsFileSystemFactory.stop();
         }
         finally {
@@ -117,34 +113,13 @@ public abstract class AbstractTestGcsFileSystem
     @Override
     protected void verifyFileSystemIsEmpty()
     {
-        String bucket = new GcsLocation(rootLocation).bucket();
-        assertThat(storage.list(bucket).iterateAll()).isEmpty();
+        GcsLocation gcsLocation = new GcsLocation(rootLocation);
+        assertThat(storage.list(gcsLocation.bucket(), BlobListOption.prefix(gcsLocation.path())).iterateAll()).isEmpty();
     }
 
     @Override
     protected final boolean supportsRenameFile()
     {
         return false;
-    }
-
-    private static class TestingGcsStorageFactory
-            implements GcsStorageFactory
-    {
-        private final Storage storage;
-
-        public TestingGcsStorageFactory(GcsFileSystemConfig config)
-        {
-            requireNonNull(config, "config is null");
-            InputStream inputStream = new ByteArrayInputStream(config.getJsonKey().getBytes(UTF_8));
-            // Note: the default project id from the credentials file will be used. See StorageOptions.setProjectId()
-            RemoteStorageHelper helper = RemoteStorageHelper.create(null, inputStream);
-            this.storage = helper.getOptions().getService();
-        }
-
-        @Override
-        public Storage create(ConnectorIdentity identity)
-        {
-            return storage;
-        }
     }
 }

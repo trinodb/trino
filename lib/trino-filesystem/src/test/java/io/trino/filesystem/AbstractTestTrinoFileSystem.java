@@ -867,20 +867,21 @@ public abstract class AbstractTestTrinoFileSystem
         try (Closer closer = Closer.create()) {
             String directoryName = "testDirectoryExistsDir";
             String fileName = "file.csv";
-
+            String subPath = "%s/%s".formatted(directoryName, fileName);
             assertThat(listPath("")).isEmpty();
-            assertThat(getFileSystem().directoryExists(getRootLocation())).contains(true);
+            Optional<Boolean> expectedExists = isHierarchical() || getRootLocation().path().isEmpty() ? Optional.of(true) : Optional.empty();
+            assertThat(getFileSystem().directoryExists(getRootLocation())).isEqualTo(expectedExists);
 
             if (isHierarchical()) {
                 assertThat(getFileSystem().directoryExists(createLocation(directoryName))).contains(false);
-                createBlob(closer, createLocation(directoryName).appendPath(fileName).path());
+                createBlob(closer, subPath);
                 assertThat(getFileSystem().directoryExists(createLocation(directoryName))).contains(true);
                 assertThat(getFileSystem().directoryExists(createLocation(UUID.randomUUID().toString()))).contains(false);
                 assertThat(getFileSystem().directoryExists(createLocation(directoryName).appendPath(fileName))).contains(false);
             }
             else {
                 assertThat(getFileSystem().directoryExists(createLocation(directoryName))).isEmpty();
-                createBlob(closer, createLocation(directoryName).appendPath(fileName).path());
+                createBlob(closer, subPath);
                 assertThat(getFileSystem().directoryExists(createLocation(directoryName))).contains(true);
                 assertThat(getFileSystem().directoryExists(createLocation(UUID.randomUUID().toString()))).isEmpty();
                 assertThat(getFileSystem().directoryExists(createLocation(directoryName).appendPath(fileName))).isEmpty();
