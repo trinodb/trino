@@ -30,11 +30,9 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.schema.MessageType;
 import org.joda.time.DateTimeZone;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -47,7 +45,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
-import static io.trino.testing.DataProviders.toDataProvider;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.util.Arrays.asList;
@@ -63,31 +60,27 @@ import static org.testng.Assert.assertTrue;
 
 public class TestTimestamp
 {
-    @DataProvider
-    public static Object[][] timestampPrecisionProvider()
-    {
-        return Arrays.stream(HiveTimestampPrecision.values()).collect(toDataProvider());
-    }
-
-    @Test(dataProvider = "timestampPrecisionProvider")
-    public void testTimestampBackedByInt64(HiveTimestampPrecision timestamp)
+    @Test
+    public void testTimestampBackedByInt64()
             throws Exception
     {
-        String logicalAnnotation = switch (timestamp) {
-            case MILLISECONDS -> "TIMESTAMP(MILLIS,true)";
-            case MICROSECONDS -> "TIMESTAMP(MICROS,true)";
-            case NANOSECONDS -> "TIMESTAMP(NANOS,true)";
-        };
-        MessageType parquetSchema = parseMessageType("message hive_timestamp { optional int64 test (" + logicalAnnotation + "); }");
+        for (HiveTimestampPrecision timestamp : HiveTimestampPrecision.values()) {
+            String logicalAnnotation = switch (timestamp) {
+                case MILLISECONDS -> "TIMESTAMP(MILLIS,true)";
+                case MICROSECONDS -> "TIMESTAMP(MICROS,true)";
+                case NANOSECONDS -> "TIMESTAMP(NANOS,true)";
+            };
+            MessageType parquetSchema = parseMessageType("message hive_timestamp { optional int64 test (" + logicalAnnotation + "); }");
 
-        Iterable<Long> writeNullableDictionaryValues = limit(cycle(asList(1L, null, 3L, 5L, null, null, null, 7L, 11L, null, 13L, 17L)), 30_000);
-        testRoundTrip(parquetSchema, writeNullableDictionaryValues, timestamp);
+            Iterable<Long> writeNullableDictionaryValues = limit(cycle(asList(1L, null, 3L, 5L, null, null, null, 7L, 11L, null, 13L, 17L)), 30_000);
+            testRoundTrip(parquetSchema, writeNullableDictionaryValues, timestamp);
 
-        Iterable<Long> writeDictionaryValues = limit(cycle(asList(1L, 3L, 5L, 7L, 11L, 13L, 17L)), 30_000);
-        testRoundTrip(parquetSchema, writeDictionaryValues, timestamp);
+            Iterable<Long> writeDictionaryValues = limit(cycle(asList(1L, 3L, 5L, 7L, 11L, 13L, 17L)), 30_000);
+            testRoundTrip(parquetSchema, writeDictionaryValues, timestamp);
 
-        Iterable<Long> writeValues = ContiguousSet.create(Range.closedOpen((long) -1_000, (long) 1_000), DiscreteDomain.longs());
-        testRoundTrip(parquetSchema, writeValues, timestamp);
+            Iterable<Long> writeValues = ContiguousSet.create(Range.closedOpen((long) -1_000, (long) 1_000), DiscreteDomain.longs());
+            testRoundTrip(parquetSchema, writeValues, timestamp);
+        }
     }
 
     private static void testRoundTrip(MessageType parquetSchema, Iterable<Long> writeValues, HiveTimestampPrecision timestamp)
