@@ -18,7 +18,6 @@ import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Timestamp;
 import io.airlift.slice.Slices;
-import io.trino.decoder.protobuf.ProtobufDataProviders;
 import io.trino.plugin.kafka.KafkaColumnHandle;
 import io.trino.plugin.kafka.encoder.EncoderColumnHandle;
 import io.trino.plugin.kafka.encoder.RowEncoder;
@@ -38,6 +37,7 @@ import io.trino.spi.type.Type;
 import io.trino.testing.TestingConnectorSession;
 import org.testng.annotations.Test;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -63,18 +63,64 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.floatToIntBits;
+import static java.lang.Math.PI;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.IntStream.range;
 import static org.testng.Assert.assertEquals;
 
 public class TestProtobufEncoder
 {
     private static final ProtobufRowEncoderFactory ENCODER_FACTORY = new ProtobufRowEncoderFactory();
 
-    @Test(dataProvider = "allTypesDataProvider", dataProviderClass = ProtobufDataProviders.class)
-    public void testAllDataTypes(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
+    @Test
+    public void testAllDataTypes()
+            throws Exception
+    {
+        testAllDataTypes(
+                "Trino",
+                1,
+                493857959588286460L,
+                PI,
+                3.14f,
+                true,
+                "ONE",
+                sqlTimestampOf(3, LocalDateTime.parse("2020-12-12T15:35:45.923")),
+                "X'65683F'".getBytes(UTF_8));
+
+        testAllDataTypes(
+                range(0, 5000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MAX_VALUE,
+                Long.MIN_VALUE,
+                Double.MAX_VALUE,
+                Float.MIN_VALUE,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("1856-01-12T05:25:14.456")),
+                new byte[0]);
+
+        testAllDataTypes(
+                range(5000, 10000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MIN_VALUE,
+                Long.MAX_VALUE,
+                Double.NaN,
+                Float.NEGATIVE_INFINITY,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("0001-01-01T00:00:00.923")),
+                "X'65683F'".getBytes(UTF_8));
+    }
+
+    private void testAllDataTypes(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
             throws Exception
     {
         Descriptor descriptor = getDescriptor("all_datatypes.proto");
@@ -115,8 +161,49 @@ public class TestProtobufEncoder
         assertEquals(messageBuilder.build().toByteArray(), rowEncoder.toByteArray());
     }
 
-    @Test(dataProvider = "allTypesDataProvider", dataProviderClass = ProtobufDataProviders.class)
-    public void testStructuralDataTypes(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
+    @Test
+    public void testStructuralDataTypes()
+            throws Exception
+    {
+        testStructuralDataTypes(
+                "Trino",
+                1,
+                493857959588286460L,
+                PI,
+                3.14f,
+                true,
+                "ONE",
+                sqlTimestampOf(3, LocalDateTime.parse("2020-12-12T15:35:45.923")),
+                "X'65683F'".getBytes(UTF_8));
+
+        testStructuralDataTypes(
+                range(0, 5000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MAX_VALUE,
+                Long.MIN_VALUE,
+                Double.MAX_VALUE,
+                Float.MIN_VALUE,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("1856-01-12T05:25:14.456")),
+                new byte[0]);
+
+        testStructuralDataTypes(
+                range(5000, 10000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MIN_VALUE,
+                Long.MAX_VALUE,
+                Double.NaN,
+                Float.NEGATIVE_INFINITY,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("0001-01-01T00:00:00.923")),
+                "X'65683F'".getBytes(UTF_8));
+    }
+
+    private void testStructuralDataTypes(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
             throws Exception
     {
         Descriptor descriptor = getDescriptor("structural_datatypes.proto");
@@ -194,8 +281,49 @@ public class TestProtobufEncoder
         assertEquals(messageBuilder.build().toByteArray(), rowEncoder.toByteArray());
     }
 
-    @Test(dataProvider = "allTypesDataProvider", dataProviderClass = ProtobufDataProviders.class)
-    public void testNestedStructuralDataTypes(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
+    @Test
+    public void testNestedStructuralDataTypes()
+            throws Exception
+    {
+        testNestedStructuralDataTypes(
+                "Trino",
+                1,
+                493857959588286460L,
+                PI,
+                3.14f,
+                true,
+                "ONE",
+                sqlTimestampOf(3, LocalDateTime.parse("2020-12-12T15:35:45.923")),
+                "X'65683F'".getBytes(UTF_8));
+
+        testNestedStructuralDataTypes(
+                range(0, 5000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MAX_VALUE,
+                Long.MIN_VALUE,
+                Double.MAX_VALUE,
+                Float.MIN_VALUE,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("1856-01-12T05:25:14.456")),
+                new byte[0]);
+
+        testNestedStructuralDataTypes(
+                range(5000, 10000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MIN_VALUE,
+                Long.MAX_VALUE,
+                Double.NaN,
+                Float.NEGATIVE_INFINITY,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("0001-01-01T00:00:00.923")),
+                "X'65683F'".getBytes(UTF_8));
+    }
+
+    private void testNestedStructuralDataTypes(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
             throws Exception
     {
         Descriptor descriptor = getDescriptor("structural_datatypes.proto");
@@ -294,8 +422,49 @@ public class TestProtobufEncoder
         assertEquals(messageBuilder.build().toByteArray(), rowEncoder.toByteArray());
     }
 
-    @Test(dataProvider = "allTypesDataProvider", dataProviderClass = ProtobufDataProviders.class)
-    public void testRowFlattening(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
+    @Test
+    public void testRowFlattening()
+            throws Exception
+    {
+        testRowFlattening(
+                "Trino",
+                1,
+                493857959588286460L,
+                PI,
+                3.14f,
+                true,
+                "ONE",
+                sqlTimestampOf(3, LocalDateTime.parse("2020-12-12T15:35:45.923")),
+                "X'65683F'".getBytes(UTF_8));
+
+        testRowFlattening(
+                range(0, 5000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MAX_VALUE,
+                Long.MIN_VALUE,
+                Double.MAX_VALUE,
+                Float.MIN_VALUE,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("1856-01-12T05:25:14.456")),
+                new byte[0]);
+
+        testRowFlattening(
+                range(5000, 10000)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(", ")),
+                Integer.MIN_VALUE,
+                Long.MAX_VALUE,
+                Double.NaN,
+                Float.NEGATIVE_INFINITY,
+                false,
+                "ZERO",
+                sqlTimestampOf(3, LocalDateTime.parse("0001-01-01T00:00:00.923")),
+                "X'65683F'".getBytes(UTF_8));
+    }
+
+    private void testRowFlattening(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
             throws Exception
     {
         Descriptor descriptor = getDescriptor("structural_datatypes.proto");
