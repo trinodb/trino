@@ -32,7 +32,12 @@ public class TestMongoPlugin
         MongoPlugin plugin = new MongoPlugin();
 
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        Connector connector = factory.create("test", ImmutableMap.of("mongodb.connection-url", "mongodb://localhost:27017"), new TestingConnectorContext());
+        Connector connector = factory.create(
+                "test",
+                ImmutableMap.of(
+                        "mongodb.connection-url", "mongodb://localhost:27017",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext());
 
         Type type = getOnlyElement(plugin.getTypes());
         assertEquals(type, OBJECT_ID);

@@ -53,6 +53,7 @@ public class TestingHttpServer
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .quiet()
                 .initialize();
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);

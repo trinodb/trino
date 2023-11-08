@@ -28,6 +28,11 @@ public class TestIgnitePlugin
     {
         Plugin plugin = new IgnitePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("connection-url", "jdbc:ignite:thin://localhost"), new TestingConnectorContext()).shutdown();
+        factory.create(
+                "test",
+                ImmutableMap.of(
+                        "connection-url", "jdbc:ignite:thin://localhost",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()).shutdown();
     }
 }

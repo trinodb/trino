@@ -811,6 +811,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
         Injector injector = bootstrap
                 .doNotInitializeLogging()
+                .quiet()
                 .setRequiredConfigurationProperties(configProperties)
                 .initialize();
 

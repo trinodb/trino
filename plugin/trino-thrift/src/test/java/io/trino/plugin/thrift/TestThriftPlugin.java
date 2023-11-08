@@ -35,7 +35,9 @@ public class TestThriftPlugin
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         assertInstanceOf(factory, ThriftConnectorFactory.class);
 
-        Map<String, String> config = ImmutableMap.of("trino.thrift.client.addresses", "localhost:7779");
+        Map<String, String> config = ImmutableMap.of(
+                "trino.thrift.client.addresses", "localhost:7779",
+                "bootstrap.quiet", "true");
 
         Connector connector = factory.create("test", config, new TestingConnectorContext());
         assertNotNull(connector);

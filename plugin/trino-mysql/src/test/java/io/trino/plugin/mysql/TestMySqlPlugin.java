@@ -30,12 +30,26 @@ public class TestMySqlPlugin
         Plugin plugin = new MySqlPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
 
-        factory.create("test", ImmutableMap.of("connection-url", "jdbc:mysql://test"), new TestingConnectorContext()).shutdown();
+        factory.create(
+                "test", ImmutableMap.of(
+                        "connection-url", "jdbc:mysql://test",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()).shutdown();
 
-        assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "test"), new TestingConnectorContext()))
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.of(
+                        "connection-url", "test",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()))
                 .hasMessageContaining("Invalid JDBC URL for MySQL connector");
 
-        assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "jdbc:mysql://test/abc"), new TestingConnectorContext()))
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.of(
+                        "connection-url", "jdbc:mysql://test/abc",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()))
                 .hasMessageContaining("Database (catalog) must not be specified in JDBC URL for MySQL connector");
     }
 }

@@ -51,6 +51,7 @@ public class TestKinesisTableDescriptionSupplier
                 .put("kinesis.table-description-location", "etc/kinesis")
                 .put("kinesis.default-schema", "kinesis")
                 .put("kinesis.hide-internal-columns", "true")
+                .put("bootstrap.quiet", "true")
                 .buildOrThrow();
 
         KinesisTestClientManager kinesisTestClientManager = new KinesisTestClientManager();

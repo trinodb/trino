@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.hive.fs.DirectoryLister;
@@ -62,6 +63,17 @@ public class TestingHiveConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return createConnector(catalogName, config, context, module, metastore, Optional.empty(), openTelemetry, directoryLister);
+        return createConnector(
+                catalogName,
+                ImmutableMap.<String, String>builder()
+                        .putAll(config)
+                        .put("bootstrap.quiet", "true")
+                        .buildOrThrow(),
+                context,
+                module,
+                metastore,
+                Optional.empty(),
+                openTelemetry,
+                directoryLister);
     }
 }

@@ -32,6 +32,11 @@ public class TestSingleStorePlugin
                 .filter(connectorFactory -> connectorFactory.getName().equals("singlestore"))
                 .collect(toOptional())
                 .orElseThrow();
-        factory.create("test", ImmutableMap.of("connection-url", "jdbc:singlestore://test"), new TestingConnectorContext()).shutdown();
+        factory.create(
+                "test",
+                ImmutableMap.of(
+                        "connection-url", "jdbc:singlestore://test",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()).shutdown();
     }
 }

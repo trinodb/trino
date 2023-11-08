@@ -47,7 +47,9 @@ public class TestHiveConnectorFactory
 
     private static void assertCreateConnector(String metastoreUri)
     {
-        Map<String, String> config = ImmutableMap.of("hive.metastore.uri", metastoreUri);
+        Map<String, String> config = ImmutableMap.of(
+                "bootstrap.quiet", "true",
+                "hive.metastore.uri", metastoreUri);
 
         Connector connector = new HiveConnectorFactory().create("hive-test", config, new TestingConnectorContext());
         ConnectorTransactionHandle transaction = connector.beginTransaction(READ_UNCOMMITTED, true, true);

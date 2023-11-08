@@ -49,6 +49,7 @@ public class TestKafkaPlugin
                         .put("kafka.table-names", "test")
                         .put("kafka.nodes", "localhost:9092")
                         .put("kafka.config.resources", resource.toString())
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext());
         assertNotNull(connector);
@@ -85,6 +86,7 @@ public class TestKafkaPlugin
                         .put("kafka.ssl.truststore.location", truststorePath.toString())
                         .put("kafka.ssl.truststore.password", "truststore-password")
                         .put("kafka.ssl.endpoint-identification-algorithm", "https")
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext());
         assertNotNull(connector);
@@ -116,6 +118,7 @@ public class TestKafkaPlugin
                         .put("kafka.ssl.truststore.location", truststorePath.toString())
                         .put("kafka.ssl.truststore.password", "truststore-password")
                         .put("kafka.ssl.endpoint-identification-algorithm", "https")
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext()))
                 .hasMessageContaining("Error: Invalid configuration property kafka.ssl.keystore.location: file does not exist: /not/a/real/path");
@@ -146,6 +149,7 @@ public class TestKafkaPlugin
                         .put("kafka.ssl.truststore.location", "/not/a/real/path")
                         .put("kafka.ssl.truststore.password", "truststore-password")
                         .put("kafka.ssl.endpoint-identification-algorithm", "https")
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext()))
                 .hasMessageContaining("Error: Invalid configuration property kafka.ssl.truststore.location: file does not exist: /not/a/real/path");
@@ -166,6 +170,7 @@ public class TestKafkaPlugin
                         .put("kafka.nodes", "localhost:9092")
                         .put("kafka.security-protocol", "PLAINTEXT")
                         .put("kafka.config.resources", "/not/a/real/path/1,/not/a/real/path/2")
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext()))
                 .hasMessageContainingAll("Error: Invalid configuration property", ": file does not exist: /not/a/real/path/1", ": file does not exist: /not/a/real/path/2");
@@ -190,6 +195,7 @@ public class TestKafkaPlugin
                         .put("kafka.table-names", "test")
                         .put("kafka.nodes", "localhost:9092")
                         .put("kafka.config.resources", nativeKafkaResourcePath.toString())
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext());
         assertNotNull(connector);

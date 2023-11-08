@@ -121,6 +121,7 @@ public abstract class BaseIcebergCostBasedPlanTest
                 .put("s3.endpoint", minio.getMinioAddress())
                 .put("s3.path-style-access", "true")
                 .put(EXTENDED_STATISTICS_CONFIG, "true")
+                .put("bootstrap.quiet", "true")
                 .buildOrThrow();
 
         return new IcebergConnectorFactory()
