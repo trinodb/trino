@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.mariadb;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

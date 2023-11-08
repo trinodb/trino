@@ -34,8 +34,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.assertj.core.api.SoftAssertions;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.sql.Types;
 import java.util.List;
@@ -78,17 +77,10 @@ public class TestRedshiftTableStatisticsReader
             createVarcharJdbcColumnHandle("mktsegment", 10),
             createVarcharJdbcColumnHandle("comment", 117));
 
-    private RedshiftTableStatisticsReader statsReader;
-
-    @BeforeClass
-    public void setup()
-    {
-        DriverConnectionFactory connectionFactory = new DriverConnectionFactory(
-                new Driver(),
-                new BaseJdbcConfig().setConnectionUrl(JDBC_URL),
-                new StaticCredentialProvider(Optional.of(JDBC_USER), Optional.of(JDBC_PASSWORD)));
-        statsReader = new RedshiftTableStatisticsReader(connectionFactory);
-    }
+    private final RedshiftTableStatisticsReader statsReader = new RedshiftTableStatisticsReader(new DriverConnectionFactory(
+            new Driver(),
+            new BaseJdbcConfig().setConnectionUrl(JDBC_URL),
+            new StaticCredentialProvider(Optional.of(JDBC_USER), Optional.of(JDBC_PASSWORD))));
 
     @Override
     protected QueryRunner createQueryRunner()

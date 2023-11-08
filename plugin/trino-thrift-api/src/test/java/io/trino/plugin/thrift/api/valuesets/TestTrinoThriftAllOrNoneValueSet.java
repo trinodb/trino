@@ -14,7 +14,7 @@
 package io.trino.plugin.thrift.api.valuesets;
 
 import io.trino.spi.predicate.ValueSet;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.thrift.api.valuesets.TrinoThriftValueSet.fromValueSet;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;

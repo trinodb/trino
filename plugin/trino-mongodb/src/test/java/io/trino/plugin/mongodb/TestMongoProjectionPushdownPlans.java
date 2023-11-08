@@ -29,8 +29,10 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.assertions.BasePushdownPlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Map;
@@ -52,14 +54,18 @@ import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestMongoProjectionPushdownPlans
         extends BasePushdownPlanTest
 {
     private static final String CATALOG = "mongodb";
     private static final String SCHEMA = "test";
 
-    private Closer closer;
+    private final Closer closer = Closer.create();
 
     @Override
     protected LocalQueryRunner createLocalQueryRunner()
@@ -71,7 +77,6 @@ public class TestMongoProjectionPushdownPlans
 
         LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
 
-        closer = Closer.create();
         MongoServer server = closer.register(new MongoServer());
         MongoClient client = closer.register(createMongoClient(server));
 
@@ -91,12 +96,11 @@ public class TestMongoProjectionPushdownPlans
         return queryRunner;
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public final void destroy()
             throws Exception
     {
         closer.close();
-        closer = null;
     }
 
     @Test

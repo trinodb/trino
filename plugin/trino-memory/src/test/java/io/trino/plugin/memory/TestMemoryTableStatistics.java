@@ -19,7 +19,7 @@ import io.trino.Session;
 import io.trino.sql.planner.OptimizerConfig;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.SystemSessionProperties.STATISTICS_PRECALCULATION_FOR_PUSHDOWN_ENABLED;

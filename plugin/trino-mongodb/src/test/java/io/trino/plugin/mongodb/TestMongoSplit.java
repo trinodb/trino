@@ -15,7 +15,7 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.testng.Assert.assertEquals;
 

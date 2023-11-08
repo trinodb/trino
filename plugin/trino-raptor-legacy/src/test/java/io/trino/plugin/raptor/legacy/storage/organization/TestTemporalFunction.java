@@ -16,7 +16,7 @@ package io.trino.plugin.raptor.legacy.storage.organization;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import org.joda.time.DateTime;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 

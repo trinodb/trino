@@ -23,8 +23,10 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
@@ -33,11 +35,14 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingPageSinkId.TESTING_PAGE_SINK_ID;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestMemoryPagesStore
 {
     private static final int POSITIONS_PER_PAGE = 0;
@@ -45,7 +50,7 @@ public class TestMemoryPagesStore
     private MemoryPagesStore pagesStore;
     private MemoryPageSinkProvider pageSinkProvider;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         pagesStore = new MemoryPagesStore(new MemoryConfig().setMaxDataPerNode(DataSize.of(1, DataSize.Unit.MEGABYTE)));
@@ -74,10 +79,13 @@ public class TestMemoryPagesStore
         assertEquals(pagesStore.getPages(0L, 0, 1, new int[] {0}, POSITIONS_PER_PAGE, OptionalLong.empty(), OptionalDouble.empty()).size(), 1);
     }
 
-    @Test(expectedExceptions = TrinoException.class)
+    @Test
     public void testReadFromUnknownTable()
     {
-        pagesStore.getPages(0L, 0, 1, new int[] {0}, 0, OptionalLong.empty(), OptionalDouble.empty());
+        assertThatThrownBy(() -> {
+            pagesStore.getPages(0L, 0, 1, new int[] {0}, 0, OptionalLong.empty(), OptionalDouble.empty());
+        })
+                .isInstanceOf(TrinoException.class);
     }
 
     @Test

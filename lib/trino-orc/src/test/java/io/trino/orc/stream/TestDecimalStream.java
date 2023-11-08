@@ -20,7 +20,7 @@ import io.airlift.slice.Slices;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcDataSourceId;
 import io.trino.spi.type.Int128;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

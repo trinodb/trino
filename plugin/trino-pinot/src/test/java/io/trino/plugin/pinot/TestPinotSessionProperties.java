@@ -16,18 +16,22 @@ package io.trino.plugin.pinot;
 import io.airlift.units.Duration;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.testing.TestingConnectorSession;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestPinotSessionProperties
 {
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test
     public void testInvalidNumSegmentSplits()
     {
-        new PinotConfig().setSegmentsPerSplit(-3);
+        assertThatThrownBy(() -> {
+            new PinotConfig().setSegmentsPerSplit(-3);
+        })
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

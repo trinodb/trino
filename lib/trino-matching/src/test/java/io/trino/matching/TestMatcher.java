@@ -18,7 +18,7 @@ import io.trino.matching.example.rel.JoinNode;
 import io.trino.matching.example.rel.ProjectNode;
 import io.trino.matching.example.rel.RelNode;
 import io.trino.matching.example.rel.ScanNode;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.NoSuchElementException;

@@ -14,9 +14,11 @@
 package io.trino.plugin.postgresql;
 
 import io.trino.plugin.jdbc.RemoteDatabaseEvent;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -33,20 +35,18 @@ import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestTestingPostgreSqlServer
 {
     private final ExecutorService threadPool = newCachedThreadPool(daemonThreadsNamed("TestTestingPostgreSqlServer-%d"));
 
-    private TestingPostgreSqlServer postgreSqlServer;
+    private final TestingPostgreSqlServer postgreSqlServer = new TestingPostgreSqlServer();
 
-    @BeforeClass
-    public void setUp()
-    {
-        postgreSqlServer = new TestingPostgreSqlServer();
-    }
-
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws Exception
     {
@@ -69,7 +69,8 @@ public class TestTestingPostgreSqlServer
         assertEventually(() -> assertThat(postgreSqlServer.getRemoteDatabaseEvents()).contains(event));
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testCapturingCancelledStatement()
             throws Exception
     {

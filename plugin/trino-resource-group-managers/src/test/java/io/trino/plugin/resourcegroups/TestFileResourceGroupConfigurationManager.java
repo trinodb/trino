@@ -23,7 +23,7 @@ import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
 import io.trino.spi.session.ResourceEstimates;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.util.Optional;

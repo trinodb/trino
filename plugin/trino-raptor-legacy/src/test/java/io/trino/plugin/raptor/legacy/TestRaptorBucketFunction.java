@@ -18,7 +18,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.block.BlockAssertions.createIntsBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;

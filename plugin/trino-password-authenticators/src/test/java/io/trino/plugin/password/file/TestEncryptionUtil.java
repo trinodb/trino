@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.password.file;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.password.file.EncryptionUtil.getHashingAlgorithm;
 import static io.trino.plugin.password.file.HashingAlgorithm.BCRYPT;

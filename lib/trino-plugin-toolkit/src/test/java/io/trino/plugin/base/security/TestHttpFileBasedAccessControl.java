@@ -16,27 +16,26 @@ package io.trino.plugin.base.security;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.base.util.TestingHttpServer;
 import io.trino.spi.connector.ConnectorAccessControl;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAll;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestHttpFileBasedAccessControl
         extends BaseFileBasedConnectorAccessControlTest
 {
-    private TestingHttpServer testingHttpServer;
+    private final TestingHttpServer testingHttpServer = new TestingHttpServer();
 
-    @BeforeClass
-    public void setUp()
-    {
-        testingHttpServer = new TestingHttpServer();
-    }
-
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws IOException
     {

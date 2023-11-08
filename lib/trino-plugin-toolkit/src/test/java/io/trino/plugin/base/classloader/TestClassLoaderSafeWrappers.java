@@ -27,7 +27,7 @@ import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.function.table.ConnectorTableFunction;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 import java.util.Iterator;

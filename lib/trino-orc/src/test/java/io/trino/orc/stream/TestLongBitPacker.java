@@ -13,7 +13,7 @@
  */
 package io.trino.orc.stream;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.InputStream;

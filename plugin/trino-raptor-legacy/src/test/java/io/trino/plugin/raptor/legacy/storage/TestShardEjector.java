@@ -30,9 +30,11 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.TestingNodeManager;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -55,11 +57,14 @@ import static java.nio.file.Files.createTempDirectory;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.stream.Collectors.toSet;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestShardEjector
 {
     private Jdbi dbi;
@@ -68,7 +73,7 @@ public class TestShardEjector
     private Path dataDir;
     private StorageService storageService;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws IOException
     {
@@ -82,7 +87,7 @@ public class TestShardEjector
         storageService.start();
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void teardown()
             throws Exception
     {
@@ -95,7 +100,7 @@ public class TestShardEjector
         }
     }
 
-    @Test(invocationCount = 20)
+    @RepeatedTest(20)
     public void testEjector()
             throws Exception
     {

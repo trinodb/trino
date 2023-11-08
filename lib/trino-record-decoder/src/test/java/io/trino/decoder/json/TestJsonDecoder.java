@@ -24,7 +24,7 @@ import io.trino.decoder.RowDecoderSpec;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;

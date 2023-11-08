@@ -14,7 +14,8 @@
 package io.trino.plugin.raptor.legacy.storage.organization;
 
 import com.google.common.collect.ImmutableSet;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.OptionalInt;
 import java.util.Set;
@@ -29,7 +30,8 @@ import static org.testng.Assert.assertTrue;
 
 public class TestShardOrganizer
 {
-    @Test(timeOut = 5_000)
+    @Test
+    @Timeout(5)
     public void testShardOrganizerInProgress()
             throws Exception
     {

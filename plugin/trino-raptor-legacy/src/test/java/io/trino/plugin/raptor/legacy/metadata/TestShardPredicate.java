@@ -20,7 +20,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.raptor.legacy.RaptorColumnHandle;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.bucketNumberColumnHandle;

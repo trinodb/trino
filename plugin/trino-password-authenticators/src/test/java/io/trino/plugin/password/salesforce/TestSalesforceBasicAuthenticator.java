@@ -19,9 +19,7 @@ import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.units.Duration;
 import io.trino.spi.security.AccessDeniedException;
-import org.testng.SkipException;
-import org.testng.annotations.BeforeSuite;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.security.Principal;
 import java.util.concurrent.TimeUnit;
@@ -32,24 +30,21 @@ import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.testing.TestingResponse.mockResponse;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public class TestSalesforceBasicAuthenticator
 {
-    private boolean forReal;
+    private final boolean forReal;
 
     private final String successResponse = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns=\"urn:partner.soap.sforce.com\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"><soapenv:Body><loginResponse><result><metadataServerUrl>https://example.salesforce.com/services/Soap/m/46.0/example</metadataServerUrl><passwordExpired>false</passwordExpired><sandbox>false</sandbox><serverUrl>https://example.salesforce.com/services/Soap/u/46.0/example</serverUrl><sessionId>example</sessionId><userId>example</userId><userInfo><accessibilityMode>false</accessibilityMode><chatterExternal>false</chatterExternal><currencySymbol>$</currencySymbol><orgAttachmentFileSizeLimit>5242880</orgAttachmentFileSizeLimit><orgDefaultCurrencyIsoCode>USD</orgDefaultCurrencyIsoCode><orgDefaultCurrencyLocale>en_US</orgDefaultCurrencyLocale><orgDisallowHtmlAttachments>false</orgDisallowHtmlAttachments><orgHasPersonAccounts>true</orgHasPersonAccounts><organizationId>%s</organizationId><organizationMultiCurrency>false</organizationMultiCurrency><organizationName>example</organizationName><profileId>example</profileId><roleId>example</roleId><sessionSecondsValid>7200</sessionSecondsValid><userDefaultCurrencyIsoCode xsi:nil=\"true\"/><userEmail>user@salesforce.com</userEmail><userFullName>Vince Chase</userFullName><userId>example</userId><userLanguage>en_US</userLanguage><userLocale>en_US</userLocale><userName>%s</userName><userTimeZone>America/Chicago</userTimeZone><userType>Standard</userType><userUiSkin>Theme3</userUiSkin></userInfo></result></loginResponse></soapenv:Body></soapenv:Envelope>";
     private final String failedResponse = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:sf=\"urn:fault.partner.soap.sforce.com\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"><soapenv:Body><soapenv:Fault><faultcode>sf:INVALID_LOGIN</faultcode><faultstring>INVALID_LOGIN: Invalid username, password, security token; or user locked out.</faultstring><detail><sf:LoginFault xsi:type=\"sf:LoginFault\"><sf:exceptionCode>INVALID_LOGIN</sf:exceptionCode><sf:exceptionMessage>Invalid username, password, security token; or user locked out.</sf:exceptionMessage></sf:LoginFault></detail></soapenv:Fault></soapenv:Body></soapenv:Envelope>";
 
-    @BeforeSuite
-    public void initOnce()
+    public TestSalesforceBasicAuthenticator()
     {
-        forReal = false;
         String forRealEnvVar = System.getenv("SALESFORCE_TEST_FORREAL");
-        if (forRealEnvVar != null && forRealEnvVar.equalsIgnoreCase("TRUE")) {
-            forReal = true;
-        }
+        forReal = forRealEnvVar != null && forRealEnvVar.equalsIgnoreCase("TRUE");
     }
 
     @Test
@@ -169,12 +164,12 @@ public class TestSalesforceBasicAuthenticator
      */
 
     // Test a real login.
-    @Test(description = "Test principal name for real, yo!")
+    @Test
     public void createAuthenticatedPrincipalRealSuccess()
     {
         // Skip this test if SALESFORCE_TEST_FORREAL is not set to TRUE.
         if (!forReal) {
-            throw new SkipException("Skipping real tests.");
+            abort("Skipping real tests.");
         }
 
         String org = System.getenv("SALESFORCE_TEST_ORG");
@@ -202,7 +197,7 @@ public class TestSalesforceBasicAuthenticator
     {
         // Skip this test if SALESFORCE_TEST_FORREAL is not set to TRUE.
         if (!forReal) {
-            throw new SkipException("Skipping real tests.");
+            abort("Skipping real tests.");
         }
 
         String username = System.getenv("SALESFORCE_TEST_USERNAME");
@@ -228,7 +223,7 @@ public class TestSalesforceBasicAuthenticator
     {
         // Skip this test if SALESFORCE_TEST_FORREAL is not set to TRUE.
         if (!forReal) {
-            throw new SkipException("Skipping real tests.");
+            abort("Skipping real tests.");
         }
 
         String username = System.getenv("SALESFORCE_TEST_USERNAME");
@@ -253,7 +248,7 @@ public class TestSalesforceBasicAuthenticator
     {
         // Skip this test if SALESFORCE_TEST_FORREAL is not set to TRUE.
         if (!forReal) {
-            throw new SkipException("Skipping real tests.");
+            abort("Skipping real tests.");
         }
 
         String org = System.getenv("SALESFORCE_TEST_ORG");

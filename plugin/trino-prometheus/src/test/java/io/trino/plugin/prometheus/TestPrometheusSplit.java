@@ -28,9 +28,11 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import org.apache.http.NameValuePair;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.math.BigDecimal;
 import java.net.URI;
@@ -59,28 +61,24 @@ import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.http.client.utils.URLEncodedUtils.parse;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestPrometheusSplit
 {
-    private PrometheusHttpServer prometheusHttpServer;
+    private final PrometheusHttpServer prometheusHttpServer = new PrometheusHttpServer();
     private final PrometheusSplit split = new PrometheusSplit("http://127.0.0.1/test.file");
     private static final int NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS = 100;
 
-    @BeforeClass
-    public void setUp()
-    {
-        prometheusHttpServer = new PrometheusHttpServer();
-    }
-
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         prometheusHttpServer.stop();
-        prometheusHttpServer = null;
     }
 
     @Test
@@ -316,7 +314,8 @@ public class TestPrometheusSplit
         assertEquals(predicateTimes.getPredicateLowerTimeBound().orElseThrow(), expected);
     }
 
-    @Test(enabled = false)
+    @Test
+    @Disabled
     public void testPredicatePushDownSetsLowerBoundOnly()
     {
         long predicateLowValue = 1568638171999L - 600000L;

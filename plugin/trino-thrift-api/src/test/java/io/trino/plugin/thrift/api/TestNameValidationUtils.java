@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.thrift.api;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.thrift.api.NameValidationUtils.checkValidName;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

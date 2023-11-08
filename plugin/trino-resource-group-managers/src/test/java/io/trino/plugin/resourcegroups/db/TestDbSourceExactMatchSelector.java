@@ -20,8 +20,7 @@ import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
 import io.trino.spi.session.ResourceEstimates;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
@@ -35,10 +34,9 @@ public class TestDbSourceExactMatchSelector
 {
     private static final JsonCodec<ResourceGroupId> CODEC = JsonCodec.jsonCodec(ResourceGroupId.class);
     private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty());
-    private H2ResourceGroupsDao dao;
+    private final H2ResourceGroupsDao dao;
 
-    @BeforeClass
-    public void setup()
+    public TestDbSourceExactMatchSelector()
     {
         DbResourceGroupConfig config = new DbResourceGroupConfig().setConfigDbUrl("jdbc:h2:mem:test_db-exact-match-selector" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         dao = new H2DaoProvider(config).get();

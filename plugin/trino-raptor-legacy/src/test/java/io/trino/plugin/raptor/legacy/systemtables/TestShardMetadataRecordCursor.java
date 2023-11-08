@@ -35,9 +35,11 @@ import io.trino.testing.MaterializedRow;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.joda.time.DateTime;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -60,9 +62,12 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.util.stream.Collectors.toList;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestShardMetadataRecordCursor
 {
     private static final SchemaTableName DEFAULT_TEST_ORDERS = new SchemaTableName("test", "orders");
@@ -71,7 +76,7 @@ public class TestShardMetadataRecordCursor
     private ConnectorMetadata metadata;
     private Jdbi dbi;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
     {
         dbi = createTestingJdbi();
@@ -88,7 +93,7 @@ public class TestShardMetadataRecordCursor
         createTable(table);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void teardown()
     {
         dummyHandle.close();

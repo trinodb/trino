@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.trino.plugin.raptor.legacy.metadata.Table;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.util.HashSet;

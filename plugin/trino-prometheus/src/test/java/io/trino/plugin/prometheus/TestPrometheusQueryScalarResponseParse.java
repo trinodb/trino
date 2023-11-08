@@ -14,9 +14,7 @@
 package io.trino.plugin.prometheus;
 
 import com.google.common.io.Resources;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,56 +26,52 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true) // see @BeforeMethod
 public class TestPrometheusQueryScalarResponseParse
 {
-    private InputStream promVectorResponse;
-
     @Test
     public void trueStatusOnSuccessResponse()
             throws IOException
     {
-        assertTrue(new PrometheusQueryResponseParse(promVectorResponse).getStatus());
+        try (InputStream promVectorResponse = openStream()) {
+            assertTrue(new PrometheusQueryResponseParse(promVectorResponse).getStatus());
+        }
     }
 
     @Test
     public void verifyMetricPropertiesResponse()
             throws IOException
     {
-        List<PrometheusMetricResult> results = new PrometheusQueryResponseParse(promVectorResponse).getResults();
-        assertEquals(results.get(0).getMetricHeader().get("__name__"), "scalar");
+        try (InputStream promVectorResponse = openStream()) {
+            List<PrometheusMetricResult> results = new PrometheusQueryResponseParse(promVectorResponse).getResults();
+            assertEquals(results.get(0).getMetricHeader().get("__name__"), "scalar");
+        }
     }
 
     @Test
     public void verifyMetricTimestampResponse()
             throws IOException
     {
-        List<PrometheusMetricResult> results = new PrometheusQueryResponseParse(promVectorResponse).getResults();
-        assertEquals(results.get(0).getTimeSeriesValues().getValues().get(0).getTimestamp(), ofEpochMilli(1566306405073L));
+        try (InputStream promVectorResponse = openStream()) {
+            List<PrometheusMetricResult> results = new PrometheusQueryResponseParse(promVectorResponse).getResults();
+            assertEquals(results.get(0).getTimeSeriesValues().getValues().get(0).getTimestamp(), ofEpochMilli(1566306405073L));
+        }
     }
 
     @Test
     public void verifyMetricValueResponse()
             throws IOException
     {
-        List<PrometheusMetricResult> results = new PrometheusQueryResponseParse(promVectorResponse).getResults();
-        assertEquals(results.get(0).getTimeSeriesValues().getValues().get(0).getValue(), "1");
+        try (InputStream promVectorResponse = openStream()) {
+            List<PrometheusMetricResult> results = new PrometheusQueryResponseParse(promVectorResponse).getResults();
+            assertEquals(results.get(0).getTimeSeriesValues().getValues().get(0).getValue(), "1");
+        }
     }
 
-    @BeforeMethod
-    public void setUp()
-            throws Exception
+    private static InputStream openStream()
+            throws IOException
     {
-        URL promMatrixResponse = Resources.getResource(getClass(), "/prometheus-data/up_scalar_response.json");
+        URL promMatrixResponse = Resources.getResource(TestPrometheusQueryScalarResponseParse.class, "/prometheus-data/up_scalar_response.json");
         assertNotNull(promMatrixResponse, "metadataUrl is null");
-        this.promVectorResponse = promMatrixResponse.openStream();
-    }
-
-    @AfterMethod(alwaysRun = true)
-    public void tearDown()
-            throws Exception
-    {
-        promVectorResponse.close();
-        promVectorResponse = null;
+        return promMatrixResponse.openStream();
     }
 }

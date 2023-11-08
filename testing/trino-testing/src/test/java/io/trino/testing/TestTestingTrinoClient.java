@@ -27,9 +27,10 @@ import io.trino.spi.security.Identity;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -37,8 +38,12 @@ import java.nio.file.Path;
 import java.security.Principal;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestTestingTrinoClient
 {
     private static final String TEST_USER = "test_user";
@@ -51,10 +56,9 @@ public class TestTestingTrinoClient
             .setQueryId(queryIdGenerator.createNextQueryId())
             .build();
 
-    private TestingTrinoServer server;
+    private final TestingTrinoServer server;
 
-    @BeforeClass
-    public void setup()
+    public TestTestingTrinoClient()
             throws IOException
     {
         Path passwordConfigDummy = Files.createTempFile("passwordConfigDummy", "");
@@ -79,12 +83,11 @@ public class TestTestingTrinoClient
         throw new AccessDeniedException("Invalid credentials");
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
             throws Exception
     {
         server.close();
-        server = null;
     }
 
     @Test

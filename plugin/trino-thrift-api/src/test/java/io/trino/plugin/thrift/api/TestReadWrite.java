@@ -24,7 +24,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.RepeatedTest;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -109,26 +109,26 @@ public class TestReadWrite
         MAX_GENERATED_DATE = toIntExact(MILLISECONDS.toDays(MAX_GENERATED_TIMESTAMP));
     }
 
-    @Test(invocationCount = 20)
+    @RepeatedTest(20)
     public void testSingleRowPageReadWrite()
     {
         testPageReadWrite(new Random(singleRowPageSeedGenerator.incrementAndGet()), 1);
     }
 
-    @Test(invocationCount = 20)
+    @RepeatedTest(20)
     public void testSingleRowRecordSetReadWrite()
     {
         testRecordSetReadWrite(new Random(singleRowRecordSetSeedGenerator.incrementAndGet()), 1);
     }
 
-    @Test(invocationCount = 20)
+    @RepeatedTest(20)
     public void testMultiRowPageReadWrite()
     {
         Random random = new Random(multiRowPageSeedGenerator.incrementAndGet());
         testPageReadWrite(random, random.nextInt(10000) + 10000);
     }
 
-    @Test(invocationCount = 20)
+    @RepeatedTest(20)
     public void testMultiRowRecordSetReadWrite()
     {
         Random random = new Random(multiRowRecordSetSeedGenerator.incrementAndGet());

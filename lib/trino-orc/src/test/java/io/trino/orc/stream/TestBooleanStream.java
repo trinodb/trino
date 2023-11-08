@@ -23,7 +23,7 @@ import io.trino.orc.metadata.Stream;
 import io.trino.orc.metadata.Stream.StreamKind;
 import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
 import it.unimi.dsi.fastutil.booleans.BooleanList;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;

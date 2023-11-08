@@ -16,33 +16,23 @@ package io.trino.plugin.raptor.legacy.security;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestRaptorReadOnlySecurity
 {
-    private QueryRunner queryRunner;
-
-    @BeforeClass
-    public void setUp()
+    @Test
+    public void testCannotWrite()
             throws Exception
     {
-        queryRunner = createRaptorQueryRunner(ImmutableMap.of(), ImmutableList.of(), false, ImmutableMap.of("raptor.security", "read-only"));
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        queryRunner.close();
-        queryRunner = null;
-    }
-
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Access Denied: Cannot create .*")
-    public void testCannotWrite()
-    {
-        queryRunner.execute("CREATE TABLE test_create (a bigint, b double, c varchar)");
+        try (QueryRunner queryRunner = createRaptorQueryRunner(ImmutableMap.of(), ImmutableList.of(), false, ImmutableMap.of("raptor.security", "read-only"))) {
+            assertThatThrownBy(() -> {
+                queryRunner.execute("CREATE TABLE test_create (a bigint, b double, c varchar)");
+            })
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageMatching(".*Access Denied: Cannot create .*");
+        }
     }
 }

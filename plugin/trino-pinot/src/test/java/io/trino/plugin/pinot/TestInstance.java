@@ -15,7 +15,7 @@ package io.trino.plugin.pinot;
 
 import org.apache.helix.model.InstanceConfig;
 import org.apache.pinot.core.transport.ServerInstance;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.testng.Assert.assertEquals;
 

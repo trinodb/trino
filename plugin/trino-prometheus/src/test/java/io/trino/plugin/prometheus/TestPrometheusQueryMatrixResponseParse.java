@@ -15,9 +15,11 @@ package io.trino.plugin.prometheus;
 
 import com.google.common.io.Resources;
 import io.trino.spi.TrinoException;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,11 +28,14 @@ import java.util.List;
 
 import static java.time.Instant.ofEpochMilli;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestPrometheusQueryMatrixResponseParse
 {
     private InputStream promMatrixResponse;
@@ -75,7 +80,7 @@ public class TestPrometheusQueryMatrixResponseParse
                 .hasMessageContaining("Unable to parse Prometheus response: error bad_data invalid parameter 'query': parse error at char 4: bad duration syntax");
     }
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
             throws Exception
     {
@@ -88,7 +93,7 @@ public class TestPrometheusQueryMatrixResponseParse
         this.promErrorResponse = promErrorResponse.openStream();
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
             throws Exception
     {

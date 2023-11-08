@@ -15,10 +15,11 @@ package io.trino.server.rpm;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container.ExecResult;
 import org.testcontainers.containers.GenericContainer;
-import org.testng.annotations.Test;
 
 import java.io.File;
 import java.sql.Connection;
@@ -35,10 +36,11 @@ import static java.sql.DriverManager.getConnection;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
-import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class ServerIT
 {
     private static final String BASE_IMAGE_PREFIX = "eclipse-temurin:";
@@ -92,12 +94,12 @@ public class ServerIT
                     .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))
                     .start();
             QueryRunner queryRunner = new QueryRunner(container.getHost(), container.getMappedPort(8080));
-            assertEquals(queryRunner.execute("SHOW CATALOGS"), ImmutableSet.of(asList("system"), asList("hive"), asList("jmx")));
-            assertEquals(queryRunner.execute("SELECT node_id FROM system.runtime.nodes"), ImmutableSet.of(asList("test-node-id-injected-via-env")));
+            assertThat(queryRunner.execute("SHOW CATALOGS")).isEqualTo(ImmutableSet.of(asList("system"), asList("hive"), asList("jmx")));
+            assertThat(queryRunner.execute("SELECT node_id FROM system.runtime.nodes")).isEqualTo(ImmutableSet.of(asList("test-node-id-injected-via-env")));
             // TODO remove usage of assertEventually once https://github.com/trinodb/trino/issues/2214 is fixed
             assertEventually(
                     new io.airlift.units.Duration(1, MINUTES),
-                    () -> assertEquals(queryRunner.execute("SELECT specversion FROM jmx.current.\"java.lang:type=runtime\""), ImmutableSet.of(asList(javaVersion))));
+                    () -> assertThat(queryRunner.execute("SELECT specversion FROM jmx.current.\"java.lang:type=runtime\"")).isEqualTo(ImmutableSet.of(asList(javaVersion))));
         }
     }
 
@@ -132,7 +134,7 @@ public class ServerIT
             container.execInContainer("sh", "-xeuc", uninstallTrino);
 
             ExecResult actual = container.execInContainer("rpm", "-q", "trino-server-rpm");
-            assertEquals(actual.getStdout(), "package trino-server-rpm is not installed\n");
+            assertThat(actual.getStdout()).isEqualTo("package trino-server-rpm is not installed\n");
 
             assertPathDeleted(container, "/var/lib/trino");
             assertPathDeleted(container, "/usr/lib/trino");
@@ -148,8 +150,8 @@ public class ServerIT
                 "sh",
                 "-xeuc",
                 format("test -d %s && echo -n 'path exists' || echo -n 'path deleted'", path));
-        assertEquals(actualResult.getStdout(), "path deleted");
-        assertEquals(actualResult.getExitCode(), 0);
+        assertThat(actualResult.getStdout()).isEqualTo("path deleted");
+        assertThat(actualResult.getExitCode()).isEqualTo(0);
     }
 
     private static class QueryRunner

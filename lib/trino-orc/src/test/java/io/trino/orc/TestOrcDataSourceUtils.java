@@ -15,7 +15,7 @@ package io.trino.orc;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 

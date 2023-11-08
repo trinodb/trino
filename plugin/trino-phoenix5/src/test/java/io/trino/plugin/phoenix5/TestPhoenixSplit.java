@@ -20,7 +20,7 @@ import io.trino.spi.HostAddress;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.phoenix.mapreduce.PhoenixInputSplit;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 

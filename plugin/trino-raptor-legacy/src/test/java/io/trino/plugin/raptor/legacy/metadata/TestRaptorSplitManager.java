@@ -39,9 +39,11 @@ import io.trino.spi.type.BigintType;
 import io.trino.testing.TestingNodeManager;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.net.URI;
@@ -66,9 +68,13 @@ import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestRaptorSplitManager
 {
     private static final ConnectorTableMetadata TEST_TABLE = tableMetadataBuilder(new SchemaTableName("demo", "test_table"))
@@ -85,7 +91,7 @@ public class TestRaptorSplitManager
     private ShardManager shardManager;
     private long tableId;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws Exception
     {
@@ -127,7 +133,7 @@ public class TestRaptorSplitManager
         raptorSplitManager = new RaptorSplitManager(connectorId, nodeSupplier, shardManager, false);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void teardown()
             throws IOException
     {
@@ -147,13 +153,17 @@ public class TestRaptorSplitManager
         assertEquals(splitCount, 4);
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "No host for shard .* found: \\[\\]")
+    @Test
     public void testNoHostForShard()
     {
-        deleteShardNodes();
+        assertThatThrownBy(() -> {
+            deleteShardNodes();
 
-        ConnectorSplitSource splitSource = getSplits(raptorSplitManager, tableHandle);
-        getSplits(splitSource, 1000);
+            ConnectorSplitSource splitSource = getSplits(raptorSplitManager, tableHandle);
+            getSplits(splitSource, 1000);
+        })
+                .isInstanceOf(TrinoException.class)
+                .hasMessageMatching("No host for shard .* found: \\[\\]");
     }
 
     @Test
@@ -173,14 +183,18 @@ public class TestRaptorSplitManager
         assertEquals(getOnlyElement(getOnlyElement(batch).getAddresses()), node.getHostAndPort());
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "No nodes available to run query")
+    @Test
     public void testNoNodes()
     {
-        deleteShardNodes();
+        assertThatThrownBy(() -> {
+            deleteShardNodes();
 
-        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new CatalogName("fbraptor"), ImmutableSet::of, shardManager, true);
-        ConnectorSplitSource splitSource = getSplits(raptorSplitManagerWithBackup, tableHandle);
-        getSplits(splitSource, 1000);
+            RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new CatalogName("fbraptor"), ImmutableSet::of, shardManager, true);
+            ConnectorSplitSource splitSource = getSplits(raptorSplitManagerWithBackup, tableHandle);
+            getSplits(splitSource, 1000);
+        })
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("No nodes available to run query");
     }
 
     private void deleteShardNodes()

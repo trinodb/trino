@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.math.RoundingMode;
 import java.util.Map;

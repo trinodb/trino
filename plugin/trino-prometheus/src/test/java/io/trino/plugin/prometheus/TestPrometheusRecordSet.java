@@ -19,9 +19,10 @@ import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.DoubleType;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -36,13 +37,17 @@ import static io.trino.plugin.prometheus.PrometheusRecordCursor.getSqlMapFromMap
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.time.Instant.ofEpochMilli;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestPrometheusRecordSet
 {
-    private PrometheusHttpServer prometheusHttpServer;
-    private String dataUri;
+    private final PrometheusHttpServer prometheusHttpServer = new PrometheusHttpServer();
+    private final String dataUri = prometheusHttpServer.resolve("/prometheus-data/up_matrix_response.json").toString();
 
     @Test
     public void testCursorSimple()
@@ -93,19 +98,9 @@ public class TestPrometheusRecordSet
         }
     }
 
-    @BeforeClass
-    public void setUp()
-    {
-        prometheusHttpServer = new PrometheusHttpServer();
-        dataUri = prometheusHttpServer.resolve("/prometheus-data/up_matrix_response.json").toString();
-    }
-
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
-        if (prometheusHttpServer != null) {
-            prometheusHttpServer.stop();
-            prometheusHttpServer = null;
-        }
+        prometheusHttpServer.stop();
     }
 }

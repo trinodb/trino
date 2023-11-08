@@ -15,7 +15,7 @@ package io.trino.plugin.raptor.legacy.storage.organization;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 

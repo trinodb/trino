@@ -23,7 +23,7 @@ import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.List;

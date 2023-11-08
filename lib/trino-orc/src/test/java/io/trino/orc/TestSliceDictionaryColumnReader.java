@@ -20,7 +20,7 @@ import io.trino.orc.metadata.Footer;
 import io.trino.orc.metadata.OrcMetadataReader;
 import io.trino.orc.metadata.StripeInformation;
 import io.trino.orc.reader.SliceDictionaryColumnReader;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.nio.file.Files;

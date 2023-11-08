@@ -27,8 +27,7 @@ import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
 import java.time.LocalDate;
@@ -102,8 +101,7 @@ public class TestRedshiftTypeMapping
     private final LocalDate dayOfMidnightGapInVilnius = LocalDate.of(1983, 4, 1);
     private final LocalDate dayAfterMidnightSetBackInVilnius = LocalDate.of(1983, 10, 1);
 
-    @BeforeClass
-    public void checkRanges()
+    public TestRedshiftTypeMapping()
     {
         // Timestamps
         checkIsGap(jvmZone, timeGapInJvmZone);

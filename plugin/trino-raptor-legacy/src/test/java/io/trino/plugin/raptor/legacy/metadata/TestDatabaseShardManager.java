@@ -36,9 +36,11 @@ import io.trino.spi.type.Type;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.result.ResultIterator;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -90,10 +92,13 @@ import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.stream.Collectors.toSet;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestDatabaseShardManager
 {
     private Jdbi dbi;
@@ -101,7 +106,7 @@ public class TestDatabaseShardManager
     private File dataDir;
     private ShardManager shardManager;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws Exception
     {
@@ -112,7 +117,7 @@ public class TestDatabaseShardManager
         shardManager = createShardManager(dbi);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void teardown()
             throws IOException
     {

@@ -21,7 +21,7 @@ import io.trino.spi.block.SqlRow;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.type.RowType;
 import org.joda.time.DateTimeZone;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.OptionalInt;

@@ -17,7 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.trino.orc.OrcDataSourceId;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.EOFException;
 import java.io.IOException;
