@@ -79,6 +79,7 @@ public class TestTrinoGlueCatalog
                 "test",
                 glueClient,
                 new GlueMetastoreStats(),
+                false,
                 Optional.empty(),
                 useUniqueTableLocations,
                 new IcebergConfig().isHideMaterializedViewStorageTable());
@@ -158,6 +159,7 @@ public class TestTrinoGlueCatalog
                 "test",
                 glueClient,
                 new GlueMetastoreStats(),
+                false,
                 Optional.of(tmpDirectory.toAbsolutePath().toString()),
                 false,
                 new IcebergConfig().isHideMaterializedViewStorageTable());
