@@ -20,7 +20,6 @@ import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DataProviders;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.containers.Minio;
 import org.testng.annotations.AfterClass;
@@ -78,20 +77,28 @@ public class TestHiveS3MinioQueries
         minio = null; // closed by closeAfterClass
     }
 
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
-    public void testTableLocationTopOfTheBucket(boolean locationWithTrailingSlash)
+    @Test
+    public void testTableLocationTopOfTheBucket()
     {
         String bucketName = "test-bucket-" + randomNameSuffix();
         minio.createBucket(bucketName);
         minio.writeFile("We are\nawesome at\nmultiple slashes.".getBytes(UTF_8), bucketName, "a_file");
 
-        String location = "s3://%s%s".formatted(bucketName, locationWithTrailingSlash ? "/" : "");
-        String tableName = "test_table_top_of_bucket_%s_%s".formatted(locationWithTrailingSlash, randomNameSuffix());
+        // without trailing slash
+        assertQueryFails(
+                """
+                CREATE TABLE %s (a varchar) WITH (
+                    format='TEXTFILE',
+                    external_location='%s'
+                )
+                """.formatted("test_table_top_of_bucket_" + randomNameSuffix(), "s3://" + bucketName),
+                "External location is not a valid file system URI: s3://" + bucketName);
+
+        // with trailing slash
+        String location = "s3://%s/".formatted(bucketName);
+        String tableName = "test_table_top_of_bucket_%s".formatted(randomNameSuffix());
         String create = "CREATE TABLE %s (a varchar) WITH (format='TEXTFILE', external_location='%s')".formatted(tableName, location);
-        if (!locationWithTrailingSlash) {
-            assertQueryFails(create, "External location is not a valid file system URI: " + location);
-            return;
-        }
+
         assertUpdate(create);
 
         // Verify location was not normalized along the way. Glue would not do that.
