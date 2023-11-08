@@ -57,7 +57,6 @@ import org.apache.iceberg.types.Types;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -77,7 +76,6 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalProperties.STORAGE_SCHEMA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalProperties.getStorageSchema;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMaterializedViewData;
-import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergUtil.commit;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
@@ -97,7 +95,6 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
-import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.Transactions.createOrReplaceTableTransaction;
 import static org.apache.iceberg.Transactions.createTableTransaction;
 
@@ -269,8 +266,6 @@ public abstract class AbstractTrinoCatalog
         // Generate a storage table name and create a storage table. The properties in the definition are table properties for the
         // storage table as indicated in the materialized view definition.
         String storageTableName = "st_" + randomUUID().toString().replace("-", "");
-        Map<String, Object> storageTableProperties = new HashMap<>(definition.getProperties());
-        storageTableProperties.putIfAbsent(FILE_FORMAT_PROPERTY, DEFAULT_FILE_FORMAT_DEFAULT);
 
         String storageSchema = getStorageSchema(definition.getProperties()).orElse(viewName.getSchemaName());
         SchemaTableName storageTable = new SchemaTableName(storageSchema, storageTableName);
@@ -315,7 +310,7 @@ public abstract class AbstractTrinoCatalog
                     return new ColumnMetadata(column.getName(), type);
                 });
 
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTable, columns, storageTableProperties, Optional.empty());
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTable, columns, definition.getProperties(), Optional.empty());
         Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session, false);
         AppendFiles appendFiles = transaction.newAppend();
         commit(appendFiles, session);
