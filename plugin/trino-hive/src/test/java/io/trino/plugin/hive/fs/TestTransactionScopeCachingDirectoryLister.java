@@ -26,7 +26,8 @@ import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -40,9 +41,10 @@ import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 // some tests may invalidate the whole cache affecting therefore other concurrent tests
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestTransactionScopeCachingDirectoryLister
         extends BaseCachingDirectoryListerTest<TransactionScopeCachingDirectoryLister>
 {

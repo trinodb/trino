@@ -17,7 +17,7 @@ import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 

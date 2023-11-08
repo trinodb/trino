@@ -24,7 +24,8 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -39,9 +40,10 @@ import static io.trino.plugin.kafka.util.TestUtils.createEmptyTopicDescription;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestKafkaIntegrationPushDown
         extends AbstractTestQueryFramework
 {

@@ -21,7 +21,8 @@ import io.trino.filesystem.Location;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -30,11 +31,12 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static java.lang.String.format;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 // some tests may invalidate the whole cache affecting therefore other concurrent tests
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestCachingDirectoryListerRecursiveFilesOnly
         extends BaseCachingDirectoryListerTest<CachingDirectoryLister>
 {

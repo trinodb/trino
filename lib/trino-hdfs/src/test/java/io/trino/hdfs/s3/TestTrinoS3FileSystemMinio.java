@@ -19,9 +19,9 @@ import io.trino.testing.minio.MinioClient;
 import io.trino.util.AutoCloseableCloser;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.net.URI;
 
@@ -30,20 +30,20 @@ import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public class TestTrinoS3FileSystemMinio
         extends AbstractTestTrinoS3FileSystem
 {
     private final String bucketName = "test-bucket-" + randomNameSuffix();
 
-    private Minio minio;
+    private final Minio minio;
 
-    private MinioClient minioClient;
+    private final MinioClient minioClient;
 
-    @BeforeClass
-    public void setup()
-            throws Exception
+    public TestTrinoS3FileSystemMinio()
     {
         minio = Minio.builder().build();
         minio.start();
@@ -52,7 +52,7 @@ public class TestTrinoS3FileSystemMinio
         minio.createBucket(bucketName);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws Exception
     {
@@ -60,8 +60,6 @@ public class TestTrinoS3FileSystemMinio
             closer.register(minio);
             closer.register(minioClient);
         }
-        minioClient = null;
-        minio = null;
     }
 
     @Override

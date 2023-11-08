@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.ConfigurationException;
 import io.trino.plugin.kafka.security.KafkaEndpointIdentificationAlgorithm;
 import io.trino.plugin.kafka.security.KafkaSslConfig;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.FileWriter;
 import java.io.IOException;

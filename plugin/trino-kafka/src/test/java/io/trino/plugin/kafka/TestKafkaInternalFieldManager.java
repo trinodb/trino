@@ -15,7 +15,7 @@ package io.trino.plugin.kafka;
 
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.BigintType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 

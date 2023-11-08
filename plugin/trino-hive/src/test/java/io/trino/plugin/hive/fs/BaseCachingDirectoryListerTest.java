@@ -23,7 +23,7 @@ import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.util.List;

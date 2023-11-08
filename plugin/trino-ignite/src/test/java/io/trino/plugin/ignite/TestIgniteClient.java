@@ -26,7 +26,7 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.sql.Types;
 import java.util.List;

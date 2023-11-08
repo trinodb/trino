@@ -14,7 +14,6 @@
 package io.trino.hdfs.s3;
 
 import org.apache.hadoop.conf.Configuration;
-import org.testng.annotations.BeforeClass;
 
 import static java.util.Objects.requireNonNull;
 
@@ -27,11 +26,10 @@ import static java.util.Objects.requireNonNull;
 public class TestTrinoS3FileSystemAwsS3
         extends AbstractTestTrinoS3FileSystem
 {
-    private String bucketName;
-    private String s3Endpoint;
+    private final String bucketName;
+    private final String s3Endpoint;
 
-    @BeforeClass
-    public void setup()
+    public TestTrinoS3FileSystemAwsS3()
     {
         bucketName = requireNonNull(System.getenv("S3_BUCKET"), "Environment S3_BUCKET was not set");
         s3Endpoint = requireNonNull(System.getenv("S3_BUCKET_ENDPOINT"), "Environment S3_BUCKET_ENDPOINT was not set");

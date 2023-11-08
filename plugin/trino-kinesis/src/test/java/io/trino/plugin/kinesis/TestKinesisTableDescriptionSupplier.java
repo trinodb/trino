@@ -22,22 +22,28 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Map;
 
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestKinesisTableDescriptionSupplier
 {
     private KinesisConnector connector;
 
-    @BeforeClass
+    @BeforeAll
     public void start()
     {
         // Create dependent objects, including the minimal config needed for this test

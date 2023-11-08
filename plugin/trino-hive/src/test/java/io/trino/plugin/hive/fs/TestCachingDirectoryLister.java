@@ -16,14 +16,15 @@ package io.trino.plugin.hive.fs;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.filesystem.Location;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 // some tests may invalidate the whole cache affecting therefore other concurrent tests
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestCachingDirectoryLister
         extends BaseCachingDirectoryListerTest<CachingDirectoryLister>
 {
@@ -37,13 +38,5 @@ public class TestCachingDirectoryLister
     protected boolean isCached(CachingDirectoryLister directoryLister, Location location)
     {
         return directoryLister.isCached(location);
-    }
-
-    @Test
-    public void forceTestNgToRespectSingleThreaded()
-    {
-        // TODO: Remove after updating TestNG to 7.4.0+ (https://github.com/trinodb/trino/issues/8571)
-        // TestNG doesn't enforce @Test(singleThreaded = true) when tests are defined in base class. According to
-        // https://github.com/cbeust/testng/issues/2361#issuecomment-688393166 a workaround it to add a dummy test to the leaf test class.
     }
 }

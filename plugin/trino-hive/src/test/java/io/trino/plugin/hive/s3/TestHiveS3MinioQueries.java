@@ -22,8 +22,7 @@ import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.containers.Minio;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.regex.Matcher;
@@ -69,12 +68,6 @@ public class TestHiveS3MinioQueries
                         .put("hive.non-managed-table-writes-enabled", "true")
                         .buildOrThrow())
                 .build();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void cleanUp()
-    {
-        minio = null; // closed by closeAfterClass
     }
 
     @Test
