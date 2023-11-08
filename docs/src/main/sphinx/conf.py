@@ -119,6 +119,10 @@ myst_enable_extensions = [
     "substitution"
 ]
 
+myst_substitutions = {
+    "breaking": "<a href='../release.html#breaking-changes' title='Breaking change'>⚠️</a>"
+}
+
 # -- Options for HTML output ---------------------------------------------------
 
 html_theme = 'sphinx_material'

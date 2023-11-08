@@ -20,7 +20,7 @@ adjustments:
 
 * Improve performance of `CREATE TABLE AS ... SELECT` queries that contain a redundant
   `ORDER BY` clause. ({issue}`19547`)
-* ⚠️ Remove support for late materialization, including the
+* {{breaking}} Remove support for late materialization, including the
   `experimental.late-materialization.enabled` and
   `experimental.work-processor-pipelines` configuration properties. ({issue}`19611`)
 * Fix potential query failure when using inline functions. ({issue}`19561`)
@@ -59,5 +59,5 @@ adjustments:
 ## SPI
 
 * Add Trino version to SystemAccessControlContext. ({issue}`19585`)
-* ⚠️ Remove null-suppression from RowBlock fields. Add new factory methods to
+* {{breaking}} Remove null-suppression from RowBlock fields. Add new factory methods to
   create a `RowBlock`, and remove the old factory methods. ({issue}`19479`)
