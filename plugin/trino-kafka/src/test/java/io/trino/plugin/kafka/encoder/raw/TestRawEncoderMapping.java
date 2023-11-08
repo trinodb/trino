@@ -23,7 +23,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.LongArrayBlockBuilder;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.testing.TestingConnectorSession;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;

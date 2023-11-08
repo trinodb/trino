@@ -15,7 +15,7 @@ package io.trino.plugin.hive.orc;
 
 import io.airlift.units.DataSize;
 import io.trino.orc.OrcWriterOptions;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Properties;
 

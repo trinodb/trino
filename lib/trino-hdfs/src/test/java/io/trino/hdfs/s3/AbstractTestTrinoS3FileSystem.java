@@ -22,7 +22,7 @@ import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.net.MediaType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
