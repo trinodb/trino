@@ -296,7 +296,7 @@ public class IcebergFileWriterFactory
                 .collect(toImmutableList());
 
         return new IcebergAvroFileWriter(
-                new ForwardingOutputFile(fileSystem, outputPath.toString()),
+                new ForwardingOutputFile(fileSystem, outputPath),
                 rollbackAction,
                 icebergSchema,
                 columnTypes,
