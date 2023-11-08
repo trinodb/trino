@@ -19,21 +19,26 @@ import io.trino.Session;
 import io.trino.spi.security.Identity;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 
 import static io.trino.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestRaptorFileBasedSecurity
 {
-    private QueryRunner queryRunner;
+    private final QueryRunner queryRunner;
 
-    @BeforeClass
-    public void setUp()
+    public TestRaptorFileBasedSecurity()
             throws Exception
     {
         String path = new File(Resources.getResource(getClass(), "security.json").toURI()).getPath();
@@ -44,11 +49,10 @@ public class TestRaptorFileBasedSecurity
                 ImmutableMap.of("security.config-file", path, "raptor.security", "file"));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         queryRunner.close();
-        queryRunner = null;
     }
 
     @Test
@@ -58,11 +62,15 @@ public class TestRaptorFileBasedSecurity
         queryRunner.execute(admin, "SELECT * FROM orders");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Access Denied: Cannot select from table tpch.orders.*")
+    @Test
     public void testNonAdminCannotRead()
     {
-        Session bob = getSession("bob");
-        queryRunner.execute(bob, "SELECT * FROM orders");
+        assertThatThrownBy(() -> {
+            Session bob = getSession("bob");
+            queryRunner.execute(bob, "SELECT * FROM orders");
+        })
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching(".*Access Denied: Cannot select from table tpch.orders.*");
     }
 
     private Session getSession(String user)

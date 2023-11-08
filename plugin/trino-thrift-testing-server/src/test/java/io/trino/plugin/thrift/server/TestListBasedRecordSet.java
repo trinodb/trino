@@ -16,7 +16,7 @@ package io.trino.plugin.thrift.server;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.spi.connector.RecordCursor;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 

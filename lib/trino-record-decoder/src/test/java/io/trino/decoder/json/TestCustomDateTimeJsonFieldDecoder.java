@@ -18,7 +18,7 @@ import io.airlift.json.ObjectMapperProvider;
 import io.trino.decoder.DecoderTestColumnHandle;
 import io.trino.decoder.RowDecoderSpec;
 import io.trino.spi.TrinoException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.decoder.util.DecoderTestUtil.TESTING_SESSION;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;

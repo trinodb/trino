@@ -13,7 +13,7 @@
  */
 package org.apache.phoenix;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestDummy
 {

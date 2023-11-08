@@ -19,26 +19,29 @@ import io.trino.plugin.base.ldap.LdapClientConfig;
 import io.trino.plugin.password.ldap.TestingOpenLdapServer.DisposableSubContext;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 import org.testcontainers.containers.Network;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
 
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestLdapAuthenticator
 {
-    private Closer closer;
+    private final Closer closer;
 
-    private TestingOpenLdapServer openLdapServer;
-    private LdapAuthenticatorClient client;
+    private final TestingOpenLdapServer openLdapServer;
+    private final LdapAuthenticatorClient client;
 
-    @BeforeClass
-    public void setup()
-            throws Exception
+    public TestLdapAuthenticator()
     {
         closer = Closer.create();
         Network network = Network.newNetwork();
@@ -52,14 +55,11 @@ public class TestLdapAuthenticator
                         .setLdapUrl(openLdapServer.getLdapUrl())));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void close()
             throws Exception
     {
         closer.close();
-        closer = null;
-        openLdapServer = null;
-        client = null;
     }
 
     @Test

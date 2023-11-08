@@ -24,8 +24,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.type.TypeDeserializer;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -38,10 +37,9 @@ import static org.testng.Assert.assertEquals;
 
 public class TestMongoTableHandle
 {
-    private JsonCodec<MongoTableHandle> codec;
+    private final JsonCodec<MongoTableHandle> codec;
 
-    @BeforeClass
-    public void init()
+    public TestMongoTableHandle()
     {
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
         objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)));

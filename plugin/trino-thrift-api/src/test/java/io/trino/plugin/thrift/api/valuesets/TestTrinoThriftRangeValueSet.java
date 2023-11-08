@@ -20,7 +20,7 @@ import io.trino.plugin.thrift.api.valuesets.TrinoThriftRangeValueSet.TrinoThrift
 import io.trino.plugin.thrift.api.valuesets.TrinoThriftRangeValueSet.TrinoThriftRange;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.thrift.api.TrinoThriftBlock.bigintData;
 import static io.trino.plugin.thrift.api.valuesets.TrinoThriftRangeValueSet.TrinoThriftBound.ABOVE;

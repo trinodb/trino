@@ -24,8 +24,7 @@ import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.response.broker.ResultTable;
 import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.common.utils.DataSchema.ColumnDataType;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.List;
@@ -50,7 +49,7 @@ public class TestBrokerQueries
     private static final ResultTable RESULT_TABLE;
     private static final int LIMIT_FOR_BROKER_QUERIES = 2;
 
-    private PinotClient testingPinotClient;
+    private final PinotClient testingPinotClient;
 
     static {
         DATA_SCHEMA = new DataSchema(new String[] {"col_1", "col_2", "col_3"}, new ColumnDataType[] {STRING, LONG, STRING});
@@ -63,9 +62,8 @@ public class TestBrokerQueries
         RESPONSE.setNumDocsScanned(1);
     }
 
-    @BeforeClass
-    public void setup()
-            throws Exception
+    public TestBrokerQueries()
+            throws IOException
     {
         testingPinotClient = new MockPinotClient(pinotConfig, getTestingMetadata(), RESPONSE.toJsonString());
     }

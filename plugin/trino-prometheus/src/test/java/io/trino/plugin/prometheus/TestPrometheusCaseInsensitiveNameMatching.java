@@ -14,9 +14,10 @@
 package io.trino.plugin.prometheus;
 
 import io.trino.spi.connector.SchemaTableName;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Optional;
@@ -26,30 +27,26 @@ import static io.trino.plugin.prometheus.MetadataUtil.METRIC_CODEC;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestPrometheusCaseInsensitiveNameMatching
 {
-    private PrometheusHttpServer prometheusHttpServer;
     private static final String DEFAULT_SCHEMA = "default";
     private static final String UPPER_CASE_METRIC = "UpperCase-Metric";
 
-    @BeforeClass
-    public void setUp()
-    {
-        prometheusHttpServer = new PrometheusHttpServer();
-    }
+    private final PrometheusHttpServer prometheusHttpServer = new PrometheusHttpServer();
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
-        if (prometheusHttpServer != null) {
-            prometheusHttpServer.stop();
-            prometheusHttpServer = null;
-        }
+        prometheusHttpServer.stop();
     }
 
     @Test

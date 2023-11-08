@@ -22,9 +22,10 @@ import io.trino.orc.metadata.StripeInformation;
 import io.trino.orc.stream.OrcDataReader;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.util.List;
@@ -46,18 +47,21 @@ import static io.trino.orc.OrcTester.writeOrcColumnsHiveFile;
 import static io.trino.orc.metadata.CompressionKind.ZLIB;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.fail;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestCachingOrcDataSource
 {
     private static final int POSITION_COUNT = 50000;
 
-    private TempFile tempFile;
+    private final TempFile tempFile;
 
-    @BeforeClass
-    public void setUp()
+    public TestCachingOrcDataSource()
             throws Exception
     {
         tempFile = new TempFile();
@@ -72,12 +76,11 @@ public class TestCachingOrcDataSource
                         .limit(POSITION_COUNT).iterator());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws Exception
     {
         tempFile.close();
-        tempFile = null;
     }
 
     @Test

@@ -19,7 +19,7 @@ import io.airlift.slice.Slice;
 import io.trino.orc.OrcOutputBuffer;
 import io.trino.orc.checkpoint.BooleanStreamCheckpoint;
 import io.trino.orc.checkpoint.ByteStreamCheckpoint;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 

@@ -42,9 +42,11 @@ import io.trino.testing.TestingConnectorSession;
 import io.trino.testing.TestingNodeManager;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Map;
@@ -73,14 +75,16 @@ import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestRaptorMetadata
 {
     private static final SchemaTableName DEFAULT_TEST_ORDERS = new SchemaTableName("test", "orders");
@@ -94,7 +98,7 @@ public class TestRaptorMetadata
     private ShardManager shardManager;
     private RaptorMetadata metadata;
 
-    @BeforeMethod
+    @BeforeEach
     public void setupDatabase()
     {
         dbi = createTestingJdbi();
@@ -107,7 +111,7 @@ public class TestRaptorMetadata
         metadata = new RaptorMetadata(dbi, shardManager);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void cleanupDatabase()
     {
         dummyHandle.close();
@@ -461,48 +465,54 @@ public class TestRaptorMetadata
         assertEquals(getTableDistributionId(tableId), Long.valueOf(1));
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Ordering column does not exist: orderdatefoo")
+    @Test
     public void testInvalidOrderingColumns()
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
 
-        ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(ORDERING_PROPERTY, ImmutableList.of("orderdatefoo")));
-        metadata.createTable(SESSION, ordersTable, false);
-        fail("Expected createTable to fail");
+        assertThatThrownBy(() -> metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(ORDERING_PROPERTY, ImmutableList.of("orderdatefoo"))), false))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Ordering column does not exist: orderdatefoo");
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Temporal column does not exist: foo")
+    @Test
     public void testInvalidTemporalColumn()
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
 
-        ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "foo"));
-        metadata.createTable(SESSION, ordersTable, false);
-        fail("Expected createTable to fail");
+        assertThatThrownBy(() -> metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "foo")), false))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Temporal column does not exist: foo");
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Temporal column must be of type timestamp or date: orderkey")
+    @Test
     public void testInvalidTemporalColumnType()
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
-        metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "orderkey")), false);
+        assertThatThrownBy(() -> metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "orderkey")), false))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Temporal column must be of type timestamp or date: orderkey");
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Table with temporal columns cannot be organized")
+    @Test
     public void testInvalidTemporalOrganization()
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
-        metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(
-                TEMPORAL_COLUMN_PROPERTY, "orderdate",
-                ORGANIZED_PROPERTY, true)),
-                false);
+        assertThatThrownBy(() -> metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(
+                        TEMPORAL_COLUMN_PROPERTY, "orderdate",
+                        ORGANIZED_PROPERTY, true)),
+                false))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Table with temporal columns cannot be organized");
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Table organization requires an ordering")
+    @Test
     public void testInvalidOrderingOrganization()
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
-        metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(ORGANIZED_PROPERTY, true)), false);
+        assertThatThrownBy(() -> metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(ORGANIZED_PROPERTY, true)), false))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Table organization requires an ordering");
     }
 
     @Test
@@ -622,18 +632,14 @@ public class TestRaptorMetadata
                 .isEmpty();
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "View already exists: test\\.test_view")
+    @Test
     public void testCreateViewWithoutReplace()
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
-        try {
-            metadata.createView(SESSION, test, testingViewDefinition("test"), false);
-        }
-        catch (Exception e) {
-            fail("should have succeeded");
-        }
-
         metadata.createView(SESSION, test, testingViewDefinition("test"), false);
+        assertThatThrownBy(() -> metadata.createView(SESSION, test, testingViewDefinition("test"), false))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("View already exists: test.test_view");
     }
 
     @Test

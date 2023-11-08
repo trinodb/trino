@@ -25,7 +25,9 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.AfterClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.nio.file.Path;
 
@@ -35,6 +37,8 @@ import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 /**
  * Tests metadata operations on a schema which has a mix of Hive and Iceberg tables.
@@ -42,6 +46,8 @@ import static java.lang.String.format;
  * Requires AWS credentials, which can be provided any way supported by the DefaultProviderChain
  * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
  */
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestSharedGlueMetastore
         extends BaseSharedMetastoreTest
 {
@@ -102,7 +108,7 @@ public class TestSharedGlueMetastore
         return queryRunner;
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
     {
         try {

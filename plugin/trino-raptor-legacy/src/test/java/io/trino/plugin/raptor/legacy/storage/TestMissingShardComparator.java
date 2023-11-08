@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.raptor.legacy.storage;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.raptor.legacy.storage.ShardRecoveryManager.MissingShardComparator;
 import static io.trino.plugin.raptor.legacy.storage.ShardRecoveryManager.MissingShardRunnable;

@@ -31,9 +31,11 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.testing.TestingConnectorSession;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -50,25 +52,29 @@ import static io.trino.orc.TestingOrcPredicate.ORC_STRIPE_SIZE;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.joda.time.DateTimeZone.UTC;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestStructColumnReader
 {
     private static final String STRUCT_COL_NAME = "struct_col";
 
     private TempFile tempFile;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
             throws IOException
     {
         tempFile = new TempFile();
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
             throws IOException
     {
@@ -145,19 +151,21 @@ public class TestStructColumnReader
         assertEquals(actual.get(2), "fieldCValue");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp =
-            "ROW type does not have field names declared: row\\(varchar, varchar, varchar\\)")
+    @Test
     public void testThrowsExceptionWhenFieldNameMissing()
-            throws IOException
     {
-        List<String> readerFields = new ArrayList<>(Arrays.asList("field_a", "field_b", "field_c"));
-        List<String> writerFields = new ArrayList<>(Arrays.asList("field_a", "field_b", "field_c"));
-        List<String> writerData = new ArrayList<>(Arrays.asList("field_a_value", "field_b_value", "field_c_value"));
-        Type readerType = getTypeNullName(readerFields.size());
-        Type writerType = getType(writerFields);
+        assertThatThrownBy(() -> {
+            List<String> readerFields = new ArrayList<>(Arrays.asList("field_a", "field_b", "field_c"));
+            List<String> writerFields = new ArrayList<>(Arrays.asList("field_a", "field_b", "field_c"));
+            List<String> writerData = new ArrayList<>(Arrays.asList("field_a_value", "field_b_value", "field_c_value"));
+            Type readerType = getTypeNullName(readerFields.size());
+            Type writerType = getType(writerFields);
 
-        write(tempFile, writerType, writerData);
-        read(tempFile, readerType);
+            write(tempFile, writerType, writerData);
+            read(tempFile, readerType);
+        })
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("ROW type does not have field names declared: row(varchar, varchar, varchar)");
     }
 
     /**

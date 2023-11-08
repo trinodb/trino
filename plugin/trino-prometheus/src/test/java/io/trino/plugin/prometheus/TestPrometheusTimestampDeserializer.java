@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.prometheus;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 
