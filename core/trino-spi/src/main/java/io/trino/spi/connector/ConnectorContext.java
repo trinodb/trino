@@ -79,6 +79,7 @@ public interface ConnectorContext
         throw new UnsupportedOperationException();
     }
 
+    @Deprecated(forRemoval = true)
     default ClassLoader duplicatePluginClassLoader()
     {
         throw new UnsupportedOperationException();
