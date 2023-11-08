@@ -1,0 +1,18 @@
+{
+    "name": "Trino",
+    "image": "mcr.microsoft.com/devcontainers/java:17",
+    "hostRequirements": {
+		"cpus": 16,
+		"memory": "32gb"
+	},
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+},
+"customizations": {
+	"vscode": {
+		"extensions": [
+			"vscjava.vscode-maven"
+		]
+	}
+}
+}

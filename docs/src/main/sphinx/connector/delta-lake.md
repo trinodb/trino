@@ -715,6 +715,49 @@ delta.feature.columnMapping | supported       |
 
 (delta-lake-special-columns)=
 
+#### `$partitions` table
+
+The `$partitions` table provides access to a specified Delta Lake Table's partitions keys and values. Each table row is a unique partition value, with the columns being the partition keys. 
+
+For example, provided a table with the `regionkey` column set as a partition key:
+
+
+```
+CREATE TABLE example.default.example_partitioned_table
+WITH (
+  location = 's3://my-bucket/a/path',
+  partitioned_by = ARRAY['regionkey'],
+)
+AS SELECT name, comment, regionkey FROM tpch.tiny.nation;
+```
+
+With the following values:
+
+```
+ name                       | comment         | regionkey           |
+----------------------------+-----------------+---------------------+
+foo                         | foo             | east                |
+bar                         | bar             | west                |
+baz                         | baz             | west                |
+```
+
+Querying the partitions table:
+
+```
+SELECT * from example.default."example_partitioned_table$partitions"
+```
+
+Will return the following:
+
+```text
+regionkey                  |
+---------------------------+
+east                       |
+west                       |
+```
+
+>Note: The types of columns in the `$partitions` table are always VARCHAR, even if the underlying column is a different type. 
+
 #### Metadata columns
 
 In addition to the defined columns, the Delta Lake connector automatically

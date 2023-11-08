@@ -140,11 +140,10 @@ public class TestDeltaLakePartitioning
     }
 
     @Test
-    public void testPartitionsSystemTableDoesNotExist()
+    public void testPartitionsSystemTableExists()
     {
-        assertQueryFails(
-                "SELECT * FROM \"partitions$partitions\"",
-                ".*'delta\\.tpch\\.partitions\\$partitions' does not exist");
+        assertQuerySucceeds(
+                "SELECT * FROM \"partitions$partitions\"");
     }
 
     @Test
