@@ -288,7 +288,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static org.apache.iceberg.ReachableFileUtil.metadataFileLocations;
-import static org.apache.iceberg.ReachableFileUtil.versionHintLocation;
 import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_EQ_DELETES_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_POS_DELETES_PROP;
@@ -1651,7 +1650,8 @@ public class IcebergMetadata
         metadataFileLocations(table, false).stream()
                 .map(IcebergUtil::fileName)
                 .forEach(validMetadataFileNames::add);
-        validMetadataFileNames.add(fileName(versionHintLocation(table)));
+
+        validMetadataFileNames.add("version-hint.text");
 
         scanAndDeleteInvalidFiles(table, session, schemaTableName, expiration, validDataFileNames.build(), "data");
         scanAndDeleteInvalidFiles(table, session, schemaTableName, expiration, validMetadataFileNames.build(), "metadata");
