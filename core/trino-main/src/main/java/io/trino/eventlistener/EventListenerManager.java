@@ -17,12 +17,15 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.airlift.stats.TimeStat;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
 import io.trino.spi.eventlistener.SplitCompletedEvent;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import java.io.File;
 import java.io.IOException;
@@ -43,6 +46,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class EventListenerManager
 {
@@ -54,6 +58,10 @@ public class EventListenerManager
     private final List<EventListener> providedEventListeners = Collections.synchronizedList(new ArrayList<>());
     private final AtomicReference<List<EventListener>> configuredEventListeners = new AtomicReference<>(ImmutableList.of());
     private final AtomicBoolean loading = new AtomicBoolean(false);
+
+    private final TimeStat queryCreatedTime = new TimeStat(MILLISECONDS);
+    private final TimeStat queryCompletedTime = new TimeStat(MILLISECONDS);
+    private final TimeStat splitCompletedTime = new TimeStat(MILLISECONDS);
 
     @Inject
     public EventListenerManager(EventListenerConfig config)
@@ -134,6 +142,13 @@ public class EventListenerManager
 
     public void queryCompleted(Function<Boolean, QueryCompletedEvent> queryCompletedEventProvider)
     {
+        try (TimeStat.BlockTimer ignored = queryCompletedTime.time()) {
+            doQueryCompleted(queryCompletedEventProvider);
+        }
+    }
+
+    private void doQueryCompleted(Function<Boolean, QueryCompletedEvent> queryCompletedEventProvider)
+    {
         for (EventListener listener : configuredEventListeners.get()) {
             QueryCompletedEvent event = queryCompletedEventProvider.apply(listener.requiresAnonymizedPlan());
             try {
@@ -147,6 +162,13 @@ public class EventListenerManager
 
     public void queryCreated(QueryCreatedEvent queryCreatedEvent)
     {
+        try (TimeStat.BlockTimer ignored = queryCreatedTime.time()) {
+            doQueryCreated(queryCreatedEvent);
+        }
+    }
+
+    private void doQueryCreated(QueryCreatedEvent queryCreatedEvent)
+    {
         for (EventListener listener : configuredEventListeners.get()) {
             try {
                 listener.queryCreated(queryCreatedEvent);
@@ -159,6 +181,13 @@ public class EventListenerManager
 
     public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
     {
+        try (TimeStat.BlockTimer ignored = splitCompletedTime.time()) {
+            doSplitCompleted(splitCompletedEvent);
+        }
+    }
+
+    private void doSplitCompleted(SplitCompletedEvent splitCompletedEvent)
+    {
         for (EventListener listener : configuredEventListeners.get()) {
             try {
                 listener.splitCompleted(splitCompletedEvent);
@@ -167,5 +196,26 @@ public class EventListenerManager
                 log.warn(e, "Failed to publish SplitCompletedEvent for query %s", splitCompletedEvent.getQueryId());
             }
         }
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getQueryCreatedTime()
+    {
+        return queryCreatedTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getQueryCompletedTime()
+    {
+        return queryCompletedTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getSplitCompletedTime()
+    {
+        return splitCompletedTime;
     }
 }
