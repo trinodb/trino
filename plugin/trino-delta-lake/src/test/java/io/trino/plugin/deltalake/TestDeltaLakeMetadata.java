@@ -116,10 +116,6 @@ public class TestDeltaLakeMetadata
     private static final RowType NESTED_ROW_FIELD = RowType.from(ImmutableList.of(
             new RowType.Field(Optional.of("child1"), INTEGER),
             new RowType.Field(Optional.of("child2"), INTEGER)));
-    private static final RowType HIGHLY_NESTED_ROW_FIELD = RowType.from(ImmutableList.of(
-            new RowType.Field(Optional.of("grandparent"), RowType.from(ImmutableList.of(
-                    new RowType.Field(Optional.of("parent"), RowType.from(ImmutableList.of(
-                            new RowType.Field(Optional.of("child"), INTEGER)))))))));
 
     private static final DeltaLakeColumnHandle BOOLEAN_COLUMN_HANDLE =
             new DeltaLakeColumnHandle("boolean_column_name", BooleanType.BOOLEAN, OptionalInt.empty(), "boolean_column_name", BooleanType.BOOLEAN, REGULAR, Optional.empty());
@@ -142,32 +138,12 @@ public class TestDeltaLakeMetadata
                     NESTED_ROW_FIELD,
                     REGULAR,
                     Optional.of(new DeltaLakeColumnProjectionInfo(INTEGER, ImmutableList.of(1), ImmutableList.of("child2"))));
-    private static final DeltaLakeColumnHandle NESTED_COLUMN_HANDLE_WITH_PROJECTION =
-            new DeltaLakeColumnHandle(
-                    "highly_nested_column_name",
-                    HIGHLY_NESTED_ROW_FIELD,
-                    OptionalInt.empty(),
-                    "highly_nested_column_name",
-                    HIGHLY_NESTED_ROW_FIELD,
-                    REGULAR,
-                    Optional.of(new DeltaLakeColumnProjectionInfo(INTEGER, ImmutableList.of(0, 0), ImmutableList.of("grandparent", "parent"))));
-    private static final DeltaLakeColumnHandle EXPECTED_NESTED_COLUMN_HANDLE_WITH_PROJECTION =
-            new DeltaLakeColumnHandle(
-                    "highly_nested_column_name",
-                    HIGHLY_NESTED_ROW_FIELD,
-                    OptionalInt.empty(),
-                    "highly_nested_column_name",
-                    HIGHLY_NESTED_ROW_FIELD,
-                    REGULAR,
-                    Optional.of(new DeltaLakeColumnProjectionInfo(INTEGER, ImmutableList.of(0, 0, 0), ImmutableList.of("grandparent", "parent", "child"))));
 
     private static final Map<String, ColumnHandle> SYNTHETIC_COLUMN_ASSIGNMENTS = ImmutableMap.of(
             "test_synthetic_column_name_1", BOGUS_COLUMN_HANDLE,
             "test_synthetic_column_name_2", VARCHAR_COLUMN_HANDLE);
     private static final Map<String, ColumnHandle> NESTED_COLUMN_ASSIGNMENTS = ImmutableMap.of("nested_column_name", NESTED_COLUMN_HANDLE);
     private static final Map<String, ColumnHandle> EXPECTED_NESTED_COLUMN_ASSIGNMENTS = ImmutableMap.of("nested_column_name#child2", EXPECTED_NESTED_COLUMN_HANDLE);
-    private static final Map<String, ColumnHandle> HIGHLY_NESTED_COLUMN_ASSIGNMENTS = ImmutableMap.of("highly_nested_column_name#grandparent#parent", NESTED_COLUMN_HANDLE_WITH_PROJECTION);
-    private static final Map<String, ColumnHandle> EXPECTED_HIGHLY_NESTED_COLUMN_ASSIGNMENTS = ImmutableMap.of("highly_nested_column_name#grandparent#parent#child", EXPECTED_NESTED_COLUMN_HANDLE_WITH_PROJECTION);
 
     private static final ConnectorExpression DOUBLE_PROJECTION = new Variable("double_projection", DoubleType.DOUBLE);
     private static final ConnectorExpression BOOLEAN_PROJECTION = new Variable("boolean_projection", BooleanType.BOOLEAN);
@@ -182,13 +158,6 @@ public class TestDeltaLakeMetadata
     private static final ConnectorExpression EXPECTED_NESTED_DEREFERENCE_PROJECTION = new Variable(
             "nested_column_name#child2",
             INTEGER);
-    private static final ConnectorExpression HIGHLY_NESTED_DEREFERENCE_PROJECTION = new FieldDereference(
-            INTEGER,
-            new Variable("highly_nested_column_name#grandparent#parent", HIGHLY_NESTED_ROW_FIELD),
-            0);
-    private static final ConnectorExpression EXPECTED_HIGHLY_NESTED_DEREFERENCE_PROJECTION = new Variable(
-            "highly_nested_column_name#grandparent#parent#child",
-            INTEGER);
 
     private static final List<ConnectorExpression> SIMPLE_COLUMN_PROJECTIONS =
             ImmutableList.of(DOUBLE_PROJECTION, BOOLEAN_PROJECTION);
@@ -198,10 +167,6 @@ public class TestDeltaLakeMetadata
             ImmutableList.of(NESTED_DEREFERENCE_PROJECTION);
     private static final List<ConnectorExpression> EXPECTED_NESTED_DEREFERENCE_COLUMN_PROJECTIONS =
             ImmutableList.of(EXPECTED_NESTED_DEREFERENCE_PROJECTION);
-    private static final List<ConnectorExpression> HIGHLY_NESTED_DEREFERENCE_COLUMN_PROJECTIONS =
-            ImmutableList.of(HIGHLY_NESTED_DEREFERENCE_PROJECTION);
-    private static final List<ConnectorExpression> EXPECTED_HIGHLY_NESTED_DEREFERENCE_COLUMN_PROJECTIONS =
-            ImmutableList.of(EXPECTED_HIGHLY_NESTED_DEREFERENCE_PROJECTION);
 
     private static final Set<DeltaLakeColumnHandle> PREDICATE_COLUMNS =
             ImmutableSet.of(BOOLEAN_COLUMN_HANDLE, DOUBLE_COLUMN_HANDLE);
