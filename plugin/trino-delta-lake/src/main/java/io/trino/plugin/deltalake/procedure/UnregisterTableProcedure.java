@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake.procedure;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
+import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.plugin.deltalake.LocatedTableHandle;
@@ -96,14 +97,16 @@ public class UnregisterTableProcedure
 
         accessControl.checkCanDropTable(null, schemaTableName);
         DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity());
-
-        LocatedTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
-        if (tableHandle == null) {
-            throw new TableNotFoundException(schemaTableName);
+        metadata.beginQuery(session);
+        try (UncheckedCloseable ignore = () -> metadata.cleanupQuery(session)) {
+            LocatedTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
+            if (tableHandle == null) {
+                throw new TableNotFoundException(schemaTableName);
+            }
+            metadata.getMetastore().dropTable(session, schemaTableName, tableHandle.location(), false);
+            // As a precaution, clear the caches
+            statisticsAccess.invalidateCache(schemaTableName, Optional.of(tableHandle.location()));
+            transactionLogAccess.invalidateCache(schemaTableName, Optional.of(tableHandle.location()));
         }
-        metadata.getMetastore().dropTable(session, schemaTableName, tableHandle.location(), false);
-        // As a precaution, clear the caches
-        statisticsAccess.invalidateCache(schemaTableName, Optional.of(tableHandle.location()));
-        transactionLogAccess.invalidateCache(schemaTableName, Optional.of(tableHandle.location()));
     }
 }
