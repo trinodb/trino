@@ -143,7 +143,7 @@ public final class TrinoViewHiveMetastore
                 getView(name).ifPresent(view -> views.put(name, view));
             }
             catch (TrinoException e) {
-                if (e.getErrorCode().equals(TABLE_NOT_FOUND.toErrorCode())) {
+                if (e.getErrorCode().equals(TABLE_NOT_FOUND.toErrorCode()) || e instanceof TableNotFoundException || e instanceof ViewNotFoundException) {
                     // Ignore view that was dropped during query execution (race condition)
                 }
                 else {

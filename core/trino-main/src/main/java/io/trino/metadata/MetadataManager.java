@@ -165,6 +165,7 @@ import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
+import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
@@ -600,6 +601,7 @@ public final class MetadataManager
                                 ErrorCode errorCode = trinoException.getErrorCode();
                                 silent = errorCode.equals(UNSUPPORTED_TABLE_TYPE.toErrorCode()) ||
                                         // e.g. table deleted concurrently
+                                        errorCode.equals(TABLE_NOT_FOUND.toErrorCode()) ||
                                         errorCode.equals(NOT_FOUND.toErrorCode()) ||
                                         // e.g. Iceberg/Delta table being deleted concurrently resulting in failure to load metadata from filesystem
                                         errorCode.getType() == EXTERNAL;

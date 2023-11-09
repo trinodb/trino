@@ -2790,7 +2790,7 @@ public class HiveMetadata
                 else if (e.getErrorCode().equals(HIVE_INVALID_VIEW_DATA.toErrorCode())) {
                     // Ignore views that are not valid
                 }
-                else if (e.getErrorCode().equals(TABLE_NOT_FOUND.toErrorCode())) {
+                else if (e.getErrorCode().equals(TABLE_NOT_FOUND.toErrorCode()) || e instanceof TableNotFoundException || e instanceof ViewNotFoundException) {
                     // Ignore view that was dropped during query execution (race condition)
                 }
                 else {
