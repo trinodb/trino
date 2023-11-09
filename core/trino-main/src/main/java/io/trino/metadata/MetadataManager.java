@@ -2572,7 +2572,7 @@ public final class MetadataManager
             }
         }
 
-        private synchronized void finish()
+        private void finish()
         {
             List<CatalogMetadata> catalogs;
             synchronized (this) {
