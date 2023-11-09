@@ -33,7 +33,6 @@ import io.trino.parquet.ParquetWriteValidation;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
-import io.trino.parquet.reader.TrinoColumnIndexStore;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -51,8 +50,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
-import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
-import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
@@ -63,7 +60,6 @@ import org.apache.parquet.schema.Type;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -74,7 +70,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.BloomFilterStore.getBloomFilterStore;
 import static io.trino.parquet.ParquetTypeUtils.constructField;
@@ -84,6 +79,7 @@ import static io.trino.parquet.ParquetTypeUtils.getParquetTypeByName;
 import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.predicateMatches;
+import static io.trino.parquet.reader.TrinoColumnIndexStore.getColumnIndexStore;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
@@ -381,43 +377,6 @@ public class ParquetPageSourceFactory
             type = new GroupType(groupType.getRepetition(), groupType.getName(), ImmutableList.of(type));
         }
         return Optional.of(new GroupType(baseType.getRepetition(), baseType.getName(), ImmutableList.of(type)));
-    }
-
-    public static Optional<ColumnIndexStore> getColumnIndexStore(
-            ParquetDataSource dataSource,
-            BlockMetaData blockMetadata,
-            Map<List<String>, ColumnDescriptor> descriptorsByPath,
-            TupleDomain<ColumnDescriptor> parquetTupleDomain,
-            ParquetReaderOptions options)
-    {
-        if (!options.isUseColumnIndex() || parquetTupleDomain.isAll() || parquetTupleDomain.isNone()) {
-            return Optional.empty();
-        }
-
-        boolean hasColumnIndex = false;
-        for (ColumnChunkMetaData column : blockMetadata.getColumns()) {
-            if (column.getColumnIndexReference() != null && column.getOffsetIndexReference() != null) {
-                hasColumnIndex = true;
-                break;
-            }
-        }
-
-        if (!hasColumnIndex) {
-            return Optional.empty();
-        }
-
-        Set<ColumnPath> columnsReadPaths = new HashSet<>(descriptorsByPath.size());
-        for (List<String> path : descriptorsByPath.keySet()) {
-            columnsReadPaths.add(ColumnPath.get(path.toArray(new String[0])));
-        }
-
-        Map<ColumnDescriptor, Domain> parquetDomains = parquetTupleDomain.getDomains()
-                .orElseThrow(() -> new IllegalStateException("Predicate other than none should have domains"));
-        Set<ColumnPath> columnsFilteredPaths = parquetDomains.keySet().stream()
-                .map(column -> ColumnPath.get(column.getPath()))
-                .collect(toImmutableSet());
-
-        return Optional.of(new TrinoColumnIndexStore(dataSource, blockMetadata, columnsReadPaths, columnsFilteredPaths));
     }
 
     public static TupleDomain<ColumnDescriptor> getParquetTupleDomain(

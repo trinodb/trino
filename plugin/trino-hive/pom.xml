@@ -223,11 +223,6 @@
 
         <dependency>
             <groupId>org.apache.parquet</groupId>
-            <artifactId>parquet-common</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.parquet</groupId>
             <artifactId>parquet-format-structures</artifactId>
         </dependency>
 
@@ -296,6 +291,12 @@
         <dependency>
             <groupId>jakarta.xml.bind</groupId>
             <artifactId>jakarta.xml.bind-api</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-common</artifactId>
             <scope>runtime</scope>
         </dependency>
 
