@@ -653,7 +653,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>junit-extensions</artifactId>
-                <version>1</version>
+                <version>2</version>
             </dependency>
 
             <dependency>
