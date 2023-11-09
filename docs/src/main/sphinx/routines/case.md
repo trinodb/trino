@@ -49,6 +49,7 @@ FUNCTION simple_case(a bigint)
       WHEN 1 THEN RETURN 'one';
       ELSE RETURN 'more than one or negative';
     END CASE;
+    RETURN NULL;
   END
 ```
 
