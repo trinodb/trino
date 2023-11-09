@@ -243,6 +243,8 @@ public class TestDeltaLakeGlueMetastore
                 .isEmpty();
         assertThat(listTableColumns(metadata, new SchemaTablePrefix(databaseName, nonDeltaLakeView1.getTableName())))
                 .isEmpty();
+
+        metadata.cleanupQuery(session);
     }
 
     private Set<SchemaTableName> listTableColumns(DeltaLakeMetadata metadata, SchemaTablePrefix tablePrefix)
