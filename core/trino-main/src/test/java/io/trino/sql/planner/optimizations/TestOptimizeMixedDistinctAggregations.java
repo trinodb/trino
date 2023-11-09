@@ -128,6 +128,7 @@ public class TestOptimizeMixedDistinctAggregations
 
     private void assertUnitPlan(String sql, PlanMatchPattern pattern)
     {
+        DistinctAggregationController distinctAggregationController = new DistinctAggregationController(new TaskCountEstimator(() -> 4));
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
                 new IterativeOptimizer(
@@ -138,8 +139,8 @@ public class TestOptimizeMixedDistinctAggregations
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
                                 new SingleDistinctAggregationToGroupBy(),
-                                new DistinctAggregationToGroupBy(getQueryRunner().getPlannerContext()),
-                                new MultipleDistinctAggregationToMarkDistinct(new DistinctAggregationController(new TaskCountEstimator(() -> 4))))),
+                                new DistinctAggregationToGroupBy(getQueryRunner().getPlannerContext(), distinctAggregationController),
+                                new MultipleDistinctAggregationToMarkDistinct(distinctAggregationController))),
                 new IterativeOptimizer(
                         getQueryRunner().getPlannerContext(),
                         new RuleStatsRecorder(),

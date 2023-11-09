@@ -29,6 +29,7 @@ import static java.util.Objects.requireNonNull;
 public class DistinctAggregationController
 {
     private static final int MARK_DISTINCT_MAX_OUTPUT_ROW_COUNT_MULTIPLIER = 8;
+    private static final int PRE_AGGREGATE_MAX_OUTPUT_ROW_COUNT_MULTIPLIER = MARK_DISTINCT_MAX_OUTPUT_ROW_COUNT_MULTIPLIER * 8;
 
     private final TaskCountEstimator taskCountEstimator;
 
@@ -40,26 +41,42 @@ public class DistinctAggregationController
 
     public boolean shouldAddMarkDistinct(AggregationNode aggregationNode, Rule.Context context)
     {
+        return !canParallelizeSingleStepDistinctAggregation(aggregationNode, context, MARK_DISTINCT_MAX_OUTPUT_ROW_COUNT_MULTIPLIER);
+    }
+
+    public boolean shouldUsePreAggregate(AggregationNode aggregationNode, Rule.Context context)
+    {
+        if (canParallelizeSingleStepDistinctAggregation(aggregationNode, context, PRE_AGGREGATE_MAX_OUTPUT_ROW_COUNT_MULTIPLIER)) {
+            return false;
+        }
+
+        // mark-distinct is better than pre-aggregate if the number of group-by keys is bigger than 2
+        // because group-by keys are added to every grouping set and this makes partial aggregation behaves badly
+        return aggregationNode.getGroupingKeys().size() <= 2;
+    }
+
+    private boolean canParallelizeSingleStepDistinctAggregation(AggregationNode aggregationNode, Rule.Context context, int maxOutputRowCountMultiplier)
+    {
         if (aggregationNode.getGroupingKeys().isEmpty()) {
             // global distinct aggregation is computed using a single thread. MarkDistinct will help parallelize the execution.
-            return true;
+            return false;
         }
         double numberOfDistinctValues = getMinDistinctValueCountEstimate(aggregationNode, context);
         if (Double.isNaN(numberOfDistinctValues)) {
             // if the estimate is unknown, use MarkDistinct to avoid query failure
-            return true;
+            return false;
         }
         int maxNumberOfConcurrentThreadsForAggregation = getMaxNumberOfConcurrentThreadsForAggregation(context);
 
-        if (numberOfDistinctValues <= MARK_DISTINCT_MAX_OUTPUT_ROW_COUNT_MULTIPLIER * maxNumberOfConcurrentThreadsForAggregation) {
+        if (numberOfDistinctValues <= maxOutputRowCountMultiplier * maxNumberOfConcurrentThreadsForAggregation) {
             // small numberOfDistinctValues reduces the distinct aggregation parallelism, also because the partitioning may be skewed.
             // This makes query to underutilize the cluster CPU but also to possibly concentrate memory on few nodes.
             // MarkDistinct should increase the parallelism at a cost of CPU.
-            return true;
+            return false;
         }
 
-        // can parallelize single-step, and single-step distinct is more efficient than MarkDistinct
-        return false;
+        // can parallelize single-step, and single-step distinct is more efficient than alternatives
+        return true;
     }
 
     private int getMaxNumberOfConcurrentThreadsForAggregation(Rule.Context context)

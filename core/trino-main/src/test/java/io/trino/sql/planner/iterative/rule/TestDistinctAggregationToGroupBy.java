@@ -15,12 +15,18 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.cost.SymbolStatsEstimate;
+import io.trino.cost.TaskCountEstimator;
 import io.trino.spi.type.RowType;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
+import io.trino.sql.planner.plan.PlanNodeId;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
+import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -35,11 +41,14 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 public class TestDistinctAggregationToGroupBy
         extends BaseRuleTest
 {
+    private static final int NODES_COUNT = 4;
+    private static final DistinctAggregationController DISTINCT_AGGREGATION_CONTROLLER = new DistinctAggregationController(new TaskCountEstimator(() -> NODES_COUNT));
+
     @Test
     public void testGlobalWithNonDistinct()
     {
         // 0 distinct aggregations
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
@@ -48,7 +57,7 @@ public class TestDistinctAggregationToGroupBy
                 .doesNotFire();
 
         // 1 distinct aggregation
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
@@ -74,7 +83,7 @@ public class TestDistinctAggregationToGroupBy
                                                 values("a", "b"))))));
 
         // 2 distinct aggregations
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
@@ -104,7 +113,7 @@ public class TestDistinctAggregationToGroupBy
                                                 values("a", "b", "c"))))));
 
         // 3 distinct aggregations, 2 on the same input
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
@@ -136,7 +145,7 @@ public class TestDistinctAggregationToGroupBy
                                                 values("a", "b", "c"))))));
 
         // 2 distinct aggregations, 2 non-distinct
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
@@ -170,7 +179,7 @@ public class TestDistinctAggregationToGroupBy
                                                 values("a", "b", "c", "d"))))));
 
         // 2 distinct aggregations, 2 non-distinct on the same input
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
@@ -208,7 +217,7 @@ public class TestDistinctAggregationToGroupBy
     public void testDistinctAggregationsAndNonDistinctAggregationsOnTheSameInput()
     {
         //  distinct aggregations and non-distinct aggregations on the same input
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
@@ -247,7 +256,7 @@ public class TestDistinctAggregationToGroupBy
     public void testNonDistinctWith0OnEmptyInput()
     {
         // global
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
@@ -275,7 +284,7 @@ public class TestDistinctAggregationToGroupBy
                                                         values("a", "b")))))));
 
         // group by
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey"))
@@ -307,7 +316,7 @@ public class TestDistinctAggregationToGroupBy
     public void testGlobalWithoutNonDistinct()
     {
         // 1 distinct aggregation
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
@@ -316,7 +325,7 @@ public class TestDistinctAggregationToGroupBy
                 .doesNotFire();
 
         // 2 distinct aggregations
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
@@ -342,7 +351,7 @@ public class TestDistinctAggregationToGroupBy
                                                 values("b", "c"))))));
 
         // 3 distinct aggregations, 2 on the same input
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
@@ -373,7 +382,7 @@ public class TestDistinctAggregationToGroupBy
     @Test
     public void testDistinctOnNestedType()
     {
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
@@ -403,7 +412,7 @@ public class TestDistinctAggregationToGroupBy
     public void testNonDistinctWithoutArgument()
     {
         // only count(*) + distinct
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
@@ -430,7 +439,7 @@ public class TestDistinctAggregationToGroupBy
                                                         "group_id",
                                                         values("b")))))));
         //  count(*) + other non-distinct + distinct
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
@@ -468,7 +477,7 @@ public class TestDistinctAggregationToGroupBy
     public void testGroupByOneColumnWithNonDistinct()
     {
         // 0 distinct aggregations
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey"))
@@ -477,7 +486,7 @@ public class TestDistinctAggregationToGroupBy
                 .doesNotFire();
 
         // 1 distinct aggregation
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey"))
@@ -503,7 +512,7 @@ public class TestDistinctAggregationToGroupBy
                                                 values("a", "b", "groupingKey"))))));
 
         // 2 distinct aggregations
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey"))
@@ -533,7 +542,7 @@ public class TestDistinctAggregationToGroupBy
                                                 values("a", "b", "c", "groupingKey"))))));
 
         // 3 distinct aggregations, 2 on the same input
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey"))
@@ -565,7 +574,7 @@ public class TestDistinctAggregationToGroupBy
                                                 values("a", "b", "c", "groupingKey"))))));
 
         // 2 distinct aggregations, 2 non-distinct
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey"))
@@ -599,7 +608,7 @@ public class TestDistinctAggregationToGroupBy
                                                 values("a", "b", "c", "d", "groupingKey"))))));
 
         // 2 distinct aggregations, 2 non-distinct on the same input
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey"))
@@ -637,7 +646,7 @@ public class TestDistinctAggregationToGroupBy
     public void testGroupByOneColumnWithoutNonDistinct()
     {
         // 1 distinct aggregation
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey"))
@@ -646,7 +655,7 @@ public class TestDistinctAggregationToGroupBy
                 .doesNotFire();
 
         // 2 distinct aggregations
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey"))
@@ -672,7 +681,7 @@ public class TestDistinctAggregationToGroupBy
                                                 values("b", "c", "groupingKey"))))));
 
         // 3 distinct aggregations, 2 on the same input
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey"))
@@ -704,7 +713,7 @@ public class TestDistinctAggregationToGroupBy
     public void testGroupByMultipleColumnWithNonDistinct()
     {
         // 0 distinct aggregations
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey1"), p.symbol("groupingKey2"))
@@ -713,7 +722,7 @@ public class TestDistinctAggregationToGroupBy
                 .doesNotFire();
 
         // 1 distinct aggregation
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey1"), p.symbol("groupingKey2"))
@@ -739,7 +748,7 @@ public class TestDistinctAggregationToGroupBy
                                                 values("a", "b", "groupingKey1", "groupingKey2"))))));
 
         // 2 distinct aggregations
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey1"), p.symbol("groupingKey2"))
@@ -769,7 +778,7 @@ public class TestDistinctAggregationToGroupBy
                                                 values("a", "b", "c", "groupingKey1", "groupingKey2"))))));
 
         // 3 distinct aggregations, 2 on the same input
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey1"), p.symbol("groupingKey2"))
@@ -801,7 +810,7 @@ public class TestDistinctAggregationToGroupBy
                                                 values("a", "b", "c", "groupingKey1", "groupingKey2"))))));
 
         // 2 distinct aggregations, 2 non-distinct
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey1"), p.symbol("groupingKey2"))
@@ -835,7 +844,7 @@ public class TestDistinctAggregationToGroupBy
                                                 values("a", "b", "c", "d", "groupingKey1", "groupingKey2"))))));
 
         // 2 distinct aggregations, 2 non-distinct on the same input
-        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext()))
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .on(p -> p.aggregation(builder -> builder
                         .singleGroupingSet(p.symbol("groupingKey1"), p.symbol("groupingKey2"))
@@ -867,5 +876,195 @@ public class TestDistinctAggregationToGroupBy
                                                         ImmutableList.of("c", "groupingKey1", "groupingKey2")),
                                                 "group_id",
                                                 values("a", "b", "c", "groupingKey1", "groupingKey2"))))));
+    }
+
+    @Test
+    public void testAutomaticDecisionForGlobal()
+    {
+        // global
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "automatic")
+                .on(p -> p.aggregation(builder -> builder
+                        .globalGrouping()
+                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
+                        .source(p.values(p.symbol("a"), p.symbol("b")))))
+                .matches(aggregation(
+                        globalAggregation(),
+                        ImmutableMap.of(
+                                "non-distinct-final", functionCall("any_value", false, ImmutableList.of(symbol("non-distinct")), "gid-filter-0"),
+                                "distinct-final", functionCall("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
+                        project(
+                                ImmutableMap.of(
+                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
+                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                aggregation(
+                                        singleGroupingSet("b", "group_id"),
+                                        ImmutableMap.of("non-distinct", functionCall("sum", ImmutableList.of("a"))),
+                                        groupId(ImmutableList.of(
+                                                        ImmutableList.of("a"),
+                                                        ImmutableList.of("b")),
+                                                "group_id",
+                                                values("a", "b"))))));
+    }
+
+    @Test
+    public void testAutomaticDecisionForSingleGroupByKeyWithLowCardinality()
+    {
+        int clusterThreadCount = NODES_COUNT * tester().getSession().getSystemProperty(TASK_CONCURRENCY, Integer.class);
+        PlanNodeId aggregationSourceId = new PlanNodeId("aggregationSourceId");
+        // single group-by key, low cardinality
+        Symbol groupingKey = new Symbol("groupingKey");
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "automatic")
+                .overrideStats(aggregationSourceId.toString(), PlanNodeStatsEstimate.builder()
+                        .addSymbolStatistics(groupingKey, SymbolStatsEstimate.builder().setDistinctValuesCount(2 * clusterThreadCount).build()).build())
+                .on(p -> p.aggregation(builder -> builder
+                        .singleGroupingSet(groupingKey)
+                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
+                        .source(p.values(aggregationSourceId, p.symbol("a"), p.symbol("b"), p.symbol("groupingKey")))))
+                .matches(aggregation(
+                        singleGroupingSet("groupingKey"),
+                        ImmutableMap.of(
+                                "non-distinct-final", functionCall("any_value", false, ImmutableList.of(symbol("non-distinct")), "gid-filter-0"),
+                                "distinct-final", functionCall("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
+                        project(
+                                ImmutableMap.of(
+                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
+                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                aggregation(
+                                        singleGroupingSet("groupingKey", "b", "group_id"),
+                                        ImmutableMap.of("non-distinct", functionCall("sum", ImmutableList.of("a"))),
+                                        groupId(ImmutableList.of(
+                                                        ImmutableList.of("a", "groupingKey"),
+                                                        ImmutableList.of("b", "groupingKey")),
+                                                "group_id",
+                                                values("a", "b", "groupingKey"))))));
+    }
+
+    @Test
+    public void testAutomaticDecisionWithUnknownStats()
+    {
+        PlanNodeId aggregationSourceId = new PlanNodeId("aggregationSourceId");
+        Symbol groupingKey = new Symbol("groupingKey");
+        // single group-by key, unknown stats
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "automatic")
+                .overrideStats(aggregationSourceId.toString(), PlanNodeStatsEstimate.builder()
+                        .addSymbolStatistics(groupingKey, SymbolStatsEstimate.builder().setDistinctValuesCount(Double.NaN).build()).build())
+                .on(p -> p.aggregation(builder -> builder
+                        .singleGroupingSet(groupingKey)
+                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
+                        .source(p.values(aggregationSourceId, p.symbol("a"), p.symbol("b"), p.symbol("groupingKey")))))
+                .matches(aggregation(
+                        singleGroupingSet("groupingKey"),
+                        ImmutableMap.of(
+                                "non-distinct-final", functionCall("any_value", false, ImmutableList.of(symbol("non-distinct")), "gid-filter-0"),
+                                "distinct-final", functionCall("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
+                        project(
+                                ImmutableMap.of(
+                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
+                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                aggregation(
+                                        singleGroupingSet("groupingKey", "b", "group_id"),
+                                        ImmutableMap.of("non-distinct", functionCall("sum", ImmutableList.of("a"))),
+                                        groupId(ImmutableList.of(
+                                                        ImmutableList.of("a", "groupingKey"),
+                                                        ImmutableList.of("b", "groupingKey")),
+                                                "group_id",
+                                                values("a", "b", "groupingKey"))))));
+    }
+
+    @Test
+    public void testAutomaticDecisionForSingleGroupByKeyWithHighCardinality()
+    {
+        int clusterThreadCount = NODES_COUNT * tester().getSession().getSystemProperty(TASK_CONCURRENCY, Integer.class);
+        PlanNodeId aggregationSourceId = new PlanNodeId("aggregationSourceId");
+        Symbol groupingKey = new Symbol("groupingKey");
+
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "automatic")
+                .overrideStats(aggregationSourceId.toString(), PlanNodeStatsEstimate.builder()
+                        .addSymbolStatistics(groupingKey, SymbolStatsEstimate.builder().setDistinctValuesCount(1000 * clusterThreadCount).build()).build())
+                .on(p -> p.aggregation(builder -> builder
+                        .singleGroupingSet(groupingKey)
+                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
+                        .source(p.values(aggregationSourceId, p.symbol("a"), p.symbol("b"), p.symbol("groupingKey")))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testAutomaticDecisionForTwoGroupByKeyWithLowCardinality()
+    {
+        int clusterThreadCount = NODES_COUNT * tester().getSession().getSystemProperty(TASK_CONCURRENCY, Integer.class);
+        PlanNodeId aggregationSourceId = new PlanNodeId("aggregationSourceId");
+        Symbol groupingKey1 = new Symbol("groupingKey1");
+        Symbol groupingKey2 = new Symbol("groupingKey2");
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "automatic")
+                .overrideStats(aggregationSourceId.toString(), PlanNodeStatsEstimate.builder()
+                        .addSymbolStatistics(groupingKey1, SymbolStatsEstimate.builder().setDistinctValuesCount(2 * clusterThreadCount).build())
+                        .addSymbolStatistics(groupingKey2, SymbolStatsEstimate.builder().setDistinctValuesCount(2 * clusterThreadCount).build()).build())
+                .on(p -> p.aggregation(builder -> builder
+                        .singleGroupingSet(groupingKey1, groupingKey2)
+                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
+                        .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("groupingKey1"), p.symbol("groupingKey2")))))
+                .matches(aggregation(
+                        singleGroupingSet("groupingKey1", "groupingKey2"),
+                        ImmutableMap.of(
+                                "non-distinct-final", functionCall("any_value", false, ImmutableList.of(symbol("non-distinct")), "gid-filter-0"),
+                                "distinct-final", functionCall("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
+                        project(
+                                ImmutableMap.of(
+                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
+                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                aggregation(
+                                        singleGroupingSet("groupingKey1", "groupingKey2", "b", "group_id"),
+                                        ImmutableMap.of("non-distinct", functionCall("sum", ImmutableList.of("a"))),
+                                        groupId(ImmutableList.of(
+                                                        ImmutableList.of("a", "groupingKey1", "groupingKey2"),
+                                                        ImmutableList.of("b", "groupingKey1", "groupingKey2")),
+                                                "group_id",
+                                                values("a", "b", "groupingKey1", "groupingKey2"))))));
+    }
+
+    @Test
+    public void testAutomaticDecisionForThreeGroupByKeyWithLowCardinality()
+    {
+        int clusterThreadCount = NODES_COUNT * tester().getSession().getSystemProperty(TASK_CONCURRENCY, Integer.class);
+        PlanNodeId aggregationSourceId = new PlanNodeId("aggregationSourceId");
+        Symbol groupingKey1 = new Symbol("groupingKey1");
+        Symbol groupingKey2 = new Symbol("groupingKey2");
+        Symbol groupingKey3 = new Symbol("groupingKey3");
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "automatic")
+                .overrideStats(aggregationSourceId.toString(), PlanNodeStatsEstimate.builder()
+                        .addSymbolStatistics(groupingKey1, SymbolStatsEstimate.builder().setDistinctValuesCount(clusterThreadCount).build())
+                        .addSymbolStatistics(groupingKey2, SymbolStatsEstimate.builder().setDistinctValuesCount(clusterThreadCount).build())
+                        .addSymbolStatistics(groupingKey3, SymbolStatsEstimate.builder().setDistinctValuesCount(clusterThreadCount).build()).build())
+                .on(p -> p.aggregation(builder -> builder
+                        .singleGroupingSet(groupingKey1, groupingKey2, groupingKey3)
+                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
+                        .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("groupingKey1"), p.symbol("groupingKey2"), p.symbol("groupingKey3")))))
+                .doesNotFire();
+
+        // three group-by keys, unknown stats - prefer mark-distinct
+        tester().assertThat(new DistinctAggregationToGroupBy(tester().getPlannerContext(), DISTINCT_AGGREGATION_CONTROLLER))
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "automatic")
+                .overrideStats(aggregationSourceId.toString(), PlanNodeStatsEstimate.builder()
+                        .addSymbolStatistics(groupingKey1, SymbolStatsEstimate.builder().setDistinctValuesCount(Double.NaN).build())
+                        .addSymbolStatistics(groupingKey2, SymbolStatsEstimate.builder().setDistinctValuesCount(Double.NaN).build())
+                        .addSymbolStatistics(groupingKey3, SymbolStatsEstimate.builder().setDistinctValuesCount(Double.NaN).build()).build())
+                .on(p -> p.aggregation(builder -> builder
+                        .singleGroupingSet(groupingKey1, groupingKey2, groupingKey3)
+                        .addAggregation(p.symbol("non-distinct"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("distinct"), PlanBuilder.expression("sum(distinct b)"), ImmutableList.of(BIGINT))
+                        .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("groupingKey1"), p.symbol("groupingKey2"), p.symbol("groupingKey3")))))
+                .doesNotFire();
     }
 }
