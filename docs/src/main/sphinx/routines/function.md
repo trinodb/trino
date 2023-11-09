@@ -60,7 +60,9 @@ function to other users as `description`. The information is accessible with
 [](/sql/show-functions).
 
 The body of the routine can either be a simple single `RETURN` statement with an
-expression, or compound list of `statements` in a `BEGIN` block.
+expression, or compound list of `statements` in a `BEGIN` block. Routines must
+contain a `RETURN` statement at the end of the top-level block, even if it's
+unreachable.
 
 ## Examples
 
