@@ -18,6 +18,7 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import io.trino.Session;
+import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -345,12 +346,5 @@ public abstract class BaseS3AndGlueMetastoreTest
         {
             return locationPattern.formatted(bucketName, schemaName, tableName);
         }
-    }
-
-    protected interface UncheckedCloseable
-            extends AutoCloseable
-    {
-        @Override
-        void close();
     }
 }

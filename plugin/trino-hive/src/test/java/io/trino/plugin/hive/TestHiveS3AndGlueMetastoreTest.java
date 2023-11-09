@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import io.trino.testing.DistributedQueryRunner;

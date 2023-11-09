@@ -240,12 +240,12 @@ public class TestDeltaLakeMetadata
     @Test
     public void testGetNewTableLayout()
     {
-        Optional<ConnectorTableLayout> newTableLayout = deltaLakeMetadataFactory.create(SESSION.getIdentity())
-                .getNewTableLayout(
-                        SESSION,
-                        newTableMetadata(
-                                ImmutableList.of(BIGINT_COLUMN_1, BIGINT_COLUMN_2),
-                                ImmutableList.of(BIGINT_COLUMN_2)));
+        DeltaLakeMetadata deltaLakeMetadata = deltaLakeMetadataFactory.create(SESSION.getIdentity());
+        Optional<ConnectorTableLayout> newTableLayout = deltaLakeMetadata.getNewTableLayout(
+                SESSION,
+                newTableMetadata(
+                        ImmutableList.of(BIGINT_COLUMN_1, BIGINT_COLUMN_2),
+                        ImmutableList.of(BIGINT_COLUMN_2)));
 
         assertThat(newTableLayout).isPresent();
 
@@ -254,40 +254,45 @@ public class TestDeltaLakeMetadata
 
         assertThat(newTableLayout.get().getPartitionColumns())
                 .isEqualTo(ImmutableList.of(BIGINT_COLUMN_2.getName()));
+
+        deltaLakeMetadata.cleanupQuery(SESSION);
     }
 
     @Test
     public void testGetNewTableLayoutNoPartitionColumns()
     {
-        assertThat(deltaLakeMetadataFactory.create(SESSION.getIdentity())
-                .getNewTableLayout(
-                        SESSION,
-                        newTableMetadata(
-                                ImmutableList.of(BIGINT_COLUMN_1, BIGINT_COLUMN_2),
-                                ImmutableList.of())))
+        DeltaLakeMetadata deltaLakeMetadata = deltaLakeMetadataFactory.create(SESSION.getIdentity());
+        assertThat(deltaLakeMetadata.getNewTableLayout(
+                SESSION,
+                newTableMetadata(
+                        ImmutableList.of(BIGINT_COLUMN_1, BIGINT_COLUMN_2),
+                        ImmutableList.of())))
                 .isNotPresent();
+
+        deltaLakeMetadata.cleanupQuery(SESSION);
     }
 
     @Test
     public void testGetNewTableLayoutInvalidPartitionColumns()
     {
-        assertThatThrownBy(() -> deltaLakeMetadataFactory.create(SESSION.getIdentity())
-                .getNewTableLayout(
-                        SESSION,
-                        newTableMetadata(
-                                ImmutableList.of(BIGINT_COLUMN_1, BIGINT_COLUMN_2),
-                                ImmutableList.of(BIGINT_COLUMN_2, MISSING_COLUMN))))
+        DeltaLakeMetadata deltaLakeMetadata = deltaLakeMetadataFactory.create(SESSION.getIdentity());
+        assertThatThrownBy(() -> deltaLakeMetadata.getNewTableLayout(
+                SESSION,
+                newTableMetadata(
+                        ImmutableList.of(BIGINT_COLUMN_1, BIGINT_COLUMN_2),
+                        ImmutableList.of(BIGINT_COLUMN_2, MISSING_COLUMN))))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Table property 'partition_by' contained column names which do not exist: [missing_column]");
 
-        assertThatThrownBy(() -> deltaLakeMetadataFactory.create(SESSION.getIdentity())
-                .getNewTableLayout(
-                        SESSION,
-                        newTableMetadata(
-                                ImmutableList.of(TIMESTAMP_COLUMN, BIGINT_COLUMN_2),
-                                ImmutableList.of(BIGINT_COLUMN_2))))
+        assertThatThrownBy(() -> deltaLakeMetadata.getNewTableLayout(
+                SESSION,
+                newTableMetadata(
+                        ImmutableList.of(TIMESTAMP_COLUMN, BIGINT_COLUMN_2),
+                        ImmutableList.of(BIGINT_COLUMN_2))))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Unsupported type: timestamp(3)");
+
+        deltaLakeMetadata.cleanupQuery(SESSION);
     }
 
     @Test
@@ -312,6 +317,8 @@ public class TestDeltaLakeMetadata
 
         assertThat(insertLayout.get().getPartitionColumns())
                 .isEqualTo(getPartitionColumnNames(ImmutableList.of(BIGINT_COLUMN_1)));
+
+        deltaLakeMetadata.cleanupQuery(SESSION);
     }
 
     private ConnectorTableMetadata newTableMetadata(List<ColumnMetadata> tableColumns, List<ColumnMetadata> partitionTableColumns)
@@ -342,6 +349,8 @@ public class TestDeltaLakeMetadata
                 SESSION,
                 deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable())))
                 .isNotPresent();
+
+        deltaLakeMetadata.cleanupQuery(SESSION);
     }
 
     @Test
@@ -425,6 +434,8 @@ public class TestDeltaLakeMetadata
 
         assertThat(projection.isPrecalculateStatistics())
                 .isFalse();
+
+        deltaLakeMetadata.cleanupQuery(SESSION);
     }
 
     @Test
@@ -449,6 +460,8 @@ public class TestDeltaLakeMetadata
                         ImmutableList.of(),
                         ImmutableMap.of()))
                 .isEmpty();
+
+        deltaLakeMetadata.cleanupQuery(SESSION);
     }
 
     @Test
@@ -461,6 +474,7 @@ public class TestDeltaLakeMetadata
         deltaLakeMetadata.createTable(SESSION, tableMetadata, false);
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable());
         assertThat(deltaLakeMetadata.getInfo(tableHandle)).isEqualTo(Optional.of(new DeltaLakeInputInfo(true)));
+        deltaLakeMetadata.cleanupQuery(SESSION);
     }
 
     @Test
@@ -473,6 +487,7 @@ public class TestDeltaLakeMetadata
         deltaLakeMetadata.createTable(SESSION, tableMetadata, false);
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable());
         assertThat(deltaLakeMetadata.getInfo(tableHandle)).isEqualTo(Optional.of(new DeltaLakeInputInfo(false)));
+        deltaLakeMetadata.cleanupQuery(SESSION);
     }
 
     private static DeltaLakeTableHandle createDeltaLakeTableHandle(Set<DeltaLakeColumnHandle> projectedColumns, Set<DeltaLakeColumnHandle> constrainedColumns)
