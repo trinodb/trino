@@ -62,6 +62,7 @@ import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.SaveMode.IGNORE;
 import static io.trino.spi.connector.SaveMode.REPLACE;
@@ -409,6 +410,7 @@ public interface ConnectorMetadata
                             ErrorCode errorCode = trinoException.getErrorCode();
                             silent = errorCode.equals(UNSUPPORTED_TABLE_TYPE.toErrorCode()) ||
                                     // e.g. table deleted concurrently
+                                    errorCode.equals(TABLE_NOT_FOUND.toErrorCode()) ||
                                     errorCode.equals(NOT_FOUND.toErrorCode()) ||
                                     // e.g. Iceberg/Delta table being deleted concurrently resulting in failure to load metadata from filesystem
                                     errorCode.getType() == EXTERNAL;
