@@ -100,7 +100,7 @@ public class GcsFileSystemConfig
         return projectId;
     }
 
-    @Config("gcs.projectId")
+    @Config("gcs.project-id")
     public GcsFileSystemConfig setProjectId(String projectId)
     {
         this.projectId = projectId;

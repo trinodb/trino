@@ -54,7 +54,7 @@ public class TestGcsFileSystemConfig
                 .put("gcs.write-block-size", "52MB")
                 .put("gcs.page-size", "10")
                 .put("gcs.batch-size", "11")
-                .put("gcs.projectId", "project")
+                .put("gcs.project-id", "project")
                 .put("gcs.use-access-token", "true")
                 .put("gcs.json-key", "{}")
                 .put("gcs.json-key-file-path", jsonKeyFile.toString())
