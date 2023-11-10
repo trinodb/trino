@@ -15,7 +15,9 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import io.airlift.log.Level;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
@@ -46,6 +48,13 @@ import static org.testng.util.Strings.isNullOrEmpty;
 
 public final class DeltaLakeQueryRunner
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.apache.parquet.filter2.compat.FilterCompat", Level.OFF);
+        logging.setLevel("com.amazonaws.util.Base64", Level.OFF);
+        logging.setLevel("com.google.cloud", Level.OFF);
+    }
+
     private static final Logger log = Logger.get(DeltaLakeQueryRunner.class);
     public static final String DELTA_CATALOG = "delta";
     public static final String TPCH_SCHEMA = "tpch";

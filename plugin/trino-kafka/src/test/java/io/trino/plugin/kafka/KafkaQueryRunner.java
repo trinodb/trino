@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Scopes;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.decoder.DecoderModule;
@@ -50,6 +51,11 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class KafkaQueryRunner
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.apache.kafka", Level.OFF);
+    }
+
     private KafkaQueryRunner() {}
 
     private static final Logger log = Logger.get(KafkaQueryRunner.class);

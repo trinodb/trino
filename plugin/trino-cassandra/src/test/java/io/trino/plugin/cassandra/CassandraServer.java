@@ -82,7 +82,7 @@ public class CassandraServer
     public CassandraServer(String imageName, Map<String, String> environmentVariables, String configPath, String configFileName)
             throws Exception
     {
-        log.info("Starting cassandra...");
+        log.debug("Starting cassandra...");
 
         this.dockerContainer = new GenericContainer<>(imageName)
                 .withExposedPorts(PORT)
@@ -161,7 +161,7 @@ public class CassandraServer
         List<Row> rows = result.all();
         assertEquals(rows.size(), 1);
         String version = rows.get(0).getString(0);
-        log.info("Cassandra version: %s", version);
+        log.debug("Cassandra version: %s", version);
     }
 
     public void refreshSizeEstimates(String keyspace, String table)
@@ -173,10 +173,10 @@ public class CassandraServer
             refreshSizeEstimates();
             List<SizeEstimate> sizeEstimates = getSession().getSizeEstimates(keyspace, table);
             if (!sizeEstimates.isEmpty()) {
-                log.info("Size estimates for the table %s.%s have been refreshed successfully: %s", keyspace, table, sizeEstimates);
+                log.debug("Size estimates for the table %s.%s have been refreshed successfully: %s", keyspace, table, sizeEstimates);
                 return;
             }
-            log.info("Size estimates haven't been refreshed as expected. Retrying ...");
+            log.debug("Size estimates haven't been refreshed as expected. Retrying ...");
             SECONDS.sleep(1);
         }
         throw new TimeoutException(format("Attempting to refresh size estimates for table %s.%s has timed out after %s", keyspace, table, REFRESH_SIZE_ESTIMATES_TIMEOUT));

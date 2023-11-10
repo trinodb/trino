@@ -15,7 +15,9 @@ package io.trino.plugin.elasticsearch;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
+import io.airlift.log.Level;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.jmx.JmxPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -40,6 +42,11 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class ElasticsearchQueryRunner
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.elasticsearch.client.RestClient", Level.OFF);
+    }
+
     private ElasticsearchQueryRunner() {}
 
     private static final Logger LOG = Logger.get(ElasticsearchQueryRunner.class);
