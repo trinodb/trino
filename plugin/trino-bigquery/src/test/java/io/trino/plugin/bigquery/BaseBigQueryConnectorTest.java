@@ -804,6 +804,18 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Test
+    public void testNativeQuerySimpleWithProjectedColumns()
+    {
+        assertQuery(
+                "SELECT z, y, x FROM (SELECT y, z, x FROM TABLE(bigquery.system.query(query => 'SELECT 1 x, 2 y, 3 z')))",
+                "VALUES (3, 2, 1)");
+
+        assertQuery(
+                "SELECT z FROM (SELECT x, y, z FROM TABLE(bigquery.system.query(query => 'SELECT 1 x, 2 y, 3 z')))",
+                "VALUES 3");
+    }
+
+    @Test
     public void testNativeQuerySelectForCaseSensitiveColumnNames()
     {
         assertThat(computeActual("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT 1 AS lower, 2 AS UPPER, 3 AS miXED'))").getColumnNames())
