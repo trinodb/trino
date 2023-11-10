@@ -181,6 +181,9 @@ public class DeltaByteArrayDecoders
         protected void readBounded(BinaryBuffer values, int offset, int length, int totalInputLength)
         {
             checkPositionIndexes(inputLengthsOffset, inputLengthsOffset + length, prefixLengths.length);
+            if (length == 0) {
+                return;
+            }
             int[] outputOffsets = values.getOffsets();
             byte[] dataBuffer = readUnbounded(outputOffsets, offset, length, totalInputLength);
             Slice inputSlice = Slices.wrappedBuffer(dataBuffer);
@@ -224,6 +227,9 @@ public class DeltaByteArrayDecoders
         protected void readUnbounded(BinaryBuffer values, int offset, int length, int totalInputLength)
         {
             checkPositionIndexes(inputLengthsOffset, inputLengthsOffset + length, prefixLengths.length);
+            if (length == 0) {
+                return;
+            }
             int[] outputOffsets = values.getOffsets();
             Slice outputBuffer = Slices.wrappedBuffer(readUnbounded(outputOffsets, offset, length, totalInputLength));
             values.addChunk(outputBuffer);

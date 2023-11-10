@@ -75,6 +75,7 @@ import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.concat;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static java.lang.Integer.MAX_VALUE;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -304,7 +305,7 @@ public abstract class AbstractValueDecodersTest
                 int i = 0;
                 while (i < size) {
                     if (random.nextBoolean()) {
-                        int readBatch = random.nextInt(1, batchSize + 2);
+                        int readBatch = random.nextInt(0, max(batchSize, 1) + 1);
                         decoder.read(data, i, min(readBatch, size - i));
                         i += readBatch;
                     }
