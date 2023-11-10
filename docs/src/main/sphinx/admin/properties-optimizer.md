@@ -39,19 +39,26 @@ partition keys for partitions that have no rows. In particular, the Hive connect
 can return empty partitions, if they were created by other systems. Trino cannot
 create them.
 
-## `optimizer.mark-distinct-strategy`
+## `optimizer.distinct-aggregations-strategy`
 
 - **Type:** {ref}`prop-type-string`
-- **Allowed values:** `AUTOMATIC`, `ALWAYS`, `NONE`
+- **Allowed values:** `AUTOMATIC`, `MARK_DISTINCT`, `SINGLE_STEP`, `PRE_AGGREGATE`, `SPLIT_TO_SUBQUERIES`
 - **Default value:** `AUTOMATIC`
-- **Session property:**  `mark_distinct_strategy`
+- **Session property:**  `distinct_aggregations_strategy`
 
-The mark distinct strategy to use for distinct aggregations. `NONE` does not use
-`MarkDistinct` operator.  `ALWAYS` uses `MarkDistinct` for multiple distinct
-aggregations or for mix of distinct and non-distinct aggregations.
-`AUTOMATIC` limits the use of `MarkDistinct` only for cases with limited
-concurrency (global or small cardinality aggregations), where direct distinct
-aggregation implementation cannot utilize CPU efficiently.
+The strategy to use for multiple distinct aggregations.
+`SINGLE_STEP` Computes distinct aggregations in single-step without any pre-aggregations.
+This strategy will perform poorly if the number of distinct grouping keys is small.
+`MARK_DISTINCT` uses `MarkDistinct` for multiple distinct aggregations
+or for mix of distinct and non-distinct aggregations.
+`PRE_AGGREGATE` Computes distinct aggregations using a combination of aggregation 
+and pre-aggregation steps.
+`SPLIT_TO_SUBQUERIES` Splits the aggregation input to independent sub-queries,
+where each subquery computes single distinct aggregation thus improving parallelism
+`AUTOMATIC` chooses the strategy automatically.
+Single-step strategy is preferred. However, for cases with limited concurrency due to
+a small number of distinct grouping keys, it will choose an alternative strategy 
+based on input data statistics.
 
 ## `optimizer.push-aggregation-through-outer-join`
 
