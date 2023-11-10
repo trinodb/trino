@@ -74,6 +74,7 @@ public class BigQueryQueryPageSource
             .optionalEnd()
             .toFormatter();
 
+    private final List<String> columnNames;
     private final List<Type> columnTypes;
     private final PageBuilder pageBuilder;
     private final TableResult tableResult;
@@ -94,6 +95,7 @@ public class BigQueryQueryPageSource
         requireNonNull(columnTypes, "columnTypes is null");
         requireNonNull(filter, "filter is null");
         checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes sizes don't match");
+        this.columnNames = ImmutableList.copyOf(columnNames);
         this.columnTypes = ImmutableList.copyOf(columnTypes);
         this.pageBuilder = new PageBuilder(columnTypes);
         String sql = buildSql(table, client.getProjectId(), ImmutableList.copyOf(columnNames), filter);
@@ -144,7 +146,7 @@ public class BigQueryQueryPageSource
             pageBuilder.declarePosition();
             for (int column = 0; column < columnTypes.size(); column++) {
                 BlockBuilder output = pageBuilder.getBlockBuilder(column);
-                appendTo(columnTypes.get(column), record.get(column), output);
+                appendTo(columnTypes.get(column), record.get(columnNames.get(column)), output);
             }
         }
         finished = true;
