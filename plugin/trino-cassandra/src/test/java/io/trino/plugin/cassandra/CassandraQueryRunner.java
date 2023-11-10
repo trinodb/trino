@@ -15,7 +15,9 @@ package io.trino.plugin.cassandra;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Level;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -31,6 +33,11 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class CassandraQueryRunner
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("com.datastax.oss.driver.internal", Level.OFF);
+    }
+
     private CassandraQueryRunner() {}
 
     public static DistributedQueryRunner createCassandraQueryRunner(CassandraServer server, TpchTable<?>... tables)
