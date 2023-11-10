@@ -14,19 +14,13 @@ The `LOOP` statement is an optional construct in [SQL
 routines](/routines/introduction) to allow processing of a block of statements
 repeatedly.
 
-The block of statements is processed at least once. After the first, and every
-subsequent processing the expression `condidtion` is validated. If the result is
-`true`, processing moves to END REPEAT and continues with the next statement in
-the function. If the result is `false`, the statements are processed again
-repeatedly.
+The block of `statements` is processed until an explicit use of `LEAVE` causes
+processing to exit the loop. If processing reaches `END LOOP`, another iteration
+of processing from the beginning starts. `LEAVE` statements are typically
+wrapped in an `IF` statement that declares a condition to stop the loop.
 
-The optional `label` before the `REPEAT` keyword can be used to [name the
+The optional `label` before the `LOOP` keyword can be used to [name the
 block](routine-label).
-
-Note that a `WHILE` statement is very similar, with the difference that for
-`REPEAT` the statements are processed at least once, and for `WHILE` blocks the
-statements might not be processed at all.
-
 
 ## Examples
 
@@ -58,6 +52,4 @@ documentation](/routines/examples).
 ## See also
 
 * [](/routines/introduction)
-* [](/routines/repeat)
-* [](/routines/while)
-
+* [](/routines/leave)
