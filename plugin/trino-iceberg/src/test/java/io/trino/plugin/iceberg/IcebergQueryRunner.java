@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.airlift.http.server.testing.TestingHttpServer;
+import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.plugin.hive.containers.HiveHadoop;
@@ -54,6 +55,11 @@ import static java.util.Objects.requireNonNull;
 public final class IcebergQueryRunner
 {
     public static final String ICEBERG_CATALOG = "iceberg";
+
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.apache.iceberg", Level.OFF);
+    }
 
     private IcebergQueryRunner() {}
 

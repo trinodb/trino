@@ -34,6 +34,8 @@ import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.testing.TestingJmxModule;
 import io.airlift.json.JsonModule;
+import io.airlift.log.Level;
+import io.airlift.log.Logging;
 import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.openmetrics.JmxOpenMetricsModule;
 import io.airlift.tracetoken.TraceTokenModule;
@@ -139,6 +141,11 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class TestingTrinoServer
         implements Closeable
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("io.trino.event.QueryMonitor", Level.ERROR);
+    }
+
     private static final String VERSION = "testversion";
 
     public static TestingTrinoServer create()
