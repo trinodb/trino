@@ -19,7 +19,7 @@ import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.jdbc.BaseJdbcFailureRecoveryTest;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.SkipException;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -27,6 +27,7 @@ import java.util.Optional;
 
 import static io.trino.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseSqlServerFailureRecoveryTest
         extends BaseJdbcFailureRecoveryTest
@@ -56,13 +57,15 @@ public abstract class BaseSqlServerFailureRecoveryTest
                 });
     }
 
+    @Test
     @Override
     protected void testUpdateWithSubquery()
     {
         assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("Unexpected Join over for-update table scan");
-        throw new SkipException("skipped");
+        abort("skipped");
     }
 
+    @Test
     @Override
     protected void testUpdate()
     {
