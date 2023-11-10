@@ -71,7 +71,7 @@ public class SuiteCompatibility
     {
         try {
             String currentVersionString = TestingProperties.getProjectVersion();
-            Matcher matcher = Pattern.compile("(\\d+)(?:-SNAPSHOT)?").matcher(currentVersionString);
+            Matcher matcher = Pattern.compile("(\\d+)-cork-\\d+(?:-SNAPSHOT)?").matcher(currentVersionString);
             checkState(matcher.matches());
             int currentVersion = parseInt(matcher.group(1));
             ImmutableList.Builder<String> testedTrinoVersions = ImmutableList.builder();

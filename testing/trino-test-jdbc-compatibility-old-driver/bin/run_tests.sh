@@ -9,7 +9,7 @@ maven_run_tests="${maven} clean test ${MAVEN_TEST:--B} -pl :trino-test-jdbc-comp
 "${maven}" -version
 
 current_version=$(${maven} help:evaluate -Dexpression=project.version -q -DforceStdout)
-previous_released_version=$((${current_version%-SNAPSHOT}-1))
+previous_released_version=$((${current_version%-cork-SNAPSHOT}-1))
 first_tested_version=352
 # test n-th version only
 version_step=$(( (previous_released_version - first_tested_version) / 7 ))
