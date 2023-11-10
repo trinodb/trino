@@ -18,7 +18,7 @@ case is as first statement within a [](/routines/function). Blocks can also be
 nested.
 
 After the `BEGIN` keyword, you can add variable declarations using
-[/routines/declare] statements, followed by one or more statements that define
+[](/routines/declare) statements, followed by one or more statements that define
 the main body of the routine, separated by `;`. The following statements can be
 used:
 
