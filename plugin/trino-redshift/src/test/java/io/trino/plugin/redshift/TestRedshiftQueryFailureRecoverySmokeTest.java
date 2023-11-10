@@ -14,7 +14,7 @@
 package io.trino.plugin.redshift;
 
 import io.trino.operator.RetryPolicy;
-import org.testng.annotations.DataProvider;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -28,17 +28,8 @@ public class TestRedshiftQueryFailureRecoverySmokeTest
         super(RetryPolicy.QUERY);
     }
 
-    @Override
-    @DataProvider(name = "parallelTests", parallel = true)
-    public Object[][] parallelTests()
-    {
-        // Skip the regular FTE tests to execute the smoke test faster
-        return new Object[][] {
-                parallelTest("testCreateTableAsSelect", this::testCreateTableAsSelect),
-        };
-    }
-
-    private void testCreateTableAsSelect()
+    @Test
+    void testCreateTableAsSelect()
     {
         assertThatQuery("CREATE TABLE <table> AS SELECT * FROM orders")
                 .withCleanupQuery(Optional.of("DROP TABLE <table>"))

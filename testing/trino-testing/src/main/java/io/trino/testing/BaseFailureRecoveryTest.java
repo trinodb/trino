@@ -27,8 +27,7 @@ import io.trino.spi.ErrorType;
 import io.trino.spi.QueryId;
 import io.trino.tpch.TpchTable;
 import org.assertj.core.api.AbstractThrowableAssert;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -39,7 +38,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -80,20 +78,12 @@ public abstract class BaseFailureRecoveryTest
 {
     private static final Duration MAX_ERROR_DURATION = new Duration(5, SECONDS);
     private static final Duration REQUEST_TIMEOUT = new Duration(5, SECONDS);
-    private static final int DEFAULT_MAX_PARALLEL_TEST_CONCURRENCY = 4;
 
     private final RetryPolicy retryPolicy;
-    private final Semaphore parallelTestsSemaphore;
 
     protected BaseFailureRecoveryTest(RetryPolicy retryPolicy)
     {
-        this(retryPolicy, DEFAULT_MAX_PARALLEL_TEST_CONCURRENCY);
-    }
-
-    protected BaseFailureRecoveryTest(RetryPolicy retryPolicy, int maxParallelTestConcurrency)
-    {
         this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
-        this.parallelTestsSemaphore = new Semaphore(maxParallelTestConcurrency);
     }
 
     protected RetryPolicy getRetryPolicy()
@@ -190,47 +180,7 @@ public abstract class BaseFailureRecoveryTest
         }
     }
 
-    @DataProvider(name = "parallelTests", parallel = true)
-    public Object[][] parallelTests()
-    {
-        return new Object[][] {
-                parallelTest("testCreateTable", this::testCreateTable),
-                parallelTest("testInsert", this::testInsert),
-                parallelTest("testDelete", this::testDelete),
-                parallelTest("testDeleteWithSubquery", this::testDeleteWithSubquery),
-                parallelTest("testUpdate", this::testUpdate),
-                parallelTest("testUpdateWithSubquery", this::testUpdateWithSubquery),
-                parallelTest("testMerge", this::testMerge),
-                parallelTest("testRefreshMaterializedView", this::testRefreshMaterializedView),
-                parallelTest("testAnalyzeTable", this::testAnalyzeTable),
-                parallelTest("testExplainAnalyze", this::testExplainAnalyze),
-                parallelTest("testRequestTimeouts", this::testRequestTimeouts)
-        };
-    }
-
-    @Test(dataProvider = "parallelTests")
-    public void testParallel(Runnable runnable)
-    {
-        try {
-            // By default, a test method using a @DataProvider with parallel attribute is run in 10 threads (org.testng.xml.XmlSuite#DEFAULT_DATA_PROVIDER_THREAD_COUNT).
-            // We limit number of concurrent test executions to prevent excessive resource usage.
-            //
-            // Note: the downside of this approach is that individual test runtimes will not be representative anymore
-            //       as those will include time spent waiting for semaphore.
-            parallelTestsSemaphore.acquire();
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
-        }
-        try {
-            runnable.run();
-        }
-        finally {
-            parallelTestsSemaphore.release();
-        }
-    }
-
+    @Test
     protected void testCreateTable()
     {
         testTableModification(
@@ -239,6 +189,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testInsert()
     {
         testTableModification(
@@ -247,6 +198,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testDelete()
     {
         testTableModification(
@@ -255,6 +207,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testDeleteWithSubquery()
     {
         testTableModification(
@@ -263,6 +216,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testUpdate()
     {
         testTableModification(
@@ -271,6 +225,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testUpdateWithSubquery()
     {
         testTableModification(
@@ -279,6 +234,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testAnalyzeTable()
     {
         testNonSelect(
@@ -289,6 +245,7 @@ public abstract class BaseFailureRecoveryTest
                 false);
     }
 
+    @Test
     protected void testMerge()
     {
         testTableModification(
@@ -305,6 +262,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testRefreshMaterializedView()
     {
         testTableModification(
@@ -313,6 +271,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP MATERIALIZED VIEW <table>"));
     }
 
+    @Test
     protected void testExplainAnalyze()
     {
         testSelect("EXPLAIN ANALYZE SELECT orderStatus, count(*) FROM orders GROUP BY orderStatus");
@@ -323,6 +282,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testRequestTimeouts()
     {
         if (areWriteRetriesSupported()) {
