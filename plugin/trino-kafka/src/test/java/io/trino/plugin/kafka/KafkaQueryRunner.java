@@ -15,7 +15,6 @@ package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -43,7 +42,6 @@ import java.util.Optional;
 
 import static com.google.common.io.ByteStreams.toByteArray;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
-import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.kafka.util.TestUtils.loadTpchTopicDescription;
 import static java.lang.String.format;
@@ -92,13 +90,6 @@ public final class KafkaQueryRunner
         }
 
         @Override
-        public Builder setExtension(Module extension)
-        {
-            this.extension = requireNonNull(extension, "extension is null");
-            return this;
-        }
-
-        @Override
         public void preInit(DistributedQueryRunner queryRunner)
                 throws Exception
         {
@@ -125,16 +116,14 @@ public final class KafkaQueryRunner
                     .putAll(tpchTopicDescriptions)
                     .putAll(testTopicDescriptions.buildOrThrow())
                     .buildOrThrow();
-            setExtension(combine(
-                    extension,
-                    conditionalModule(
-                            KafkaConfig.class,
-                            kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
-                            binder -> binder.bind(TableDescriptionSupplier.class)
-                                    .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions))),
-                    binder -> binder.bind(ContentSchemaProvider.class).to(FileReadContentSchemaProvider.class).in(Scopes.SINGLETON),
-                    new DecoderModule(),
-                    new EncoderModule()));
+            addExtension(conditionalModule(
+                    KafkaConfig.class,
+                    kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
+                    binder -> binder.bind(TableDescriptionSupplier.class)
+                            .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions))));
+            addExtension(binder -> binder.bind(ContentSchemaProvider.class).to(FileReadContentSchemaProvider.class).in(Scopes.SINGLETON));
+            addExtension(new DecoderModule());
+            addExtension(new EncoderModule());
             Map<String, String> properties = new HashMap<>(extraKafkaProperties);
             properties.putIfAbsent("kafka.table-description-supplier", TEST);
             setExtraKafkaProperties(properties);
