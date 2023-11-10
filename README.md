@@ -47,24 +47,8 @@ Use one either from [Galaxy](https://github.com/starburstdata/stargate) or
 
 ### How to update this Trino fork to a newer Trino version?
 
-We are updating this repository to each Trino release. Release by release.
+Follow instructions in [Maintaining cork (Common Starburst Trino Fork)](oss-update.md).
 
-For example in order to update to 429 from 428 you need to:
-
-    ./bin/update-fork/update-fork.py -s 428
-
-See also [update script readme](bin/update-fork/README.md).
-
-This script will try to update to 429 and it will fail in case of conflict.
-Please resolve the conflict and repeat the command. Run:
-
-    git add ...
-    git cherry-pick --continue
-    ./bin/update-fork/update-fork.py
-
-Notice that second call is not using `-s`, so it won't cherry-pick commits that were already
-backported in second run. It will find the last cherry-picked commit and it will continue
-since it to the next Trino release.
 
 ---
 ---
