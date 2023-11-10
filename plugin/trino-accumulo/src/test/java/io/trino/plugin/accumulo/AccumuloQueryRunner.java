@@ -15,7 +15,9 @@ package io.trino.plugin.accumulo;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
+import io.airlift.log.Level;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.accumulo.conf.AccumuloConfig;
@@ -38,6 +40,13 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class AccumuloQueryRunner
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.apache.accumulo", Level.OFF);
+        logging.setLevel("org.apache.zookeeper", Level.OFF);
+        logging.setLevel("org.apache.curator", Level.OFF);
+    }
+
     private static final Logger LOG = Logger.get(AccumuloQueryRunner.class);
 
     private static boolean tpchLoaded;
