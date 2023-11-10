@@ -26,6 +26,8 @@ import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.util.DefaultLocationProvider;
+import io.trino.plugin.iceberg.util.ObjectStoreLocationProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -151,17 +153,19 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
-import static org.apache.iceberg.LocationProviders.locationsFor;
 import static org.apache.iceberg.MetadataTableUtils.createMetadataTableInstance;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
+import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED;
+import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_PATH;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
+import static org.apache.iceberg.util.PropertyUtil.propertyAsBoolean;
 
 public final class IcebergUtil
 {
@@ -609,7 +613,12 @@ public final class IcebergUtil
             throw new TrinoException(NOT_SUPPORTED, "Table " + schemaTableName + " specifies " + storageProperties.get(WRITE_LOCATION_PROVIDER_IMPL) +
                     " as a location provider. Writing to Iceberg tables with custom location provider is not supported.");
         }
-        return locationsFor(tableLocation, storageProperties);
+
+        if (propertyAsBoolean(storageProperties, OBJECT_STORE_ENABLED, OBJECT_STORE_ENABLED_DEFAULT)) {
+            return new ObjectStoreLocationProvider(tableLocation, storageProperties);
+        }
+
+        return new DefaultLocationProvider(tableLocation, storageProperties);
     }
 
     public static Schema schemaFromMetadata(List<ColumnMetadata> columns)
