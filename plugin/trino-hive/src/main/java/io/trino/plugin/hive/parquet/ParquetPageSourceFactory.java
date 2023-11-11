@@ -69,7 +69,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
-import java.util.Properties;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -148,12 +147,10 @@ public class ParquetPageSourceFactory
         domainCompactionThreshold = hiveConfig.getDomainCompactionThreshold();
     }
 
-    public static Properties stripUnnecessaryProperties(Properties schema)
+    public static Map<String, String> stripUnnecessaryProperties(Map<String, String> schema)
     {
         if (PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
-            Properties stripped = new Properties();
-            stripped.put(SERIALIZATION_LIB, schema.getProperty(SERIALIZATION_LIB));
-            return stripped;
+            return ImmutableMap.of(SERIALIZATION_LIB, schema.get(SERIALIZATION_LIB));
         }
         return schema;
     }
@@ -165,7 +162,7 @@ public class ParquetPageSourceFactory
             long start,
             long length,
             long estimatedFileSize,
-            Properties schema,
+            Map<String, String> schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             Optional<AcidInfo> acidInfo,

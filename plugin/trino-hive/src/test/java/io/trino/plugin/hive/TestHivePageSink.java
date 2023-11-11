@@ -53,9 +53,9 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -242,11 +242,12 @@ public class TestHivePageSink
             throws IOException
     {
         long length = fileSystemFactory.create(ConnectorIdentity.ofUser("test")).newInputFile(location).length();
-        Properties splitProperties = new Properties();
-        splitProperties.setProperty(FILE_INPUT_FORMAT, config.getHiveStorageFormat().getInputFormat());
-        splitProperties.setProperty(SERIALIZATION_LIB, config.getHiveStorageFormat().getSerde());
-        splitProperties.setProperty(LIST_COLUMNS, Joiner.on(',').join(getColumnHandles().stream().map(HiveColumnHandle::getName).collect(toImmutableList())));
-        splitProperties.setProperty(LIST_COLUMN_TYPES, Joiner.on(',').join(getColumnHandles().stream().map(HiveColumnHandle::getHiveType).map(hiveType -> hiveType.getHiveTypeName().toString()).collect(toImmutableList())));
+        Map<String, String> splitProperties = ImmutableMap.<String, String>builder()
+                .put(FILE_INPUT_FORMAT, config.getHiveStorageFormat().getInputFormat())
+                .put(SERIALIZATION_LIB, config.getHiveStorageFormat().getSerde())
+                .put(LIST_COLUMNS, Joiner.on(',').join(getColumnHandles().stream().map(HiveColumnHandle::getName).collect(toImmutableList())))
+                .put(LIST_COLUMN_TYPES, Joiner.on(',').join(getColumnHandles().stream().map(HiveColumnHandle::getHiveType).map(hiveType -> hiveType.getHiveTypeName().toString()).collect(toImmutableList())))
+                .buildOrThrow();
         HiveSplit split = new HiveSplit(
                 "",
                 location.toString(),

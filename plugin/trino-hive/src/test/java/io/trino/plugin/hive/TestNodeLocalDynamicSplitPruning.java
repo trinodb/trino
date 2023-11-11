@@ -40,7 +40,6 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -118,9 +117,10 @@ class TestNodeLocalDynamicSplitPruning
         TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
         fileSystemFactory.create(ConnectorIdentity.ofUser("test")).newOutputFile(location).create().close();
 
-        Properties splitProperties = new Properties();
-        splitProperties.setProperty(FILE_INPUT_FORMAT, hiveConfig.getHiveStorageFormat().getInputFormat());
-        splitProperties.setProperty(SERIALIZATION_LIB, hiveConfig.getHiveStorageFormat().getSerde());
+        Map<String, String> splitProperties = ImmutableMap.<String, String>builder()
+                .put(FILE_INPUT_FORMAT, hiveConfig.getHiveStorageFormat().getInputFormat())
+                .put(SERIALIZATION_LIB, hiveConfig.getHiveStorageFormat().getSerde())
+                .buildOrThrow();
         HiveSplit split = new HiveSplit(
                 "",
                 location.toString(),

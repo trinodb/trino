@@ -28,9 +28,9 @@ import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveType.HIVE_LONG;
@@ -47,9 +47,10 @@ public class TestHiveSplit
         objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(new TestingTypeManager())));
         JsonCodec<HiveSplit> codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(HiveSplit.class);
 
-        Properties schema = new Properties();
-        schema.setProperty("foo", "bar");
-        schema.setProperty("bar", "baz");
+        Map<String, String> schema = ImmutableMap.<String, String>builder()
+                .put("foo", "bar")
+                .put("bar", "baz")
+                .buildOrThrow();
 
         ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey("a", "apple"), new HivePartitionKey("b", "42"));
         ImmutableList<HostAddress> addresses = ImmutableList.of(HostAddress.fromParts("127.0.0.1", 44), HostAddress.fromParts("127.0.0.1", 45));

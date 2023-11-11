@@ -49,7 +49,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -173,7 +172,7 @@ public class HivePageSourceProvider
             long start,
             long length,
             long estimatedFileSize,
-            Properties schema,
+            Map<String, String> schema,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             TypeManager typeManager,
             Optional<BucketConversion> bucketConversion,
