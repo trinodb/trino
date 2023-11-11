@@ -84,7 +84,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
 
         mockMetastore = new MockHiveMetastore();
         metastore = new CountingAccessHiveMetastore(mockMetastore);
-        queryRunner.installPlugin(new TestingHivePlugin(metastore));
+        queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data"), metastore));
         queryRunner.createCatalog("hive", "hive", ImmutableMap.of());
         return queryRunner;
     }

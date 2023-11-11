@@ -15,21 +15,15 @@ package io.trino.plugin.hive.s3;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveQueryRunner;
-import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.containers.Minio;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
@@ -49,18 +43,8 @@ public class TestHiveS3MinioQueries
         minio.start();
 
         return HiveQueryRunner.builder()
-                .setMetastore(queryRunner -> {
-                    File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
-                    return new FileHiveMetastore(
-                            new NodeVersion("testversion"),
-                            HDFS_FILE_SYSTEM_FACTORY,
-                            new HiveMetastoreConfig().isHideDeltaLakeTables(),
-                            new FileHiveMetastoreConfig()
-                                    .setCatalogDirectory(baseDir.toURI().toString())
-                                    .setDisableLocationChecks(true) // matches Glue behavior
-                                    .setMetastoreUser("test"));
-                })
                 .setHiveProperties(ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.disable-location-checks", "true")
                         .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
                         .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
                         .put("hive.s3.endpoint", minio.getMinioAddress())

@@ -39,12 +39,12 @@ import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
@@ -73,7 +73,7 @@ public abstract class BaseTrinoCatalogTest
         TrinoCatalog catalog = createTrinoCatalog(false);
         String namespace = "test_create_namespace_with_location_" + randomNameSuffix();
         Map<String, Object> namespaceProperties = new HashMap<>(defaultNamespaceProperties(namespace));
-        String namespaceLocation = (String) namespaceProperties.computeIfAbsent(LOCATION_PROPERTY, ignored -> "/a/path/");
+        String namespaceLocation = (String) namespaceProperties.computeIfAbsent(LOCATION_PROPERTY, ignored -> "local:///a/path/");
         namespaceProperties = ImmutableMap.copyOf(namespaceProperties);
         catalog.createNamespace(SESSION, namespace, namespaceProperties, new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
         assertThat(catalog.listNamespaces(SESSION)).contains(namespace);
@@ -300,16 +300,9 @@ public abstract class BaseTrinoCatalogTest
         String table = "tableName";
         SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
         Map<String, Object> namespaceProperties = new HashMap<>(defaultNamespaceProperties(namespace));
-        String namespaceLocation = (String) namespaceProperties.computeIfAbsent(LOCATION_PROPERTY, ignored -> {
-            try {
-                Path tmpDirectory = Files.createTempDirectory("iceberg_catalog_test_rename_table_");
-                tmpDirectory.toFile().deleteOnExit();
-                return tmpDirectory.toString();
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        });
+        String namespaceLocation = (String) namespaceProperties.computeIfAbsent(
+                LOCATION_PROPERTY,
+                ignored -> "local:///iceberg_catalog_test_rename_table_" + UUID.randomUUID());
 
         catalog.createNamespace(SESSION, namespace, namespaceProperties, new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
         try {

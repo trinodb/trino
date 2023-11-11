@@ -18,21 +18,31 @@ import com.google.inject.Module;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.connector.ConnectorFactory;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static java.util.Objects.requireNonNull;
 
 public class TestingIcebergPlugin
         extends IcebergPlugin
 {
+    private final Path localFileSystemRootPath;
     private final Optional<Module> icebergCatalogModule;
     private final Optional<TrinoFileSystemFactory> fileSystemFactory;
     private final Module module;
 
-    public TestingIcebergPlugin(Optional<Module> icebergCatalogModule, Optional<TrinoFileSystemFactory> fileSystemFactory, Module module)
+    public TestingIcebergPlugin(Path localFileSystemRootPath)
     {
+        this(localFileSystemRootPath, Optional.empty(), Optional.empty(), EMPTY_MODULE);
+    }
+
+    @Deprecated
+    public TestingIcebergPlugin(Path localFileSystemRootPath, Optional<Module> icebergCatalogModule, Optional<TrinoFileSystemFactory> fileSystemFactory, Module module)
+    {
+        this.localFileSystemRootPath = requireNonNull(localFileSystemRootPath, "localFileSystemRootPath is null");
         this.icebergCatalogModule = requireNonNull(icebergCatalogModule, "icebergCatalogModule is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.module = requireNonNull(module, "module is null");
@@ -44,6 +54,6 @@ public class TestingIcebergPlugin
         List<ConnectorFactory> connectorFactories = ImmutableList.copyOf(super.getConnectorFactories());
         verify(connectorFactories.size() == 1, "Unexpected connector factories: %s", connectorFactories);
 
-        return ImmutableList.of(new TestingIcebergConnectorFactory(icebergCatalogModule, fileSystemFactory, module));
+        return ImmutableList.of(new TestingIcebergConnectorFactory(localFileSystemRootPath, icebergCatalogModule, fileSystemFactory, module));
     }
 }

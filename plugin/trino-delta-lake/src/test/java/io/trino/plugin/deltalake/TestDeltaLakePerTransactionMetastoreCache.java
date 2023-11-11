@@ -16,7 +16,6 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
-import com.google.common.reflect.ClassPath;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -27,25 +26,19 @@ import io.trino.plugin.hive.metastore.CountingAccessHiveMetastoreUtil;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchEntity;
-import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Optional;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_TABLE;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
-import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
-import static java.nio.file.Files.createDirectories;
-import static java.nio.file.Files.write;
 import static java.util.Objects.requireNonNull;
 
 public class TestDeltaLakePerTransactionMetastoreCache
@@ -62,9 +55,10 @@ public class TestDeltaLakePerTransactionMetastoreCache
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
         try {
-            FileHiveMetastore fileMetastore = createTestingFileHiveMetastore(queryRunner.getCoordinator().getBaseDataDir().resolve("file-metastore").toFile());
+            Path dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("file-metastore");
+            FileHiveMetastore fileMetastore = createTestingFileHiveMetastore(dataDirectory.toFile());
             metastore = new CountingAccessHiveMetastore(fileMetastore);
-            queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.empty(), Optional.empty(), new CountingAccessMetastoreModule(metastore)));
+            queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.empty(), Optional.empty(), new CountingAccessMetastoreModule(metastore)));
 
             ImmutableMap.Builder<String, String> deltaLakeProperties = ImmutableMap.builder();
             deltaLakeProperties.put("hive.metastore", "test"); // use test value so we do not get clash with default bindings)
@@ -77,21 +71,11 @@ public class TestDeltaLakePerTransactionMetastoreCache
             queryRunner.createCatalog(DELTA_CATALOG, "delta_lake", deltaLakeProperties.buildOrThrow());
             queryRunner.execute("CREATE SCHEMA " + session.getSchema().orElseThrow());
 
-            for (TpchTable<? extends TpchEntity> table : List.of(TpchTable.NATION, TpchTable.REGION)) {
-                String tableName = table.getTableName();
-                String resourcePath = "io/trino/plugin/deltalake/testing/resources/databricks73/" + tableName + "/";
-                Path tableDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("%s-%s".formatted(tableName, randomNameSuffix()));
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog("tpch", "tpch");
 
-                for (ClassPath.ResourceInfo resourceInfo : ClassPath.from(getClass().getClassLoader()).getResources()) {
-                    if (resourceInfo.getResourceName().startsWith(resourcePath)) {
-                        Path targetFile = tableDirectory.resolve(resourceInfo.getResourceName().substring(resourcePath.length()));
-                        createDirectories(targetFile.getParent());
-                        write(targetFile, resourceInfo.asByteSource().read());
-                    }
-                }
-
-                queryRunner.execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, tableDirectory));
-            }
+            queryRunner.execute("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+            queryRunner.execute("CREATE TABLE region AS SELECT * FROM tpch.tiny.region");
         }
         catch (Throwable e) {
             Closables.closeAllSuppress(e, queryRunner);

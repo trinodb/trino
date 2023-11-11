@@ -36,7 +36,6 @@ public abstract class BaseDeltaLakeTableWithCustomLocation
         extends AbstractTestQueryFramework
 {
     protected static final String SCHEMA = "test_tables_with_custom_location" + randomNameSuffix();
-    protected static final String CATALOG_NAME = "delta_with_custom_location";
     protected File metastoreDir;
     protected HiveMetastore metastore;
 

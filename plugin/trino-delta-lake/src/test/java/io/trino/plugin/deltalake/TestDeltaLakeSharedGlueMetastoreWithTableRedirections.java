@@ -70,7 +70,7 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                         .buildOrThrow());
 
         this.glueMetastore = createTestingGlueHiveMetastore(dataDirectory);
-        queryRunner.installPlugin(new TestingHivePlugin(glueMetastore));
+        queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data"), glueMetastore));
         queryRunner.createCatalog(
                 "hive_with_redirections",
                 "hive",
