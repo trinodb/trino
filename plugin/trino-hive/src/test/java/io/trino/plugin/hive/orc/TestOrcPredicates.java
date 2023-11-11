@@ -61,6 +61,8 @@ import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.buildCol
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_COMMENTS;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -225,12 +227,12 @@ class TestOrcPredicates
         tableProperties.setProperty(FILE_INPUT_FORMAT, ORC.getInputFormat());
         tableProperties.setProperty(SERIALIZATION_LIB, ORC.getSerde());
         tableProperties.setProperty(
-                "columns",
+                LIST_COLUMNS,
                 COLUMNS.stream()
                         .map(HiveColumnHandle::getName)
                         .collect(Collectors.joining(",")));
         tableProperties.setProperty(
-                "columns.types",
+                LIST_COLUMN_COMMENTS,
                 COLUMNS.stream()
                         .map(HiveColumnHandle::getHiveType)
                         .map(HiveType::toString)
