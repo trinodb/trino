@@ -16,11 +16,14 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.filesystem.Location;
-import io.trino.filesystem.local.LocalFileSystem;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.QueryId;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedRow;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.TableMetadata;
@@ -31,7 +34,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.nio.file.Path;
 import java.util.Optional;
 import java.util.Set;
 
@@ -745,8 +747,12 @@ public abstract class BaseIcebergMaterializedViewTest
 
     private TableMetadata getStorageTableMetadata(String materializedViewName)
     {
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        TrinoFileSystem fileSystemFactory = ((IcebergConnector) queryRunner.getCoordinator().getConnector("iceberg")).getInjector()
+                .getInstance(TrinoFileSystemFactory.class)
+                .create(ConnectorIdentity.ofUser("test"));
         Location metadataLocation = Location.of(getStorageMetadataLocation(materializedViewName));
-        return TableMetadataParser.read(new ForwardingFileIo(new LocalFileSystem(Path.of(metadataLocation.parentDirectory().toString()))), "local:///" + metadataLocation);
+        return TableMetadataParser.read(new ForwardingFileIo(fileSystemFactory), metadataLocation.toString());
     }
 
     private long getLatestSnapshotId(String tableName)

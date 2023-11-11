@@ -114,7 +114,7 @@ public final class DeltaLakeQueryRunner
                 queryRunner.installPlugin(new TpcdsPlugin());
                 queryRunner.createCatalog("tpcds", "tpcds");
 
-                queryRunner.installPlugin(new TestingDeltaLakePlugin());
+                queryRunner.installPlugin(new TestingDeltaLakePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data")));
                 queryRunner.createCatalog(catalogName, CONNECTOR_NAME, deltaProperties.buildOrThrow());
 
                 return queryRunner;

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.filesystem.Location;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
@@ -93,6 +94,6 @@ public class TestIcebergParquetConnectorTest
     @Override
     protected boolean isFileSorted(String path, String sortColumnName)
     {
-        return checkParquetFileSorting(path, sortColumnName);
+        return checkParquetFileSorting(fileSystem.newInputFile(Location.of(path)), sortColumnName);
     }
 }

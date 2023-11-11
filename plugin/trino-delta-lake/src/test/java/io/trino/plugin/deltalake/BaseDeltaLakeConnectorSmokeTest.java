@@ -188,12 +188,13 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 registerTableFromResources(table.tableName(), table.resourcePath(), queryRunner);
             });
 
-            queryRunner.installPlugin(new TestingHivePlugin());
+            queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data")));
 
             queryRunner.createCatalog(
                     "hive",
                     "hive",
                     ImmutableMap.<String, String>builder()
+                            .put("hive.metastore", "thrift")
                             .put("hive.metastore.uri", "thrift://" + hiveHadoop.getHiveMetastoreEndpoint())
                             .put("hive.allow-drop-table", "true")
                             .putAll(hiveStorageConfiguration())
