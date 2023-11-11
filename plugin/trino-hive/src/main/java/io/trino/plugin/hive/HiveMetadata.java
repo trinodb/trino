@@ -142,7 +142,6 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
-import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -1934,7 +1933,7 @@ public class HiveMetadata
 
     private void createEmptyFiles(ConnectorSession session, Location path, Table table, Optional<Partition> partition, List<String> fileNames)
     {
-        Properties schema;
+        Map<String, String> schema;
         StorageFormat format;
         if (partition.isPresent()) {
             schema = getHiveSchema(partition.get(), table);

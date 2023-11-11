@@ -44,9 +44,9 @@ import org.weakref.jmx.Managed;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.function.Supplier;
 
 import static io.trino.orc.metadata.OrcType.createRootOrcType;
@@ -125,7 +125,7 @@ public class OrcFileWriterFactory
             List<String> inputColumnNames,
             StorageFormat storageFormat,
             HiveCompressionCodec compressionCodec,
-            Properties schema,
+            Map<String, String> schema,
             ConnectorSession session,
             OptionalInt bucketNumber,
             AcidTransaction transaction,

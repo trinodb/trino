@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
@@ -25,7 +26,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -231,7 +231,7 @@ public class TestHiveSplitSource
 
             // wait for thread to get the split
             ConnectorSplit split = splits.get(800, TimeUnit.MILLISECONDS);
-            assertEquals(((HiveSplit) split).getSchema().getProperty("id"), "33");
+            assertEquals(((HiveSplit) split).getSchema().get("id"), "33");
         }
         finally {
             // make sure the thread exits
@@ -325,7 +325,7 @@ public class TestHiveSplitSource
                     fileSize.toBytes(),
                     fileSize.toBytes(),
                     Instant.now().toEpochMilli(),
-                    properties("id", String.valueOf(id)),
+                    ImmutableMap.of("id", String.valueOf(id)),
                     ImmutableList.of(),
                     ImmutableList.of(new InternalHiveBlock(0, fileSize.toBytes(), ImmutableList.of())),
                     bucketNumber,
@@ -337,13 +337,6 @@ public class TestHiveSplitSource
                     Optional.empty(),
                     Optional.empty(),
                     partitionMatchSupplier);
-        }
-
-        private static Properties properties(String key, String value)
-        {
-            Properties properties = new Properties();
-            properties.setProperty(key, value);
-            return properties;
         }
     }
 }

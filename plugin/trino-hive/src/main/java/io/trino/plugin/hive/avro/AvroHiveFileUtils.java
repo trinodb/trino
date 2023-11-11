@@ -42,7 +42,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -71,17 +70,17 @@ public final class AvroHiveFileUtils
     private AvroHiveFileUtils() {}
 
     // Lifted and shifted from org.apache.hadoop.hive.serde2.avro.AvroSerdeUtils.determineSchemaOrThrowException
-    public static Schema determineSchemaOrThrowException(TrinoFileSystem fileSystem, Properties properties)
+    public static Schema determineSchemaOrThrowException(TrinoFileSystem fileSystem, Map<String, String> properties)
             throws IOException
     {
         // Try pull schema from literal table property
-        String schemaString = properties.getProperty(SCHEMA_LITERAL, "");
+        String schemaString = properties.getOrDefault(SCHEMA_LITERAL, "");
         if (!schemaString.isBlank() && !schemaString.equals(SCHEMA_NONE)) {
             return getSchemaParser().parse(schemaString);
         }
 
         // Try pull schema directly from URL
-        String schemaURL = properties.getProperty(SCHEMA_URL, "");
+        String schemaURL = properties.getOrDefault(SCHEMA_URL, "");
         if (!schemaURL.isBlank()) {
             TrinoInputFile schemaFile = fileSystem.newInputFile(Location.of(schemaURL));
             if (!schemaFile.exists()) {
@@ -97,32 +96,32 @@ public final class AvroHiveFileUtils
         return getSchemaFromProperties(properties);
     }
 
-    private static Schema getSchemaFromProperties(Properties properties)
+    private static Schema getSchemaFromProperties(Map<String, String> schema)
             throws IOException
     {
-        List<String> columnNames = getColumnNames(properties);
-        List<HiveType> columnTypes = getColumnTypes(properties);
+        List<String> columnNames = getColumnNames(schema);
+        List<HiveType> columnTypes = getColumnTypes(schema);
         if (columnNames.isEmpty() || columnTypes.isEmpty()) {
-            throw new IOException("Unable to parse column names or column types from job properties to create Avro Schema");
+            throw new IOException("Unable to parse column names or column types from schema to create Avro Schema");
         }
         if (columnNames.size() != columnTypes.size()) {
             throw new IllegalArgumentException("Avro Schema initialization failed. Number of column name and column type differs. columnNames = %s, columnTypes = %s".formatted(columnNames, columnTypes));
         }
-        List<String> columnComments = Optional.ofNullable(properties.getProperty(LIST_COLUMN_COMMENTS))
+        List<String> columnComments = Optional.ofNullable(schema.get(LIST_COLUMN_COMMENTS))
                 .filter(not(String::isBlank))
                 .map(Splitter.on('\0')::splitToList)
                 .orElse(emptyList());
 
-        final String tableName = properties.getProperty(TABLE_NAME);
-        final String tableComment = properties.getProperty(TABLE_COMMENT);
+        String tableName = schema.get(TABLE_NAME);
+        String tableComment = schema.get(TABLE_COMMENT);
 
         return constructSchemaFromParts(
                 columnNames,
                 columnTypes,
                 columnComments,
-                Optional.ofNullable(properties.getProperty(SCHEMA_NAMESPACE)),
-                Optional.ofNullable(properties.getProperty(SCHEMA_NAME, tableName)),
-                Optional.ofNullable(properties.getProperty(SCHEMA_DOC, tableComment)));
+                Optional.ofNullable(schema.get(SCHEMA_NAMESPACE)),
+                Optional.ofNullable(schema.getOrDefault(SCHEMA_NAME, tableName)),
+                Optional.ofNullable(schema.getOrDefault(SCHEMA_DOC, tableComment)));
     }
 
     private static Schema constructSchemaFromParts(List<String> columnNames, List<HiveType> columnTypes,

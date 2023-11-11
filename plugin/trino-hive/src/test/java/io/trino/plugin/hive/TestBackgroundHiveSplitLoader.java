@@ -16,6 +16,7 @@ package io.trino.plugin.hive;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.io.Resources;
 import io.airlift.stats.CounterStat;
@@ -64,7 +65,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -170,7 +170,7 @@ public class TestBackgroundHiveSplitLoader
         assertCsvSplitCount(file, Map.of(), 33);
         assertCsvSplitCount(file, Map.of(HEADER_COUNT, "1"), 33);
         assertCsvSplitCount(file, Map.of(HEADER_COUNT, "2"), 1);
-        assertCsvSplitCount(file, Map.of(HEADER_COUNT, "1"), 1);
+        assertCsvSplitCount(file, Map.of(FOOTER_COUNT, "1"), 1);
         assertCsvSplitCount(file, Map.of(HEADER_COUNT, "1", FOOTER_COUNT, "1"), 1);
     }
 
@@ -780,9 +780,10 @@ public class TestBackgroundHiveSplitLoader
             throws IOException
     {
         CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(0, TimeUnit.MINUTES), DataSize.ofBytes(0), List.of());
-        Properties schema = new Properties();
-        schema.setProperty(FILE_INPUT_FORMAT, SYMLINK_TEXT_INPUT_FORMAT_CLASS);
-        schema.setProperty(SERIALIZATION_LIB, AVRO.getSerde());
+        Map<String, String> schema = ImmutableMap.<String, String>builder()
+                .put(FILE_INPUT_FORMAT, SYMLINK_TEXT_INPUT_FORMAT_CLASS)
+                .put(SERIALIZATION_LIB, AVRO.getSerde())
+                .buildOrThrow();
 
         Location firstFilePath = Location.of("memory:///db_name/table_name/file1");
         Location secondFilePath = Location.of("memory:///db_name/table_name/file2");
@@ -820,9 +821,10 @@ public class TestBackgroundHiveSplitLoader
             throws IOException
     {
         CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), DataSize.of(100, KILOBYTE), List.of());
-        Properties schema = new Properties();
-        schema.setProperty(FILE_INPUT_FORMAT, SYMLINK_TEXT_INPUT_FORMAT_CLASS);
-        schema.setProperty(SERIALIZATION_LIB, AVRO.getSerde());
+        Map<String, String> schema = ImmutableMap.<String, String>builder()
+                .put(FILE_INPUT_FORMAT, SYMLINK_TEXT_INPUT_FORMAT_CLASS)
+                .put(SERIALIZATION_LIB, AVRO.getSerde())
+                .buildOrThrow();
 
         Location filePath = Location.of("memory:///db_name/table_name/file1");
         Location directoryPath = Location.of("memory:///db_name/table_name/dir/file2");

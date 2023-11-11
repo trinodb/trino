@@ -13,11 +13,12 @@
  */
 package io.trino.plugin.hive.orc;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.orc.OrcWriterOptions;
 import org.junit.jupiter.api.Test;
 
-import java.util.Properties;
+import java.util.Map;
 
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -76,9 +77,10 @@ public class TestOrcWriterOptions
     @Test
     public void testOrcWriterOptionsFromTableProperties()
     {
-        Properties tableProperties = new Properties();
-        tableProperties.setProperty(ORC_BLOOM_FILTER_COLUMNS_KEY, "column_a, column_b");
-        tableProperties.setProperty(ORC_BLOOM_FILTER_FPP_KEY, "0.5");
+        Map<String, String> tableProperties = ImmutableMap.<String, String>builder()
+                .put(ORC_BLOOM_FILTER_COLUMNS_KEY, "column_a, column_b")
+                .put(ORC_BLOOM_FILTER_FPP_KEY, "0.5")
+                .buildOrThrow();
         OrcWriterOptions orcWriterOptions = getOrcWriterOptions(tableProperties, new OrcWriterOptions());
         assertThat(orcWriterOptions.getBloomFilterFpp()).isEqualTo(0.5);
         assertThat(orcWriterOptions.isBloomFilterColumn("column_a")).isTrue();
@@ -89,7 +91,7 @@ public class TestOrcWriterOptions
     @Test
     public void testOrcWriterOptionsWithInvalidFPPValue()
     {
-        Properties tableProperties = createTablePropertiesWithFpp("abc");
+        Map<String, String> tableProperties = createTablePropertiesWithFpp("abc");
         assertThatThrownBy(() -> getOrcWriterOptions(tableProperties, new OrcWriterOptions()))
                 .hasMessage("Invalid value for orc_bloom_filter_fpp property: abc");
     }
@@ -107,11 +109,11 @@ public class TestOrcWriterOptions
                 .hasMessage("bloomFilterFpp should be > 0.0 & < 1.0");
     }
 
-    private static Properties createTablePropertiesWithFpp(String fpp)
+    private static Map<String, String> createTablePropertiesWithFpp(String fpp)
     {
-        Properties properties = new Properties();
-        properties.setProperty(ORC_BLOOM_FILTER_COLUMNS_KEY, "column_with_bloom_filter");
-        properties.setProperty(ORC_BLOOM_FILTER_FPP_KEY, fpp);
-        return properties;
+        return ImmutableMap.<String, String>builder()
+                .put(ORC_BLOOM_FILTER_COLUMNS_KEY, "column_with_bloom_filter")
+                .put(ORC_BLOOM_FILTER_FPP_KEY, fpp)
+                .buildOrThrow();
     }
 }

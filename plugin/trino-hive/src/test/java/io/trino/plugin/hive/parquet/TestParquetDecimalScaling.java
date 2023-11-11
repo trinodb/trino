@@ -58,7 +58,7 @@ import static com.google.common.collect.Iterables.transform;
 import static io.trino.plugin.hive.parquet.TestParquetDecimalScaling.ParquetDecimalInsert.maximumValue;
 import static io.trino.plugin.hive.parquet.TestParquetDecimalScaling.ParquetDecimalInsert.minimumValue;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
-import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_COMMENTS;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.toDataProvider;
@@ -509,7 +509,7 @@ public class TestParquetDecimalScaling
     {
         Properties tableProperties = new Properties();
         tableProperties.setProperty(LIST_COLUMNS, Joiner.on(',').join(columnNames));
-        tableProperties.setProperty(LIST_COLUMN_COMMENTS, Joiner.on(',').join(transform(objectInspectors, ObjectInspector::getTypeName)));
+        tableProperties.setProperty(LIST_COLUMN_TYPES, Joiner.on(',').join(transform(objectInspectors, ObjectInspector::getTypeName)));
         return tableProperties;
     }
 
