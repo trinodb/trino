@@ -152,6 +152,8 @@ import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.HiveTestUtils.mapType;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -956,8 +958,8 @@ public final class TestHiveFileFormats
             }
         }
 
-        splitProperties.setProperty("columns", String.join(",", splitPropertiesColumnNames.build()));
-        splitProperties.setProperty("columns.types", String.join(",", splitPropertiesColumnTypes.build()));
+        splitProperties.setProperty(LIST_COLUMNS, String.join(",", splitPropertiesColumnNames.build()));
+        splitProperties.setProperty(LIST_COLUMN_TYPES, String.join(",", splitPropertiesColumnTypes.build()));
 
         List<HivePartitionKey> partitionKeys = testReadColumns.stream()
                 .filter(TestColumn::partitionKey)
@@ -1319,13 +1321,13 @@ public final class TestHiveFileFormats
 
         Properties tableProperties = new Properties();
         tableProperties.setProperty(
-                "columns",
+                LIST_COLUMNS,
                 testColumns.stream()
                         .map(TestColumn::name)
                         .collect(Collectors.joining(",")));
 
         tableProperties.setProperty(
-                "columns.types",
+                LIST_COLUMN_TYPES,
                 testColumns.stream()
                         .map(TestColumn::type)
                         .map(HiveType::toHiveType)
@@ -1470,8 +1472,8 @@ public final class TestHiveFileFormats
                 .collect(toImmutableList());
 
         Properties tableProperties = new Properties();
-        tableProperties.setProperty("columns", testColumns.stream().map(TestColumn::name).collect(Collectors.joining(",")));
-        tableProperties.setProperty("columns.types", testColumns.stream().map(testColumn -> HiveType.toHiveType(testColumn.type()).toString()).collect(Collectors.joining(",")));
+        tableProperties.setProperty(LIST_COLUMNS, testColumns.stream().map(TestColumn::name).collect(Collectors.joining(",")));
+        tableProperties.setProperty(LIST_COLUMN_TYPES, testColumns.stream().map(testColumn -> HiveType.toHiveType(testColumn.type()).toString()).collect(Collectors.joining(",")));
         serializer.initialize(new Configuration(false), tableProperties);
 
         JobConf jobConf = new JobConf(false);

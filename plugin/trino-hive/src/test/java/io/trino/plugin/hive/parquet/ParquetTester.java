@@ -116,6 +116,8 @@ import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockS
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.parquet.ParquetUtil.createPageSource;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
@@ -692,8 +694,8 @@ class ParquetTester
     public static Properties createTableProperties(List<String> columnNames, List<ObjectInspector> objectInspectors)
     {
         Properties orderTableProperties = new Properties();
-        orderTableProperties.setProperty("columns", Joiner.on(',').join(columnNames));
-        orderTableProperties.setProperty("columns.types", Joiner.on(',').join(transform(objectInspectors, ObjectInspector::getTypeName)));
+        orderTableProperties.setProperty(LIST_COLUMNS, Joiner.on(',').join(columnNames));
+        orderTableProperties.setProperty(LIST_COLUMN_TYPES, Joiner.on(',').join(transform(objectInspectors, ObjectInspector::getTypeName)));
         return orderTableProperties;
     }
 

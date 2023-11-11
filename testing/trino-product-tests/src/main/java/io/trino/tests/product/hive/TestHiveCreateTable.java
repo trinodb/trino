@@ -22,6 +22,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Optional;
 
+import static io.trino.plugin.hive.HiveTableProperties.TRANSACTIONAL;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tests.product.TestGroups.HDP3_ONLY;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -51,7 +52,7 @@ public class TestHiveCreateTable
                         row(null, null, null),
                         row(-42, "abc", -127),
                         row(9223372036854775807L, "abcdefghijklmnopqrstuvwxyz", 32767));
-        assertThat(getTableProperty("test_create_table", "transactional"))
+        assertThat(getTableProperty("test_create_table", TRANSACTIONAL))
                 // Hive 3 removes "transactional" table property when it has value "false"
                 .isIn(Optional.empty(), Optional.of("false"));
         onTrino().executeQuery("DROP TABLE test_create_table");
@@ -74,7 +75,7 @@ public class TestHiveCreateTable
                         row(null, null, null),
                         row(-42, "abc", -127),
                         row(9223372036854775807L, "abcdefghijklmnopqrstuvwxyz", 32767));
-        assertThat(getTableProperty("test_create_table_as_select", "transactional"))
+        assertThat(getTableProperty("test_create_table_as_select", TRANSACTIONAL))
                 // Hive 3 removes "transactional" table property when it has value "false"
                 .isIn(Optional.empty(), Optional.of("false"));
         onTrino().executeQuery("DROP TABLE test_create_table_as_select");
@@ -85,7 +86,7 @@ public class TestHiveCreateTable
             throws SQLException
     {
         onHive().executeQuery("CREATE TABLE test_hive_transactional_by_default(a bigint) STORED AS ORC");
-        assertThat(getTableProperty("test_hive_transactional_by_default", "transactional"))
+        assertThat(getTableProperty("test_hive_transactional_by_default", TRANSACTIONAL))
                 .contains("true");
         onHive().executeQuery("DROP TABLE test_hive_transactional_by_default");
     }
