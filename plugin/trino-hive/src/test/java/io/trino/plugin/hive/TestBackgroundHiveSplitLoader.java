@@ -82,6 +82,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static io.trino.plugin.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
 import static io.trino.plugin.hive.BackgroundHiveSplitLoader.getBucketNumber;
 import static io.trino.plugin.hive.BackgroundHiveSplitLoader.hasAttemptId;
@@ -91,6 +92,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.CSV;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
+import static io.trino.plugin.hive.HiveTableProperties.TRANSACTIONAL;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
@@ -100,6 +102,8 @@ import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveClassNames.SYMLINK_TEXT_INPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.getRegularColumnHandles;
+import static io.trino.plugin.hive.util.SerdeConstants.FOOTER_COUNT;
+import static io.trino.plugin.hive.util.SerdeConstants.HEADER_COUNT;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -110,7 +114,6 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -165,10 +168,10 @@ public class TestBackgroundHiveSplitLoader
     {
         FileEntry file = new FileEntry(LOCATION, DataSize.of(2, GIGABYTE).toBytes(), Instant.now(), Optional.empty());
         assertCsvSplitCount(file, Map.of(), 33);
-        assertCsvSplitCount(file, Map.of("skip.header.line.count", "1"), 33);
-        assertCsvSplitCount(file, Map.of("skip.header.line.count", "2"), 1);
-        assertCsvSplitCount(file, Map.of("skip.footer.line.count", "1"), 1);
-        assertCsvSplitCount(file, Map.of("skip.header.line.count", "1", "skip.footer.line.count", "1"), 1);
+        assertCsvSplitCount(file, Map.of(HEADER_COUNT, "1"), 33);
+        assertCsvSplitCount(file, Map.of(HEADER_COUNT, "2"), 1);
+        assertCsvSplitCount(file, Map.of(HEADER_COUNT, "1"), 1);
+        assertCsvSplitCount(file, Map.of(HEADER_COUNT, "1", FOOTER_COUNT, "1"), 1);
     }
 
     private void assertCsvSplitCount(FileEntry file, Map<String, String> tableProperties, int expectedSplitCount)
@@ -531,7 +534,7 @@ public class TestBackgroundHiveSplitLoader
                 List.of(),
                 Optional.empty(),
                 Map.of(
-                        "transactional", "true",
+                        TRANSACTIONAL, "true",
                         "transactional_properties", "insert_only"));
 
         List<Location> fileLocations = List.of(
@@ -577,7 +580,7 @@ public class TestBackgroundHiveSplitLoader
                 tableLocation.toString(),
                 List.of(),
                 Optional.empty(),
-                Map.of("transactional", "true"));
+                Map.of(TRANSACTIONAL, "true"));
 
         Location originalFile = tableLocation.appendPath("000000_1");
         try (OutputStream outputStream = fileSystem.newOutputFile(originalFile).create()) {
@@ -620,7 +623,7 @@ public class TestBackgroundHiveSplitLoader
                 tableLocation.toString(),
                 List.of(),
                 Optional.empty(),
-                Map.of("transactional", "true"));
+                Map.of(TRANSACTIONAL, "true"));
 
         List<Location> fileLocations = List.of(
                 tableLocation.appendPath("000000_1"),
@@ -665,7 +668,7 @@ public class TestBackgroundHiveSplitLoader
                 tableLocation.toString(),
                 List.of(),
                 Optional.empty(),
-                Map.of("transactional", "true"));
+                Map.of(TRANSACTIONAL, "true"));
 
         List<Location> fileLocations = List.of(
                 tableLocation.appendPath("000000_1"), // _orc_acid_version does not exist, so it's assumed to be "ORC ACID version 0"
@@ -708,7 +711,7 @@ public class TestBackgroundHiveSplitLoader
                 tableLocation.toString(),
                 List.of(),
                 Optional.empty(),
-                Map.of("transactional", "true"));
+                Map.of(TRANSACTIONAL, "true"));
 
         List<Location> fileLocations = List.of(
                 tableLocation.appendPath("000000_1"),
@@ -818,7 +821,7 @@ public class TestBackgroundHiveSplitLoader
     {
         CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), DataSize.of(100, KILOBYTE), List.of());
         Properties schema = new Properties();
-        schema.setProperty("file.inputformat", SYMLINK_TEXT_INPUT_FORMAT_CLASS);
+        schema.setProperty(FILE_INPUT_FORMAT, SYMLINK_TEXT_INPUT_FORMAT_CLASS);
         schema.setProperty(SERIALIZATION_LIB, AVRO.getSerde());
 
         Location filePath = Location.of("memory:///db_name/table_name/file1");
