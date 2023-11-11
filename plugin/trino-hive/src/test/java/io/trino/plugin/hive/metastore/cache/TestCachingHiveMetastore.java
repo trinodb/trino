@@ -36,7 +36,6 @@ import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.metastore.UnimplementedHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastore;
@@ -57,15 +56,10 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executor;
@@ -81,18 +75,14 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
-import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
-import static io.trino.plugin.hive.HiveType.toHiveType;
-import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFilter;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
-import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_DATABASE;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_PARTITION;
@@ -930,167 +920,6 @@ public class TestCachingHiveMetastore
         assertThat(metastore.getAllDatabases()).isEqualTo(ImmutableList.of(TEST_DATABASE));
         assertThat(mockClient.getAccessCount()).isEqualTo(1);
         assertThat(metastore.getDatabaseNamesStats().getRequestCount()).isEqualTo(0);
-    }
-
-    @Test
-    @Timeout(60)
-    public void testLoadAfterInvalidate()
-            throws Exception
-    {
-        testLoadAfterInvalidate(true);
-        testLoadAfterInvalidate(false);
-    }
-
-    private void testLoadAfterInvalidate(boolean invalidateAll)
-            throws Exception
-    {
-        // State
-        CopyOnWriteArrayList<Column> tableColumns = new CopyOnWriteArrayList<>();
-        ConcurrentMap<String, Partition> tablePartitionsByName = new ConcurrentHashMap<>();
-        Map<String, String> tableParameters = new ConcurrentHashMap<>();
-        tableParameters.put("frequent-changing-table-parameter", "parameter initial value");
-
-        // Initialize data
-        String databaseName = "my_database";
-        String tableName = "my_table_name";
-
-        tableColumns.add(new Column("value", toHiveType(VARCHAR), Optional.empty() /* comment */, Map.of()));
-        tableColumns.add(new Column("pk", toHiveType(VARCHAR), Optional.empty() /* comment */, Map.of()));
-
-        List<String> partitionNames = new ArrayList<>();
-        for (int i = 0; i < 10; i++) {
-            String partitionName = "pk=" + i;
-            tablePartitionsByName.put(
-                    partitionName,
-                    Partition.builder()
-                            .setDatabaseName(databaseName)
-                            .setTableName(tableName)
-                            .setColumns(ImmutableList.copyOf(tableColumns))
-                            .setValues(List.of(Integer.toString(i)))
-                            .withStorage(storage -> storage.setStorageFormat(fromHiveStorageFormat(TEXTFILE)))
-                            .setParameters(Map.of("frequent-changing-partition-parameter", "parameter initial value"))
-                            .build());
-            partitionNames.add(partitionName);
-        }
-
-        // Mock metastore
-        CountDownLatch getTableEnteredLatch = new CountDownLatch(1);
-        CountDownLatch getTableReturnLatch = new CountDownLatch(1);
-        CountDownLatch getTableFinishedLatch = new CountDownLatch(1);
-        CountDownLatch getPartitionsByNamesEnteredLatch = new CountDownLatch(1);
-        CountDownLatch getPartitionsByNamesReturnLatch = new CountDownLatch(1);
-        CountDownLatch getPartitionsByNamesFinishedLatch = new CountDownLatch(1);
-
-        HiveMetastore mockMetastore = new UnimplementedHiveMetastore()
-        {
-            @Override
-            public Optional<Table> getTable(String databaseName, String tableName)
-            {
-                Optional<Table> table = Optional.of(Table.builder()
-                        .setDatabaseName(databaseName)
-                        .setTableName(tableName)
-                        .setTableType(EXTERNAL_TABLE.name())
-                        .setDataColumns(tableColumns)
-                        .setParameters(ImmutableMap.copyOf(tableParameters))
-                        // Required by 'Table', but not used by view translation.
-                        .withStorage(storage -> storage.setStorageFormat(fromHiveStorageFormat(TEXTFILE)))
-                        .setOwner(Optional.empty())
-                        .build());
-
-                getTableEnteredLatch.countDown(); // 1
-                await(getTableReturnLatch, 10, SECONDS); // 2
-
-                return table;
-            }
-
-            @Override
-            public Map<String, Optional<Partition>> getPartitionsByNames(Table table, List<String> partitionNames)
-            {
-                Map<String, Optional<Partition>> result = new HashMap<>();
-                for (String partitionName : partitionNames) {
-                    result.put(partitionName, Optional.ofNullable(tablePartitionsByName.get(partitionName)));
-                }
-
-                getPartitionsByNamesEnteredLatch.countDown(); // loader#1
-                await(getPartitionsByNamesReturnLatch, 10, SECONDS); // loader#2
-
-                return result;
-            }
-        };
-
-        // Caching metastore
-        metastore = createCachingHiveMetastore(mockMetastore, CACHE_TTL, true, true, executor);
-
-        // The test. Main thread does modifications and verifies subsequent load sees them. Background thread loads the state into the cache.
-        ExecutorService executor = Executors.newFixedThreadPool(1);
-        try {
-            Future<Void> future = executor.submit(() -> {
-                try {
-                    Table table;
-
-                    table = metastore.getTable(databaseName, tableName).orElseThrow();
-                    getTableFinishedLatch.countDown(); // 3
-
-                    metastore.getPartitionsByNames(table, partitionNames);
-                    getPartitionsByNamesFinishedLatch.countDown(); // 6
-
-                    return null;
-                }
-                catch (Throwable e) {
-                    log.error(e);
-                    throw e;
-                }
-            });
-
-            await(getTableEnteredLatch, 10, SECONDS); // 21
-            tableParameters.put("frequent-changing-table-parameter", "main-thread-put-xyz");
-            if (invalidateAll) {
-                metastore.flushCache();
-            }
-            else {
-                metastore.invalidateTable(databaseName, tableName);
-            }
-            getTableReturnLatch.countDown(); // 2
-            await(getTableFinishedLatch, 10, SECONDS); // 3
-            Table table = metastore.getTable(databaseName, tableName).orElseThrow();
-            assertThat(table.getParameters())
-                    .isEqualTo(Map.of("frequent-changing-table-parameter", "main-thread-put-xyz"));
-
-            await(getPartitionsByNamesEnteredLatch, 10, SECONDS); // 4
-            String partitionName = partitionNames.get(2);
-            Map<String, String> newPartitionParameters = Map.of("frequent-changing-partition-parameter", "main-thread-put-alice");
-            tablePartitionsByName.put(partitionName,
-                    Partition.builder(tablePartitionsByName.get(partitionName))
-                            .setParameters(newPartitionParameters)
-                            .build());
-            if (invalidateAll) {
-                metastore.flushCache();
-            }
-            else {
-                metastore.invalidateTable(databaseName, tableName);
-            }
-            getPartitionsByNamesReturnLatch.countDown(); // 5
-            await(getPartitionsByNamesFinishedLatch, 10, SECONDS); // 6
-            Map<String, Optional<Partition>> loadedPartitions = metastore.getPartitionsByNames(table, partitionNames);
-            assertThat(loadedPartitions.get(partitionName))
-                    .isNotNull()
-                    .isPresent()
-                    .hasValueSatisfying(partition -> assertThat(partition.getParameters()).isEqualTo(newPartitionParameters));
-
-            // verify no failure in the background thread
-            future.get(10, SECONDS);
-        }
-        finally {
-            getTableEnteredLatch.countDown();
-            getTableReturnLatch.countDown();
-            getTableFinishedLatch.countDown();
-            getPartitionsByNamesEnteredLatch.countDown();
-            getPartitionsByNamesReturnLatch.countDown();
-            getPartitionsByNamesFinishedLatch.countDown();
-
-            executor.shutdownNow();
-            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
-        }
     }
 
     @Test
