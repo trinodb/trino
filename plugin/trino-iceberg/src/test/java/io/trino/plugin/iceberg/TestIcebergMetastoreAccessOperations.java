@@ -76,7 +76,11 @@ public class TestIcebergMetastoreAccessOperations
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
         metastore = new CountingAccessHiveMetastore(createTestingFileHiveMetastore(baseDir));
-        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore)), Optional.empty(), EMPTY_MODULE));
+        queryRunner.installPlugin(new TestingIcebergPlugin(
+                baseDir.toPath(),
+                Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore)),
+                Optional.empty(),
+                EMPTY_MODULE));
         queryRunner.createCatalog("iceberg", "iceberg");
 
         queryRunner.execute("CREATE SCHEMA test_schema");

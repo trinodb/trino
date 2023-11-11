@@ -107,6 +107,7 @@ public class TestIcebergGlueCatalogAccessOperations
         trackingFileSystemFactory = new TrackingFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS));
 
         queryRunner.installPlugin(new TestingIcebergPlugin(
+                tmp.toPath(),
                 Optional.empty(),
                 Optional.of(trackingFileSystemFactory),
                 EMPTY_MODULE));

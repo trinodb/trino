@@ -89,13 +89,13 @@ public class TestIcebergGlueTableOperationsInsertFailure
         new IcebergPlugin().getFunctions().forEach(functions::functions);
         queryRunner.addFunctions(functions.build());
 
-        queryRunner.createCatalog(
-                ICEBERG_CATALOG,
-                new TestingIcebergConnectorFactory(Optional.of(new TestingIcebergGlueCatalogModule(awsGlueAsyncAdapterProvider)), Optional.empty(), EMPTY_MODULE),
-                ImmutableMap.of());
-
         Path dataDirectory = Files.createTempDirectory("iceberg_data");
         dataDirectory.toFile().deleteOnExit();
+
+        queryRunner.createCatalog(
+                ICEBERG_CATALOG,
+                new TestingIcebergConnectorFactory(dataDirectory, Optional.of(new TestingIcebergGlueCatalogModule(awsGlueAsyncAdapterProvider)), Optional.empty(), EMPTY_MODULE),
+                ImmutableMap.of());
 
         glueHiveMetastore = createTestingGlueHiveMetastore(dataDirectory);
 

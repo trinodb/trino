@@ -25,14 +25,7 @@ import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.trino.Session;
-import io.trino.filesystem.s3.S3FileSystemConfig;
-import io.trino.filesystem.s3.S3FileSystemFactory;
 import io.trino.plugin.hive.HiveQueryRunner;
-import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.tracing.TracingHiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -88,22 +81,8 @@ public class TestS3FileSystemAccessOperations
                 .build();
 
         return HiveQueryRunner.builder()
-                .setMetastore(ignored -> new TracingHiveMetastore(
-                        openTelemetry.getTracer("test"),
-                        new FileHiveMetastore(
-                                new NodeVersion("testversion"),
-                                new S3FileSystemFactory(openTelemetry, new S3FileSystemConfig()
-                                        .setAwsAccessKey(MINIO_ACCESS_KEY)
-                                        .setAwsSecretKey(MINIO_SECRET_KEY)
-                                        .setRegion(MINIO_REGION)
-                                        .setEndpoint(minio.getMinioAddress())
-                                        .setPathStyleAccess(true)),
-                                new HiveMetastoreConfig().isHideDeltaLakeTables(),
-                                new FileHiveMetastoreConfig()
-                                        .setCatalogDirectory("s3://%s/catalog".formatted(BUCKET))
-                                        .setDisableLocationChecks(true) // matches Glue behavior
-                                        .setMetastoreUser("test"))))
                 .setHiveProperties(ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.disable-location-checks", "true")
                         .put("fs.hadoop.enabled", "false")
                         .put("fs.native-s3.enabled", "true")
                         .put("s3.aws-access-key", MINIO_ACCESS_KEY)

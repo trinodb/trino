@@ -26,6 +26,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.plugin.tpch.ColumnNaming;
 import io.trino.plugin.tpch.DecimalTypeMapping;
@@ -39,7 +40,6 @@ import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTimeZone;
 
-import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
@@ -51,7 +51,6 @@ import java.util.function.Function;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.log.Level.WARN;
 import static io.airlift.units.Duration.nanosSince;
-import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.hive.security.HiveSecurityModule.ALLOW_ALL;
 import static io.trino.plugin.hive.security.HiveSecurityModule.SQL_STANDARD;
 import static io.trino.plugin.tpch.ColumnNaming.SIMPLIFIED;
@@ -107,10 +106,7 @@ public final class HiveQueryRunner
         private List<TpchTable<?>> initialTables = ImmutableList.of();
         private Optional<String> initialSchemasLocationBase = Optional.empty();
         private Function<Session, Session> initialTablesSessionMutator = Function.identity();
-        private Function<DistributedQueryRunner, HiveMetastore> metastore = queryRunner -> {
-            File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
-            return createTestingFileHiveMetastore(baseDir);
-        };
+        private Optional<Function<DistributedQueryRunner, HiveMetastore>> metastore = Optional.empty();
         private Optional<OpenTelemetry> openTelemetry = Optional.empty();
         private Module module = EMPTY_MODULE;
         private Optional<DirectoryLister> directoryLister = Optional.empty();
@@ -177,7 +173,7 @@ public final class HiveQueryRunner
         @CanIgnoreReturnValue
         public SELF setMetastore(Function<DistributedQueryRunner, HiveMetastore> metastore)
         {
-            this.metastore = requireNonNull(metastore, "metastore is null");
+            this.metastore = Optional.of(metastore);
             return self();
         }
 
@@ -268,9 +264,10 @@ public final class HiveQueryRunner
                     queryRunner.createCatalog("tpcds", withPlanAlternatives ? "plan_alternatives_tpcds" : "tpcds");
                 }
 
-                HiveMetastore metastore = this.metastore.apply(queryRunner);
-                queryRunner.installPlugin(new TestingHivePlugin(Optional.of(metastore), openTelemetry, module, directoryLister));
-                queryRunner.installPlugin(new MockPlanAlternativePlugin(new TestingHivePlugin(Optional.of(metastore), openTelemetry, module, directoryLister)));
+                Optional<HiveMetastore> metastore = this.metastore.map(factory -> factory.apply(queryRunner));
+                Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data");
+                queryRunner.installPlugin(new TestingHivePlugin(dataDir, metastore, openTelemetry, module, directoryLister));
+                queryRunner.installPlugin(new MockPlanAlternativePlugin(new TestingHivePlugin(dataDir, metastore, openTelemetry, module, directoryLister)));
 
                 Map<String, String> hiveProperties = new HashMap<>();
                 if (!skipTimezoneSetup) {
@@ -300,7 +297,7 @@ public final class HiveQueryRunner
                 queryRunner.createCatalog(HIVE_CATALOG, withPlanAlternatives ? "plan_alternatives_hive" : "hive", hiveProperties);
 
                 if (createTpchSchemas) {
-                    populateData(queryRunner, metastore);
+                    populateData(queryRunner);
                 }
 
                 return queryRunner;
@@ -311,8 +308,10 @@ public final class HiveQueryRunner
             }
         }
 
-        private void populateData(DistributedQueryRunner queryRunner, HiveMetastore metastore)
+        private void populateData(DistributedQueryRunner queryRunner)
         {
+            HiveMetastore metastore = TestingHiveUtils.getConnectorService(queryRunner, HiveMetastoreFactory.class)
+                    .createMetastore(Optional.empty());
             if (metastore.getDatabase(TPCH_SCHEMA).isEmpty()) {
                 metastore.createDatabase(createDatabaseMetastoreObject(TPCH_SCHEMA, initialSchemasLocationBase));
                 Session session = initialTablesSessionMutator.apply(queryRunner.getDefaultSession());

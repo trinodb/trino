@@ -49,7 +49,7 @@ public class TestParquetFilteredRowRanges
     {
         // The file contains lineitem table with column index sorted by suppkey
         File parquetFile = new File(Resources.getResource(
-                        "parquet_page_skipping/lineitem_sorted_by_suppkey/000000_0_a94130b9-2234-4000-9162-4114aefcd919_20230725_103128_00063_6ramm")
+                        "parquet_page_skipping/lineitem_sorted_by_suppkey/data.parquet")
                 .toURI());
         String columnName = "suppkey";
         Type columnType = BIGINT;

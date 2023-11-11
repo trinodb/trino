@@ -146,6 +146,7 @@ import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.session.PropertyMetadata;
@@ -816,6 +817,13 @@ public class LocalQueryRunner
     public CatalogManager getCatalogManager()
     {
         return catalogManager;
+    }
+
+    public Connector getConnector(String catalogName)
+    {
+        return catalogManager
+                .getConnectorServices(getCatalogHandle(catalogName))
+                .getConnector();
     }
 
     public LocalQueryRunner printPlan()

@@ -52,6 +52,11 @@ public class MockPlanAlternativeConnector
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
 
+    public Connector getDelegate()
+    {
+        return delegate;
+    }
+
     @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {

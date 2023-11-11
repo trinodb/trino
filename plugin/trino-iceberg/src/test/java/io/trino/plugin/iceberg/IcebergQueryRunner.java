@@ -36,7 +36,6 @@ import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -138,16 +137,9 @@ public final class IcebergQueryRunner
                 queryRunner.installPlugin(new TpchPlugin());
                 queryRunner.createCatalog("tpch", "tpch");
 
-                queryRunner.installPlugin(new IcebergPlugin());
-                Map<String, String> icebergProperties = new HashMap<>(this.icebergProperties.buildOrThrow());
-                String catalogType = icebergProperties.get("iceberg.catalog.type");
                 Path dataDir = metastoreDirectory.map(File::toPath).orElseGet(() -> queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data"));
-                if (catalogType == null) {
-                    icebergProperties.put("iceberg.catalog.type", "TESTING_FILE_METASTORE");
-                    icebergProperties.put("hive.metastore.catalog.dir", dataDir.toString());
-                }
-
-                queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
+                queryRunner.installPlugin(new TestingIcebergPlugin(dataDir));
+                queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties.buildOrThrow());
                 schemaInitializer.orElseGet(() -> SchemaInitializer.builder().build()).accept(queryRunner);
 
                 return queryRunner;
