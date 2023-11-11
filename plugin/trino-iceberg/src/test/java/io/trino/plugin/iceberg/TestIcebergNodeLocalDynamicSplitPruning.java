@@ -69,6 +69,7 @@ import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
+import static io.trino.plugin.iceberg.util.OrcTypeConverter.toOrcType;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
@@ -137,7 +138,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 OutputStreamOrcDataSink.create(outputFile),
                 columnNames,
                 types,
-                TypeConverter.toOrcType(TABLE_SCHEMA),
+                toOrcType(TABLE_SCHEMA),
                 NONE,
                 new OrcWriterOptions(),
                 ImmutableMap.of(),
