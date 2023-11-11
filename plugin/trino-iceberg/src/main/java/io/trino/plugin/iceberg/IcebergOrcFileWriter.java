@@ -60,7 +60,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Verify.verify;
 import static io.trino.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
-import static io.trino.plugin.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
+import static io.trino.plugin.iceberg.util.OrcTypeConverter.ORC_ICEBERG_ID_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;

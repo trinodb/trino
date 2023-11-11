@@ -71,8 +71,8 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterB
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcWriterValidate;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP;
-import static io.trino.plugin.iceberg.TypeConverter.toOrcType;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
+import static io.trino.plugin.iceberg.util.OrcTypeConverter.toOrcType;
 import static io.trino.plugin.iceberg.util.PrimitiveTypeMapBuilder.makeTypeMap;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Double.parseDouble;
