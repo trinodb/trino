@@ -32,7 +32,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.Optional;
 
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.CREATE_TABLE;
@@ -63,10 +63,10 @@ public class TestDeltaLakeMetastoreAccessOperations
     {
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION).build();
 
-        File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake").toFile();
-        metastore = new CountingAccessHiveMetastore(createTestingFileHiveMetastore(baseDir));
+        Path baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake");
+        metastore = new CountingAccessHiveMetastore(createTestingFileHiveMetastore(baseDir.toFile()));
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.empty(), Optional.empty(), new CountingAccessMetastoreModule(metastore)));
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(baseDir, Optional.empty(), Optional.empty(), new CountingAccessMetastoreModule(metastore)));
         ImmutableMap.Builder<String, String> deltaLakeProperties = ImmutableMap.builder();
         deltaLakeProperties.put("hive.metastore", "test"); // use test value so we do not get clash with default bindings)
         queryRunner.createCatalog("delta", "delta_lake", deltaLakeProperties.buildOrThrow());

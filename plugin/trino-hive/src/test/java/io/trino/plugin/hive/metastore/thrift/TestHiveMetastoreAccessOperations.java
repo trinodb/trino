@@ -62,7 +62,7 @@ public class TestHiveMetastoreAccessOperations
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive").toFile();
         metastore = new CountingAccessHiveMetastore(createTestingFileHiveMetastore(baseDir));
 
-        queryRunner.installPlugin(new TestingHivePlugin(metastore));
+        queryRunner.installPlugin(new TestingHivePlugin(baseDir.toPath(), metastore));
         queryRunner.createCatalog("hive", "hive", ImmutableMap.of());
 
         queryRunner.execute("CREATE SCHEMA test_schema");

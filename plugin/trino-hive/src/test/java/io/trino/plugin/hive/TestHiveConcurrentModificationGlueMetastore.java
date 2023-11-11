@@ -100,7 +100,7 @@ public class TestHiveConcurrentModificationGlueMetastore
                 stats,
                 table -> true);
 
-        queryRunner.installPlugin(new TestingHivePlugin(metastore));
+        queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data"), metastore));
         queryRunner.createCatalog(CATALOG_NAME, "hive");
         queryRunner.execute("CREATE SCHEMA " + SCHEMA);
         return queryRunner;
