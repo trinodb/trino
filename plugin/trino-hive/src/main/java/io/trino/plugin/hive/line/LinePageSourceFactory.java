@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.line;
 
-import com.google.common.collect.Maps;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -40,9 +39,9 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.io.InputStream;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -83,7 +82,7 @@ public abstract class LinePageSourceFactory
             long start,
             long length,
             long estimatedFileSize,
-            Properties schema,
+            Map<String, String> schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             Optional<AcidInfo> acidInfo,
@@ -91,7 +90,7 @@ public abstract class LinePageSourceFactory
             boolean originalFile,
             AcidTransaction transaction)
     {
-        if (!lineReaderFactory.getHiveOutputFormatClassName().equals(schema.getProperty(FILE_INPUT_FORMAT)) ||
+        if (!lineReaderFactory.getHiveOutputFormatClassName().equals(schema.get(FILE_INPUT_FORMAT)) ||
                 !lineDeserializerFactory.getHiveSerDeClassNames().contains(getDeserializerClassName(schema))) {
             return Optional.empty();
         }
@@ -124,7 +123,7 @@ public abstract class LinePageSourceFactory
                     projectedReaderColumns.stream()
                             .map(column -> new Column(column.getName(), column.getType(), column.getBaseHiveColumnIndex()))
                             .collect(toImmutableList()),
-                    Maps.fromProperties(schema));
+                    schema);
         }
 
         // Skip empty inputs

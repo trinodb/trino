@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.stats.Distribution;
@@ -84,6 +85,7 @@ import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
@@ -491,7 +493,7 @@ public class TestOrcPageSourceMemoryTracking
     private class TestPreparer
     {
         private final FileSplit fileSplit;
-        private final Properties schema;
+        private final Map<String, String> schema;
         private final List<HiveColumnHandle> columns;
         private final List<Type> types;
         private final String partitionName;
@@ -509,17 +511,12 @@ public class TestOrcPageSourceMemoryTracking
                 throws Exception
         {
             OrcSerde serde = new OrcSerde();
-            schema = new Properties();
-            schema.setProperty(LIST_COLUMNS,
-                    testColumns.stream()
-                            .map(TestColumn::getName)
-                            .collect(Collectors.joining(",")));
-            schema.setProperty(LIST_COLUMN_TYPES,
-                    testColumns.stream()
-                            .map(TestColumn::getType)
-                            .collect(Collectors.joining(",")));
-            schema.setProperty(FILE_INPUT_FORMAT, OrcInputFormat.class.getName());
-            schema.setProperty(SERIALIZATION_LIB, serde.getClass().getName());
+            schema = ImmutableMap.<String, String>builder()
+                    .put(LIST_COLUMNS, testColumns.stream().map(TestColumn::getName).collect(Collectors.joining(",")))
+                    .put(LIST_COLUMN_TYPES, testColumns.stream().map(TestColumn::getType).collect(Collectors.joining(",")))
+                    .put(FILE_INPUT_FORMAT, OrcInputFormat.class.getName())
+                    .put(SERIALIZATION_LIB, serde.getClass().getName())
+                    .buildOrThrow();
 
             partitionKeys = testColumns.stream()
                     .filter(TestColumn::isPartitionKey)

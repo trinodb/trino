@@ -20,9 +20,9 @@ import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.spi.HostAddress;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.function.BooleanSupplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -37,13 +37,13 @@ import static java.util.Objects.requireNonNull;
 @NotThreadSafe
 public class InternalHiveSplit
 {
-    private static final int INSTANCE_SIZE = instanceSize(InternalHiveSplit.class) + instanceSize(Properties.class) + instanceSize(OptionalInt.class);
+    private static final int INSTANCE_SIZE = instanceSize(InternalHiveSplit.class) + instanceSize(OptionalInt.class);
 
     private final String path;
     private final long end;
     private final long estimatedFileSize;
     private final long fileModifiedTime;
-    private final Properties schema;
+    private final Map<String, String> schema;
     private final List<HivePartitionKey> partitionKeys;
     private final List<InternalHiveBlock> blocks;
     private final String partitionName;
@@ -67,7 +67,7 @@ public class InternalHiveSplit
             long end,
             long estimatedFileSize,
             long fileModifiedTime,
-            Properties schema,
+            Map<String, String> schema,
             List<HivePartitionKey> partitionKeys,
             List<InternalHiveBlock> blocks,
             OptionalInt readBucketNumber,
@@ -141,7 +141,7 @@ public class InternalHiveSplit
         return fileModifiedTime;
     }
 
-    public Properties getSchema()
+    public Map<String, String> getSchema()
     {
         return schema;
     }

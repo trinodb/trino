@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -182,14 +181,14 @@ public class TestMetastoreUtil
     @Test
     public void testHiveSchemaTable()
     {
-        Properties actual = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA));
+        Map<String, String> actual = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA));
         assertEquals(actual, TEST_TABLE_METADATA);
     }
 
     @Test
     public void testHiveSchemaPartition()
     {
-        Properties actual = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS), ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA));
+        Map<String, String> actual = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS), ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA));
         assertEquals(actual, TEST_TABLE_METADATA);
     }
 
@@ -199,10 +198,10 @@ public class TestMetastoreUtil
         List<FieldSchema> testSchema = TEST_SCHEMA.stream()
                 .map(fieldSchema -> new FieldSchema(fieldSchema.getName(), fieldSchema.getType().toUpperCase(Locale.ENGLISH), fieldSchema.getComment()))
                 .toList();
-        Properties actualTable = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, testSchema));
+        Map<String, String> actualTable = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, testSchema));
         assertEquals(actualTable, TEST_TABLE_METADATA);
 
-        Properties actualPartition = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS), ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, testSchema));
+        Map<String, String> actualPartition = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS), ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, testSchema));
         assertEquals(actualPartition, TEST_TABLE_METADATA);
     }
 

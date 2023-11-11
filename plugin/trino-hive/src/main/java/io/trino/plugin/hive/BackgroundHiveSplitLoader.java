@@ -66,7 +66,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -389,7 +388,7 @@ public class BackgroundHiveSplitLoader
     {
         HivePartition hivePartition = partition.getHivePartition();
         String partitionName = hivePartition.getPartitionId();
-        Properties schema = partition.getPartition()
+        Map<String, String> schema = partition.getPartition()
                 .map(value -> getHiveSchema(value, table))
                 .orElseGet(() -> getHiveSchema(table));
         List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
