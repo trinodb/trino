@@ -49,9 +49,9 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.stream.Collectors;
 
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -62,7 +62,7 @@ import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
-import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_COMMENTS;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -221,22 +221,13 @@ class TestOrcPredicates
         fileWriter.commit();
     }
 
-    private static Properties getTableProperties()
+    private static Map<String, String> getTableProperties()
     {
-        Properties tableProperties = new Properties();
-        tableProperties.setProperty(FILE_INPUT_FORMAT, ORC.getInputFormat());
-        tableProperties.setProperty(SERIALIZATION_LIB, ORC.getSerde());
-        tableProperties.setProperty(
-                LIST_COLUMNS,
-                COLUMNS.stream()
-                        .map(HiveColumnHandle::getName)
-                        .collect(Collectors.joining(",")));
-        tableProperties.setProperty(
-                LIST_COLUMN_COMMENTS,
-                COLUMNS.stream()
-                        .map(HiveColumnHandle::getHiveType)
-                        .map(HiveType::toString)
-                        .collect(Collectors.joining(",")));
-        return tableProperties;
+        return ImmutableMap.<String, String>builder()
+                .put(FILE_INPUT_FORMAT, ORC.getInputFormat())
+                .put(SERIALIZATION_LIB, ORC.getSerde())
+                .put(LIST_COLUMNS, COLUMNS.stream().map(HiveColumnHandle::getName).collect(Collectors.joining(",")))
+                .put(LIST_COLUMN_TYPES, COLUMNS.stream().map(HiveColumnHandle::getHiveType).map(HiveType::toString).collect(Collectors.joining(",")))
+                .buildOrThrow();
     }
 }

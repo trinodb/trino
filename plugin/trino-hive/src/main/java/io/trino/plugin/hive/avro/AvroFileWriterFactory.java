@@ -38,9 +38,9 @@ import org.apache.avro.Schema;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -78,7 +78,7 @@ public class AvroFileWriterFactory
             List<String> inputColumnNames,
             StorageFormat storageFormat,
             HiveCompressionCodec compressionCodec,
-            Properties schema,
+            Map<String, String> schema,
             ConnectorSession session,
             OptionalInt bucketNumber,
             AcidTransaction transaction,

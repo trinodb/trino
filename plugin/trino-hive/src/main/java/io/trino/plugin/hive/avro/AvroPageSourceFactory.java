@@ -47,7 +47,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
 
@@ -86,7 +85,7 @@ public class AvroPageSourceFactory
             long start,
             long length,
             long estimatedFileSize,
-            Properties schema,
+            Map<String, String> schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             Optional<AcidInfo> acidInfo,

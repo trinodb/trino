@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.function.BooleanSupplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -51,7 +50,7 @@ public class InternalHiveSplitFactory
 {
     private final String partitionName;
     private final HiveStorageFormat storageFormat;
-    private final Properties strippedSchema;
+    private final Map<String, String> strippedSchema;
     private final List<HivePartitionKey> partitionKeys;
     private final Optional<Domain> pathDomain;
     private final TableToPartitionMapping tableToPartitionMapping;
@@ -65,7 +64,7 @@ public class InternalHiveSplitFactory
     public InternalHiveSplitFactory(
             String partitionName,
             HiveStorageFormat storageFormat,
-            Properties schema,
+            Map<String, String> schema,
             List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             BooleanSupplier partitionMatchSupplier,
@@ -91,7 +90,7 @@ public class InternalHiveSplitFactory
         checkArgument(minimumTargetSplitSizeInBytes > 0, "minimumTargetSplitSize must be > 0, found: %s", minimumTargetSplitSize);
     }
 
-    private static Properties stripUnnecessaryProperties(Properties schema)
+    private static Map<String, String> stripUnnecessaryProperties(Map<String, String> schema)
     {
         // Sending the full schema with every split is costly and can be avoided for formats supported natively
         schema = OrcPageSourceFactory.stripUnnecessaryProperties(schema);

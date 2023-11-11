@@ -24,9 +24,9 @@ import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -46,7 +46,7 @@ public class HiveSplit
     private final long length;
     private final long estimatedFileSize;
     private final long fileModifiedTime;
-    private final Properties schema;
+    private final Map<String, String> schema;
     private final List<HivePartitionKey> partitionKeys;
     private final List<HostAddress> addresses;
     private final String partitionName;
@@ -67,7 +67,7 @@ public class HiveSplit
             @JsonProperty("length") long length,
             @JsonProperty("estimatedFileSize") long estimatedFileSize,
             @JsonProperty("fileModifiedTime") long fileModifiedTime,
-            @JsonProperty("schema") Properties schema,
+            @JsonProperty("schema") Map<String, String> schema,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
             @JsonProperty("readBucketNumber") OptionalInt readBucketNumber,
             @JsonProperty("tableBucketNumber") OptionalInt tableBucketNumber,
@@ -105,7 +105,7 @@ public class HiveSplit
             long length,
             long estimatedFileSize,
             long fileModifiedTime,
-            Properties schema,
+            Map<String, String> schema,
             List<HivePartitionKey> partitionKeys,
             List<HostAddress> addresses,
             OptionalInt readBucketNumber,
@@ -188,7 +188,7 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public Properties getSchema()
+    public Map<String, String> getSchema()
     {
         return schema;
     }

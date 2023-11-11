@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.parquet;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
@@ -33,7 +34,6 @@ import java.nio.file.Files;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -70,15 +70,13 @@ final class ParquetUtil
                 new ParquetReaderConfig(),
                 new HiveConfig());
 
-        Properties schema = new Properties();
-        schema.setProperty(SERIALIZATION_LIB, HiveStorageFormat.PARQUET.getSerde());
         return hivePageSourceFactory.createPageSource(
                         session,
                         location,
                         0,
                         parquetFile.length(),
                         parquetFile.length(),
-                        schema,
+                        ImmutableMap.of(SERIALIZATION_LIB, HiveStorageFormat.PARQUET.getSerde()),
                         columns,
                         domain,
                         Optional.empty(),

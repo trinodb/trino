@@ -45,13 +45,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
-import java.util.Properties;
 import java.util.Set;
 import java.util.function.LongPredicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
+import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
@@ -68,7 +68,6 @@ import static io.trino.tpch.NationColumn.NAME;
 import static io.trino.tpch.NationColumn.NATION_KEY;
 import static io.trino.tpch.NationColumn.REGION_KEY;
 import static java.util.Collections.nCopies;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -328,13 +327,13 @@ public class TestOrcPageSourceFactory
                 Optional.empty());
     }
 
-    private static Properties createSchema()
+    private static Map<String, String> createSchema()
     {
-        Properties schema = new Properties();
-        schema.setProperty(SERIALIZATION_LIB, ORC.getSerde());
-        schema.setProperty(FILE_INPUT_FORMAT, ORC.getInputFormat());
-        schema.setProperty(TRANSACTIONAL, "true");
-        return schema;
+        return ImmutableMap.<String, String>builder()
+                .put(SERIALIZATION_LIB, ORC.getSerde())
+                .put(FILE_INPUT_FORMAT, ORC.getInputFormat())
+                .put(TRANSACTIONAL, "true")
+                .buildOrThrow();
     }
 
     private static void assertEqualsByColumns(Set<NationColumn> columns, List<Nation> actualRows, List<Nation> expectedRows)
