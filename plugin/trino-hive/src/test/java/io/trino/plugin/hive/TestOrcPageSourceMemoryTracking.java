@@ -106,6 +106,9 @@ import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.buildCol
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_COMMENTS;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.relational.Expressions.field;
@@ -507,11 +510,11 @@ public class TestOrcPageSourceMemoryTracking
         {
             OrcSerde serde = new OrcSerde();
             schema = new Properties();
-            schema.setProperty("columns",
+            schema.setProperty(LIST_COLUMNS,
                     testColumns.stream()
                             .map(TestColumn::getName)
                             .collect(Collectors.joining(",")));
-            schema.setProperty("columns.types",
+            schema.setProperty(LIST_COLUMN_TYPES,
                     testColumns.stream()
                             .map(TestColumn::getType)
                             .collect(Collectors.joining(",")));
@@ -659,13 +662,13 @@ public class TestOrcPageSourceMemoryTracking
 
         Properties tableProperties = new Properties();
         tableProperties.setProperty(
-                "columns",
+                LIST_COLUMNS,
                 testColumns.stream()
                         .map(TestColumn::getName)
                         .collect(Collectors.joining(",")));
 
         tableProperties.setProperty(
-                "columns.types",
+                LIST_COLUMN_COMMENTS,
                 testColumns.stream()
                         .map(TestColumn::getType)
                         .collect(Collectors.joining(",")));

@@ -75,6 +75,7 @@ import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.NUM_ROWS;
 import static io.trino.plugin.hive.util.HiveClassNames.AVRO_SERDE_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.makePartName;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_COMMENTS;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
@@ -175,7 +176,7 @@ public final class MetastoreUtil
         String columnTypes = columnTypeBuilder.toString();
         schema.setProperty(META_TABLE_COLUMNS, columnNames);
         schema.setProperty(META_TABLE_COLUMN_TYPES, columnTypes);
-        schema.setProperty("columns.comments", columnCommentBuilder.toString());
+        schema.setProperty(LIST_COLUMN_COMMENTS, columnCommentBuilder.toString());
 
         StringBuilder partString = new StringBuilder();
         String partStringSep = "";
