@@ -69,7 +69,6 @@ import io.trino.type.TypeDeserializer;
 import org.assertj.core.api.AbstractLongAssert;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -165,7 +164,6 @@ import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bou
 import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.EXACTLY;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.trino.sql.tree.ExplainType.Type.DISTRIBUTED;
-import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
@@ -398,8 +396,14 @@ public abstract class BaseHiveConnectorTest
                 .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
-    @Test(dataProvider = "queryPartitionFilterRequiredSchemasDataProvider")
-    public void testRequiredPartitionFilter(String queryPartitionFilterRequiredSchemas)
+    @Test
+    public void testRequiredPartitionFilter()
+    {
+        testRequiredPartitionFilter("[]");
+        testRequiredPartitionFilter("[\"tpch\"]");
+    }
+
+    private void testRequiredPartitionFilter(String queryPartitionFilterRequiredSchemas)
     {
         Session session = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
@@ -445,8 +449,14 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(session, "DROP TABLE test_required_partition_filter");
     }
 
-    @Test(dataProvider = "queryPartitionFilterRequiredSchemasDataProvider")
-    public void testRequiredPartitionFilterInferred(String queryPartitionFilterRequiredSchemas)
+    @Test
+    public void testRequiredPartitionFilterInferred()
+    {
+        testRequiredPartitionFilterInferred("[]");
+        testRequiredPartitionFilterInferred("[\"tpch\"]");
+    }
+
+    private void testRequiredPartitionFilterInferred(String queryPartitionFilterRequiredSchemas)
     {
         Session session = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
@@ -476,15 +486,6 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(session, "DROP TABLE test_partition_filter_inferred_left");
         assertUpdate(session, "DROP TABLE test_partition_filter_inferred_right");
-    }
-
-    @DataProvider
-    public Object[][] queryPartitionFilterRequiredSchemasDataProvider()
-    {
-        return new Object[][] {
-                {"[]"},
-                {"[\"tpch\"]"}
-        };
     }
 
     @Test
@@ -2259,8 +2260,100 @@ public abstract class BaseHiveConnectorTest
         assertFalse(getQueryRunner().tableExists(session, tableName));
     }
 
-    @Test(dataProvider = "bucketFilteringDataTypesSetupProvider")
-    public void testFilterOnBucketedTable(BucketedFilterTestSetup testSetup)
+    @Test
+    public void testFilterOnBucketedTable()
+    {
+        testFilterOnBucketedValue(
+                "BOOLEAN",
+                Stream.concat(IntStream.range(0, 100).mapToObj(i -> "true"), IntStream.range(0, 100).mapToObj(i -> "false"))
+                        .collect(toImmutableList()),
+                "true",
+                100,
+                100);
+
+        testFilterOnBucketedValue(
+                "TINYINT",
+                IntStream.range(0, 127).mapToObj(String::valueOf).collect(toImmutableList()),
+                "126",
+                26,
+                1);
+
+        testFilterOnBucketedValue(
+                "SMALLINT",
+                IntStream.range(0, 1000).map(i -> i + 22767).mapToObj(String::valueOf).collect(toImmutableList()),
+                "22767",
+                200,
+                1);
+
+        testFilterOnBucketedValue(
+                "INTEGER",
+                IntStream.range(0, 1000).map(i -> i + 1274942432).mapToObj(String::valueOf).collect(toImmutableList()),
+                "1274942432",
+                200,
+                1);
+
+        testFilterOnBucketedValue(
+                "BIGINT",
+                IntStream.range(0, 1000).mapToLong(i -> i + 312739231274942432L).mapToObj(String::valueOf).collect(toImmutableList()),
+                "312739231274942432",
+                200,
+                1);
+
+        testFilterOnBucketedValue(
+                "REAL",
+                IntStream.range(0, 1000).mapToDouble(i -> i + 567.123).mapToObj(val -> "REAL '" + val + "'").collect(toImmutableList()),
+                "567.123",
+                201,
+                1);
+
+        testFilterOnBucketedValue(
+                "DOUBLE",
+                IntStream.range(0, 1000).mapToDouble(i -> i + 1234567890123.123).mapToObj(val -> "DOUBLE '" + val + "'").collect(toImmutableList()),
+                "1234567890123.123",
+                201,
+                1);
+
+        testFilterOnBucketedValue(
+                "VARCHAR",
+                IntStream.range(0, 1000).mapToObj(i -> "'test value " + i + "'").collect(toImmutableList()),
+                "'test value 5'",
+                200,
+                1);
+
+        testFilterOnBucketedValue(
+                "VARCHAR(20)",
+                IntStream.range(0, 1000).mapToObj(i -> "'test value " + i + "'").collect(toImmutableList()),
+                "'test value 5'",
+                200,
+                1);
+
+        testFilterOnBucketedValue(
+                "DATE",
+                IntStream.range(0, 1000).mapToObj(i -> "DATE '2020-02-12' + interval '" + i + "' day").collect(toImmutableList()),
+                "DATE '2020-02-15'",
+                200,
+                1);
+
+        testFilterOnBucketedValue(
+                "ARRAY<INT>",
+                IntStream.range(0, 1000)
+                        .mapToObj(i -> format("ARRAY[%s, %s, %s, %s]", i + 22767, i + 22768, i + 22769, i + 22770))
+                        .collect(toImmutableList()),
+                "ARRAY[22767, 22768, 22769, 22770]",
+                200,
+                1);
+
+        testFilterOnBucketedValue(
+                "MAP<DOUBLE, INT>",
+                IntStream.range(0, 1000)
+                        .mapToObj(i -> format("MAP(ARRAY[%s, %s], ARRAY[%s, %s])", i + 567.123, i + 568.456, i + 22769, i + 22770))
+                        .collect(toImmutableList()),
+                "MAP(ARRAY[567.123, 568.456], ARRAY[22769, 22770])",
+                149,
+                1);
+    }
+
+    private void testFilterOnBucketedValue(String typeName, List<String> valueList, String filterValue, long expectedPhysicalInputRows, long expectedResult)
     {
         String tableName = "test_filter_on_bucketed_table_" + randomNameSuffix();
         assertUpdate(
@@ -2270,12 +2363,12 @@ public abstract class BaseHiveConnectorTest
                     format = 'TEXTFILE',
                     bucketed_by = ARRAY[ 'bucket_key' ],
                     bucket_count = 5)
-                """.formatted(tableName, testSetup.getTypeName()));
+                """.formatted(tableName, typeName));
 
-        String values = testSetup.getValues().stream()
+        String values = valueList.stream()
                 .map(value -> "(" + value + ", rand())")
                 .collect(joining(", "));
-        assertUpdate("INSERT INTO " + tableName + " VALUES " + values, testSetup.getValues().size());
+        assertUpdate("INSERT INTO " + tableName + " VALUES " + values, valueList.size());
 
         // It will only read data from a single bucket instead of all buckets,
         // so physicalInputPositions should be less than number of rows inserted (.
@@ -2285,99 +2378,23 @@ public abstract class BaseHiveConnectorTest
                 SELECT count(*)
                 FROM %s
                 WHERE bucket_key = %s
-                """.formatted(tableName, testSetup.getFilterValue()),
-                queryStats -> assertThat(queryStats.getPhysicalInputPositions()).isEqualTo(testSetup.getExpectedPhysicalInputRows()),
-                result -> assertThat(result.getOnlyValue()).isEqualTo(testSetup.getExpectedResult()));
+                """.formatted(tableName, filterValue),
+                queryStats -> assertThat(queryStats.getPhysicalInputPositions()).isEqualTo(expectedPhysicalInputRows),
+                result -> assertThat(result.getOnlyValue()).isEqualTo(expectedResult));
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @DataProvider
-    public final Object[][] bucketFilteringDataTypesSetupProvider()
+    @Test
+    public void testBucketedTableUnsupportedTypes()
     {
-        List<BucketedFilterTestSetup> testSetups = ImmutableList.of(
-                new BucketedFilterTestSetup(
-                        "BOOLEAN",
-                        Stream.concat(IntStream.range(0, 100).mapToObj(i -> "true"), IntStream.range(0, 100).mapToObj(i -> "false"))
-                                .collect(toImmutableList()),
-                        "true",
-                        100,
-                        100),
-                new BucketedFilterTestSetup(
-                        "TINYINT",
-                        IntStream.range(0, 127).mapToObj(String::valueOf).collect(toImmutableList()),
-                        "126",
-                        26,
-                        1),
-                new BucketedFilterTestSetup(
-                        "SMALLINT",
-                        IntStream.range(0, 1000).map(i -> i + 22767).mapToObj(String::valueOf).collect(toImmutableList()),
-                        "22767",
-                        200,
-                        1),
-                new BucketedFilterTestSetup(
-                        "INTEGER",
-                        IntStream.range(0, 1000).map(i -> i + 1274942432).mapToObj(String::valueOf).collect(toImmutableList()),
-                        "1274942432",
-                        200,
-                        1),
-                new BucketedFilterTestSetup(
-                        "BIGINT",
-                        IntStream.range(0, 1000).mapToLong(i -> i + 312739231274942432L).mapToObj(String::valueOf).collect(toImmutableList()),
-                        "312739231274942432",
-                        200,
-                        1),
-                new BucketedFilterTestSetup(
-                        "REAL",
-                        IntStream.range(0, 1000).mapToDouble(i -> i + 567.123).mapToObj(val -> "REAL '" + val + "'").collect(toImmutableList()),
-                        "567.123",
-                        201,
-                        1),
-                new BucketedFilterTestSetup(
-                        "DOUBLE",
-                        IntStream.range(0, 1000).mapToDouble(i -> i + 1234567890123.123).mapToObj(val -> "DOUBLE '" + val + "'").collect(toImmutableList()),
-                        "1234567890123.123",
-                        201,
-                        1),
-                new BucketedFilterTestSetup(
-                        "VARCHAR",
-                        IntStream.range(0, 1000).mapToObj(i -> "'test value " + i + "'").collect(toImmutableList()),
-                        "'test value 5'",
-                        200,
-                        1),
-                new BucketedFilterTestSetup(
-                        "VARCHAR(20)",
-                        IntStream.range(0, 1000).mapToObj(i -> "'test value " + i + "'").collect(toImmutableList()),
-                        "'test value 5'",
-                        200,
-                        1),
-                new BucketedFilterTestSetup(
-                        "DATE",
-                        IntStream.range(0, 1000).mapToObj(i -> "DATE '2020-02-12' + interval '" + i + "' day").collect(toImmutableList()),
-                        "DATE '2020-02-15'",
-                        200,
-                        1),
-                new BucketedFilterTestSetup(
-                        "ARRAY<INT>",
-                        IntStream.range(0, 1000)
-                                .mapToObj(i -> format("ARRAY[%s, %s, %s, %s]", i + 22767, i + 22768, i + 22769, i + 22770))
-                                .collect(toImmutableList()),
-                        "ARRAY[22767, 22768, 22769, 22770]",
-                        200,
-                        1),
-                new BucketedFilterTestSetup(
-                        "MAP<DOUBLE, INT>",
-                        IntStream.range(0, 1000)
-                                .mapToObj(i -> format("MAP(ARRAY[%s, %s], ARRAY[%s, %s])", i + 567.123, i + 568.456, i + 22769, i + 22770))
-                                .collect(toImmutableList()),
-                        "MAP(ARRAY[567.123, 568.456], ARRAY[22769, 22770])",
-                        149,
-                        1));
-        return testSetups.stream()
-                .collect(toDataProvider());
+        testBucketedTableUnsupportedTypes("VARBINARY");
+        testBucketedTableUnsupportedTypes("TIMESTAMP");
+        testBucketedTableUnsupportedTypes("DECIMAL(10,3)");
+        testBucketedTableUnsupportedTypes("CHAR");
+        testBucketedTableUnsupportedTypes("ROW(id VARCHAR)");
     }
 
-    @Test(dataProvider = "bucketedUnsupportedTypes")
-    public void testBucketedTableUnsupportedTypes(String typeName)
+    private void testBucketedTableUnsupportedTypes(String typeName)
     {
         String tableName = "test_bucketed_table_for_unsupported_types_" + randomNameSuffix();
         assertThatThrownBy(() -> assertUpdate(
@@ -2388,12 +2405,6 @@ public abstract class BaseHiveConnectorTest
                     bucket_count = 5)
                 """.formatted(tableName, typeName)))
                 .hasMessage("Cannot create a table bucketed on an unsupported type");
-    }
-
-    @DataProvider
-    public final Object[][] bucketedUnsupportedTypes()
-    {
-        return new Object[][] {{"VARBINARY"}, {"TIMESTAMP"}, {"DECIMAL(10,3)"}, {"CHAR"}, {"ROW(id VARCHAR)"}};
     }
 
     /**
@@ -3880,8 +3891,15 @@ public abstract class BaseHiveConnectorTest
         assertQuery("SELECT col[1][2] FROM tmp_array13", "SELECT 2.345");
     }
 
-    @Test(dataProvider = "timestampPrecision")
-    public void testTemporalArrays(HiveTimestampPrecision timestampPrecision)
+    @Test
+    public void testTemporalArrays()
+    {
+        testTemporalArrays(HiveTimestampPrecision.MILLISECONDS);
+        testTemporalArrays(HiveTimestampPrecision.MICROSECONDS);
+        testTemporalArrays(HiveTimestampPrecision.NANOSECONDS);
+    }
+
+    private void testTemporalArrays(HiveTimestampPrecision timestampPrecision)
     {
         Session session = withTimestampPrecision(getSession(), timestampPrecision);
         assertUpdate("DROP TABLE IF EXISTS tmp_array11");
@@ -3892,7 +3910,14 @@ public abstract class BaseHiveConnectorTest
         assertOneNotNullResult(session, "SELECT col[1] FROM tmp_array12");
     }
 
-    @Test(dataProvider = "timestampPrecision")
+    @Test
+    public void testMaps()
+    {
+        testMaps(HiveTimestampPrecision.MILLISECONDS);
+        testMaps(HiveTimestampPrecision.MICROSECONDS);
+        testMaps(HiveTimestampPrecision.NANOSECONDS);
+    }
+
     public void testMaps(HiveTimestampPrecision timestampPrecision)
     {
         Session session = withTimestampPrecision(getSession(), timestampPrecision);
@@ -4180,16 +4205,12 @@ public abstract class BaseHiveConnectorTest
                 .isBetween(0L, workers);
     }
 
-    @DataProvider(name = "taskWritersLimitParams")
-    public Object[][] prepareScaledWritersOption()
+    @Test
+    public void testWriterTasksCountLimitUnpartitioned()
     {
-        return new Object[][] {{true, true, 2}, {false, true, 2}, {false, false, 3}};
-    }
-
-    @Test(dataProvider = "taskWritersLimitParams")
-    public void testWriterTasksCountLimitUnpartitioned(boolean scaleWriters, boolean redistributeWrites, int expectedFilesCount)
-    {
-        testLimitWriterTasks(2, expectedFilesCount, scaleWriters, redistributeWrites, false, DataSize.of(1, MEGABYTE));
+        testLimitWriterTasks(2, 2, true, true, false, DataSize.of(1, MEGABYTE));
+        testLimitWriterTasks(2, 2, false, true, false, DataSize.of(1, MEGABYTE));
+        testLimitWriterTasks(2, 3, false, false, false, DataSize.of(1, MEGABYTE));
     }
 
     @Test
@@ -4857,8 +4878,15 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE test_file_size");
     }
 
-    @Test(dataProvider = "timestampPrecision")
-    public void testFileModifiedTimeHiddenColumn(HiveTimestampPrecision precision)
+    @Test
+    public void testFileModifiedTimeHiddenColumn()
+    {
+        testFileModifiedTimeHiddenColumn(HiveTimestampPrecision.MILLISECONDS);
+        testFileModifiedTimeHiddenColumn(HiveTimestampPrecision.MICROSECONDS);
+        testFileModifiedTimeHiddenColumn(HiveTimestampPrecision.NANOSECONDS);
+    }
+
+    private void testFileModifiedTimeHiddenColumn(HiveTimestampPrecision precision)
     {
         long testStartTime = Instant.now().toEpochMilli();
 
@@ -5265,24 +5293,22 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_bucket_predicate32");
     }
 
-    @DataProvider
-    public Object[][] timestampPrecisionAndValues()
+    @Test
+    public void testParquetTimestampPredicatePushdown()
     {
-        return new Object[][] {
-                {HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2012-10-31T01:00:08.123")},
-                {HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2012-10-31T01:00:08.123456")},
-                {HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2012-10-31T01:00:08.123000000")},
-                {HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2012-10-31T01:00:08.123000001")},
-                {HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2012-10-31T01:00:08.123456789")},
-                {HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("1965-10-31T01:00:08.123")},
-                {HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("1965-10-31T01:00:08.123456")},
-                {HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("1965-10-31T01:00:08.123000000")},
-                {HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("1965-10-31T01:00:08.123000001")},
-                {HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("1965-10-31T01:00:08.123456789")}};
+        testParquetTimestampPredicatePushdown(HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2012-10-31T01:00:08.123"));
+        testParquetTimestampPredicatePushdown(HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2012-10-31T01:00:08.123456"));
+        testParquetTimestampPredicatePushdown(HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2012-10-31T01:00:08.123000000"));
+        testParquetTimestampPredicatePushdown(HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2012-10-31T01:00:08.123000001"));
+        testParquetTimestampPredicatePushdown(HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2012-10-31T01:00:08.123456789"));
+        testParquetTimestampPredicatePushdown(HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("1965-10-31T01:00:08.123"));
+        testParquetTimestampPredicatePushdown(HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("1965-10-31T01:00:08.123456"));
+        testParquetTimestampPredicatePushdown(HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("1965-10-31T01:00:08.123000000"));
+        testParquetTimestampPredicatePushdown(HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("1965-10-31T01:00:08.123000001"));
+        testParquetTimestampPredicatePushdown(HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("1965-10-31T01:00:08.123456789"));
     }
 
-    @Test(dataProvider = "timestampPrecisionAndValues")
-    public void testParquetTimestampPredicatePushdown(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
+    private void testParquetTimestampPredicatePushdown(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
     {
         Session session = withTimestampPrecision(getSession(), timestampPrecision);
         String tableName = "test_parquet_timestamp_predicate_pushdown_" + randomNameSuffix();
@@ -5311,8 +5337,22 @@ public abstract class BaseHiveConnectorTest
                 results -> {});
     }
 
-    @Test(dataProvider = "timestampPrecisionAndValues")
-    public void testOrcTimestampPredicatePushdown(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
+    @Test
+    public void testOrcTimestampPredicatePushdown()
+    {
+        testOrcTimestampPredicatePushdown(HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2012-10-31T01:00:08.123"));
+        testOrcTimestampPredicatePushdown(HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2012-10-31T01:00:08.123456"));
+        testOrcTimestampPredicatePushdown(HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2012-10-31T01:00:08.123000000"));
+        testOrcTimestampPredicatePushdown(HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2012-10-31T01:00:08.123000001"));
+        testOrcTimestampPredicatePushdown(HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2012-10-31T01:00:08.123456789"));
+        testOrcTimestampPredicatePushdown(HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("1965-10-31T01:00:08.123"));
+        testOrcTimestampPredicatePushdown(HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("1965-10-31T01:00:08.123456"));
+        testOrcTimestampPredicatePushdown(HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("1965-10-31T01:00:08.123000000"));
+        testOrcTimestampPredicatePushdown(HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("1965-10-31T01:00:08.123000001"));
+        testOrcTimestampPredicatePushdown(HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("1965-10-31T01:00:08.123456789"));
+    }
+
+    private void testOrcTimestampPredicatePushdown(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
     {
         Session session = withTimestampPrecision(getSession(), timestampPrecision);
         assertUpdate("DROP TABLE IF EXISTS test_orc_timestamp_predicate_pushdown");
@@ -7995,24 +8035,26 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "testCreateTableWithCompressionCodecDataProvider")
-    public void testCreateTableWithCompressionCodec(HiveCompressionCodec compressionCodec)
+    @Test
+    public void testCreateTableWithCompressionCodec()
     {
-        testWithAllStorageFormats((session, hiveStorageFormat) -> {
-            if (hiveStorageFormat == HiveStorageFormat.PARQUET && compressionCodec == HiveCompressionCodec.LZ4) {
-                // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
-                assertThatThrownBy(() -> testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec))
-                        .hasMessage("Unsupported codec: LZ4");
-                return;
-            }
+        for (HiveCompressionCodec compressionCodec : HiveCompressionCodec.values()) {
+            testWithAllStorageFormats((session, hiveStorageFormat) -> {
+                if (hiveStorageFormat == HiveStorageFormat.PARQUET && compressionCodec == HiveCompressionCodec.LZ4) {
+                    // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
+                    assertThatThrownBy(() -> testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec))
+                            .hasMessage("Unsupported codec: LZ4");
+                    return;
+                }
 
-            if (!isSupportedCodec(hiveStorageFormat, compressionCodec)) {
-                assertThatThrownBy(() -> testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec))
-                        .hasMessage("Compression codec " + compressionCodec + " not supported for " + hiveStorageFormat);
-                return;
-            }
-            testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec);
-        });
+                if (!isSupportedCodec(hiveStorageFormat, compressionCodec)) {
+                    assertThatThrownBy(() -> testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec))
+                            .hasMessage("Compression codec " + compressionCodec + " not supported for " + hiveStorageFormat);
+                    return;
+                }
+                testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec);
+            });
+        }
     }
 
     private boolean isSupportedCodec(HiveStorageFormat storageFormat, HiveCompressionCodec codec)
@@ -8021,13 +8063,6 @@ public abstract class BaseHiveConnectorTest
             return false;
         }
         return true;
-    }
-
-    @DataProvider
-    public Object[][] testCreateTableWithCompressionCodecDataProvider()
-    {
-        return Stream.of(HiveCompressionCodec.values())
-                .collect(toDataProvider());
     }
 
     private void testCreateTableWithCompressionCodec(Session session, HiveStorageFormat storageFormat, HiveCompressionCodec compressionCodec)
@@ -8627,8 +8662,22 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE test_timestamptz");
     }
 
-    @Test(dataProvider = "legalUseColumnNamesProvider")
-    public void testUseColumnNames(HiveStorageFormat format, boolean formatUseColumnNames)
+    @Test
+    public void testUseColumnNames()
+    {
+        testUseColumnNames(HiveStorageFormat.ORC, true);
+        testUseColumnNames(HiveStorageFormat.ORC, false);
+        testUseColumnNames(HiveStorageFormat.PARQUET, true);
+        testUseColumnNames(HiveStorageFormat.PARQUET, false);
+        testUseColumnNames(HiveStorageFormat.AVRO, false);
+        testUseColumnNames(HiveStorageFormat.JSON, false);
+        testUseColumnNames(HiveStorageFormat.RCBINARY, false);
+        testUseColumnNames(HiveStorageFormat.RCTEXT, false);
+        testUseColumnNames(HiveStorageFormat.SEQUENCEFILE, false);
+        testUseColumnNames(HiveStorageFormat.TEXTFILE, false);
+    }
+
+    private void testUseColumnNames(HiveStorageFormat format, boolean formatUseColumnNames)
     {
         String lowerCaseFormat = format.name().toLowerCase(Locale.ROOT);
         Session.SessionBuilder builder = Session.builder(getSession());
@@ -8658,8 +8707,17 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "hiddenColumnNames")
-    public void testHiddenColumnNameConflict(String columnName)
+    @Test
+    public void testHiddenColumnNameConflict()
+    {
+        testHiddenColumnNameConflict("$path");
+        testHiddenColumnNameConflict("$bucket");
+        testHiddenColumnNameConflict("$file_size");
+        testHiddenColumnNameConflict("$file_modified_time");
+        testHiddenColumnNameConflict("$partition");
+    }
+
+    private void testHiddenColumnNameConflict(String columnName)
     {
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
@@ -8670,20 +8728,22 @@ public abstract class BaseHiveConnectorTest
         }
     }
 
-    @DataProvider
-    public Object[][] hiddenColumnNames()
+    @Test
+    public void testUseColumnAddDrop()
     {
-        return new Object[][] {
-                {"$path"},
-                {"$bucket"},
-                {"$file_size"},
-                {"$file_modified_time"},
-                {"$partition"},
-        };
+        testUseColumnAddDrop(HiveStorageFormat.ORC, true);
+        testUseColumnAddDrop(HiveStorageFormat.ORC, false);
+        testUseColumnAddDrop(HiveStorageFormat.PARQUET, true);
+        testUseColumnAddDrop(HiveStorageFormat.PARQUET, false);
+        testUseColumnAddDrop(HiveStorageFormat.AVRO, false);
+        testUseColumnAddDrop(HiveStorageFormat.JSON, false);
+        testUseColumnAddDrop(HiveStorageFormat.RCBINARY, false);
+        testUseColumnAddDrop(HiveStorageFormat.RCTEXT, false);
+        testUseColumnAddDrop(HiveStorageFormat.SEQUENCEFILE, false);
+        testUseColumnAddDrop(HiveStorageFormat.TEXTFILE, false);
     }
 
-    @Test(dataProvider = "legalUseColumnNamesProvider")
-    public void testUseColumnAddDrop(HiveStorageFormat format, boolean formatUseColumnNames)
+    private void testUseColumnAddDrop(HiveStorageFormat format, boolean formatUseColumnNames)
     {
         String lowerCaseFormat = format.name().toLowerCase(Locale.ROOT);
         Session.SessionBuilder builder = Session.builder(getSession());
@@ -8927,23 +8987,6 @@ public abstract class BaseHiveConnectorTest
 
     private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);
 
-    @DataProvider
-    public Object[][] legalUseColumnNamesProvider()
-    {
-        return new Object[][] {
-                {HiveStorageFormat.ORC, true},
-                {HiveStorageFormat.ORC, false},
-                {HiveStorageFormat.PARQUET, true},
-                {HiveStorageFormat.PARQUET, false},
-                {HiveStorageFormat.AVRO, false},
-                {HiveStorageFormat.JSON, false},
-                {HiveStorageFormat.RCBINARY, false},
-                {HiveStorageFormat.RCTEXT, false},
-                {HiveStorageFormat.SEQUENCEFILE, false},
-                {HiveStorageFormat.TEXTFILE, false},
-        };
-    }
-
     private Session getParallelWriteSession(Session baseSession)
     {
         return Session.builder(baseSession)
@@ -9090,15 +9133,6 @@ public abstract class BaseHiveConnectorTest
             this.type = requireNonNull(type, "type is null");
             this.estimate = requireNonNull(estimate, "estimate is null");
         }
-    }
-
-    @DataProvider
-    public Object[][] timestampPrecision()
-    {
-        return new Object[][] {
-                {HiveTimestampPrecision.MILLISECONDS},
-                {HiveTimestampPrecision.MICROSECONDS},
-                {HiveTimestampPrecision.NANOSECONDS}};
     }
 
     @Override

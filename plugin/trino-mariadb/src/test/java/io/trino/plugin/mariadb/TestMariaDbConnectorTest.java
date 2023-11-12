@@ -45,10 +45,12 @@ public class TestMariaDbConnectorTest
     }
 
     @Override
-    public void testRenameColumnName(String columnName)
+    public void testRenameColumnName()
     {
-        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
-                .hasMessageContaining("Rename column not supported for the MariaDB server version");
+        for (String columnName : testColumnNameDataProvider()) {
+            assertThatThrownBy(() -> testRenameColumnName(columnName, requiresDelimiting(columnName)))
+                    .hasMessageContaining("Rename column not supported for the MariaDB server version");
+        }
     }
 
     @Override

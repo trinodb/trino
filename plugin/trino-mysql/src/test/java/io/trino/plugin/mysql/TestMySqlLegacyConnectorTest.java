@@ -135,11 +135,13 @@ public class TestMySqlLegacyConnectorTest
     }
 
     @Override
-    public void testRenameColumnName(String columnName)
+    public void testRenameColumnName()
     {
-        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
-                .hasMessageContaining("You have an error in your SQL syntax")
-                .hasStackTraceContaining("RENAME COLUMN");
+        for (String columnName : testColumnNameDataProvider()) {
+            assertThatThrownBy(() -> testRenameColumnName(columnName, requiresDelimiting(columnName)))
+                    .hasMessageContaining("You have an error in your SQL syntax")
+                    .hasStackTraceContaining("RENAME COLUMN");
+        }
     }
 
     @Override

@@ -23,7 +23,6 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -379,16 +378,28 @@ public abstract class BaseMySqlConnectorTest
                 .isFullyPushedDown();
     }
 
-    @Test(dataProvider = "charsetAndCollation")
-    public void testPredicatePushdownWithCollationView(String charset, String collation)
+    @Test
+    public void testPredicatePushdownWithCollationView()
+    {
+        testPredicatePushdownWithCollationView("latin1", "latin1_general_cs");
+        testPredicatePushdownWithCollationView("utf8", "utf8_bin");
+    }
+
+    private void testPredicatePushdownWithCollationView(String charset, String collation)
     {
         onRemoteDatabase().execute(format("CREATE OR REPLACE VIEW tpch.test_view_pushdown AS SELECT regionkey, nationkey, CONVERT(name USING %s) COLLATE %s AS name FROM tpch.nation;", charset, collation));
         testNationCollationQueries("test_view_pushdown");
         onRemoteDatabase().execute("DROP VIEW tpch.test_view_pushdown");
     }
 
-    @Test(dataProvider = "charsetAndCollation")
-    public void testPredicatePushdownWithCollation(String charset, String collation)
+    @Test
+    public void testPredicatePushdownWithCollation()
+    {
+        testPredicatePushdownWithCollation("latin1", "latin1_general_cs");
+        testPredicatePushdownWithCollation("utf8", "utf8_bin");
+    }
+
+    private void testPredicatePushdownWithCollation(String charset, String collation)
     {
         try (TestTable testTable = new TestTable(
                 onRemoteDatabase(),
@@ -472,12 +483,6 @@ public abstract class BaseMySqlConnectorTest
         // join on varchar columns
         assertThat(query(joinPushdownEnabled, format("SELECT n.name, n2.regionkey FROM %1$s n JOIN %1$s n2 ON n.name = n2.name", objectName)))
                 .joinIsNotFullyPushedDown();
-    }
-
-    @DataProvider
-    public static Object[][] charsetAndCollation()
-    {
-        return new Object[][] {{"latin1", "latin1_general_cs"}, {"utf8", "utf8_bin"}};
     }
 
     /**
