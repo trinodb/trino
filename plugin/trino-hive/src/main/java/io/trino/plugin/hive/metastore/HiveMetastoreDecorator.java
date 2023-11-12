@@ -17,7 +17,8 @@ package io.trino.plugin.hive.metastore;
 public interface HiveMetastoreDecorator
 {
     int PRIORITY_PARTITION_PROJECTION = 50;
-    int PRIORITY_RECORDING = 100;
+    int PRIORITY_TRACING = 100;
+    int PRIORITY_RECORDING = 200;
 
     int getPriority();
 

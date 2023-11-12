@@ -25,6 +25,7 @@ import io.trino.plugin.hive.metastore.cache.SharedHiveMetastoreCache;
 import io.trino.plugin.hive.metastore.cache.SharedHiveMetastoreCache.CachingHiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.procedure.FlushMetadataCacheProcedure;
 import io.trino.plugin.hive.metastore.recording.RecordingHiveMetastoreDecoratorModule;
+import io.trino.plugin.hive.metastore.tracing.TracingHiveMetastoreDecorator;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.security.ConnectorIdentity;
 
@@ -52,7 +53,8 @@ public class DecoratedHiveMetastoreModule
     @Override
     protected void setup(Binder binder)
     {
-        newSetBinder(binder, HiveMetastoreDecorator.class);
+        newSetBinder(binder, HiveMetastoreDecorator.class)
+                .addBinding().to(TracingHiveMetastoreDecorator.class).in(Scopes.SINGLETON);
         install(new RecordingHiveMetastoreDecoratorModule());
 
         configBinder(binder).bindConfig(CachingHiveMetastoreConfig.class);
