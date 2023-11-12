@@ -50,7 +50,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.parallel.Isolated;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
@@ -104,7 +103,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
-import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
@@ -743,23 +741,18 @@ public abstract class BaseConnectorTest
     /**
      * Test interactions between optimizer (including CBO), scheduling and connector metadata APIs.
      */
-    @Test(dataProvider = "joinDistributionTypes")
-    public void testJoinWithEmptySides(JoinDistributionType joinDistributionType)
+    @Test
+    public void testJoinWithEmptySides()
     {
-        Session session = noJoinReordering(joinDistributionType);
-        // empty build side
-        assertQuery(session, "SELECT count(*) FROM nation JOIN region ON nation.regionkey = region.regionkey AND region.name = ''", "VALUES 0");
-        assertQuery(session, "SELECT count(*) FROM nation JOIN region ON nation.regionkey = region.regionkey AND region.regionkey < 0", "VALUES 0");
-        // empty probe side
-        assertQuery(session, "SELECT count(*) FROM region JOIN nation ON nation.regionkey = region.regionkey AND region.name = ''", "VALUES 0");
-        assertQuery(session, "SELECT count(*) FROM nation JOIN region ON nation.regionkey = region.regionkey AND region.regionkey < 0", "VALUES 0");
-    }
-
-    @DataProvider
-    public Object[][] joinDistributionTypes()
-    {
-        return Stream.of(JoinDistributionType.values())
-                .collect(toDataProvider());
+        for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
+            Session session = noJoinReordering(joinDistributionType);
+            // empty build side
+            assertQuery(session, "SELECT count(*) FROM nation JOIN region ON nation.regionkey = region.regionkey AND region.name = ''", "VALUES 0");
+            assertQuery(session, "SELECT count(*) FROM nation JOIN region ON nation.regionkey = region.regionkey AND region.regionkey < 0", "VALUES 0");
+            // empty probe side
+            assertQuery(session, "SELECT count(*) FROM region JOIN nation ON nation.regionkey = region.regionkey AND region.name = ''", "VALUES 0");
+            assertQuery(session, "SELECT count(*) FROM nation JOIN region ON nation.regionkey = region.regionkey AND region.regionkey < 0", "VALUES 0");
+        }
     }
 
     /**
@@ -1562,8 +1555,14 @@ public abstract class BaseConnectorTest
                 });
     }
 
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
-    public void testMaterializedViewBaseTableGone(boolean initialized)
+    @Test
+    public void testMaterializedViewBaseTableGone()
+    {
+        testMaterializedViewBaseTableGone(true);
+        testMaterializedViewBaseTableGone(false);
+    }
+
+    private void testMaterializedViewBaseTableGone(boolean initialized)
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
 
@@ -1689,8 +1688,15 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "testViewMetadataDataProvider")
-    public void testViewMetadata(String securityClauseInCreate, String securityClauseInShowCreate)
+    @Test
+    public void testViewMetadata()
+    {
+        testViewMetadata("", "DEFINER");
+        testViewMetadata(" SECURITY DEFINER", "DEFINER");
+        testViewMetadata(" SECURITY INVOKER", "INVOKER");
+    }
+
+    private void testViewMetadata(String securityClauseInCreate, String securityClauseInShowCreate)
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_VIEW));
 
@@ -1761,16 +1767,6 @@ public abstract class BaseConnectorTest
         assertEquals(getOnlyElement(actual.getOnlyColumnAsSet()), expectedSql);
 
         assertUpdate("DROP VIEW " + viewName);
-    }
-
-    @DataProvider
-    public static Object[][] testViewMetadataDataProvider()
-    {
-        return new Object[][] {
-                {"", "DEFINER"},
-                {" SECURITY DEFINER", "DEFINER"},
-                {" SECURITY INVOKER", "INVOKER"},
-        };
     }
 
     @Test
@@ -2934,42 +2930,43 @@ public abstract class BaseConnectorTest
         }
     }
 
-    @Test(dataProvider = "setColumnTypesDataProvider")
-    public void testSetColumnTypes(SetColumnTypeSetup setup)
+    @Test
+    public void testSetColumnTypes()
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
 
-        TestTable table;
-        try {
-            table = new TestTable(getQueryRunner()::execute, "test_set_column_type_", " AS SELECT CAST(" + setup.sourceValueLiteral + " AS " + setup.sourceColumnType + ") AS col");
-        }
-        catch (Exception e) {
-            verifyUnsupportedTypeException(e, setup.sourceColumnType);
-            throw new SkipException("Unsupported column type: " + setup.sourceColumnType);
-        }
-        try (table) {
-            Runnable setColumnType = () -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE " + setup.newColumnType);
-            if (setup.unsupportedType) {
-                assertThatThrownBy(setColumnType::run)
-                        .satisfies(this::verifySetColumnTypeFailurePermissible);
-                return;
+        for (SetColumnTypeSetup setup : setColumnTypesDataProvider()) {
+            TestTable table;
+            try {
+                table = new TestTable(getQueryRunner()::execute, "test_set_column_type_", " AS SELECT CAST(" + setup.sourceValueLiteral + " AS " + setup.sourceColumnType + ") AS col");
             }
-            setColumnType.run();
+            catch (Exception e) {
+                verifyUnsupportedTypeException(e, setup.sourceColumnType);
+                throw new SkipException("Unsupported column type: " + setup.sourceColumnType);
+            }
+            try (table) {
+                Runnable setColumnType = () -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE " + setup.newColumnType);
+                if (setup.unsupportedType) {
+                    assertThatThrownBy(setColumnType::run)
+                            .satisfies(this::verifySetColumnTypeFailurePermissible);
+                    return;
+                }
+                setColumnType.run();
 
-            assertEquals(getColumnType(table.getName(), "col"), setup.newColumnType);
-            assertThat(query("SELECT * FROM " + table.getName()))
-                    .skippingTypesCheck()
-                    .matches("SELECT " + setup.newValueLiteral);
+                assertEquals(getColumnType(table.getName(), "col"), setup.newColumnType);
+                assertThat(query("SELECT * FROM " + table.getName()))
+                        .skippingTypesCheck()
+                        .matches("SELECT " + setup.newValueLiteral);
+            }
         }
     }
 
-    @DataProvider
-    public Object[][] setColumnTypesDataProvider()
+    private List<SetColumnTypeSetup> setColumnTypesDataProvider()
     {
         return setColumnTypeSetupData().stream()
                 .map(this::filterSetColumnTypesDataProvider)
                 .flatMap(Optional::stream)
-                .collect(toDataProvider());
+                .collect(toList());
     }
 
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
@@ -3139,45 +3136,46 @@ public abstract class BaseConnectorTest
         }
     }
 
-    @Test(dataProvider = "setFieldTypesDataProvider")
-    public void testSetFieldTypes(SetColumnTypeSetup setup)
+    @Test
+    public void testSetFieldTypes()
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
 
-        TestTable table;
-        try {
-            table = new TestTable(
-                    getQueryRunner()::execute,
-                    "test_set_field_type_",
-                    " AS SELECT CAST(row(" + setup.sourceValueLiteral + ") AS row(field " + setup.sourceColumnType + ")) AS col");
-        }
-        catch (Exception e) {
-            verifyUnsupportedTypeException(e, setup.sourceColumnType);
-            throw new SkipException("Unsupported column type: " + setup.sourceColumnType);
-        }
-        try (table) {
-            Runnable setFieldType = () -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.field SET DATA TYPE " + setup.newColumnType);
-            if (setup.unsupportedType) {
-                assertThatThrownBy(setFieldType::run)
-                        .satisfies(this::verifySetFieldTypeFailurePermissible);
-                return;
+        for (SetColumnTypeSetup setup : setFieldTypesDataProvider()) {
+            TestTable table;
+            try {
+                table = new TestTable(
+                        getQueryRunner()::execute,
+                        "test_set_field_type_",
+                        " AS SELECT CAST(row(" + setup.sourceValueLiteral + ") AS row(field " + setup.sourceColumnType + ")) AS col");
             }
-            setFieldType.run();
+            catch (Exception e) {
+                verifyUnsupportedTypeException(e, setup.sourceColumnType);
+                throw new SkipException("Unsupported column type: " + setup.sourceColumnType);
+            }
+            try (table) {
+                Runnable setFieldType = () -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.field SET DATA TYPE " + setup.newColumnType);
+                if (setup.unsupportedType) {
+                    assertThatThrownBy(setFieldType::run)
+                            .satisfies(this::verifySetFieldTypeFailurePermissible);
+                    return;
+                }
+                setFieldType.run();
 
-            assertEquals(getColumnType(table.getName(), "col"), "row(field " + setup.newColumnType + ")");
-            assertThat(query("SELECT * FROM " + table.getName()))
-                    .skippingTypesCheck()
-                    .matches("SELECT row(" + setup.newValueLiteral + ")");
+                assertEquals(getColumnType(table.getName(), "col"), "row(field " + setup.newColumnType + ")");
+                assertThat(query("SELECT * FROM " + table.getName()))
+                        .skippingTypesCheck()
+                        .matches("SELECT row(" + setup.newValueLiteral + ")");
+            }
         }
     }
 
-    @DataProvider
-    public Object[][] setFieldTypesDataProvider()
+    public List<SetColumnTypeSetup> setFieldTypesDataProvider()
     {
         return setColumnTypeSetupData().stream()
                 .map(this::filterSetFieldTypesDataProvider)
                 .flatMap(Optional::stream)
-                .collect(toDataProvider());
+                .collect(toList());
     }
 
     protected Optional<SetColumnTypeSetup> filterSetFieldTypesDataProvider(SetColumnTypeSetup setup)
@@ -4162,15 +4160,14 @@ public abstract class BaseConnectorTest
         }
     }
 
-    @Test(dataProvider = "testColumnNameDataProvider")
-    public void testCommentColumnName(String columnName)
+    @Test
+    public void testCommentColumnName()
     {
         skipTestUnless(hasBehavior(SUPPORTS_COMMENT_ON_COLUMN));
 
-        if (!requiresDelimiting(columnName)) {
-            testCommentColumnName(columnName, false);
+        for (String columnName : testColumnNameDataProvider()) {
+            testCommentColumnName(columnName, requiresDelimiting(columnName));
         }
-        testCommentColumnName(columnName, true);
     }
 
     protected void testCommentColumnName(String columnName, boolean delimited)
@@ -5370,15 +5367,14 @@ public abstract class BaseConnectorTest
         assertQueryFails("TABLE \"nation$data\"", "line 1:1: Table '\\w+.\\w+.\"nation\\$data\"' does not exist");
     }
 
-    @Test(dataProvider = "testColumnNameDataProvider")
-    public void testColumnName(String columnName)
+    @Test
+    public void testColumnName()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
 
-        if (!requiresDelimiting(columnName)) {
-            testColumnName(columnName, false);
+        for (String columnName : testColumnNameDataProvider()) {
+            testColumnName(columnName, requiresDelimiting(columnName));
         }
-        testColumnName(columnName, true);
     }
 
     protected void testColumnName(String columnName, boolean delimited)
@@ -5415,15 +5411,14 @@ public abstract class BaseConnectorTest
         }
     }
 
-    @Test(dataProvider = "testColumnNameDataProvider")
-    public void testAddAndDropColumnName(String columnName)
+    @Test
+    public void testAddAndDropColumnName()
     {
         skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN) && hasBehavior(SUPPORTS_DROP_COLUMN));
 
-        if (!requiresDelimiting(columnName)) {
-            testAddAndDropColumnName(columnName, false);
+        for (String columnName : testColumnNameDataProvider()) {
+            testAddAndDropColumnName(columnName, requiresDelimiting(columnName));
         }
-        testAddAndDropColumnName(columnName, true);
     }
 
     protected void testAddAndDropColumnName(String columnName, boolean delimited)
@@ -5460,15 +5455,14 @@ public abstract class BaseConnectorTest
         return "CREATE TABLE " + tableName + "(" + columnNameInSql + " varchar(50), value varchar(50))";
     }
 
-    @Test(dataProvider = "testColumnNameDataProvider")
-    public void testRenameColumnName(String columnName)
+    @Test
+    public void testRenameColumnName()
     {
         skipTestUnless(hasBehavior(SUPPORTS_RENAME_COLUMN));
 
-        if (!requiresDelimiting(columnName)) {
-            testRenameColumnName(columnName, false);
+        for (String columnName : testColumnNameDataProvider()) {
+            testRenameColumnName(columnName, requiresDelimiting(columnName));
         }
-        testRenameColumnName(columnName, true);
     }
 
     protected void testRenameColumnName(String columnName, boolean delimited)
@@ -5515,14 +5509,13 @@ public abstract class BaseConnectorTest
         return !identifierName.matches("[a-zA-Z][a-zA-Z0-9_]*");
     }
 
-    @DataProvider
-    public Object[][] testColumnNameDataProvider()
+    public List<String> testColumnNameDataProvider()
     {
         return testColumnNameTestData().stream()
                 .map(this::filterColumnNameTestData)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .collect(toDataProvider());
+                .collect(toList());
     }
 
     private List<String> testColumnNameTestData()
@@ -5561,8 +5554,21 @@ public abstract class BaseConnectorTest
         return "test_data_mapping_smoke_" + trinoTypeName.replaceAll("[^a-zA-Z0-9]", "_") + randomNameSuffix();
     }
 
-    @Test(dataProvider = "testCommentDataProvider")
-    public void testCreateTableWithTableCommentSpecialCharacter(String comment)
+    @Test
+    public void testCreateTableWithTableCommentSpecialCharacter()
+    {
+        testCreateTableWithTableCommentSpecialCharacter("a;semicolon");
+        testCreateTableWithTableCommentSpecialCharacter("an@at");
+        testCreateTableWithTableCommentSpecialCharacter("a\"quote");
+        testCreateTableWithTableCommentSpecialCharacter("an'apostrophe");
+        testCreateTableWithTableCommentSpecialCharacter("a`backtick`");
+        testCreateTableWithTableCommentSpecialCharacter("a/slash");
+        testCreateTableWithTableCommentSpecialCharacter("a\\backslash");
+        testCreateTableWithTableCommentSpecialCharacter("a?question");
+        testCreateTableWithTableCommentSpecialCharacter("[square bracket]");
+    }
+
+    protected void testCreateTableWithTableCommentSpecialCharacter(String comment)
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT));
 
@@ -5571,8 +5577,21 @@ public abstract class BaseConnectorTest
         }
     }
 
-    @Test(dataProvider = "testCommentDataProvider")
-    public void testCreateTableAsSelectWithTableCommentSpecialCharacter(String comment)
+    @Test
+    public void testCreateTableAsSelectWithTableCommentSpecialCharacter()
+    {
+        testCreateTableAsSelectWithTableCommentSpecialCharacter("a;semicolon");
+        testCreateTableAsSelectWithTableCommentSpecialCharacter("an@at");
+        testCreateTableAsSelectWithTableCommentSpecialCharacter("a\"quote");
+        testCreateTableAsSelectWithTableCommentSpecialCharacter("an'apostrophe");
+        testCreateTableAsSelectWithTableCommentSpecialCharacter("a`backtick`");
+        testCreateTableAsSelectWithTableCommentSpecialCharacter("a/slash");
+        testCreateTableAsSelectWithTableCommentSpecialCharacter("a\\backslash");
+        testCreateTableAsSelectWithTableCommentSpecialCharacter("a?question");
+        testCreateTableAsSelectWithTableCommentSpecialCharacter("[square bracket]");
+    }
+
+    private void testCreateTableAsSelectWithTableCommentSpecialCharacter(String comment)
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT));
 
@@ -5581,8 +5600,21 @@ public abstract class BaseConnectorTest
         }
     }
 
-    @Test(dataProvider = "testCommentDataProvider")
-    public void testCreateTableWithColumnCommentSpecialCharacter(String comment)
+    @Test
+    public void testCreateTableWithColumnCommentSpecialCharacter()
+    {
+        testCreateTableWithColumnCommentSpecialCharacter("a;semicolon");
+        testCreateTableWithColumnCommentSpecialCharacter("an@at");
+        testCreateTableWithColumnCommentSpecialCharacter("a\"quote");
+        testCreateTableWithColumnCommentSpecialCharacter("an'apostrophe");
+        testCreateTableWithColumnCommentSpecialCharacter("a`backtick`");
+        testCreateTableWithColumnCommentSpecialCharacter("a/slash");
+        testCreateTableWithColumnCommentSpecialCharacter("a\\backslash");
+        testCreateTableWithColumnCommentSpecialCharacter("a?question");
+        testCreateTableWithColumnCommentSpecialCharacter("[square bracket]");
+    }
+
+    private void testCreateTableWithColumnCommentSpecialCharacter(String comment)
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT));
 
@@ -5591,8 +5623,21 @@ public abstract class BaseConnectorTest
         }
     }
 
-    @Test(dataProvider = "testCommentDataProvider")
-    public void testAddColumnWithCommentSpecialCharacter(String comment)
+    @Test
+    public void testAddColumnWithCommentSpecialCharacter()
+    {
+        testAddColumnWithCommentSpecialCharacter("a;semicolon");
+        testAddColumnWithCommentSpecialCharacter("an@at");
+        testAddColumnWithCommentSpecialCharacter("a\"quote");
+        testAddColumnWithCommentSpecialCharacter("an'apostrophe");
+        testAddColumnWithCommentSpecialCharacter("a`backtick`");
+        testAddColumnWithCommentSpecialCharacter("a/slash");
+        testAddColumnWithCommentSpecialCharacter("a\\backslash");
+        testAddColumnWithCommentSpecialCharacter("a?question");
+        testAddColumnWithCommentSpecialCharacter("[square bracket]");
+    }
+
+    protected void testAddColumnWithCommentSpecialCharacter(String comment)
     {
         skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN_WITH_COMMENT));
 
@@ -5602,8 +5647,21 @@ public abstract class BaseConnectorTest
         }
     }
 
-    @Test(dataProvider = "testCommentDataProvider")
-    public void testCommentTableSpecialCharacter(String comment)
+    @Test
+    public void testCommentTableSpecialCharacter()
+    {
+        testCommentTableSpecialCharacter("a;semicolon");
+        testCommentTableSpecialCharacter("an@at");
+        testCommentTableSpecialCharacter("a\"quote");
+        testCommentTableSpecialCharacter("an'apostrophe");
+        testCommentTableSpecialCharacter("a`backtick`");
+        testCommentTableSpecialCharacter("a/slash");
+        testCommentTableSpecialCharacter("a\\backslash");
+        testCommentTableSpecialCharacter("a?question");
+        testCommentTableSpecialCharacter("[square bracket]");
+    }
+
+    private void testCommentTableSpecialCharacter(String comment)
     {
         skipTestUnless(hasBehavior(SUPPORTS_COMMENT_ON_TABLE));
 
@@ -5613,8 +5671,21 @@ public abstract class BaseConnectorTest
         }
     }
 
-    @Test(dataProvider = "testCommentDataProvider")
-    public void testCommentColumnSpecialCharacter(String comment)
+    @Test
+    public void testCommentColumnSpecialCharacter()
+    {
+        testCommentColumnSpecialCharacter("a;semicolon");
+        testCommentColumnSpecialCharacter("an@at");
+        testCommentColumnSpecialCharacter("a\"quote");
+        testCommentColumnSpecialCharacter("an'apostrophe");
+        testCommentColumnSpecialCharacter("a`backtick`");
+        testCommentColumnSpecialCharacter("a/slash");
+        testCommentColumnSpecialCharacter("a\\backslash");
+        testCommentColumnSpecialCharacter("a?question");
+        testCommentColumnSpecialCharacter("[square bracket]");
+    }
+
+    private void testCommentColumnSpecialCharacter(String comment)
     {
         skipTestUnless(hasBehavior(SUPPORTS_COMMENT_ON_COLUMN));
 
@@ -5624,38 +5695,24 @@ public abstract class BaseConnectorTest
         }
     }
 
-    @DataProvider
-    public Object[][] testCommentDataProvider()
-    {
-        return new Object[][] {
-                {"a;semicolon"},
-                {"an@at"},
-                {"a\"quote"},
-                {"an'apostrophe"},
-                {"a`backtick`"},
-                {"a/slash"},
-                {"a\\backslash"},
-                {"a?question"},
-                {"[square bracket]"},
-        };
-    }
-
     protected static String varcharLiteral(String value)
     {
         requireNonNull(value, "value is null");
         return "'" + value.replace("'", "''") + "'";
     }
 
-    @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
-    public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
+    @Test
+    public void testDataMappingSmokeTest()
     {
-        testDataMapping(dataMappingTestSetup);
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        for (DataMappingTestSetup dataMappingTestSetup : testDataMappingSmokeTestDataProvider()) {
+            testDataMapping(dataMappingTestSetup);
+        }
     }
 
     private void testDataMapping(DataMappingTestSetup dataMappingTestSetup)
     {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
-
         String trinoTypeName = dataMappingTestSetup.getTrinoTypeName();
         String sampleValueLiteral = dataMappingTestSetup.getSampleValueLiteral();
         String highValueLiteral = dataMappingTestSetup.getHighValueLiteral();
@@ -5707,13 +5764,12 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @DataProvider
-    public final Object[][] testDataMappingSmokeTestDataProvider()
+    public final List<DataMappingTestSetup> testDataMappingSmokeTestDataProvider()
     {
         return testDataMappingSmokeTestData().stream()
                 .map(this::filterDataMappingSmokeTestData)
                 .flatMap(Optional::stream)
-                .collect(toDataProvider());
+                .collect(toList());
     }
 
     private List<DataMappingTestSetup> testDataMappingSmokeTestData()
@@ -5756,19 +5812,22 @@ public abstract class BaseConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
-    @Test(dataProvider = "testCaseSensitiveDataMappingProvider")
-    public void testCaseSensitiveDataMapping(DataMappingTestSetup dataMappingTestSetup)
+    @Test
+    public void testCaseSensitiveDataMapping()
     {
-        testDataMapping(dataMappingTestSetup);
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        for (DataMappingTestSetup dataMappingTestSetup : testCaseSensitiveDataMappingProvider()) {
+            testDataMapping(dataMappingTestSetup);
+        }
     }
 
-    @DataProvider
-    public final Object[][] testCaseSensitiveDataMappingProvider()
+    private List<DataMappingTestSetup> testCaseSensitiveDataMappingProvider()
     {
         return testCaseSensitiveDataMappingData().stream()
                 .map(this::filterCaseSensitiveDataMappingTestData)
                 .flatMap(Optional::stream)
-                .collect(toDataProvider());
+                .collect(toList());
     }
 
     protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
@@ -6444,15 +6503,14 @@ public abstract class BaseConnectorTest
                 .satisfies(e -> assertThat(getTrinoExceptionCause(e)).hasMessageFindingMatch(expectedMessagePart));
     }
 
-    @Test(dataProvider = "testColumnNameDataProvider")
-    public void testMaterializedViewColumnName(String columnName)
+    @Test
+    public void testMaterializedViewColumnName()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
 
-        if (!requiresDelimiting(columnName)) {
-            testMaterializedViewColumnName(columnName, false);
+        for (String columnName : testColumnNameDataProvider()) {
+            testMaterializedViewColumnName(columnName, requiresDelimiting(columnName));
         }
-        testMaterializedViewColumnName(columnName, true);
     }
 
     private void testMaterializedViewColumnName(String columnName, boolean delimited)

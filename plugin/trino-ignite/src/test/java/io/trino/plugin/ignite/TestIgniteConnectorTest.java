@@ -374,12 +374,12 @@ public class TestIgniteConnectorTest
         super.testAlterTableAddLongColumnName();
     }
 
-    @Test(dataProvider = "testColumnNameDataProvider")
+    @Test
     @Override
     @Flaky(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
-    public void testAddAndDropColumnName(String columnName)
+    public void testAddAndDropColumnName()
     {
-        super.testAddAndDropColumnName(columnName);
+        super.testAddAndDropColumnName();
     }
 
     @Override

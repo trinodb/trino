@@ -38,7 +38,6 @@ import org.bson.types.ObjectId;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -120,18 +119,20 @@ public class TestMongoConnectorTest
         throw new SkipException("MongoDB connector does not support column default values");
     }
 
-    @Test(dataProvider = "testColumnNameDataProvider")
+    @Test
     @Override
-    public void testColumnName(String columnName)
+    public void testColumnName()
     {
-        if (columnName.equals("a.dot")) {
-            assertThatThrownBy(() -> super.testColumnName(columnName))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessage("Column name must not contain '$' or '.' for INSERT: " + columnName);
-            throw new SkipException("Insert would fail");
-        }
+        for (String columnName : testColumnNameDataProvider()) {
+            if (columnName.equals("a.dot")) {
+                assertThatThrownBy(() -> testColumnName(columnName, requiresDelimiting(columnName)))
+                        .isInstanceOf(RuntimeException.class)
+                        .hasMessage("Column name must not contain '$' or '.' for INSERT: " + columnName);
+                throw new SkipException("Insert would fail");
+            }
 
-        super.testColumnName(columnName);
+            testColumnName(columnName, requiresDelimiting(columnName));
+        }
     }
 
     @Test
@@ -157,8 +158,24 @@ public class TestMongoConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
-    @Test(dataProvider = "guessFieldTypesProvider")
-    public void testGuessFieldTypes(String mongoValue, String trinoValue)
+    @Test
+    public void testGuessFieldTypes()
+    {
+        testGuessFieldTypes("true", "true"); // boolean -> boolean
+        testGuessFieldTypes("2147483647", "bigint '2147483647'"); // int32 -> bigint
+        testGuessFieldTypes("{\"$numberLong\": \"9223372036854775807\"}", "9223372036854775807"); // int64 -> bigint
+        testGuessFieldTypes("1.23", "double '1.23'"); // double -> double
+        testGuessFieldTypes("{\"$date\": \"1970-01-01T00:00:00.000Z\"}", "timestamp '1970-01-01 00:00:00.000'"); // date -> timestamp(3)
+        testGuessFieldTypes("'String type'", "varchar 'String type'"); // string -> varchar
+        testGuessFieldTypes("{$binary: \"\",\"$type\": \"0\"}", "to_utf8('')"); // binary -> varbinary
+        testGuessFieldTypes("{\"$oid\": \"6216f0c6c432d45190f25e7c\"}", "ObjectId('6216f0c6c432d45190f25e7c')"); // objectid -> objectid
+        testGuessFieldTypes("[1]", "array[bigint '1']"); // array with single type -> array
+        testGuessFieldTypes("{\"field\": \"object\"}", "CAST(row('object') AS row(field varchar))"); // object -> row
+        testGuessFieldTypes("[9, \"test\"]", "CAST(row(9, 'test') AS row(_pos1 bigint, _pos2 varchar))"); // array with multiple types -> row
+        testGuessFieldTypes("{\"$ref\":\"test_ref\",\"$id\":ObjectId(\"4e3f33de6266b5845052c02c\"),\"$db\":\"test_db\"}", "CAST(row('test_db', 'test_ref', ObjectId('4e3f33de6266b5845052c02c')) AS row(databasename varchar, collectionname varchar, id ObjectId))"); // dbref -> row
+    }
+
+    private void testGuessFieldTypes(String mongoValue, String trinoValue)
     {
         String tableName = "test_guess_field_type_" + randomNameSuffix();
         Document document = Document.parse(format("{\"test\":%s}", mongoValue));
@@ -170,25 +187,6 @@ public class TestMongoConnectorTest
                 .matches("SELECT " + trinoValue);
 
         assertUpdate("DROP TABLE test." + tableName);
-    }
-
-    @DataProvider
-    public Object[][] guessFieldTypesProvider()
-    {
-        return new Object[][] {
-                {"true", "true"}, // boolean -> boolean
-                {"2147483647", "bigint '2147483647'"}, // int32 -> bigint
-                {"{\"$numberLong\": \"9223372036854775807\"}", "9223372036854775807"}, // int64 -> bigint
-                {"1.23", "double '1.23'"}, // double -> double
-                {"{\"$date\": \"1970-01-01T00:00:00.000Z\"}", "timestamp '1970-01-01 00:00:00.000'"}, // date -> timestamp(3)
-                {"'String type'", "varchar 'String type'"}, // string -> varchar
-                {"{$binary: \"\",\"$type\": \"0\"}", "to_utf8('')"}, // binary -> varbinary
-                {"{\"$oid\": \"6216f0c6c432d45190f25e7c\"}", "ObjectId('6216f0c6c432d45190f25e7c')"}, // objectid -> objectid
-                {"[1]", "array[bigint '1']"}, // array with single type -> array
-                {"{\"field\": \"object\"}", "CAST(row('object') AS row(field varchar))"}, // object -> row
-                {"[9, \"test\"]", "CAST(row(9, 'test') AS row(_pos1 bigint, _pos2 varchar))"}, // array with multiple types -> row
-                {"{\"$ref\":\"test_ref\",\"$id\":ObjectId(\"4e3f33de6266b5845052c02c\"),\"$db\":\"test_db\"}", "CAST(row('test_db', 'test_ref', ObjectId('4e3f33de6266b5845052c02c')) AS row(databasename varchar, collectionname varchar, id ObjectId))"}, // dbref -> row
-        };
     }
 
     @Test
@@ -311,8 +309,26 @@ public class TestMongoConnectorTest
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
-    @Test(dataProvider = "predicatePushdownProvider")
-    public void testPredicatePushdown(String value)
+    @Test
+    public void testPredicatePushdown()
+    {
+        testPredicatePushdown("true");
+        testPredicatePushdown("tinyint '1'");
+        testPredicatePushdown("smallint '2'");
+        testPredicatePushdown("integer '3'");
+        testPredicatePushdown("bigint '4'");
+        testPredicatePushdown("decimal '3.14'");
+        testPredicatePushdown("decimal '1234567890.123456789'");
+        testPredicatePushdown("'test'");
+        testPredicatePushdown("char 'test'");
+        testPredicatePushdown("objectid('6216f0c6c432d45190f25e7c')");
+        testPredicatePushdown("date '1970-01-01'");
+        testPredicatePushdown("time '00:00:00.000'");
+        testPredicatePushdown("timestamp '1970-01-01 00:00:00.000'");
+        testPredicatePushdown("timestamp '1970-01-01 00:00:00.000 UTC'");
+    }
+
+    private void testPredicatePushdown(String value)
     {
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_predicate_pushdown", "AS SELECT %s col".formatted(value))) {
             testPredicatePushdown(table.getName(), "col = " + value);
@@ -322,27 +338,6 @@ public class TestMongoConnectorTest
             testPredicatePushdown(table.getName(), "col <= " + value);
             testPredicatePushdown(table.getName(), "col >= " + value);
         }
-    }
-
-    @DataProvider
-    public Object[][] predicatePushdownProvider()
-    {
-        return new Object[][] {
-                {"true"},
-                {"tinyint '1'"},
-                {"smallint '2'"},
-                {"integer '3'"},
-                {"bigint '4'"},
-                {"decimal '3.14'"},
-                {"decimal '1234567890.123456789'"},
-                {"'test'"},
-                {"char 'test'"},
-                {"objectid('6216f0c6c432d45190f25e7c')"},
-                {"date '1970-01-01'"},
-                {"time '00:00:00.000'"},
-                {"timestamp '1970-01-01 00:00:00.000'"},
-                {"timestamp '1970-01-01 00:00:00.000 UTC'"},
-        };
     }
 
     @Test
@@ -608,8 +603,20 @@ public class TestMongoConnectorTest
         assertUpdate("DROP TABLE test." + tableName);
     }
 
-    @Test(dataProvider = "dbRefProvider")
-    public void testDBRef(Object objectId, String expectedValue, String expectedType)
+    @Test
+    public void testDBRef()
+    {
+        testDBRef("String type", "varchar 'String type'", "varchar");
+        testDBRef("BinData".getBytes(UTF_8), "to_utf8('BinData')", "varbinary");
+        testDBRef(1234567890, "bigint '1234567890'", "bigint");
+        testDBRef(true, "true", "boolean");
+        testDBRef(12.3f, "double '12.3'", "double");
+        testDBRef(new Date(0), "timestamp '1970-01-01 00:00:00.000'", "timestamp(3)");
+        testDBRef(ImmutableList.of(1), "array[bigint '1']", "array(bigint)");
+        testDBRef(new ObjectId("5126bc054aed4daf9e2ab772"), "ObjectId('5126bc054aed4daf9e2ab772')", "ObjectId");
+    }
+
+    private void testDBRef(Object objectId, String expectedValue, String expectedType)
     {
         Document document = Document.parse("{\"_id\":ObjectId(\"5126bbf64aed4daf9e2ab771\"),\"col1\":\"foo\"}");
 
@@ -628,21 +635,6 @@ public class TestMongoConnectorTest
                 "SELECT 'row(databaseName varchar, collectionName varchar, id " + expectedType + ")'");
 
         assertUpdate("DROP TABLE test." + tableName);
-    }
-
-    @DataProvider
-    public Object[][] dbRefProvider()
-    {
-        return new Object[][] {
-                {"String type", "varchar 'String type'", "varchar"},
-                {"BinData".getBytes(UTF_8), "to_utf8('BinData')", "varbinary"},
-                {1234567890, "bigint '1234567890'", "bigint"},
-                {true, "true", "boolean"},
-                {12.3f, "double '12.3'", "double"},
-                {new Date(0), "timestamp '1970-01-01 00:00:00.000'", "timestamp(3)"},
-                {ImmutableList.of(1), "array[bigint '1']", "array(bigint)"},
-                {new ObjectId("5126bc054aed4daf9e2ab772"), "ObjectId('5126bc054aed4daf9e2ab772')", "ObjectId"},
-        };
     }
 
     @Test
@@ -1313,8 +1305,20 @@ public class TestMongoConnectorTest
         assertUpdate("DROP TABLE test." + tableName);
     }
 
-    @Test(dataProvider = "nestedValuesProvider")
-    public void testFiltersOnDereferenceColumnReadsLessData(String expectedValue, String expectedType)
+    @Test
+    public void testFiltersOnDereferenceColumnReadsLessData()
+    {
+        testFiltersOnDereferenceColumnReadsLessData("varchar 'String type'", "varchar");
+        testFiltersOnDereferenceColumnReadsLessData("to_utf8('BinData')", "varbinary");
+        testFiltersOnDereferenceColumnReadsLessData("bigint '1234567890'", "bigint");
+        testFiltersOnDereferenceColumnReadsLessData("true", "boolean");
+        testFiltersOnDereferenceColumnReadsLessData("double '12.3'", "double");
+        testFiltersOnDereferenceColumnReadsLessData("timestamp '1970-01-01 00:00:00.000'", "timestamp(3)");
+        testFiltersOnDereferenceColumnReadsLessData("array[bigint '1']", "array(bigint)");
+        testFiltersOnDereferenceColumnReadsLessData("ObjectId('5126bc054aed4daf9e2ab772')", "ObjectId");
+    }
+
+    private void testFiltersOnDereferenceColumnReadsLessData(String expectedValue, String expectedType)
     {
         if (!isPushdownSupportedType(getQueryRunner().getTypeManager().fromSqlType(expectedType))) {
             throw new SkipException("Type doesn't support filter pushdown");
@@ -1385,21 +1389,6 @@ public class TestMongoConnectorTest
                     },
                     results -> assertEquals(results.getOnlyColumnAsSet(), expected));
         }
-    }
-
-    @DataProvider
-    public Object[][] nestedValuesProvider()
-    {
-        return new Object[][] {
-                {"varchar 'String type'", "varchar"},
-                {"to_utf8('BinData')", "varbinary"},
-                {"bigint '1234567890'", "bigint"},
-                {"true", "boolean"},
-                {"double '12.3'", "double"},
-                {"timestamp '1970-01-01 00:00:00.000'", "timestamp(3)"},
-                {"array[bigint '1']", "array(bigint)"},
-                {"ObjectId('5126bc054aed4daf9e2ab772')", "ObjectId"},
-        };
     }
 
     @Test
@@ -1479,8 +1468,20 @@ public class TestMongoConnectorTest
         assertUpdate("DROP TABLE test." + tableName);
     }
 
-    @Test(dataProvider = "dbRefProvider")
-    public void testProjectionPushdownWithDBRef(Object objectId, String expectedValue, String expectedType)
+    @Test
+    public void testProjectionPushdownWithDBRef()
+    {
+        testProjectionPushdownWithDBRef("String type", "varchar 'String type'", "varchar");
+        testProjectionPushdownWithDBRef("BinData".getBytes(UTF_8), "to_utf8('BinData')", "varbinary");
+        testProjectionPushdownWithDBRef(1234567890, "bigint '1234567890'", "bigint");
+        testProjectionPushdownWithDBRef(true, "true", "boolean");
+        testProjectionPushdownWithDBRef(12.3f, "double '12.3'", "double");
+        testProjectionPushdownWithDBRef(new Date(0), "timestamp '1970-01-01 00:00:00.000'", "timestamp(3)");
+        testProjectionPushdownWithDBRef(ImmutableList.of(1), "array[bigint '1']", "array(bigint)");
+        testProjectionPushdownWithDBRef(new ObjectId("5126bc054aed4daf9e2ab772"), "ObjectId('5126bc054aed4daf9e2ab772')", "ObjectId");
+    }
+
+    private void testProjectionPushdownWithDBRef(Object objectId, String expectedValue, String expectedType)
     {
         String tableName = "test_projection_pushdown_with_dbref_" + randomNameSuffix();
 
@@ -1503,8 +1504,20 @@ public class TestMongoConnectorTest
         assertUpdate("DROP TABLE test." + tableName);
     }
 
-    @Test(dataProvider = "dbRefProvider")
-    public void testProjectionPushdownWithNestedDBRef(Object objectId, String expectedValue, String expectedType)
+    @Test
+    public void testProjectionPushdownWithNestedDBRef()
+    {
+        testProjectionPushdownWithNestedDBRef("String type", "varchar 'String type'", "varchar");
+        testProjectionPushdownWithNestedDBRef("BinData".getBytes(UTF_8), "to_utf8('BinData')", "varbinary");
+        testProjectionPushdownWithNestedDBRef(1234567890, "bigint '1234567890'", "bigint");
+        testProjectionPushdownWithNestedDBRef(true, "true", "boolean");
+        testProjectionPushdownWithNestedDBRef(12.3f, "double '12.3'", "double");
+        testProjectionPushdownWithNestedDBRef(new Date(0), "timestamp '1970-01-01 00:00:00.000'", "timestamp(3)");
+        testProjectionPushdownWithNestedDBRef(ImmutableList.of(1), "array[bigint '1']", "array(bigint)");
+        testProjectionPushdownWithNestedDBRef(new ObjectId("5126bc054aed4daf9e2ab772"), "ObjectId('5126bc054aed4daf9e2ab772')", "ObjectId");
+    }
+
+    private void testProjectionPushdownWithNestedDBRef(Object objectId, String expectedValue, String expectedType)
     {
         String tableName = "test_projection_pushdown_with_dbref_" + randomNameSuffix();
 
@@ -1528,8 +1541,20 @@ public class TestMongoConnectorTest
         assertUpdate("DROP TABLE test." + tableName);
     }
 
-    @Test(dataProvider = "dbRefProvider")
-    public void testProjectionPushdownWithPredefinedDBRefKeyword(Object objectId, String expectedValue, String expectedType)
+    @Test
+    public void testProjectionPushdownWithPredefinedDBRefKeyword()
+    {
+        testProjectionPushdownWithPredefinedDBRefKeyword("String type", "varchar 'String type'", "varchar");
+        testProjectionPushdownWithPredefinedDBRefKeyword("BinData".getBytes(UTF_8), "to_utf8('BinData')", "varbinary");
+        testProjectionPushdownWithPredefinedDBRefKeyword(1234567890, "bigint '1234567890'", "bigint");
+        testProjectionPushdownWithPredefinedDBRefKeyword(true, "true", "boolean");
+        testProjectionPushdownWithPredefinedDBRefKeyword(12.3f, "double '12.3'", "double");
+        testProjectionPushdownWithPredefinedDBRefKeyword(new Date(0), "timestamp '1970-01-01 00:00:00.000'", "timestamp(3)");
+        testProjectionPushdownWithPredefinedDBRefKeyword(ImmutableList.of(1), "array[bigint '1']", "array(bigint)");
+        testProjectionPushdownWithPredefinedDBRefKeyword(new ObjectId("5126bc054aed4daf9e2ab772"), "ObjectId('5126bc054aed4daf9e2ab772')", "ObjectId");
+    }
+
+    private void testProjectionPushdownWithPredefinedDBRefKeyword(Object objectId, String expectedValue, String expectedType)
     {
         String tableName = "test_projection_pushdown_with_predefined_dbref_keyword_" + randomNameSuffix();
 
@@ -1552,8 +1577,52 @@ public class TestMongoConnectorTest
         assertUpdate("DROP TABLE test." + tableName);
     }
 
-    @Test(dataProvider = "dbRefAndDocumentProvider")
-    public void testDBRefLikeDocument(Document document1, Document document2, String expectedValue)
+    @Test
+    public void testDBRefLikeDocument()
+    {
+        testDBRefLikeDocument("String type", "varchar 'String type'");
+        testDBRefLikeDocument("BinData".getBytes(UTF_8), "to_utf8('BinData')");
+        testDBRefLikeDocument(1234567890, "bigint '1234567890'");
+        testDBRefLikeDocument(true, "true");
+        testDBRefLikeDocument(12.3f, "double '12.3'");
+        testDBRefLikeDocument(new Date(0), "timestamp '1970-01-01 00:00:00.000'");
+        testDBRefLikeDocument(ImmutableList.of(1), "array[bigint '1']");
+        testDBRefLikeDocument(new ObjectId("5126bc054aed4daf9e2ab772"), "ObjectId('5126bc054aed4daf9e2ab772')");
+
+        testDBRefLikeDocument(dbRefDocument("String type"), documentWithSameDbRefFieldOrder("String type"), "varchar 'String type'");
+        testDBRefLikeDocument(dbRefDocument("String type"), getDocumentWithDifferentDbRefFieldOrder("String type"), "varchar 'String type'");
+        testDBRefLikeDocument(documentWithSameDbRefFieldOrder("String type"), dbRefDocument("String type"), "varchar 'String type'");
+
+        testDBRefLikeDocument(dbRefDocument("BinData".getBytes(UTF_8)), documentWithSameDbRefFieldOrder("BinData".getBytes(UTF_8)), "to_utf8('BinData')");
+        testDBRefLikeDocument(dbRefDocument("BinData".getBytes(UTF_8)), getDocumentWithDifferentDbRefFieldOrder("BinData".getBytes(UTF_8)), "to_utf8('BinData')");
+        testDBRefLikeDocument(documentWithSameDbRefFieldOrder("BinData".getBytes(UTF_8)), dbRefDocument("BinData".getBytes(UTF_8)), "to_utf8('BinData')");
+
+        testDBRefLikeDocument(dbRefDocument(1234567890), documentWithSameDbRefFieldOrder(1234567890), "bigint '1234567890'");
+        testDBRefLikeDocument(dbRefDocument(1234567890), getDocumentWithDifferentDbRefFieldOrder(1234567890), "bigint '1234567890'");
+        testDBRefLikeDocument(documentWithSameDbRefFieldOrder(1234567890), dbRefDocument(1234567890), "bigint '1234567890'");
+
+        testDBRefLikeDocument(dbRefDocument(true), documentWithSameDbRefFieldOrder(true), "true");
+        testDBRefLikeDocument(dbRefDocument(true), getDocumentWithDifferentDbRefFieldOrder(true), "true");
+        testDBRefLikeDocument(documentWithSameDbRefFieldOrder(true), dbRefDocument(true), "true");
+
+        testDBRefLikeDocument(dbRefDocument(12.3f), documentWithSameDbRefFieldOrder(12.3f), "double '12.3'");
+        testDBRefLikeDocument(dbRefDocument(12.3f), getDocumentWithDifferentDbRefFieldOrder(12.3f), "double '12.3'");
+        testDBRefLikeDocument(documentWithSameDbRefFieldOrder(12.3f), dbRefDocument(12.3f), "double '12.3'");
+
+        testDBRefLikeDocument(dbRefDocument(new Date(0)), documentWithSameDbRefFieldOrder(new Date(0)), "timestamp '1970-01-01 00:00:00.000'");
+        testDBRefLikeDocument(dbRefDocument(new Date(0)), getDocumentWithDifferentDbRefFieldOrder(new Date(0)), "timestamp '1970-01-01 00:00:00.000'");
+        testDBRefLikeDocument(documentWithSameDbRefFieldOrder(new Date(0)), dbRefDocument(new Date(0)), "timestamp '1970-01-01 00:00:00.000'");
+
+        testDBRefLikeDocument(dbRefDocument(ImmutableList.of(1)), documentWithSameDbRefFieldOrder(ImmutableList.of(1)), "array[bigint '1']");
+        testDBRefLikeDocument(dbRefDocument(ImmutableList.of(1)), getDocumentWithDifferentDbRefFieldOrder(ImmutableList.of(1)), "array[bigint '1']");
+        testDBRefLikeDocument(documentWithSameDbRefFieldOrder(ImmutableList.of(1)), dbRefDocument(ImmutableList.of(1)), "array[bigint '1']");
+
+        testDBRefLikeDocument(dbRefDocument(new ObjectId("5126bc054aed4daf9e2ab772")), documentWithSameDbRefFieldOrder(new ObjectId("5126bc054aed4daf9e2ab772")), "ObjectId('5126bc054aed4daf9e2ab772')");
+        testDBRefLikeDocument(dbRefDocument(new ObjectId("5126bc054aed4daf9e2ab772")), getDocumentWithDifferentDbRefFieldOrder(new ObjectId("5126bc054aed4daf9e2ab772")), "ObjectId('5126bc054aed4daf9e2ab772')");
+        testDBRefLikeDocument(documentWithSameDbRefFieldOrder(new ObjectId("5126bc054aed4daf9e2ab772")), dbRefDocument(new ObjectId("5126bc054aed4daf9e2ab772")), "ObjectId('5126bc054aed4daf9e2ab772')");
+    }
+
+    private void testDBRefLikeDocument(Document document1, Document document2, String expectedValue)
     {
         String tableName = "test_dbref_like_document_" + randomNameSuffix();
 
@@ -1580,34 +1649,28 @@ public class TestMongoConnectorTest
         assertUpdate("DROP TABLE test." + tableName);
     }
 
-    @DataProvider
-    public Object[][] dbRefAndDocumentProvider()
+    private static Document getDocumentWithDifferentDbRefFieldOrder(Object objectId)
     {
-        Object[][] dbRefObjects = dbRefProvider();
-        Object[][] objects = new Object[dbRefObjects.length * 3][];
-        int i = 0;
-        for (Object[] dbRefObject : dbRefObjects) {
-            Object objectId = dbRefObject[0];
-            Object expectedValue = dbRefObject[1];
-            Document dbRefDocument = new Document()
-                    .append("_id", new ObjectId("5126bbf64aed4daf9e2ab772"))
-                    .append("creator", new DBRef("dbref_test", "dbref_creators", objectId));
-            Document documentWithSameDbRefFieldOrder = new Document()
-                    .append("_id", new ObjectId("5126bbf64aed4daf9e2ab771"))
-                    .append("creator", new Document().append("databaseName", "doc_test").append("collectionName", "doc_creators").append("id", objectId));
-            Document documentWithDifferentDbRefFieldOrder = new Document()
-                    .append("_id", new ObjectId("5126bbf64aed4daf9e2ab771"))
-                    .append("creator", new Document().append("collectionName", "doc_creators").append("id", objectId).append("databaseName", "doc_test"));
-
-            objects[i++] = new Object[] {dbRefDocument, documentWithSameDbRefFieldOrder, expectedValue};
-            objects[i++] = new Object[] {dbRefDocument, documentWithDifferentDbRefFieldOrder, expectedValue};
-            objects[i++] = new Object[] {documentWithSameDbRefFieldOrder, dbRefDocument, expectedValue};
-        }
-        return objects;
+        return new Document()
+                .append("_id", new ObjectId("5126bbf64aed4daf9e2ab771"))
+                .append("creator", new Document().append("collectionName", "doc_creators").append("id", objectId).append("databaseName", "doc_test"));
     }
 
-    @Test(dataProvider = "dbRefProvider")
-    public void testDBRefLikeDocument(Object objectId, String expectedValue, String expectedType)
+    private static Document documentWithSameDbRefFieldOrder(Object objectId)
+    {
+        return new Document()
+                .append("_id", new ObjectId("5126bbf64aed4daf9e2ab771"))
+                .append("creator", new Document().append("databaseName", "doc_test").append("collectionName", "doc_creators").append("id", objectId));
+    }
+
+    private static Document dbRefDocument(Object objectId)
+    {
+        return new Document()
+                .append("_id", new ObjectId("5126bbf64aed4daf9e2ab772"))
+                .append("creator", new DBRef("dbref_test", "dbref_creators", objectId));
+    }
+
+    private void testDBRefLikeDocument(Object objectId, String expectedValue)
     {
         String tableName = "test_dbref_like_document_fails_" + randomNameSuffix();
 
@@ -1640,8 +1703,17 @@ public class TestMongoConnectorTest
         assertUpdate("DROP TABLE test." + tableName);
     }
 
-    @Test(dataProvider = "dfRefPredicateProvider")
-    public void testPredicateOnDBRefField(Object objectId, String expectedValue)
+    @Test
+    public void testPredicateOnDBRefField()
+    {
+        testPredicateOnDBRefField(true, "true");
+        testPredicateOnDBRefField(4, "bigint '4'");
+        testPredicateOnDBRefField("test", "'test'");
+        testPredicateOnDBRefField(new ObjectId("6216f0c6c432d45190f25e7c"), "ObjectId('6216f0c6c432d45190f25e7c')");
+        testPredicateOnDBRefField(new Date(0), "timestamp '1970-01-01 00:00:00.000'");
+    }
+
+    private void testPredicateOnDBRefField(Object objectId, String expectedValue)
     {
         String tableName = "test_predicate_on_dbref_field_" + randomNameSuffix();
 
@@ -1664,8 +1736,17 @@ public class TestMongoConnectorTest
         assertUpdate("DROP TABLE test." + tableName);
     }
 
-    @Test(dataProvider = "dfRefPredicateProvider")
-    public void testPredicateOnDBRefLikeDocument(Object objectId, String expectedValue)
+    @Test
+    public void testPredicateOnDBRefLikeDocument()
+    {
+        testPredicateOnDBRefLikeDocument(true, "true");
+        testPredicateOnDBRefLikeDocument(4, "bigint '4'");
+        testPredicateOnDBRefLikeDocument("test", "'test'");
+        testPredicateOnDBRefLikeDocument(new ObjectId("6216f0c6c432d45190f25e7c"), "ObjectId('6216f0c6c432d45190f25e7c')");
+        testPredicateOnDBRefLikeDocument(new Date(0), "timestamp '1970-01-01 00:00:00.000'");
+    }
+
+    private void testPredicateOnDBRefLikeDocument(Object objectId, String expectedValue)
     {
         String tableName = "test_predicate_on_dbref_like_document_" + randomNameSuffix();
 
@@ -1689,18 +1770,6 @@ public class TestMongoConnectorTest
                 .isNotFullyPushedDown(FilterNode.class);
 
         assertUpdate("DROP TABLE test." + tableName);
-    }
-
-    @DataProvider
-    public Object[][] dfRefPredicateProvider()
-    {
-        return new Object[][] {
-                {true, "true"},
-                {4, "bigint '4'"},
-                {"test", "'test'"},
-                {new ObjectId("6216f0c6c432d45190f25e7c"), "ObjectId('6216f0c6c432d45190f25e7c')"},
-                {new Date(0), "timestamp '1970-01-01 00:00:00.000'"},
-        };
     }
 
     @Override

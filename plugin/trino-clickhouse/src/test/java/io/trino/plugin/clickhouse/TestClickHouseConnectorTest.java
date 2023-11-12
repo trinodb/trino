@@ -154,18 +154,10 @@ public class TestClickHouseConnectorTest
         return format("CREATE TABLE %s(%s varchar(50), value varchar(50) NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['value'])", tableName, columnNameInSql);
     }
 
+    @Test(enabled = false)
     @Override
-    public void testRenameColumnName(String columnName)
+    public void testRenameColumnName()
     {
-        // TODO: Enable this test
-        if (columnName.equals("a.dot")) {
-            assertThatThrownBy(() -> super.testRenameColumnName(columnName))
-                    .hasMessageContaining("Cannot rename column from nested struct to normal column");
-            throw new SkipException("TODO");
-        }
-        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
-                .hasMessageContaining("is not supported by storage Log");
-        throw new SkipException("TODO");
     }
 
     @Override

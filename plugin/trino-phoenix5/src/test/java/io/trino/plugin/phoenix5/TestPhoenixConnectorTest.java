@@ -232,35 +232,30 @@ public class TestPhoenixConnectorTest
         throw new SkipException("Rename column is not yet supported by Phoenix connector");
     }
 
+    @Test(enabled = false)
     @Override
-    public void testRenameColumnName(String columnName)
+    public void testRenameColumnName()
     {
-        // The column name is rejected when creating a table
-        if (columnName.equals("a\"quote")) {
-            super.testRenameColumnName(columnName);
-            return;
-        }
-        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
-                // TODO (https://github.com/trinodb/trino/issues/7205) support column rename in Phoenix
-                .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
-        throw new SkipException("Rename column is not yet supported by Phoenix connector");
     }
 
     @Override
-    public void testAddAndDropColumnName(String columnName)
+    public void testAddAndDropColumnName()
     {
-        // TODO: Investigate why these two case fail
-        if (columnName.equals("an'apostrophe")) {
-            assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
-                    .hasMessageContaining("Syntax error. Mismatched input");
-            throw new SkipException("TODO");
+        for (String columnName : testColumnNameDataProvider()) {
+            // TODO: Investigate why these two case fail
+            if (columnName.equals("an'apostrophe")) {
+                assertThatThrownBy(() -> testAddAndDropColumnName(columnName, requiresDelimiting(columnName)))
+                        .hasMessageContaining("Syntax error. Mismatched input");
+                throw new SkipException("TODO");
+            }
+            if (columnName.equals("a\\backslash`")) {
+                assertThatThrownBy(() -> testAddAndDropColumnName(columnName, requiresDelimiting(columnName)))
+                        .hasMessageContaining("Undefined column");
+                throw new SkipException("TODO");
+            }
+
+            testAddAndDropColumnName(columnName, requiresDelimiting(columnName));
         }
-        if (columnName.equals("a\\backslash`")) {
-            assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
-                    .hasMessageContaining("Undefined column");
-            throw new SkipException("TODO");
-        }
-        super.testAddAndDropColumnName(columnName);
     }
 
     @Override

@@ -27,7 +27,6 @@ import io.trino.tpch.TpchTable;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.testng.SkipException;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.nio.ByteBuffer;
@@ -37,7 +36,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.kafka.encoder.json.format.DateTimeFormat.CUSTOM_DATE_TIME;
@@ -57,7 +55,6 @@ import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -495,29 +492,24 @@ public class TestKafkaConnectorTest
                 "VALUES ('bar'), (null), ('baz')");
     }
 
-    @Test(dataProvider = "jsonDateTimeFormatsDataProvider")
-    public void testJsonDateTimeFormatsRoundTrip(JsonDateTimeTestCase testCase)
+    @Test
+    public void testJsonDateTimeFormatsRoundTrip()
     {
-        assertUpdate("INSERT into write_test." + testCase.getTopicName() +
-                " (" + testCase.getFieldNames() + ")" +
-                " VALUES " + testCase.getFieldValues(), 1);
-        for (JsonDateTimeTestCase.Field field : testCase.getFields()) {
-            Object actual = computeScalar("SELECT " + field.getFieldName() + " FROM write_test." + testCase.getTopicName());
-            Object expected = computeScalar("SELECT " + field.getFieldValue());
-            try {
-                assertEquals(actual, expected, "Equality assertion failed for field: " + field.getFieldName());
-            }
-            catch (AssertionError e) {
-                throw new AssertionError(format("Equality assertion failed for field '%s'\n%s", field.getFieldName(), e.getMessage()), e);
+        for (JsonDateTimeTestCase testCase : jsonDateTimeFormatsData()) {
+            assertUpdate("INSERT into write_test." + testCase.getTopicName() +
+                    " (" + testCase.getFieldNames() + ")" +
+                    " VALUES " + testCase.getFieldValues(), 1);
+            for (JsonDateTimeTestCase.Field field : testCase.getFields()) {
+                Object actual = computeScalar("SELECT " + field.getFieldName() + " FROM write_test." + testCase.getTopicName());
+                Object expected = computeScalar("SELECT " + field.getFieldValue());
+                try {
+                    assertEquals(actual, expected, "Equality assertion failed for field: " + field.getFieldName());
+                }
+                catch (AssertionError e) {
+                    throw new AssertionError(format("Equality assertion failed for field '%s'\n%s", field.getFieldName(), e.getMessage()), e);
+                }
             }
         }
-    }
-
-    @DataProvider
-    public static Object[][] jsonDateTimeFormatsDataProvider()
-    {
-        return jsonDateTimeFormatsData().stream()
-                .collect(toDataProvider());
     }
 
     private static List<JsonDateTimeTestCase> jsonDateTimeFormatsData()
@@ -698,100 +690,53 @@ public class TestKafkaConnectorTest
         }
     }
 
-    @Test(dataProvider = "roundTripAllFormatsDataProvider")
-    public void testRoundTripAllFormats(RoundTripTestCase testCase)
+    @Test
+    public void testRoundTripAllFormats()
     {
-        assertUpdate("INSERT into write_test." + testCase.getTableName() +
-                " (" + testCase.getFieldNames() + ")" +
-                " VALUES " + testCase.getRowValues(), testCase.getNumRows());
-        assertQuery("SELECT " + testCase.getFieldNames() + " FROM write_test." + testCase.getTableName() +
-                        " WHERE f_bigint > 1",
-                "VALUES " + testCase.getRowValues());
+        testRoundTripAllFormats(
+                "all_datatypes_avro",
+                ImmutableList.of("f_bigint", "f_float", "f_double", "f_boolean", "f_varchar"),
+                ImmutableList.of(
+                        ImmutableList.of(100000, 999.999f, 1000.001, true, "'test'"),
+                        ImmutableList.of(123456, -123.456f, 1234.123, false, "'abcd'")));
+
+        testRoundTripAllFormats(
+                "all_datatypes_csv",
+                ImmutableList.of("f_bigint", "f_int", "f_smallint", "f_tinyint", "f_double", "f_boolean", "f_varchar"),
+                ImmutableList.of(
+                        ImmutableList.of(100000, 1000, 100, 10, 1000.001, true, "'test'"),
+                        ImmutableList.of(123456, 1234, 123, 12, 12345.123, false, "'abcd'")));
+
+        testRoundTripAllFormats(
+                "all_datatypes_raw",
+                ImmutableList.of("kafka_key", "f_varchar", "f_bigint", "f_int", "f_smallint", "f_tinyint", "f_double", "f_boolean"),
+                ImmutableList.of(
+                        ImmutableList.of(1, "'test'", 100000, 1000, 100, 10, 1000.001, true),
+                        ImmutableList.of(1, "'abcd'", 123456, 1234, 123, 12, 12345.123, false)));
+
+        testRoundTripAllFormats(
+                "all_datatypes_json",
+                ImmutableList.of("f_bigint", "f_int", "f_smallint", "f_tinyint", "f_double", "f_boolean", "f_varchar"),
+                ImmutableList.of(
+                        ImmutableList.of(100000, 1000, 100, 10, 1000.001, true, "'test'"),
+                        ImmutableList.of(123748, 1234, 123, 12, 12345.123, false, "'abcd'")));
     }
 
-    @DataProvider
-    public static Object[][] roundTripAllFormatsDataProvider()
+    public void testRoundTripAllFormats(String tableName, List<String> fieldNames, List<List<Object>> rowValues)
     {
-        return roundTripAllFormatsData().stream()
-                .collect(toDataProvider());
-    }
+        String rows = rowValues.stream()
+                .map(row -> row.stream()
+                        .map(Object::toString)
+                        .collect(joining(", ", "(", ")")))
+                .collect(joining(", "));
+        String fields = String.join(",", fieldNames);
 
-    private static List<RoundTripTestCase> roundTripAllFormatsData()
-    {
-        return ImmutableList.<RoundTripTestCase>builder()
-                .add(new RoundTripTestCase(
-                        "all_datatypes_avro",
-                        ImmutableList.of("f_bigint", "f_float", "f_double", "f_boolean", "f_varchar"),
-                        ImmutableList.of(
-                                ImmutableList.of(100000, 999.999f, 1000.001, true, "'test'"),
-                                ImmutableList.of(123456, -123.456f, 1234.123, false, "'abcd'"))))
-                .add(new RoundTripTestCase(
-                        "all_datatypes_csv",
-                        ImmutableList.of("f_bigint", "f_int", "f_smallint", "f_tinyint", "f_double", "f_boolean", "f_varchar"),
-                        ImmutableList.of(
-                                ImmutableList.of(100000, 1000, 100, 10, 1000.001, true, "'test'"),
-                                ImmutableList.of(123456, 1234, 123, 12, 12345.123, false, "'abcd'"))))
-                .add(new RoundTripTestCase(
-                        "all_datatypes_raw",
-                        ImmutableList.of("kafka_key", "f_varchar", "f_bigint", "f_int", "f_smallint", "f_tinyint", "f_double", "f_boolean"),
-                        ImmutableList.of(
-                                ImmutableList.of(1, "'test'", 100000, 1000, 100, 10, 1000.001, true),
-                                ImmutableList.of(1, "'abcd'", 123456, 1234, 123, 12, 12345.123, false))))
-                .add(new RoundTripTestCase(
-                        "all_datatypes_json",
-                        ImmutableList.of("f_bigint", "f_int", "f_smallint", "f_tinyint", "f_double", "f_boolean", "f_varchar"),
-                        ImmutableList.of(
-                                ImmutableList.of(100000, 1000, 100, 10, 1000.001, true, "'test'"),
-                                ImmutableList.of(123748, 1234, 123, 12, 12345.123, false, "'abcd'"))))
-                .build();
-    }
+        assertUpdate(
+                "INSERT into write_test." + tableName + " (" + fields + ") VALUES " + rows,
+                rowValues.size());
 
-    private static final class RoundTripTestCase
-    {
-        private final String tableName;
-        private final List<String> fieldNames;
-        private final List<List<Object>> rowValues;
-        private final int numRows;
-
-        public RoundTripTestCase(String tableName, List<String> fieldNames, List<List<Object>> rowValues)
-        {
-            for (List<Object> row : rowValues) {
-                checkArgument(fieldNames.size() == row.size(), "sizes of fieldNames and rowValues are not equal");
-            }
-            this.tableName = requireNonNull(tableName, "tableName is null");
-            this.fieldNames = ImmutableList.copyOf(fieldNames);
-            this.rowValues = ImmutableList.copyOf(rowValues);
-            this.numRows = this.rowValues.size();
-        }
-
-        public String getTableName()
-        {
-            return tableName;
-        }
-
-        public String getFieldNames()
-        {
-            return String.join(", ", fieldNames);
-        }
-
-        public String getRowValues()
-        {
-            String[] rows = new String[numRows];
-            for (int i = 0; i < numRows; i++) {
-                rows[i] = rowValues.get(i).stream().map(Object::toString).collect(joining(", ", "(", ")"));
-            }
-            return String.join(", ", rows);
-        }
-
-        public int getNumRows()
-        {
-            return numRows;
-        }
-
-        @Override
-        public String toString()
-        {
-            return tableName; // for test case label in IDE
-        }
+        assertQuery(
+                "SELECT " + fields + " FROM write_test." + tableName + " WHERE f_bigint > 1",
+                "VALUES " + rows);
     }
 }

@@ -13,7 +13,7 @@
  */
 package io.trino.sql.planner;
 
-import java.util.stream.Stream;
+import java.util.List;
 
 /**
  * This class tests cost-based optimization rules related to joins. It contains unmodified TPC-H queries.
@@ -37,9 +37,9 @@ public class TestHivePartitionedTpchCostBasedPlan
     }
 
     @Override
-    protected Stream<String> getQueryResourcePaths()
+    protected List<String> getQueryResourcePaths()
     {
-        return TPCH_SQL_FILES.stream();
+        return TPCH_SQL_FILES;
     }
 
     public static void main(String[] args)

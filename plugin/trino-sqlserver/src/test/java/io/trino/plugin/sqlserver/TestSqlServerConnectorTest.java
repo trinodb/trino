@@ -22,7 +22,6 @@ import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -34,9 +33,6 @@ import static io.trino.plugin.sqlserver.SqlServerQueryRunner.CATALOG;
 import static io.trino.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
 import static io.trino.plugin.sqlserver.SqlServerSessionProperties.BULK_COPY_FOR_WRITE;
 import static io.trino.plugin.sqlserver.SqlServerSessionProperties.BULK_COPY_FOR_WRITE_LOCK_DESTINATION_TABLE;
-import static io.trino.testing.DataProviders.cartesianProduct;
-import static io.trino.testing.DataProviders.toDataProvider;
-import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -69,8 +65,17 @@ public class TestSqlServerConnectorTest
     }
 
     @Flaky(issue = "fn_dblog() returns information only about the active portion of the transaction log, therefore it is flaky", match = ".*")
-    @Test(dataProvider = "doubleTrueFalse")
-    public void testCreateTableAsSelectWriteBulkiness(boolean bulkCopyForWrite, boolean bulkCopyLock)
+    @Test
+    public void testCreateTableAsSelectWriteBulkiness()
+            throws SQLException
+    {
+        testCreateTableAsSelectWriteBulkiness(true, true);
+        testCreateTableAsSelectWriteBulkiness(true, false);
+        testCreateTableAsSelectWriteBulkiness(false, true);
+        testCreateTableAsSelectWriteBulkiness(false, false);
+    }
+
+    private void testCreateTableAsSelectWriteBulkiness(boolean bulkCopyForWrite, boolean bulkCopyLock)
             throws SQLException
     {
         String table = "bulk_copy_ctas_" + randomNameSuffix();
@@ -98,8 +103,21 @@ public class TestSqlServerConnectorTest
     }
 
     @Flaky(issue = "fn_dblog() returns information only about the active portion of the transaction log, therefore it is flaky", match = ".*")
-    @Test(dataProvider = "tripleTrueFalse")
-    public void testInsertWriteBulkiness(boolean nonTransactionalInsert, boolean bulkCopyForWrite, boolean bulkCopyForWriteLockDestinationTable)
+    @Test
+    public void testInsertWriteBulkiness()
+            throws SQLException
+    {
+        testInsertWriteBulkiness(true, true, true);
+        testInsertWriteBulkiness(true, true, false);
+        testInsertWriteBulkiness(true, false, true);
+        testInsertWriteBulkiness(true, false, false);
+        testInsertWriteBulkiness(false, true, true);
+        testInsertWriteBulkiness(false, true, false);
+        testInsertWriteBulkiness(false, false, true);
+        testInsertWriteBulkiness(false, false, false);
+    }
+
+    private void testInsertWriteBulkiness(boolean nonTransactionalInsert, boolean bulkCopyForWrite, boolean bulkCopyForWriteLockDestinationTable)
             throws SQLException
     {
         String table = "bulk_copy_insert_" + randomNameSuffix();
@@ -128,8 +146,17 @@ public class TestSqlServerConnectorTest
         assertUpdate("DROP TABLE " + table);
     }
 
-    @Test(dataProvider = "timestampTypes")
-    public void testInsertWriteBulkinessWithTimestamps(String timestampType)
+    @Test
+    public void testInsertWriteBulkinessWithTimestamps()
+    {
+        testInsertWriteBulkinessWithTimestamps("timestamp");
+        testInsertWriteBulkinessWithTimestamps("timestamp(3)");
+        testInsertWriteBulkinessWithTimestamps("timestamp(6)");
+        testInsertWriteBulkinessWithTimestamps("timestamp(9)");
+        testInsertWriteBulkinessWithTimestamps("timestamp(12)");
+    }
+
+    private void testInsertWriteBulkinessWithTimestamps(String timestampType)
     {
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty(CATALOG, BULK_COPY_FOR_WRITE, "true")
@@ -162,51 +189,57 @@ public class TestSqlServerConnectorTest
     }
 
     // TODO move test to BaseConnectorTest https://github.com/trinodb/trino/issues/14517
-    @Test(dataProvider = "testTableNameDataProvider")
-    public void testCreateAndDropTableWithSpecialCharacterName(String tableName)
+    @Test
+    public void testCreateAndDropTableWithSpecialCharacterName()
     {
-        String tableNameInSql = "\"" + tableName.replace("\"", "\"\"") + "\"";
-        // Until https://github.com/trinodb/trino/issues/17 the table name is effectively lowercase
-        tableName = tableName.toLowerCase(ENGLISH);
-        assertUpdate("CREATE TABLE " + tableNameInSql + " (a bigint, b double, c varchar(50))");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
-        assertTableColumnNames(tableNameInSql, "a", "b", "c");
+        for (String tableName : testTableNameTestData()) {
+            String tableNameInSql = "\"" + tableName.replace("\"", "\"\"") + "\"";
+            // Until https://github.com/trinodb/trino/issues/17 the table name is effectively lowercase
+            tableName = tableName.toLowerCase(ENGLISH);
+            assertUpdate("CREATE TABLE " + tableNameInSql + " (a bigint, b double, c varchar(50))");
+            assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+            assertTableColumnNames(tableNameInSql, "a", "b", "c");
 
-        assertUpdate("DROP TABLE " + tableNameInSql);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+            assertUpdate("DROP TABLE " + tableNameInSql);
+            assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        }
     }
 
     // TODO remove this test after https://github.com/trinodb/trino/issues/14517
-    @Test(dataProvider = "testTableNameDataProvider")
-    public void testRenameColumnNameAdditionalTests(String columnName)
+    @Test
+    public void testRenameColumnNameAdditionalTests()
     {
-        String nameInSql = "\"" + columnName.replace("\"", "\"\"") + "\"";
-        String tableName = "tcn_" + nameInSql.replaceAll("[^a-z0-9]", "") + randomNameSuffix();
-        // Use complex identifier to test a source column name when renaming columns
-        String sourceColumnName = "a;b$c";
+        for (String columnName : testTableNameTestData()) {
+            String nameInSql = "\"" + columnName.replace("\"", "\"\"") + "\"";
+            String tableName = "tcn_" + nameInSql.replaceAll("[^a-z0-9]", "") + randomNameSuffix();
+            // Use complex identifier to test a source column name when renaming columns
+            String sourceColumnName = "a;b$c";
 
-        assertUpdate("CREATE TABLE " + tableName + "(\"" + sourceColumnName + "\" varchar(50))");
-        assertTableColumnNames(tableName, sourceColumnName);
+            assertUpdate("CREATE TABLE " + tableName + "(\"" + sourceColumnName + "\" varchar(50))");
+            assertTableColumnNames(tableName, sourceColumnName);
 
-        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN \"" + sourceColumnName + "\" TO " + nameInSql);
-        assertTableColumnNames(tableName, columnName.toLowerCase(ENGLISH));
+            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN \"" + sourceColumnName + "\" TO " + nameInSql);
+            assertTableColumnNames(tableName, columnName.toLowerCase(ENGLISH));
 
-        assertUpdate("DROP TABLE " + tableName);
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 
     // TODO move this test to BaseConnectorTest https://github.com/trinodb/trino/issues/14517
-    @Test(dataProvider = "testTableNameDataProvider")
-    public void testRenameFromToTableWithSpecialCharacterName(String tableName)
+    @Test
+    public void testRenameFromToTableWithSpecialCharacterName()
     {
-        String tableNameInSql = "\"" + tableName.replace("\"", "\"\"") + "\"";
-        String sourceTableName = "test_rename_source_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
+        for (String tableName : testTableNameTestData()) {
+            String tableNameInSql = "\"" + tableName.replace("\"", "\"\"") + "\"";
+            String sourceTableName = "test_rename_source_" + randomNameSuffix();
+            assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
 
-        assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + tableNameInSql);
-        assertQuery("SELECT x FROM " + tableNameInSql, "VALUES 123");
-        // test rename back is working properly
-        assertUpdate("ALTER TABLE " + tableNameInSql + " RENAME TO " + sourceTableName);
-        assertUpdate("DROP TABLE " + sourceTableName);
+            assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + tableNameInSql);
+            assertQuery("SELECT x FROM " + tableNameInSql, "VALUES 123");
+            // test rename back is working properly
+            assertUpdate("ALTER TABLE " + tableNameInSql + " RENAME TO " + sourceTableName);
+            assertUpdate("DROP TABLE " + sourceTableName);
+        }
     }
 
     private int getTableOperationsCount(String operation, String table)
@@ -227,41 +260,6 @@ public class TestSqlServerConnectorTest
                     .mapTo(Integer.class)
                     .one();
         }
-    }
-
-    @DataProvider
-    public static Object[][] doubleTrueFalse()
-    {
-        return cartesianProduct(trueFalse(), trueFalse());
-    }
-
-    @DataProvider
-    public static Object[][] tripleTrueFalse()
-    {
-        return cartesianProduct(trueFalse(), trueFalse(), trueFalse());
-    }
-
-    @DataProvider
-    public static Object[][] timestampTypes()
-    {
-        // Timestamp with timezone is not supported by the SqlServer connector
-        return new Object[][] {
-                {"timestamp"},
-                {"timestamp(3)"},
-                {"timestamp(6)"},
-                {"timestamp(9)"},
-                {"timestamp(12)"}
-        };
-    }
-
-    // TODO replace TableNameDataProvider and ColumnNameDataProvider with ObjectNameDataProvider
-    //  to one big single list of all special character cases, current list has additional special bracket cases,
-    //  please don't forget to use this list as base
-    @DataProvider
-    public Object[][] testTableNameDataProvider()
-    {
-        return testTableNameTestData().stream()
-                .collect(toDataProvider());
     }
 
     private List<String> testTableNameTestData()
