@@ -152,7 +152,8 @@ public class TestFSDataInputStreamTail
             assertEquals(tail.getFileSize(), fileSize);
             Slice tailSlice = tail.getTailSlice();
             assertEquals(tailSlice.length(), fileSize);
-            assertCountingTestFileContents(tailSlice.getBytes());
+            byte[] tailContents = tailSlice.getBytes();
+            assertEquals(tailContents, countingTestFileContentsWithLength(tailContents.length));
         }
     }
 
@@ -211,11 +212,6 @@ public class TestFSDataInputStreamTail
                     .isInstanceOf(IOException.class)
                     .hasMessage("Incorrect file size (128) for file (end of stream not reached): " + tempFile);
         }
-    }
-
-    private static void assertCountingTestFileContents(byte[] contents)
-    {
-        assertEquals(contents, countingTestFileContentsWithLength(contents.length));
     }
 
     private static byte[] countingTestFileContentsWithLength(int length)
