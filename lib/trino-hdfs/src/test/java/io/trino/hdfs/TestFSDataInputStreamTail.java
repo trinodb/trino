@@ -24,7 +24,6 @@ import org.apache.hadoop.fs.RawLocalFileSystem;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -85,8 +84,22 @@ public class TestFSDataInputStreamTail
         }
     }
 
-    @Test(dataProvider = "validFileSizeAndPaddedFileSize")
-    public void testReadTailForFileSize(int fileSize, int paddedFileSize)
+    @Test
+    public void testReadTailForFileSize()
+            throws Exception
+    {
+        testReadTailForFileSize(0, 0);
+        testReadTailForFileSize(0, 1);
+        testReadTailForFileSize(0, 15);
+        testReadTailForFileSize(0, FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES - 1);
+        testReadTailForFileSize(0, FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES);
+        testReadTailForFileSize(63, 63);
+        testReadTailForFileSize(63, 64);
+        testReadTailForFileSize(64, 74);
+        testReadTailForFileSize(65, 65 + FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES);
+    }
+
+    private void testReadTailForFileSize(int fileSize, int paddedFileSize)
             throws Exception
     {
         // Cleanup between each input run
@@ -105,10 +118,26 @@ public class TestFSDataInputStreamTail
         }
     }
 
-    @Test(dataProvider = "validFileSizeAndPaddedFileSize")
-    public void testReadTailCompletely(int fileSize, int paddedFileSize)
+    @Test
+    public void testReadTailCompletely()
             throws Exception
     {
+        testReadTailCompletely(0, 0);
+        testReadTailCompletely(0, 1);
+        testReadTailCompletely(0, 15);
+        testReadTailCompletely(0, FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES - 1);
+        testReadTailCompletely(0, FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES);
+        testReadTailCompletely(63, 63);
+        testReadTailCompletely(63, 64);
+        testReadTailCompletely(64, 74);
+        testReadTailCompletely(65, 65 + FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES);
+    }
+
+    private void testReadTailCompletely(int fileSize, int paddedFileSize)
+            throws Exception
+    {
+        fs.truncate(tempFile, 0);
+
         byte[] contents = countingTestFileContentsWithLength(fileSize);
         if (contents.length > 0) {
             try (FSDataOutputStream os = fs.append(tempFile)) {
@@ -182,21 +211,6 @@ public class TestFSDataInputStreamTail
                     .isInstanceOf(IOException.class)
                     .hasMessage("Incorrect file size (128) for file (end of stream not reached): " + tempFile);
         }
-    }
-
-    @DataProvider(name = "validFileSizeAndPaddedFileSize")
-    public static Object[][] validFileSizeAndPaddedFileSize()
-    {
-        return new Object[][] {
-                {0, 0},
-                {0, 1},
-                {0, 15},
-                {0, FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES - 1},
-                {0, FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES},
-                {63, 63},
-                {63, 64},
-                {64, 74},
-                {65, 65 + FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES}};
     }
 
     private static void assertCountingTestFileContents(byte[] contents)

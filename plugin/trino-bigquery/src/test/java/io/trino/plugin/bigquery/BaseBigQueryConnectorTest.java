@@ -24,7 +24,6 @@ import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
@@ -110,8 +109,29 @@ public abstract class BaseBigQueryConnectorTest
                 .build();
     }
 
-    @Test(dataProvider = "createTableSupportedTypes")
-    public void testCreateTableSupportedType(String createType, String expectedType)
+    @Test
+    public void testCreateTableSupportedType()
+    {
+        testCreateTableSupportedType("boolean", "boolean");
+        testCreateTableSupportedType("tinyint", "bigint");
+        testCreateTableSupportedType("smallint", "bigint");
+        testCreateTableSupportedType("integer", "bigint");
+        testCreateTableSupportedType("bigint", "bigint");
+        testCreateTableSupportedType("double", "double");
+        testCreateTableSupportedType("decimal", "decimal(38,9)");
+        testCreateTableSupportedType("date", "date");
+        testCreateTableSupportedType("time with time zone", "time(6)");
+        testCreateTableSupportedType("timestamp(6)", "timestamp(6)");
+        testCreateTableSupportedType("timestamp(6) with time zone", "timestamp(6) with time zone");
+        testCreateTableSupportedType("varchar", "varchar");
+        testCreateTableSupportedType("varchar(65535)", "varchar");
+        testCreateTableSupportedType("varbinary", "varbinary");
+        testCreateTableSupportedType("array(bigint)", "array(bigint)");
+        testCreateTableSupportedType("row(x bigint, y double)", "row(x bigint, y double)");
+        testCreateTableSupportedType("row(x array(bigint))", "row(x array(bigint))");
+    }
+
+    private void testCreateTableSupportedType(String createType, String expectedType)
     {
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_table_supported_type_" + createType.replaceAll("[^a-zA-Z0-9]", ""), format("(col1 %s)", createType))) {
             assertEquals(
@@ -120,46 +140,19 @@ public abstract class BaseBigQueryConnectorTest
         }
     }
 
-    @DataProvider
-    public Object[][] createTableSupportedTypes()
+    @Test
+    public void testCreateTableUnsupportedType()
     {
-        return new Object[][] {
-                {"boolean", "boolean"},
-                {"tinyint", "bigint"},
-                {"smallint", "bigint"},
-                {"integer", "bigint"},
-                {"bigint", "bigint"},
-                {"double", "double"},
-                {"decimal", "decimal(38,9)"},
-                {"date", "date"},
-                {"time with time zone", "time(6)"},
-                {"timestamp(6)", "timestamp(6)"},
-                {"timestamp(6) with time zone", "timestamp(6) with time zone"},
-                {"varchar", "varchar"},
-                {"varchar(65535)", "varchar"},
-                {"varbinary", "varbinary"},
-                {"array(bigint)", "array(bigint)"},
-                {"row(x bigint, y double)", "row(x bigint, y double)"},
-                {"row(x array(bigint))", "row(x array(bigint))"},
-        };
+        testCreateTableUnsupportedType("json");
+        testCreateTableUnsupportedType("uuid");
+        testCreateTableUnsupportedType("ipaddress");
     }
 
-    @Test(dataProvider = "createTableUnsupportedTypes")
-    public void testCreateTableUnsupportedType(String createType)
+    private void testCreateTableUnsupportedType(String createType)
     {
         String tableName = format("test_create_table_unsupported_type_%s_%s", createType.replaceAll("[^a-zA-Z0-9]", ""), randomNameSuffix());
         assertQueryFails(format("CREATE TABLE %s (col1 %s)", tableName, createType), "Unsupported column type: " + createType);
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
-    }
-
-    @DataProvider
-    public Object[][] createTableUnsupportedTypes()
-    {
-        return new Object[][] {
-                {"json"},
-                {"uuid"},
-                {"ipaddress"},
-        };
     }
 
     @Test

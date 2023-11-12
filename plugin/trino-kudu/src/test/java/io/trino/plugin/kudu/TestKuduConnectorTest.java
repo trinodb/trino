@@ -20,6 +20,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testng.SkipException;
 
@@ -155,22 +156,18 @@ public class TestKuduConnectorTest
                 .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
     }
 
+    @Test
+    @Disabled
     @Override
-    public void testAddAndDropColumnName(String columnName)
+    public void testAddAndDropColumnName()
     {
-        // TODO: Enable this test
-        assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
-                .hasMessage("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
-        throw new SkipException("TODO");
     }
 
+    @Test
+    @Disabled
     @Override
-    public void testRenameColumnName(String columnName)
+    public void testRenameColumnName()
     {
-        // TODO: Enable this test
-        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
-                .hasMessage("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
-        throw new SkipException("TODO");
     }
 
     @Override
@@ -1006,7 +1003,7 @@ public class TestKuduConnectorTest
     }
 
     @Override
-    public void testCreateTableWithTableCommentSpecialCharacter(String comment)
+    protected void testCreateTableWithTableCommentSpecialCharacter(String comment)
     {
         // TODO Remove this overriding test once kudu connector can create tables with default partitions
         try (TestTable table = new TestTable(getQueryRunner()::execute,

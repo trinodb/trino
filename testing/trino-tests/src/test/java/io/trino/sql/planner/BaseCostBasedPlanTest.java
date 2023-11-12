@@ -34,7 +34,6 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -44,7 +43,6 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -61,7 +59,6 @@ import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -133,19 +130,14 @@ public abstract class BaseCostBasedPlanTest
     public abstract void prepareTables()
             throws Exception;
 
-    protected abstract Stream<String> getQueryResourcePaths();
+    protected abstract List<String> getQueryResourcePaths();
 
-    @DataProvider
-    public Object[][] getQueriesDataProvider()
+    @Test
+    public void test()
     {
-        return getQueryResourcePaths()
-                .collect(toDataProvider());
-    }
-
-    @Test(dataProvider = "getQueriesDataProvider")
-    public void test(String queryResourcePath)
-    {
-        assertEquals(generateQueryPlan(readQuery(queryResourcePath)), read(getQueryPlanResourcePath(queryResourcePath)));
+        for (String queryResourcePath : getQueryResourcePaths()) {
+            assertEquals(generateQueryPlan(readQuery(queryResourcePath)), read(getQueryPlanResourcePath(queryResourcePath)));
+        }
     }
 
     private String getQueryPlanResourcePath(String queryResourcePath)
@@ -167,7 +159,7 @@ public abstract class BaseCostBasedPlanTest
         initPlanTest();
         try {
             prepareTables();
-            getQueryResourcePaths()
+            getQueryResourcePaths().stream()
                     .parallel()
                     .forEach(queryResourcePath -> {
                         try {
