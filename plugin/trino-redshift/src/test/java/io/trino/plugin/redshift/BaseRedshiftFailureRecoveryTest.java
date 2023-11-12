@@ -19,6 +19,7 @@ import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.jdbc.BaseJdbcFailureRecoveryTest;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -55,6 +56,7 @@ public abstract class BaseRedshiftFailureRecoveryTest
                 });
     }
 
+    @Test
     @Override
     protected void testUpdateWithSubquery()
     {
@@ -62,6 +64,7 @@ public abstract class BaseRedshiftFailureRecoveryTest
         abort("skipped");
     }
 
+    @Test
     @Override
     protected void testUpdate()
     {
