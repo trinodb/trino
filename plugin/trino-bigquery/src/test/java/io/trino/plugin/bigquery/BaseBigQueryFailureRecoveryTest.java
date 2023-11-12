@@ -19,6 +19,7 @@ import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.testing.BaseFailureRecoveryTest;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -53,12 +54,14 @@ public abstract class BaseBigQueryFailureRecoveryTest
                 });
     }
 
+    @Test
     @Override
     protected boolean areWriteRetriesSupported()
     {
         return true;
     }
 
+    @Test
     @Override
     protected void testAnalyzeTable()
     {
@@ -66,6 +69,7 @@ public abstract class BaseBigQueryFailureRecoveryTest
         abort("skipped");
     }
 
+    @Test
     @Override
     protected void testDelete()
     {
@@ -73,6 +77,7 @@ public abstract class BaseBigQueryFailureRecoveryTest
         abort("skipped");
     }
 
+    @Test
     @Override
     protected void testDeleteWithSubquery()
     {
@@ -80,6 +85,7 @@ public abstract class BaseBigQueryFailureRecoveryTest
         abort("skipped");
     }
 
+    @Test
     @Override
     protected void testMerge()
     {
@@ -87,6 +93,7 @@ public abstract class BaseBigQueryFailureRecoveryTest
         abort("skipped");
     }
 
+    @Test
     @Override
     protected void testRefreshMaterializedView()
     {
@@ -94,6 +101,7 @@ public abstract class BaseBigQueryFailureRecoveryTest
         abort("skipped");
     }
 
+    @Test
     @Override
     protected void testUpdate()
     {
@@ -101,6 +109,7 @@ public abstract class BaseBigQueryFailureRecoveryTest
         abort("skipped");
     }
 
+    @Test
     @Override
     protected void testUpdateWithSubquery()
     {
