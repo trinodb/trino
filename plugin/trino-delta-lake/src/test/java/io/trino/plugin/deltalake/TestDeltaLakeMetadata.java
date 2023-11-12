@@ -22,6 +22,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
@@ -194,6 +195,7 @@ public class TestDeltaLakeMetadata
                     binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                     binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
+                    binder.bind(Tracer.class).toInstance(context.getTracer());
                 },
                 // connector modules
                 new DeltaLakeMetastoreModule(),
