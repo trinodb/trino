@@ -27,7 +27,6 @@ import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.testing.BaseConnectorTest;
-import io.trino.testing.DataProviders;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
@@ -41,12 +40,10 @@ import io.trino.testing.sql.TrinoSqlExecutor;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.nio.file.Path;
 import java.time.ZonedDateTime;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -68,9 +65,6 @@ import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.creat
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static io.trino.testing.DataProviders.cartesianProduct;
-import static io.trino.testing.DataProviders.toDataProvider;
-import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_FUNCTION;
@@ -398,12 +392,14 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Override
-    public void testAddAndDropColumnName(String columnName)
+    public void testAddAndDropColumnName()
     {
-        // Override because the connector doesn't support dropping columns with 'none' column mapping
-        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
-        assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
-                .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
+        for (String columnName : testColumnNameDataProvider()) {
+            // Override because the connector doesn't support dropping columns with 'none' column mapping
+            // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
+            assertThatThrownBy(() -> testAddAndDropColumnName(columnName, requiresDelimiting(columnName)))
+                    .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
+        }
     }
 
     @Override
@@ -415,13 +411,15 @@ public class TestDeltaLakeConnectorTest
                 .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
+    @Test
+    public void testDropPartitionColumn()
+    {
+        testDropPartitionColumn(ColumnMappingMode.ID);
+        testDropPartitionColumn(ColumnMappingMode.NAME);
+    }
+
     public void testDropPartitionColumn(ColumnMappingMode mode)
     {
-        if (mode == ColumnMappingMode.NONE) {
-            throw new SkipException("Tested in testDropColumn");
-        }
-
         String tableName = "test_drop_partition_column_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(data int, part int) WITH (partitioned_by = ARRAY['part'], column_mapping_mode = '" + mode + "')");
 
@@ -459,13 +457,15 @@ public class TestDeltaLakeConnectorTest
                 .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testDeltaRenameColumnWithComment(ColumnMappingMode mode)
+    @Test
+    public void testDeltaRenameColumnWithComment()
     {
-        if (mode == ColumnMappingMode.NONE) {
-            throw new SkipException("The connector doesn't support renaming columns with 'none' column mapping");
-        }
+        testDeltaRenameColumnWithComment(ColumnMappingMode.ID);
+        testDeltaRenameColumnWithComment(ColumnMappingMode.NAME);
+    }
 
+    private void testDeltaRenameColumnWithComment(ColumnMappingMode mode)
+    {
         String tableName = "test_rename_column_" + randomNameSuffix();
         assertUpdate("" +
                 "CREATE TABLE " + tableName +
@@ -494,12 +494,14 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Override
-    public void testRenameColumnName(String columnName)
+    public void testRenameColumnName()
     {
-        // Override because the connector doesn't support renaming columns with 'none' column mapping
-        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
-        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
-                .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
+        for (String columnName : testColumnNameDataProvider()) {
+            // Override because the connector doesn't support renaming columns with 'none' column mapping
+            // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
+            assertThatThrownBy(() -> testRenameColumnName(columnName, requiresDelimiting(columnName)))
+                    .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
+        }
     }
 
     @Override
@@ -510,8 +512,18 @@ public class TestDeltaLakeConnectorTest
                 .hasStackTraceContaining("Unsupported type: char(3)");
     }
 
-    @Test(dataProvider = "timestampValues")
-    public void testTimestampPredicatePushdown(String value)
+    @Test
+    public void testTimestampPredicatePushdown()
+    {
+        testTimestampPredicatePushdown("1965-10-31 01:00:08.123 UTC");
+        testTimestampPredicatePushdown("1965-10-31 01:00:08.999 UTC");
+        testTimestampPredicatePushdown("1970-01-01 01:13:42.000 America/Bahia_Banderas"); // There is a gap in JVM zone
+        testTimestampPredicatePushdown("1970-01-01 00:00:00.000 Asia/Kathmandu");
+        testTimestampPredicatePushdown("2018-10-28 01:33:17.456 Europe/Vilnius");
+        testTimestampPredicatePushdown("9999-12-31 23:59:59.999 UTC");
+    }
+
+    private void testTimestampPredicatePushdown(String value)
     {
         String tableName = "test_parquet_timestamp_predicate_pushdown_" + randomNameSuffix();
 
@@ -615,18 +627,6 @@ public class TestDeltaLakeConnectorTest
                 .contains("/part=9999-12-31 23%3A59%3A59.999/");
 
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @DataProvider
-    public Object[][] timestampValues()
-    {
-        return new Object[][] {
-                {"1965-10-31 01:00:08.123 UTC"},
-                {"1965-10-31 01:00:08.999 UTC"},
-                {"1970-01-01 01:13:42.000 America/Bahia_Banderas"}, // There is a gap in JVM zone
-                {"1970-01-01 00:00:00.000 Asia/Kathmandu"},
-                {"2018-10-28 01:33:17.456 Europe/Vilnius"},
-                {"9999-12-31 23:59:59.999 UTC"}};
     }
 
     @Test
@@ -838,8 +838,15 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP TABLE " + targetTable);
     }
 
-    @Test(dataProvider = "partitionedProvider")
-    public void testMergeUpdateWithVariousLayouts(String partitionPhase)
+    @Test
+    public void testMergeUpdateWithVariousLayouts()
+    {
+        testMergeUpdateWithVariousLayouts("");
+        testMergeUpdateWithVariousLayouts(", partitioned_by = ARRAY['customer']");
+        testMergeUpdateWithVariousLayouts(", partitioned_by = ARRAY['purchase']");
+    }
+
+    private void testMergeUpdateWithVariousLayouts(String partitionPhase)
     {
         String targetTable = "merge_formats_target_" + randomNameSuffix();
         String sourceTable = "merge_formats_source_" + randomNameSuffix();
@@ -864,18 +871,15 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP TABLE " + targetTable);
     }
 
-    @DataProvider
-    public Object[][] partitionedProvider()
+    @Test
+    public void testMergeMultipleOperations()
     {
-        return new Object[][] {
-                {""},
-                {", partitioned_by = ARRAY['customer']"},
-                {", partitioned_by = ARRAY['purchase']"}
-        };
+        testMergeMultipleOperations("");
+        testMergeMultipleOperations(", partitioned_by = ARRAY['customer']");
+        testMergeMultipleOperations(", partitioned_by = ARRAY['purchase']");
     }
 
-    @Test(dataProvider = "partitionedProvider")
-    public void testMergeMultipleOperations(String partitioning)
+    private void testMergeMultipleOperations(String partitioning)
     {
         int targetCustomerCount = 32;
         String targetTable = "merge_multiple_" + randomNameSuffix();
@@ -959,8 +963,17 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP TABLE " + targetTable);
     }
 
-    @Test(dataProvider = "targetWithDifferentPartitioning")
-    public void testMergeMultipleRowsMatchFails(String createTableSql)
+    @Test
+    public void testMergeMultipleRowsMatchFails()
+    {
+        testMergeMultipleRowsMatchFails("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')");
+        testMergeMultipleRowsMatchFails("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer'])");
+        testMergeMultipleRowsMatchFails("CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])");
+        testMergeMultipleRowsMatchFails("CREATE TABLE %s (purchases INT, customer VARCHAR, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address', 'customer'])");
+        testMergeMultipleRowsMatchFails("CREATE TABLE %s (purchases INT, address VARCHAR, customer VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address', 'customer'])");
+    }
+
+    private void testMergeMultipleRowsMatchFails(String createTableSql)
     {
         String targetTable = "merge_multiple_target_" + randomNameSuffix();
         String sourceTable = "merge_multiple_source_" + randomNameSuffix();
@@ -984,20 +997,40 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP TABLE " + targetTable);
     }
 
-    @DataProvider
-    public Object[][] targetWithDifferentPartitioning()
+    @Test
+    public void testMergeWithDifferentPartitioning()
     {
-        return new Object[][] {
-                {"CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')"},
-                {"CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer'])"},
-                {"CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])"},
-                {"CREATE TABLE %s (purchases INT, customer VARCHAR, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address', 'customer'])"},
-                {"CREATE TABLE %s (purchases INT, address VARCHAR, customer VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address', 'customer'])"}
-        };
+        testMergeWithDifferentPartitioning(
+                "target_partitioned_source_and_target_partitioned",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address', 'customer'])",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])");
+        testMergeWithDifferentPartitioning(
+                "target_partitioned_source_and_target_partitioned",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer', 'address'])",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])");
+        testMergeWithDifferentPartitioning(
+                "target_flat_source_partitioned_by_customer",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')",
+                "CREATE TABLE %s (purchases INT, address VARCHAR, customer VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer'])");
+        testMergeWithDifferentPartitioning(
+                "target_partitioned_by_customer_source_flat",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')");
+        testMergeWithDifferentPartitioning(
+                "target_bucketed_by_customer_source_flat",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer', 'address'])",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')");
+        testMergeWithDifferentPartitioning(
+                "target_partitioned_source_partitioned",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer'])",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])");
+        testMergeWithDifferentPartitioning(
+                "target_partitioned_target_partitioned",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer'])");
     }
 
-    @Test(dataProvider = "targetAndSourceWithDifferentPartitioning")
-    public void testMergeWithDifferentPartitioning(String testDescription, String createTargetTableSql, String createSourceTableSql)
+    private void testMergeWithDifferentPartitioning(String testDescription, String createTargetTableSql, String createSourceTableSql)
     {
         String targetTable = format("%s_target_%s", testDescription, randomNameSuffix());
         String sourceTable = format("%s_source_%s", testDescription, randomNameSuffix());
@@ -1022,50 +1055,15 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP TABLE " + targetTable);
     }
 
-    @DataProvider
-    public Object[][] targetAndSourceWithDifferentPartitioning()
+    @Test
+    public void testTableWithNonNullableColumns()
     {
-        return new Object[][] {
-                {
-                        "target_partitioned_source_and_target_partitioned",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address', 'customer'])",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
-                },
-                {
-                        "target_partitioned_source_and_target_partitioned",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer', 'address'])",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
-                },
-                {
-                        "target_flat_source_partitioned_by_customer",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')",
-                        "CREATE TABLE %s (purchases INT, address VARCHAR, customer VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer'])"
-                },
-                {
-                        "target_partitioned_by_customer_source_flat",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')",
-                },
-                {
-                        "target_bucketed_by_customer_source_flat",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer', 'address'])",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')",
-                },
-                {
-                        "target_partitioned_source_partitioned",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer'])",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
-                },
-                {
-                        "target_partitioned_target_partitioned",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer'])",
-                }
-        };
+        testTableWithNonNullableColumns(ColumnMappingMode.ID);
+        testTableWithNonNullableColumns(ColumnMappingMode.NAME);
+        testTableWithNonNullableColumns(ColumnMappingMode.NONE);
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testTableWithNonNullableColumns(ColumnMappingMode mode)
+    private void testTableWithNonNullableColumns(ColumnMappingMode mode)
     {
         String tableName = "test_table_with_non_nullable_columns_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(col1 INTEGER NOT NULL, col2 INTEGER, col3 INTEGER) WITH (column_mapping_mode='" + mode + "')");
@@ -1084,76 +1082,80 @@ public class TestDeltaLakeConnectorTest
         assertQuery("SELECT * FROM " + tableName, "VALUES(1, 10, 100), (2, 20, 200)");
     }
 
-    @Test(dataProvider = "changeDataFeedColumnNamesDataProvider")
-    public void testCreateTableWithChangeDataFeedColumnName(String columnName)
+    @Test
+    public void testCreateTableWithChangeDataFeedColumnName()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_table_cdf", "(" + columnName + " int)")) {
-            assertTableColumnNames(table.getName(), columnName);
-        }
+        for (String columnName : CHANGE_DATA_FEED_COLUMN_NAMES) {
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_table_cdf", "(" + columnName + " int)")) {
+                assertTableColumnNames(table.getName(), columnName);
+            }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_table_cdf", "AS SELECT 1 AS " + columnName)) {
-            assertTableColumnNames(table.getName(), columnName);
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_table_cdf", "AS SELECT 1 AS " + columnName)) {
+                assertTableColumnNames(table.getName(), columnName);
+            }
         }
     }
 
-    @Test(dataProvider = "changeDataFeedColumnNamesDataProvider")
-    public void testUnsupportedCreateTableWithChangeDataFeed(String columnName)
+    @Test
+    public void testUnsupportedCreateTableWithChangeDataFeed()
     {
-        String tableName = "test_unsupported_create_table_cdf" + randomNameSuffix();
+        for (String columnName : CHANGE_DATA_FEED_COLUMN_NAMES) {
+            String tableName = "test_unsupported_create_table_cdf" + randomNameSuffix();
 
-        assertQueryFails(
-                "CREATE TABLE " + tableName + "(" + columnName + " int) WITH (change_data_feed_enabled = true)",
-                "\\QUnable to use [%s] when change data feed is enabled\\E".formatted(columnName));
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-
-        assertQueryFails(
-                "CREATE TABLE " + tableName + " WITH (change_data_feed_enabled = true) AS SELECT 1 AS " + columnName,
-                "\\QUnable to use [%s] when change data feed is enabled\\E".formatted(columnName));
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-    }
-
-    @Test(dataProvider = "changeDataFeedColumnNamesDataProvider")
-    public void testUnsupportedAddColumnWithChangeDataFeed(String columnName)
-    {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column", "(col int) WITH (change_data_feed_enabled = true)")) {
             assertQueryFails(
-                    "ALTER TABLE " + table.getName() + " ADD COLUMN " + columnName + " int",
-                    "\\QColumn name %s is forbidden when change data feed is enabled\\E".formatted(columnName));
-            assertTableColumnNames(table.getName(), "col");
+                    "CREATE TABLE " + tableName + "(" + columnName + " int) WITH (change_data_feed_enabled = true)",
+                    "\\QUnable to use [%s] when change data feed is enabled\\E".formatted(columnName));
+            assertFalse(getQueryRunner().tableExists(getSession(), tableName));
 
-            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES change_data_feed_enabled = false");
-            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN " + columnName + " int");
-            assertTableColumnNames(table.getName(), "col", columnName);
-        }
-    }
-
-    @Test(dataProvider = "changeDataFeedColumnNamesDataProvider")
-    public void testUnsupportedRenameColumnWithChangeDataFeed(String columnName)
-    {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_rename_column", "(col int) WITH (change_data_feed_enabled = true)")) {
             assertQueryFails(
-                    "ALTER TABLE " + table.getName() + " RENAME COLUMN col TO " + columnName,
-                    "Cannot rename column when change data feed is enabled");
-            assertTableColumnNames(table.getName(), "col");
+                    "CREATE TABLE " + tableName + " WITH (change_data_feed_enabled = true) AS SELECT 1 AS " + columnName,
+                    "\\QUnable to use [%s] when change data feed is enabled\\E".formatted(columnName));
+            assertFalse(getQueryRunner().tableExists(getSession(), tableName));
         }
     }
 
-    @Test(dataProvider = "changeDataFeedColumnNamesDataProvider")
-    public void testUnsupportedSetTablePropertyWithChangeDataFeed(String columnName)
+    @Test
+    public void testUnsupportedAddColumnWithChangeDataFeed()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_properties", "(" + columnName + " int)")) {
-            assertQueryFails(
-                    "ALTER TABLE " + table.getName() + " SET PROPERTIES change_data_feed_enabled = true",
-                    "\\QUnable to enable change data feed because table contains [%s] columns\\E".formatted(columnName));
-            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
-                    .doesNotContain("change_data_feed_enabled = true");
+        for (String columnName : CHANGE_DATA_FEED_COLUMN_NAMES) {
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column", "(col int) WITH (change_data_feed_enabled = true)")) {
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " ADD COLUMN " + columnName + " int",
+                        "\\QColumn name %s is forbidden when change data feed is enabled\\E".formatted(columnName));
+                assertTableColumnNames(table.getName(), "col");
+
+                assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES change_data_feed_enabled = false");
+                assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN " + columnName + " int");
+                assertTableColumnNames(table.getName(), "col", columnName);
+            }
         }
     }
 
-    @DataProvider
-    public Object[][] changeDataFeedColumnNamesDataProvider()
+    @Test
+    public void testUnsupportedRenameColumnWithChangeDataFeed()
     {
-        return CHANGE_DATA_FEED_COLUMN_NAMES.stream().collect(toDataProvider());
+        for (String columnName : CHANGE_DATA_FEED_COLUMN_NAMES) {
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_rename_column", "(col int) WITH (change_data_feed_enabled = true)")) {
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " RENAME COLUMN col TO " + columnName,
+                        "Cannot rename column when change data feed is enabled");
+                assertTableColumnNames(table.getName(), "col");
+            }
+        }
+    }
+
+    @Test
+    public void testUnsupportedSetTablePropertyWithChangeDataFeed()
+    {
+        for (String columnName : CHANGE_DATA_FEED_COLUMN_NAMES) {
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_properties", "(" + columnName + " int)")) {
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " SET PROPERTIES change_data_feed_enabled = true",
+                        "\\QUnable to enable change data feed because table contains [%s] columns\\E".formatted(columnName));
+                assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                        .doesNotContain("change_data_feed_enabled = true");
+            }
+        }
     }
 
     @Test
@@ -1167,7 +1169,14 @@ public class TestDeltaLakeConnectorTest
                 .contains("change_data_feed_enabled = true");
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
+    @Test
+    public void testCreateTableWithColumnMappingMode()
+    {
+        testCreateTableWithColumnMappingMode(ColumnMappingMode.ID);
+        testCreateTableWithColumnMappingMode(ColumnMappingMode.NAME);
+        testCreateTableWithColumnMappingMode(ColumnMappingMode.NONE);
+    }
+
     public void testCreateTableWithColumnMappingMode(ColumnMappingMode mode)
     {
         testCreateTableColumnMappingMode(mode, tableName -> {
@@ -1176,16 +1185,30 @@ public class TestDeltaLakeConnectorTest
         });
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testCreateTableAsSelectWithColumnMappingMode(ColumnMappingMode mode)
+    @Test
+    public void testCreateTableAsSelectWithColumnMappingMode()
+    {
+        testCreateTableAsSelectWithColumnMappingMode(ColumnMappingMode.ID);
+        testCreateTableAsSelectWithColumnMappingMode(ColumnMappingMode.NAME);
+        testCreateTableAsSelectWithColumnMappingMode(ColumnMappingMode.NONE);
+    }
+
+    private void testCreateTableAsSelectWithColumnMappingMode(ColumnMappingMode mode)
     {
         testCreateTableColumnMappingMode(mode, tableName ->
                 assertUpdate("CREATE TABLE " + tableName + " WITH (column_mapping_mode='" + mode + "')" +
                         " AS SELECT 1 AS a_int, CAST(row(11) AS row(x integer)) AS a_row", 1));
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testCreatePartitionTableAsSelectWithColumnMappingMode(ColumnMappingMode mode)
+    @Test
+    public void testCreatePartitionTableAsSelectWithColumnMappingMode()
+    {
+        testCreatePartitionTableAsSelectWithColumnMappingMode(ColumnMappingMode.ID);
+        testCreatePartitionTableAsSelectWithColumnMappingMode(ColumnMappingMode.NAME);
+        testCreatePartitionTableAsSelectWithColumnMappingMode(ColumnMappingMode.NONE);
+    }
+
+    private void testCreatePartitionTableAsSelectWithColumnMappingMode(ColumnMappingMode mode)
     {
         testCreateTableColumnMappingMode(mode, tableName ->
                 assertUpdate("CREATE TABLE " + tableName + " WITH (column_mapping_mode='" + mode + "', partitioned_by=ARRAY['a_int'])" +
@@ -1211,13 +1234,15 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testDropAndAddColumnShowStatsForColumnMappingMode(ColumnMappingMode mode)
+    @Test
+    public void testDropAndAddColumnShowStatsForColumnMappingMode()
     {
-        if (mode == ColumnMappingMode.NONE) {
-            throw new SkipException("Delta Lake doesn't support dropping columns with 'none' column mapping");
-        }
+        testDropAndAddColumnShowStatsForColumnMappingMode(ColumnMappingMode.ID);
+        testDropAndAddColumnShowStatsForColumnMappingMode(ColumnMappingMode.NAME);
+    }
 
+    private void testDropAndAddColumnShowStatsForColumnMappingMode(ColumnMappingMode mode)
+    {
         String tableName = "test_drop_add_column_show_stats_for_column_mapping_mode_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (a_number INT, b_number INT) WITH (column_mapping_mode='" + mode + "')");
@@ -1259,13 +1284,15 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testRenameColumnShowStatsForColumnMappingMode(ColumnMappingMode mode)
+    @Test
+    public void testRenameColumnShowStatsForColumnMappingMode()
     {
-        if (mode == ColumnMappingMode.NONE) {
-            throw new SkipException("The connector doesn't support renaming columns with 'none' column mapping");
-        }
+        testRenameColumnShowStatsForColumnMappingMode(ColumnMappingMode.ID);
+        testRenameColumnShowStatsForColumnMappingMode(ColumnMappingMode.NAME);
+    }
 
+    private void testRenameColumnShowStatsForColumnMappingMode(ColumnMappingMode mode)
+    {
         String tableName = "test_rename_column_show_stats_for_column_mapping_mode_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (a_number INT, b_number INT) WITH (column_mapping_mode='" + mode + "')");
@@ -1295,8 +1322,15 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testCommentOnTableForColumnMappingMode(ColumnMappingMode mode)
+    @Test
+    public void testCommentOnTableForColumnMappingMode()
+    {
+        testCommentOnTableForColumnMappingMode(ColumnMappingMode.ID);
+        testCommentOnTableForColumnMappingMode(ColumnMappingMode.NAME);
+        testCommentOnTableForColumnMappingMode(ColumnMappingMode.NONE);
+    }
+
+    private void testCommentOnTableForColumnMappingMode(ColumnMappingMode mode)
     {
         String tableName = "test_comment_on_table_for_column_mapping_mode_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (a_number INT, b_number INT) WITH (column_mapping_mode='" + mode + "')");
@@ -1307,8 +1341,15 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testCommentOnColumnForColumnMappingMode(ColumnMappingMode mode)
+    @Test
+    public void testCommentOnColumnForColumnMappingMode()
+    {
+        testCommentOnColumnForColumnMappingMode(ColumnMappingMode.ID);
+        testCommentOnColumnForColumnMappingMode(ColumnMappingMode.NAME);
+        testCommentOnColumnForColumnMappingMode(ColumnMappingMode.NONE);
+    }
+
+    private void testCommentOnColumnForColumnMappingMode(ColumnMappingMode mode)
     {
         String tableName = "test_comment_on_column_for_column_mapping_mode_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (a_number INT, b_number INT) WITH (column_mapping_mode='" + mode + "')");
@@ -1319,8 +1360,15 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testCreateTableWithCommentsForColumnMappingMode(ColumnMappingMode mode)
+    @Test
+    public void testCreateTableWithCommentsForColumnMappingMode()
+    {
+        testCreateTableWithCommentsForColumnMappingMode(ColumnMappingMode.ID);
+        testCreateTableWithCommentsForColumnMappingMode(ColumnMappingMode.NAME);
+        testCreateTableWithCommentsForColumnMappingMode(ColumnMappingMode.NONE);
+    }
+
+    private void testCreateTableWithCommentsForColumnMappingMode(ColumnMappingMode mode)
     {
         String tableName = "test_create_table_with_comments_for_column_mapping_mode_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (a_number INT COMMENT 'test column comment', b_number INT)  " +
@@ -1333,8 +1381,15 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testSpecialCharacterColumnNamesWithColumnMappingMode(ColumnMappingMode mode)
+    @Test
+    public void testSpecialCharacterColumnNamesWithColumnMappingMode()
+    {
+        testSpecialCharacterColumnNamesWithColumnMappingMode(ColumnMappingMode.ID);
+        testSpecialCharacterColumnNamesWithColumnMappingMode(ColumnMappingMode.NAME);
+        testSpecialCharacterColumnNamesWithColumnMappingMode(ColumnMappingMode.NONE);
+    }
+
+    private void testSpecialCharacterColumnNamesWithColumnMappingMode(ColumnMappingMode mode)
     {
         String tableName = "test_special_characters_column_namnes_with_column_mapping_mode_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (\";{}()\\n\\t=\" INT) " +
@@ -1351,8 +1406,18 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "columnMappingWithTrueAndFalseDataProvider")
-    public void testDeltaColumnMappingModeAllDataTypes(ColumnMappingMode mode, boolean partitioned)
+    @Test
+    public void testDeltaColumnMappingModeAllDataTypes()
+    {
+        testDeltaColumnMappingModeAllDataTypes(ColumnMappingMode.ID, false);
+        testDeltaColumnMappingModeAllDataTypes(ColumnMappingMode.ID, true);
+        testDeltaColumnMappingModeAllDataTypes(ColumnMappingMode.NAME, false);
+        testDeltaColumnMappingModeAllDataTypes(ColumnMappingMode.NAME, true);
+        testDeltaColumnMappingModeAllDataTypes(ColumnMappingMode.NONE, false);
+        testDeltaColumnMappingModeAllDataTypes(ColumnMappingMode.NONE, true);
+    }
+
+    private void testDeltaColumnMappingModeAllDataTypes(ColumnMappingMode mode, boolean partitioned)
     {
         String tableName = "test_column_mapping_mode_name_all_types_" + randomNameSuffix();
 
@@ -1462,8 +1527,18 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "columnMappingWithTrueAndFalseDataProvider")
-    public void testOptimizeProcedureColumnMappingMode(ColumnMappingMode mode, boolean partitioned)
+    @Test
+    public void testOptimizeProcedureColumnMappingMode()
+    {
+        testOptimizeProcedureColumnMappingMode(ColumnMappingMode.ID, false);
+        testOptimizeProcedureColumnMappingMode(ColumnMappingMode.ID, true);
+        testOptimizeProcedureColumnMappingMode(ColumnMappingMode.NAME, false);
+        testOptimizeProcedureColumnMappingMode(ColumnMappingMode.NAME, true);
+        testOptimizeProcedureColumnMappingMode(ColumnMappingMode.NONE, false);
+        testOptimizeProcedureColumnMappingMode(ColumnMappingMode.NONE, true);
+    }
+
+    private void testOptimizeProcedureColumnMappingMode(ColumnMappingMode mode, boolean partitioned)
     {
         String tableName = "test_optimize_column_mapping_mode_" + randomNameSuffix();
 
@@ -1510,31 +1585,34 @@ public class TestDeltaLakeConnectorTest
     /**
      * @see deltalake.write_stats_as_json_column_mapping_id
      */
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
-    public void testSupportedNonPartitionedColumnMappingIdWrites(boolean statsAsJsonEnabled)
+    @Test
+    public void testSupportedNonPartitionedColumnMappingIdWrites()
             throws Exception
     {
-        testSupportedNonPartitionedColumnMappingWrites("write_stats_as_json_column_mapping_id", statsAsJsonEnabled);
+        testSupportedNonPartitionedColumnMappingWrites("write_stats_as_json_column_mapping_id", true);
+        testSupportedNonPartitionedColumnMappingWrites("write_stats_as_json_column_mapping_id", false);
     }
 
     /**
      * @see deltalake.write_stats_as_json_column_mapping_name
      */
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
-    public void testSupportedNonPartitionedColumnMappingNameWrites(boolean statsAsJsonEnabled)
+    @Test
+    public void testSupportedNonPartitionedColumnMappingNameWrites()
             throws Exception
     {
-        testSupportedNonPartitionedColumnMappingWrites("write_stats_as_json_column_mapping_name", statsAsJsonEnabled);
+        testSupportedNonPartitionedColumnMappingWrites("write_stats_as_json_column_mapping_name", true);
+        testSupportedNonPartitionedColumnMappingWrites("write_stats_as_json_column_mapping_name", false);
     }
 
     /**
      * @see deltalake.write_stats_as_json_column_mapping_none
      */
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
-    public void testSupportedNonPartitionedColumnMappingNoneWrites(boolean statsAsJsonEnabled)
+    @Test
+    public void testSupportedNonPartitionedColumnMappingNoneWrites()
             throws Exception
     {
-        testSupportedNonPartitionedColumnMappingWrites("write_stats_as_json_column_mapping_none", statsAsJsonEnabled);
+        testSupportedNonPartitionedColumnMappingWrites("write_stats_as_json_column_mapping_none", true);
+        testSupportedNonPartitionedColumnMappingWrites("write_stats_as_json_column_mapping_none", false);
     }
 
     private void testSupportedNonPartitionedColumnMappingWrites(String resourceName, boolean statsAsJsonEnabled)
@@ -1619,31 +1697,34 @@ public class TestDeltaLakeConnectorTest
     /**
      * @see deltalake.write_stats_as_json_partition_column_mapping_id
      */
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
-    public void testSupportedPartitionedColumnMappingIdWrites(boolean statsAsJsonEnabled)
+    @Test
+    public void testSupportedPartitionedColumnMappingIdWrites()
             throws Exception
     {
-        testSupportedPartitionedColumnMappingWrites("write_stats_as_json_partition_column_mapping_id", statsAsJsonEnabled);
+        testSupportedPartitionedColumnMappingWrites("write_stats_as_json_partition_column_mapping_id", true);
+        testSupportedPartitionedColumnMappingWrites("write_stats_as_json_partition_column_mapping_id", false);
     }
 
     /**
      * @see deltalake.write_stats_as_json_partition_column_mapping_name
      */
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
-    public void testSupportedPartitionedColumnMappingNameWrites(boolean statsAsJsonEnabled)
+    @Test
+    public void testSupportedPartitionedColumnMappingNameWrites()
             throws Exception
     {
-        testSupportedPartitionedColumnMappingWrites("write_stats_as_json_partition_column_mapping_name", statsAsJsonEnabled);
+        testSupportedPartitionedColumnMappingWrites("write_stats_as_json_partition_column_mapping_name", true);
+        testSupportedPartitionedColumnMappingWrites("write_stats_as_json_partition_column_mapping_name", false);
     }
 
     /**
      * @see deltalake.write_stats_as_json_partition_column_mapping_none
      */
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
-    public void testSupportedPartitionedColumnMappingNoneWrites(boolean statsAsJsonEnabled)
+    @Test
+    public void testSupportedPartitionedColumnMappingNoneWrites()
             throws Exception
     {
-        testSupportedPartitionedColumnMappingWrites("write_stats_as_json_partition_column_mapping_none", statsAsJsonEnabled);
+        testSupportedPartitionedColumnMappingWrites("write_stats_as_json_partition_column_mapping_none", true);
+        testSupportedPartitionedColumnMappingWrites("write_stats_as_json_partition_column_mapping_none", false);
     }
 
     private void testSupportedPartitionedColumnMappingWrites(String resourceName, boolean statsAsJsonEnabled)
@@ -1723,20 +1804,6 @@ public class TestDeltaLakeConnectorTest
                         "(null, null, null, null, 1.0, null, null)");
 
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @DataProvider
-    public Object[][] columnMappingWithTrueAndFalseDataProvider()
-    {
-        return cartesianProduct(columnMappingModeDataProvider(), trueFalse());
-    }
-
-    @DataProvider
-    public Object[][] columnMappingModeDataProvider()
-    {
-        return Arrays.stream(ColumnMappingMode.values())
-                .filter(mode -> mode != ColumnMappingMode.UNKNOWN)
-                .collect(toDataProvider());
     }
 
     @Test
@@ -1882,8 +1949,15 @@ public class TestDeltaLakeConnectorTest
                 "_row#child := _row#child:bigint:REGULAR");
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testReadCdfChanges(ColumnMappingMode mode)
+    @Test
+    public void testReadCdfChanges()
+    {
+        testReadCdfChanges(ColumnMappingMode.ID);
+        testReadCdfChanges(ColumnMappingMode.NAME);
+        testReadCdfChanges(ColumnMappingMode.NONE);
+    }
+
+    private void testReadCdfChanges(ColumnMappingMode mode)
     {
         String tableName = "test_basic_operations_on_table_with_cdf_enabled_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
@@ -1933,8 +2007,15 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testReadCdfChangesOnPartitionedTable(ColumnMappingMode mode)
+    @Test
+    public void testReadCdfChangesOnPartitionedTable()
+    {
+        testReadCdfChangesOnPartitionedTable(ColumnMappingMode.ID);
+        testReadCdfChangesOnPartitionedTable(ColumnMappingMode.NAME);
+        testReadCdfChangesOnPartitionedTable(ColumnMappingMode.NONE);
+    }
+
+    private void testReadCdfChangesOnPartitionedTable(ColumnMappingMode mode)
     {
         String tableName = "test_basic_operations_on_table_with_cdf_enabled_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
@@ -2024,8 +2105,15 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testReadMergeChanges(ColumnMappingMode mode)
+    @Test
+    public void testReadMergeChanges()
+    {
+        testReadMergeChanges(ColumnMappingMode.ID);
+        testReadMergeChanges(ColumnMappingMode.NAME);
+        testReadMergeChanges(ColumnMappingMode.NONE);
+    }
+
+    private void testReadMergeChanges(ColumnMappingMode mode)
     {
         String tableName1 = "test_basic_operations_on_table_with_cdf_enabled_merge_into_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName1 + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
@@ -2070,8 +2158,15 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testReadMergeChangesOnPartitionedTable(ColumnMappingMode mode)
+    @Test
+    public void testReadMergeChangesOnPartitionedTable()
+    {
+        testReadMergeChangesOnPartitionedTable(ColumnMappingMode.ID);
+        testReadMergeChangesOnPartitionedTable(ColumnMappingMode.NAME);
+        testReadMergeChangesOnPartitionedTable(ColumnMappingMode.NONE);
+    }
+
+    private void testReadMergeChangesOnPartitionedTable(ColumnMappingMode mode)
     {
         String targetTable = "test_basic_operations_on_partitioned_table_with_cdf_enabled_target_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + targetTable + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
@@ -2148,8 +2243,15 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testCdfCommitTimestamp(ColumnMappingMode mode)
+    @Test
+    public void testCdfCommitTimestamp()
+    {
+        testCdfCommitTimestamp(ColumnMappingMode.ID);
+        testCdfCommitTimestamp(ColumnMappingMode.NAME);
+        testCdfCommitTimestamp(ColumnMappingMode.NONE);
+    }
+
+    private void testCdfCommitTimestamp(ColumnMappingMode mode)
     {
         String tableName = "test_cdf_commit_timestamp_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
@@ -2160,8 +2262,15 @@ public class TestDeltaLakeConnectorTest
         assertThat(historyCommitTimestamp).isEqualTo(tableChangesCommitTimestamp);
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testReadDifferentChangeRanges(ColumnMappingMode mode)
+    @Test
+    public void testReadDifferentChangeRanges()
+    {
+        testReadDifferentChangeRanges(ColumnMappingMode.ID);
+        testReadDifferentChangeRanges(ColumnMappingMode.NAME);
+        testReadDifferentChangeRanges(ColumnMappingMode.NONE);
+    }
+
+    private void testReadDifferentChangeRanges(ColumnMappingMode mode)
     {
         String tableName = "test_reading_ranges_of_changes_on_table_with_cdf_enabled_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
@@ -2226,8 +2335,15 @@ public class TestDeltaLakeConnectorTest
         assertQueryFails("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 10))", "since_version: 10 is higher then current table version: 6");
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testReadChangesOnTableWithColumnAdded(ColumnMappingMode mode)
+    @Test
+    public void testReadChangesOnTableWithColumnAdded()
+    {
+        testReadChangesOnTableWithColumnAdded(ColumnMappingMode.ID);
+        testReadChangesOnTableWithColumnAdded(ColumnMappingMode.NAME);
+        testReadChangesOnTableWithColumnAdded(ColumnMappingMode.NONE);
+    }
+
+    private void testReadChangesOnTableWithColumnAdded(ColumnMappingMode mode)
     {
         String tableName = "test_reading_changes_on_table_with_columns_added_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
@@ -2244,8 +2360,15 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testReadChangesOnTableWithRowColumn(ColumnMappingMode mode)
+    @Test
+    public void testReadChangesOnTableWithRowColumn()
+    {
+        testReadChangesOnTableWithRowColumn(ColumnMappingMode.ID);
+        testReadChangesOnTableWithRowColumn(ColumnMappingMode.NAME);
+        testReadChangesOnTableWithRowColumn(ColumnMappingMode.NONE);
+    }
+
+    private void testReadChangesOnTableWithRowColumn(ColumnMappingMode mode)
     {
         String tableName = "test_reading_changes_on_table_with_columns_added_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, costs ROW(month VARCHAR, amount BIGINT)) " +
@@ -2273,8 +2396,15 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testCdfOnTableWhichDoesntHaveItEnabledInitially(ColumnMappingMode mode)
+    @Test
+    public void testCdfOnTableWhichDoesntHaveItEnabledInitially()
+    {
+        testCdfOnTableWhichDoesntHaveItEnabledInitially(ColumnMappingMode.ID);
+        testCdfOnTableWhichDoesntHaveItEnabledInitially(ColumnMappingMode.NAME);
+        testCdfOnTableWhichDoesntHaveItEnabledInitially(ColumnMappingMode.NONE);
+    }
+
+    private void testCdfOnTableWhichDoesntHaveItEnabledInitially(ColumnMappingMode mode)
     {
         String tableName = "test_cdf_on_table_without_it_initially_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
@@ -2315,8 +2445,15 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testReadChangesFromCtasTable(ColumnMappingMode mode)
+    @Test
+    public void testReadChangesFromCtasTable()
+    {
+        testReadChangesFromCtasTable(ColumnMappingMode.ID);
+        testReadChangesFromCtasTable(ColumnMappingMode.NAME);
+        testReadChangesFromCtasTable(ColumnMappingMode.NONE);
+    }
+
+    private void testReadChangesFromCtasTable(ColumnMappingMode mode)
     {
         String tableName = "test_basic_operations_on_table_with_cdf_enabled_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "') " +
@@ -2333,8 +2470,16 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testVacuumDeletesCdfFiles(ColumnMappingMode mode)
+    @Test
+    public void testVacuumDeletesCdfFiles()
+            throws InterruptedException
+    {
+        testVacuumDeletesCdfFiles(ColumnMappingMode.ID);
+        testVacuumDeletesCdfFiles(ColumnMappingMode.NAME);
+        testVacuumDeletesCdfFiles(ColumnMappingMode.NONE);
+    }
+
+    private void testVacuumDeletesCdfFiles(ColumnMappingMode mode)
             throws InterruptedException
     {
         String tableName = "test_vacuum_correctly_deletes_cdf_files_" + randomNameSuffix();
@@ -2364,8 +2509,15 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test(dataProvider = "columnMappingModeDataProvider")
-    public void testCdfWithOptimize(ColumnMappingMode mode)
+    @Test
+    public void testCdfWithOptimize()
+    {
+        testCdfWithOptimize(ColumnMappingMode.ID);
+        testCdfWithOptimize(ColumnMappingMode.NAME);
+        testCdfWithOptimize(ColumnMappingMode.NONE);
+    }
+
+    private void testCdfWithOptimize(ColumnMappingMode mode)
     {
         String tableName = "test_cdf_with_optimize_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
@@ -2410,7 +2562,13 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    @Test
+    public void testTableWithTrailingSlashLocation()
+    {
+        testTableWithTrailingSlashLocation(true);
+        testTableWithTrailingSlashLocation(false);
+    }
+
     public void testTableWithTrailingSlashLocation(boolean partitioned)
     {
         String tableName = "test_table_with_trailing_slash_location_" + randomNameSuffix();
@@ -2435,8 +2593,56 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "deleteFiltersForTable")
-    public void testDeleteWithFilter(String createTableSql, String deleteFilter, boolean pushDownDelete)
+    @Test
+    public void testDeleteWithFilter()
+    {
+        testDeleteWithFilter(
+                "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')",
+                "address = 'Antioch'",
+                false);
+        testDeleteWithFilter(
+                // delete filter applied on function over non-partitioned field
+                "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
+                "starts_with(address, 'Antioch')",
+                false);
+        testDeleteWithFilter(
+                // delete filter applied on partitioned field
+                "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
+                "address = 'Antioch'",
+                true);
+        testDeleteWithFilter(
+                // delete filter applied on partitioned field and on synthesized field
+                "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
+                "address = 'Antioch' AND \"$file_size\" > 0",
+                false);
+        testDeleteWithFilter(
+                // delete filter applied on function over partitioned field
+                "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
+                "starts_with(address, 'Antioch')",
+                false);
+        testDeleteWithFilter(
+                // delete filter applied on non-partitioned field
+                "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer'])",
+                "address = 'Antioch'",
+                false);
+        testDeleteWithFilter(
+                // delete filter fully applied on composed partition
+                "CREATE TABLE %s (purchases INT, customer VARCHAR, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address', 'customer'])",
+                "address = 'Antioch' AND (customer = 'Aaron' OR customer = 'Bill')",
+                true);
+        testDeleteWithFilter(
+                // delete filter applied only partly on first partitioned field
+                "CREATE TABLE %s (purchases INT, address VARCHAR, customer VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address', 'customer'])",
+                "address = 'Antioch'",
+                true);
+        testDeleteWithFilter(
+                // delete filter applied only partly on second partitioned field
+                "CREATE TABLE %s (purchases INT, address VARCHAR, customer VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer', 'address'])",
+                "address = 'Antioch'",
+                true);
+    }
+
+    private void testDeleteWithFilter(String createTableSql, String deleteFilter, boolean pushDownDelete)
     {
         String table = "delete_with_filter_" + randomNameSuffix();
         assertUpdate(format(createTableSql, table, bucketName, table));
@@ -2461,66 +2667,6 @@ public class TestDeltaLakeConnectorTest
                 });
         assertQuery("SELECT customer, purchases, address FROM " + table, "VALUES ('Mary', 10, 'Adelphi'), ('Aaron', 3, 'Dallas')");
         assertUpdate("DROP TABLE " + table);
-    }
-
-    @DataProvider
-    public Object[][] deleteFiltersForTable()
-    {
-        return new Object[][]{
-                {
-                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')",
-                        "address = 'Antioch'",
-                        false
-                },
-                {
-                        // delete filter applied on function over non-partitioned field
-                        "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
-                        "starts_with(address, 'Antioch')",
-                        false
-                },
-                {
-                        // delete filter applied on partitioned field
-                        "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
-                        "address = 'Antioch'",
-                        true
-                },
-                {
-                        // delete filter applied on partitioned field and on synthesized field
-                        "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
-                        "address = 'Antioch' AND \"$file_size\" > 0",
-                        false
-                },
-                {
-                        // delete filter applied on function over partitioned field
-                        "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
-                        "starts_with(address, 'Antioch')",
-                        false
-                },
-                {
-                        // delete filter applied on non-partitioned field
-                        "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer'])",
-                        "address = 'Antioch'",
-                        false
-                },
-                {
-                        // delete filter fully applied on composed partition
-                        "CREATE TABLE %s (purchases INT, customer VARCHAR, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address', 'customer'])",
-                        "address = 'Antioch' AND (customer = 'Aaron' OR customer = 'Bill')",
-                        true
-                },
-                {
-                        // delete filter applied only partly on first partitioned field
-                        "CREATE TABLE %s (purchases INT, address VARCHAR, customer VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address', 'customer'])",
-                        "address = 'Antioch'",
-                        true
-                },
-                {
-                        // delete filter applied only partly on second partitioned field
-                        "CREATE TABLE %s (purchases INT, address VARCHAR, customer VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer', 'address'])",
-                        "address = 'Antioch'",
-                        true
-                },
-        };
     }
 
     @Override

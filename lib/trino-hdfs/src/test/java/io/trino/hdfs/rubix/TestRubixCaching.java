@@ -53,7 +53,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import javax.management.MBeanServer;
@@ -276,12 +275,6 @@ public class TestRubixCaching
         fileSystem.close();
     }
 
-    @DataProvider
-    public static Object[][] readMode()
-    {
-        return new Object[][] {{ASYNC}, {READ_THROUGH}};
-    }
-
     @Test
     public void testCoordinatorNotJoining()
     {
@@ -340,135 +333,153 @@ public class TestRubixCaching
         assertEquals(file2Locations[0].getHosts()[0], "127.0.0.2");
     }
 
-    @Test(dataProvider = "readMode")
-    public void testCacheRead(ReadMode readMode)
+    @Test
+    public void testCacheRead()
             throws Exception
     {
-        RubixConfig rubixConfig = new RubixConfig().setReadMode(readMode);
-        initializeCachingFileSystem(rubixConfig);
-        byte[] randomData = new byte[toIntExact(SMALL_FILE_SIZE.toBytes())];
-        new Random().nextBytes(randomData);
+        for (ReadMode readMode : ReadMode.values()) {
+            deinitializeRubix();
 
-        Path file = getStoragePath("some_file");
-        writeFile(nonCachingFileSystem.create(file), randomData);
+            RubixConfig rubixConfig = new RubixConfig().setReadMode(readMode);
+            initializeCachingFileSystem(rubixConfig);
+            byte[] randomData = new byte[toIntExact(SMALL_FILE_SIZE.toBytes())];
+            new Random().nextBytes(randomData);
 
-        long beforeRemoteReadsCount = getRemoteReadsCount();
-        long beforeCachedReadsCount = getCachedReadsCount();
-        long beforeAsyncDownloadedMb = getAsyncDownloadedMb(readMode);
+            Path file = getStoragePath("some_file");
+            writeFile(nonCachingFileSystem.create(file), randomData);
 
-        assertFileContents(cachingFileSystem, file, randomData);
+            long beforeRemoteReadsCount = getRemoteReadsCount();
+            long beforeCachedReadsCount = getCachedReadsCount();
+            long beforeAsyncDownloadedMb = getAsyncDownloadedMb(readMode);
 
-        if (readMode == ASYNC) {
-            // wait for async Rubix requests to complete
-            assertEventually(
-                    new Duration(10, SECONDS),
-                    () -> assertEquals(getAsyncDownloadedMb(ASYNC), beforeAsyncDownloadedMb + 1));
-        }
+            assertFileContents(cachingFileSystem, file, randomData);
 
-        // stats are propagated asynchronously
-        assertEventually(
-                new Duration(10, SECONDS),
-                () -> {
-                    // data should be read from remote source only
-                    assertGreaterThan(getRemoteReadsCount(), beforeRemoteReadsCount);
-                    assertEquals(getCachedReadsCount(), beforeCachedReadsCount);
-                });
-
-        // ensure that subsequent read uses cache exclusively
-        assertEventually(
-                new Duration(10, SECONDS),
-                () -> {
-                    long remoteReadsCount = getRemoteReadsCount();
-                    assertFileContents(cachingFileSystem, file, randomData);
-                    assertGreaterThan(getCachedReadsCount(), beforeCachedReadsCount);
-                    assertEquals(getRemoteReadsCount(), remoteReadsCount);
-                });
-    }
-
-    @Test(dataProvider = "readMode")
-    public void testCacheWrite(ReadMode readMode)
-            throws Exception
-    {
-        initializeCachingFileSystem(new RubixConfig().setReadMode(readMode));
-        Path file = getStoragePath("some_file_write");
-
-        byte[] data = "Hello world".getBytes(UTF_8);
-        writeFile(cachingFileSystem.create(file), data);
-        assertFileContents(cachingFileSystem, file, data);
-    }
-
-    @Test(dataProvider = "readMode")
-    public void testLargeFile(ReadMode readMode)
-            throws Exception
-    {
-        initializeCachingFileSystem(new RubixConfig().setReadMode(readMode));
-        byte[] randomData = new byte[toIntExact(LARGE_FILE_SIZE.toBytes())];
-        new Random().nextBytes(randomData);
-
-        Path file = getStoragePath("large_file");
-        writeFile(nonCachingFileSystem.create(file), randomData);
-
-        long beforeRemoteReadsCount = getRemoteReadsCount();
-        long beforeCachedReadsCount = getCachedReadsCount();
-        long beforeAsyncDownloadedMb = getAsyncDownloadedMb(readMode);
-
-        assertFileContents(cachingFileSystem, file, randomData);
-
-        if (readMode == ASYNC) {
-            // wait for async Rubix requests to complete
-            assertEventually(
-                    new Duration(10, SECONDS),
-                    () -> assertEquals(getAsyncDownloadedMb(ASYNC), beforeAsyncDownloadedMb + 100));
-        }
-
-        // stats are propagated asynchronously
-        assertEventually(
-                new Duration(10, SECONDS),
-                () -> {
-                    // data should be fetched from remote source
-                    assertGreaterThan(getRemoteReadsCount(), beforeRemoteReadsCount);
-                });
-
-        // ensure that subsequent read uses cache exclusively
-        assertEventually(
-                new Duration(10, SECONDS),
-                () -> {
-                    long remoteReadsCount = getRemoteReadsCount();
-                    assertFileContents(cachingFileSystem, file, randomData);
-                    assertGreaterThan(getCachedReadsCount(), beforeCachedReadsCount);
-                    assertEquals(getRemoteReadsCount(), remoteReadsCount);
-                });
-        long secondCachedReadsCount = getCachedReadsCount();
-        long secondRemoteReadsCount = getRemoteReadsCount();
-
-        // make sure parallel reading of large file works
-        ExecutorService executorService = newFixedThreadPool(3);
-        try {
-            List<Callable<?>> reads = nCopies(
-                    3,
-                    () -> {
-                        assertFileContents(cachingFileSystem, file, randomData);
-                        return null;
-                    });
-            List<Future<?>> futures = reads.stream()
-                    .map(executorService::submit)
-                    .collect(toImmutableList());
-            for (Future<?> future : futures) {
-                future.get();
+            if (readMode == ASYNC) {
+                // wait for async Rubix requests to complete
+                assertEventually(
+                        new Duration(10, SECONDS),
+                        () -> assertEquals(getAsyncDownloadedMb(ASYNC), beforeAsyncDownloadedMb + 1));
             }
-        }
-        finally {
-            executorService.shutdownNow();
-        }
 
-        // stats are propagated asynchronously
-        assertEventually(
-                new Duration(10, SECONDS),
-                () -> {
-                    // data should be read from cache only
-                    assertGreaterThan(getCachedReadsCount(), secondCachedReadsCount);
-                    assertEquals(getRemoteReadsCount(), secondRemoteReadsCount);
-                });
+            // stats are propagated asynchronously
+            assertEventually(
+                    new Duration(10, SECONDS),
+                    () -> {
+                        // data should be read from remote source only
+                        assertGreaterThan(getRemoteReadsCount(), beforeRemoteReadsCount);
+                        assertEquals(getCachedReadsCount(), beforeCachedReadsCount);
+                    });
+
+            // ensure that subsequent read uses cache exclusively
+            assertEventually(
+                    new Duration(10, SECONDS),
+                    () -> {
+                        long remoteReadsCount = getRemoteReadsCount();
+                        assertFileContents(cachingFileSystem, file, randomData);
+                        assertGreaterThan(getCachedReadsCount(), beforeCachedReadsCount);
+                        assertEquals(getRemoteReadsCount(), remoteReadsCount);
+                    });
+
+            closeRubix();
+        }
+    }
+
+    @Test
+    public void testCacheWrite()
+            throws Exception
+    {
+        for (ReadMode readMode : ReadMode.values()) {
+            deinitializeRubix();
+
+            initializeCachingFileSystem(new RubixConfig().setReadMode(readMode));
+            Path file = getStoragePath("some_file_write");
+
+            byte[] data = "Hello world".getBytes(UTF_8);
+            writeFile(cachingFileSystem.create(file), data);
+            assertFileContents(cachingFileSystem, file, data);
+
+            closeRubix();
+        }
+    }
+
+    @Test
+    public void testLargeFile()
+            throws Exception
+    {
+        for (ReadMode readMode : ReadMode.values()) {
+            deinitializeRubix();
+
+            initializeCachingFileSystem(new RubixConfig().setReadMode(readMode));
+            byte[] randomData = new byte[toIntExact(LARGE_FILE_SIZE.toBytes())];
+            new Random().nextBytes(randomData);
+
+            Path file = getStoragePath("large_file");
+            writeFile(nonCachingFileSystem.create(file), randomData);
+
+            long beforeRemoteReadsCount = getRemoteReadsCount();
+            long beforeCachedReadsCount = getCachedReadsCount();
+            long beforeAsyncDownloadedMb = getAsyncDownloadedMb(readMode);
+
+            assertFileContents(cachingFileSystem, file, randomData);
+
+            if (readMode == ASYNC) {
+                // wait for async Rubix requests to complete
+                assertEventually(
+                        new Duration(10, SECONDS),
+                        () -> assertEquals(getAsyncDownloadedMb(ASYNC), beforeAsyncDownloadedMb + 100));
+            }
+
+            // stats are propagated asynchronously
+            assertEventually(
+                    new Duration(10, SECONDS),
+                    () -> {
+                        // data should be fetched from remote source
+                        assertGreaterThan(getRemoteReadsCount(), beforeRemoteReadsCount);
+                    });
+
+            // ensure that subsequent read uses cache exclusively
+            assertEventually(
+                    new Duration(10, SECONDS),
+                    () -> {
+                        long remoteReadsCount = getRemoteReadsCount();
+                        assertFileContents(cachingFileSystem, file, randomData);
+                        assertGreaterThan(getCachedReadsCount(), beforeCachedReadsCount);
+                        assertEquals(getRemoteReadsCount(), remoteReadsCount);
+                    });
+            long secondCachedReadsCount = getCachedReadsCount();
+            long secondRemoteReadsCount = getRemoteReadsCount();
+
+            // make sure parallel reading of large file works
+            ExecutorService executorService = newFixedThreadPool(3);
+            try {
+                List<Callable<?>> reads = nCopies(
+                        3,
+                        () -> {
+                            assertFileContents(cachingFileSystem, file, randomData);
+                            return null;
+                        });
+                List<Future<?>> futures = reads.stream()
+                        .map(executorService::submit)
+                        .collect(toImmutableList());
+                for (Future<?> future : futures) {
+                    future.get();
+                }
+            }
+            finally {
+                executorService.shutdownNow();
+            }
+
+            // stats are propagated asynchronously
+            assertEventually(
+                    new Duration(10, SECONDS),
+                    () -> {
+                        // data should be read from cache only
+                        assertGreaterThan(getCachedReadsCount(), secondCachedReadsCount);
+                        assertEquals(getRemoteReadsCount(), secondRemoteReadsCount);
+                    });
+
+            closeRubix();
+        }
     }
 
     @SuppressModernizer
