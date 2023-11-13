@@ -202,7 +202,7 @@ public class TestSnowflakeDatabasePrefixIntegrationSmokeTest
             assertThat(computeActual(format("SHOW TABLES FROM \"%s.public\"", normalizedDatabaseName)).getOnlyColumnAsSet())
                     .contains(tableName);
             // try to create duplicate table
-            assertQueryFails(format("CREATE TABLE %s (columnB BIGINT)", table.getName()), format("line 1:1: Table 'snowflake.%s.public.%s' already exists", normalizedDatabaseName, tableName));
+            assertQueryFails(format("CREATE TABLE %s (columnB BIGINT)", table.getName()), format("line 1:1: Table 'snowflake.\"%s.public\".%s' already exists", normalizedDatabaseName, tableName));
         }
     }
 
