@@ -55,6 +55,7 @@ import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
@@ -109,7 +110,8 @@ public class DefaultJdbcMetadata
 {
     public static final int DEFAULT_COLUMN_ALIAS_LENGTH = 30;
 
-    private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_pfgnrtd_";
+    private static final String AGGREGATION_SYNTHETIC_COLUMN_NAME_PREFIX = "_pfgnrtd_";
+    private static final String PROJECTION_SYNTHETIC_COLUMN_NAME_PREFIX = "_ppgnrtd_";
     private static final String DELETE_ROW_ID = "_trino_artificial_column_handle_for_delete_row_id_";
     private static final String MERGE_ROW_ID = "$merge_row_id";
 
@@ -287,46 +289,172 @@ public class DefaultJdbcMetadata
 
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
-        List<JdbcColumnHandle> newColumns = assignments.values().stream()
-                .map(JdbcColumnHandle.class::cast)
-                .collect(toImmutableList());
+        Map<Integer, ConnectorExpression> rewrittenProjections = new HashMap<>();
+        Map<Integer, ConnectorExpression> remainingProjections = new HashMap<>();
+        Map<String, ParameterizedExpression> newExpressions = new HashMap<>();
+        Map<Integer, JdbcColumnHandle> newColumns = new HashMap<>();
+        List<Assignment> newAssignments = new ArrayList<>();
 
-        if (handle.getColumns().isPresent()) {
-            Set<JdbcColumnHandle> newColumnSet = ImmutableSet.copyOf(newColumns);
-            Set<JdbcColumnHandle> tableColumnSet = ImmutableSet.copyOf(handle.getColumns().get());
-            if (newColumnSet.equals(tableColumnSet)) {
-                return Optional.empty();
+        int nextSyntheticColumnId = handle.getNextSyntheticColumnId();
+
+        for (int index = 0; index < projections.size(); index++) {
+            ConnectorExpression projection = projections.get(index);
+            if (projection instanceof Variable || projection instanceof Constant) {
+                // Don't generate needless transformations for simple variables or constants.
+                remainingProjections.put(index, projection);
+                continue;
             }
 
-            Set<JdbcColumnHandle> newPhysicalColumns = newColumns.stream()
-                    // It may happen fresh table handle comes with a columns prepared already.
-                    // In such case it may happen that applyProjection may want to add merge/delete row id, which is created later during the planning.
-                    .filter(column -> !column.getColumnName().equals(MERGE_ROW_ID))
-                    .filter(column -> !column.getColumnName().equals(DELETE_ROW_ID))
-                    .collect(toImmutableSet());
-            verify(tableColumnSet.containsAll(newPhysicalColumns), "applyProjection called with columns %s and some are not available in existing query: %s", newPhysicalColumns, tableColumnSet);
+            Optional<JdbcExpression> rewrite = jdbcClient.convertProjection(session, projection, assignments);
+
+            if (rewrite.isEmpty()) {
+                remainingProjections.put(index, projection);
+                continue;
+            }
+
+            JdbcExpression newProjection = rewrite.get();
+
+            nextSyntheticColumnId++;
+            String columnName = PROJECTION_SYNTHETIC_COLUMN_NAME_PREFIX + nextSyntheticColumnId;
+            JdbcColumnHandle newColumn = JdbcColumnHandle.builder()
+                    .setColumnName(columnName)
+                    .setJdbcTypeHandle(newProjection.getJdbcTypeHandle())
+                    .setColumnType(projection.getType())
+                    .setComment(Optional.of("synthetic"))
+                    .build();
+
+            newColumns.put(index, newColumn);
+            rewrittenProjections.put(index, new Variable(newColumn.getColumnName(), projection.getType()));
+            newExpressions.put(columnName, new ParameterizedExpression(newProjection.getExpression(), newProjection.getParameters()));
+            newAssignments.add(new Assignment(newColumn.getColumnName(), newColumn, projection.getType()));
         }
+
+        if (rewrittenProjections.isEmpty()) {
+            List<JdbcColumnHandle> assignmentsAsColumns = assignments.values().stream()
+                    .map(JdbcColumnHandle.class::cast)
+                    .collect(toImmutableList());
+
+            if (handle.getColumns().isPresent()) {
+                Set<JdbcColumnHandle> newColumnSet = ImmutableSet.copyOf(assignmentsAsColumns);
+                Set<JdbcColumnHandle> tableColumnSet = ImmutableSet.copyOf(handle.getColumns().get());
+                if (newColumnSet.equals(tableColumnSet)) {
+                    return Optional.empty();
+                }
+
+                Set<JdbcColumnHandle> newPhysicalColumns = assignmentsAsColumns.stream()
+                        // It may happen fresh table handle comes with a columns prepared already.
+                        // In such case it may happen that applyProjection may want to add merge/delete row id, which is created later during the planning.
+                        .filter(column -> !column.getColumnName().equals(MERGE_ROW_ID))
+                        .filter(column -> !column.getColumnName().equals(DELETE_ROW_ID))
+                        .collect(toImmutableSet());
+                verify(tableColumnSet.containsAll(newPhysicalColumns), "applyProjection called with columns %s and some are not available in existing query: %s", newPhysicalColumns, tableColumnSet);
+            }
+
+            return Optional.of(new ProjectionApplicationResult<>(
+                    new JdbcTableHandle(
+                            handle.getRelationHandle(),
+                            handle.getConstraint(),
+                            handle.getConstraintExpressions(),
+                            handle.getSortOrder(),
+                            handle.getLimit(),
+                            Optional.of(assignmentsAsColumns),
+                            handle.getOtherReferencedTables(),
+                            handle.getNextSyntheticColumnId(),
+                            handle.getAuthorization(),
+                            handle.getUpdateAssignments()),
+                    projections,
+                    assignments.entrySet().stream()
+                            .map(assignment -> new Assignment(
+                                    assignment.getKey(),
+                                    assignment.getValue(),
+                                    ((JdbcColumnHandle) assignment.getValue()).getColumnType()))
+                            .collect(toImmutableList()),
+                    precalculateStatisticsForPushdown));
+        }
+
+        // Flush into query
+        ImmutableSet.Builder<JdbcColumnHandle> flushedColumnsBuilder = ImmutableSet.builder();
+        for (int position = 0; position < projections.size(); position++) {
+            JdbcColumnHandle newColumn = newColumns.get(position);
+            if (newColumn != null) {
+                flushedColumnsBuilder.add(newColumn);
+                continue;
+            }
+            ConnectorExpression expression = remainingProjections.get(position);
+            if (expression instanceof Variable variable) {
+                // Flush Variable as-is
+                JdbcColumnHandle existingColumn = (JdbcColumnHandle) assignments.get(variable.getName());
+                flushedColumnsBuilder.add(existingColumn);
+            }
+            else if (expression instanceof Call call) {
+                // Call that has not been rewritten must remain in the outer query, but all referenced Variables must be flushed
+                extractSymbols(call).stream()
+                        .map(assignments::get)
+                        .forEach(columnHandle -> flushedColumnsBuilder.add((JdbcColumnHandle) columnHandle));
+            }
+            // FieldDereference pushdown is not supported for JDBC connectors, ignore.
+            // Constant need not be flushed, ignore.
+        }
+
+        List<JdbcColumnHandle> flushedColumns = flushedColumnsBuilder.build().stream().toList();
+        PreparedQuery preparedQuery = jdbcClient.prepareQuery(session, handle, Optional.empty(), flushedColumns, newExpressions);
+
+        ImmutableList.Builder<ConnectorExpression> resultProjectionsBuilder = ImmutableList.builder();
+        for (int position = 0; position < projections.size(); position++) {
+            resultProjectionsBuilder.add(rewrittenProjections.getOrDefault(position, remainingProjections.get(position)));
+        }
+
+        // (!) assignment is a symbol->column mapping, so constants won't have assignments
+        // Find assignments still referenced by remaining expressions
+        List<String> remainingSymbols = remainingProjections.values().stream()
+                .map(DefaultJdbcMetadata::extractSymbols)
+                .flatMap(List::stream)
+                .distinct()
+                .toList();
+        List<Assignment> remainingAssignments = remainingSymbols.stream()
+                .map(symbol -> {
+                    ColumnHandle columnHandle = assignments.get(symbol);
+                    requireNonNull(columnHandle, "columnHandle must be present for remaining assignment");
+                    return new Assignment(symbol, columnHandle, ((JdbcColumnHandle) columnHandle).getColumnType());
+                })
+                .toList();
+        List<Assignment> resultAssignments = ImmutableList.<Assignment>builder().addAll(newAssignments).addAll(remainingAssignments).build();
 
         return Optional.of(new ProjectionApplicationResult<>(
                 new JdbcTableHandle(
-                        handle.getRelationHandle(),
-                        handle.getConstraint(),
-                        handle.getConstraintExpressions(),
-                        handle.getSortOrder(),
-                        handle.getLimit(),
-                        Optional.of(newColumns),
+                        new JdbcQueryRelationHandle(preparedQuery),
+                        TupleDomain.all(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        OptionalLong.empty(),
+                        Optional.of(flushedColumns),
                         handle.getOtherReferencedTables(),
-                        handle.getNextSyntheticColumnId(),
+                        nextSyntheticColumnId,
                         handle.getAuthorization(),
                         handle.getUpdateAssignments()),
-                projections,
-                assignments.entrySet().stream()
-                        .map(assignment -> new Assignment(
-                                assignment.getKey(),
-                                assignment.getValue(),
-                                ((JdbcColumnHandle) assignment.getValue()).getColumnType()))
-                        .collect(toImmutableList()),
+                resultProjectionsBuilder.build(),
+                resultAssignments,
                 precalculateStatisticsForPushdown));
+    }
+
+    private static List<String> extractSymbols(ConnectorExpression expression)
+    {
+        requireNonNull(expression, "expression is null");
+        ImmutableList.Builder<String> symbols = ImmutableList.builder();
+        fillSymbols(expression, symbols);
+        return symbols.build();
+    }
+
+    private static void fillSymbols(ConnectorExpression expression, ImmutableList.Builder<String> symbols)
+    {
+        if (expression instanceof Variable variable) {
+            symbols.add(variable.getName());
+        }
+        else if (expression instanceof Call call) {
+            for (ConnectorExpression child : call.getChildren()) {
+                fillSymbols(child, symbols);
+            }
+        }
     }
 
     @Override
@@ -394,7 +522,7 @@ public class DefaultJdbcMetadata
                 return Optional.empty();
             }
 
-            String columnName = SYNTHETIC_COLUMN_NAME_PREFIX + nextSyntheticColumnId;
+            String columnName = AGGREGATION_SYNTHETIC_COLUMN_NAME_PREFIX + nextSyntheticColumnId;
             nextSyntheticColumnId++;
             JdbcColumnHandle newColumn = JdbcColumnHandle.builder()
                     .setColumnName(columnName)
