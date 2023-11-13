@@ -56,7 +56,7 @@ public class OptimizerConfig
     private boolean colocatedJoinsEnabled = true;
     private boolean spatialJoinsEnabled = true;
     private boolean distributedSort = true;
-
+    private boolean gatherPartialTopN = true;
     private boolean usePreferredWritePartitioning = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
@@ -370,6 +370,18 @@ public class OptimizerConfig
     public OptimizerConfig setDistributedSortEnabled(boolean enabled)
     {
         distributedSort = enabled;
+        return this;
+    }
+
+    public boolean isGatherPartialTopN()
+    {
+        return gatherPartialTopN;
+    }
+
+    @Config("gather-partial-topn")
+    public OptimizerConfig setGatherPartialTopN(boolean gatherPartialTopN)
+    {
+        this.gatherPartialTopN = gatherPartialTopN;
         return this;
     }
 

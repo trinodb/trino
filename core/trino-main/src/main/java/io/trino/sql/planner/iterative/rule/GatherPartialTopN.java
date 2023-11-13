@@ -14,6 +14,7 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
@@ -24,6 +25,7 @@ import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TopNNode;
 
+import static io.trino.SystemSessionProperties.isGatherPartialTopN;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
@@ -78,6 +80,12 @@ public class GatherPartialTopN
                 && exchangeNode.getType().equals(GATHER)
                 // non-empty orderingScheme means it's a merging exchange
                 && exchangeNode.getOrderingScheme().isEmpty();
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isGatherPartialTopN(session);
     }
 
     @Override
